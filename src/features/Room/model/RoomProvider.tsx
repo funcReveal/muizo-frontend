@@ -21,6 +21,7 @@ import type {
   RoomParticipant,
   RoomState,
   RoomSummary,
+  SubmitAnswerResult,
 } from "./types";
 import {
   RoomContext,
@@ -49,9 +50,8 @@ import {
   formatSeconds,
   getQuestionMax,
   normalizePlaylistItems,
-  thumbnailFromId,
-  videoUrlFromId,
 } from "./roomUtils";
+import { resolveSettlementTrackLink } from "./settlementLinks";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import {
   clearRoomPassword,
@@ -85,10 +85,10 @@ import { useRoomPlaylist } from "./useRoomPlaylist";
 import { useRoomCollections } from "./useRoomCollections";
 
 const mapCollectionItemsToPlaylist = (
-  collectionId: string,
+  _collectionId: string,
   items: WorkerCollectionItem[],
 ) =>
-  items.flatMap((item, index) => {
+  items.map((item, index) => {
     const startSec = Math.max(0, item.start_sec ?? 0);
     const explicitEndSec =
       typeof item.end_sec === "number" && item.end_sec > startSec
@@ -100,19 +100,29 @@ const mapCollectionItemsToPlaylist = (
       startSec + 1,
       explicitEndSec ?? startSec + DEFAULT_CLIP_SEC,
     );
-    const videoId = item.source_id?.trim() ?? "";
-    if (!videoId) return [];
+    const provider = (item.provider ?? "manual").trim().toLowerCase();
+    const sourceId = (item.source_id ?? "").trim();
+    const videoId = provider === "youtube" && sourceId ? sourceId : "";
     const durationValue =
       typeof item.duration_sec === "number" && item.duration_sec > 0
         ? formatSeconds(item.duration_sec)
         : formatSeconds(safeEnd - startSec);
     const rawTitle = item.title ?? item.answer_text ?? `歌曲 ${index + 1}`;
     const answerText = item.answer_text ?? rawTitle;
+    const resolvedLink = resolveSettlementTrackLink({
+      provider,
+      sourceId: sourceId || null,
+      videoId,
+      url: "",
+      title: rawTitle,
+      answerText,
+      uploader: item.channel_title ?? undefined,
+    });
     return {
       title: rawTitle,
       answerText,
-      url: videoUrlFromId(videoId),
-      thumbnail: thumbnailFromId(videoId),
+      url: resolvedLink.href ?? "",
+      thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : undefined,
       uploader: item.channel_title ?? undefined,
       duration: durationValue,
       startSec,
@@ -123,9 +133,9 @@ const mapCollectionItemsToPlaylist = (
       collectionClipEndSec: explicitEndSec ?? undefined,
       collectionHasExplicitStartSec: hasExplicitStartSec,
       collectionHasExplicitEndSec: hasExplicitEndSec,
-      videoId,
-      sourceId: collectionId,
-      provider: "collection",
+      ...(videoId ? { videoId } : {}),
+      sourceId: sourceId || null,
+      provider,
     };
   });
 
@@ -385,10 +395,12 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     roomId: string;
     trackKey: string;
     choiceIndex: number;
+    requestId: number;
   } | null>(null);
   const currentRoomIdRef = useRef<string | null>(
     currentRoomId ?? getStoredRoomId(),
   );
+  const answerSubmitRequestSeqRef = useRef(0);
   const serverOffsetRef = useRef(0);
   const presenceParticipantNamesRef = useRef<Map<string, string>>(new Map());
   const presenceSeededRoomIdRef = useRef<string | null>(null);
@@ -1369,9 +1381,15 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         if (roomId !== currentRoomIdRef.current) return;
         syncServerOffset(serverNow);
         setGameState(gameState);
+        const preStartRemainingSec = Math.max(
+          0,
+          Math.ceil((gameState.startedAt - serverNow) / 1000),
+        );
+        if (preStartRemainingSec > 0) {
+          setStatusText(`房主已開始，${preStartRemainingSec} 秒後開局`);
+        }
         setIsGameView(true);
         void fetchCompletePlaylist(roomId).then(setGamePlaylist);
-        setStatusText("遊戲已開始，切換至遊戲頁面");
       },
       onGameUpdated: ({ roomId, gameState }) => {
         if (roomId !== currentRoomIdRef.current) return;
@@ -2069,7 +2087,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           setGameState(ack.data.gameState);
           setIsGameView(true);
           void fetchCompletePlaylist(currentRoom.id).then(setGamePlaylist);
-          setStatusText("遊戲即將開始");
         } else {
           setStatusText(formatAckError("開始遊戲失敗", ack.error));
         }
@@ -2091,53 +2108,90 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, [gameState?.status]);
 
-  const handleSubmitChoice = useCallback((choiceIndex: number) => {
-    if (!currentRoom || !gameState) return;
-    if (gameState.phase !== "guess") return;
-    const serverNow = Date.now() + serverOffsetRef.current;
-    if (gameState.startedAt > serverNow) return;
-    const socket = getSocket();
-    if (!socket) return;
-    const trackKey = `${gameState.startedAt}:${gameState.currentIndex}`;
-    const previousPending = pendingAnswerSubmitRef.current;
-    if (
-      previousPending &&
-      (previousPending.roomId !== currentRoom.id ||
-        previousPending.trackKey !== trackKey)
-    ) {
-      pendingAnswerSubmitRef.current = null;
-    }
-    if (
-      pendingAnswerSubmitRef.current?.roomId === currentRoom.id &&
-      pendingAnswerSubmitRef.current.trackKey === trackKey &&
-      pendingAnswerSubmitRef.current.choiceIndex === choiceIndex
-    ) {
-      return;
-    }
-    pendingAnswerSubmitRef.current = {
-      roomId: currentRoom.id,
-      trackKey,
-      choiceIndex,
-    };
+  const handleSubmitChoice = useCallback(
+    async (choiceIndex: number): Promise<SubmitAnswerResult> => {
+      if (!currentRoom || !gameState) {
+        return { ok: false, error: "Room not ready" };
+      }
+      if (gameState.phase !== "guess") {
+        return { ok: false, error: "Not in guess phase" };
+      }
+      const serverNow = Date.now() + serverOffsetRef.current;
+      if (gameState.startedAt > serverNow) {
+        return { ok: false, error: "Question has not started yet" };
+      }
+      const socket = getSocket();
+      if (!socket) {
+        return { ok: false, error: "Socket disconnected" };
+      }
+      const trackKey = `${gameState.startedAt}:${gameState.currentIndex}`;
+      const previousPending = pendingAnswerSubmitRef.current;
+      if (
+        previousPending &&
+        (previousPending.roomId !== currentRoom.id ||
+          previousPending.trackKey !== trackKey)
+      ) {
+        pendingAnswerSubmitRef.current = null;
+      }
+      if (
+        pendingAnswerSubmitRef.current?.roomId === currentRoom.id &&
+        pendingAnswerSubmitRef.current.trackKey === trackKey &&
+        pendingAnswerSubmitRef.current.choiceIndex === choiceIndex
+      ) {
+        return { ok: false, error: "Duplicate submit pending" };
+      }
 
-    socket.emit(
-      "submitAnswer",
-      { roomId: currentRoom.id, choiceIndex },
-      (ack) => {
-        const pending = pendingAnswerSubmitRef.current;
-        if (
-          pending?.roomId === currentRoom.id &&
-          pending.trackKey === trackKey &&
-          pending.choiceIndex === choiceIndex
-        ) {
-          pendingAnswerSubmitRef.current = null;
-        }
-        if (!ack || ack.ok) return;
-        if (ack.error === "Not in guess phase") return;
-        setStatusText(formatAckError("提交答案失敗", ack.error));
-      },
-    );
-  }, [currentRoom, gameState, getSocket]);
+      const requestId = (answerSubmitRequestSeqRef.current += 1);
+      pendingAnswerSubmitRef.current = {
+        roomId: currentRoom.id,
+        trackKey,
+        choiceIndex,
+        requestId,
+      };
+
+      return await new Promise<SubmitAnswerResult>((resolve) => {
+        socket.emit(
+          "submitAnswer",
+          { roomId: currentRoom.id, choiceIndex },
+          (ack) => {
+            const pending = pendingAnswerSubmitRef.current;
+            const isCurrentPending =
+              pending?.roomId === currentRoom.id &&
+              pending.trackKey === trackKey &&
+              pending.choiceIndex === choiceIndex &&
+              pending.requestId === requestId;
+
+            if (isCurrentPending) {
+              pendingAnswerSubmitRef.current = null;
+            }
+
+            if (!isCurrentPending) {
+              resolve({ ok: false, error: "Stale submit response" });
+              return;
+            }
+
+            if (!ack) {
+              const error = "Submit acknowledgment missing";
+              setStatusText("提交答案失敗：伺服器未回應");
+              resolve({ ok: false, error });
+              return;
+            }
+
+            if (!ack.ok) {
+              if (ack.error !== "Not in guess phase") {
+                setStatusText(formatAckError("提交答案失敗", ack.error));
+              }
+              resolve({ ok: false, error: ack.error || "Submit failed" });
+              return;
+            }
+
+            resolve({ ok: true, data: ack.data });
+          },
+        );
+      });
+    },
+    [currentRoom, gameState, getSocket],
+  );
 
   useEffect(() => {
     if (!gameState || gameState.phase !== "guess" || !currentRoom) {

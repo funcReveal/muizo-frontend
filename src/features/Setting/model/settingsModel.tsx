@@ -10,11 +10,16 @@ import {
   type SfxPresetId,
 } from "../../Room/model/sfx/gameSfxEngine";
 import {
+  DEFAULT_GAME_VOLUME,
+  DEFAULT_SETTLEMENT_PREVIEW_SYNC,
+  DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
   DEFAULT_KEY_BINDINGS,
   DEFAULT_SFX_ENABLED,
   DEFAULT_SFX_PRESET,
   DEFAULT_SFX_VOLUME,
+  GAME_VOLUME_STORAGE_KEY,
   KEY_BINDINGS_STORAGE_KEY,
+  SETTLEMENT_PREVIEW_STORAGE_KEYS,
   SFX_STORAGE_KEYS,
   SettingsModelContext,
   type KeyBindingSetter,
@@ -89,6 +94,9 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
   const [keyBindings, setKeyBindingsState] = useState<KeyBindings>(
     readStoredBindings,
   );
+  const [gameVolume, setGameVolumeState] = useState<number>(() =>
+    readStoredNumber(GAME_VOLUME_STORAGE_KEY, DEFAULT_GAME_VOLUME),
+  );
   const [sfxEnabled, setSfxEnabledState] = useState<boolean>(() =>
     readStoredBool(SFX_STORAGE_KEYS.enabled, DEFAULT_SFX_ENABLED),
   );
@@ -101,6 +109,20 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       window.localStorage.getItem(SFX_STORAGE_KEYS.preset),
     );
   });
+  const [settlementPreviewSyncGameVolume, setSettlementPreviewSyncGameVolumeState] =
+    useState<boolean>(() =>
+      readStoredBool(
+        SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+        DEFAULT_SETTLEMENT_PREVIEW_SYNC,
+      ),
+    );
+  const [settlementPreviewVolume, setSettlementPreviewVolumeState] =
+    useState<number>(() =>
+      readStoredNumber(
+        SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
+        DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
+      ),
+    );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -116,6 +138,11 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    window.localStorage.setItem(GAME_VOLUME_STORAGE_KEY, String(gameVolume));
+  }, [gameVolume]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     window.localStorage.setItem(SFX_STORAGE_KEYS.enabled, sfxEnabled ? "1" : "0");
   }, [sfxEnabled]);
 
@@ -128,6 +155,22 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     if (typeof window === "undefined") return;
     window.localStorage.setItem(SFX_STORAGE_KEYS.preset, sfxPreset);
   }, [sfxPreset]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+      settlementPreviewSyncGameVolume ? "1" : "0",
+    );
+  }, [settlementPreviewSyncGameVolume]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
+      String(settlementPreviewVolume),
+    );
+  }, [settlementPreviewVolume]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -147,6 +190,12 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         setSfxEnabledState(readStoredBool(SFX_STORAGE_KEYS.enabled, DEFAULT_SFX_ENABLED));
         return;
       }
+      if (event.key === GAME_VOLUME_STORAGE_KEY) {
+        setGameVolumeState(
+          readStoredNumber(GAME_VOLUME_STORAGE_KEY, DEFAULT_GAME_VOLUME),
+        );
+        return;
+      }
       if (event.key === SFX_STORAGE_KEYS.volume) {
         setSfxVolumeState(readStoredNumber(SFX_STORAGE_KEYS.volume, DEFAULT_SFX_VOLUME));
         return;
@@ -154,6 +203,24 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       if (event.key === SFX_STORAGE_KEYS.preset) {
         setSfxPresetState(
           parseStoredSfxPreset(window.localStorage.getItem(SFX_STORAGE_KEYS.preset)),
+        );
+        return;
+      }
+      if (event.key === SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume) {
+        setSettlementPreviewSyncGameVolumeState(
+          readStoredBool(
+            SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+            DEFAULT_SETTLEMENT_PREVIEW_SYNC,
+          ),
+        );
+        return;
+      }
+      if (event.key === SETTLEMENT_PREVIEW_STORAGE_KEYS.volume) {
+        setSettlementPreviewVolumeState(
+          readStoredNumber(
+            SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
+            DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
+          ),
         );
       }
     };
@@ -173,6 +240,10 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     setSfxEnabledState(Boolean(next));
   }, []);
 
+  const setGameVolume = useCallback((next: number) => {
+    setGameVolumeState(clampVolume(next));
+  }, []);
+
   const setSfxVolume = useCallback((next: number) => {
     setSfxVolumeState(clampVolume(next));
   }, []);
@@ -181,7 +252,16 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     setSfxPresetState(next);
   }, []);
 
+  const setSettlementPreviewSyncGameVolume = useCallback((next: boolean) => {
+    setSettlementPreviewSyncGameVolumeState(Boolean(next));
+  }, []);
+
+  const setSettlementPreviewVolume = useCallback((next: number) => {
+    setSettlementPreviewVolumeState(clampVolume(next));
+  }, []);
+
   const resetSfxSettings = useCallback(() => {
+    setGameVolumeState(DEFAULT_GAME_VOLUME);
     setSfxEnabledState(DEFAULT_SFX_ENABLED);
     setSfxVolumeState(DEFAULT_SFX_VOLUME);
     setSfxPresetState(DEFAULT_SFX_PRESET);
@@ -191,23 +271,35 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     () => ({
       keyBindings,
       setKeyBindings,
+      gameVolume,
+      setGameVolume,
       sfxEnabled,
       setSfxEnabled,
       sfxVolume,
       setSfxVolume,
       sfxPreset,
       setSfxPreset,
+      settlementPreviewSyncGameVolume,
+      setSettlementPreviewSyncGameVolume,
+      settlementPreviewVolume,
+      setSettlementPreviewVolume,
       resetSfxSettings,
     }),
     [
       keyBindings,
       setKeyBindings,
+      gameVolume,
+      setGameVolume,
       sfxEnabled,
       setSfxEnabled,
       sfxVolume,
       setSfxVolume,
       sfxPreset,
       setSfxPreset,
+      settlementPreviewSyncGameVolume,
+      setSettlementPreviewSyncGameVolume,
+      settlementPreviewVolume,
+      setSettlementPreviewVolume,
       resetSfxSettings,
     ],
   );

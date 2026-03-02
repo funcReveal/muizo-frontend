@@ -24,6 +24,7 @@ import type {
   QuestionScoreBreakdown,
   RoomParticipant,
   RoomState,
+  SubmitAnswerResult,
 } from "../model/types";
 import {
   DEFAULT_CLIP_SEC,
@@ -38,9 +39,10 @@ import {
 import { useKeyBindings } from "../../Setting/ui/components/useKeyBindings";
 import { useSfxSettings } from "../../Setting/ui/components/useSfxSettings";
 import { useGameSfx } from "./hooks/useGameSfx";
-import GameSettlementPanel, {
-  type SettlementQuestionRecap,
-  type SettlementQuestionResult,
+import LiveSettlementShowcase from "./components/LiveSettlementShowcase";
+import type {
+  SettlementQuestionRecap,
+  SettlementQuestionResult,
 } from "./components/GameSettlementPanel";
 
 interface GameRoomPageProps {
@@ -49,7 +51,7 @@ interface GameRoomPageProps {
   playlist: PlaylistItem[];
   onExitGame: () => void;
   onBackToLobby?: () => void;
-  onSubmitChoice: (choiceIndex: number) => void;
+  onSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
   participants?: RoomState["participants"];
   meClientId?: string;
   messages?: ChatMessage[];
@@ -141,7 +143,71 @@ const SILENT_AUDIO_SRC = createSilentWavDataUri(2);
 const collectAnsweredClientIds = (
   lockedOrder?: string[],
   lockedClientIds?: string[],
-) => {
+  answerOrderLatest?: string[],
+  answersByClientId?: Record<
+    string,
+    {
+      choiceIndex?: number | null;
+      answeredAtMs?: number | null;
+      firstAnsweredAtMs?: number | null;
+      changedAnswerCount?: number;
+    }
+  >,
+ ) => {
+  if (Array.isArray(answerOrderLatest) && answerOrderLatest.length > 0) {
+    const unique: string[] = [];
+    const seen = new Set<string>();
+    answerOrderLatest.forEach((clientId) => {
+      if (!clientId || seen.has(clientId)) return;
+      seen.add(clientId);
+      unique.push(clientId);
+    });
+    if (unique.length > 0) {
+      return unique;
+    }
+  }
+
+  if (answersByClientId && typeof answersByClientId === "object") {
+    const baseOrder = [...(lockedOrder ?? []), ...(lockedClientIds ?? [])];
+    const baseIndexMap = new Map<string, number>();
+    baseOrder.forEach((clientId, idx) => {
+      if (!clientId || baseIndexMap.has(clientId)) return;
+      baseIndexMap.set(clientId, idx);
+    });
+    const rows = Object.entries(answersByClientId)
+      .map(([clientId, answer]) => {
+        const hasChoice = typeof answer?.choiceIndex === "number";
+        const answeredAtMs =
+          typeof answer?.answeredAtMs === "number" && Number.isFinite(answer.answeredAtMs)
+            ? answer.answeredAtMs
+            : null;
+        const firstAnsweredAtMs =
+          typeof answer?.firstAnsweredAtMs === "number" &&
+          Number.isFinite(answer.firstAnsweredAtMs)
+            ? answer.firstAnsweredAtMs
+            : null;
+        return {
+          clientId,
+          hasChoice,
+          answeredAtMs,
+          firstAnsweredAtMs,
+          baseOrder: baseIndexMap.get(clientId) ?? Number.MAX_SAFE_INTEGER,
+        };
+      })
+      .filter((row) => row.clientId && (row.hasChoice || row.answeredAtMs !== null));
+
+    if (rows.length > 0) {
+      rows.sort((a, b) => {
+        const aTs = a.answeredAtMs ?? a.firstAnsweredAtMs ?? Number.MAX_SAFE_INTEGER;
+        const bTs = b.answeredAtMs ?? b.firstAnsweredAtMs ?? Number.MAX_SAFE_INTEGER;
+        if (aTs !== bTs) return aTs - bTs;
+        if (a.baseOrder !== b.baseOrder) return a.baseOrder - b.baseOrder;
+        return a.clientId.localeCompare(b.clientId);
+      });
+      return rows.map((row) => row.clientId);
+    }
+  }
+
   const ordered = [...(lockedOrder ?? []), ...(lockedClientIds ?? [])];
   const unique: string[] = [];
   const seen = new Set<string>();
@@ -307,19 +373,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   serverOffsetMs = 0,
   onSettlementRecapChange,
 }) => {
-  const [volume, setVolume] = useState(() => {
-    const stored = localStorage.getItem("mq_volume");
-    if (stored === null) return 50;
-    const parsed = Number(stored);
-    return Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 50;
-  });
   const [danmuEnabled, setDanmuEnabled] = useState(() => {
     const stored = localStorage.getItem("mq_danmu_enabled");
     if (stored === "1") return true;
     if (stored === "0") return false;
     return true;
   });
-  const { sfxEnabled, sfxVolume, sfxPreset } = useSfxSettings();
+  const { gameVolume, setGameVolume, sfxEnabled, sfxVolume, sfxPreset } =
+    useSfxSettings();
   const [danmuItems, setDanmuItems] = useState<DanmuItem[]>([]);
   const danmuSeenMessageIdsRef = useRef<Set<string>>(new Set());
   const danmuLaneCursorRef = useRef(0);
@@ -347,6 +408,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     trackIndex: number;
     choiceIndex: number | null;
   }>({ trackIndex: -1, choiceIndex: null });
+  const [pendingChoiceState, setPendingChoiceState] = useState<{
+    trackSessionKey: string;
+    choiceIndex: number | null;
+    requestId: number;
+  } | null>(null);
   const [answerDecisionMeta, setAnswerDecisionMeta] = useState<AnswerDecisionMeta>({
     trackSessionKey: "",
     firstChoiceIndex: null,
@@ -391,6 +457,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const lastTopTwoOrderRef = useRef<[string | null, string | null]>([null, null]);
   const topTwoSwapTimerRef = useRef<number | null>(null);
   const choiceCommitFxTimerRef = useRef<number | null>(null);
+  const submitRequestSeqRef = useRef(0);
   const [topTwoSwapState, setTopTwoSwapState] = useState<{
     firstClientId: string;
     secondClientId: string;
@@ -398,7 +465,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   } | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
-    volume: sfxVolume,
+    volume: Math.round((sfxVolume * gameVolume) / 100),
     preset: sfxPreset,
   });
 
@@ -565,7 +632,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const remainingToStartMs = Math.max(0, gameState.startedAt - nowMs);
   const startCountdownSec = Math.max(
     1,
-    Math.min(3, Math.ceil(remainingToStartMs / 1000)),
+    Math.ceil(remainingToStartMs / 1000),
   );
   const isInitialCountdown = waitingToStart && trackCursor === 0;
   const isInterTrackWait = waitingToStart && !isInitialCountdown;
@@ -708,19 +775,28 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const isEnded = gameState.status === "ended";
   const isReveal = gameState.phase === "reveal";
   const showVideo = showVideoOverride ?? gameState.showVideo ?? true;
-  const selectedChoice =
+  const trackLoadKey = `${videoId ?? "none"}:${clipStartSec}-${clipEndSec}`;
+  const trackSessionKey = `${gameState.startedAt}:${trackCursor}:${currentTrackIndex}`;
+  const confirmedChoice =
     selectedChoiceState.trackIndex === currentTrackIndex
       ? selectedChoiceState.choiceIndex
       : null;
-
-  const trackLoadKey = `${videoId ?? "none"}:${clipStartSec}-${clipEndSec}`;
-  const trackSessionKey = `${gameState.startedAt}:${trackCursor}:${currentTrackIndex}`;
+  const pendingChoice =
+    pendingChoiceState?.trackSessionKey === trackSessionKey
+      ? pendingChoiceState.choiceIndex
+      : null;
+  const selectedChoice = pendingChoice ?? confirmedChoice;
   const [answeredOrderSnapshot, setAnsweredOrderSnapshot] = useState<{
     trackSessionKey: string;
     order: string[];
   }>(() => ({
     trackSessionKey,
-    order: collectAnsweredClientIds(gameState.lockedOrder, gameState.lockedClientIds),
+    order: collectAnsweredClientIds(
+      gameState.lockedOrder,
+      gameState.lockedClientIds,
+      gameState.questionStats?.answerOrderLatest,
+      gameState.questionStats?.answersByClientId,
+    ),
   }));
   const [scoreBaselineState, setScoreBaselineState] = useState<{
     trackSessionKey: string;
@@ -806,6 +882,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         const incoming = collectAnsweredClientIds(
           gameState.lockedOrder,
           gameState.lockedClientIds,
+          gameState.questionStats?.answerOrderLatest,
+          gameState.questionStats?.answersByClientId,
         );
         if (prev.trackSessionKey !== trackSessionKey) {
           return {
@@ -849,7 +927,39 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [
     gameState.lockedClientIds,
     gameState.lockedOrder,
+    gameState.questionStats?.answerOrderLatest,
+    gameState.questionStats?.answersByClientId,
     gameState.phase,
+    trackSessionKey,
+  ]);
+
+  useEffect(() => {
+    if (!meClientId) return;
+    const serverAnswer = gameState.questionStats?.answersByClientId?.[meClientId];
+    if (!serverAnswer) return;
+    const resolvedChoiceIndex =
+      typeof serverAnswer.choiceIndex === "number" ? serverAnswer.choiceIndex : null;
+    deferStateUpdate(() => {
+      setSelectedChoiceState((prev) => {
+        if (
+          prev.trackIndex === currentTrackIndex &&
+          prev.choiceIndex === resolvedChoiceIndex
+        ) {
+          return prev;
+        }
+        return {
+          trackIndex: currentTrackIndex,
+          choiceIndex: resolvedChoiceIndex,
+        };
+      });
+      setPendingChoiceState((prev) =>
+        prev?.trackSessionKey === trackSessionKey ? null : prev,
+      );
+    });
+  }, [
+    currentTrackIndex,
+    gameState.questionStats?.answersByClientId,
+    meClientId,
     trackSessionKey,
   ]);
 
@@ -902,6 +1012,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     deferStateUpdate(() => {
       if (cancelled) return;
       setChoiceCommitFxState(null);
+    });
+    deferStateUpdate(() => {
+      if (cancelled) return;
+      setPendingChoiceState(null);
     });
     return () => {
       cancelled = true;
@@ -1039,7 +1153,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       startSilentAudio();
       postCommand("playVideo");
       postCommand("unMute");
-      applyVolume(volume);
+      applyVolume(gameVolume);
     },
     [
       applyVolume,
@@ -1052,7 +1166,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       postCommand,
       requiresAudioGesture,
       startSilentAudio,
-      volume,
+      gameVolume,
     ],
   );
   const unlockAudioAndStart = useCallback(() => {
@@ -1117,7 +1231,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       playerStartRef.current = serverPosition;
       lastSyncMsRef.current = getServerNowMs();
       postCommand("playVideo");
-      applyVolume(volume);
+      applyVolume(gameVolume);
       return false;
     },
     [
@@ -1128,7 +1242,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       getServerNowMs,
       postCommand,
       startPlayback,
-      volume,
+      gameVolume,
     ],
   );
 
@@ -1255,9 +1369,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   ]);
 
   useEffect(() => {
-    applyVolume(volume);
-    localStorage.setItem("mq_volume", String(volume));
-  }, [applyVolume, volume]);
+    applyVolume(gameVolume);
+  }, [applyVolume, gameVolume]);
 
   useEffect(() => {
     // Keep silent audio active through the settlement transition on iOS/Safari,
@@ -1294,8 +1407,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   ]);
 
   useEffect(() => {
-    applyVolume(volume);
-  }, [applyVolume, currentTrackIndex, gameState.startedAt, volume]);
+    applyVolume(gameVolume);
+  }, [applyVolume, currentTrackIndex, gameState.startedAt, gameVolume]);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !("mediaSession" in navigator))
@@ -1568,7 +1681,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     revealReplayRef.current = false;
     postCommand("playVideo");
     postCommand("unMute");
-    applyVolume(volume);
+    applyVolume(gameVolume);
     startSilentAudio();
   }, [
     applyVolume,
@@ -1581,7 +1694,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     startSilentAudio,
     startPlayback,
     trackSessionKey,
-    volume,
+    gameVolume,
   ]);
 
   useEffect(() => {
@@ -1611,7 +1724,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       }
       resumeNeedsSyncRef.current = false;
       postCommand("playVideo");
-      applyVolume(volume);
+      applyVolume(gameVolume);
       startSilentAudio();
       requestPlayerTime("visibility");
       resumeNeedsSyncRef.current = true;
@@ -1631,42 +1744,30 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     scheduleResumeResync,
     gameState.startedAt,
     startSilentAudio,
-    volume,
+    gameVolume,
   ]);
 
   const submitChoiceWithFeedback = useCallback(
-    (choiceIndex: number) => {
+    async (choiceIndex: number) => {
       if (!canAnswerNow) return;
       const currentSelectedChoice =
-        selectedChoiceState.trackIndex === currentTrackIndex
-          ? selectedChoiceState.choiceIndex
-          : null;
+        pendingChoiceState?.trackSessionKey === trackSessionKey
+          ? pendingChoiceState.choiceIndex
+          : selectedChoiceState.trackIndex === currentTrackIndex
+            ? selectedChoiceState.choiceIndex
+            : null;
       const changedChoice =
         currentSelectedChoice !== null && currentSelectedChoice !== choiceIndex;
       const fxKind: ChoiceCommitFxKind = changedChoice ? "reselect" : "lock";
       const submittedAtMs = getServerNowMs();
+      const requestId = (submitRequestSeqRef.current += 1);
 
       primeSfxAudio();
       playGameSfx("lock");
-      setSelectedChoiceState({
-        trackIndex: currentTrackIndex,
+      setPendingChoiceState({
+        trackSessionKey,
         choiceIndex,
-      });
-      setAnswerDecisionMeta((prev) => {
-        if (prev.trackSessionKey !== trackSessionKey) {
-          return {
-            trackSessionKey,
-            firstChoiceIndex: choiceIndex,
-            firstSubmittedAtMs: submittedAtMs,
-            hasChangedChoice: false,
-          };
-        }
-        return {
-          trackSessionKey,
-          firstChoiceIndex: prev.firstChoiceIndex ?? choiceIndex,
-          firstSubmittedAtMs: prev.firstSubmittedAtMs ?? submittedAtMs,
-          hasChangedChoice: prev.hasChangedChoice || changedChoice,
-        };
+        requestId,
       });
       setChoiceCommitFxState((prev) => ({
         trackSessionKey,
@@ -1690,17 +1791,67 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         });
         choiceCommitFxTimerRef.current = null;
       }, 340);
-      onSubmitChoice(choiceIndex);
+
+      const result = await onSubmitChoice(choiceIndex);
+      setPendingChoiceState((prev) => {
+        if (
+          prev &&
+          prev.trackSessionKey === trackSessionKey &&
+          prev.requestId === requestId
+        ) {
+          return null;
+        }
+        return prev;
+      });
+      if (!result.ok) {
+        return;
+      }
+      const acceptedChoiceIndex = result.data.choiceIndex;
+      if (meClientId && (changedChoice || currentSelectedChoice === null)) {
+        setAnsweredOrderSnapshot((prev) => {
+          if (prev.trackSessionKey !== trackSessionKey) return prev;
+          const base = prev.order.filter((clientId) => clientId !== meClientId);
+          return {
+            trackSessionKey: prev.trackSessionKey,
+            order: [...base, meClientId],
+          };
+        });
+      }
+      setSelectedChoiceState({
+        trackIndex: currentTrackIndex,
+        choiceIndex:
+          typeof acceptedChoiceIndex === "number" ? acceptedChoiceIndex : null,
+      });
+      setAnswerDecisionMeta((prev) => {
+        if (prev.trackSessionKey !== trackSessionKey) {
+          return {
+            trackSessionKey,
+            firstChoiceIndex:
+              typeof acceptedChoiceIndex === "number" ? acceptedChoiceIndex : null,
+            firstSubmittedAtMs: submittedAtMs,
+            hasChangedChoice: false,
+          };
+        }
+        return {
+          trackSessionKey,
+          firstChoiceIndex:
+            prev.firstChoiceIndex ??
+            (typeof acceptedChoiceIndex === "number" ? acceptedChoiceIndex : null),
+          firstSubmittedAtMs: prev.firstSubmittedAtMs ?? submittedAtMs,
+          hasChangedChoice: prev.hasChangedChoice || changedChoice,
+        };
+      });
     },
     [
       canAnswerNow,
       currentTrackIndex,
       getServerNowMs,
       onSubmitChoice,
+      pendingChoiceState,
       playGameSfx,
       primeSfxAudio,
-      selectedChoiceState.choiceIndex,
-      selectedChoiceState.trackIndex,
+      selectedChoiceState,
+      meClientId,
       trackSessionKey,
     ],
   );
@@ -2190,11 +2341,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     if (recapCapturedTrackSessionKeysRef.current.has(trackSessionKey)) return;
     recapCapturedTrackSessionKeysRef.current.add(trackSessionKey);
 
-    const myChoiceIndex =
-      selectedChoiceState.trackIndex === currentTrackIndex
-        ? selectedChoiceState.choiceIndex
-        : null;
     const liveQuestionStats = gameState.questionStats;
+    const serverAnswerForMe =
+      meClientId && liveQuestionStats?.answersByClientId
+        ? liveQuestionStats.answersByClientId[meClientId]
+        : undefined;
+    const myChoiceIndex =
+      typeof serverAnswerForMe?.choiceIndex === "number"
+        ? serverAnswerForMe.choiceIndex
+        : selectedChoiceState.trackIndex === currentTrackIndex
+          ? selectedChoiceState.choiceIndex
+          : null;
     const participantCount =
       typeof liveQuestionStats?.participantCount === "number" &&
       Number.isFinite(liveQuestionStats.participantCount)
@@ -2240,8 +2397,24 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       Number.isFinite(liveQuestionStats.medianCorrectMs)
         ? Math.max(0, Math.floor(liveQuestionStats.medianCorrectMs))
         : null;
+    const changedAnswerCount =
+      typeof liveQuestionStats?.changedAnswerCount === "number" &&
+      Number.isFinite(liveQuestionStats.changedAnswerCount)
+        ? Math.max(0, Math.floor(liveQuestionStats.changedAnswerCount))
+        : null;
+    const changedAnswerUserCount =
+      typeof liveQuestionStats?.changedAnswerUserCount === "number" &&
+      Number.isFinite(liveQuestionStats.changedAnswerUserCount)
+        ? Math.max(0, Math.floor(liveQuestionStats.changedAnswerUserCount))
+        : null;
+    const answersByClientId =
+      liveQuestionStats?.answersByClientId &&
+      typeof liveQuestionStats.answersByClientId === "object"
+        ? liveQuestionStats.answersByClientId
+        : undefined;
     const myAnswered =
       myChoiceIndex !== null ||
+      Boolean(serverAnswerForMe) ||
       Boolean(meClientId && answeredClientIdSet.has(meClientId));
     const myResult: SettlementQuestionResult = !myAnswered
       ? "unanswered"
@@ -2275,9 +2448,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       correctCount,
       wrongCount,
       unansweredCount,
+      changedAnswerCount: changedAnswerCount ?? undefined,
+      changedAnswerUserCount: changedAnswerUserCount ?? undefined,
       fastestCorrectRank: fastestCorrectRank >= 0 ? fastestCorrectRank + 1 : null,
       fastestCorrectMs,
       medianCorrectMs,
+      answersByClientId,
     };
 
     deferStateUpdate(() => {
@@ -2501,11 +2677,31 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           document.body,
         )
       : null;
+  const startBroadcastOverlay =
+    isInitialCountdown && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[2300] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
+            <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
+                即將開局
+              </div>
+              <p className="mt-3 text-sm text-slate-200">房主已開始，倒數後全員同步進入作答</p>
+              <div className="mt-4 flex items-center justify-center">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
+                  {startCountdownSec}
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-slate-300">倒數結束後會自動開始本局</p>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   if (isEnded) {
     return (
       <div className="game-room-shell">
-        <GameSettlementPanel
+        <LiveSettlementShowcase
           room={settlementSnapshot?.room ?? room}
           participants={settlementSnapshot?.participants ?? participants}
           messages={settlementSnapshot?.messages ?? messages}
@@ -2828,7 +3024,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       { event: "listening", id: PLAYER_ID },
                       "player event binding",
                     );
-                    applyVolume(volume);
+                    applyVolume(gameVolume);
                   }}
                 />
               ) : (
@@ -2904,8 +3100,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   type="range"
                   min={0}
                   max={100}
-                  value={volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
+                  value={gameVolume}
+                  onChange={(e) => setGameVolume(Number(e.target.value))}
                   className="w-full"
                 />
               </div>
@@ -3253,6 +3449,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           </div>
         </section>
         {audioGestureOverlay}
+        {startBroadcastOverlay}
         {exitGameDialog}
       </div>
     </div>

@@ -56,18 +56,24 @@ const comboTierEvents = [4, 8, 12, 16, 20].map((comboBonusPoints) => ({
 
 const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
   const {
+    gameVolume,
+    setGameVolume,
     sfxEnabled,
     setSfxEnabled,
     sfxVolume,
     setSfxVolume,
     sfxPreset,
     setSfxPreset,
+    settlementPreviewSyncGameVolume,
+    setSettlementPreviewSyncGameVolume,
+    settlementPreviewVolume,
+    setSettlementPreviewVolume,
     resetSfxSettings,
   } = useSfxSettings();
 
   const { playGameSfx, primeSfxAudio } = useGameSfx({
     enabled: sfxEnabled,
-    volume: sfxVolume,
+    volume: Math.round((sfxVolume * gameVolume) / 100),
     preset: sfxPreset,
   });
 
@@ -120,6 +126,36 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
         <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
+              <GraphicEqRounded sx={{ fontSize: 18, color: "#a5f3fc" }} />
+              <p className="text-sm font-semibold text-slate-100">遊玩音量（總音量）</p>
+            </div>
+            <span className="rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
+              {gameVolume}%
+            </span>
+          </div>
+          <Slider
+            value={gameVolume}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(_, value) =>
+              setGameVolume(Array.isArray(value) ? value[0] : value)
+            }
+            sx={{
+              color: "#67e8f9",
+              "& .MuiSlider-thumb": {
+                boxShadow: "0 0 0 4px rgba(103,232,249,0.16)",
+              },
+            }}
+          />
+          <p className="mt-2 text-xs text-slate-400">
+            會同時影響遊戲播放音量、結算試聽同步音量，以及提示特效音量基準。
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
               <GraphicEqRounded sx={{ fontSize: 18, color: "#67e8f9" }} />
               <p className="text-sm font-semibold text-slate-100">音量</p>
             </div>
@@ -156,6 +192,45 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
               套用建議音量 {DEFAULT_SFX_VOLUME}%
             </button>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CampaignRounded sx={{ fontSize: 18, color: "#7dd3fc" }} />
+              <p className="text-sm font-semibold text-slate-100">結算試聽音量</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-1">
+              <span className="text-xs text-slate-300">同步遊玩音量</span>
+              <Switch
+                size="small"
+                color="info"
+                checked={settlementPreviewSyncGameVolume}
+                onChange={(e) => setSettlementPreviewSyncGameVolume(e.target.checked)}
+              />
+            </div>
+          </div>
+          <Slider
+            value={settlementPreviewVolume}
+            min={0}
+            max={100}
+            step={1}
+            disabled={settlementPreviewSyncGameVolume}
+            onChange={(_, value) =>
+              setSettlementPreviewVolume(Array.isArray(value) ? value[0] : value)
+            }
+            sx={{
+              color: "#38bdf8",
+              "& .MuiSlider-thumb": {
+                boxShadow: "0 0 0 4px rgba(56,189,248,0.14)",
+              },
+            }}
+          />
+          <p className="mt-2 text-xs text-slate-400">
+            {settlementPreviewSyncGameVolume
+              ? `目前會跟隨遊玩音量（${gameVolume}%）。如要獨立調整，請先關閉同步。`
+              : `目前結算試聽音量：${settlementPreviewVolume}%`}
+          </p>
         </div>
 
         <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">

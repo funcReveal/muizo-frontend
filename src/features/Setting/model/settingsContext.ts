@@ -5,6 +5,7 @@ import type { SfxPresetId } from "../../Room/model/sfx/gameSfxEngine";
 export type KeyBindings = Record<number, string>;
 
 export const KEY_BINDINGS_STORAGE_KEY = "mq_keybindings";
+export const GAME_VOLUME_STORAGE_KEY = "mq_volume";
 export const DEFAULT_KEY_BINDINGS: KeyBindings = {
   0: "Q",
   1: "W",
@@ -18,9 +19,17 @@ export const SFX_STORAGE_KEYS = {
   preset: "mq_sfx_preset",
 } as const;
 
+export const SETTLEMENT_PREVIEW_STORAGE_KEYS = {
+  syncWithGameVolume: "mq_settlement_preview_sync",
+  volume: "mq_settlement_preview_volume",
+} as const;
+
 export const DEFAULT_SFX_ENABLED = true;
 export const DEFAULT_SFX_VOLUME = 50;
 export const DEFAULT_SFX_PRESET: SfxPresetId = "arcade";
+export const DEFAULT_GAME_VOLUME = 50;
+export const DEFAULT_SETTLEMENT_PREVIEW_SYNC = true;
+export const DEFAULT_SETTLEMENT_PREVIEW_VOLUME = 50;
 
 export type KeyBindingSetter = (
   next: KeyBindings | ((prev: KeyBindings) => KeyBindings),
@@ -29,12 +38,18 @@ export type KeyBindingSetter = (
 export type SettingsModelValue = {
   keyBindings: KeyBindings;
   setKeyBindings: KeyBindingSetter;
+  gameVolume: number;
+  setGameVolume: (next: number) => void;
   sfxEnabled: boolean;
   setSfxEnabled: (next: boolean) => void;
   sfxVolume: number;
   setSfxVolume: (next: number) => void;
   sfxPreset: SfxPresetId;
   setSfxPreset: (next: SfxPresetId) => void;
+  settlementPreviewSyncGameVolume: boolean;
+  setSettlementPreviewSyncGameVolume: (next: boolean) => void;
+  settlementPreviewVolume: number;
+  setSettlementPreviewVolume: (next: number) => void;
   resetSfxSettings: () => void;
 };
 
@@ -47,4 +62,3 @@ export const useSettingsModel = () => {
   }
   return context;
 };
-

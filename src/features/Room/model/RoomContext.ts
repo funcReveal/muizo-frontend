@@ -11,6 +11,7 @@ import type {
   RoomParticipant,
   RoomState,
   RoomSummary,
+  SubmitAnswerResult,
 } from "./types";
 
 export type AuthUser = {
@@ -153,7 +154,7 @@ export interface RoomContextValue {
   handleLeaveRoom: (onLeft?: () => void) => void;
   handleSendMessage: () => void;
   handleStartGame: () => void;
-  handleSubmitChoice: (choiceIndex: number) => void;
+  handleSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
   handleUpdateRoomSettings: (payload: {
     name?: string;
     visibility?: "public" | "private";

@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -63,6 +63,17 @@ import RoomAccessSettingsFields from "./RoomAccessSettingsFields";
 const formatTime = (timestamp: number) => {
   const d = new Date(timestamp);
   return d.toLocaleTimeString();
+};
+
+const normalizeDisplayText = (value: string | null | undefined, fallback: string) => {
+  const text = (value ?? "").trim();
+  if (!text) return fallback;
+  const replacementCount = (text.match(/\uFFFD/g) ?? []).length;
+  const questionCount = (text.match(/\?/g) ?? []).length;
+  const looksBroken =
+    replacementCount > 0 ||
+    (questionCount >= 3 && questionCount / Math.max(1, text.length) > 0.15);
+  return looksBroken ? fallback : text;
 };
 
 const SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX = "settlement-review:";
@@ -140,20 +151,19 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
     !collectionsLoading &&
     collections.length === 0 &&
     !(collectionScope === "owner" && !isGoogleAuthed);
-  const suggestPlaylistPrimaryText =
-    "目前為貼上連結模式，請貼上 YouTube 播放清單連結";
+  const suggestPlaylistPrimaryText = "貼上播放清單連結，將歌單推薦給房主。";
   const suggestCollectionPrimaryText = (() => {
     const scopeLabel = collectionScope === "public" ? "公開" : "私人";
     if (collectionScope === "owner" && !isGoogleAuthed) {
-      return "目前為私人收藏庫，請先登入後再選擇收藏庫";
+      return "請先登入 Google 才能使用私人收藏庫。";
     }
     if (collectionsLoading) {
-      return `目前為${scopeLabel}收藏庫，正在讀取收藏庫清單`;
+      return `正在讀取${scopeLabel}收藏庫...`;
     }
     if (collections.length === 0) {
-      return `目前為${scopeLabel}收藏庫，請先建立後再選擇`;
+      return `目前沒有可用的${scopeLabel}收藏庫。`;
     }
-    return `目前為${scopeLabel}收藏庫，請選擇收藏庫`;
+    return `請選擇要推薦的${scopeLabel}收藏庫。`;
   })();
   const isSuggestYoutubeEmptyNotice =
     isGoogleAuthed &&
@@ -162,8 +172,10 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
     !youtubePlaylistsError;
   const isSuggestYoutubeMissingNotice = Boolean(
     youtubePlaylistsError &&
-    (youtubePlaylistsError.includes("尚未建立 YouTube 頻道") ||
-      youtubePlaylistsError.includes("沒有播放清單")),
+    (
+      youtubePlaylistsError.toLowerCase().includes("youtube") ||
+      youtubePlaylistsError.includes("YouTube")
+    ),
   );
   const visibleSuggestYoutubeError =
     youtubePlaylistsError && !isSuggestYoutubeMissingNotice
@@ -171,18 +183,18 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
       : null;
   const suggestYoutubePrimaryText = (() => {
     if (!isGoogleAuthed) {
-      return "目前為我的播放清單，請先登入後再選擇播放清單";
+      return "請先登入 Google 以載入 YouTube 播放清單。";
     }
     if (youtubePlaylistsLoading) {
-      return "目前為我的播放清單，正在讀取播放清單";
+      return "正在讀取 YouTube 播放清單...";
     }
     if (isSuggestYoutubeMissingNotice) {
-      return "目前為我的播放清單，尚未建立 YouTube 頻道或沒有播放清單";
+      return "目前尚未取得可用的 YouTube 播放清單。";
     }
     if (isSuggestYoutubeEmptyNotice) {
-      return "目前為我的播放清單，尚未建立播放清單，請先建立後再選擇";
+      return "你的帳號目前沒有可用的 YouTube 播放清單。";
     }
-    return "目前為我的播放清單，請選擇播放清單";
+    return "選擇 YouTube 播放清單後即可送出推薦。";
   })();
 
   useEffect(() => {
@@ -379,17 +391,22 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
                       (item) => item.id === selectedId,
                     );
                     if (!selectedOption) return selectedId;
-                    return selectedOption.title;
+                    return normalizeDisplayText(
+                      selectedOption.title,
+                      "未命名收藏庫",
+                    );
                   },
                 }}
               >
-                <MenuItem value="">選擇收藏庫</MenuItem>
+                <MenuItem value="">請選擇收藏庫</MenuItem>
                 {collections.map((collection) => (
                   <MenuItem key={collection.id} value={collection.id}>
                     <div className="flex min-w-0 flex-col">
-                      <span className="truncate">{collection.title}</span>
+                      <span className="truncate">
+                        {normalizeDisplayText(collection.title, "未命名收藏庫")}
+                      </span>
                       <span className="text-xs text-slate-400">
-                        熱門 · 遊玩次數 {Math.max(0, Number(collection.use_count ?? 0))}
+                        熱門度 {Math.max(0, Number(collection.use_count ?? 0))}
                       </span>
                     </div>
                   </MenuItem>
@@ -435,19 +452,19 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   displayEmpty: true,
                   renderValue: (selected) => {
                     const selectedId = String(selected ?? "");
-                    if (!selectedId) return "請選擇播放清單";
+                    if (!selectedId) return "請選擇 YouTube 播放清單";
                     const selectedOption = youtubePlaylists.find(
                       (item) => item.id === selectedId,
                     );
                     if (!selectedOption) return selectedId;
-                    return `${selectedOption.title} (${selectedOption.itemCount})`;
+                    return `${normalizeDisplayText(selectedOption.title, "未命名播放清單")} (${selectedOption.itemCount})`;
                   },
                 }}
               >
-                <MenuItem value="">選擇播放清單</MenuItem>
+                <MenuItem value="">請選擇 YouTube 播放清單</MenuItem>
                 {youtubePlaylists.map((playlist) => (
                   <MenuItem key={playlist.id} value={playlist.id}>
-                    {playlist.title} ({playlist.itemCount})
+                    {normalizeDisplayText(playlist.title, "未命名播放清單")} ({playlist.itemCount})
                   </MenuItem>
                 ))}
               </TextField>
@@ -468,14 +485,14 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
               }
             >
               {isSuggestCollectionPrivate
-                ? "此收藏庫為私人，將以快照推薦給房主"
-                : "此收藏庫為公開，將直接推薦給房主"}
+                ? "此推薦來自私人收藏庫，會以快照方式送出。"
+                : "此推薦來自公開收藏庫，會以來源連結送出。"}
             </Typography>
           )}
           {(suggestNotice || isCooldownActive) && (
             <Typography variant="caption" className="text-emerald-300">
               {isCooldownActive
-                ? `已送出，${remainingCooldownSeconds} 秒後可再推薦`
+                ? `冷卻中，請等待 ${remainingCooldownSeconds}s 後再推薦。`
                 : suggestNotice}
             </Typography>
           )}
@@ -495,7 +512,7 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   1,
                   Math.ceil(((cooldownUntil ?? Date.now()) - Date.now()) / 1000),
                 );
-                setSuggestNotice(`請稍候 ${remaining} 秒後再推薦`);
+                setSuggestNotice(`請等待 ${remaining}s 後再送出下一次推薦。`);
                 return;
               }
               setIsSubmitting(true);
@@ -507,7 +524,7 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   const trimmed = suggestPlaylistUrl.trim();
                   const playlistId = extractPlaylistId(trimmed);
                   if (!playlistId) {
-                    setSuggestError("請輸入有效的播放清單 URL");
+                    setSuggestError("請輸入有效的 YouTube 播放清單 URL");
                     setSuggestNotice(null);
                     return;
                   }
@@ -517,7 +534,7 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   });
                 } else if (suggestType === "youtube") {
                   if (!suggestYoutubePlaylistId) {
-                    setSuggestError("請先選擇播放清單");
+                    setSuggestError("請先選擇 YouTube 播放清單。");
                     setSuggestNotice(null);
                     return;
                   }
@@ -545,12 +562,12 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   );
                 }
                 if (!result?.ok) {
-                  setSuggestError(result?.error ?? "推薦失敗");
+                  setSuggestError(result?.error ?? "提交推薦失敗");
                   setSuggestNotice(null);
                   return;
                 }
                 setCooldownUntil(Date.now() + SUGGESTION_COOLDOWN_MS);
-                setSuggestNotice("已送出");
+                setSuggestNotice("推薦已送出");
               } finally {
                 setIsSubmitting(false);
               }
@@ -559,8 +576,8 @@ const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
             {isSubmitting
               ? "送出中..."
               : isCooldownActive
-                ? `倒數 ${Math.max(1, remainingCooldownSeconds)} 秒`
-                : "送出推薦"}
+                ? `冷卻 ${Math.max(1, remainingCooldownSeconds)}s`
+                : "推薦給房主"}
           </Button>
         </Stack>
       </AccordionDetails>
@@ -701,7 +718,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [selectedSuggestionKey, setSelectedSuggestionKey] = useState("");
   const [isApplyingHostSuggestion, setIsApplyingHostSuggestion] = useState(false);
   const [hostSuggestionHint, setHostSuggestionHint] = useState(
-    "確認後會向來源重新載入並切換。",
+    "請先選擇來源並套用，開始前可隨時調整。",
   );
   const [collectionScope, setCollectionScope] = useState<"public" | "owner">(
     "public",
@@ -802,18 +819,18 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       : ({ maxHeight: playlistListHeightCap } as React.CSSProperties);
   const playlistLoadNotice = (() => {
     if (playlistLoading || collectionItemsLoading) {
-      return "載入中...";
+      return "正在載入歌單資料...";
     }
     if (playlistError || collectionItemsError) {
-      return `載入失敗：${playlistError ?? collectionItemsError}`;
+      return `歌單載入失敗：${playlistError ?? collectionItemsError}`;
     }
     if (playlistItemsForChange.length === 0) {
       return null;
     }
-    return `載入成功，共 ${playlistItemsForChange.length} 首`;
+    return `目前可用歌曲：${playlistItemsForChange.length} 首`;
   })();
   const hostPlaylistPrimaryText =
-    "目前為貼上連結模式，請貼上 YouTube 播放清單連結";
+    "可貼上播放清單連結，或從收藏庫 / YouTube 匯入歌曲。";
   const isHostCollectionEmptyNotice =
     hostSourceType === "collection" &&
     !collectionsLoading &&
@@ -822,15 +839,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const hostCollectionPrimaryText = (() => {
     const scopeLabel = collectionScope === "public" ? "公開" : "私人";
     if (collectionScope === "owner" && !isGoogleAuthed) {
-      return "目前為私人收藏庫，請先登入後再選擇收藏庫";
+      return "請先登入 Google 才能使用私人收藏庫。";
     }
     if (collectionsLoading) {
-      return `目前為${scopeLabel}收藏庫，正在讀取收藏庫清單`;
+      return `正在讀取${scopeLabel}收藏庫...`;
     }
     if (collections.length === 0) {
-      return `目前為${scopeLabel}收藏庫，請先建立後再選擇`;
+      return `目前沒有可用的${scopeLabel}收藏庫。`;
     }
-    return `目前為${scopeLabel}收藏庫，請選擇收藏庫`;
+    return `請選擇要套用的${scopeLabel}收藏庫。`;
   })();
   const isHostYoutubeEmptyNotice =
     hostSourceType === "youtube" &&
@@ -842,8 +859,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     hostSourceType === "youtube" &&
     Boolean(
       youtubePlaylistsError &&
-      (youtubePlaylistsError.includes("尚未建立 YouTube 頻道") ||
-        youtubePlaylistsError.includes("沒有播放清單")),
+      (youtubePlaylistsError.toLowerCase().includes("youtube") ||
+        youtubePlaylistsError.includes("YouTube")),
     );
   const visibleHostYoutubeError =
     youtubePlaylistsError && !isHostYoutubeMissingNotice
@@ -851,18 +868,18 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       : null;
   const hostYoutubePrimaryText = (() => {
     if (!isGoogleAuthed) {
-      return "目前為我的播放清單，請先登入後再選擇播放清單";
+      return "請先登入 Google 以載入 YouTube 播放清單。";
     }
     if (youtubePlaylistsLoading) {
-      return "目前為我的播放清單，正在讀取播放清單";
+      return "正在讀取 YouTube 播放清單...";
     }
     if (isHostYoutubeMissingNotice) {
-      return "目前為我的播放清單，尚未建立 YouTube 頻道或沒有播放清單";
+      return "目前尚未取得可用的 YouTube 播放清單。";
     }
     if (youtubePlaylists.length === 0 && !youtubePlaylistsError) {
-      return "目前為我的播放清單，尚未建立播放清單，請先建立後再選擇";
+      return "你的帳號目前沒有可用的 YouTube 播放清單。";
     }
-    return "目前為我的播放清單，請選擇播放清單";
+    return "可從 YouTube 播放清單選擇並套用到房間。";
   })();
   const questionMaxLimit = getQuestionMax(
     currentRoom?.playlist.totalCount ?? 0,
@@ -876,6 +893,23 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
   const useCollectionTimingForSettings =
     settingsUseCollectionSource && settingsAllowCollectionClipTiming;
+  const [startCountdownNow, setStartCountdownNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (gameState?.status !== "playing") return;
+    const remainingMs = gameState.startedAt - Date.now();
+    if (remainingMs <= 0) return;
+    setStartCountdownNow(Date.now());
+    const timer = window.setInterval(() => {
+      setStartCountdownNow(Date.now());
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [gameState?.startedAt, gameState?.status]);
+  const startBroadcastRemainingSec =
+    gameState?.status === "playing"
+      ? Math.max(0, Math.ceil((gameState.startedAt - startCountdownNow) / 1000))
+      : 0;
+  const isStartBroadcastActive =
+    gameState?.status === "playing" && startBroadcastRemainingSec > 0;
   const roomPlayDurationSec = clampPlayDurationSec(
     currentRoom?.gameSettings?.playDurationSec ?? DEFAULT_PLAY_DURATION_SEC,
   );
@@ -904,13 +938,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     if (!pasted) return;
     const trimmed = pasted.trim();
     if (!trimmed) return;
-    openConfirmModal("切換到這個歌單？", trimmed, () => {
+    openConfirmModal("確認匯入此播放清單？", trimmed, () => {
       onFetchPlaylistByUrl(trimmed);
     });
   };
-  const isCollectionsEmptyNotice =
-    collectionsError === "尚未建立收藏庫" ||
-    collectionsError === "尚未建立公開收藏庫";
+  const isCollectionsEmptyNotice = Boolean(
+    collectionsError &&
+      (collectionsError.toLowerCase().includes("no collections") ||
+        collectionsError.includes("沒有收藏庫")),
+  );
   const visibleCollectionsError = React.useMemo(() => {
     if (!collectionsError || isCollectionsEmptyNotice) {
       return null;
@@ -1000,10 +1036,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   useEffect(() => {
     if (playlistSuggestions.length === 0) {
       setSelectedSuggestionKey("");
-      setHostSuggestionHint("目前沒有推薦可切換。");
+      setHostSuggestionHint("目前還沒有玩家提交歌單建議。");
       return;
     }
-    setHostSuggestionHint("確認後會向來源重新載入並切換。");
+    setHostSuggestionHint("可套用玩家建議，並在開始前調整題庫。");
     setSelectedSuggestionKey((prev) => {
       if (!prev) return "";
       const stillExists = playlistSuggestions.some(
@@ -1080,14 +1116,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     if (settingsDisabled) return;
     const trimmedName = settingsName.trim();
     if (!trimmedName) {
-      setSettingsError("請輸入房間名稱");
+      setSettingsError("房間名稱不可為空。");
       return;
     }
     const parsedMaxPlayers = settingsMaxPlayers.trim()
       ? Number(settingsMaxPlayers)
       : null;
     if (parsedMaxPlayers !== null && !Number.isFinite(parsedMaxPlayers)) {
-      setSettingsError("請輸入有效的人數上限");
+      setSettingsError("玩家上限必須是有效數字。");
       return;
     }
     const normalizedMaxPlayers =
@@ -1100,9 +1136,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       effectiveMaxPlayers !== null &&
       (effectiveMaxPlayers < PLAYER_MIN || effectiveMaxPlayers > PLAYER_MAX)
     ) {
-      setSettingsError(
-        `人數上限需介於 ${PLAYER_MIN} 到 ${PLAYER_MAX}`,
-      );
+      setSettingsError(`玩家上限需介於 ${PLAYER_MIN} - ${PLAYER_MAX} 之間。`);
       return;
     }
 
@@ -1150,7 +1184,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     const now = Date.now();
     const lastRequest = lastHostSuggestionRequestRef.current;
     if (hostSuggestionApplyingRef.current) {
-      setHostSuggestionHint("正在切換中，請稍候...");
+      setHostSuggestionHint("正在套用建議中，請稍候...");
       return;
     }
     if (
@@ -1158,26 +1192,26 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       lastRequest.key === suggestionKey &&
       now - lastRequest.at < HOST_SUGGESTION_REQUEST_GAP_MS
     ) {
-      setHostSuggestionHint("同一筆推薦切換過於頻繁，請稍候再試。");
+      setHostSuggestionHint("你剛剛已點擊過這個建議，請稍候後再試。");
       return;
     }
 
     lastHostSuggestionRequestRef.current = { key: suggestionKey, at: now };
     hostSuggestionApplyingRef.current = true;
     setIsApplyingHostSuggestion(true);
-    setHostSuggestionHint("正在套用推薦...");
+    setHostSuggestionHint("正在套用房主建議...");
 
     try {
       const isSnapshot = Boolean(suggestion.items?.length);
       if (isSnapshot) {
         await onApplySuggestionSnapshot(suggestion);
-        setHostSuggestionHint("已送出切換，等待房間同步。");
+        setHostSuggestionHint("已套用建議快照。");
         return;
       }
 
       if (suggestion.type === "playlist") {
         onFetchPlaylistByUrl(suggestion.value);
-        setHostSuggestionHint("已送出切換，等待房間同步。");
+        setHostSuggestionHint("已開始匯入播放清單。");
         return;
       }
 
@@ -1185,10 +1219,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       await onLoadCollectionItems(suggestion.value, {
         readToken: suggestion.readToken ?? null,
       });
-      setHostSuggestionHint("已送出切換，等待房間同步。");
+      setHostSuggestionHint("已載入收藏庫內容。");
     } catch (error) {
       console.error(error);
-      setHostSuggestionHint("切換失敗，請稍後再試。");
+      setHostSuggestionHint("套用建議失敗，請稍後再試。");
     } finally {
       window.setTimeout(() => {
         hostSuggestionApplyingRef.current = false;
@@ -1202,8 +1236,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     const displayLabel = suggestion.title ?? suggestion.value;
     openConfirmModal(
       suggestion.type === "playlist"
-        ? "切換到推薦歌單？"
-        : "切換到推薦收藏庫？",
+        ? "套用播放清單建議？"
+        : "套用收藏庫建議？",
       displayLabel,
       () => {
         void handleApplyHostSuggestion(suggestion);
@@ -1211,8 +1245,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     );
     setHostSuggestionHint(
       isSnapshot
-        ? "此推薦會使用快照套用，確認後立即切換。"
-        : "確認後會向來源重新載入並切換。",
+        ? "此建議包含完整快照，套用後會直接覆蓋目前題庫。"
+        : "確認後將以此建議更新房間題庫。",
     );
   };
 
@@ -1232,12 +1266,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           {...ariaAttributes}
           className="text-center text-slate-400 text-xs py-2"
         >
-          {playlistHasMore ? "載入中..." : "已到底了"}
+          {playlistHasMore ? "載入更多歌曲中..." : "已顯示全部歌曲"}
         </Box>
       );
     }
 
     const item = playlistItems[index];
+    const displayTitle = normalizeDisplayText(item.title, `未命名歌曲 ${index + 1}`);
+    const displayUploader = normalizeDisplayText(item.uploader ?? "", "Unknown");
     return (
       <div style={style}>
         <div className="room-lobby-playlist-row px-3 py-2 flex items-center gap-2 border-b border-slate-800/60">
@@ -1267,14 +1303,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
-                  title={item.title}
+                  title={displayTitle}
                 >
-                  {item.title}
+                  {displayTitle}
                 </a>
               </Typography>
 
               <p className="text-[11px] text-slate-400">
-                {item.uploader ?? "Unknown"}
+                {displayUploader}
                 {item.duration ? ` · ${item.duration}` : ""}
               </p>
             </div>
@@ -1299,7 +1335,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         title={
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="subtitle1" className="text-slate-100">
-              {currentRoom && currentRoom.name}
+              {normalizeDisplayText(currentRoom?.name, "未命名房間")}
             </Typography>
             <Chip
               size="small"
@@ -1342,7 +1378,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     </>
                   ) : (
                     <Typography variant="caption" className="text-slate-500">
-                      尚未取得密碼
+                      此房間目前未設定密碼
                     </Typography>
                   )}
                 </Stack>
@@ -1359,7 +1395,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 size="small"
                 onClick={() => onOpenLastSettlement?.()}
               >
-                上一輪結算
+                查看上一輪結算
               </Button>
             )}
             {gameState?.status === "playing" && (
@@ -1377,10 +1413,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 variant="contained"
                 color="warning"
                 size="small"
-                disabled={!canStartGame || gameState?.status === "playing"}
+                disabled={
+                  !canStartGame ||
+                  gameState?.status === "playing"
+                }
                 onClick={onStartGame}
               >
-                開始遊戲
+                {isStartBroadcastActive
+                  ? `廣播中 ${startBroadcastRemainingSec}s`
+                  : "開始遊戲"}
               </Button>
             )}
             {isHost && (
@@ -1605,7 +1646,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                   closeActionMenu();
                                 }}
                               >
-                                設為房主
+                                轉移房主
                               </Button>
                             </ListItem>
                             <ListItem>
@@ -1618,7 +1659,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                   closeActionMenu();
                                 }}
                               >
-                                踢出（5 分鐘）
+                                踢出並封鎖
                               </Button>
                             </ListItem>
                             <ListItem>
@@ -1631,7 +1672,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                   closeActionMenu();
                                 }}
                               >
-                                永久踢出
+                                踢出玩家
                               </Button>
                             </ListItem>
                           </MUIList>
@@ -1659,7 +1700,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     <Chip
                       size="small"
                       color="warning"
-                      label={`新推薦 ${playlistSuggestions.length}`}
+                      label={`新建議 ${playlistSuggestions.length}`}
                     />
                   )}
                 </div>
@@ -1668,7 +1709,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 <Stack spacing={2}>
                   {gameState?.status === "playing" && (
                     <Typography variant="caption" className="text-slate-400">
-                      遊戲進行中無法切換歌單或套用推薦
+                      遊戲進行中無法切換來源或套用新題庫。
                     </Typography>
                   )}
                   <Box className="room-lobby-host-controls">
@@ -1684,7 +1725,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         direction="row"
                         className="room-lobby-mode-row room-lobby-mode-row--host"
                       >
-                        <Button
+                          <Button
                           size="small"
                           variant={
                             hostSourceType === "suggestions"
@@ -1702,9 +1743,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                             setHostSourceType("suggestions");
                           }}
                         >
-                          推薦清單
+                          玩家推薦
                         </Button>
-                        <Button
+                          <Button
                           size="small"
                           variant={
                             hostSourceType === "playlist" ? "contained" : "outlined"
@@ -1823,14 +1864,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                 renderValue: (selected) => {
                                   const key = String(selected ?? "");
                                   if (!key) {
-                                    return "請選擇推薦清單";
+                                    return "請選擇要套用的建議";
                                   }
                                   const selectedSuggestion = playlistSuggestions.find(
                                     (suggestion) =>
                                       getSuggestionKey(suggestion) === key,
                                   );
                                   if (!selectedSuggestion) {
-                                    return "請選擇推薦清單";
+                                    return "建議已不存在";
                                   }
                                   const label =
                                     selectedSuggestion.title ??
@@ -1838,12 +1879,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                   const count =
                                     selectedSuggestion.totalCount ??
                                     selectedSuggestion.items?.length;
-                                  return `${selectedSuggestion.username} · ${label}${count ? ` (${count})` : ""
-                                    }`;
+                                  return `${selectedSuggestion.username} · ${label}${count ? ` (${count})` : ""}`;
                                 },
                               }}
                             >
-                              <MenuItem value="">請選擇推薦清單</MenuItem>
+                              <MenuItem value="">請選擇要套用的建議</MenuItem>
                               {playlistSuggestions.map((suggestion) => {
                                 const optionKey = getSuggestionKey(suggestion);
                                 const displayLabel =
@@ -1851,7 +1891,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                 const displayCount =
                                   suggestion.totalCount ?? suggestion.items?.length;
                                 const sourceLabel =
-                                  suggestion.type === "playlist" ? "歌單" : "收藏庫";
+                                  suggestion.type === "playlist" ? "播放清單" : "收藏庫";
                                 const snapshotLabel = suggestion.items?.length
                                   ? " · 快照"
                                   : "";
@@ -1915,7 +1955,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                 variant="caption"
                                 className="text-slate-400"
                               >
-                                登入後可使用私人收藏庫
+                                登入後可讀取你的私人收藏庫。
                               </Typography>
                             )}
                             <TextField
@@ -1931,8 +1971,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                 const selected = collections.find(
                                   (item) => item.id === nextId,
                                 );
-                                const label = selected ? selected.title : nextId;
-                                openConfirmModal("切換到收藏庫？", label, () => {
+                                const label = selected
+                                  ? normalizeDisplayText(selected.title, "未命名收藏庫")
+                                  : nextId;
+                                openConfirmModal("套用這個收藏庫？", label, () => {
                                   onSelectCollection(nextId);
                                   void onLoadCollectionItems(nextId);
                                 });
@@ -1951,17 +1993,25 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                     (item) => item.id === selectedId,
                                   );
                                   if (!selectedOption) return selectedId;
-                                  return selectedOption.title;
+                                  return normalizeDisplayText(
+                                    selectedOption.title,
+                                    "未命名收藏庫",
+                                  );
                                 },
                               }}
                             >
-                              <MenuItem value="">選擇收藏庫</MenuItem>
+                              <MenuItem value="">未選擇</MenuItem>
                               {collections.map((collection) => (
                                 <MenuItem key={collection.id} value={collection.id}>
                                   <div className="flex min-w-0 flex-col">
-                                    <span className="truncate">{collection.title}</span>
+                                    <span className="truncate">
+                                      {normalizeDisplayText(
+                                        collection.title,
+                                        "未命名收藏庫",
+                                      )}
+                                    </span>
                                     <span className="text-xs text-slate-400">
-                                      熱門 · 遊玩次數{" "}
+                                      熱門度{" "}
                                       {Math.max(0, Number(collection.use_count ?? 0))}
                                     </span>
                                   </div>
@@ -2012,9 +2062,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                   (item) => item.id === nextId,
                                 );
                                 const label = selected
-                                  ? `${selected.title} (${selected.itemCount})`
+                                  ? `${normalizeDisplayText(selected.title, "未命名 YouTube 播放清單")} (${selected.itemCount})`
                                   : nextId;
-                                openConfirmModal("切換到播放清單？", label, () => {
+                                openConfirmModal("匯入這份 YouTube 播放清單？", label, () => {
                                   setSelectedYoutubePlaylistId(nextId);
                                   void onImportYoutubePlaylist(nextId);
                                 });
@@ -2025,19 +2075,25 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                                 displayEmpty: true,
                                 renderValue: (selected) => {
                                   const selectedId = String(selected ?? "");
-                                  if (!selectedId) return "請選擇播放清單";
+                                  if (!selectedId) return "請選擇 YouTube 播放清單";
                                   const selectedOption = youtubePlaylists.find(
                                     (item) => item.id === selectedId,
                                   );
                                   if (!selectedOption) return selectedId;
-                                  return `${selectedOption.title} (${selectedOption.itemCount})`;
+                                  return `${normalizeDisplayText(
+                                    selectedOption.title,
+                                    "未命名 YouTube 播放清單",
+                                  )} (${selectedOption.itemCount})`;
                                 },
                               }}
                             >
-                              <MenuItem value="">選擇播放清單</MenuItem>
+                              <MenuItem value="">未選擇</MenuItem>
                               {youtubePlaylists.map((playlist) => (
                                 <MenuItem key={playlist.id} value={playlist.id}>
-                                  {playlist.title} ({playlist.itemCount})
+                                  {normalizeDisplayText(
+                                    playlist.title,
+                                    "未命名 YouTube 播放清單",
+                                  )} ({playlist.itemCount})
                                 </MenuItem>
                               ))}
                             </TextField>
@@ -2121,7 +2177,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               className="text-slate-500"
               align="center"
             >
-              還沒有訊息，先來打聲招呼吧！
+              尚無聊天訊息，輸入訊息開始互動吧。
             </Typography>
           ) : (
             <MUIList dense disablePadding>
@@ -2194,8 +2250,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       // justifyContent="space-between"
                       >
                         <Typography variant="caption" fontWeight={600}>
-                          {msg.username}
-                          {/* {isSelf && "（我）"} */}
+                          {normalizeDisplayText(msg.username, "玩家")}
                         </Typography>
                         <Typography
                           variant="caption"
@@ -2241,7 +2296,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             autoComplete="off"
             fullWidth
             size="small"
-            placeholder="輸入訊息後按 Enter 送出"
+            placeholder="輸入聊天訊息，按 Enter 送出"
             value={messageInput}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={(e) => {
@@ -2267,13 +2322,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           >
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="subtitle2" className="text-slate-200">
-                播放清單
+                房間歌單同步進度
               </Typography>
               <Chip
                 size="small"
                 variant="outlined"
-                label={`${playlistProgress.received}/${playlistProgress.total}${playlistProgress.ready ? " · 已準備" : ""
-                  }`}
+                label={`${playlistProgress.received}/${playlistProgress.total}${playlistProgress.ready ? " 已準備" : ""}`}
                 className="text-slate-200 border-slate-600"
               />
             </Stack>
@@ -2290,7 +2344,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   className="text-slate-500"
                   align="center"
                 >
-                  尚未有播放清單，等待房主載入歌曲。
+                  目前歌單為空，請先選擇來源並匯入歌曲。
                 </Typography>
               </div>
             </div>
@@ -2317,175 +2371,270 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         open={settingsOpen}
         onClose={closeSettingsModal}
         fullWidth
-        maxWidth="sm"
+        maxWidth="lg"
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: "1px solid rgba(56,189,248,0.28)",
+            background:
+              "radial-gradient(680px 240px at 12% 0%, rgba(56,189,248,0.12), transparent 70%), radial-gradient(520px 220px at 88% 0%, rgba(34,197,94,0.10), transparent 68%), linear-gradient(180deg, rgba(2,6,23,0.98), rgba(2,8,26,0.97))",
+            boxShadow: "0 26px 72px -38px rgba(2,132,199,0.55)",
+          },
+        }}
       >
-        <DialogTitle>房間設定</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} mt={1}>
+        <DialogTitle
+          sx={{
+            pb: 1.5,
+            borderBottom: "1px solid rgba(56,189,248,0.18)",
+          }}
+        >
+          <Stack spacing={1}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+            >
+              <Typography variant="h6" className="font-semibold text-slate-100">
+                房主設定
+              </Typography>
+              <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`題數 ${settingsQuestionCount}`}
+                  className="border-slate-500/60 text-slate-200"
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={
+                    useCollectionTimingForSettings
+                      ? "收藏庫時間"
+                      : `${settingsPlayDurationSec}s / ${settingsStartOffsetSec}s`
+                  }
+                  className="border-cyan-500/40 text-cyan-200"
+                />
+              </Stack>
+            </Stack>
+            <Typography variant="caption" className="text-slate-400">
+              調整房間規則與題庫節奏，儲存後立即套用到本房間。
+            </Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{
+            borderColor: "rgba(56,189,248,0.16)",
+            py: 2,
+            maxHeight: {
+              xs: "72vh",
+              md: "78vh",
+            },
+            overflowY: "auto",
+          }}
+        >
+          <Stack spacing={1.75}>
             {settingsDisabled && (
-              <Typography variant="caption" className="text-amber-300">
-                遊戲進行中，暫停修改房間設定。
-              </Typography>
+              <Box className="rounded-lg border border-amber-400/45 bg-amber-500/12 px-3 py-2">
+                <Typography variant="caption" className="text-amber-200">
+                  遊戲進行中時無法儲存設定；請於下一輪開始前調整。
+                </Typography>
+              </Box>
             )}
-            <TextField
-              label="房間名稱"
-              value={settingsName}
-              onChange={(e) => {
-                setSettingsName(e.target.value);
-                if (settingsError) {
-                  setSettingsError(null);
-                }
-              }}
-              disabled={settingsDisabled}
-              fullWidth
-            />
-            <RoomAccessSettingsFields
-              visibility={settingsVisibility}
-              password={settingsPassword}
-              disabled={settingsDisabled}
-              allowPasswordWhenPublic
-              onVisibilityChange={(nextVisibility) => {
-                setSettingsVisibility(nextVisibility);
-                if (settingsError) {
-                  setSettingsError(null);
-                }
-              }}
-              onPasswordChange={(value) => {
-                setSettingsPassword(value);
-                setSettingsPasswordDirty(true);
-                if (settingsError) {
-                  setSettingsError(null);
-                }
-              }}
-              onPasswordClear={() => {
-                setSettingsPassword("");
-                setSettingsPasswordDirty(true);
-                if (settingsError) {
-                  setSettingsError(null);
-                }
-              }}
-              classes={{
-                helperText: "text-slate-400",
-                noteText: "text-slate-400",
-              }}
-            />
-            <Stack spacing={1}>
-              <TextField
-                label="人數上限"
-                type="number"
-                value={settingsMaxPlayers}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  if (!/^\d*$/.test(next)) return;
-                  setSettingsMaxPlayers(next);
-                  if (settingsError) {
-                    setSettingsError(null);
-                  }
-                }}
-                inputProps={{ min: PLAYER_MIN, max: PLAYER_MAX, inputMode: "numeric" }}
-                placeholder="留空表示不限制"
-                disabled={settingsDisabled}
-                fullWidth
-              />
-              <Typography variant="caption" className="text-slate-400">
-                留空代表不限制，最多 {PLAYER_MAX} 人。
-              </Typography>
-            </Stack>
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" className="text-slate-200">
-                題數
-              </Typography>
-              <QuestionCountControls
-                value={settingsQuestionCount}
-                min={questionMinLimit}
-                max={questionMaxLimit}
-                step={QUESTION_STEP}
-                disabled={settingsDisabled}
-                onChange={(nextValue) => {
-                  setSettingsQuestionCount(nextValue);
-                  if (settingsError) {
-                    setSettingsError(null);
-                  }
-                }}
-              />
-            </Stack>
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" className="text-slate-200">
-                作答時間設定
-              </Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={settingsAllowCollectionClipTiming}
-                    onChange={(_event, checked) => {
-                      setSettingsAllowCollectionClipTiming(checked);
+            <Box className="grid gap-1.75 lg:grid-cols-2">
+              <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
+                <Stack spacing={1.25}>
+                  <Typography variant="subtitle2" className="text-slate-100">
+                    基本資料與權限
+                  </Typography>
+                  <TextField
+                    label="房間名稱"
+                    value={settingsName}
+                    onChange={(e) => {
+                      setSettingsName(e.target.value);
                       if (settingsError) {
                         setSettingsError(null);
                       }
                     }}
                     disabled={settingsDisabled}
+                    fullWidth
                   />
-                }
-                label="使用收藏庫設定的時間"
-              />
-              <Typography variant="caption" className="text-slate-400">
-                開啟：收藏庫歌曲優先使用收藏庫起始/結束時間；關閉：全部使用房主設定。
-              </Typography>
-              {useCollectionTimingForSettings ? (
-                <Typography variant="caption" className="text-slate-400">
-                  目前來源為收藏庫，已套用收藏庫時間。關閉此選項後可自訂作答時間與起始時間。
-                </Typography>
-              ) : (
-                <>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <RoomAccessSettingsFields
+                    visibility={settingsVisibility}
+                    password={settingsPassword}
+                    disabled={settingsDisabled}
+                    allowPasswordWhenPublic
+                    onVisibilityChange={(nextVisibility) => {
+                      setSettingsVisibility(nextVisibility);
+                      if (settingsError) {
+                        setSettingsError(null);
+                      }
+                    }}
+                    onPasswordChange={(value) => {
+                      setSettingsPassword(value);
+                      setSettingsPasswordDirty(true);
+                      if (settingsError) {
+                        setSettingsError(null);
+                      }
+                    }}
+                    onPasswordClear={() => {
+                      setSettingsPassword("");
+                      setSettingsPasswordDirty(true);
+                      if (settingsError) {
+                        setSettingsError(null);
+                      }
+                    }}
+                    classes={{
+                      helperText: "text-slate-400",
+                      noteText: "text-slate-400",
+                    }}
+                  />
+                  <Stack spacing={0.75}>
                     <TextField
-                      label="作答時間設定"
+                      label="玩家上限"
                       type="number"
-                      value={settingsPlayDurationSec}
+                      value={settingsMaxPlayers}
                       onChange={(e) => {
-                        const next = Number(e.target.value);
-                        if (!Number.isFinite(next)) return;
-                        setSettingsPlayDurationSec(next);
+                        const next = e.target.value;
+                        if (!/^\d*$/.test(next)) return;
+                        setSettingsMaxPlayers(next);
                         if (settingsError) {
                           setSettingsError(null);
                         }
                       }}
-                      inputProps={{
-                        min: PLAY_DURATION_MIN,
-                        max: PLAY_DURATION_MAX,
-                        inputMode: "numeric",
-                      }}
+                      inputProps={{ min: PLAYER_MIN, max: PLAYER_MAX, inputMode: "numeric" }}
+                      placeholder="留空則使用房間預設"
                       disabled={settingsDisabled}
                       fullWidth
                     />
-                    <TextField
-                      label="起始時間 (秒)"
-                      type="number"
-                      value={settingsStartOffsetSec}
-                      onChange={(e) => {
-                        const next = Number(e.target.value);
-                        if (!Number.isFinite(next)) return;
-                        setSettingsStartOffsetSec(next);
+                    <Typography variant="caption" className="text-slate-400">
+                      玩家上限可設定為 {PLAYER_MIN} - {PLAYER_MAX} 人
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </Box>
+
+              <Stack spacing={1.75} className="min-w-0">
+                <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
+                  <Stack spacing={1.25}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="subtitle2" className="text-slate-100">
+                        題數設定
+                      </Typography>
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`${settingsQuestionCount} 題`}
+                        className="border-slate-600 text-slate-200"
+                      />
+                    </Stack>
+                    <QuestionCountControls
+                      value={settingsQuestionCount}
+                      min={questionMinLimit}
+                      max={questionMaxLimit}
+                      step={QUESTION_STEP}
+                      disabled={settingsDisabled}
+                      onChange={(nextValue) => {
+                        setSettingsQuestionCount(nextValue);
                         if (settingsError) {
                           setSettingsError(null);
                         }
                       }}
-                      inputProps={{
-                        min: START_OFFSET_MIN,
-                        max: START_OFFSET_MAX,
-                        inputMode: "numeric",
-                      }}
-                      disabled={settingsDisabled}
-                      fullWidth
                     />
                   </Stack>
-                  <Typography variant="caption" className="text-slate-400">
-                    若超過影片長度，會自動從起始時間循環播放至本題時間結束。
-                  </Typography>
-                </>
-              )}
-            </Stack>
+                </Box>
+
+                <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
+                  <Stack spacing={1.25}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="subtitle2" className="text-slate-100">
+                        作答時間與起始設定
+                      </Typography>
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={
+                          useCollectionTimingForSettings
+                            ? "收藏庫片段"
+                            : `${settingsPlayDurationSec}s / ${settingsStartOffsetSec}s`
+                        }
+                        className="border-slate-600 text-slate-200"
+                      />
+                    </Stack>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={settingsAllowCollectionClipTiming}
+                          onChange={(_event, checked) => {
+                            setSettingsAllowCollectionClipTiming(checked);
+                            if (settingsError) {
+                              setSettingsError(null);
+                            }
+                          }}
+                          disabled={settingsDisabled}
+                        />
+                      }
+                      label="使用收藏庫設定的時間"
+                    />
+                    {useCollectionTimingForSettings ? (
+                      <Typography variant="caption" className="text-cyan-200/90">
+                        已啟用收藏庫時間，作答時間與起始時間已隱藏。
+                      </Typography>
+                    ) : (
+                      <Stack spacing={1}>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <TextField
+                            label="作答時間設定"
+                            type="number"
+                            value={settingsPlayDurationSec}
+                            onChange={(e) => {
+                              const next = Number(e.target.value);
+                              if (!Number.isFinite(next)) return;
+                              setSettingsPlayDurationSec(next);
+                              if (settingsError) {
+                                setSettingsError(null);
+                              }
+                            }}
+                            inputProps={{
+                              min: PLAY_DURATION_MIN,
+                              max: PLAY_DURATION_MAX,
+                              inputMode: "numeric",
+                            }}
+                            disabled={settingsDisabled}
+                            fullWidth
+                          />
+                          <TextField
+                            label="起始時間 (秒)"
+                            type="number"
+                            value={settingsStartOffsetSec}
+                            onChange={(e) => {
+                              const next = Number(e.target.value);
+                              if (!Number.isFinite(next)) return;
+                              setSettingsStartOffsetSec(next);
+                              if (settingsError) {
+                                setSettingsError(null);
+                              }
+                            }}
+                            inputProps={{
+                              min: START_OFFSET_MIN,
+                              max: START_OFFSET_MAX,
+                              inputMode: "numeric",
+                            }}
+                            disabled={settingsDisabled}
+                            fullWidth
+                          />
+                        </Stack>
+                        <Typography variant="caption" className="text-slate-400">
+                          若超過歌曲長度，系統會依據起始時間做循環裁切。
+                        </Typography>
+                      </Stack>
+                    )}
+                  </Stack>
+                </Box>
+              </Stack>
+            </Box>
             {settingsError && (
               <Typography variant="caption" className="text-rose-300">
                 {settingsError}
@@ -2493,7 +2642,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             )}
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions
+          sx={{
+            borderTop: "1px solid rgba(56,189,248,0.12)",
+            px: 2.5,
+            py: 1.5,
+          }}
+        >
           <Button onClick={closeSettingsModal} variant="text">
             取消
           </Button>

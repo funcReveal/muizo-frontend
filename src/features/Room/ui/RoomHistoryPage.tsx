@@ -1,12 +1,11 @@
 ﻿import {
   AccessTime,
-  ArrowBackRounded,
   ChevronRightRounded,
   MeetingRoom,
   Quiz,
   TimerOutlined,
 } from "@mui/icons-material";
-import { Chip, CircularProgress } from "@mui/material";
+import { Chip, CircularProgress, Dialog, DialogContent } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -17,9 +16,8 @@ import type {
   RoomSettlementSnapshot,
 } from "../model/types";
 import { useRoom } from "../model/useRoom";
-import GameSettlementPanel, {
-  type SettlementQuestionRecap,
-} from "./components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
+import HistoryReplayCompactView from "./components/HistoryReplayCompactView";
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
@@ -230,24 +228,6 @@ const normalizeQuestionRecap = (
         )
       : undefined,
   };
-};
-
-const parseSummaryPlaylistLabel = (summary: RoomSettlementHistorySummary) => {
-  const json = summary.summaryJson;
-  if (!json || typeof json !== "object") return null;
-  const sourceLabel = (json as Record<string, unknown>).playlistLabel;
-  if (typeof sourceLabel === "string" && sourceLabel.trim()) {
-    return sourceLabel.trim();
-  }
-  const collectionTitle = (json as Record<string, unknown>).collectionTitle;
-  if (typeof collectionTitle === "string" && collectionTitle.trim()) {
-    return `收藏庫：${collectionTitle.trim()}`;
-  }
-  const playlistTitle = (json as Record<string, unknown>).playlistTitle;
-  if (typeof playlistTitle === "string" && playlistTitle.trim()) {
-    return `YouTube 歌單：${playlistTitle.trim()}`;
-  }
-  return null;
 };
 
 const RoomHistoryPage: React.FC = () => {
@@ -1487,120 +1467,101 @@ const RoomHistoryPage: React.FC = () => {
     </section>
   );
 
-  const detailView = selectedSummary && (
-    <section className="mt-5 space-y-4">
-      <div className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(16,14,11,0.95),rgba(8,7,5,0.99))] p-4 sm:p-5">
-        <div className="relative flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 px-3 py-1.5 text-xs font-semibold tracking-[0.14em] text-[var(--mc-text)] transition hover:border-amber-300/30 hover:bg-amber-300/10"
-              onClick={() => setSelectedMatchId(null)}
-            >
-              <ArrowBackRounded sx={{ fontSize: 16 }} />
-              返回對戰歷史
-            </button>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Chip
-                size="small"
-                label={`第 ${selectedSummary.roundNo} 場`}
-                className="border-amber-300/30 bg-amber-300/10 text-amber-100"
-                variant="outlined"
-              />
-              <Chip
-                size="small"
-                label={selectedSummary.roomName || selectedSummary.roomId}
-                className="border-[var(--mc-border)] text-[var(--mc-text)]"
-                variant="outlined"
-              />
-            </div>
-
-            <h2 className="mt-3 text-lg font-semibold text-[var(--mc-text)] sm:text-xl">
-              對戰詳情
-            </h2>
-            <p className="mt-1 text-sm text-[var(--mc-text-muted)]">
-              開始 {formatDateTime(selectedSummary.startedAt)} · 結束{" "}
-              {formatDateTime(selectedSummary.endedAt)} · 遊玩{" "}
-              {formatDuration(
-                getMatchDurationMs(selectedSummary.startedAt, selectedSummary.endedAt),
-              )}{" "}
-              · {selectedSummary.playerCount} 人 · {selectedSummary.questionCount} 題
-            </p>
-          </div>
-
-          <div className="grid min-w-[220px] gap-2 text-sm sm:grid-cols-1">
-            <div className="rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
-                我的成績
+  const replayModal = (
+    <Dialog
+      open={Boolean(selectedMatchId)}
+      onClose={() => setSelectedMatchId(null)}
+      fullScreen
+      PaperProps={{
+        sx: {
+          background: "linear-gradient(180deg, rgba(2,6,23,0.96), rgba(2,6,23,0.9))",
+        },
+      }}
+    >
+      <DialogContent
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
+        {selectedSummary && (
+          <div className="mb-3 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
+                  Match Replay
+                </p>
+                <p className="mt-1 truncate text-base font-semibold text-[var(--mc-text)]">
+                  {selectedSummary.roomName || selectedSummary.roomId}
+                </p>
+                <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                  第 {selectedSummary.roundNo} 場 · {selectedSummary.playerCount} 人 · {selectedSummary.questionCount} 題 ·
+                  {" "}開始 {formatDateTime(selectedSummary.startedAt)} · 結束 {formatDateTime(selectedSummary.endedAt)} ·
+                  {" "}遊玩 {formatDuration(getMatchDurationMs(selectedSummary.startedAt, selectedSummary.endedAt))}
+                </p>
               </div>
-              {selectedSummary.selfPlayer ? (
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[var(--mc-text)]">
-                  <span>分數 {selectedSummary.selfPlayer.finalScore}</span>
-                  <span>答對 {selectedSummary.selfPlayer.correctCount}</span>
-                  <span>Combo x{selectedSummary.selfPlayer.maxCombo}</span>
+              <button
+                type="button"
+                className="rounded-full border border-slate-500/70 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-slate-400"
+                onClick={() => setSelectedMatchId(null)}
+              >
+                關閉回放
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {isLoadingSelectedReplay && !selectedReplay ? (
+            <div className="rounded-[20px] border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-6">
+              <div className="flex items-center justify-center rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/50 px-4 py-12 text-[var(--mc-text-muted)]">
+                <div className="inline-flex items-center gap-3">
+                  <CircularProgress size={18} thickness={5} sx={{ color: "#f59e0b" }} />
+                  載入對戰回顧中...
                 </div>
-              ) : (
-                <div className="mt-1 text-[var(--mc-text-muted)]">此場沒有你的玩家紀錄</div>
-              )}
-            </div>
-            {parseSummaryPlaylistLabel(selectedSummary) && (
-              <div className="rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 px-3 py-2 text-sm text-[var(--mc-text-muted)]">
-                <span className="mr-2 text-[10px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
-                  歌單
-                </span>
-                <span className="text-[var(--mc-text)]">
-                  {parseSummaryPlaylistLabel(selectedSummary)}
-                </span>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {isLoadingSelectedReplay && !selectedReplay ? (
-        <div className="rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.88),rgba(8,7,5,0.98))] p-6">
-          <div className="flex items-center justify-center rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 px-4 py-12 text-[var(--mc-text-muted)]">
-            <div className="inline-flex items-center gap-3">
-              <CircularProgress size={18} thickness={5} sx={{ color: "#f59e0b" }} />
-              載入對戰回顧中...
             </div>
-          </div>
+          ) : selectedReplay ? (
+            <HistoryReplayCompactView
+              key={selectedSummary?.matchId}
+              room={selectedReplay.room}
+              participants={selectedReplay.participants}
+              messages={selectedReplay.messages}
+              playlistItems={selectedReplay.playlistItems ?? []}
+              trackOrder={selectedReplay.trackOrder}
+              playedQuestionCount={selectedReplay.playedQuestionCount}
+              startedAt={selectedReplay.startedAt}
+              endedAt={selectedReplay.endedAt}
+              meClientId={clientId}
+              questionRecaps={normalizedSelectedQuestionRecaps}
+            />
+          ) : (
+            <div className="rounded-[20px] border border-amber-300/16 bg-amber-300/5 px-4 py-5 text-sm text-amber-100/90">
+              這場對戰尚未取得完整回放內容，可能已被精簡或仍在同步中，請稍後再試。
+            </div>
+          )}
         </div>
-      ) : selectedReplay ? (
-        <div className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)]/80 bg-[linear-gradient(180deg,rgba(13,12,10,0.96),rgba(7,6,5,0.98))] p-3 shadow-[0_12px_26px_-18px_rgba(0,0,0,0.62)] sm:p-4">
-          <GameSettlementPanel
-            key={selectedSummary.matchId}
-            room={selectedReplay.room}
-            participants={selectedReplay.participants}
-            messages={selectedReplay.messages}
-            playlistItems={selectedReplay.playlistItems ?? []}
-            trackOrder={selectedReplay.trackOrder}
-            playedQuestionCount={selectedReplay.playedQuestionCount}
-            startedAt={selectedReplay.startedAt}
-            endedAt={selectedReplay.endedAt}
-            meClientId={clientId}
-            questionRecaps={normalizedSelectedQuestionRecaps}
-            hideActions
-            mode="history"
-          />
-        </div>
-      ) : (
-        <div className="rounded-[24px] border border-amber-300/16 bg-amber-300/5 px-4 py-5 text-sm text-amber-100/90">
-          這場對戰尚未取得完整回放內容，可能已被精簡或仍在同步中，請稍後再試。
-        </div>
-      )}
-    </section>
+      </DialogContent>
+    </Dialog>
   );
 
   return (
     <div className="mx-auto w-full max-w-[1320px] min-w-0 px-1 sm:px-0">
       {archiveHeader}
-      {selectedMatchId ? detailView : listView}
+      {listView}
+      {replayModal}
     </div>
   );
 };
 
 export default RoomHistoryPage;
+
+
+
+
+
 
 

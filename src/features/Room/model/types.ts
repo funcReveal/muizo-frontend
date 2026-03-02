@@ -54,10 +54,31 @@ export interface GameQuestionStats {
   correctCount: number;
   wrongCount: number;
   unansweredCount: number;
+  changedAnswerCount?: number;
+  changedAnswerUserCount?: number;
+  answersByClientId?: Record<string, RoomSettlementQuestionAnswer>;
+  answerOrderLatest?: string[];
   fastestCorrectMs?: number | null;
   medianCorrectMs?: number | null;
   scoreBreakdownsByClientId?: Record<string, QuestionScoreBreakdown>;
 }
+
+export interface SubmitAnswerAckData {
+  accepted: true;
+  choiceIndex: number;
+  answeredAtMs: number;
+  changedAnswerCount: number;
+}
+
+export type SubmitAnswerResult =
+  | {
+      ok: true;
+      data: SubmitAnswerAckData;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
 
 export interface GameState {
   status: "playing" | "ended";
@@ -155,6 +176,10 @@ export interface RoomSettlementQuestionRecap {
   uploader: string;
   duration: string | null;
   thumbnail: string | null;
+  sourceId?: string | null;
+  provider?: string;
+  videoId?: string;
+  url?: string;
   myResult?: "correct" | "wrong" | "unanswered";
   myChoiceIndex?: number | null;
   correctChoiceIndex: number;
@@ -317,7 +342,7 @@ export interface ClientToServerEvents {
   ) => void;
   submitAnswer: (
     payload: { roomId: string; choiceIndex: number },
-    callback?: (ack: Ack<null>) => void
+    callback?: (ack: Ack<SubmitAnswerAckData>) => void
   ) => void;
   updateRoomSettings: (
     payload: {

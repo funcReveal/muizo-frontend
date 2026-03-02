@@ -394,8 +394,8 @@ export const useRoomCollections = ({
               startSec + 1,
               explicitEndSec ?? startSec + DEFAULT_CLIP_SEC,
             );
-            const provider = item.provider || "manual";
-            const sourceId = item.source_id || "";
+            const provider = (item.provider || "manual").trim().toLowerCase();
+            const sourceId = (item.source_id || "").trim();
             const videoId = provider === "youtube" ? sourceId : "";
             const durationValue =
               typeof item.duration_sec === "number" && item.duration_sec > 0
@@ -425,8 +425,8 @@ export const useRoomCollections = ({
               collectionHasExplicitStartSec: hasExplicitStartSec,
               collectionHasExplicitEndSec: hasExplicitEndSec,
               ...(videoId ? { videoId } : {}),
-              sourceId: collectionId,
-              provider: "collection",
+              sourceId: sourceId || null,
+              provider,
             };
           });
 

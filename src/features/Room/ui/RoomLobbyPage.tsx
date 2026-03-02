@@ -1,10 +1,10 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { createPortal } from "react-dom";
 
 import GameRoomPage from "./GameRoomPage";
-import GameSettlementPanel, {
-  type SettlementQuestionRecap,
-} from "./components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
+import LiveSettlementShowcase from "./components/LiveSettlementShowcase";
 import RoomLobbyPanel from "./components/RoomLobbyPanel";
 import type {
   ChatMessage,
@@ -192,6 +192,7 @@ const RoomLobbyPage: React.FC = () => {
   const [settlementRecapsByRoundKey, setSettlementRecapsByRoundKey] = useState<
     Record<string, SettlementQuestionRecap[]>
   >({});
+  const [uiNowMs, setUiNowMs] = useState(() => Date.now() + serverOffsetMs);
   const autoOpenedEndedRoundRef = useRef<string | null>(null);
   const prevGameStatusRef = useRef<"playing" | "ended" | null>(null);
   const latestLiveRecapsRef = useRef<SettlementQuestionRecap[]>([]);
@@ -738,6 +739,13 @@ const RoomLobbyPage: React.FC = () => {
   }, [messages, settlementReviewMessages]);
 
   useEffect(() => {
+    const tick = () => setUiNowMs(Date.now() + serverOffsetMs);
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [serverOffsetMs]);
+
+  useEffect(() => {
     setRouteRoomId(roomId ?? null);
     return () => setRouteRoomId(null);
   }, [roomId, setRouteRoomId]);
@@ -750,21 +758,20 @@ const RoomLobbyPage: React.FC = () => {
 
   useEffect(() => {
     if (!activeSettlementRoundKey) return;
-    if (gameState?.status !== "playing") return;
+    if (!gameState || gameState.status !== "playing") return;
+    const switchAtMs = gameState.startedAt - 5000;
+    const nowMs = Date.now() + serverOffsetMs;
+    const delayMs = Math.max(0, switchAtMs - nowMs);
     const timer = window.setTimeout(() => {
       setActiveSettlementRoundKey(null);
-      if (!isGameView) {
-        setIsGameView(true);
-      }
-      setStatusText("新對戰即將開始，已切回遊戲畫面");
-    }, 0);
+      setIsGameView(true);
+    }, delayMs);
     return () => window.clearTimeout(timer);
   }, [
     activeSettlementRoundKey,
-    gameState?.status,
-    isGameView,
+    gameState,
+    serverOffsetMs,
     setIsGameView,
-    setStatusText,
   ]);
 
   const removeSettlementCacheForRoom = useCallback(
@@ -784,6 +791,36 @@ const RoomLobbyPage: React.FC = () => {
     });
   }, [currentRoom?.id, handleLeaveRoom, navigate, removeSettlementCacheForRoom, roomId]);
 
+  const settlementStartBroadcastRemainingSec =
+    gameState?.status === "playing"
+      ? Math.max(0, Math.ceil((gameState.startedAt - uiNowMs) / 1000))
+      : 0;
+  const shouldShowSettlementStartBroadcast =
+    Boolean(activeSettlementSnapshot) &&
+    settlementStartBroadcastRemainingSec > 3 &&
+    typeof document !== "undefined";
+  const settlementStartBroadcastOverlay = shouldShowSettlementStartBroadcast
+    ? createPortal(
+        <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
+              全員同步中
+            </div>
+            <p className="mt-3 text-sm text-slate-200">
+              房主已按下開始，{settlementStartBroadcastRemainingSec} 秒後切入開局倒數
+            </p>
+            <div className="mt-4 flex items-center justify-center">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
+                {settlementStartBroadcastRemainingSec}
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-300">倒數結束後會自動切入遊戲</p>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
   useEffect(() => {
     if (currentRoom) return;
     if (!routeRoomResolved) return;
@@ -794,8 +831,9 @@ const RoomLobbyPage: React.FC = () => {
 
   if (roomId && username && !currentRoom && !routeRoomResolved) {
     return (
-      <div className="mx-auto mt-6 w-full max-w-[1080px] min-w-0">
-        <div className="relative overflow-hidden rounded-[26px] border border-[var(--mc-border)] bg-[radial-gradient(circle_at_16%_18%,rgba(245,158,11,0.14),transparent_42%),radial-gradient(circle_at_84%_14%,rgba(234,179,8,0.08),transparent_46%),linear-gradient(180deg,rgba(12,10,8,0.96),rgba(7,6,4,0.98))] p-6 text-[var(--mc-text)] shadow-[0_30px_90px_-62px_rgba(245,158,11,0.65)] sm:p-8">
+      <>
+        <div className="mx-auto mt-6 w-full max-w-[1080px] min-w-0">
+          <div className="relative overflow-hidden rounded-[26px] border border-[var(--mc-border)] bg-[radial-gradient(circle_at_16%_18%,rgba(245,158,11,0.14),transparent_42%),radial-gradient(circle_at_84%_14%,rgba(234,179,8,0.08),transparent_46%),linear-gradient(180deg,rgba(12,10,8,0.96),rgba(7,6,4,0.98))] p-6 text-[var(--mc-text)] shadow-[0_30px_90px_-62px_rgba(245,158,11,0.65)] sm:p-8">
           <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(245,158,11,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.03)_1px,transparent_1px)] [background-size:18px_18px]" />
           <div className="relative grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="min-w-0 rounded-2xl border border-amber-200/12 bg-[color-mix(in_srgb,var(--mc-surface-strong)_80%,black_20%)] p-5">
@@ -915,15 +953,16 @@ const RoomLobbyPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+          </div>
+        </div>      </>
     );
   }
 
   if (roomId && routeRoomResolved && !currentRoom) {
     return (
-      <div className="mx-auto mt-6 w-full max-w-[1080px] min-w-0">
-        <div className="relative overflow-hidden rounded-[26px] border border-[var(--mc-border)] bg-[radial-gradient(circle_at_14%_16%,rgba(245,158,11,0.14),transparent_42%),radial-gradient(circle_at_88%_10%,rgba(234,179,8,0.08),transparent_46%),linear-gradient(180deg,rgba(20,17,13,0.96),rgba(9,8,6,0.98))] p-6 text-[var(--mc-text)] shadow-[0_35px_80px_-60px_rgba(245,158,11,0.55)] sm:p-8">
+      <>
+        <div className="mx-auto mt-6 w-full max-w-[1080px] min-w-0">
+          <div className="relative overflow-hidden rounded-[26px] border border-[var(--mc-border)] bg-[radial-gradient(circle_at_14%_16%,rgba(245,158,11,0.14),transparent_42%),radial-gradient(circle_at_88%_10%,rgba(234,179,8,0.08),transparent_46%),linear-gradient(180deg,rgba(20,17,13,0.96),rgba(9,8,6,0.98))] p-6 text-[var(--mc-text)] shadow-[0_35px_80px_-60px_rgba(245,158,11,0.55)] sm:p-8">
           <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(245,158,11,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.03)_1px,transparent_1px)] [background-size:20px_20px]" />
           <div className="relative grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="min-w-0">
@@ -997,57 +1036,65 @@ const RoomLobbyPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+          </div>
+        </div>      </>
     );
   }
 
-  if (currentRoom && gameState && isGameView) {
+  if (currentRoom && gameState && isGameView && !activeSettlementSnapshot) {
     return (
-      <div className="flex w-full min-w-0 justify-center">
-        <GameRoomPage
-          room={currentRoom}
-          gameState={gameState}
-          playlist={gamePlaylist}
-          onBackToLobby={() => setIsGameView(false)}
-          onExitGame={() =>
-            leaveRoomAndNavigate()
-          }
-          onSubmitChoice={handleSubmitChoice}
-          participants={participants}
-          meClientId={clientId}
-          messages={messages}
-          messageInput={messageInput}
-          onMessageChange={setMessageInput}
-          onSendMessage={handleSendMessage}
-          username={username}
-          serverOffsetMs={serverOffsetMs}
-          onSettlementRecapChange={handleSettlementRecapChange}
-        />
-      </div>
+      <>
+        <div className="flex w-full min-w-0 justify-center">
+          <GameRoomPage
+            room={currentRoom}
+            gameState={gameState}
+            playlist={gamePlaylist}
+            onBackToLobby={() => setIsGameView(false)}
+            onExitGame={() =>
+              leaveRoomAndNavigate()
+            }
+            onSubmitChoice={handleSubmitChoice}
+            participants={participants}
+            meClientId={clientId}
+            messages={messages}
+            messageInput={messageInput}
+            onMessageChange={setMessageInput}
+            onSendMessage={handleSendMessage}
+            username={username}
+            serverOffsetMs={serverOffsetMs}
+            onSettlementRecapChange={handleSettlementRecapChange}
+          />
+        </div>      </>
     );
   }
 
   if (activeSettlementSnapshot) {
     return (
-      <div className="flex w-full min-w-0 justify-center">
-        <GameSettlementPanel
-          room={activeSettlementSnapshot.room}
-          participants={activeSettlementSnapshot.participants}
-          messages={activeSettlementSnapshot.messages}
-          playlistItems={activeSettlementSnapshot.playlistItems ?? []}
-          trackOrder={activeSettlementSnapshot.trackOrder}
-          playedQuestionCount={activeSettlementSnapshot.playedQuestionCount}
-          startedAt={activeSettlementSnapshot.startedAt}
-          endedAt={activeSettlementSnapshot.endedAt}
-          meClientId={clientId}
-          questionRecaps={activeSettlementQuestionRecaps}
-          onBackToLobby={() => setActiveSettlementRoundKey(null)}
-          onRequestExit={() =>
-            leaveRoomAndNavigate()
-          }
-        />
-      </div>
+      <>
+        <div className="flex w-full min-w-0 justify-center">
+          <LiveSettlementShowcase
+            room={activeSettlementSnapshot.room}
+            participants={activeSettlementSnapshot.participants}
+            messages={activeSettlementSnapshot.messages}
+            playlistItems={activeSettlementSnapshot.playlistItems ?? []}
+            trackOrder={activeSettlementSnapshot.trackOrder}
+            playedQuestionCount={activeSettlementSnapshot.playedQuestionCount}
+            startedAt={activeSettlementSnapshot.startedAt}
+            endedAt={activeSettlementSnapshot.endedAt}
+            meClientId={clientId}
+            questionRecaps={activeSettlementQuestionRecaps}
+            upcomingGameStartAt={
+              gameState?.status === "playing" ? gameState.startedAt : null
+            }
+            nowMs={uiNowMs}
+            onBackToLobby={() => setActiveSettlementRoundKey(null)}
+            onRequestExit={() =>
+              leaveRoomAndNavigate()
+            }
+          />
+        </div>
+        {settlementStartBroadcastOverlay}
+      </>
     );
   }
 
@@ -1056,121 +1103,124 @@ const RoomLobbyPage: React.FC = () => {
     loadingSettlementRoundKey === resolvedActiveSettlementRoundKey
   ) {
     return (
-      <div className="flex w-full min-w-0 justify-center">
-        <div className="w-full max-w-[1200px] rounded-[24px] border border-slate-700/80 bg-slate-950/90 px-6 py-10 text-center text-slate-200">
-          正在讀取對戰回顧...
-        </div>
-      </div>
+      <>
+        <div className="flex w-full min-w-0 justify-center">
+          <div className="w-full max-w-[1200px] rounded-[24px] border border-slate-700/80 bg-slate-950/90 px-6 py-10 text-center text-slate-200">
+            正在讀取對戰回顧...
+          </div>
+        </div>      </>
     );
   }
 
   return (
-    <div className="flex gap-4 flex-row justify-center">
-      {currentRoom?.id && username && (
-        <RoomLobbyPanel
-          currentRoom={currentRoom}
-          participants={participants}
-          messages={lobbyMessages}
-          username={username}
-          roomPassword={hostRoomPassword}
-          messageInput={messageInput}
-          playlistItems={playlistViewItems}
-          playlistHasMore={playlistHasMore}
-          playlistLoadingMore={playlistLoadingMore}
-          playlistProgress={playlistProgress}
-          playlistSuggestions={playlistSuggestions}
-          playlistUrl={playlistUrl}
-          playlistItemsForChange={playlistItems}
-          playlistError={playlistError}
-          playlistLoading={playlistLoading}
-          collections={collections}
-          collectionsLoading={collectionsLoading}
-          collectionsError={collectionsError}
-          collectionItemsLoading={collectionItemsLoading}
-          collectionItemsError={collectionItemsError}
-          isGoogleAuthed={Boolean(authUser)}
-          selectedCollectionId={selectedCollectionId}
-          youtubePlaylists={youtubePlaylists}
-          youtubePlaylistsLoading={youtubePlaylistsLoading}
-          youtubePlaylistsError={youtubePlaylistsError}
-          isHost={currentRoom.hostClientId === clientId}
-          gameState={gameState}
-          canStartGame={playlistProgress.ready}
-          onLeave={() =>
-            leaveRoomAndNavigate()
-          }
-          onInputChange={setMessageInput}
-          onSend={handleSendMessage}
-          onLoadMorePlaylist={loadMorePlaylist}
-          onStartGame={handleStartGame}
-          onUpdateRoomSettings={handleUpdateRoomSettings}
-          hasLastSettlement={Boolean(
-            latestSettlementSnapshot ||
-              mergedSettlementSummaries.length > 0
-          )}
-          onOpenLastSettlement={() => {
-            if (latestSettlementSnapshot) {
-              setActiveSettlementRoundKey(latestSettlementSnapshot.roundKey);
-              return;
+    <>
+      <div className="flex gap-4 flex-row justify-center">
+        {currentRoom?.id && username && (
+          <RoomLobbyPanel
+            currentRoom={currentRoom}
+            participants={participants}
+            messages={lobbyMessages}
+            username={username}
+            roomPassword={hostRoomPassword}
+            messageInput={messageInput}
+            playlistItems={playlistViewItems}
+            playlistHasMore={playlistHasMore}
+            playlistLoadingMore={playlistLoadingMore}
+            playlistProgress={playlistProgress}
+            playlistSuggestions={playlistSuggestions}
+            playlistUrl={playlistUrl}
+            playlistItemsForChange={playlistItems}
+            playlistError={playlistError}
+            playlistLoading={playlistLoading}
+            collections={collections}
+            collectionsLoading={collectionsLoading}
+            collectionsError={collectionsError}
+            collectionItemsLoading={collectionItemsLoading}
+            collectionItemsError={collectionItemsError}
+            isGoogleAuthed={Boolean(authUser)}
+            selectedCollectionId={selectedCollectionId}
+            youtubePlaylists={youtubePlaylists}
+            youtubePlaylistsLoading={youtubePlaylistsLoading}
+            youtubePlaylistsError={youtubePlaylistsError}
+            isHost={currentRoom.hostClientId === clientId}
+            gameState={gameState}
+            canStartGame={playlistProgress.ready}
+            onLeave={() =>
+              leaveRoomAndNavigate()
             }
-            void (async () => {
-              const summaries =
+            onInputChange={setMessageInput}
+            onSend={handleSendMessage}
+            onLoadMorePlaylist={loadMorePlaylist}
+            onStartGame={handleStartGame}
+            onUpdateRoomSettings={handleUpdateRoomSettings}
+            hasLastSettlement={Boolean(
+              latestSettlementSnapshot ||
                 mergedSettlementSummaries.length > 0
-                  ? mergedSettlementSummaries
-                  : await ensureSettlementSummaryListLoaded();
-              const latest = [...summaries].sort(
-                (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
-              )[0];
-              if (!latest) {
-                setStatusText("目前沒有可查看的對戰回顧");
+            )}
+            onOpenLastSettlement={() => {
+              if (latestSettlementSnapshot) {
+                setActiveSettlementRoundKey(latestSettlementSnapshot.roundKey);
                 return;
               }
-              await openSettlementReviewByRoundKey(latest.roundKey);
-            })().catch((error) => {
-              setStatusText(
-                error instanceof Error ? error.message : "讀取對戰回顧失敗，請稍後再試",
-              );
-            });
-          }}
-          onOpenSettlementByRoundKey={(roundKey) => {
-            void openSettlementReviewByRoundKey(roundKey);
-          }}
-          onOpenGame={() => {
-            setActiveSettlementRoundKey(null);
-            setIsGameView(true);
-          }}
-          onKickPlayer={handleKickPlayer}
-          onTransferHost={handleTransferHost}
-          onSuggestPlaylist={handleSuggestPlaylist}
-          onApplySuggestionSnapshot={handleApplySuggestionSnapshot}
-          onChangePlaylist={handleChangePlaylist}
-          onPlaylistUrlChange={setPlaylistUrl}
-          onFetchPlaylistByUrl={handleFetchPlaylistByUrl}
-          onFetchCollections={fetchCollections}
-          onSelectCollection={selectCollection}
-          onLoadCollectionItems={loadCollectionItems}
-          onFetchYoutubePlaylists={fetchYoutubePlaylists}
-          onImportYoutubePlaylist={importYoutubePlaylist}
-          onInvite={async () => {
-            const url = new URL(window.location.href);
-            url.pathname = `/invited/${currentRoom.id}`;
-            url.search = "";
-            const inviteText = url.toString();
-            if (navigator.clipboard?.writeText) {
-              try {
-                await navigator.clipboard.writeText(inviteText);
-                setStatusText("邀請連結已複製");
-              } catch {
-                setStatusText("無法複製邀請連結");
+              void (async () => {
+                const summaries =
+                  mergedSettlementSummaries.length > 0
+                    ? mergedSettlementSummaries
+                    : await ensureSettlementSummaryListLoaded();
+                const latest = [...summaries].sort(
+                  (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
+                )[0];
+                if (!latest) {
+                  setStatusText("目前沒有可查看的對戰回顧");
+                  return;
+                }
+                await openSettlementReviewByRoundKey(latest.roundKey);
+              })().catch((error) => {
+                setStatusText(
+                  error instanceof Error ? error.message : "讀取對戰回顧失敗，請稍後再試",
+                );
+              });
+            }}
+            onOpenSettlementByRoundKey={(roundKey) => {
+              void openSettlementReviewByRoundKey(roundKey);
+            }}
+            onOpenGame={() => {
+              setActiveSettlementRoundKey(null);
+              setIsGameView(true);
+            }}
+            onKickPlayer={handleKickPlayer}
+            onTransferHost={handleTransferHost}
+            onSuggestPlaylist={handleSuggestPlaylist}
+            onApplySuggestionSnapshot={handleApplySuggestionSnapshot}
+            onChangePlaylist={handleChangePlaylist}
+            onPlaylistUrlChange={setPlaylistUrl}
+            onFetchPlaylistByUrl={handleFetchPlaylistByUrl}
+            onFetchCollections={fetchCollections}
+            onSelectCollection={selectCollection}
+            onLoadCollectionItems={loadCollectionItems}
+            onFetchYoutubePlaylists={fetchYoutubePlaylists}
+            onImportYoutubePlaylist={importYoutubePlaylist}
+            onInvite={async () => {
+              const url = new URL(window.location.href);
+              url.pathname = `/invited/${currentRoom.id}`;
+              url.search = "";
+              const inviteText = url.toString();
+              if (navigator.clipboard?.writeText) {
+                try {
+                  await navigator.clipboard.writeText(inviteText);
+                  setStatusText("邀請連結已複製");
+                } catch {
+                  setStatusText("無法複製邀請連結");
+                }
+              } else {
+                setStatusText(inviteText);
               }
-            } else {
-              setStatusText(inviteText);
-            }
-          }}
-        />
-      )}
-    </div>
+            }}
+          />
+        )}
+      </div>    </>
   );
 };
 
 export default RoomLobbyPage;
+

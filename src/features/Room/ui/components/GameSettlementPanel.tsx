@@ -44,6 +44,10 @@ export type SettlementQuestionRecap = {
   uploader: string;
   duration: string | null;
   thumbnail: string | null;
+  sourceId?: string | null;
+  provider?: string;
+  videoId?: string;
+  url?: string;
   myResult: SettlementQuestionResult;
   myChoiceIndex: number | null;
   correctChoiceIndex: number;
@@ -53,6 +57,8 @@ export type SettlementQuestionRecap = {
   correctCount?: number;
   wrongCount?: number;
   unansweredCount?: number;
+  changedAnswerCount?: number;
+  changedAnswerUserCount?: number;
   fastestCorrectRank?: number | null;
   fastestCorrectMs?: number | null;
   medianCorrectMs?: number | null;
