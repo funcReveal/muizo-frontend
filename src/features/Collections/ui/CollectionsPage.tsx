@@ -429,8 +429,8 @@ const CollectionsPage = () => {
                                   <LockOutlined fontSize="inherit" />
                                 )}
                                 {collection.visibility === "public"
-                                  ? "?祇?"
-                                  : "蝘犖"}
+                                  ? "公開"
+                                  : "私人"}
                               </span>
                             </Tooltip>
                             <Switch
@@ -502,7 +502,7 @@ const CollectionsPage = () => {
             open={confirmPublicOpen}
             title="設為公開"
             description={TEXT.publicConfirm}
-            confirmLabel="閮剔?祇?"
+            confirmLabel="設為公開"
             onConfirm={() => {
               if (pendingVisibility) {
                 applyVisibilityChange(

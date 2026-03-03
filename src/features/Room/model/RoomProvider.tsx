@@ -106,7 +106,7 @@ const mapCollectionItemsToPlaylist = (
       typeof item.duration_sec === "number" && item.duration_sec > 0
         ? formatSeconds(item.duration_sec)
         : formatSeconds(safeEnd - startSec);
-    const rawTitle = item.title ?? item.answer_text ?? `嚙緬嚙踝蕭 ${index + 1}`;
+    const rawTitle = item.title ?? item.answer_text ?? `歌曲 ${index + 1}`;
     const answerText = item.answer_text ?? rawTitle;
     const resolvedLink = resolveSettlementTrackLink({
       provider,
@@ -162,9 +162,20 @@ const extractVideoIdFromUrl = (url: string) => {
   }
 };
 
+const GARBLED_TEXT_RE = /[嚙甇蝘撠]/;
+
+const sanitizePossibleGarbledText = (
+  value: string,
+  fallback = "系統訊息",
+) => (GARBLED_TEXT_RE.test(value) ? fallback : value);
+
 const formatAckError = (prefix: string, error?: string) => {
-  const detail = error?.trim();
-  return `${prefix}嚙瘦${detail || "嚙踝蕭嚙踝蕭嚙踝蕭嚙羯"}`;
+  const safePrefix = sanitizePossibleGarbledText(prefix, "操作失敗");
+  const detail = sanitizePossibleGarbledText(
+    error?.trim() || "未知錯誤",
+    "未知錯誤",
+  );
+  return `${safePrefix}：${detail}`;
 };
 
 const normalizeQuestionCount = (value: number | undefined, fallback: number) => {
@@ -325,7 +336,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const [isConnected, setIsConnected] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomNameInput, setRoomNameInput] = useState(() =>
-    username ? `${username}'s room` : "嚙誹迎蕭嚙請塚蕭",
+    username ? `${username}'s room` : "新房間",
   );
   const [roomVisibilityInput, setRoomVisibilityInput] = useState<
     "public" | "private"
@@ -355,7 +366,15 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     RoomSettlementSnapshot[]
   >([]);
   const [messageInput, setMessageInput] = useState("");
-  const [statusText, setStatusText] = useState<string | null>(null);
+  const [statusText, setStatusTextState] = useState<string | null>(null);
+  const setStatusText = useCallback((value: string | null) => {
+    if (typeof value !== "string") {
+      setStatusTextState(value);
+      return;
+    }
+    setStatusTextState(sanitizePossibleGarbledText(value, "系統訊息"));
+  }, []);
+
   const [sessionProgress, setSessionProgress] = useState<SessionProgressPayload | null>(
     null,
   );
@@ -418,7 +437,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       presenceParticipantNamesRef.current = new Map(
         nextParticipants.map((participant) => [
           participant.clientId,
-          participant.username?.trim() || "嚙踝蕭嚙窮",
+          participant.username?.trim() || "玩家",
         ]),
       );
       presenceSeededRoomIdRef.current = roomId;
@@ -432,7 +451,9 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       if (!safeName) return;
       const timestamp = Date.now() + serverOffsetRef.current;
       const content =
-        action === "joined" ? `${safeName} 嚙緩嚙稼嚙皚嚙瘠嚙踝蕭` : `${safeName} 嚙緩嚙踝蕭嚙罷嚙瘠嚙踝蕭`;
+        action === "joined"
+          ? `${safeName} 已加入房間`
+          : `${safeName} 已離開房間`;
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (
@@ -463,7 +484,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     [],
   );
 
-  const displayUsername = useMemo(() => username ?? "(嚙踝蕭嚙稽嚙緩)", [username]);
+  const displayUsername = useMemo(() => username ?? "(訪客)", [username]);
 
   const persistUsername = useCallback((name: string) => {
     setUsername(name);
@@ -2644,7 +2665,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     );
 
   const resetCreateState = useCallback(() => {
-    setRoomNameInput(username ? `${username}'s room` : "嚙誹迎蕭嚙請塚蕭");
+    setRoomNameInput(username ? `${username}'s room` : "新房間");
     setRoomVisibilityInput("public");
     setRoomCreateSourceMode("link");
     setRoomPasswordInput("");

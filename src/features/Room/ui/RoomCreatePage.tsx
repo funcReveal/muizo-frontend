@@ -48,6 +48,7 @@ const RoomCreatePage: React.FC = () => {
     publicCollectionsSort,
     setPublicCollectionsSort,
     collectionFavoriteUpdatingId,
+    collectionsLastFetchedAt,
     selectedCollectionId,
     collectionItemsLoading,
     collectionItemsError,
@@ -190,6 +191,7 @@ const RoomCreatePage: React.FC = () => {
                   publicCollectionsSort={publicCollectionsSort}
                   onPublicCollectionsSortChange={setPublicCollectionsSort}
                   collectionFavoriteUpdatingId={collectionFavoriteUpdatingId}
+                  collectionsLastFetchedAt={collectionsLastFetchedAt}
                   selectedCollectionId={selectedCollectionId}
                   collectionItemsLoading={collectionItemsLoading}
                   collectionItemsError={collectionItemsError}

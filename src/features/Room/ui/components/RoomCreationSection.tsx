@@ -87,6 +87,7 @@ interface RoomCreationSectionProps {
   publicCollectionsSort?: "popular" | "favorites_first";
   onPublicCollectionsSortChange?: (next: "popular" | "favorites_first") => void;
   collectionFavoriteUpdatingId?: string | null;
+  collectionsLastFetchedAt?: number | null;
   selectedCollectionId?: string | null;
   collectionItemsLoading?: boolean;
   collectionItemsError?: string | null;
@@ -258,6 +259,7 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
     publicCollectionsSort = "popular",
     onPublicCollectionsSortChange,
     collectionFavoriteUpdatingId = null,
+    collectionsLastFetchedAt = null,
     selectedCollectionId = null,
     collectionItemsLoading = false,
     collectionItemsError = null,
@@ -292,6 +294,7 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
     owner: false,
   });
   const lastAutoLoadedCollectionRef = React.useRef<string | null>(null);
+  const lastAutoFetchCollectionsKeyRef = React.useRef<string | null>(null);
   const confirmActionRef = React.useRef<null | (() => void)>(null);
   const [confirmModal, setConfirmModal] = React.useState<{
     title: string;
@@ -518,26 +521,39 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
 
   React.useEffect(() => {
     if (!onFetchCollections || collectionsLoading) return;
-    if (sourceMode === "publicCollection") {
-      if (emptyCollectionScope.public) return;
-      if (collectionScope === "public" && collections.length > 0) return;
-      void onFetchCollections("public");
+    const desiredScope =
+      sourceMode === "publicCollection"
+        ? "public"
+        : sourceMode === "privateCollection"
+          ? "owner"
+          : null;
+    if (!desiredScope) return;
+    if (desiredScope === "owner" && !isGoogleAuthed) return;
+
+    const fetchKey =
+      desiredScope === "public"
+        ? `public:${publicCollectionsSort}`
+        : "owner";
+    const isScopeLoaded =
+      collectionScope === desiredScope && collectionsLastFetchedAt !== null;
+
+    if (isScopeLoaded) {
+      lastAutoFetchCollectionsKeyRef.current = fetchKey;
       return;
     }
-    if (sourceMode === "privateCollection") {
-      if (!isGoogleAuthed) return;
-      if (emptyCollectionScope.owner) return;
-      if (collectionScope === "owner" && collections.length > 0) return;
-      void onFetchCollections("owner");
+    if (lastAutoFetchCollectionsKeyRef.current === fetchKey) {
+      return;
     }
+
+    lastAutoFetchCollectionsKeyRef.current = fetchKey;
+    void onFetchCollections(desiredScope);
   }, [
     collectionScope,
-    collections.length,
     collectionsLoading,
-    emptyCollectionScope.owner,
-    emptyCollectionScope.public,
+    collectionsLastFetchedAt,
     isGoogleAuthed,
     onFetchCollections,
+    publicCollectionsSort,
     sourceMode,
   ]);
 

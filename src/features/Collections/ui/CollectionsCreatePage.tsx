@@ -91,7 +91,7 @@ const PreviewVirtualRow = ({
         {item.thumbnail ? (
           <img
             src={item.thumbnail}
-            alt={item.title || item.answerText || "甇蝮桀?"}
+            alt={item.title || item.answerText || "歌曲封面"}
             loading="lazy"
             className="h-9 w-16 shrink-0 rounded-md border border-[var(--mc-border)] object-cover"
           />
@@ -105,7 +105,7 @@ const PreviewVirtualRow = ({
             {item.title || item.answerText || "未命名歌曲"}
           </div>
           <div className="mt-0.5 truncate text-[11px] text-[var(--mc-text-muted)]">
-            {item.uploader || "?芰?駁?"}
+            {item.uploader || "未知上傳者"}
             {item.duration ? ` 繚 ${item.duration}` : ""}
           </div>
         </div>
@@ -164,7 +164,7 @@ const CollectionsCreatePage = () => {
     if (!hasPlaylistItems) return null;
     const first = playlistItems[0];
     return {
-      title: collectionTitle || lastFetchedPlaylistTitle || "?芸??澈",
+      title: collectionTitle || lastFetchedPlaylistTitle || "未命名收藏",
       subtitle: first?.title ?? "",
       count: playlistItems.length,
     };
@@ -207,7 +207,7 @@ const CollectionsCreatePage = () => {
 
   const handleImportSelectedYoutubePlaylist = async (playlistId: string) => {
     if (!playlistId) {
-      setYoutubeActionError("隢??豢?閬?亦??剜皜");
+      setYoutubeActionError("請先選擇 YouTube 播放清單");
       return;
     }
     setYoutubeActionError(null);
@@ -215,7 +215,7 @@ const CollectionsCreatePage = () => {
     try {
       await importYoutubePlaylist(playlistId);
     } catch {
-      setYoutubeActionError("?臬憭望?嚗?蝔??岫");
+      setYoutubeActionError("匯入失敗，請稍後再試");
     } finally {
       setIsImportingYoutubePlaylist(false);
     }
@@ -223,7 +223,7 @@ const CollectionsCreatePage = () => {
 
   const handleCreateCollection = async () => {
     if (!API_URL) {
-      setCreateError("撠閮剖??嗉?摨?API 雿蔭 (API_URL)");
+      setCreateError("尚未設定收藏 API 位址（VITE_API_URL）");
       return;
     }
     if (!authToken || !ownerId) {
@@ -235,7 +235,7 @@ const CollectionsCreatePage = () => {
       return;
     }
     if (!hasPlaylistItems) {
-      setCreateError("隢????剜皜");
+      setCreateError("請先匯入播放清單");
       return;
     }
 
@@ -335,7 +335,7 @@ const CollectionsCreatePage = () => {
       });
       navigate(`/collections/${created.id}/edit`, { replace: true });
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "撱箇?憭望?");
+      setCreateError(error instanceof Error ? error.message : "建立收藏失敗");
     } finally {
       setIsCreating(false);
     }
@@ -353,12 +353,12 @@ const CollectionsCreatePage = () => {
             Collection Studio
           </div>
           <div className="mt-1.5 text-2xl font-semibold text-[var(--mc-text)]">
-            撱箇??嗉?摨?
+            建立收藏庫
           </div>
 
           {!authToken && !authLoading && (
             <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
-              隢?雿輻 Google ?餃敺?撱箇??嗉?摨怒?
+              請先使用 Google 登入後再建立收藏
             </div>
           )}
 
@@ -367,7 +367,7 @@ const CollectionsCreatePage = () => {
               <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3">
                 <div className="flex items-center justify-between">
                   <div className="text-xs text-[var(--mc-text-muted)]">
-                    ?剜皜靘?
+                    匯入來源
                   </div>
                   <div className="inline-flex rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1 text-[11px]">
                     <button
@@ -379,7 +379,7 @@ const CollectionsCreatePage = () => {
                           : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
                       }`}
                     >
-                      鞎潔????
+                      連結
                     </button>
                     <button
                       type="button"
@@ -390,7 +390,7 @@ const CollectionsCreatePage = () => {
                           : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
                       }`}
                     >
-                      YouTube 皜
+                      YouTube 清單
                     </button>
                   </div>
                 </div>
@@ -405,13 +405,13 @@ const CollectionsCreatePage = () => {
                     hidden={playlistSource !== "url"}
                   >
                     <div className="text-[11px] text-[var(--mc-text-muted)]">
-                      ?湔鞎潔??剜皜???
+                      貼上 YouTube 播放清單連結
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <input
                         value={playlistUrl}
                         onChange={(e) => setPlaylistUrl(e.target.value)}
-                        placeholder="鞎潔? YouTube ?剜皜蝬脣?"
+                        placeholder="貼上 YouTube 播放清單網址"
                         className="min-w-[220px] flex-1 rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-2 text-sm text-[var(--mc-text)]"
                       />
                       <Button
@@ -419,7 +419,7 @@ const CollectionsCreatePage = () => {
                         onClick={() => handleFetchPlaylist()}
                         disabled={playlistLoading}
                       >
-                        {playlistLoading ? "??銝?.." : "???剜皜"}
+                        {playlistLoading ? "載入中..." : "匯入清單"}
                       </Button>
                     </div>
                     {playlistError && (
@@ -438,14 +438,14 @@ const CollectionsCreatePage = () => {
                     hidden={playlistSource !== "youtube"}
                   >
                     <div className="text-[11px] text-[var(--mc-text-muted)]">
-                      ?? Google ????雿? YouTube ?剜皜
+                      登入 Google 後可直接載入你的 YouTube 播放清單
                       {!authUser && (
                         <Button
                           variant="outlined"
                           size="small"
                           onClick={loginWithGoogle}
                         >
-                          ??? Google
+                          登入 Google
                         </Button>
                       )}
                       {youtubePlaylistsError && (
@@ -473,7 +473,7 @@ const CollectionsCreatePage = () => {
                       >
                         <option value="">
                           {youtubePlaylistsLoading
-                            ? "霈??暹??桐葉..."
+                            ? "載入播放清單中..."
                             : "請選擇 YouTube 播放清單"}
                         </option>
                         {youtubePlaylists.map((playlist) => (
@@ -485,7 +485,7 @@ const CollectionsCreatePage = () => {
 
                       {youtubePlaylistsLoading && (
                         <div className="rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 px-3 py-2 text-xs text-[var(--mc-text-muted)] animate-pulse">
-                          甇?頛雿??剜皜...
+                          正在載入你的播放清單...
                         </div>
                       )}
 
@@ -501,7 +501,7 @@ const CollectionsCreatePage = () => {
 
               <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3">
                 <div className="text-xs text-[var(--mc-text-muted)]">
-                  ?嗉?摨怠?蝔?
+                  收藏標題
                 </div>
                 <input
                   value={collectionTitle}
@@ -512,13 +512,13 @@ const CollectionsCreatePage = () => {
                   className="mt-2 w-full rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-2 text-sm text-[var(--mc-text)]"
                 />
                 <div className="mt-2 text-[11px] text-[var(--mc-text-muted)]">
-                  撱箄降雿輻?剜皜?迂嚗?敺株矽????澈璅???
+                  匯入清單後會自動帶入標題，你也可以手動修改
                 </div>
               </div>
 
               <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3">
                 <div className="text-xs text-[var(--mc-text-muted)]">
-                  ?航?摨?
+                  可見性
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
@@ -530,7 +530,7 @@ const CollectionsCreatePage = () => {
                         : "border-[var(--mc-border)] text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/60"
                     }`}
                   >
-                    蝘?
+                    私人
                   </button>
                   <button
                     type="button"
@@ -541,11 +541,11 @@ const CollectionsCreatePage = () => {
                         : "border-[var(--mc-border)] text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/60"
                     }`}
                   >
-                    ?祇?
+                    公開
                   </button>
                 </div>
                 <div className="mt-2 text-[11px] text-[var(--mc-text-muted)]">
-                  蝘??嗉?摨怠??芸楛?航?嚗???舐?潭???澈??
+                  私人收藏僅自己可見，公開收藏可讓其他玩家瀏覽與使用
                 </div>
               </div>
 
@@ -582,7 +582,7 @@ const CollectionsCreatePage = () => {
                 </div>
               ) : (
                 <div className="mt-3 rounded-xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-3 text-[11px] text-[var(--mc-text-muted)]">
-                  ???剜皜敺?憿舐內?汗??
+                  匯入播放清單後，這裡會顯示收藏內容預覽
                 </div>
               )}
             </div>
@@ -590,7 +590,7 @@ const CollectionsCreatePage = () => {
 
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outlined" onClick={() => navigate("/collections")}>
-              餈??嗉?摨?
+              返回收藏列表
             </Button>
             <Button
               variant="contained"
