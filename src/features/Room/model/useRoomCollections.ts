@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+﻿import { useCallback, useRef, useState } from "react";
 
 import type { PlaylistItem } from "./types";
 import {
@@ -20,7 +20,7 @@ import { ensureFreshAuthToken } from "../../../shared/auth/token";
 const EMPTY_COLLECTION_RETRY_LIMIT = 2;
 
 type UseRoomCollectionsOptions = {
-  workerUrl?: string;
+  apiUrl?: string;
   authToken: string | null;
   ownerId?: string | null;
   refreshAuthToken: () => Promise<string | null>;
@@ -66,7 +66,7 @@ export type UseRoomCollectionsResult = {
 };
 
 export const useRoomCollections = ({
-  workerUrl,
+  apiUrl,
   authToken,
   ownerId,
   refreshAuthToken,
@@ -87,25 +87,19 @@ export const useRoomCollections = ({
   >([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [collectionsError, setCollectionsError] = useState<string | null>(null);
-  const [selectedCollectionId, setSelectedCollectionId] = useState<
-    string | null
-  >(null);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [collectionItemsLoading, setCollectionItemsLoading] = useState(false);
-  const [collectionItemsError, setCollectionItemsError] = useState<
-    string | null
-  >(null);
-  const [collectionScope, setCollectionScope] = useState<
-    "owner" | "public" | null
-  >(null);
-  const [publicCollectionsSort, setPublicCollectionsSort] = useState<
-    "popular" | "favorites_first"
-  >("popular");
-  const [collectionFavoriteUpdatingId, setCollectionFavoriteUpdatingId] = useState<
-    string | null
-  >(null);
-  const [collectionsLastFetchedAt, setCollectionsLastFetchedAt] = useState<
-    number | null
-  >(null);
+  const [collectionItemsError, setCollectionItemsError] = useState<string | null>(null);
+  const [collectionScope, setCollectionScope] = useState<"owner" | "public" | null>(
+    null,
+  );
+  const [publicCollectionsSort, setPublicCollectionsSort] =
+    useState<"popular" | "favorites_first">("popular");
+  const [collectionFavoriteUpdatingId, setCollectionFavoriteUpdatingId] =
+    useState<string | null>(null);
+  const [collectionsLastFetchedAt, setCollectionsLastFetchedAt] = useState<number | null>(
+    null,
+  );
   const collectionCacheRef = useRef<Record<string, PlaylistItem[]>>({});
   const inFlightCollectionIdRef = useRef<string | null>(null);
   const latestLoadRequestIdRef = useRef(0);
@@ -119,20 +113,19 @@ export const useRoomCollections = ({
 
   const fetchCollections = useCallback(
     async (scope?: "owner" | "public") => {
-      if (!workerUrl) {
-        setCollectionsError("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+      if (!apiUrl) {
+        setCollectionsError("尚未設定收藏庫 API 位置 (API_URL)");
         return;
       }
-      const resolvedScope =
-        scope ?? (authToken && ownerId ? "owner" : "public");
+      const resolvedScope = scope ?? (authToken && ownerId ? "owner" : "public");
       setCollectionScope(resolvedScope);
       if (resolvedScope === "owner") {
         if (!authToken) {
-          setCollectionsError("請先登入後再使用個人收藏庫");
+          setCollectionsError("請先登入後再載入收藏庫");
           return;
         }
         if (!ownerId) {
-          setCollectionsError("尚未取得使用者資訊");
+          setCollectionsError("找不到使用者識別，無法載入收藏庫");
           return;
         }
       }
@@ -161,8 +154,7 @@ export const useRoomCollections = ({
           );
           setCollectionsLastFetchedAt(Date.now());
           setSelectedCollectionId((currentSelection) =>
-            currentSelection &&
-            items.some((item) => item.id === currentSelection)
+            currentSelection && items.some((item) => item.id === currentSelection)
               ? currentSelection
               : null,
           );
@@ -172,7 +164,7 @@ export const useRoomCollections = ({
         };
 
         if (resolvedScope === "public") {
-          const { ok, payload } = await apiFetchCollections(workerUrl, {
+          const { ok, payload } = await apiFetchCollections(apiUrl, {
             visibility: "public",
             sort: publicCollectionsSort,
             pageSize: DEFAULT_PAGE_SIZE,
@@ -181,26 +173,23 @@ export const useRoomCollections = ({
             throw new Error(payload?.error ?? "載入公開收藏庫失敗");
           }
           const items = payload?.data?.items ?? [];
-          applyCollectionsResult(items, "尚未建立公開收藏庫");
+          applyCollectionsResult(items, "目前沒有公開收藏庫");
           return;
         }
 
-        const token = await ensureFreshAuthToken({
-          token: authToken,
-          refreshAuthToken,
-        });
+        const token = await ensureFreshAuthToken({ token: authToken, refreshAuthToken });
         if (!token) {
           throw new Error("登入已過期，請重新登入");
         }
         const run = async (token: string, allowRetry: boolean) => {
-          const { ok, status, payload } = await apiFetchCollections(workerUrl, {
+          const { ok, status, payload } = await apiFetchCollections(apiUrl, {
             token,
             ownerId: ownerId ?? undefined,
             pageSize: DEFAULT_PAGE_SIZE,
           });
           if (ok) {
             const items = payload?.data?.items ?? [];
-            applyCollectionsResult(items, "尚未建立收藏庫");
+            applyCollectionsResult(items, "你目前沒有收藏庫");
             return;
           }
           if (status === 401 && allowRetry) {
@@ -215,30 +204,28 @@ export const useRoomCollections = ({
 
         await run(token, true);
       } catch (error) {
-        setCollectionsError(
-          error instanceof Error ? error.message : "載入收藏庫失敗",
-        );
+        setCollectionsError(error instanceof Error ? error.message : "載入收藏庫失敗");
       } finally {
         setCollectionsLoading(false);
       }
     },
-    [authToken, ownerId, publicCollectionsSort, refreshAuthToken, workerUrl],
+    [authToken, ownerId, publicCollectionsSort, refreshAuthToken, apiUrl],
   );
 
   const toggleCollectionFavorite = useCallback(
     async (collectionId: string) => {
-      if (!workerUrl) {
-        setStatusText("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+      if (!apiUrl) {
+        setStatusText("尚未設定收藏庫 API 位置 (API_URL)");
         return false;
       }
       if (!authToken) {
-        setStatusText("登入後可收藏公開收藏庫");
+        setStatusText("請先登入後再操作收藏");
         return false;
       }
       const target = collections.find((item) => item.id === collectionId);
       if (!target) return false;
       if (target.visibility && target.visibility !== "public") {
-        setStatusText("目前僅支援收藏公開收藏庫");
+        setStatusText("私密收藏庫無法加入收藏");
         return false;
       }
       if (collectionFavoriteUpdatingId === collectionId) {
@@ -248,10 +235,7 @@ export const useRoomCollections = ({
       const wasFavorited = Boolean(target.is_favorited);
       const previousCount = Math.max(0, Number(target.favorite_count ?? 0));
       const optimisticFavorited = !wasFavorited;
-      const optimisticCount = Math.max(
-        0,
-        previousCount + (optimisticFavorited ? 1 : -1),
-      );
+      const optimisticCount = Math.max(0, previousCount + (optimisticFavorited ? 1 : -1));
 
       setCollectionFavoriteUpdatingId(collectionId);
       setCollections((prev) =>
@@ -267,18 +251,15 @@ export const useRoomCollections = ({
       );
 
       try {
-        const freshToken = await ensureFreshAuthToken({
-          token: authToken,
-          refreshAuthToken,
-        });
+        const freshToken = await ensureFreshAuthToken({ token: authToken, refreshAuthToken });
         if (!freshToken) {
           throw new Error("登入已過期，請重新登入");
         }
 
         const run = async (token: string, allowRetry: boolean): Promise<void> => {
           const result = wasFavorited
-            ? await apiUnfavoriteCollection(workerUrl, token, collectionId)
-            : await apiFavoriteCollection(workerUrl, token, collectionId);
+            ? await apiUnfavoriteCollection(apiUrl, token, collectionId)
+            : await apiFavoriteCollection(apiUrl, token, collectionId);
           if (result.ok && result.payload?.data) {
             setCollections((prev) =>
               prev.map((item) =>
@@ -303,11 +284,11 @@ export const useRoomCollections = ({
               return;
             }
           }
-          throw new Error(result.payload?.error ?? "收藏更新失敗");
+          throw new Error(result.payload?.error ?? "更新收藏狀態失敗");
         };
 
         await run(freshToken, true);
-        setStatusText(optimisticFavorited ? "已收藏收藏庫" : "已取消收藏");
+        setStatusText(optimisticFavorited ? "已加入收藏" : "已取消收藏");
         return true;
       } catch (error) {
         setCollections((prev) =>
@@ -321,12 +302,10 @@ export const useRoomCollections = ({
               : item,
           ),
         );
-        setStatusText(error instanceof Error ? error.message : "收藏更新失敗");
+        setStatusText(error instanceof Error ? error.message : "更新收藏狀態失敗");
         return false;
       } finally {
-        setCollectionFavoriteUpdatingId((prev) =>
-          prev === collectionId ? null : prev,
-        );
+        setCollectionFavoriteUpdatingId((prev) => (prev === collectionId ? null : prev));
       }
     },
     [
@@ -335,7 +314,7 @@ export const useRoomCollections = ({
       collections,
       refreshAuthToken,
       setStatusText,
-      workerUrl,
+      apiUrl,
     ],
   );
 
@@ -344,8 +323,8 @@ export const useRoomCollections = ({
       collectionId: string,
       options?: { readToken?: string | null; force?: boolean },
     ) => {
-      if (!workerUrl) {
-        setCollectionItemsError("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+      if (!apiUrl) {
+        setCollectionItemsError("尚未設定收藏庫 API 位置 (API_URL)");
         return;
       }
       if (!collectionId) {
@@ -353,7 +332,7 @@ export const useRoomCollections = ({
         return;
       }
       if (!options?.force && pausedEmptyCollectionRef.current[collectionId]) {
-        const message = "此收藏庫目前沒有歌曲，請先建立內容後再試";
+        const message = "這個收藏庫目前沒有歌曲，請先補內容再試。";
         setCollectionItemsError(message);
         setStatusText(message);
         return;
@@ -361,8 +340,7 @@ export const useRoomCollections = ({
       if (inFlightCollectionIdRef.current === collectionId) {
         return;
       }
-      const collectionTitle =
-        collections.find((item) => item.id === collectionId)?.title ?? null;
+      const collectionTitle = collections.find((item) => item.id === collectionId)?.title ?? null;
       if (!options?.force) {
         const cachedItems = collectionCacheRef.current[collectionId];
         if (cachedItems && cachedItems.length > 0) {
@@ -370,7 +348,7 @@ export const useRoomCollections = ({
           setCollectionItemsError(null);
           setSelectedCollectionId(collectionId);
           onPlaylistLoaded(cachedItems, collectionId, collectionTitle);
-          setStatusText(`已套用收藏庫，共 ${cachedItems.length} 首`);
+          setStatusText(`已載入收藏庫，共 ${cachedItems.length} 首`);
           return;
         }
       }
@@ -390,10 +368,7 @@ export const useRoomCollections = ({
                 : null;
             const hasExplicitEndSec = explicitEndSec !== null;
             const hasExplicitStartSec = startSec > 0;
-            const safeEnd = Math.max(
-              startSec + 1,
-              explicitEndSec ?? startSec + DEFAULT_CLIP_SEC,
-            );
+            const safeEnd = Math.max(startSec + 1, explicitEndSec ?? startSec + DEFAULT_CLIP_SEC);
             const provider = (item.provider || "manual").trim().toLowerCase();
             const sourceId = (item.source_id || "").trim();
             const videoId = provider === "youtube" ? sourceId : "";
@@ -401,8 +376,7 @@ export const useRoomCollections = ({
               typeof item.duration_sec === "number" && item.duration_sec > 0
                 ? formatSeconds(item.duration_sec)
                 : formatSeconds(safeEnd - startSec);
-            const rawTitle =
-              item.title ?? item.answer_text ?? `歌曲 ${index + 1}`;
+            const rawTitle = item.title ?? item.answer_text ?? `歌曲 ${index + 1}`;
             const answerText = item.answer_text ?? rawTitle;
             const resolvedUrl = videoId
               ? videoUrlFromId(videoId)
@@ -435,15 +409,14 @@ export const useRoomCollections = ({
             return;
           }
           if (items.length === 0) {
-            const retries =
-              (emptyCollectionRetryCountRef.current[collectionId] ?? 0) + 1;
+            const retries = (emptyCollectionRetryCountRef.current[collectionId] ?? 0) + 1;
             emptyCollectionRetryCountRef.current[collectionId] = retries;
             if (retries >= EMPTY_COLLECTION_RETRY_LIMIT) {
               pausedEmptyCollectionRef.current[collectionId] = true;
-              throw new Error("此收藏庫目前沒有歌曲，請先建立內容後再試");
+              throw new Error("收藏庫目前沒有歌曲，請先補內容再試。");
             }
             throw new Error(
-              `此收藏庫目前沒有歌曲，請先建立內容後再試（${retries}/${EMPTY_COLLECTION_RETRY_LIMIT}）`,
+              `收藏庫目前沒有歌曲，請稍後重試（${retries}/${EMPTY_COLLECTION_RETRY_LIMIT}）`,
             );
           }
           const normalizedItems = normalizePlaylistItems(mapItems(items));
@@ -456,7 +429,7 @@ export const useRoomCollections = ({
 
         if (!authToken) {
           const { ok, payload } = await apiFetchCollectionItems(
-            workerUrl,
+            apiUrl,
             null,
             collectionId,
             options?.readToken ?? null,
@@ -466,16 +439,13 @@ export const useRoomCollections = ({
           }
           handleSuccess(payload.data.items);
         } else {
-          const token = await ensureFreshAuthToken({
-            token: authToken,
-            refreshAuthToken,
-          });
+          const token = await ensureFreshAuthToken({ token: authToken, refreshAuthToken });
           if (!token) {
             throw new Error("登入已過期，請重新登入");
           }
           const run = async (token: string, allowRetry: boolean) => {
             const { ok, status, payload } = await apiFetchCollectionItems(
-              workerUrl,
+              apiUrl,
               token,
               collectionId,
               options?.readToken ?? null,
@@ -500,9 +470,7 @@ export const useRoomCollections = ({
         if (requestId !== latestLoadRequestIdRef.current) {
           return;
         }
-        setCollectionItemsError(
-          error instanceof Error ? error.message : "載入收藏庫失敗",
-        );
+        setCollectionItemsError(error instanceof Error ? error.message : "載入收藏庫失敗");
         onPlaylistReset();
       } finally {
         if (requestId === latestLoadRequestIdRef.current) {
@@ -519,7 +487,7 @@ export const useRoomCollections = ({
       onPlaylistReset,
       refreshAuthToken,
       setStatusText,
-      workerUrl,
+      apiUrl,
       collections,
     ],
   );

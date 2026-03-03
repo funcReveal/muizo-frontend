@@ -1,4 +1,4 @@
-import type { AuthUser, YoutubePlaylist } from "./RoomContext";
+﻿import type { AuthUser, YoutubePlaylist } from "./RoomContext";
 import type { PlaylistItem, RoomSummary } from "./types";
 
 export type ApiResult<T> = {
@@ -111,18 +111,6 @@ export type WorkerListPayload<TItem> = {
   error?: string;
 };
 
-export type WorkerUpsertUserBody = {
-  id: string;
-  email?: string | null;
-  provider?: string;
-  provider_user_id?: string;
-  display_name?: string | null;
-  avatar_url?: string | null;
-  google_access_token?: string | null;
-  google_refresh_token?: string | null;
-  google_token_expires_at?: number | null;
-};
-
 const fetchJson = async <T>(
   url: string,
   options?: RequestInit,
@@ -198,25 +186,8 @@ export const apiPreviewPlaylist = (
     body: JSON.stringify({ url, playlistId }),
   });
 
-export const apiUpsertWorkerUser = (
-  workerUrl: string,
-  token: string,
-  body: WorkerUpsertUserBody,
-) =>
-  fetchJson<{ ok?: boolean; data?: AuthUser; error?: string }>(
-    `${workerUrl}/users`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    },
-  );
-
 export const apiFetchCollections = (
-  workerUrl: string,
+  apiUrl: string,
   options: {
     token?: string | null;
     ownerId?: string;
@@ -225,7 +196,7 @@ export const apiFetchCollections = (
     pageSize?: number;
   },
 ) => {
-  const url = new URL(`${workerUrl}/collections`);
+  const url = new URL(`${apiUrl}/api/collections`);
   if (options.ownerId) {
     url.searchParams.set("owner_id", options.ownerId);
   }
@@ -247,7 +218,7 @@ export const apiFetchCollections = (
 };
 
 export const apiFavoriteCollection = (
-  workerUrl: string,
+  apiUrl: string,
   token: string,
   collectionId: string,
 ) =>
@@ -259,7 +230,7 @@ export const apiFavoriteCollection = (
       favorite_count: number;
     };
     error?: string;
-  }>(`${workerUrl}/collections/${encodeURIComponent(collectionId)}/favorite`, {
+  }>(`${apiUrl}/api/collections/${encodeURIComponent(collectionId)}/favorite`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -267,7 +238,7 @@ export const apiFavoriteCollection = (
   });
 
 export const apiUnfavoriteCollection = (
-  workerUrl: string,
+  apiUrl: string,
   token: string,
   collectionId: string,
 ) =>
@@ -279,7 +250,7 @@ export const apiUnfavoriteCollection = (
       favorite_count: number;
     };
     error?: string;
-  }>(`${workerUrl}/collections/${encodeURIComponent(collectionId)}/favorite`, {
+  }>(`${apiUrl}/api/collections/${encodeURIComponent(collectionId)}/favorite`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -287,12 +258,12 @@ export const apiUnfavoriteCollection = (
   });
 
 export const apiFetchCollectionItems = (
-  workerUrl: string,
+  apiUrl: string,
   token: string | null,
   collectionId: string,
   readToken?: string | null,
 ) => {
-  const url = new URL(`${workerUrl}/collections/${collectionId}/items/all`);
+  const url = new URL(`${apiUrl}/api/collections/${collectionId}/items/all`);
   const headers: Record<string, string> = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -306,7 +277,7 @@ export const apiFetchCollectionItems = (
 };
 
 export const apiCreateCollectionReadToken = (
-  workerUrl: string,
+  apiUrl: string,
   token: string,
   collectionId: string,
 ) =>
@@ -314,10 +285,11 @@ export const apiCreateCollectionReadToken = (
     ok?: boolean;
     data?: { token: string; expiresAt: number };
     error?: string;
-  }>(`${workerUrl}/collections/${collectionId}/read-token`, {
+  }>(`${apiUrl}/api/collections/${collectionId}/read-token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
   });
+

@@ -1,12 +1,10 @@
-export const SOCKET_URL =
+﻿export const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
 export const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
-
-export const WORKER_API_URL = import.meta.env.VITE_WORKER_API_URL;
 
 export const DEFAULT_PAGE_SIZE = 50;
 export const CHUNK_SIZE = 200;
@@ -34,3 +32,4 @@ export const STORAGE_KEYS = {
   roomPasswordPrefix: "mq_roomPassword:",
   profileConfirmedPrefix: "mq_profileConfirmed:",
 } as const;
+

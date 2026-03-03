@@ -3385,7 +3385,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       )
                     ) : !isReveal && (
                       <div className={`game-room-feedback-lines ${isReveal ? "mt-1" : "mt-1.5"}`}>
-                        {myFeedback.lines.slice(0, 2).map((line, idx) => (
+                        {(Array.isArray(myFeedback.lines) ? myFeedback.lines : [])
+                          .slice(0, 2)
+                          .map((line, idx) => (
                           <p
                             key={`${trackSessionKey}-feedback-line-${idx}`}
                             className="game-room-feedback-line"

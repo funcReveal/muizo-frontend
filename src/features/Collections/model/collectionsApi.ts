@@ -1,4 +1,6 @@
-const WORKER_API_URL = import.meta.env.VITE_WORKER_API_URL;
+﻿const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 const buildAuthHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -13,11 +15,11 @@ export const collectionsApi = {
   buildAuthHeaders,
   buildJsonHeaders,
   async fetchCollections(token: string, ownerId: string) {
-    if (!WORKER_API_URL) {
-      throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
     }
     const res = await fetch(
-      `${WORKER_API_URL}/collections?owner_id=${encodeURIComponent(ownerId)}`,
+      `${API_URL}/api/collections?owner_id=${encodeURIComponent(ownerId)}`,
       { headers: buildAuthHeaders(token) },
     );
     if (!res.ok) {
@@ -31,11 +33,11 @@ export const collectionsApi = {
     return [];
   },
   async fetchCollectionItems(token: string, collectionId: string) {
-    if (!WORKER_API_URL) {
-      throw new Error("WORKER_API_URL is missing");
+    if (!API_URL) {
+      throw new Error("API_URL is missing");
     }
     const res = await fetch(
-      `${WORKER_API_URL}/collections/${collectionId}/items/all`,
+      `${API_URL}/api/collections/${collectionId}/items/all`,
       { headers: buildAuthHeaders(token) },
     );
     if (!res.ok) {
@@ -50,12 +52,17 @@ export const collectionsApi = {
   },
   async createCollection(
     token: string,
-    payload: { owner_id: string; title: string; description?: string | null; visibility?: string },
+    payload: {
+      owner_id: string;
+      title: string;
+      description?: string | null;
+      visibility?: string;
+    },
   ) {
-    if (!WORKER_API_URL) {
-      throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
     }
-    const res = await fetch(`${WORKER_API_URL}/collections`, {
+    const res = await fetch(`${API_URL}/api/collections`, {
       method: "POST",
       headers: buildJsonHeaders(token),
       body: JSON.stringify(payload),
@@ -71,10 +78,10 @@ export const collectionsApi = {
     collectionId: string,
     payload: { title?: string; visibility?: "private" | "public" },
   ) {
-    if (!WORKER_API_URL) {
-      throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
     }
-    const res = await fetch(`${WORKER_API_URL}/collections/${collectionId}`, {
+    const res = await fetch(`${API_URL}/api/collections/${collectionId}`, {
       method: "PATCH",
       headers: buildJsonHeaders(token),
       body: JSON.stringify(payload),
@@ -90,11 +97,11 @@ export const collectionsApi = {
     collectionId: string,
     items: Array<Record<string, unknown>>,
   ) {
-    if (!WORKER_API_URL) {
-      throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
     }
     const res = await fetch(
-      `${WORKER_API_URL}/collections/${collectionId}/items`,
+      `${API_URL}/api/collections/${collectionId}/items`,
       {
         method: "POST",
         headers: buildJsonHeaders(token),
@@ -112,10 +119,10 @@ export const collectionsApi = {
     itemId: string,
     payload: Record<string, unknown>,
   ) {
-    if (!WORKER_API_URL) {
-      throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
     }
-    const res = await fetch(`${WORKER_API_URL}/collection-items/${itemId}`, {
+    const res = await fetch(`${API_URL}/api/collection-items/${itemId}`, {
       method: "PATCH",
       headers: buildJsonHeaders(token),
       body: JSON.stringify(payload),
@@ -127,10 +134,10 @@ export const collectionsApi = {
     return null;
   },
   async deleteCollectionItem(token: string, itemId: string) {
-    if (!WORKER_API_URL) {
-      throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
     }
-    const res = await fetch(`${WORKER_API_URL}/collection-items/${itemId}`, {
+    const res = await fetch(`${API_URL}/api/collection-items/${itemId}`, {
       method: "DELETE",
       headers: buildAuthHeaders(token),
     });

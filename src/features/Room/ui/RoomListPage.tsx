@@ -452,8 +452,10 @@ const RoomListPage: React.FC = () => {
                   if (!/^[a-zA-Z0-9]*$/.test(next)) return;
                   setPasswordDraft(next);
                 }}
-                inputMode="text"
-                pattern="[A-Za-z0-9]*"
+                inputProps={{
+                  inputMode: "text",
+                  pattern: "[A-Za-z0-9]*",
+                }}
               />
             </DialogContent>
             <DialogActions>

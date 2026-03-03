@@ -280,9 +280,9 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
         provider: selectedRecap.provider,
         sourceId: selectedRecap.sourceId,
         videoId: selectedRecap.videoId,
-        url: selectedRecap.url,
-        title: selectedRecap.title,
-        answerText: selectedRecap.title,
+        url: selectedRecap.url ?? "",
+        title: selectedRecap.title ?? "",
+        answerText: selectedRecap.title ?? "",
         uploader: selectedRecap.uploader,
       })
     : null;

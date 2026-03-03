@@ -1,4 +1,4 @@
-import type { PlaylistItem } from "./types";
+﻿import type { PlaylistItem } from "./types";
 import {
   DEFAULT_CLIP_SEC,
   DEFAULT_PLAY_DURATION_SEC,
@@ -9,7 +9,6 @@ import {
   QUESTION_MIN,
   START_OFFSET_MAX,
   START_OFFSET_MIN,
-  WORKER_API_URL,
 } from "./roomConstants";
 
 export const formatSeconds = (value: number) => {
@@ -72,14 +71,6 @@ export const normalizePlaylistItems = (items: PlaylistItem[]) =>
     };
   });
 
-export const buildWorkerUrl = (path: string) => {
-  if (!WORKER_API_URL) return null;
-  const base = WORKER_API_URL.endsWith("/")
-    ? WORKER_API_URL
-    : `${WORKER_API_URL}/`;
-  return new URL(path.replace(/^\/+/, ""), base);
-};
-
 export const getQuestionMax = (playlistCount: number) =>
   playlistCount > 0 ? Math.min(QUESTION_MAX, playlistCount) : QUESTION_MAX;
 
@@ -111,3 +102,4 @@ export const clampStartOffsetSec = (value: number) =>
     START_OFFSET_MAX,
     DEFAULT_START_OFFSET_SEC,
   );
+

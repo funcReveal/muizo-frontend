@@ -1,8 +1,5 @@
-{
+﻿{
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://api.muizo.org/api/$1" },
-    { "source": "/health", "destination": "https://api.muizo.org/health" },
-    { "source": "/socket.io/(.*)", "destination": "https://api.muizo.org/socket.io/$1" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }

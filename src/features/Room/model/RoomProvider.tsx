@@ -41,8 +41,7 @@ import {
   QUESTION_MIN,
   USERNAME_MAX,
   SOCKET_URL,
-  WORKER_API_URL,
-} from "./roomConstants";
+  } from "./roomConstants";
 import {
   clampPlayDurationSec,
   clampQuestionCount,
@@ -107,7 +106,7 @@ const mapCollectionItemsToPlaylist = (
       typeof item.duration_sec === "number" && item.duration_sec > 0
         ? formatSeconds(item.duration_sec)
         : formatSeconds(safeEnd - startSec);
-    const rawTitle = item.title ?? item.answer_text ?? `歌曲 ${index + 1}`;
+    const rawTitle = item.title ?? item.answer_text ?? `嚙緬嚙踝蕭 ${index + 1}`;
     const answerText = item.answer_text ?? rawTitle;
     const resolvedLink = resolveSettlementTrackLink({
       provider,
@@ -165,7 +164,7 @@ const extractVideoIdFromUrl = (url: string) => {
 
 const formatAckError = (prefix: string, error?: string) => {
   const detail = error?.trim();
-  return `${prefix}：${detail || "未知錯誤"}`;
+  return `${prefix}嚙瘦${detail || "嚙踝蕭嚙踝蕭嚙踝蕭嚙羯"}`;
 };
 
 const normalizeQuestionCount = (value: number | undefined, fallback: number) => {
@@ -326,7 +325,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const [isConnected, setIsConnected] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomNameInput, setRoomNameInput] = useState(() =>
-    username ? `${username}'s room` : "我的房間",
+    username ? `${username}'s room` : "嚙誹迎蕭嚙請塚蕭",
   );
   const [roomVisibilityInput, setRoomVisibilityInput] = useState<
     "public" | "private"
@@ -419,7 +418,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       presenceParticipantNamesRef.current = new Map(
         nextParticipants.map((participant) => [
           participant.clientId,
-          participant.username?.trim() || "玩家",
+          participant.username?.trim() || "嚙踝蕭嚙窮",
         ]),
       );
       presenceSeededRoomIdRef.current = roomId;
@@ -433,7 +432,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       if (!safeName) return;
       const timestamp = Date.now() + serverOffsetRef.current;
       const content =
-        action === "joined" ? `${safeName} 已加入遊戲` : `${safeName} 已離開遊戲`;
+        action === "joined" ? `${safeName} 嚙緩嚙稼嚙皚嚙瘠嚙踝蕭` : `${safeName} 嚙緩嚙踝蕭嚙罷嚙瘠嚙踝蕭`;
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (
@@ -454,7 +453,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
                 .slice(2, 8)}`,
             roomId,
             userId: "system:presence",
-            username: "聊天室",
+            username: "系統",
             content,
             timestamp,
           },
@@ -464,7 +463,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     [],
   );
 
-  const displayUsername = useMemo(() => username ?? "(未設定)", [username]);
+  const displayUsername = useMemo(() => username ?? "(嚙踝蕭嚙稽嚙緩)", [username]);
 
   const persistUsername = useCallback((name: string) => {
     setUsername(name);
@@ -500,7 +499,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     logout,
   } = useRoomAuth({
     apiUrl: API_URL,
-    workerUrl: WORKER_API_URL,
     username,
     persistUsername,
     setStatusText,
@@ -563,17 +561,17 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const fetchYoutubeSnapshot = useCallback(
     async (playlistId: string) => {
       if (!API_URL) {
-        throw new Error("尚未設定播放清單 API 位置 (API_URL)");
+        throw new Error("嚙罵嚙踝蕭嚙稽嚙緩嚙踝蕭嚙踝蕭M嚙踝蕭 API 嚙踝蕭m (API_URL)");
       }
       if (!authToken) {
-        throw new Error("請先登入後再使用私人播放清單");
+        throw new Error("嚙請伐蕭嚙緯嚙皚嚙踝蕭A嚙誕用私嚙瘡嚙踝蕭嚙踝蕭M嚙踝蕭");
       }
       const token = await ensureFreshAuthToken({
         token: authToken,
         refreshAuthToken,
       });
       if (!token) {
-        throw new Error("登入已過期，需要重新授權 Google");
+        throw new Error("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙豎要嚙踝蕭嚙編嚙踝蕭嚙緞 Google");
       }
       const run = async (token: string, allowRetry: boolean) => {
         const { ok, status, payload } = await apiFetchYoutubePlaylistItems(
@@ -584,7 +582,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         if (ok) {
           const data = payload?.data;
           if (!data?.items || data.items.length === 0) {
-            throw new Error("清單沒有可用影片");
+            throw new Error("嚙瞎嚙踝蕭S嚙踝蕭嚙箠嚙諄影嚙踝蕭");
           }
           const normalized = normalizePlaylistItems(
             data.items.map((item) => {
@@ -614,7 +612,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             return await run(refreshed, false);
           }
         }
-        const message = payload?.error ?? "讀取播放清單失敗";
+        const message = payload?.error ?? "讀嚙踝蕭嚙踝蕭嚙踝蕭M嚙賣失嚙踝蕭";
         throw new Error(message);
       };
 
@@ -626,7 +624,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const fetchPublicPlaylistSnapshot = useCallback(
     async (url: string, playlistId: string) => {
       if (!API_URL) {
-        throw new Error("尚未設定播放清單 API 位置 (API_URL)");
+        throw new Error("嚙罵嚙踝蕭嚙稽嚙緩嚙踝蕭嚙踝蕭M嚙踝蕭 API 嚙踝蕭m (API_URL)");
       }
       const { ok, payload } = await apiPreviewPlaylist(
         API_URL,
@@ -634,15 +632,15 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         playlistId,
       );
       if (!ok || !payload) {
-        throw new Error("讀取播放清單失敗，請稍後重試");
+        throw new Error("讀嚙踝蕭嚙踝蕭嚙踝蕭M嚙賣失嚙諸，嚙請稍嚙賦重嚙踝蕭");
       }
       if ("error" in payload) {
-        throw new Error(payload.error || "讀取播放清單失敗，請稍後重試");
+        throw new Error(payload.error || "讀嚙踝蕭嚙踝蕭嚙踝蕭M嚙賣失嚙諸，嚙請稍嚙賦重嚙踝蕭");
       }
       const data = payload;
       if (!data?.items || data.items.length === 0) {
         throw new Error(
-          "清單沒有可用影片，可能為私人/受限或自動合輯不受支援。",
+          "嚙瞎嚙踝蕭S嚙踝蕭嚙箠嚙諄影嚙踝蕭嚙璀嚙箠嚙賞為嚙緘嚙瘡/嚙踝蕭嚙踝蕭嚙諄自動合嚙質不嚙踝蕭嚙賭援嚙瘠",
         );
       }
       const normalized = normalizePlaylistItems(
@@ -712,7 +710,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     resetCollectionSelection,
     clearCollectionsError,
   } = useRoomCollections({
-    workerUrl: WORKER_API_URL,
+    apiUrl: API_URL,
     authToken,
     ownerId: authUser?.id ?? null,
     refreshAuthToken,
@@ -762,11 +760,11 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const handleSetUsername = useCallback(() => {
     const trimmed = usernameInput.trim();
     if (!trimmed) {
-      setStatusText("請先輸入使用者名稱");
+      setStatusText("嚙請伐蕭嚙踝蕭J嚙誕用者名嚙踝蕭");
       return;
     }
     if (trimmed.length > USERNAME_MAX) {
-      setStatusText(`使用者名稱最多 ${USERNAME_MAX} 個字`);
+      setStatusText(`嚙誕用者名嚙誶最多 ${USERNAME_MAX} 嚙諉字`);
       return;
     }
     persistUsername(trimmed);
@@ -784,28 +782,28 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
   const fetchCollectionSnapshot = useCallback(
     async (collectionId: string) => {
-      if (!WORKER_API_URL) {
-        throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+      if (!API_URL) {
+        throw new Error("嚙罵嚙踝蕭嚙稽嚙緩嚙踝蕭嚙衛庫 API 嚙踝蕭m (API_URL)");
       }
       if (!collectionId) {
-        throw new Error("請先選擇收藏庫");
+        throw new Error("嚙請伐蕭嚙踝蕭雃嚙踝蕭簾w");
       }
       const tokenToUse = authToken
         ? await ensureFreshAuthToken({ token: authToken, refreshAuthToken })
         : null;
       if (authToken && !tokenToUse) {
-        throw new Error("登入已過期，請重新登入");
+        throw new Error("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙請哨蕭嚙編嚙緯嚙皚");
       }
       const run = async (token: string | null, allowRetry: boolean) => {
         const { ok, status, payload } = await apiFetchCollectionItems(
-          WORKER_API_URL,
+          API_URL,
           token,
           collectionId,
         );
         if (ok) {
           const items = payload?.data?.items ?? [];
           if (items.length === 0) {
-            throw new Error("收藏庫內沒有歌曲");
+            throw new Error("嚙踝蕭嚙衛庫嚙踝蕭嚙磅嚙踝蕭嚙緬嚙踝蕭");
           }
           return normalizePlaylistItems(
             mapCollectionItemsToPlaylist(collectionId, items),
@@ -817,7 +815,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             return await run(refreshed, false);
           }
         }
-        throw new Error(payload?.error ?? "載入收藏庫失敗");
+        throw new Error(payload?.error ?? "嚙踝蕭嚙皚嚙踝蕭嚙衛庫嚙踝蕭嚙踝蕭");
       };
       return await run(tokenToUse, Boolean(tokenToUse));
     },
@@ -826,22 +824,22 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
   const createCollectionReadToken = useCallback(
     async (collectionId: string) => {
-      if (!WORKER_API_URL) {
-        throw new Error("尚未設定收藏庫 API 位置 (WORKER_API_URL)");
+      if (!API_URL) {
+        throw new Error("嚙罵嚙踝蕭嚙稽嚙緩嚙踝蕭嚙衛庫 API 嚙踝蕭m (API_URL)");
       }
       if (!authToken) {
-        throw new Error("請先登入後再推薦私人收藏庫");
+        throw new Error("嚙請伐蕭嚙緯嚙皚嚙踝蕭A嚙踝蕭嚙誼私嚙瘡嚙踝蕭嚙衛庫");
       }
       const tokenToUse = await ensureFreshAuthToken({
         token: authToken,
         refreshAuthToken,
       });
       if (!tokenToUse) {
-        throw new Error("登入已過期，請重新登入");
+        throw new Error("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙請哨蕭嚙編嚙緯嚙皚");
       }
       const run = async (token: string, allowRetry: boolean) => {
         const { ok, status, payload } = await apiCreateCollectionReadToken(
-          WORKER_API_URL,
+          API_URL,
           token,
           collectionId,
         );
@@ -852,7 +850,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             return await run(refreshed, false);
           }
         }
-        throw new Error(payload?.error ?? "取得收藏庫讀取權杖失敗");
+        throw new Error(payload?.error ?? "嚙踝蕭嚙緻嚙踝蕭嚙衛庫讀嚙踝蕭嚙緞嚙踝蕭嚙踝蕭嚙踝蕭");
       };
       return await run(tokenToUse, true);
     },
@@ -861,13 +859,13 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
   const fetchRooms = useCallback(async () => {
     if (!API_URL) {
-      setStatusText("尚未設定 API 位置 (API_URL)");
+      setStatusText("嚙罵嚙踝蕭嚙稽嚙緩 API 嚙踝蕭m (API_URL)");
       return;
     }
     try {
       const { ok, payload } = await apiFetchRooms(API_URL);
       if (!ok) {
-        throw new Error(payload?.error ?? "無法取得房間列表");
+        throw new Error(payload?.error ?? "嚙盤嚙糊嚙踝蕭嚙緻嚙請塚蕭嚙瘠嚙踝蕭");
       }
       const next = (payload?.rooms ?? payload) as RoomSummary[];
       setRooms(Array.isArray(next) ? next : []);
@@ -877,7 +875,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           : false;
         setInviteNotFound(!found);
         if (!found) {
-          setStatusText("受邀房間不存在或已關閉");
+          setStatusText("嚙踝蕭嚙豌房塚蕭嚙踝蕭嚙編嚙箭嚙諄已嚙踝蕭嚙踝蕭");
         }
       }
     } catch (error) {
@@ -888,7 +886,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
   const fetchRoomById = useCallback(async (roomId: string) => {
     if (!API_URL) {
-      setStatusText("尚未設定 API 位置 (API_URL)");
+      setStatusText("嚙罵嚙踝蕭嚙稽嚙緩 API 嚙踝蕭m (API_URL)");
       return null;
     }
     try {
@@ -907,7 +905,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     async (options?: { limit?: number; beforeEndedAt?: number | null }) => {
       const s = getSocket();
       if (!s || !currentRoom) {
-        throw new Error("尚未加入任何房間");
+        throw new Error("嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭");
       }
       return await new Promise<{
         items: RoomSettlementHistorySummary[];
@@ -922,11 +920,11 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           },
           (ack) => {
             if (!ack) {
-              reject(new Error("載入對戰歷史失敗"));
+              reject(new Error("嚙踝蕭嚙皚嚙踝蕭埲嚙踝蕭v嚙踝蕭嚙踝蕭"));
               return;
             }
             if (!ack.ok) {
-              reject(new Error(ack.error || "載入對戰歷史失敗"));
+              reject(new Error(ack.error || "嚙踝蕭嚙皚嚙踝蕭埲嚙踝蕭v嚙踝蕭嚙踝蕭"));
               return;
             }
             resolve(ack.data);
@@ -941,7 +939,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     async (matchId: string) => {
       const s = getSocket();
       if (!s || !currentRoom) {
-        throw new Error("尚未加入任何房間");
+        throw new Error("嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭");
       }
       return await new Promise<RoomSettlementSnapshot>((resolve, reject) => {
         s.emit(
@@ -952,11 +950,11 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           },
           (ack) => {
             if (!ack) {
-              reject(new Error("載入對戰回顧失敗"));
+              reject(new Error("嚙踝蕭嚙皚嚙踝蕭啈^嚙磊嚙踝蕭嚙踝蕭"));
               return;
             }
             if (!ack.ok) {
-              reject(new Error(ack.error || "載入對戰回顧失敗"));
+              reject(new Error(ack.error || "嚙踝蕭嚙皚嚙踝蕭啈^嚙磊嚙踝蕭嚙踝蕭"));
               return;
             }
             resolve(ack.data);
@@ -975,7 +973,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     void fetchRoomById(inviteRoomId).then((room) => {
       setInviteNotFound(!room);
       if (!room) {
-        setStatusText("受邀房間不存在或已關閉");
+        setStatusText("嚙踝蕭嚙豌房塚蕭嚙踝蕭嚙編嚙箭嚙諄已嚙踝蕭嚙踝蕭");
       }
     });
   }, [fetchRoomById, inviteRoomId]);
@@ -1130,7 +1128,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         );
       });
       if (!changePlaylistOk) {
-        setStatusText("同步歌曲時間設定失敗");
+        setStatusText("嚙瞑嚙畿嚙緬嚙踝蕭嚙褕塚蕭嚙稽嚙緩嚙踝蕭嚙踝蕭");
         return false;
       }
 
@@ -1153,7 +1151,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             );
           });
           if (!chunkOk) {
-            setStatusText("同步歌曲時間設定失敗");
+            setStatusText("嚙瞑嚙畿嚙緬嚙踝蕭嚙褕塚蕭嚙稽嚙緩嚙踝蕭嚙踝蕭");
             return false;
           }
         }
@@ -1182,7 +1180,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         });
         if (!token) {
           if (!cancelled) {
-            setStatusText("登入已過期，請重新登入");
+            setStatusText("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙請哨蕭嚙編嚙緯嚙皚");
           }
           return;
         }
@@ -1193,7 +1191,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       onConnect: (socket) => {
         setIsConnected(true);
         setSessionProgress(null);
-        setStatusText("已連線伺服器");
+        setStatusText("嚙緩嚙編嚙線嚙踝蕭嚙璀嚙踝蕭");
         void fetchRooms();
 
         const storedRoomId = currentRoomIdRef.current;
@@ -1233,11 +1231,11 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
                 );
                 lockSessionClientId(clientId);
                 persistRoomId(state.room.id);
-                setStatusText(`恢復房間：${state.room.name}`);
+                setStatusText(`嚙踝蕭_嚙請塚蕭嚙瘦${state.room.name}`);
                 setRouteRoomResolved(true);
               } else {
                 if (ack?.error) {
-                  setStatusText(formatAckError("恢復房間失敗", ack.error));
+                  setStatusText(formatAckError("嚙踝蕭_嚙請塚蕭嚙踝蕭嚙踝蕭", ack.error));
                 }
                 persistRoomId(null);
                 resetSessionClientId();
@@ -1253,7 +1251,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         setSessionProgress(null);
         if (createRoomInFlightRef.current) {
           releaseCreateRoomLockRef.current?.();
-          setStatusText("建立房間期間連線中斷，請重試或稍候自動恢復");
+          setStatusText("嚙諍立房塚蕭嚙踝蕭嚙踝蕭嚙編嚙線嚙踝蕭嚙稻嚙璀嚙請哨蕭嚙調或稍嚙諂自動恬蕭_");
         }
         if (socketSuspendedRef.current) {
           setIsConnected(false);
@@ -1261,7 +1259,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           return;
         }
         setIsConnected(false);
-        setStatusText("與伺服器斷線，將嘗試自動恢復");
+        setStatusText("嚙瞑嚙踝蕭嚙璀嚙踝蕭嚙稻嚙線嚙璀嚙瞇嚙踝蕭嚙調自動恬蕭_");
         setRouteRoomResolved(false);
         setCurrentRoom(null);
         setParticipants([]);
@@ -1284,7 +1282,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           const found = updatedRooms.some((r) => r.id === inviteRoomId);
           setInviteNotFound(!found);
           if (!found) {
-            setStatusText("受邀房間不存在或已關閉");
+            setStatusText("嚙踝蕭嚙豌房塚蕭嚙踝蕭嚙編嚙箭嚙諄已嚙踝蕭嚙踝蕭");
           }
         }
       },
@@ -1319,7 +1317,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         });
         lockSessionClientId(clientId);
         persistRoomId(state.room.id);
-        setStatusText(`已加入房間：${state.room.name}`);
+        setStatusText(`嚙緩嚙稼嚙皚嚙請塚蕭嚙瘦${state.room.name}`);
         setRouteRoomResolved(true);
       },
       onParticipantsUpdated: ({ roomId, participants, hostClientId }) => {
@@ -1386,7 +1384,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           Math.ceil((gameState.startedAt - serverNow) / 1000),
         );
         if (preStartRemainingSec > 0) {
-          setStatusText(`房主已開始，${preStartRemainingSec} 秒後開局`);
+          setStatusText(`嚙請主嚙緩嚙罷嚙締嚙璀${preStartRemainingSec} 嚙踝蕭嚙罷嚙踝蕭`);
         }
         setIsGameView(true);
         void fetchCompletePlaylist(roomId).then(setGamePlaylist);
@@ -1408,8 +1406,8 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         if (roomId !== currentRoomIdRef.current) return;
         const suffix =
           typeof bannedUntil === "number"
-            ? `，可重新加入時間：${new Date(bannedUntil).toLocaleTimeString()}`
-            : "，已永久禁止加入";
+            ? `嚙璀嚙箠嚙踝蕭嚙編嚙稼嚙皚嚙褕塚蕭嚙瘦${new Date(bannedUntil).toLocaleTimeString()}`
+            : "嚙璀嚙緩嚙衛久嚙確嚙踝蕭[嚙皚";
         setStatusText(`${reason}${suffix}`);
         setCurrentRoom(null);
         setParticipants([]);
@@ -1471,16 +1469,16 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const handleCreateRoom = useCallback(async () => {
     const s = getSocket();
     if (!s || !username) {
-      setStatusText("尚未設定使用者名稱");
+      setStatusText("嚙罵嚙踝蕭嚙稽嚙緩嚙誕用者名嚙踝蕭");
       return;
     }
     if (createRoomInFlightRef.current) {
-      setStatusText("房間建立中，請稍候");
+      setStatusText("嚙請塚蕭嚙諍立歹蕭嚙璀嚙請稍嚙踝蕭");
       return;
     }
     createRoomInFlightRef.current = true;
     setIsCreatingRoom(true);
-    setStatusText("建立房間中…");
+    setStatusText("嚙諍立房塚蕭嚙踝蕭嚙皺");
     const releaseCreateRoomLock = () => {
       createRoomInFlightRef.current = false;
       setIsCreatingRoom(false);
@@ -1493,7 +1491,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         refreshAuthToken,
       });
       if (!token) {
-        setStatusText("登入已過期，請重新登入");
+        setStatusText("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙請哨蕭嚙編嚙緯嚙皚");
         releaseCreateRoomLock();
         return;
       }
@@ -1502,17 +1500,17 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     const trimmedPassword = roomPasswordInput.trim();
     const trimmedMaxPlayers = roomMaxPlayersInput.trim();
     if (!trimmed) {
-      setStatusText("請輸入房間名稱");
+      setStatusText("嚙請選蕭J嚙請塚蕭嚙磕嚙踝蕭");
       releaseCreateRoomLock();
       return;
     }
     if (playlistItems.length === 0 || !lastFetchedPlaylistId) {
-      setStatusText("請先載入播放清單");
+      setStatusText("嚙請伐蕭嚙踝蕭嚙皚嚙踝蕭嚙踝蕭M嚙踝蕭");
       releaseCreateRoomLock();
       return;
     }
     if (trimmedMaxPlayers && !/^\d+$/.test(trimmedMaxPlayers)) {
-      setStatusText("人數限制格式錯誤，請輸入正整數");
+      setStatusText("最大玩家數必須是數字");
       releaseCreateRoomLock();
       return;
     }
@@ -1523,7 +1521,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       desiredMaxPlayers !== null &&
       (desiredMaxPlayers < PLAYER_MIN || desiredMaxPlayers > PLAYER_MAX)
     ) {
-      setStatusText(`人數限制需介於 ${PLAYER_MIN} 到 ${PLAYER_MAX} 人`);
+      setStatusText(`嚙瘡嚙複哨蕭嚙踝蕭搕嚙踝蕭嚙?${PLAYER_MIN} 嚙踝蕭 ${PLAYER_MAX} 嚙瘡`);
       releaseCreateRoomLock();
       return;
     }
@@ -1660,7 +1658,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       void uploadRemainingPlaylistChunks(roomId).catch((error) => {
         console.error(error);
         if (currentRoomIdRef.current === roomId) {
-          setStatusText("已進入房間，但剩餘歌單同步延遲中");
+          setStatusText("嚙緩嚙箠嚙皚嚙請塚蕭嚙璀嚙踝蕭嚙諸餘嚙緬嚙踝蕭P嚙畿嚙踝蕭嚙踝蕭");
         }
       });
     };
@@ -1751,7 +1749,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
                 setHostRoomPassword(desiredPassword);
                 setRoomNameInput("");
                 setRoomMaxPlayersInput("");
-                setStatusText(`建立回應延遲，已自動進入：${state.room.name}`);
+                setStatusText(`嚙諍立回嚙踝蕭嚙踝蕭嚙踝蕭A嚙緩嚙諛動進嚙皚嚙瘦${state.room.name}`);
                 finalizeCreate();
                 continueUploadRemainingPlaylistChunks(state.room.id);
                 resolve(true);
@@ -1763,10 +1761,10 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         for (let joinAttempt = 0; joinAttempt < retryIntervalsMs.length; joinAttempt += 1) {
           if (createResolved || !createRoomInFlightRef.current) return false;
           if (joinAttempt === 0) {
-            setStatusText("建立成功，正在進入房間…");
+            setStatusText("嚙諍立佗蕭嚙穀嚙璀嚙踝蕭嚙箭嚙箠嚙皚嚙請塚蕭嚙皺");
           } else {
             setStatusText(
-              `房間已建立，正在重新嘗試進入（${joinAttempt + 1}/${retryIntervalsMs.length}）…`,
+              `嚙請塚蕭嚙緩嚙諍立，嚙踝蕭嚙箭嚙踝蕭嚙編嚙踝蕭嚙調進嚙皚嚙稽${joinAttempt + 1}/${retryIntervalsMs.length}嚙稷嚙皺`,
             );
             await new Promise<void>((resolve) =>
               window.setTimeout(resolve, retryIntervalsMs[joinAttempt]),
@@ -1790,22 +1788,22 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       const ackTimeout = window.setTimeout(() => {
         if (createResolved || !createRoomInFlightRef.current) return;
         if (attempt === 0) {
-          setStatusText("建立房間回應延遲，正在嘗試自動進入…");
+          setStatusText("嚙諍立房塚蕭嚙稷嚙踝蕭嚙踝蕭嚙踝蕭A嚙踝蕭嚙箭嚙踝蕭嚙調自動進嚙皚嚙皺");
           void tryRecoverCreatedRoomFromList().then((recovered) => {
             if (recovered || createResolved || !createRoomInFlightRef.current) {
               return;
             }
-            setStatusText("建立房間逾時，正在同步既有房間…");
+            setStatusText("嚙諍立房塚蕭嚙瞌嚙褕，嚙踝蕭嚙箭嚙瞑嚙畿嚙皚嚙踝蕭嚙請塚蕭嚙皺");
             submitCreateRoom(1);
           });
           return;
         }
-        setStatusText("建立房間仍未回應，最後再嘗試自動進入…");
+        setStatusText("嚙諍立房塚蕭嚙踝蕭嚙踝蕭嚙稷嚙踝蕭嚙璀嚙諒恬蕭A嚙踝蕭嚙調自動進嚙皚嚙皺");
         void tryRecoverCreatedRoomFromList().then((recovered) => {
           if (recovered || createResolved || !createRoomInFlightRef.current) {
             return;
           }
-          setStatusText("建立房間逾時，請稍後重試");
+          setStatusText("嚙諍立房塚蕭嚙瞌嚙褕，嚙請稍嚙賦重嚙踝蕭");
           finalizeCreate();
         });
       }, timeoutMs);
@@ -1815,16 +1813,16 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         if (createResolved) return;
         if (!ack) {
           if (attempt === 0) {
-            setStatusText("建立房間回應遺失，正在同步既有房間…");
+            setStatusText("嚙諍立房塚蕭嚙稷嚙踝蕭嚙踩失，嚙踝蕭嚙箭嚙瞑嚙畿嚙皚嚙踝蕭嚙請塚蕭嚙皺");
             submitCreateRoom(1);
             return;
           }
-          setStatusText("建立房間失敗：伺服器無回應");
+          setStatusText("嚙諍立房塚蕭嚙踝蕭嚙諸：嚙踝蕭嚙璀嚙踝蕭嚙盤嚙稷嚙踝蕭");
           finalizeCreate();
           return;
         }
         if (!ack.ok) {
-          setStatusText(formatAckError("建立房間失敗", ack.error));
+          setStatusText(formatAckError("嚙諍立房塚蕭嚙踝蕭嚙踝蕭", ack.error));
           finalizeCreate();
           return;
         }
@@ -1839,7 +1837,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             const settingsAckTimeout = window.setTimeout(() => {
               if (settled) return;
               settled = true;
-              accessSettingsWarning = "房間權限同步逾時";
+              accessSettingsWarning = "嚙請塚蕭嚙緞嚙踝蕭嚙瞑嚙畿嚙瞌嚙踝蕭";
               resolve();
             }, 4_000);
             s.emit(
@@ -1859,13 +1857,13 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
                 settled = true;
                 window.clearTimeout(settingsAckTimeout);
                 if (!settingsAck) {
-                  accessSettingsWarning = "房間權限同步逾時";
+                  accessSettingsWarning = "嚙請塚蕭嚙緞嚙踝蕭嚙瞑嚙畿嚙瞌嚙踝蕭";
                   resolve();
                   return;
                 }
                 if (!settingsAck.ok) {
                   accessSettingsWarning = formatAckError(
-                    "房間權限同步失敗",
+                    "嚙請塚蕭嚙緞嚙踝蕭嚙瞑嚙畿嚙踝蕭嚙踝蕭",
                     settingsAck.error,
                   );
                   resolve();
@@ -1906,8 +1904,8 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         });
         setStatusText(
           accessSettingsWarning
-            ? `${accessSettingsWarning}（房間已建立：${state.room.name}）`
-            : `已建立房間：${state.room.name}`,
+            ? `${accessSettingsWarning}嚙稽嚙請塚蕭嚙緩嚙諍立：${state.room.name}嚙稷`
+            : `嚙緩嚙諍立房塚蕭嚙瘦${state.room.name}`,
         );
         finalizeCreate();
         continueUploadRemainingPlaylistChunks(state.room.id);
@@ -1944,7 +1942,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const handleJoinRoom = useCallback((roomId: string, hasPassword: boolean) => {
     const s = getSocket();
     if (!s || !username) {
-      setStatusText("尚未設定使用者名稱");
+      setStatusText("嚙罵嚙踝蕭嚙稽嚙緩嚙誕用者名嚙踝蕭");
       return;
     }
 
@@ -1990,14 +1988,14 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             has_password: hasPassword,
             participant_count: state.participants.length,
           });
-          setStatusText(`已加入房間：${state.room.name}`);
+          setStatusText(`嚙緩嚙稼嚙皚嚙請塚蕭嚙瘦${state.room.name}`);
         } else {
           trackEvent("room_join_failed", {
             room_id: roomId,
             has_password: hasPassword,
             reason: ack.error ?? "unknown_error",
           });
-          setStatusText(formatAckError("加入房間失敗", ack.error));
+          setStatusText(formatAckError("嚙稼嚙皚嚙請塚蕭嚙踝蕭嚙踝蕭", ack.error));
         }
       },
     );
@@ -2035,10 +2033,10 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         setPlaylistSuggestions([]);
         persistRoomId(null);
         resetSessionClientId();
-        setStatusText("已離開房間");
+        setStatusText("嚙緩嚙踝蕭嚙罷嚙請塚蕭");
         onLeft?.();
       } else {
-        setStatusText(formatAckError("離開房間失敗", ack.error));
+        setStatusText(formatAckError("嚙踝蕭嚙罷嚙請塚蕭嚙踝蕭嚙踝蕭", ack.error));
       }
     });
   }, [currentRoom, getSocket, persistRoomId, resetPresenceParticipants, resetSessionClientId]);
@@ -2046,7 +2044,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const handleSendMessage = useCallback(() => {
     const s = getSocket();
     if (!s || !currentRoom) {
-      setStatusText("尚未加入任何房間");
+      setStatusText("嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭");
       return;
     }
     const trimmed = messageInput.trim();
@@ -2055,7 +2053,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     s.emit("sendMessage", { content: trimmed }, (ack) => {
       if (!ack) return;
       if (!ack.ok) {
-        setStatusText(formatAckError("訊息送出失敗", ack.error));
+        setStatusText(formatAckError("嚙確嚙踝蕭嚙箴嚙碼嚙踝蕭嚙踝蕭", ack.error));
       }
     });
 
@@ -2065,11 +2063,11 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const handleStartGame = useCallback(() => {
     const s = getSocket();
     if (!s || !currentRoom) {
-      setStatusText("尚未加入任何房間");
+      setStatusText("嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭");
       return;
     }
     if (!playlistProgress.ready) {
-      setStatusText("播放清單尚未準備完成");
+      setStatusText("嚙踝蕭嚙踝蕭M嚙踝蕭|嚙踝蕭嚙褒備改蕭嚙踝蕭");
       return;
     }
     const guessDurationMs =
@@ -2088,7 +2086,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           setIsGameView(true);
           void fetchCompletePlaylist(currentRoom.id).then(setGamePlaylist);
         } else {
-          setStatusText(formatAckError("開始遊戲失敗", ack.error));
+          setStatusText(formatAckError("嚙罷嚙締嚙瘠嚙踝蕭嚙踝蕭嚙踝蕭", ack.error));
         }
       },
     );
@@ -2104,7 +2102,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     if (gameState?.status === "ended") {
       // Keep game view mounted on ended so GameRoomPage can render settlement immediately,
       // even if settlementHistoryUpdated arrives slightly later.
-      setStatusText("遊戲已結束，正在顯示結算");
+      setStatusText("遊戲已結束，正在整理結算結果");
     }
   }, [gameState?.status]);
 
@@ -2172,14 +2170,14 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
             if (!ack) {
               const error = "Submit acknowledgment missing";
-              setStatusText("提交答案失敗：伺服器未回應");
+              setStatusText("嚙踝蕭嚙賣答嚙論伐蕭嚙諸：嚙踝蕭嚙璀嚙踝蕭嚙踝蕭嚙稷嚙踝蕭");
               resolve({ ok: false, error });
               return;
             }
 
             if (!ack.ok) {
               if (ack.error !== "Not in guess phase") {
-                setStatusText(formatAckError("提交答案失敗", ack.error));
+                setStatusText(formatAckError("嚙踝蕭嚙賣答嚙論伐蕭嚙踝蕭", ack.error));
               }
               resolve({ ok: false, error: ack.error || "Submit failed" });
               return;
@@ -2225,7 +2223,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     }) => {
       const s = getSocket();
       if (!s || !currentRoom) {
-        setStatusText("尚未加入任何房間");
+        setStatusText("嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭");
         return false;
       }
       const normalizedPayload = {
@@ -2250,7 +2248,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
               return;
             }
             if (!ack.ok) {
-              setStatusText(formatAckError("更新房間設定失敗", ack.error));
+              setStatusText(formatAckError("嚙踝蕭s嚙請塚蕭嚙稽嚙緩嚙踝蕭嚙踝蕭", ack.error));
               resolve(false);
               return;
             }
@@ -2292,7 +2290,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
               typeof normalizedPayload.startOffsetSec === "number" ||
               typeof normalizedPayload.allowCollectionClipTiming === "boolean";
             if (!shouldSyncTiming) {
-              setStatusText("房間設定已更新");
+              setStatusText("嚙請塚蕭嚙稽嚙緩嚙緩嚙踝蕭s");
               resolve(true);
               return;
             }
@@ -2303,8 +2301,8 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
               );
               setStatusText(
                 synced
-                  ? "房間設定已更新（歌曲時間已同步）"
-                  : "房間設定已更新，但歌曲時間同步失敗",
+                  ? "嚙請塚蕭嚙稽嚙緩嚙緩嚙踝蕭s嚙稽嚙緬嚙踝蕭嚙褕塚蕭嚙緩嚙瞑嚙畿嚙稷"
+                  : "嚙請塚蕭嚙稽嚙緩嚙緩嚙踝蕭s嚙璀嚙踝蕭嚙緬嚙踝蕭嚙褕塚蕭嚙瞑嚙畿嚙踝蕭嚙踝蕭",
               );
               resolve(true);
             })();
@@ -2331,7 +2329,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         (ack: Ack<null>) => {
           if (!ack) return;
           if (!ack.ok) {
-            setStatusText(formatAckError("踢出失敗", ack.error));
+            setStatusText(formatAckError("嚙踝蕭X嚙踝蕭嚙踝蕭", ack.error));
           }
         },
       );
@@ -2349,7 +2347,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         (ack: Ack<{ hostClientId: string }>) => {
           if (!ack) return;
           if (!ack.ok) {
-            setStatusText(formatAckError("轉移房主失敗", ack.error));
+            setStatusText(formatAckError("嚙賞移嚙請主嚙踝蕭嚙踝蕭", ack.error));
           }
         },
       );
@@ -2365,12 +2363,12 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     ) => {
       const s = getSocket();
       if (!s || !currentRoom) {
-        const error = "尚未加入任何房間";
+        const error = "嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭";
         setStatusText(error);
         return { ok: false, error };
       }
       if (gameState?.status === "playing") {
-        const error = "遊戲進行中無法推薦";
+        const error = "嚙瘠嚙踝蕭嚙箠嚙賣中嚙盤嚙糊嚙踝蕭嚙踝蕭";
         setStatusText(error);
         return { ok: false, error };
       }
@@ -2388,7 +2386,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
                 selectedCollection?.visibility === "private";
               if (isPrivateCollection) {
                 if (!authUser?.id) {
-                  throw new Error("請先登入後再推薦私人收藏庫");
+                  throw new Error("嚙請伐蕭嚙緯嚙皚嚙踝蕭A嚙踝蕭嚙誼私嚙瘡嚙踝蕭嚙衛庫");
                 }
                 readToken = await createCollectionReadToken(value);
               }
@@ -2402,7 +2400,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           } else {
             const playlistId = options?.sourceId;
             if (!playlistId) {
-              throw new Error("請輸入有效的播放清單 URL");
+              throw new Error("嚙請選蕭J嚙踝蕭嚙衝迎蕭嚙踝蕭嚙踝蕭M嚙踝蕭 URL");
             }
             const result = authToken
               ? await fetchYoutubeSnapshot(playlistId)
@@ -2416,7 +2414,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           }
         } catch (error) {
           const message =
-            error instanceof Error ? error.message : "推薦失敗";
+            error instanceof Error ? error.message : "嚙踝蕭嚙誼伐蕭嚙踝蕭";
           setStatusText(message);
           return { ok: false, error: message };
         }
@@ -2436,16 +2434,16 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             },
           (ack: Ack<null>) => {
             if (!ack) {
-              resolve({ ok: false, error: "推薦失敗，請稍後再試" });
+              resolve({ ok: false, error: "嚙踝蕭嚙誼伐蕭嚙諸，嚙請稍嚙踝蕭A嚙踝蕭" });
               return;
             }
             if (!ack.ok) {
-              const message = formatAckError("推薦失敗", ack.error);
+              const message = formatAckError("嚙踝蕭嚙誼伐蕭嚙踝蕭", ack.error);
               setStatusText(message);
               resolve({ ok: false, error: message });
               return;
             }
-            setStatusText("已送出推薦");
+            setStatusText("嚙緩嚙箴嚙碼嚙踝蕭嚙踝蕭");
             resolve({ ok: true });
           },
         );
@@ -2479,11 +2477,11 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     const s = getSocket();
     if (!s || !currentRoom) return;
     if (gameState?.status === "playing") {
-      setStatusText("遊戲進行中無法切換歌單");
+      setStatusText("嚙瘠嚙踝蕭嚙箠嚙賣中嚙盤嚙糊嚙踝蕭嚙踝蕭嚙緬嚙踝蕭");
       return;
     }
     if (playlistItems.length === 0 || !lastFetchedPlaylistId) {
-      setStatusText("請先載入播放清單");
+      setStatusText("嚙請伐蕭嚙踝蕭嚙皚嚙踝蕭嚙踝蕭M嚙踝蕭");
       return;
     }
 
@@ -2524,7 +2522,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       async (ack: Ack<{ receivedCount: number; totalCount: number; ready: boolean }>) => {
         if (!ack) return;
         if (!ack.ok) {
-          setStatusText(formatAckError("切換歌單失敗", ack.error));
+          setStatusText(formatAckError("嚙踝蕭嚙踝蕭嚙緬嚙賣失嚙踝蕭", ack.error));
           return;
         }
         if (remaining.length > 0) {
@@ -2545,7 +2543,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             });
           }
         }
-        setStatusText("已切換歌單，等待房主開始遊戲");
+        setStatusText("嚙緩嚙踝蕭嚙踝蕭嚙緬嚙踝蕭A嚙踝蕭嚙豎房主嚙罷嚙締嚙瘠嚙踝蕭");
       },
     );
   }, [
@@ -2563,12 +2561,12 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       const s = getSocket();
       if (!s || !currentRoom) return;
       if (gameState?.status === "playing") {
-        setStatusText("遊戲進行中無法切換歌單");
+        setStatusText("嚙瘠嚙踝蕭嚙箠嚙賣中嚙盤嚙糊嚙踝蕭嚙踝蕭嚙緬嚙踝蕭");
         return;
       }
       const items = suggestion.items ?? [];
       if (items.length === 0) {
-        setStatusText("推薦內容沒有可用歌曲");
+        setStatusText("嚙踝蕭嚙誼歹蕭嚙箴嚙磅嚙踝蕭嚙箠嚙諄歌嚙踝蕭");
         return;
       }
       const roomPlayDurationSec = clampPlayDurationSec(
@@ -2612,7 +2610,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
           async (ack: Ack<{ receivedCount: number; totalCount: number; ready: boolean }>) => {
             if (!ack) return;
             if (!ack.ok) {
-              setStatusText(formatAckError("切換歌單失敗", ack.error));
+              setStatusText(formatAckError("嚙踝蕭嚙踝蕭嚙緬嚙賣失嚙踝蕭", ack.error));
               return;
             }
             applyPlaylistSource(
@@ -2638,7 +2636,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
               });
             }
           }
-          setStatusText("已切換歌單，等待房主開始遊戲");
+          setStatusText("嚙緩嚙踝蕭嚙踝蕭嚙緬嚙踝蕭A嚙踝蕭嚙豎房主嚙罷嚙締嚙瘠嚙踝蕭");
         },
       );
     },
@@ -2646,7 +2644,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     );
 
   const resetCreateState = useCallback(() => {
-    setRoomNameInput(username ? `${username}'s room` : "我的房間");
+    setRoomNameInput(username ? `${username}'s room` : "嚙誹迎蕭嚙請塚蕭");
     setRoomVisibilityInput("public");
     setRoomCreateSourceMode("link");
     setRoomPasswordInput("");
@@ -3014,3 +3012,5 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;
 };
+
+

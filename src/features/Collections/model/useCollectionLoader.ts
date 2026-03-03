@@ -1,6 +1,10 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 
-import type { DbCollection, DbCollectionItem, EditableItem } from "../ui/lib/editTypes";
+import type {
+  DbCollection,
+  DbCollectionItem,
+  EditableItem,
+} from "../ui/lib/editTypes";
 import { collectionsApi } from "./collectionsApi";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 
@@ -30,10 +34,12 @@ type UseCollectionLoaderParams = {
   setHasUnsavedChanges: (value: boolean) => void;
   setSaveStatus: (value: "idle" | "saving" | "saved" | "error") => void;
   setSaveError: (value: string | null) => void;
-  dirtyCounterRef: React.MutableRefObject<number>;
+  dirtyCounterRef: React.RefObject<number>;
 };
 
-const WORKER_API_URL = import.meta.env.VITE_WORKER_API_URL;
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 export const useCollectionLoader = ({
   authToken,
@@ -80,15 +86,15 @@ export const useCollectionLoader = ({
     let active = true;
 
     const run = async (token: string, allowRetry: boolean) => {
-      const userRes = await fetch(`${WORKER_API_URL}/users`, {
+      const userRes = await fetch(`${API_URL}/api/users`, {
         method: "POST",
         headers: collectionsApi.buildJsonHeaders(token),
         body: JSON.stringify({
           id: ownerId,
           display_name:
-            authUser?.display_name && authUser.display_name !== "(未設定)"
+            authUser?.display_name && authUser.display_name !== "(?芾身摰?"
               ? authUser.display_name
-              : displayUsername && displayUsername !== "(未設定)"
+              : displayUsername && displayUsername !== "(?芾身摰?"
                 ? displayUsername
                 : "Guest",
           provider: authUser?.provider ?? "google",
@@ -149,7 +155,9 @@ export const useCollectionLoader = ({
         await run(token, true);
       } catch (error) {
         if (!active) return;
-        setCollectionsError(error instanceof Error ? error.message : String(error));
+        setCollectionsError(
+          error instanceof Error ? error.message : String(error),
+        );
       } finally {
         if (active) setCollectionsLoading(false);
       }

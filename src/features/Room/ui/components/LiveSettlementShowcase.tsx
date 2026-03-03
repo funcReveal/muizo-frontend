@@ -290,9 +290,9 @@ const buildRecommendationLink = (recap: ExtendedRecap) =>
     provider: recap.provider,
     sourceId: recap.sourceId,
     videoId: recap.videoId,
-    url: recap.url,
-    title: recap.title,
-    answerText: recap.title,
+    url: recap.url ?? "",
+    title: recap.title ?? "",
+    answerText: recap.title ?? "",
     uploader: recap.uploader,
   });
 
@@ -331,6 +331,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   onBackToLobby,
   onRequestExit,
 }) => {
+  const getChangedAnswerCount = (answer: unknown): number => {
+    if (!answer || typeof answer !== "object") return 0;
+    const value = (answer as { changedAnswerCount?: number }).changedAnswerCount;
+    return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+  };
+
   const {
     gameVolume,
     sfxEnabled,
@@ -697,7 +703,11 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       normalizedRecaps[0]
     );
   }, [effectiveSelectedRecapKey, normalizedRecaps]);
-  const selectedRecapAnswer = useMemo(() => {
+  const selectedRecapAnswer = useMemo<{
+    choiceIndex: number | null;
+    result: "correct" | "wrong" | "unanswered";
+    answeredAtMs: number | null;
+  }>(() => {
     if (!selectedRecap) {
       return {
         choiceIndex: null as number | null,
@@ -780,10 +790,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
           ? Object.values(recap.answersByClientId)
           : [];
         const changedUsersFromAnswers = answers.filter(
-          (answer) => Math.max(0, answer?.changedAnswerCount ?? 0) > 0,
+          (answer) => getChangedAnswerCount(answer) > 0,
         ).length;
         const changedTimesFromAnswers = answers.reduce(
-          (sum, answer) => sum + Math.max(0, answer?.changedAnswerCount ?? 0),
+          (sum, answer) => sum + getChangedAnswerCount(answer),
           0,
         );
         const changedUsers = Math.max(
@@ -2214,10 +2224,16 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                         </div>
                         <span
                           className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                            RESULT_META[selectedRecapAnswer.result].badgeClass
+                            RESULT_META[
+                              selectedRecapAnswer.result as keyof typeof RESULT_META
+                            ].badgeClass
                           }`}
                         >
-                          {RESULT_META[selectedRecapAnswer.result].label}
+                          {
+                            RESULT_META[
+                              selectedRecapAnswer.result as keyof typeof RESULT_META
+                            ].label
+                          }
                         </span>
                       </div>
                       <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/70 px-3 py-2">

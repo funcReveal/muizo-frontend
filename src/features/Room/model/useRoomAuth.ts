@@ -5,7 +5,6 @@ import {
   apiAuthGoogle,
   apiLogout,
   apiRefreshAuthToken,
-  apiUpsertWorkerUser,
 } from "./roomApi";
 import { USERNAME_MAX } from "./roomConstants";
 import { isProfileConfirmed, setProfileConfirmed } from "./roomStorage";
@@ -14,7 +13,6 @@ import { trackEvent } from "../../../shared/analytics/track";
 
 type UseRoomAuthOptions = {
   apiUrl: string;
-  workerUrl?: string;
   username: string | null;
   persistUsername: (name: string) => void;
   setStatusText: (value: string | null) => void;
@@ -40,7 +38,6 @@ export type UseRoomAuthResult = {
 
 export const useRoomAuth = ({
   apiUrl,
-  workerUrl,
   username,
   persistUsername,
   setStatusText,
@@ -138,29 +135,7 @@ export const useRoomAuth = ({
       return;
     }
 
-    if (workerUrl && authToken && authUser?.id) {
-      try {
-        const { ok, payload } = await apiUpsertWorkerUser(workerUrl, authToken, {
-          id: authUser.id,
-          display_name: trimmed,
-          email: authUser.email ?? null,
-          avatar_url: authUser.avatar_url ?? null,
-          provider: authUser.provider ?? "google",
-          provider_user_id: authUser.provider_user_id ?? authUser.id,
-        });
-        if (!ok) {
-          throw new Error(payload?.error ?? "更新個人資料失敗");
-        }
-        setAuthUser((prev) =>
-          prev ? { ...prev, display_name: trimmed } : prev,
-        );
-      } catch (error) {
-        setStatusText(
-          error instanceof Error ? error.message : "更新個人資料失敗",
-        );
-        return;
-      }
-    }
+    setAuthUser((prev) => (prev ? { ...prev, display_name: trimmed } : prev));
 
     persistUsername(trimmed);
     if (authUser?.id) {
@@ -175,7 +150,6 @@ export const useRoomAuth = ({
     nicknameDraft,
     persistUsername,
     setStatusText,
-    workerUrl,
   ]);
 
   const openProfileEditor = useCallback(() => {
@@ -218,7 +192,7 @@ export const useRoomAuth = ({
         setAuthLoading(false);
       }
     },
-    [apiUrl, persistAuth, setStatusText, workerUrl],
+    [apiUrl, persistAuth, setStatusText],
   );
 
   const ensureGoogleScript = () => {
@@ -352,3 +326,4 @@ export const useRoomAuth = ({
     logout,
   };
 };
+

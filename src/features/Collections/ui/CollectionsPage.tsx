@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -20,7 +20,9 @@ import { collectionsApi } from "../model/collectionsApi";
 import { thumbnailFromId } from "./lib/editUtils";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 
-const WORKER_API_URL = import.meta.env.VITE_WORKER_API_URL;
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 type DbCollection = {
   id: string;
@@ -31,20 +33,20 @@ type DbCollection = {
 };
 
 const TEXT = {
-  title: "我的收藏庫",
-  create: "建立新收藏庫",
-  emptyTitle: "沒有收藏庫",
-  emptyBody: "先建立一個收藏庫開始編輯。",
+  title: "我的收藏",
+  create: "建立新收藏",
+  emptyTitle: "目前沒有收藏",
+  emptyBody: "先建立一個收藏，之後就可以快速開房使用。",
   loading: "載入中...",
   error: "載入失敗",
   open: "開啟",
-  deleteConfirm: "確定要刪除這個收藏庫嗎？這會永久移除資料。",
+  deleteConfirm: "刪除後無法復原，確定要刪除此收藏嗎？",
   deleteError: "刪除失敗",
   unknownError: "發生未知錯誤",
-  loginHint: "請先使用 Google 登入後再查看收藏庫。",
+  loginHint: "請先使用 Google 登入，才能查看與管理收藏。",
   public: "公開",
   private: "私人",
-  publicConfirm: "切換為公開後，任何人都能瀏覽此收藏庫。確定要公開嗎？",
+  publicConfirm: "公開後其他人可以瀏覽與使用這份收藏，確定要設為公開嗎？",
 };
 
 const SKELETON_COUNT = 6;
@@ -115,11 +117,11 @@ const CollectionsPage = () => {
   }, [authLoading]);
 
   useEffect(() => {
-    if (!WORKER_API_URL || !ownerId || !authToken) return;
+    if (!API_URL || !ownerId || !authToken) return;
     let active = true;
 
     const run = async (token: string, allowRetry: boolean) => {
-      const userRes = await fetch(`${WORKER_API_URL}/users`, {
+      const userRes = await fetch(`${API_URL}/api/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -146,7 +148,7 @@ const CollectionsPage = () => {
       }
 
       const res = await fetch(
-        `${WORKER_API_URL}/collections?owner_id=${encodeURIComponent(
+        `${API_URL}/api/collections?owner_id=${encodeURIComponent(
           ownerId,
         )}&pageSize=50`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -203,7 +205,7 @@ const CollectionsPage = () => {
   ]);
 
   useEffect(() => {
-    if (!WORKER_API_URL || !authToken || collections.length === 0) return;
+    if (!API_URL || !authToken || collections.length === 0) return;
     let active = true;
     const loadThumbs = async () => {
       const token = await ensureFreshAuthToken({
@@ -215,7 +217,7 @@ const CollectionsPage = () => {
         collections.map(async (collection) => {
           try {
             const res = await fetch(
-              `${WORKER_API_URL}/collections/${collection.id}/items/all`,
+              `${API_URL}/api/collections/${collection.id}/items/all`,
               { headers: { Authorization: `Bearer ${token}` } },
             );
             if (!res.ok) return [collection.id, ""] as const;
@@ -248,7 +250,7 @@ const CollectionsPage = () => {
   }, [authToken, collections, refreshAuthToken]);
 
   const handleDeleteCollection = async (id: string) => {
-    if (!WORKER_API_URL || !authToken) return;
+    if (!API_URL || !authToken) return;
     setDeletingId(id);
     try {
       const token = await ensureFreshAuthToken({
@@ -256,7 +258,7 @@ const CollectionsPage = () => {
         refreshAuthToken,
       });
       if (!token) throw new Error("Unauthorized");
-      const res = await fetch(`${WORKER_API_URL}/collections/${id}`, {
+      const res = await fetch(`${API_URL}/api/collections/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -281,7 +283,7 @@ const CollectionsPage = () => {
     id: string,
     visibility: "private" | "public",
   ) => {
-    if (!WORKER_API_URL || !authToken) return;
+    if (!API_URL || !authToken) return;
     setVisibilityUpdatingId(id);
     try {
       const token = await ensureFreshAuthToken({
@@ -416,7 +418,7 @@ const CollectionsPage = () => {
                             <Tooltip
                               title={
                                 collection.visibility === "public"
-                                  ? "公開中"
+                                  ? "公開"
                                   : "私人"
                               }
                             >
@@ -427,8 +429,8 @@ const CollectionsPage = () => {
                                   <LockOutlined fontSize="inherit" />
                                 )}
                                 {collection.visibility === "public"
-                                  ? "公開"
-                                  : "私人"}
+                                  ? "?祇?"
+                                  : "蝘犖"}
                               </span>
                             </Tooltip>
                             <Switch
@@ -498,9 +500,9 @@ const CollectionsPage = () => {
           </Box>
           <ConfirmDialog
             open={confirmPublicOpen}
-            title="設為公開？"
+            title="設為公開"
             description={TEXT.publicConfirm}
-            confirmLabel="設為公開"
+            confirmLabel="閮剔?祇?"
             onConfirm={() => {
               if (pendingVisibility) {
                 applyVisibilityChange(
@@ -518,9 +520,9 @@ const CollectionsPage = () => {
           />
           <ConfirmDialog
             open={confirmDeleteOpen}
-            title="確認刪除？"
+            title="刪除收藏"
             description={TEXT.deleteConfirm}
-            confirmLabel="確定"
+            confirmLabel="蝣箏?"
             onConfirm={() => {
               const targetId = pendingDeleteId;
               setPendingDeleteId(null);
@@ -541,3 +543,4 @@ const CollectionsPage = () => {
 };
 
 export default CollectionsPage;
+
