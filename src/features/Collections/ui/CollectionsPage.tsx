@@ -522,7 +522,7 @@ const CollectionsPage = () => {
             open={confirmDeleteOpen}
             title="刪除收藏"
             description={TEXT.deleteConfirm}
-            confirmLabel="蝣箏?"
+            confirmLabel="確認"
             onConfirm={() => {
               const targetId = pendingDeleteId;
               setPendingDeleteId(null);
@@ -543,4 +543,3 @@ const CollectionsPage = () => {
 };
 
 export default CollectionsPage;
-
