@@ -87,6 +87,7 @@ const TAB_HINTS: Record<LiveSettlementTab, string> = {
 const RECAPS_PER_PAGE = 12;
 const RECOMMEND_PREVIEW_SECONDS = 15;
 const RECOMMEND_MAX_ITEMS = 5;
+const QUICK_SOLVE_TIME_CAP_MS = 10_000;
 const RECOMMEND_CATEGORY_FLOW: RecommendCategory[] = [
   "quick",
   "confuse",
@@ -94,13 +95,13 @@ const RECOMMEND_CATEGORY_FLOW: RecommendCategory[] = [
   "other",
 ];
 const RECOMMEND_CATEGORY_LABELS: Record<RecommendCategory, string> = {
-  quick: "秒猜精選",
+  quick: "全員速解",
   confuse: "易混淆",
   hard: "高難挑戰",
   other: "其餘歌單",
 };
 const RECOMMEND_CATEGORY_SHORT_HINT: Record<RecommendCategory, string> = {
-  quick: "高答對＋快反應",
+  quick: "全員答對・10 秒內",
   confuse: "最常改答案",
   hard: "低答對率挑戰",
   other: "延伸聆聽",
@@ -108,7 +109,11 @@ const RECOMMEND_CATEGORY_SHORT_HINT: Record<RecommendCategory, string> = {
 const RECOMMEND_CATEGORY_THEME: Record<
   RecommendCategory,
   {
+    shellClass: string;
     sectionClass: string;
+    asideClass: string;
+    drawerClass: string;
+    controlGroupClass: string;
     listActiveClass: string;
     autoWrapClass: string;
     autoBarClass: string;
@@ -116,8 +121,16 @@ const RECOMMEND_CATEGORY_THEME: Record<
   }
 > = {
   quick: {
+    shellClass:
+      "border-emerald-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(16,185,129,0.24),transparent_48%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(3,16,28,0.94))] shadow-[0_28px_60px_-44px_rgba(16,185,129,0.72)]",
     sectionClass:
       "border-emerald-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.16),0_25px_55px_-45px_rgba(16,185,129,0.55)]",
+    asideClass:
+      "border-emerald-300/30 bg-[linear-gradient(180deg,rgba(5,24,37,0.92),rgba(2,12,23,0.95))]",
+    drawerClass:
+      "border-emerald-300/38 bg-[linear-gradient(180deg,rgba(6,26,37,0.9),rgba(2,14,26,0.94))]",
+    controlGroupClass:
+      "border-emerald-300/42 bg-emerald-500/12 shadow-[0_10px_24px_-16px_rgba(16,185,129,0.86)]",
     listActiveClass: "border-emerald-300/50 bg-emerald-400/10",
     autoWrapClass:
       "border-emerald-300/45 bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(16,185,129,0.2),0_12px_24px_-18px_rgba(16,185,129,0.7)]",
@@ -125,8 +138,16 @@ const RECOMMEND_CATEGORY_THEME: Record<
     badgeClass: "border-emerald-300/45 bg-emerald-500/16 text-emerald-50",
   },
   confuse: {
+    shellClass:
+      "border-fuchsia-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(217,70,239,0.24),transparent_48%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(19,8,34,0.94))] shadow-[0_28px_60px_-44px_rgba(217,70,239,0.72)]",
     sectionClass:
       "border-fuchsia-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.16),0_25px_55px_-45px_rgba(217,70,239,0.55)]",
+    asideClass:
+      "border-fuchsia-300/30 bg-[linear-gradient(180deg,rgba(33,10,43,0.92),rgba(18,8,30,0.95))]",
+    drawerClass:
+      "border-fuchsia-300/38 bg-[linear-gradient(180deg,rgba(36,10,44,0.9),rgba(18,8,31,0.94))]",
+    controlGroupClass:
+      "border-fuchsia-300/42 bg-fuchsia-500/12 shadow-[0_10px_24px_-16px_rgba(217,70,239,0.86)]",
     listActiveClass: "border-fuchsia-300/50 bg-fuchsia-400/10",
     autoWrapClass:
       "border-fuchsia-300/45 bg-gradient-to-r from-fuchsia-500/20 via-fuchsia-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(217,70,239,0.2),0_12px_24px_-18px_rgba(217,70,239,0.7)]",
@@ -134,8 +155,16 @@ const RECOMMEND_CATEGORY_THEME: Record<
     badgeClass: "border-fuchsia-300/45 bg-fuchsia-500/16 text-fuchsia-50",
   },
   hard: {
+    shellClass:
+      "border-amber-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(251,191,36,0.25),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(34,20,6,0.94))] shadow-[0_28px_60px_-44px_rgba(251,191,36,0.76)]",
     sectionClass:
       "border-amber-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.16),0_25px_55px_-45px_rgba(251,191,36,0.55)]",
+    asideClass:
+      "border-amber-300/30 bg-[linear-gradient(180deg,rgba(39,23,8,0.92),rgba(24,14,4,0.95))]",
+    drawerClass:
+      "border-amber-300/38 bg-[linear-gradient(180deg,rgba(42,24,9,0.9),rgba(26,15,5,0.94))]",
+    controlGroupClass:
+      "border-amber-300/42 bg-amber-500/12 shadow-[0_10px_24px_-16px_rgba(251,191,36,0.86)]",
     listActiveClass: "border-amber-300/50 bg-amber-400/10",
     autoWrapClass:
       "border-amber-300/45 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(251,191,36,0.2),0_12px_24px_-18px_rgba(251,191,36,0.7)]",
@@ -143,13 +172,21 @@ const RECOMMEND_CATEGORY_THEME: Record<
     badgeClass: "border-amber-300/45 bg-amber-500/16 text-amber-50",
   },
   other: {
+    shellClass:
+      "border-sky-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(56,189,248,0.2),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(7,16,36,0.94))] shadow-[0_28px_60px_-44px_rgba(56,189,248,0.68)]",
     sectionClass:
-      "border-slate-300/30 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16),0_25px_55px_-45px_rgba(148,163,184,0.45)]",
-    listActiveClass: "border-slate-300/55 bg-slate-400/10",
+      "border-sky-300/30 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-sky-950/42 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.2),0_25px_55px_-45px_rgba(56,189,248,0.55)]",
+    asideClass:
+      "border-sky-300/30 bg-[linear-gradient(180deg,rgba(8,20,42,0.92),rgba(4,12,26,0.95))]",
+    drawerClass:
+      "border-sky-300/38 bg-[linear-gradient(180deg,rgba(9,23,45,0.9),rgba(4,14,30,0.94))]",
+    controlGroupClass:
+      "border-sky-300/42 bg-sky-500/12 shadow-[0_10px_24px_-16px_rgba(56,189,248,0.86)]",
+    listActiveClass: "border-sky-300/55 bg-sky-400/12",
     autoWrapClass:
-      "border-slate-300/45 bg-gradient-to-r from-slate-500/20 via-slate-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(148,163,184,0.2),0_12px_24px_-18px_rgba(148,163,184,0.7)]",
-    autoBarClass: "bg-gradient-to-r from-slate-200 to-slate-100",
-    badgeClass: "border-slate-300/45 bg-slate-500/16 text-slate-50",
+      "border-sky-300/45 bg-gradient-to-r from-sky-500/20 via-cyan-400/14 to-slate-900/20 shadow-[0_0_0_1px_rgba(56,189,248,0.2),0_12px_24px_-18px_rgba(56,189,248,0.7)]",
+    autoBarClass: "bg-gradient-to-r from-sky-300 to-cyan-100",
+    badgeClass: "border-sky-300/45 bg-sky-500/16 text-sky-50",
   },
 };
 
@@ -1084,12 +1121,13 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     }
     return sec * 1000;
   }, [room.gameSettings?.playDurationSec]);
-  const quickMedianThresholdMs = useMemo(
-    () => clampMs(configuredAnswerWindowMs * 0.22, 1500, 7000),
-    [configuredAnswerWindowMs],
-  );
-  const quickFastestThresholdMs = useMemo(
-    () => clampMs(configuredAnswerWindowMs * 0.1, 700, 2800),
+  const quickSolveThresholdMs = useMemo(
+    () =>
+      clampMs(
+        Math.min(configuredAnswerWindowMs, QUICK_SOLVE_TIME_CAP_MS),
+        2500,
+        QUICK_SOLVE_TIME_CAP_MS,
+      ),
     [configuredAnswerWindowMs],
   );
 
@@ -1104,6 +1142,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         const unansweredCount = Math.max(0, recap.unansweredCount ?? 0);
         const correctRate = correctCount / participantCount;
         const unansweredRate = unansweredCount / participantCount;
+        const allCorrect = participantCount > 0 && correctCount >= participantCount;
         const medianCorrectMs =
           typeof recap.medianCorrectMs === "number" &&
           Number.isFinite(recap.medianCorrectMs)
@@ -1118,30 +1157,22 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
           recap,
           correctRate,
           unansweredRate,
+          allCorrect,
           medianCorrectMs,
           fastestCorrectMs,
         };
       })
       .filter(
         (row) =>
-          row.correctRate >= 0.7 &&
-          row.unansweredRate <= 0.2 &&
-          row.medianCorrectMs <= quickMedianThresholdMs &&
-          row.fastestCorrectMs <= quickFastestThresholdMs,
+          row.allCorrect && row.medianCorrectMs <= quickSolveThresholdMs,
       )
       .sort(
         (a, b) =>
-          b.correctRate - a.correctRate ||
           a.medianCorrectMs - b.medianCorrectMs ||
           a.fastestCorrectMs - b.fastestCorrectMs ||
           a.recap.order - b.recap.order,
       );
-  }, [
-    defaultParticipantCount,
-    normalizedRecaps,
-    quickFastestThresholdMs,
-    quickMedianThresholdMs,
-  ]);
+  }, [defaultParticipantCount, normalizedRecaps, quickSolveThresholdMs]);
 
   const confuseRecommendations = useMemo(() => {
     return normalizedRecaps
@@ -1363,8 +1394,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       result.quick.push(
         buildRecommendationCard(
           entry.recap,
-          `答對率 ${formatPercent(entry.correctRate)}`,
-          `最快答對 ${formatMs(entry.recap.fastestCorrectMs)}`,
+          `全員答對 · 中位 ${formatMs(entry.medianCorrectMs)}`,
+          `最快答對 ${formatMs(entry.fastestCorrectMs)}`,
         ),
       );
       return true;
@@ -2436,7 +2467,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                   </div>
                 </article>
 
-                <article className="rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4">
+                <article className="rounded-2xl border border-cyan-300/30 bg-[radial-gradient(circle_at_92%_8%,rgba(56,189,248,0.16),transparent_38%),linear-gradient(175deg,rgba(3,10,28,0.96),rgba(4,16,34,0.9))] p-4 shadow-[0_24px_52px_-40px_rgba(56,189,248,0.65)]">
                   <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
                     排行榜
                   </p>
@@ -2523,7 +2554,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
             {activeTab === "recommend" && (
               <section
                 ref={recommendSectionRef}
-                className="rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4"
+                className={`rounded-2xl border p-4 transition-colors duration-300 ${activeCategoryTheme.shellClass}`}
               >
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2546,7 +2577,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                   <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
                     <div className="min-w-0 overflow-x-auto pb-1">
                       <div
-                        className="inline-flex min-w-max items-center gap-2 rounded-2xl border border-slate-600/80 bg-slate-950/80 p-1.5"
+                        className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
                         style={
                           showRecommendControlsHint
                             ? {
@@ -2604,7 +2635,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
                     <div className="min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
                       <div
-                        className="inline-flex min-w-max items-center gap-2 rounded-2xl border border-slate-600/80 bg-slate-950/80 p-1.5"
+                        className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
                         style={
                           showRecommendControlsHint
                             ? {
@@ -2910,7 +2941,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                       </div>
                     </article>
 
-                    <aside className="flex min-h-[520px] flex-col rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 xl:min-h-[620px]">
+                    <aside
+                      className={`flex min-h-[520px] flex-col rounded-2xl border p-3 transition-colors duration-300 xl:min-h-[620px] ${activeCategoryTheme.asideClass}`}
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
                           推薦清單
@@ -3019,7 +3052,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
             )}
             {activeTab === "recommend" && reviewDrawerOpen && (
               <section
-                className="mt-4 rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4"
+                className={`mt-4 rounded-2xl border p-4 transition-colors duration-300 ${activeCategoryTheme.drawerClass}`}
                 style={{
                   animation: "settlementStageEnter 220ms ease-out both",
                 }}

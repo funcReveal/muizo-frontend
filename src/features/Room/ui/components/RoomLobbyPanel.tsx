@@ -920,7 +920,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const settingsSourceItems =
     playlistItemsForChange.length > 0 ? playlistItemsForChange : playlistItems;
   const settingsUseCollectionSource = settingsSourceItems.some(
-    (item) => item.provider === "collection",
+    (item) =>
+      item.provider === "collection" ||
+      typeof item.collectionClipStartSec === "number" ||
+      typeof item.collectionClipEndSec === "number" ||
+      item.collectionHasExplicitStartSec === true ||
+      item.collectionHasExplicitEndSec === true,
   );
   const useCollectionTimingForSettings =
     settingsUseCollectionSource && settingsAllowCollectionClipTiming;

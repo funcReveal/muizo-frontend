@@ -21,7 +21,6 @@ import type {
   ChatMessage,
   GameState,
   PlaylistItem,
-  QuestionScoreBreakdown,
   RoomParticipant,
   RoomState,
   SubmitAnswerResult,
@@ -325,23 +324,6 @@ type MyFeedbackModel = {
   inlineMeta?: string;
 };
 
-const buildScoreBreakdownLines = (breakdown: QuestionScoreBreakdown): string[] => {
-  const parts: string[] = [
-    `基${breakdown.basePoints}`,
-    `速${breakdown.speedBonusPoints}`,
-  ];
-  if (breakdown.decisionBonusPoints > 0) {
-    parts.push(`決${breakdown.decisionBonusPoints}`);
-  }
-  if (breakdown.difficultyBonusPoints > 0) {
-    parts.push(`難${breakdown.difficultyBonusPoints}`);
-  }
-  if (breakdown.comboBonusPoints > 0) {
-    parts.push(`連${breakdown.comboBonusPoints}`);
-  }
-  return [`${parts.join("+")}=${breakdown.totalGainPoints}`];
-};
-
 const cloneSettlementQuestionRecaps = (recaps: SettlementQuestionRecap[]) =>
   recaps.map((recap) => ({
     ...recap,
@@ -592,7 +574,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     unseenMessages.reverse().forEach((message, orderIdx) => {
       const lane = danmuLaneCursorRef.current % DANMU_LANE_COUNT;
       danmuLaneCursorRef.current += 1;
-      const durationMs = 7600 + (lane % 3) * 700 + orderIdx * 120;
+      const durationMs = 11800 + (lane % 3) * 900 + orderIdx * 180;
       const itemId = `${message.id}-${Date.now()}-${orderIdx}`;
       const nextItem: DanmuItem = {
         id: itemId,
@@ -2089,7 +2071,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     participants.forEach((participant) => {
       const baseline =
         scoreBaselineState.byClientId[participant.clientId] ?? participant.score;
-      const gain = Math.max(0, participant.score - baseline);
+      const gain = participant.score - baseline;
       partsMap.set(participant.clientId, {
         base: participant.score - gain,
         gain,
@@ -2167,7 +2149,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const myFeedback = useMemo<MyFeedbackModel>(() => {
     const guessBadges: string[] = [];
     if (myDecisionBonusEligible) {
-      guessBadges.push(`決斷+${myDecisionBonusPreviewPoints}`);
+      guessBadges.push("決斷候選");
     }
     if (myAnswerRank !== null) {
       guessBadges.push(`第${myAnswerRank}答`);
@@ -2231,9 +2213,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             liveParticipantCount > 0
               ? `已答 ${liveAnsweredCount}/${liveParticipantCount}`
               : "已答統計載入中",
-            myDecisionBonusEligible
-              ? `決斷+${myDecisionBonusPreviewPoints} 候選`
-              : "5 秒內不改答可拿決斷",
+            myDecisionBonusEligible ? "決斷候選" : "5 秒內不改答可拿決斷",
           ].join(" · "),
         ],
       };
@@ -2271,39 +2251,34 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       };
     }
     if (myIsCorrect) {
-      const lines: string[] = [];
-      if (myResolvedScoreBreakdown) {
-        lines.push(...buildScoreBreakdownLines(myResolvedScoreBreakdown));
-      } else {
-        const fallbackParts: string[] = [];
-        if (myAnswerRank !== null) {
-          fallbackParts.push(myAnswerRank === 1 ? "首答" : `第${myAnswerRank}答`);
-        }
-        if (liveAccuracyPct !== null) {
-          fallbackParts.push(`全場答對率 ${liveAccuracyPct}%`);
-        }
-        lines.push(
-          fallbackParts.length > 0
-            ? fallbackParts.join(" · ")
-            : "後端分數拆解載入中",
-        );
-      }
-      const revealInlineMeta = lines[0] ?? "";
+      const revealInlineMeta = [
+        myAnswerRank !== null ? `第${myAnswerRank}答` : null,
+        liveAccuracyPct !== null ? `全場答對率 ${liveAccuracyPct}%` : null,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(" · ");
+      const signedGainText =
+        myResolvedGain > 0
+          ? `+${myResolvedGain}`
+          : myResolvedGain < 0
+            ? `${myResolvedGain}`
+            : "+0";
       return {
         tone: "correct",
-        title: `答對 +${myResolvedGain}`,
-        detail: revealInlineMeta,
+        title: `答對 ${signedGainText}`,
+        detail: revealInlineMeta || "本題得分已更新",
         badges: [],
-        pillText: myResolvedScoreBreakdown
-          ? `+${myResolvedScoreBreakdown.totalGainPoints}`
-          : `+${myResolvedGain}`,
+        pillText: signedGainText,
         lines: [],
         inlineMeta: revealInlineMeta,
       };
     }
+    const wrongGain = myResolvedScoreBreakdown?.totalGainPoints ?? 0;
+    const signedWrongGain =
+      wrongGain > 0 ? `+${wrongGain}` : wrongGain < 0 ? `${wrongGain}` : "+0";
     const revealResultDetailParts: string[] = [
       [
-        "+0",
+        signedWrongGain,
         myAnswerRank !== null ? `第${myAnswerRank}答` : "順位載入中",
         liveAccuracyPct !== null
           ? `全場答對率 ${liveAccuracyPct}%`
@@ -2312,10 +2287,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     ];
     return {
       tone: "wrong",
-      title: "答錯 +0",
+      title: `答錯 ${signedWrongGain}`,
       detail: revealResultDetailParts.join(" · "),
       badges: isReveal ? [] : badges,
-      pillText: "+0",
+      pillText: signedWrongGain,
       lines: [],
       inlineMeta: revealResultDetailParts[0],
     };
@@ -2927,7 +2902,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                         <Chip label="未答" size="small" variant="outlined" />
                       )}
                       <span className="font-semibold text-emerald-300 tabular-nums">
-                        {`${scoreParts.base.toLocaleString()} + ${scoreParts.gain.toLocaleString()}`}
+                        {p.score.toLocaleString()}
+                        {isReveal && scoreParts.gain !== 0 && (
+                          <span
+                            className={`ml-1 ${
+                              scoreParts.gain > 0 ? "text-sky-300" : "text-rose-300"
+                            }`}
+                          >
+                            {scoreParts.gain > 0
+                              ? `+${scoreParts.gain}`
+                              : scoreParts.gain}
+                          </span>
+                        )}
                         {p.combo > 0 && (
                           <span className="ml-1 text-amber-300">
                             x{p.combo}
@@ -3353,6 +3339,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                                   ? "game-room-choice-button--selected-live"
                                   : ""
                               } ${
+                                !isReveal && isSelected && myDecisionBonusEligible
+                                  ? "game-room-choice-button--decision-live"
+                                  : ""
+                              } ${
                                 isLocked || waitingToStart || shouldShowGestureOverlay
                                   ? "pointer-events-none"
                                   : ""
@@ -3384,7 +3374,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                                 )}
                                 {showGuessDecisionTag && (
                                   <span className="game-room-choice-tag game-room-choice-tag--decision">
-                                    {`決斷+${myDecisionBonusPreviewPoints}`}
+                                    決斷候選
                                   </span>
                                 )}
                                 {showCorrectTag && (

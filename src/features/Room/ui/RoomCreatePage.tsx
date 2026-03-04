@@ -92,13 +92,14 @@ const RoomCreatePage: React.FC = () => {
 
   const safeQuestionMin = questionMin ?? 1;
   const safeQuestionMax = questionMaxLimit ?? 100;
-
   const sourceModeLabel = sourceModeLabels[roomCreateSourceMode];
+
   const playlistSummary = playlistLoading
     ? "載入中"
     : playlistItems.length > 0
       ? `${playlistItems.length} 首`
       : "尚未載入";
+
   const normalizedMaxPlayersInput = roomMaxPlayersInput.trim();
   const parsedMaxPlayers = normalizedMaxPlayersInput
     ? Number(normalizedMaxPlayersInput)
@@ -108,13 +109,15 @@ const RoomCreatePage: React.FC = () => {
     (!Number.isInteger(parsedMaxPlayers) ||
       parsedMaxPlayers < PLAYER_MIN ||
       parsedMaxPlayers > 16);
+
   const canCreateRoom = Boolean(
     username &&
-    roomNameInput.trim() &&
-    playlistItems.length > 0 &&
-    !maxPlayersInvalid &&
-    !playlistLoading,
+      roomNameInput.trim() &&
+      playlistItems.length > 0 &&
+      !maxPlayersInvalid &&
+      !playlistLoading,
   );
+
   const headerCreateDisabled =
     activeCreateStep !== 2 || !canCreateRoom || isCreatingRoom;
 
@@ -128,9 +131,6 @@ const RoomCreatePage: React.FC = () => {
                 <h1 className="room-create-display room-create-v3-title">
                   建立房間
                 </h1>
-                <p className="room-create-v3-subtitle">
-                  先選歌單，再設定規則。完成題數與時間後可直接建立房間。
-                </p>
               </div>
               <div className="room-create-v3-hero-actions">
                 <button
@@ -240,9 +240,7 @@ const RoomCreatePage: React.FC = () => {
                   </div>
                   <div className="room-create-v3-aside-row">
                     <span>房間權限</span>
-                    <strong>
-                      {roomVisibilityInput === "private" ? "私人" : "公開"}
-                    </strong>
+                    <strong>{roomVisibilityInput === "private" ? "私人" : "公開"}</strong>
                   </div>
                 </div>
               </aside>

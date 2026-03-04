@@ -738,20 +738,24 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
     [previewItems, selectedCollectionId, selectedYoutubeId, sourceMode],
   );
   const prevSourceStepReadyRef = React.useRef(false);
+  const pendingAutoAdvanceToStep2Ref = React.useRef(false);
 
   React.useEffect(() => {
     if (!sourceStepReady) {
       setActiveStep((prev) => (prev === 1 ? prev : 1));
+      prevSourceStepReadyRef.current = false;
+      pendingAutoAdvanceToStep2Ref.current = false;
       return;
     }
-  }, [sourceStepReady]);
-
-  React.useEffect(() => {
     const wasReady = prevSourceStepReadyRef.current;
     const becameReady = sourceStepReady && !wasReady;
-    prevSourceStepReadyRef.current = sourceStepReady;
-    if (!becameReady || isSourceImporting) return;
+    if (becameReady) {
+      pendingAutoAdvanceToStep2Ref.current = true;
+      prevSourceStepReadyRef.current = true;
+    }
+    if (!pendingAutoAdvanceToStep2Ref.current || isSourceImporting) return;
     setActiveStep((prev) => (prev === 2 ? prev : 2));
+    pendingAutoAdvanceToStep2Ref.current = false;
   }, [isSourceImporting, sourceStepReady]);
 
   React.useEffect(() => {
@@ -833,7 +837,7 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
           </span>
         </div>
         <div
-          className={`room-create-preview-stage${isSourceImporting ? " is-loading" : ""}`}
+          className={`room-create-preview-stage${isSourceImporting ? " is-loading" : ""}${playlistItems.length === 0 ? " is-empty" : ""}`}
         >
           {playlistItems.length === 0 ? (
             <div className="room-create-preview-empty">尚未載入題庫</div>
@@ -961,9 +965,15 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
                   }}
                 />
 
-                <div className="room-create-field rounded-xl bg-[var(--mc-surface)]/38 p-2 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
-                  <div className="mb-1.5 text-[11px] text-[var(--mc-text-muted)]">
-                    最大人數（最多 16 人）
+                <div className="room-create-question-card">
+                  <div className="room-create-question-head">
+                    <Typography
+                      variant="subtitle1"
+                      className="room-create-step-title"
+                    >
+                      最大人數
+                    </Typography>
+                    <span className="room-create-question-badge">最多 16 人</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {maxPlayerQuickOptions.map((count) => {

@@ -2414,8 +2414,24 @@ body {
 
 .game-room-choice-tag--decision {
   border-color: rgba(251, 191, 36, 0.55);
-  background: rgba(245, 158, 11, 0.2);
+  background: linear-gradient(
+    180deg,
+    rgba(251, 191, 36, 0.26),
+    rgba(245, 158, 11, 0.16)
+  );
   color: #fde68a;
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.26),
+    0 0 0 1px rgba(245, 158, 11, 0.12);
+  animation: game-room-decision-tag-glow 1.25s ease-in-out infinite;
+}
+
+.game-room-choice-button--decision-live.MuiButton-root {
+  border-color: rgba(250, 204, 21, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.24),
+    0 0 20px -10px rgba(250, 204, 21, 0.7);
+  animation: game-room-decision-choice-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes game-room-choice-commit-sweep {
@@ -2847,6 +2863,37 @@ body {
   white-space: normal;
   text-overflow: initial;
   overflow: hidden;
+}
+
+@keyframes game-room-decision-tag-glow {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow:
+      inset 0 0 0 1px rgba(251, 191, 36, 0.2),
+      0 0 0 1px rgba(245, 158, 11, 0.08);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 0 0 1px rgba(251, 191, 36, 0.34),
+      0 0 0 1px rgba(245, 158, 11, 0.2),
+      0 0 20px -10px rgba(251, 191, 36, 0.6);
+  }
+}
+
+@keyframes game-room-decision-choice-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(250, 204, 21, 0.2),
+      0 0 12px -10px rgba(250, 204, 21, 0.44);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(250, 204, 21, 0.42),
+      0 0 22px -8px rgba(250, 204, 21, 0.74);
+  }
 }
 
 @media (max-width: 640px) {
