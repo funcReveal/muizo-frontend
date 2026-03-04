@@ -29,6 +29,8 @@ import type { PlaylistItem, RoomSummary } from "../../model/types";
 import {
   PLAY_DURATION_MAX,
   PLAY_DURATION_MIN,
+  REVEAL_DURATION_MAX,
+  REVEAL_DURATION_MIN,
   START_OFFSET_MAX,
   START_OFFSET_MIN,
 } from "../../model/roomConstants";
@@ -53,10 +55,12 @@ interface RoomCreationSectionProps {
   playlistProgress: { received: number; total: number; ready: boolean };
   questionCount: number;
   playDurationSec: number;
+  revealDurationSec: number;
   startOffsetSec: number;
   allowCollectionClipTiming: boolean;
   onQuestionCountChange: (value: number) => void;
   onPlayDurationChange: (value: number) => void;
+  onRevealDurationChange: (value: number) => void;
   onStartOffsetChange: (value: number) => void;
   onAllowCollectionClipTimingChange: (value: boolean) => void;
   questionMin?: number;
@@ -64,6 +68,8 @@ interface RoomCreationSectionProps {
   questionStep?: number;
   playDurationMin?: number;
   playDurationMax?: number;
+  revealDurationMin?: number;
+  revealDurationMax?: number;
   startOffsetMin?: number;
   startOffsetMax?: number;
   questionControlsEnabled?: boolean;
@@ -234,10 +240,12 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
     playlistProgress,
     questionCount,
     playDurationSec,
+    revealDurationSec,
     startOffsetSec,
     allowCollectionClipTiming,
     onQuestionCountChange,
     onPlayDurationChange,
+    onRevealDurationChange,
     onStartOffsetChange,
     onAllowCollectionClipTimingChange,
     questionMin = 1,
@@ -247,6 +255,8 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
     questionLimitLabel,
     playDurationMin = PLAY_DURATION_MIN,
     playDurationMax = PLAY_DURATION_MAX,
+    revealDurationMin = REVEAL_DURATION_MIN,
+    revealDurationMax = REVEAL_DURATION_MAX,
     startOffsetMin = START_OFFSET_MIN,
     startOffsetMax = START_OFFSET_MAX,
     youtubePlaylists = [],
@@ -1015,68 +1025,99 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
                     </Typography>
                     <span className="room-create-question-badge">
                       {useCollectionTimingForSource
-                        ? "收藏庫時間"
-                        : `${playDurationSec}s / ${startOffsetSec}s`}
+                        ? `揭曉 ${revealDurationSec}s（收藏庫片段）`
+                        : `揭曉 ${revealDurationSec}s / 作答 ${playDurationSec}s / 起始 ${startOffsetSec}s`}
                     </span>
                   </div>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        size="small"
-                        checked={allowCollectionClipTiming}
-                        onChange={(_event, checked) =>
-                          onAllowCollectionClipTimingChange(checked)
-                        }
-                      />
-                    }
-                    label="使用收藏庫設定的時間"
-                    className="room-create-muted"
+                  <TextField
+                    size="small"
+                    type="number"
+                    label="公布答案時間 (秒)"
+                    value={revealDurationSec}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      if (!Number.isFinite(next)) return;
+                      onRevealDurationChange(next);
+                    }}
+                    slotProps={{
+                      htmlInput: {
+                        min: revealDurationMin,
+                        max: revealDurationMax,
+                        inputMode: "numeric",
+                      },
+                    }}
+                    fullWidth
+                    className="room-create-field"
                   />
-                  {!useCollectionTimingForSource && (
-                    <Stack
-                      direction={{ xs: "column", sm: "row" }}
-                      spacing={1.25}
-                    >
-                      <TextField
-                        size="small"
-                        type="number"
-                        label="作答時間設定"
-                        value={playDurationSec}
-                        onChange={(event) => {
-                          const next = Number(event.target.value);
-                          if (!Number.isFinite(next)) return;
-                          onPlayDurationChange(next);
-                        }}
-                        slotProps={{
-                          htmlInput: {
-                            min: playDurationMin,
-                            max: playDurationMax,
-                            inputMode: "numeric",
-                          },
-                        }}
-                        fullWidth
-                        className="room-create-field"
-                      />
-                      <TextField
-                        size="small"
-                        type="number"
-                        label="起始時間 (秒)"
-                        value={startOffsetSec}
-                        onChange={(event) => {
-                          const next = Number(event.target.value);
-                          if (!Number.isFinite(next)) return;
-                          onStartOffsetChange(next);
-                        }}
-                        slotProps={{
-                          htmlInput: {
-                            min: startOffsetMin,
-                            max: startOffsetMax,
-                            inputMode: "numeric",
-                          },
-                        }}
-                        fullWidth
-                        className="room-create-field"
-                      />
+                  {isCollectionSource && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={allowCollectionClipTiming}
+                          onChange={(_event, checked) =>
+                            onAllowCollectionClipTimingChange(checked)
+                          }
+                        />
+                      }
+                      label="使用收藏庫設定的時間"
+                      className="room-create-muted"
+                    />
+                  )}
+                  {useCollectionTimingForSource ? (
+                    <Typography variant="caption" className="room-create-muted">
+                      已啟用收藏庫時間，作答時間與起始時間會自動套用歌單設定。
+                    </Typography>
+                  ) : (
+                    <Stack spacing={1}>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1.25}
+                      >
+                        <TextField
+                          size="small"
+                          type="number"
+                          label="作答時間設定"
+                          value={playDurationSec}
+                          onChange={(event) => {
+                            const next = Number(event.target.value);
+                            if (!Number.isFinite(next)) return;
+                            onPlayDurationChange(next);
+                          }}
+                          slotProps={{
+                            htmlInput: {
+                              min: playDurationMin,
+                              max: playDurationMax,
+                              inputMode: "numeric",
+                            },
+                          }}
+                          fullWidth
+                          className="room-create-field"
+                        />
+                        <TextField
+                          size="small"
+                          type="number"
+                          label="起始時間 (秒)"
+                          value={startOffsetSec}
+                          onChange={(event) => {
+                            const next = Number(event.target.value);
+                            if (!Number.isFinite(next)) return;
+                            onStartOffsetChange(next);
+                          }}
+                          slotProps={{
+                            htmlInput: {
+                              min: startOffsetMin,
+                              max: startOffsetMax,
+                              inputMode: "numeric",
+                            },
+                          }}
+                          fullWidth
+                          className="room-create-field"
+                        />
+                      </Stack>
+                      <Typography variant="caption" className="room-create-muted">
+                        若超過歌曲長度，系統會依據起始時間做循環裁切。
+                      </Typography>
                     </Stack>
                   )}
                 </Stack>

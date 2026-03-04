@@ -17,7 +17,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   soundcloud: "SoundCloud",
   bilibili: "Bilibili",
   niconico: "niconico",
-  manual: "手動題目",
+  manual: "手動題庫",
   collection: "收藏庫",
 };
 
@@ -39,10 +39,33 @@ const SEARCH_BY_PROVIDER: Record<string, (query: string) => string> = {
 const isHttpUrl = (value: string | null | undefined) =>
   Boolean(value && /^https?:\/\//i.test(value.trim()));
 
-const normalizeProvider = (provider: string | null | undefined) => {
+const inferProviderFromUrl = (value: string | null | undefined): string | null => {
+  if (!value || !isHttpUrl(value)) return null;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    if (host.includes("youtube.com") || host.includes("youtu.be")) return "youtube";
+    if (host.includes("spotify.com")) return "spotify";
+    if (host.includes("soundcloud.com")) return "soundcloud";
+    if (host.includes("bilibili.com")) return "bilibili";
+    if (host.includes("nicovideo.jp") || host.includes("nico.ms")) return "niconico";
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const normalizeProvider = (
+  provider: string | null | undefined,
+  url: string | null | undefined,
+  sourceId: string | null | undefined,
+) => {
   const value = (provider ?? "").trim().toLowerCase();
-  if (!value) return "unknown";
-  return value;
+  if (value) return value;
+  const inferredFromUrl = inferProviderFromUrl(url);
+  if (inferredFromUrl) return inferredFromUrl;
+  const inferredFromSourceId = inferProviderFromUrl(sourceId);
+  if (inferredFromSourceId) return inferredFromSourceId;
+  return "unknown";
 };
 
 const normalizeSourceId = (sourceId: string | null | undefined) => {
@@ -131,7 +154,7 @@ export const resolveSettlementTrackLink = (
     "provider" | "sourceId" | "videoId" | "url" | "title" | "answerText" | "uploader"
   >,
 ): SettlementTrackLink => {
-  const provider = normalizeProvider(item.provider);
+  const provider = normalizeProvider(item.provider, item.url, item.sourceId);
   const sourceId = normalizeSourceId(item.sourceId);
   const providerLabel = PROVIDER_LABELS[provider] ?? provider.toUpperCase();
 
@@ -192,7 +215,7 @@ export const summarizePlaylistSourceReadiness = (
   const providerCounter = new Map<string, { label: string; count: number }>();
 
   for (const item of items) {
-    const provider = normalizeProvider(item.provider);
+    const provider = normalizeProvider(item.provider, item.url, item.sourceId);
     const sourceId = normalizeSourceId(item.sourceId);
     if (provider !== "unknown") withProvider += 1;
     if (sourceId) withSourceId += 1;

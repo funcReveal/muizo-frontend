@@ -129,6 +129,7 @@ export interface RoomContextValue {
   playlistSuggestions: PlaylistSuggestion[];
   questionCount: number;
   playDurationSec: number;
+  revealDurationSec: number;
   startOffsetSec: number;
   allowCollectionClipTiming: boolean;
   questionMin: number;
@@ -161,6 +162,7 @@ export interface RoomContextValue {
     password?: string | null;
     questionCount?: number;
     playDurationSec?: number;
+    revealDurationSec?: number;
     startOffsetSec?: number;
     allowCollectionClipTiming?: boolean;
     maxPlayers?: number | null;
@@ -188,6 +190,7 @@ export interface RoomContextValue {
   loadMorePlaylist: () => void;
   updateQuestionCount: (value: number) => void;
   updatePlayDurationSec: (value: number) => number;
+  updateRevealDurationSec: (value: number) => number;
   updateStartOffsetSec: (value: number) => number;
   updateAllowCollectionClipTiming: (value: boolean) => boolean;
   syncServerOffset: (serverNow: number) => void;

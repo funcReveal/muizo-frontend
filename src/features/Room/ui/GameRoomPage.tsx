@@ -457,6 +457,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const lastTopTwoOrderRef = useRef<[string | null, string | null]>([null, null]);
   const topTwoSwapTimerRef = useRef<number | null>(null);
   const choiceCommitFxTimerRef = useRef<number | null>(null);
+  const answerPanelRef = useRef<HTMLDivElement | null>(null);
+  const lastAnswerPanelAutoScrollKeyRef = useRef<string | null>(null);
   const submitRequestSeqRef = useRef(0);
   const [topTwoSwapState, setTopTwoSwapState] = useState<{
     firstClientId: string;
@@ -488,6 +490,64 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => Date.now() + serverOffsetMs,
     [serverOffsetMs],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+    if (gameState.status !== "playing") return;
+    const nextKey = `${room.id}:${gameState.startedAt}`;
+    if (lastAnswerPanelAutoScrollKeyRef.current === nextKey) return;
+
+    const isTargetMostlyVisible = (target: HTMLElement) => {
+      const rect = target.getBoundingClientRect();
+      const viewportHeight =
+        window.innerHeight || document.documentElement.clientHeight;
+      const visibleTop = Math.max(0, rect.top);
+      const visibleBottom = Math.min(viewportHeight, rect.bottom);
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+      const requiredVisibleHeight = Math.min(
+        rect.height * 0.45,
+        viewportHeight * 0.45,
+      );
+      return visibleHeight >= requiredVisibleHeight;
+    };
+
+    let timerId: number | null = null;
+    let rafId1: number | null = null;
+    let rafId2: number | null = null;
+    let cancelled = false;
+
+    rafId1 = window.requestAnimationFrame(() => {
+      rafId2 = window.requestAnimationFrame(() => {
+        timerId = window.setTimeout(() => {
+          if (cancelled) return;
+          const target = answerPanelRef.current;
+          if (!target) return;
+          if (!isTargetMostlyVisible(target)) {
+            target.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+              inline: "nearest",
+            });
+          }
+          lastAnswerPanelAutoScrollKeyRef.current = nextKey;
+        }, 90);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+      }
+      if (rafId1 !== null) {
+        window.cancelAnimationFrame(rafId1);
+      }
+      if (rafId2 !== null) {
+        window.cancelAnimationFrame(rafId2);
+      }
+    };
+  }, [gameState.startedAt, gameState.status, room.id]);
   const clearDanmuTimers = useCallback(() => {
     danmuTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     danmuTimersRef.current = [];
@@ -3109,7 +3169,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           </div>
 
           {/* 答題區 */}
-          <div className="game-room-panel game-room-panel--warm p-3 text-slate-50 flex min-h-0 flex-col lg:flex-1">
+          <div
+            ref={answerPanelRef}
+            className="game-room-panel game-room-panel--warm p-3 text-slate-50 flex min-h-0 flex-col lg:flex-1"
+          >
             {isInitialCountdown ? (
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-slate-300">

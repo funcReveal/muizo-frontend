@@ -34,6 +34,7 @@ import {
   DEFAULT_CLIP_SEC,
   DEFAULT_PAGE_SIZE,
   DEFAULT_PLAY_DURATION_SEC,
+  DEFAULT_REVEAL_DURATION_SEC,
   DEFAULT_START_OFFSET_SEC,
   PLAYER_MAX,
   PLAYER_MIN,
@@ -45,6 +46,7 @@ import {
 import {
   clampPlayDurationSec,
   clampQuestionCount,
+  clampRevealDurationSec,
   clampStartOffsetSec,
   formatSeconds,
   getQuestionMax,
@@ -205,6 +207,11 @@ const mergeGameSettings = (
         current?.playDurationSec ??
         DEFAULT_PLAY_DURATION_SEC,
     ),
+    revealDurationSec: clampRevealDurationSec(
+      incoming?.revealDurationSec ??
+        current?.revealDurationSec ??
+        DEFAULT_REVEAL_DURATION_SEC,
+    ),
     startOffsetSec: clampStartOffsetSec(
       incoming?.startOffsetSec ??
         current?.startOffsetSec ??
@@ -347,6 +354,9 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const [roomMaxPlayersInput, setRoomMaxPlayersInput] = useState("");
   const [playDurationSec, setPlayDurationSec] = useState(
     DEFAULT_PLAY_DURATION_SEC,
+  );
+  const [revealDurationSec, setRevealDurationSec] = useState(
+    DEFAULT_REVEAL_DURATION_SEC,
   );
   const [startOffsetSec, setStartOffsetSec] = useState(
     DEFAULT_START_OFFSET_SEC,
@@ -697,6 +707,12 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const handleUpdatePlayDurationSec = useCallback((value: number) => {
     const clamped = clampPlayDurationSec(value);
     setPlayDurationSec(clamped);
+    return clamped;
+  }, []);
+
+  const handleUpdateRevealDurationSec = useCallback((value: number) => {
+    const clamped = clampRevealDurationSec(value);
+    setRevealDurationSec(clamped);
     return clamped;
   }, []);
 
@@ -1553,6 +1569,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       getQuestionMax(playlistItems.length),
     );
     const nextPlayDurationSec = clampPlayDurationSec(playDurationSec);
+    const nextRevealDurationSec = clampRevealDurationSec(revealDurationSec);
     const nextStartOffsetSec = clampStartOffsetSec(startOffsetSec);
     const nextAllowCollectionClipTiming = Boolean(allowCollectionClipTiming);
     trackEvent("room_create_click", {
@@ -1560,6 +1577,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       room_visibility: desiredVisibility,
       player_limit: desiredMaxPlayers ?? PLAYER_MAX,
       question_count: nextQuestionCount,
+      reveal_duration_sec: nextRevealDurationSec,
       playlist_count: playlistItems.length,
     });
     const shouldSyncRoomSettings =
@@ -1567,6 +1585,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       desiredPassword !== null ||
       desiredMaxPlayers !== null ||
       nextPlayDurationSec !== DEFAULT_PLAY_DURATION_SEC ||
+      nextRevealDurationSec !== DEFAULT_REVEAL_DURATION_SEC ||
       nextStartOffsetSec !== DEFAULT_START_OFFSET_SEC ||
       !nextAllowCollectionClipTiming;
 
@@ -1591,6 +1610,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       gameSettings: {
         questionCount: nextQuestionCount,
         playDurationSec: nextPlayDurationSec,
+        revealDurationSec: nextRevealDurationSec,
         startOffsetSec: nextStartOffsetSec,
         allowCollectionClipTiming: nextAllowCollectionClipTiming,
       },
@@ -1620,6 +1640,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         applyGameSettingsPatch(state.room, {
           questionCount: nextQuestionCount,
           playDurationSec: nextPlayDurationSec,
+          revealDurationSec: nextRevealDurationSec,
           startOffsetSec: nextStartOffsetSec,
           allowCollectionClipTiming: nextAllowCollectionClipTiming,
         }),
@@ -1899,6 +1920,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
                         ),
                         {
                           playDurationSec: nextPlayDurationSec,
+                          revealDurationSec: nextRevealDurationSec,
                           startOffsetSec: nextStartOffsetSec,
                           allowCollectionClipTiming:
                             nextAllowCollectionClipTiming,
@@ -1945,6 +1967,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     lockSessionClientId,
     playlistItems,
     playDurationSec,
+    revealDurationSec,
     questionCount,
     refreshAuthToken,
     roomCreateSourceMode,
@@ -2095,10 +2118,14 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       clampPlayDurationSec(
         currentRoom.gameSettings?.playDurationSec ?? DEFAULT_PLAY_DURATION_SEC,
       ) * 1000;
+    const revealDurationMs =
+      clampRevealDurationSec(
+        currentRoom.gameSettings?.revealDurationSec ?? DEFAULT_REVEAL_DURATION_SEC,
+      ) * 1000;
 
     s.emit(
       "startGame",
-      { roomId: currentRoom.id, guessDurationMs },
+      { roomId: currentRoom.id, guessDurationMs, revealDurationMs },
       (ack: Ack<{ gameState: GameState; serverNow: number }>) => {
         if (!ack) return;
         if (ack.ok) {
@@ -2238,6 +2265,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       password?: string | null;
       questionCount?: number;
       playDurationSec?: number;
+      revealDurationSec?: number;
       startOffsetSec?: number;
       allowCollectionClipTiming?: boolean;
       maxPlayers?: number | null;
@@ -2251,6 +2279,9 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         ...payload,
         ...(typeof payload.playDurationSec === "number"
           ? { playDurationSec: clampPlayDurationSec(payload.playDurationSec) }
+          : {}),
+        ...(typeof payload.revealDurationSec === "number"
+          ? { revealDurationSec: clampRevealDurationSec(payload.revealDurationSec) }
           : {}),
         ...(typeof payload.startOffsetSec === "number"
           ? { startOffsetSec: clampStartOffsetSec(payload.startOffsetSec) }
@@ -2276,6 +2307,9 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             const gameSettingsPatch = {
               ...(typeof normalizedPayload.playDurationSec === "number"
                 ? { playDurationSec: normalizedPayload.playDurationSec }
+                : {}),
+              ...(typeof normalizedPayload.revealDurationSec === "number"
+                ? { revealDurationSec: normalizedPayload.revealDurationSec }
                 : {}),
               ...(typeof normalizedPayload.startOffsetSec === "number"
                 ? { startOffsetSec: normalizedPayload.startOffsetSec }
@@ -2308,6 +2342,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
             }
             const shouldSyncTiming =
               typeof normalizedPayload.playDurationSec === "number" ||
+              typeof normalizedPayload.revealDurationSec === "number" ||
               typeof normalizedPayload.startOffsetSec === "number" ||
               typeof normalizedPayload.allowCollectionClipTiming === "boolean";
             if (!shouldSyncTiming) {
@@ -2671,6 +2706,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     setRoomPasswordInput("");
     setRoomMaxPlayersInput("");
     setPlayDurationSec(DEFAULT_PLAY_DURATION_SEC);
+    setRevealDurationSec(DEFAULT_REVEAL_DURATION_SEC);
     setStartOffsetSec(DEFAULT_START_OFFSET_SEC);
     setAllowCollectionClipTiming(true);
     resetPlaylistState();
@@ -2709,6 +2745,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     if (playlistViewItems.length === 0) return;
     const needsBackfill =
       currentRoom.gameSettings?.playDurationSec === undefined ||
+      currentRoom.gameSettings?.revealDurationSec === undefined ||
       currentRoom.gameSettings?.startOffsetSec === undefined ||
       currentRoom.gameSettings?.allowCollectionClipTiming === undefined;
     if (!needsBackfill) return;
@@ -2728,15 +2765,23 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     const inferredAllowCollectionClipTiming = playlistViewItems.some(
       (item) => item.timingSource === "track_clip",
     );
+    const inferredRevealDurationSec = clampRevealDurationSec(
+      currentRoom.gameSettings?.revealDurationSec ??
+        (typeof gameState?.revealDurationMs === "number" && gameState.revealDurationMs > 0
+          ? gameState.revealDurationMs / 1000
+          : DEFAULT_REVEAL_DURATION_SEC),
+    );
     setCurrentRoom((prev) => {
       if (!prev || prev.id !== currentRoom.id) return prev;
       const mergedSettings = mergeGameSettings(prev.gameSettings, {
         playDurationSec: inferredPlayDurationSec,
+        revealDurationSec: inferredRevealDurationSec,
         startOffsetSec: inferredStartOffsetSec,
         allowCollectionClipTiming: inferredAllowCollectionClipTiming,
       });
       if (
         prev.gameSettings?.playDurationSec === mergedSettings.playDurationSec &&
+        prev.gameSettings?.revealDurationSec === mergedSettings.revealDurationSec &&
         prev.gameSettings?.startOffsetSec === mergedSettings.startOffsetSec &&
         prev.gameSettings?.allowCollectionClipTiming ===
           mergedSettings.allowCollectionClipTiming
@@ -2748,7 +2793,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         gameSettings: mergedSettings,
       };
     });
-  }, [currentRoom, playlistViewItems]);
+  }, [currentRoom, gameState?.revealDurationMs, playlistViewItems]);
 
   useEffect(() => {
     if (!currentRoom?.id) {
@@ -2862,6 +2907,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       playlistSuggestions,
       questionCount,
       playDurationSec,
+      revealDurationSec,
       startOffsetSec,
       allowCollectionClipTiming,
       questionMin,
@@ -2900,6 +2946,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       loadMorePlaylist,
       updateQuestionCount: handleUpdateQuestionCount,
       updatePlayDurationSec: handleUpdatePlayDurationSec,
+      updateRevealDurationSec: handleUpdateRevealDurationSec,
       updateStartOffsetSec: handleUpdateStartOffsetSec,
       updateAllowCollectionClipTiming: handleUpdateAllowCollectionClipTiming,
       syncServerOffset,
@@ -2982,6 +3029,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       playlistSuggestions,
       questionCount,
       playDurationSec,
+      revealDurationSec,
       startOffsetSec,
       allowCollectionClipTiming,
       questionMin,
@@ -3021,6 +3069,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       loadMorePlaylist,
       handleUpdateQuestionCount,
       handleUpdatePlayDurationSec,
+      handleUpdateRevealDurationSec,
       handleUpdateStartOffsetSec,
       handleUpdateAllowCollectionClipTiming,
       fetchRooms,

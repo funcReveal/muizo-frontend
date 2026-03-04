@@ -2,11 +2,14 @@
 import {
   DEFAULT_CLIP_SEC,
   DEFAULT_PLAY_DURATION_SEC,
+  DEFAULT_REVEAL_DURATION_SEC,
   DEFAULT_START_OFFSET_SEC,
   PLAY_DURATION_MAX,
   PLAY_DURATION_MIN,
   QUESTION_MAX,
   QUESTION_MIN,
+  REVEAL_DURATION_MAX,
+  REVEAL_DURATION_MIN,
   START_OFFSET_MAX,
   START_OFFSET_MIN,
 } from "./roomConstants";
@@ -93,6 +96,14 @@ export const clampPlayDurationSec = (value: number) =>
     PLAY_DURATION_MIN,
     PLAY_DURATION_MAX,
     DEFAULT_PLAY_DURATION_SEC,
+  );
+
+export const clampRevealDurationSec = (value: number) =>
+  clampNumber(
+    value,
+    REVEAL_DURATION_MIN,
+    REVEAL_DURATION_MAX,
+    DEFAULT_REVEAL_DURATION_SEC,
   );
 
 export const clampStartOffsetSec = (value: number) =>

@@ -1,6 +1,25 @@
-﻿
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Chip } from "@mui/material";
+﻿import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+} from "@mui/material";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
+import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
+import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
+import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
+import AdsClickRoundedIcon from "@mui/icons-material/AdsClickRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 
 import { trackEvent } from "../../../../shared/analytics/track";
 import { useSettingsModel } from "../../../Setting/model/settingsContext";
@@ -17,7 +36,8 @@ import type {
 import type { SettlementQuestionRecap } from "./GameSettlementPanel";
 
 type LiveSettlementTab = "overview" | "recommend";
-type RecommendCategory = "quick" | "confuse" | "hard";
+type RecommendCategory = "quick" | "confuse" | "hard" | "other";
+type PreviewPlaybackMode = "idle" | "auto" | "manual";
 
 type ExtendedRecap = SettlementQuestionRecap & {
   provider?: string;
@@ -67,18 +87,75 @@ const TAB_HINTS: Record<LiveSettlementTab, string> = {
 const RECAPS_PER_PAGE = 12;
 const RECOMMEND_PREVIEW_SECONDS = 15;
 const RECOMMEND_MAX_ITEMS = 5;
-const RECOMMEND_CATEGORY_FLOW: RecommendCategory[] = ["quick", "confuse", "hard"];
+const RECOMMEND_CATEGORY_FLOW: RecommendCategory[] = [
+  "quick",
+  "confuse",
+  "hard",
+  "other",
+];
+const RECOMMEND_CATEGORY_LABELS: Record<RecommendCategory, string> = {
+  quick: "秒猜精選",
+  confuse: "易混淆",
+  hard: "高難挑戰",
+  other: "其餘歌單",
+};
+const RECOMMEND_CATEGORY_SHORT_HINT: Record<RecommendCategory, string> = {
+  quick: "高答對＋快反應",
+  confuse: "最常改答案",
+  hard: "低答對率挑戰",
+  other: "延伸聆聽",
+};
+const RECOMMEND_CATEGORY_THEME: Record<
+  RecommendCategory,
+  {
+    sectionClass: string;
+    listActiveClass: string;
+    autoWrapClass: string;
+    autoBarClass: string;
+    badgeClass: string;
+  }
+> = {
+  quick: {
+    sectionClass:
+      "border-emerald-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.16),0_25px_55px_-45px_rgba(16,185,129,0.55)]",
+    listActiveClass: "border-emerald-300/50 bg-emerald-400/10",
+    autoWrapClass:
+      "border-emerald-300/45 bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(16,185,129,0.2),0_12px_24px_-18px_rgba(16,185,129,0.7)]",
+    autoBarClass: "bg-gradient-to-r from-emerald-300 to-cyan-200",
+    badgeClass: "border-emerald-300/45 bg-emerald-500/16 text-emerald-50",
+  },
+  confuse: {
+    sectionClass:
+      "border-fuchsia-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.16),0_25px_55px_-45px_rgba(217,70,239,0.55)]",
+    listActiveClass: "border-fuchsia-300/50 bg-fuchsia-400/10",
+    autoWrapClass:
+      "border-fuchsia-300/45 bg-gradient-to-r from-fuchsia-500/20 via-fuchsia-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(217,70,239,0.2),0_12px_24px_-18px_rgba(217,70,239,0.7)]",
+    autoBarClass: "bg-gradient-to-r from-fuchsia-300 to-pink-200",
+    badgeClass: "border-fuchsia-300/45 bg-fuchsia-500/16 text-fuchsia-50",
+  },
+  hard: {
+    sectionClass:
+      "border-amber-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.16),0_25px_55px_-45px_rgba(251,191,36,0.55)]",
+    listActiveClass: "border-amber-300/50 bg-amber-400/10",
+    autoWrapClass:
+      "border-amber-300/45 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(251,191,36,0.2),0_12px_24px_-18px_rgba(251,191,36,0.7)]",
+    autoBarClass: "bg-gradient-to-r from-amber-300 to-yellow-100",
+    badgeClass: "border-amber-300/45 bg-amber-500/16 text-amber-50",
+  },
+  other: {
+    sectionClass:
+      "border-slate-300/30 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16),0_25px_55px_-45px_rgba(148,163,184,0.45)]",
+    listActiveClass: "border-slate-300/55 bg-slate-400/10",
+    autoWrapClass:
+      "border-slate-300/45 bg-gradient-to-r from-slate-500/20 via-slate-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(148,163,184,0.2),0_12px_24px_-18px_rgba(148,163,184,0.7)]",
+    autoBarClass: "bg-gradient-to-r from-slate-200 to-slate-100",
+    badgeClass: "border-slate-300/45 bg-slate-500/16 text-slate-50",
+  },
+};
 
 const MULTILINE_ELLIPSIS_2: React.CSSProperties = {
   display: "-webkit-box",
   WebkitLineClamp: 2,
-  WebkitBoxOrient: "vertical",
-  overflow: "hidden",
-};
-
-const MULTILINE_ELLIPSIS_3: React.CSSProperties = {
-  display: "-webkit-box",
-  WebkitLineClamp: 3,
   WebkitBoxOrient: "vertical",
   overflow: "hidden",
 };
@@ -89,22 +166,26 @@ const RESULT_META: Record<
 > = {
   correct: {
     label: "答對",
-    badgeClass:
-      "border-emerald-300/45 bg-emerald-500/18 text-emerald-50",
+    badgeClass: "border-emerald-300/45 bg-emerald-500/18 text-emerald-50",
   },
   wrong: {
     label: "答錯",
-    badgeClass:
-      "border-rose-300/45 bg-rose-500/18 text-rose-50",
+    badgeClass: "border-rose-300/45 bg-rose-500/18 text-rose-50",
   },
   unanswered: {
     label: "未作答",
-    badgeClass:
-      "border-slate-400/55 bg-slate-700/55 text-slate-100",
+    badgeClass: "border-slate-400/55 bg-slate-700/55 text-slate-100",
   },
 };
+type RecapAnswerResult = keyof typeof RESULT_META;
+
+const REVIEW_STATUS_BADGE_BASE =
+  "inline-flex h-6 min-w-[4.25rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold";
 
 const AUTO_PREVIEW_STORAGE_KEY = "mq_settlement_auto_preview";
+const REVIEW_DOUBLE_PLAY_STORAGE_KEY = "mq_settlement_review_double_click_play";
+const RECOMMEND_CONTROLS_HINT_STORAGE_KEY =
+  "mq_settlement_recommend_controls_hint_seen";
 
 const readStoredBoolean = (key: string, fallback: boolean) => {
   if (typeof window === "undefined") return fallback;
@@ -163,7 +244,11 @@ const resolveParticipantResult = (
   participantClientId: string | null,
   meClientId?: string,
 ): "correct" | "wrong" | "unanswered" => {
-  const answer = resolveParticipantAnswer(recap, participantClientId, meClientId);
+  const answer = resolveParticipantAnswer(
+    recap,
+    participantClientId,
+    meClientId,
+  );
   if (answer.result === "correct" || answer.result === "wrong") {
     return answer.result;
   }
@@ -187,7 +272,8 @@ const formatMs = (value: number | null | undefined) => {
   return `${Math.round(value)}ms`;
 };
 
-const formatPercent = (value: number) => `${Math.round(Math.max(0, value) * 100)}%`;
+const formatPercent = (value: number) =>
+  `${Math.round(Math.max(0, value) * 100)}%`;
 
 const resolveRecapTrack = (
   recap: ExtendedRecap,
@@ -209,6 +295,9 @@ const resolveParticipantCount = (
   return Math.max(1, count);
 };
 
+const clampMs = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
 const buildFallbackRecaps = (
   playlistItems: PlaylistItem[],
   trackOrder: number[],
@@ -216,23 +305,23 @@ const buildFallbackRecaps = (
   trackOrder.map((trackIndex, index) => {
     const item = playlistItems[trackIndex];
     const title =
-      item?.answerText?.trim() ||
-      item?.title?.trim() ||
-      `第 ${index + 1} 題`;
+      item?.answerText?.trim() || item?.title?.trim() || `第 ${index + 1} 題`;
     const uploader = item?.uploader?.trim() || "Unknown";
-    const choices = trackOrder.slice(0, 4).map((choiceTrackIndex, choiceIndex) => {
-      const choiceItem = playlistItems[choiceTrackIndex];
-      const choiceTitle =
-        choiceItem?.answerText?.trim() ||
-        choiceItem?.title?.trim() ||
-        `選項 ${choiceIndex + 1}`;
-      return {
-        index: choiceIndex,
-        title: choiceTitle,
-        isCorrect: choiceTrackIndex === trackIndex,
-        isSelectedByMe: false,
-      };
-    });
+    const choices = trackOrder
+      .slice(0, 4)
+      .map((choiceTrackIndex, choiceIndex) => {
+        const choiceItem = playlistItems[choiceTrackIndex];
+        const choiceTitle =
+          choiceItem?.answerText?.trim() ||
+          choiceItem?.title?.trim() ||
+          `選項 ${choiceIndex + 1}`;
+        return {
+          index: choiceIndex,
+          title: choiceTitle,
+          isCorrect: choiceTrackIndex === trackIndex,
+          isSelectedByMe: false,
+        };
+      });
 
     return {
       key: `fallback:${index}:${trackIndex}`,
@@ -278,9 +367,17 @@ const resolvePreviewEmbedUrl = (
 ): string | null => {
   const provider = (recap.provider || link.provider || "").toLowerCase();
   if (provider === "youtube") {
-    const id = extractYouTubeId(recap.sourceId, recap.videoId, recap.url || link.href);
+    const id = extractYouTubeId(
+      recap.sourceId,
+      recap.videoId,
+      recap.url || link.href,
+    );
     if (!id) return null;
-    return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
+    const originParam =
+      typeof window !== "undefined" && window.location?.origin
+        ? `&origin=${encodeURIComponent(window.location.origin)}`
+        : "";
+    return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1${originParam}`;
   }
   return null;
 };
@@ -304,7 +401,9 @@ const buildRecommendationCard = (
   const link = buildRecommendationLink(recap);
   const providerLabel =
     link.providerLabel ||
-    ((recap.provider ?? "").trim() ? (recap.provider ?? "").trim().toUpperCase() : "Unknown");
+    ((recap.provider ?? "").trim()
+      ? (recap.provider ?? "").trim().toUpperCase()
+      : "Unknown");
   return {
     recap,
     hint,
@@ -333,8 +432,11 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 }) => {
   const getChangedAnswerCount = (answer: unknown): number => {
     if (!answer || typeof answer !== "object") return 0;
-    const value = (answer as { changedAnswerCount?: number }).changedAnswerCount;
-    return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+    const value = (answer as { changedAnswerCount?: number })
+      .changedAnswerCount;
+    return typeof value === "number" && Number.isFinite(value)
+      ? Math.max(0, value)
+      : 0;
   };
 
   const {
@@ -345,19 +447,33 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     settlementPreviewVolume,
   } = useSettingsModel();
   const [activeTab, setActiveTab] = useState<LiveSettlementTab>("overview");
-  const [recommendCategory, setRecommendCategory] = useState<RecommendCategory>("quick");
+  const [recommendCategory, setRecommendCategory] =
+    useState<RecommendCategory>("quick");
   const [recommendIndex, setRecommendIndex] = useState(0);
   const [autoPreviewEnabled, setAutoPreviewEnabled] = useState(() =>
     readStoredBoolean(AUTO_PREVIEW_STORAGE_KEY, true),
   );
+  const [reviewDoubleClickPlayEnabled, setReviewDoubleClickPlayEnabled] =
+    useState(() => readStoredBoolean(REVIEW_DOUBLE_PLAY_STORAGE_KEY, true));
   const [previewCountdownSec, setPreviewCountdownSec] = useState(
     RECOMMEND_PREVIEW_SECONDS,
   );
   const [autoAdvanceAtMs, setAutoAdvanceAtMs] = useState<number | null>(null);
+  const [previewPlaybackMode, setPreviewPlaybackMode] =
+    useState<PreviewPlaybackMode>("idle");
+  const [previewPlayerState, setPreviewPlayerState] = useState<
+    "idle" | "playing" | "paused"
+  >("idle");
   const [selectedRecapKey, setSelectedRecapKey] = useState<string | null>(null);
   const [previewRecapKey, setPreviewRecapKey] = useState<string | null>(null);
+  const [previewSwitchNotice, setPreviewSwitchNotice] = useState<string | null>(
+    null,
+  );
   const [reviewPage, setReviewPage] = useState(0);
   const [reviewDrawerOpen, setReviewDrawerOpen] = useState(true);
+  const [showRecommendControlsHint, setShowRecommendControlsHint] =
+    useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [tabRenderKey, setTabRenderKey] = useState(0);
   const [tickerNowMs, setTickerNowMs] = useState(() => Date.now());
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -365,15 +481,22 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const recommendPreviewStageRef = useRef<HTMLDivElement | null>(null);
   const celebrationKeyRef = useRef<string | null>(null);
   const autoAdvanceTimeoutRef = useRef<number | null>(null);
-  const hasAutoCenteredRecommendRef = useRef(false);
+  const autoCenteredRecommendRoundKeyRef = useRef<string | null>(null);
   const previewVolumeRetryTimersRef = useRef<number[]>([]);
+  const previewSwitchNoticeTimerRef = useRef<number | null>(null);
+  const recommendControlsHintTimerRef = useRef<number | null>(null);
+  const previewStatePollTimerRef = useRef<number | null>(null);
+  const previewBridgeRetryTimersRef = useRef<number[]>([]);
 
   const stepIndex = TAB_ORDER.indexOf(activeTab);
   const sortedParticipants = useMemo(
     () =>
       participants
         .slice()
-        .sort((a, b) => b.score - a.score || (b.correctCount ?? 0) - (a.correctCount ?? 0)),
+        .sort(
+          (a, b) =>
+            b.score - a.score || (b.correctCount ?? 0) - (a.correctCount ?? 0),
+        ),
     [participants],
   );
 
@@ -382,29 +505,38 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const thirdPlace = sortedParticipants[2] ?? null;
 
   const me = meClientId
-    ? sortedParticipants.find((participant) => participant.clientId === meClientId) ?? null
+    ? (sortedParticipants.find(
+        (participant) => participant.clientId === meClientId,
+      ) ?? null)
     : null;
   const myRank = meClientId
-    ? sortedParticipants.findIndex((participant) => participant.clientId === meClientId) + 1
+    ? sortedParticipants.findIndex(
+        (participant) => participant.clientId === meClientId,
+      ) + 1
     : 0;
-  const [selectedReviewParticipantClientId, setSelectedReviewParticipantClientId] =
-    useState<string | null>(() => {
-      if (meClientId) return meClientId;
-      return sortedParticipants[0]?.clientId ?? null;
-    });
+  const [
+    selectedReviewParticipantClientId,
+    setSelectedReviewParticipantClientId,
+  ] = useState<string | null>(() => {
+    if (meClientId) return meClientId;
+    return sortedParticipants[0]?.clientId ?? null;
+  });
   const effectiveSelectedReviewParticipantClientId = useMemo(() => {
     if (!sortedParticipants.length) return null;
     if (
       selectedReviewParticipantClientId &&
       sortedParticipants.some(
-        (participant) => participant.clientId === selectedReviewParticipantClientId,
+        (participant) =>
+          participant.clientId === selectedReviewParticipantClientId,
       )
     ) {
       return selectedReviewParticipantClientId;
     }
     if (
       meClientId &&
-      sortedParticipants.some((participant) => participant.clientId === meClientId)
+      sortedParticipants.some(
+        (participant) => participant.clientId === meClientId,
+      )
     ) {
       return meClientId;
     }
@@ -423,7 +555,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       })
       .sort((a, b) => {
         if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-        if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
+        if (b.correctCount !== a.correctCount)
+          return b.correctCount - a.correctCount;
         return b.participant.score - a.participant.score;
       });
     return ranked[0] ?? null;
@@ -455,7 +588,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       })
       .sort((a, b) => {
         if (a.ms !== b.ms) return a.ms - b.ms;
-        if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
+        if (b.correctCount !== a.correctCount)
+          return b.correctCount - a.correctCount;
         return b.participant.score - a.participant.score;
       });
     return ranked[0] ?? null;
@@ -464,7 +598,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const participantScoreMeta = useMemo(() => {
     const rows = sortedParticipants.map((participant) => {
       const correct = Math.max(0, participant.correctCount ?? 0);
-      const accuracy = playedQuestionCount > 0 ? correct / playedQuestionCount : 0;
+      const accuracy =
+        playedQuestionCount > 0 ? correct / playedQuestionCount : 0;
       const avgSpeedMs =
         typeof participant.avgCorrectMs === "number" &&
         Number.isFinite(participant.avgCorrectMs) &&
@@ -519,7 +654,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     return {
       byClientId: titleByClientId,
       metricsByClientId: rows.reduce<
-        Record<string, { accuracy: number; avgSpeedMs: number | null; combo: number }>
+        Record<
+          string,
+          { accuracy: number; avgSpeedMs: number | null; combo: number }
+        >
       >((acc, row) => {
         acc[row.participant.clientId] = {
           accuracy: row.accuracy,
@@ -546,6 +684,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       autoPreviewEnabled ? "1" : "0",
     );
   }, [autoPreviewEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      REVIEW_DOUBLE_PLAY_STORAGE_KEY,
+      reviewDoubleClickPlayEnabled ? "1" : "0",
+    );
+  }, [reviewDoubleClickPlayEnabled]);
 
   const effectivePreviewVolume = settlementPreviewSyncGameVolume
     ? gameVolume
@@ -602,6 +748,41 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     [],
   );
 
+  const clearPreviewBridgeRetryTimers = useCallback(() => {
+    previewBridgeRetryTimersRef.current.forEach((timerId) =>
+      window.clearTimeout(timerId),
+    );
+    previewBridgeRetryTimersRef.current = [];
+  }, []);
+
+  const registerYouTubeBridge = useCallback(() => {
+    const contentWindow = previewIframeRef.current?.contentWindow;
+    if (!contentWindow) return;
+    const send = () => {
+      contentWindow.postMessage(
+        JSON.stringify({ event: "listening", id: "settlement-preview" }),
+        "*",
+      );
+      contentWindow.postMessage(
+        JSON.stringify({
+          event: "command",
+          func: "addEventListener",
+          args: ["onStateChange"],
+        }),
+        "*",
+      );
+      contentWindow.postMessage(
+        JSON.stringify({ event: "command", func: "getPlayerState", args: [] }),
+        "*",
+      );
+    };
+    send();
+    clearPreviewBridgeRetryTimers();
+    previewBridgeRetryTimersRef.current = [160, 500, 1100].map((delay) =>
+      window.setTimeout(send, delay),
+    );
+  }, [clearPreviewBridgeRetryTimers]);
+
   const clearPreviewVolumeRetryTimers = useCallback(() => {
     previewVolumeRetryTimersRef.current.forEach((timerId) =>
       window.clearTimeout(timerId),
@@ -625,6 +806,104 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     previewRecapKey,
   ]);
 
+  const readYouTubePlayerState = useCallback(
+    (rawData: unknown): number | null => {
+      let payload: unknown = rawData;
+      if (typeof payload === "string") {
+        try {
+          payload = JSON.parse(payload);
+        } catch {
+          return null;
+        }
+      }
+      if (!payload || typeof payload !== "object") return null;
+      const eventValue =
+        "event" in payload ? (payload as { event?: unknown }).event : null;
+      const infoValue =
+        "info" in payload ? (payload as { info?: unknown }).info : null;
+      if (eventValue === "onStateChange" && typeof infoValue === "number") {
+        return infoValue;
+      }
+      if (
+        eventValue === "onStateChange" &&
+        infoValue &&
+        typeof infoValue === "object" &&
+        "playerState" in infoValue
+      ) {
+        const state = (infoValue as { playerState?: unknown }).playerState;
+        return typeof state === "number" ? state : null;
+      }
+      if (
+        eventValue !== "infoDelivery" ||
+        !infoValue ||
+        typeof infoValue !== "object"
+      ) {
+        return null;
+      }
+      const playerState =
+        "playerState" in infoValue
+          ? (infoValue as { playerState?: unknown }).playerState
+          : null;
+      return typeof playerState === "number" ? playerState : null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onMessage = (event: MessageEvent) => {
+      if (!previewRecapKey) return;
+      const origin = event.origin || "";
+      const trusted =
+        origin.includes("youtube.com") ||
+        origin.includes("youtube-nocookie.com");
+      if (!trusted) return;
+      const state = readYouTubePlayerState(event.data);
+      if (state === null) return;
+      if (state === 1) {
+        setPreviewPlayerState("playing");
+        return;
+      }
+      if (state === 2 || state === 0) {
+        setPreviewPlayerState("paused");
+        return;
+      }
+      if (state === -1) {
+        setPreviewPlayerState("idle");
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+    };
+  }, [previewRecapKey, readYouTubePlayerState]);
+
+  useEffect(() => {
+    if (previewStatePollTimerRef.current !== null) {
+      window.clearInterval(previewStatePollTimerRef.current);
+      previewStatePollTimerRef.current = null;
+    }
+    if (!previewRecapKey) {
+      return;
+    }
+    registerYouTubeBridge();
+    previewStatePollTimerRef.current = window.setInterval(() => {
+      postYouTubeCommand("getPlayerState");
+    }, 900);
+    return () => {
+      if (previewStatePollTimerRef.current !== null) {
+        window.clearInterval(previewStatePollTimerRef.current);
+        previewStatePollTimerRef.current = null;
+      }
+      clearPreviewBridgeRetryTimers();
+    };
+  }, [
+    clearPreviewBridgeRetryTimers,
+    postYouTubeCommand,
+    previewRecapKey,
+    registerYouTubeBridge,
+  ]);
+
   useEffect(() => {
     if (!previewRecapKey) return;
     syncPreviewVolume();
@@ -641,9 +920,19 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       if (autoAdvanceTimeoutRef.current !== null) {
         window.clearTimeout(autoAdvanceTimeoutRef.current);
       }
+      if (previewSwitchNoticeTimerRef.current !== null) {
+        window.clearTimeout(previewSwitchNoticeTimerRef.current);
+      }
+      if (recommendControlsHintTimerRef.current !== null) {
+        window.clearTimeout(recommendControlsHintTimerRef.current);
+      }
+      if (previewStatePollTimerRef.current !== null) {
+        window.clearInterval(previewStatePollTimerRef.current);
+      }
+      clearPreviewBridgeRetryTimers();
       clearPreviewVolumeRetryTimers();
     },
-    [clearPreviewVolumeRetryTimers],
+    [clearPreviewBridgeRetryTimers, clearPreviewVolumeRetryTimers],
   );
 
   const normalizedRecaps = useMemo<ExtendedRecap[]>(() => {
@@ -677,7 +966,11 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       summary[result] += 1;
     }
     return summary;
-  }, [effectiveSelectedReviewParticipantClientId, meClientId, normalizedRecaps]);
+  }, [
+    effectiveSelectedReviewParticipantClientId,
+    meClientId,
+    normalizedRecaps,
+  ]);
 
   const reviewPageCount = Math.max(
     1,
@@ -691,7 +984,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   }, [normalizedRecaps, safeReviewPage]);
 
   const effectiveSelectedRecapKey =
-    selectedRecapKey && pagedRecaps.some((item) => item.key === selectedRecapKey)
+    selectedRecapKey &&
+    pagedRecaps.some((item) => item.key === selectedRecapKey)
       ? selectedRecapKey
       : (pagedRecaps[0]?.key ?? null);
 
@@ -699,20 +993,26 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     if (!normalizedRecaps.length) return null;
     if (!effectiveSelectedRecapKey) return normalizedRecaps[0];
     return (
-      normalizedRecaps.find((recap) => recap.key === effectiveSelectedRecapKey) ??
-      normalizedRecaps[0]
+      normalizedRecaps.find(
+        (recap) => recap.key === effectiveSelectedRecapKey,
+      ) ?? normalizedRecaps[0]
     );
   }, [effectiveSelectedRecapKey, normalizedRecaps]);
+
+  const selectedRecapLink = useMemo(() => {
+    if (!selectedRecap) return null;
+    return buildRecommendationLink(selectedRecap);
+  }, [selectedRecap]);
   const selectedRecapAnswer = useMemo<{
     choiceIndex: number | null;
-    result: "correct" | "wrong" | "unanswered";
+    result: RecapAnswerResult;
     answeredAtMs: number | null;
   }>(() => {
     if (!selectedRecap) {
       return {
-        choiceIndex: null as number | null,
-        result: "unanswered" as "correct" | "wrong" | "unanswered",
-        answeredAtMs: null as number | null,
+        choiceIndex: null,
+        result: "unanswered",
+        answeredAtMs: null,
       };
     }
     const answer = resolveParticipantAnswer(
@@ -734,28 +1034,36 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const reviewContextTransitionKey = `${effectiveSelectedReviewParticipantClientId ?? "none"}:${safeReviewPage}`;
   const reviewDetailTransitionKey = `${reviewContextTransitionKey}:${selectedRecap?.key ?? "none"}`;
   const selectedReviewParticipant = effectiveSelectedReviewParticipantClientId
-    ? sortedParticipants.find(
-        (participant) => participant.clientId === effectiveSelectedReviewParticipantClientId,
-      ) ?? null
+    ? (sortedParticipants.find(
+        (participant) =>
+          participant.clientId === effectiveSelectedReviewParticipantClientId,
+      ) ?? null)
     : null;
-  const selectedReviewParticipantRank = effectiveSelectedReviewParticipantClientId
-    ? sortedParticipants.findIndex(
-        (participant) => participant.clientId === effectiveSelectedReviewParticipantClientId,
-      ) + 1
-    : 0;
-  const selectedReviewParticipantIndex = effectiveSelectedReviewParticipantClientId
-    ? sortedParticipants.findIndex(
-        (participant) => participant.clientId === effectiveSelectedReviewParticipantClientId,
-      )
-    : -1;
+  const selectedReviewParticipantRank =
+    effectiveSelectedReviewParticipantClientId
+      ? sortedParticipants.findIndex(
+          (participant) =>
+            participant.clientId === effectiveSelectedReviewParticipantClientId,
+        ) + 1
+      : 0;
+  const selectedReviewParticipantIndex =
+    effectiveSelectedReviewParticipantClientId
+      ? sortedParticipants.findIndex(
+          (participant) =>
+            participant.clientId === effectiveSelectedReviewParticipantClientId,
+        )
+      : -1;
 
   const goPrevReviewParticipant = useCallback(() => {
     if (sortedParticipants.length <= 1) return;
     const currentIndex =
       selectedReviewParticipantIndex >= 0 ? selectedReviewParticipantIndex : 0;
     const nextIndex =
-      (currentIndex - 1 + sortedParticipants.length) % sortedParticipants.length;
-    setSelectedReviewParticipantClientId(sortedParticipants[nextIndex]?.clientId ?? null);
+      (currentIndex - 1 + sortedParticipants.length) %
+      sortedParticipants.length;
+    setSelectedReviewParticipantClientId(
+      sortedParticipants[nextIndex]?.clientId ?? null,
+    );
   }, [selectedReviewParticipantIndex, sortedParticipants]);
 
   const goNextReviewParticipant = useCallback(() => {
@@ -763,25 +1071,77 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     const currentIndex =
       selectedReviewParticipantIndex >= 0 ? selectedReviewParticipantIndex : 0;
     const nextIndex = (currentIndex + 1) % sortedParticipants.length;
-    setSelectedReviewParticipantClientId(sortedParticipants[nextIndex]?.clientId ?? null);
+    setSelectedReviewParticipantClientId(
+      sortedParticipants[nextIndex]?.clientId ?? null,
+    );
   }, [selectedReviewParticipantIndex, sortedParticipants]);
 
   const defaultParticipantCount = Math.max(1, participants.length);
+  const configuredAnswerWindowMs = useMemo(() => {
+    const sec = room.gameSettings?.playDurationSec;
+    if (typeof sec !== "number" || !Number.isFinite(sec) || sec <= 0) {
+      return 15_000;
+    }
+    return sec * 1000;
+  }, [room.gameSettings?.playDurationSec]);
+  const quickMedianThresholdMs = useMemo(
+    () => clampMs(configuredAnswerWindowMs * 0.22, 1500, 7000),
+    [configuredAnswerWindowMs],
+  );
+  const quickFastestThresholdMs = useMemo(
+    () => clampMs(configuredAnswerWindowMs * 0.1, 700, 2800),
+    [configuredAnswerWindowMs],
+  );
 
   const quickRecommendations = useMemo(() => {
     return normalizedRecaps
       .map((recap) => {
-        const participantCount = resolveParticipantCount(recap, defaultParticipantCount);
+        const participantCount = resolveParticipantCount(
+          recap,
+          defaultParticipantCount,
+        );
         const correctCount = Math.max(0, recap.correctCount ?? 0);
+        const unansweredCount = Math.max(0, recap.unansweredCount ?? 0);
         const correctRate = correctCount / participantCount;
-        const speed = typeof recap.fastestCorrectMs === "number" ? recap.fastestCorrectMs : 120_000;
-        return { recap, correctRate, speed };
+        const unansweredRate = unansweredCount / participantCount;
+        const medianCorrectMs =
+          typeof recap.medianCorrectMs === "number" &&
+          Number.isFinite(recap.medianCorrectMs)
+            ? recap.medianCorrectMs
+            : Number.POSITIVE_INFINITY;
+        const fastestCorrectMs =
+          typeof recap.fastestCorrectMs === "number" &&
+          Number.isFinite(recap.fastestCorrectMs)
+            ? recap.fastestCorrectMs
+            : Number.POSITIVE_INFINITY;
+        return {
+          recap,
+          correctRate,
+          unansweredRate,
+          medianCorrectMs,
+          fastestCorrectMs,
+        };
       })
+      .filter(
+        (row) =>
+          row.correctRate >= 0.7 &&
+          row.unansweredRate <= 0.2 &&
+          row.medianCorrectMs <= quickMedianThresholdMs &&
+          row.fastestCorrectMs <= quickFastestThresholdMs,
+      )
       .sort(
         (a, b) =>
-          b.correctRate - a.correctRate || a.speed - b.speed || a.recap.order - b.recap.order,
+          b.correctRate - a.correctRate ||
+          a.medianCorrectMs - b.medianCorrectMs ||
+          a.fastestCorrectMs - b.fastestCorrectMs ||
+          a.recap.order - b.recap.order,
       );
-  }, [defaultParticipantCount, normalizedRecaps]);
+  }, [
+    defaultParticipantCount,
+    normalizedRecaps,
+    quickFastestThresholdMs,
+    quickMedianThresholdMs,
+  ]);
 
   const confuseRecommendations = useMemo(() => {
     return normalizedRecaps
@@ -804,11 +1164,23 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
           changedTimesFromAnswers,
           Math.max(0, recap.changedAnswerCount ?? 0),
         );
-        const participantCount = resolveParticipantCount(recap, defaultParticipantCount);
+        const participantCount = resolveParticipantCount(
+          recap,
+          defaultParticipantCount,
+        );
         const confusionRate =
           participantCount > 0 ? changedUsers / participantCount : 0;
-        return { recap, changedUsers, changedTimes, confusionRate };
+        const avgChangedCount =
+          participantCount > 0 ? changedTimes / participantCount : 0;
+        return {
+          recap,
+          changedUsers,
+          changedTimes,
+          confusionRate,
+          avgChangedCount,
+        };
       })
+      .filter((row) => row.confusionRate >= 0.3 || row.avgChangedCount >= 0.5)
       .sort(
         (a, b) =>
           b.changedUsers - a.changedUsers ||
@@ -821,14 +1193,50 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const hardRecommendations = useMemo(() => {
     return normalizedRecaps
       .map((recap) => {
-        const participantCount = resolveParticipantCount(recap, defaultParticipantCount);
+        const participantCount = resolveParticipantCount(
+          recap,
+          defaultParticipantCount,
+        );
+        const correctCount = Math.max(0, recap.correctCount ?? 0);
         const wrongCount = Math.max(0, recap.wrongCount ?? 0);
         const unansweredCount = Math.max(0, recap.unansweredCount ?? 0);
-        const hardScore = (wrongCount + unansweredCount * 1.2) / participantCount;
-        return { recap, hardScore };
+        const hardScore =
+          (wrongCount + unansweredCount * 1.2) / participantCount;
+        const correctRate = correctCount / participantCount;
+        const unansweredRate = unansweredCount / participantCount;
+        return { recap, hardScore, correctRate, unansweredRate };
       })
-      .sort((a, b) => b.hardScore - a.hardScore || a.recap.order - b.recap.order);
+      .filter((row) => row.correctRate <= 0.25 || row.unansweredRate >= 0.35)
+      .sort(
+        (a, b) => b.hardScore - a.hardScore || a.recap.order - b.recap.order,
+      );
   }, [defaultParticipantCount, normalizedRecaps]);
+
+  const otherRecommendations = useMemo(() => {
+    const highlightedKeys = new Set<string>([
+      ...quickRecommendations.map((entry) => entry.recap.key),
+      ...confuseRecommendations.map((entry) => entry.recap.key),
+      ...hardRecommendations.map((entry) => entry.recap.key),
+    ]);
+    return normalizedRecaps
+      .filter((recap) => !highlightedKeys.has(recap.key))
+      .map((recap) => ({
+        recap,
+        correctRate:
+          Math.max(0, recap.correctCount ?? 0) /
+          resolveParticipantCount(recap, defaultParticipantCount),
+      }))
+      .sort(
+        (a, b) =>
+          b.correctRate - a.correctRate || a.recap.order - b.recap.order,
+      );
+  }, [
+    confuseRecommendations,
+    defaultParticipantCount,
+    hardRecommendations,
+    normalizedRecaps,
+    quickRecommendations,
+  ]);
 
   const recommendationCardsByCategory = useMemo<
     Record<RecommendCategory, RecommendationCard[]>
@@ -838,6 +1246,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       quick: [],
       confuse: [],
       hard: [],
+      other: [],
     };
     if (totalLimit <= 0) return result;
 
@@ -845,6 +1254,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       quick: quickRecommendations,
       confuse: confuseRecommendations,
       hard: hardRecommendations,
+      other: otherRecommendations,
     };
     const availableCategories = RECOMMEND_CATEGORY_FLOW.filter(
       (category) => rowsByCategory[category].length > 0,
@@ -855,28 +1265,60 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       quickRecommendations.length > 0
         ? quickRecommendations.slice(0, 3).reduce((sum, row) => {
             const speedBonus =
-              row.speed <= 1200 ? 0.28 : row.speed <= 2200 ? 0.2 : row.speed <= 4200 ? 0.1 : 0;
-            return sum + row.correctRate + speedBonus;
+              row.medianCorrectMs <= 1400
+                ? 0.28
+                : row.medianCorrectMs <= 2200
+                  ? 0.2
+                  : row.medianCorrectMs <= 3400
+                    ? 0.1
+                    : 0;
+            const fastestBonus =
+              row.fastestCorrectMs <= 900
+                ? 0.16
+                : row.fastestCorrectMs <= 1500
+                  ? 0.1
+                  : 0;
+            return sum + row.correctRate + speedBonus + fastestBonus;
           }, 0) / Math.min(3, quickRecommendations.length)
         : 0;
     const confuseStrength =
       confuseRecommendations.length > 0
         ? confuseRecommendations.slice(0, 3).reduce((sum, row) => {
-            return sum + row.changedUsers * 0.7 + row.changedTimes * 0.3 + row.confusionRate;
+            return (
+              sum +
+              row.changedUsers * 0.7 +
+              row.changedTimes * 0.3 +
+              row.confusionRate
+            );
           }, 0) / Math.min(3, confuseRecommendations.length)
         : 0;
     const hardStrength =
       hardRecommendations.length > 0
-        ? hardRecommendations.slice(0, 3).reduce((sum, row) => sum + row.hardScore, 0) /
+        ? hardRecommendations
+            .slice(0, 3)
+            .reduce((sum, row) => sum + row.hardScore, 0) /
           Math.min(3, hardRecommendations.length)
+        : 0;
+    const otherStrength =
+      otherRecommendations.length > 0
+        ? otherRecommendations
+            .slice(0, 3)
+            .reduce((sum, row) => sum + row.correctRate, 0) /
+          Math.min(3, otherRecommendations.length)
         : 0;
     const strengthByCategory: Record<RecommendCategory, number> = {
       quick: quickStrength,
       confuse: confuseStrength,
       hard: hardStrength,
+      other: otherStrength,
     };
 
-    const quotas: Record<RecommendCategory, number> = { quick: 0, confuse: 0, hard: 0 };
+    const quotas: Record<RecommendCategory, number> = {
+      quick: 0,
+      confuse: 0,
+      hard: 0,
+      other: 0,
+    };
     let remaining = totalLimit;
 
     for (const category of availableCategories) {
@@ -927,7 +1369,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       );
       return true;
     };
-    const addConfuseEntry = (entry: (typeof confuseRecommendations)[number]) => {
+    const addConfuseEntry = (
+      entry: (typeof confuseRecommendations)[number],
+    ) => {
       if (usedRecapKeys.has(entry.recap.key)) return false;
       usedRecapKeys.add(entry.recap.key);
       result.confuse.push(
@@ -951,6 +1395,18 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       );
       return true;
     };
+    const addOtherEntry = (entry: (typeof otherRecommendations)[number]) => {
+      if (usedRecapKeys.has(entry.recap.key)) return false;
+      usedRecapKeys.add(entry.recap.key);
+      result.other.push(
+        buildRecommendationCard(
+          entry.recap,
+          `答對率 ${formatPercent(entry.correctRate)}`,
+          "延伸推薦",
+        ),
+      );
+      return true;
+    };
 
     for (const row of quickRecommendations) {
       if (result.quick.length >= quotas.quick) break;
@@ -964,15 +1420,25 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       if (result.hard.length >= quotas.hard) break;
       addHardEntry(row);
     }
+    for (const row of otherRecommendations) {
+      if (result.other.length >= quotas.other) break;
+      addOtherEntry(row);
+    }
 
     const pickedCount =
-      result.quick.length + result.confuse.length + result.hard.length;
+      result.quick.length +
+      result.confuse.length +
+      result.hard.length +
+      result.other.length;
     if (pickedCount < totalLimit) {
       for (const category of RECOMMEND_CATEGORY_FLOW) {
         if (category === "quick") {
           for (const row of quickRecommendations) {
             if (
-              result.quick.length + result.confuse.length + result.hard.length >=
+              result.quick.length +
+                result.confuse.length +
+                result.hard.length +
+                result.other.length >=
               totalLimit
             ) {
               break;
@@ -984,7 +1450,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         if (category === "confuse") {
           for (const row of confuseRecommendations) {
             if (
-              result.quick.length + result.confuse.length + result.hard.length >=
+              result.quick.length +
+                result.confuse.length +
+                result.hard.length +
+                result.other.length >=
               totalLimit
             ) {
               break;
@@ -993,14 +1462,32 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
           }
           continue;
         }
-        for (const row of hardRecommendations) {
+        if (category === "hard") {
+          for (const row of hardRecommendations) {
+            if (
+              result.quick.length +
+                result.confuse.length +
+                result.hard.length +
+                result.other.length >=
+              totalLimit
+            ) {
+              break;
+            }
+            addHardEntry(row);
+          }
+          continue;
+        }
+        for (const row of otherRecommendations) {
           if (
-            result.quick.length + result.confuse.length + result.hard.length >=
+            result.quick.length +
+              result.confuse.length +
+              result.hard.length +
+              result.other.length >=
             totalLimit
           ) {
             break;
           }
-          addHardEntry(row);
+          addOtherEntry(row);
         }
       }
     }
@@ -1010,9 +1497,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     confuseRecommendations,
     hardRecommendations,
     normalizedRecaps.length,
+    otherRecommendations,
     quickRecommendations,
   ]);
-  const recommendationCardsByCategoryRef = useRef(recommendationCardsByCategory);
+  const recommendationCardsByCategoryRef = useRef(
+    recommendationCardsByCategory,
+  );
   useEffect(() => {
     recommendationCardsByCategoryRef.current = recommendationCardsByCategory;
   }, [recommendationCardsByCategory]);
@@ -1030,14 +1520,26 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       ? recommendCategory
       : (availableRecommendCategories[0] ?? "quick");
 
-  const recommendationCards = recommendationCardsByCategory[activeRecommendCategory];
+  const recommendationCards =
+    recommendationCardsByCategory[activeRecommendCategory];
+  const activeCategoryTheme = RECOMMEND_CATEGORY_THEME[activeRecommendCategory];
+  const totalRecommendationPoolCount =
+    recommendationCardsByCategory.quick.length +
+    recommendationCardsByCategory.confuse.length +
+    recommendationCardsByCategory.hard.length +
+    recommendationCardsByCategory.other.length;
+  const canNavigateRecommendations = totalRecommendationPoolCount > 1;
   const safeRecommendIndex =
     recommendationCards.length > 0
       ? Math.min(recommendIndex, recommendationCards.length - 1)
       : 0;
   const currentRecommendation = recommendationCards[safeRecommendIndex] ?? null;
   const currentRecommendationLink = currentRecommendation?.link ?? null;
-  const currentRecommendationPreviewUrl = currentRecommendation?.previewUrl ?? null;
+  const currentRecommendationPreviewUrl =
+    currentRecommendation?.previewUrl ?? null;
+  const isCurrentRecommendationPreviewOpen =
+    Boolean(currentRecommendation) &&
+    previewRecapKey === currentRecommendation?.recap.key;
   const recommendationTransitionKey = `${activeRecommendCategory}:${currentRecommendation?.recap.key ?? "none"}`;
 
   const getFirstAutoPlayableIndex = useCallback(
@@ -1049,15 +1551,30 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     [],
   );
 
+  const pushPreviewSwitchNotice = useCallback((text: string) => {
+    if (previewSwitchNoticeTimerRef.current !== null) {
+      window.clearTimeout(previewSwitchNoticeTimerRef.current);
+      previewSwitchNoticeTimerRef.current = null;
+    }
+    setPreviewSwitchNotice(text);
+    previewSwitchNoticeTimerRef.current = window.setTimeout(() => {
+      setPreviewSwitchNotice(null);
+      previewSwitchNoticeTimerRef.current = null;
+    }, 1300);
+  }, []);
+
   const jumpToRecommendation = useCallback(
     (
       nextCategory: RecommendCategory,
       nextIndex: number,
-      options?: { forcePreview?: boolean },
+      options?: { forcePreview?: boolean; playbackMode?: PreviewPlaybackMode },
     ) => {
       const nextCards = recommendationCardsByCategoryRef.current[nextCategory];
       if (!nextCards.length) {
+        setPreviewPlaybackMode("idle");
         setPreviewRecapKey(null);
+        setPreviewPlayerState("idle");
+        setAutoAdvanceAtMs(null);
         return;
       }
       const safeIndex = Math.max(0, Math.min(nextIndex, nextCards.length - 1));
@@ -1065,32 +1582,54 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       setRecommendCategory(nextCategory);
       setRecommendIndex(safeIndex);
       setSelectedRecapKey(targetCard?.recap.key ?? null);
+      pushPreviewSwitchNotice(`已切換到第 ${targetCard.recap.order} 題`);
       setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
-      if (autoPreviewEnabled || options?.forcePreview) {
-        setPreviewRecapKey(targetCard?.previewUrl ? targetCard.recap.key : null);
-        setAutoAdvanceAtMs(
-          autoPreviewEnabled ? Date.now() + RECOMMEND_PREVIEW_SECONDS * 1000 : null,
-        );
-      } else {
-        setPreviewRecapKey(null);
+      const nextPlaybackMode =
+        options?.playbackMode ?? (autoPreviewEnabled ? "auto" : "idle");
+      const hasPreview = Boolean(targetCard?.previewUrl);
+      if (nextPlaybackMode === "manual") {
+        setPreviewPlaybackMode("manual");
+        setPreviewRecapKey(hasPreview ? targetCard.recap.key : null);
+        setPreviewPlayerState(hasPreview ? "playing" : "idle");
         setAutoAdvanceAtMs(null);
+        return;
+      }
+      if (nextPlaybackMode === "auto" || options?.forcePreview) {
+        setPreviewPlaybackMode("auto");
+        setPreviewRecapKey(hasPreview ? targetCard.recap.key : null);
+        setPreviewPlayerState(hasPreview ? "playing" : "idle");
+        setAutoAdvanceAtMs(
+          hasPreview ? Date.now() + RECOMMEND_PREVIEW_SECONDS * 1000 : null,
+        );
+        return;
+      }
+      setPreviewPlaybackMode("idle");
+      setAutoAdvanceAtMs(null);
+      setPreviewPlayerState("idle");
+      if (!options?.forcePreview) {
+        setPreviewRecapKey(null);
       }
     },
-    [autoPreviewEnabled],
+    [autoPreviewEnabled, pushPreviewSwitchNotice],
   );
 
   const jumpToRecapPreview = useCallback(
     (recap: ExtendedRecap) => {
       for (const category of RECOMMEND_CATEGORY_FLOW) {
         const cards = recommendationCardsByCategoryRef.current[category];
-        const targetIndex = cards.findIndex((card) => card.recap.key === recap.key);
+        const targetIndex = cards.findIndex(
+          (card) => card.recap.key === recap.key,
+        );
         if (targetIndex < 0) continue;
-        jumpToRecommendation(category, targetIndex, { forcePreview: true });
+        jumpToRecommendation(category, targetIndex, {
+          forcePreview: reviewDoubleClickPlayEnabled,
+          playbackMode: reviewDoubleClickPlayEnabled ? "manual" : "idle",
+        });
         return true;
       }
       return false;
     },
-    [jumpToRecommendation],
+    [jumpToRecommendation, reviewDoubleClickPlayEnabled],
   );
 
   const activateRecommendationCategory = useCallback(
@@ -1098,29 +1637,140 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       const nextCards = recommendationCardsByCategory[nextCategory];
       if (!nextCards.length) return;
       const nextIndex = getFirstAutoPlayableIndex(nextCards);
-      jumpToRecommendation(nextCategory, nextIndex);
+      jumpToRecommendation(nextCategory, nextIndex, {
+        playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
+        forcePreview: previewPlaybackMode === "manual",
+      });
     },
-    [getFirstAutoPlayableIndex, jumpToRecommendation, recommendationCardsByCategory],
+    [
+      getFirstAutoPlayableIndex,
+      jumpToRecommendation,
+      previewPlaybackMode,
+      recommendationCardsByCategory,
+    ],
   );
 
   const goPrevRecommendation = () => {
     const total = recommendationCards.length;
     if (total <= 0) return;
-    const next = (Math.min(recommendIndex, total - 1) - 1 + total) % total;
-    jumpToRecommendation(activeRecommendCategory, next);
+    if (safeRecommendIndex > 0) {
+      jumpToRecommendation(activeRecommendCategory, safeRecommendIndex - 1, {
+        playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
+        forcePreview: previewPlaybackMode === "manual",
+      });
+      return;
+    }
+    const currentFlowIdx = RECOMMEND_CATEGORY_FLOW.indexOf(
+      activeRecommendCategory,
+    );
+    for (
+      let offset = 1;
+      offset <= RECOMMEND_CATEGORY_FLOW.length;
+      offset += 1
+    ) {
+      const prevCategory =
+        RECOMMEND_CATEGORY_FLOW[
+          (currentFlowIdx - offset + RECOMMEND_CATEGORY_FLOW.length) %
+            RECOMMEND_CATEGORY_FLOW.length
+        ];
+      const cards = recommendationCardsByCategoryRef.current[prevCategory];
+      if (!cards.length) continue;
+      jumpToRecommendation(prevCategory, cards.length - 1, {
+        playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
+        forcePreview: previewPlaybackMode === "manual",
+      });
+      return;
+    }
   };
 
   const goNextRecommendation = () => {
     const total = recommendationCards.length;
     if (total <= 0) return;
-    const next = (Math.min(recommendIndex, total - 1) + 1) % total;
-    jumpToRecommendation(activeRecommendCategory, next);
+    if (safeRecommendIndex < total - 1) {
+      jumpToRecommendation(activeRecommendCategory, safeRecommendIndex + 1, {
+        playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
+        forcePreview: previewPlaybackMode === "manual",
+      });
+      return;
+    }
+    const currentFlowIdx = RECOMMEND_CATEGORY_FLOW.indexOf(
+      activeRecommendCategory,
+    );
+    for (
+      let offset = 1;
+      offset <= RECOMMEND_CATEGORY_FLOW.length;
+      offset += 1
+    ) {
+      const nextCategory =
+        RECOMMEND_CATEGORY_FLOW[
+          (currentFlowIdx + offset) % RECOMMEND_CATEGORY_FLOW.length
+        ];
+      const cards = recommendationCardsByCategoryRef.current[nextCategory];
+      if (!cards.length) continue;
+      jumpToRecommendation(nextCategory, 0, {
+        playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
+        forcePreview: previewPlaybackMode === "manual",
+      });
+      return;
+    }
   };
+
+  const recommendNavLabels = useMemo(() => {
+    const total = recommendationCards.length;
+    if (total <= 0) {
+      return { prev: "上一首", next: "下一首" };
+    }
+    const currentFlowIdx = RECOMMEND_CATEGORY_FLOW.indexOf(
+      activeRecommendCategory,
+    );
+    let hasPrevCategory = false;
+    let hasNextCategory = false;
+    for (let offset = 1; offset < RECOMMEND_CATEGORY_FLOW.length; offset += 1) {
+      const prevCategory =
+        RECOMMEND_CATEGORY_FLOW[
+          (currentFlowIdx - offset + RECOMMEND_CATEGORY_FLOW.length) %
+            RECOMMEND_CATEGORY_FLOW.length
+        ];
+      const nextCategory =
+        RECOMMEND_CATEGORY_FLOW[
+          (currentFlowIdx + offset) % RECOMMEND_CATEGORY_FLOW.length
+        ];
+      if (
+        !hasPrevCategory &&
+        recommendationCardsByCategory[prevCategory].length > 0
+      ) {
+        hasPrevCategory = true;
+      }
+      if (
+        !hasNextCategory &&
+        recommendationCardsByCategory[nextCategory].length > 0
+      ) {
+        hasNextCategory = true;
+      }
+      if (hasPrevCategory && hasNextCategory) break;
+    }
+    return {
+      prev: safeRecommendIndex <= 0 && hasPrevCategory ? "上一頁" : "上一首",
+      next:
+        safeRecommendIndex >= total - 1 && hasNextCategory
+          ? "下一頁"
+          : "下一首",
+    };
+  }, [
+    activeRecommendCategory,
+    recommendationCards.length,
+    recommendationCardsByCategory,
+    safeRecommendIndex,
+  ]);
 
   const elapsedLabel = formatElapsed(startedAt, endedAt);
 
   const gameEndTime = useMemo(() => {
-    if (typeof endedAt === "number" && Number.isFinite(endedAt) && endedAt > 0) {
+    if (
+      typeof endedAt === "number" &&
+      Number.isFinite(endedAt) &&
+      endedAt > 0
+    ) {
       return endedAt;
     }
     return messages[messages.length - 1]?.timestamp;
@@ -1146,7 +1796,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     };
   }, [nowMs, tickerNowMs, upcomingGameStartAt]);
 
-  const handleOpenTrackLink = (link: SettlementTrackLink, recap: ExtendedRecap) => {
+  const handleOpenTrackLink = (
+    link: SettlementTrackLink,
+    recap: ExtendedRecap,
+  ) => {
     if (!link.href) return;
     trackEvent("settlement_outbound_click", {
       surface: "settlement",
@@ -1164,15 +1817,50 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     handleOpenTrackLink(currentRecommendationLink, currentRecommendation.recap);
   };
 
+  const handleQuickPlayStart = useCallback(() => {
+    if (!currentRecommendationPreviewUrl || !currentRecommendation) return;
+    setPreviewPlaybackMode("manual");
+    if (!isCurrentRecommendationPreviewOpen) {
+      setPreviewRecapKey(currentRecommendation.recap.key);
+    } else {
+      postYouTubeCommand("playVideo");
+    }
+    setPreviewPlayerState("playing");
+    setAutoAdvanceAtMs(null);
+    setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
+  }, [
+    currentRecommendation,
+    currentRecommendationPreviewUrl,
+    isCurrentRecommendationPreviewOpen,
+    postYouTubeCommand,
+  ]);
+
   const goToTab = (tab: LiveSettlementTab) => {
+    if (tab === activeTab) return;
     setTabRenderKey((prev) => prev + 1);
     setActiveTab(tab);
     if (tab === "recommend") {
+      if (typeof window !== "undefined") {
+        if (!readStoredBoolean(RECOMMEND_CONTROLS_HINT_STORAGE_KEY, false)) {
+          setShowRecommendControlsHint(true);
+          window.localStorage.setItem(RECOMMEND_CONTROLS_HINT_STORAGE_KEY, "1");
+          if (recommendControlsHintTimerRef.current !== null) {
+            window.clearTimeout(recommendControlsHintTimerRef.current);
+          }
+          recommendControlsHintTimerRef.current = window.setTimeout(() => {
+            setShowRecommendControlsHint(false);
+            recommendControlsHintTimerRef.current = null;
+          }, 2500);
+        }
+      }
       setReviewPage(0);
       activateRecommendationCategory(recommendCategory);
       return;
     }
+    setShowRecommendControlsHint(false);
+    setPreviewPlaybackMode("idle");
     setPreviewRecapKey(null);
+    setPreviewPlayerState("idle");
     setAutoAdvanceAtMs(null);
     setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
   };
@@ -1191,26 +1879,30 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   };
 
   const currentRecommendationHint = currentRecommendation?.hint ?? "";
-
-  const isCurrentRecommendationPreviewOpen =
-    Boolean(currentRecommendation) &&
-    previewRecapKey === currentRecommendation?.recap.key;
   const canAutoGuideLoop =
     activeTab === "recommend" &&
     autoPreviewEnabled &&
+    previewPlaybackMode !== "manual" &&
     recommendationCards.length > 0 &&
     availableRecommendCategories.length > 0;
 
   const advanceAutoRecommendationLoop = useCallback(() => {
     if (!canAutoGuideLoop) return;
-    const currentCards = recommendationCardsByCategoryRef.current[activeRecommendCategory];
+    const currentCards =
+      recommendationCardsByCategoryRef.current[activeRecommendCategory];
     if (currentCards.length <= 0) return;
     if (safeRecommendIndex < currentCards.length - 1) {
       jumpToRecommendation(activeRecommendCategory, safeRecommendIndex + 1);
       return;
     }
-    const currentFlowIdx = RECOMMEND_CATEGORY_FLOW.indexOf(activeRecommendCategory);
-    for (let offset = 1; offset <= RECOMMEND_CATEGORY_FLOW.length; offset += 1) {
+    const currentFlowIdx = RECOMMEND_CATEGORY_FLOW.indexOf(
+      activeRecommendCategory,
+    );
+    for (
+      let offset = 1;
+      offset <= RECOMMEND_CATEGORY_FLOW.length;
+      offset += 1
+    ) {
       const category =
         RECOMMEND_CATEGORY_FLOW[
           (currentFlowIdx + offset + RECOMMEND_CATEGORY_FLOW.length) %
@@ -1269,16 +1961,18 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   useEffect(() => {
     if (activeTab !== "recommend") return;
     if (typeof window === "undefined") return;
-    if (hasAutoCenteredRecommendRef.current) return;
     const media = window.matchMedia("(max-width: 1023px)");
     if (!media.matches) return;
-    hasAutoCenteredRecommendRef.current = true;
+    const roundKey = `${room.id}:${startedAt ?? 0}:${endedAt ?? 0}`;
+    if (autoCenteredRecommendRoundKeyRef.current === roundKey) return;
+    autoCenteredRecommendRoundKeyRef.current = roundKey;
     const timer = window.setTimeout(() => {
-      const target = recommendPreviewStageRef.current ?? recommendSectionRef.current;
+      const target =
+        recommendPreviewStageRef.current ?? recommendSectionRef.current;
       target?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 220);
     return () => window.clearTimeout(timer);
-  }, [activeTab]);
+  }, [activeTab, endedAt, room.id, startedAt]);
 
   const activeTabButtonClass = (tab: LiveSettlementTab) =>
     `rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.08em] transition ${
@@ -1287,10 +1981,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         : "border-slate-500/60 bg-slate-900/60 text-slate-300"
     }`;
 
-  const progressPercent = Math.round(((stepIndex + 1) / TAB_ORDER.length) * 100);
+  const progressPercent = Math.round(
+    ((stepIndex + 1) / TAB_ORDER.length) * 100,
+  );
 
   return (
-    <div className="mx-auto w-full max-w-6xl min-w-0 px-2 pb-4 sm:px-4">
+    <div className="mx-auto w-full max-w-6xl min-w-0 px-2 pb-24 sm:px-4 lg:pb-4">
       <section className="relative min-w-0 overflow-hidden rounded-[30px] border border-amber-400/35 bg-slate-950/95 px-4 py-6 shadow-[0_30px_120px_-60px_rgba(245,158,11,0.6)] sm:px-6 sm:py-7">
         <style>
           {`
@@ -1309,12 +2005,16 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
               100% { opacity: 0; transform: translateY(-12px) scale(0.82); }
             }
             @keyframes settlementCrownFloat {
-              0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.95; }
-              50% { transform: translateX(-50%) translateY(-4px); opacity: 1; }
+              0%, 100% { transform: translateY(0); opacity: 0.95; }
+              50% { transform: translateY(-4px); opacity: 1; }
             }
             @keyframes settlementSwapIn {
               0% { opacity: 0; transform: translateY(8px) scale(0.99); }
               100% { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @keyframes settlementControlHintPulse {
+              0%, 100% { box-shadow: 0 0 0 0 rgba(56,189,248,0.0); }
+              50% { box-shadow: 0 0 0 2px rgba(56,189,248,0.38); }
             }
           `}
         </style>
@@ -1370,12 +2070,17 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
           <div className="rounded-2xl border border-slate-700/70 bg-slate-900/60 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">結算導覽</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                  結算導覽
+                </p>
                 <p className="text-sm font-semibold text-slate-100">
-                  Step {stepIndex + 1}/{TAB_ORDER.length} · {TAB_HINTS[activeTab]}
+                  Step {stepIndex + 1}/{TAB_ORDER.length} ·{" "}
+                  {TAB_HINTS[activeTab]}
                 </p>
               </div>
-              <div className="text-xs font-semibold text-amber-100">{progressPercent}%</div>
+              <div className="text-xs font-semibold text-amber-100">
+                {progressPercent}%
+              </div>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800/90">
               <div
@@ -1385,15 +2090,61 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
             </div>
           </div>
 
-          <nav className="flex flex-wrap items-center gap-2">
-            {TAB_ORDER.map((tab, index) => (
-              <span
-                key={tab}
-                className={activeTabButtonClass(tab)}
+          <nav className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {TAB_ORDER.map((tab, index) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={activeTabButtonClass(tab)}
+                  onClick={() => goToTab(tab)}
+                  title={TAB_HINTS[tab]}
+                >
+                  {index + 1}. {TAB_LABELS[tab]}
+                </button>
+              ))}
+            </div>
+            <div className="hidden items-center justify-end gap-2 lg:flex">
+              <Button
+                variant="outlined"
+                color="inherit"
+                size="small"
+                onClick={goPrevStep}
+                disabled={stepIndex <= 0}
               >
-                {index + 1}. {TAB_LABELS[tab]}
-              </span>
-            ))}
+                上一步
+              </Button>
+              {stepIndex < TAB_ORDER.length - 1 ? (
+                <Button
+                  variant="contained"
+                  color="warning"
+                  size="small"
+                  onClick={goNextStep}
+                >
+                  下一步
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="success"
+                  size="small"
+                  onClick={goNextStep}
+                  disabled={!onBackToLobby}
+                >
+                  完成結算
+                </Button>
+              )}
+              {onRequestExit && (
+                <Button
+                  variant="contained"
+                  color="error"
+                  size="small"
+                  onClick={() => setExitConfirmOpen(true)}
+                >
+                  離開房間
+                </Button>
+              )}
+            </div>
           </nav>
 
           <div
@@ -1417,947 +2168,1243 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                   </span>
                 </div>
                 <p className="mt-1 text-xs opacity-90">
-                  將在 {settlementStartGuard.remainingSec} 秒後同步切回遊戲倒數，確保全員同時開始。
+                  將在 {settlementStartGuard.remainingSec}{" "}
+                  秒後同步切回遊戲倒數，確保全員同時開始。
                 </p>
               </div>
             )}
-          {activeTab === "overview" && (
-            <section className="grid gap-4 xl:grid-cols-[1.15fr_1.15fr]">
-              <article className="relative isolate overflow-hidden rounded-2xl border border-amber-300/45 bg-[radial-gradient(circle_at_50%_-5%,rgba(250,204,21,0.24),transparent_45%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.96))] p-4">
-                <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-72 -translate-x-1/2 bg-[radial-gradient(circle,rgba(251,191,36,0.3)_0%,rgba(251,191,36,0.08)_35%,transparent_75%)] blur-2xl" />
-                <div className="pointer-events-none absolute -left-10 bottom-0 h-36 w-36 rounded-full bg-sky-400/15 blur-2xl" />
-                <div className="relative">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs uppercase tracking-[0.24em] text-amber-200/85">
-                      Podium
-                    </p>
-                    <span className="rounded-full border border-amber-200/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-                      本局前三
-                    </span>
-                  </div>
-
-                  {winner ? (
-                    <>
-                      <div className="mt-4 grid grid-cols-3 items-end gap-2">
-                        <div className="rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center">
-                          <p className="text-[10px] tracking-[0.15em] text-slate-300">#2</p>
-                          <p className="mt-1 truncate text-xs font-semibold text-slate-100">
-                            {runnerUp
-                              ? `${runnerUp.username}${
-                                  me && runnerUp.clientId === me.clientId ? "（我）" : ""
-                                }`
-                              : "--"}
-                          </p>
-                          <div className="mt-2 h-14 rounded-lg bg-slate-800/80 pt-2 text-sm font-bold text-slate-100">
-                            {runnerUp?.score ?? "--"}
-                          </div>
-                        </div>
-                        <div
-                          className={`relative rounded-xl border border-amber-300/60 bg-amber-500/12 p-2 text-center shadow-[0_0_0_1px_rgba(252,211,77,0.25),0_18px_46px_-24px_rgba(251,191,36,0.65)] ${
-                            me && winner.clientId === me.clientId
-                              ? "ring-2 ring-amber-200/70"
-                              : ""
-                          }`}
-                          style={{ animation: "settlementChampionGlow 2.2s ease-in-out infinite" }}
-                        >
-                          <span
-                            className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 text-xl"
-                            style={{ animation: "settlementCrownFloat 1.8s ease-in-out infinite" }}
-                            aria-hidden
-                          >
-                            👑
-                          </span>
-                          <p className="text-[10px] tracking-[0.18em] text-amber-200">#1</p>
-                          <p
-                            className="mt-1 text-sm font-black text-amber-100"
-                            style={MULTILINE_ELLIPSIS_2}
-                          >
-                            {winner.username}
-                            {me && winner.clientId === me.clientId ? "（我）" : ""}
-                          </p>
-                          <div className="mt-2 h-20 rounded-lg bg-amber-300/20 pt-3 text-lg font-black text-amber-50">
-                            {winner.score}
-                          </div>
-                          {[
-                            { left: "16%", top: "16%", delay: "0ms" },
-                            { left: "82%", top: "20%", delay: "220ms" },
-                            { left: "74%", top: "72%", delay: "420ms" },
-                            { left: "24%", top: "74%", delay: "640ms" },
-                          ].map((spark) => (
-                            <span
-                              key={`${spark.left}-${spark.top}`}
-                              className="pointer-events-none absolute inline-block h-1.5 w-1.5 rounded-full bg-amber-200/95"
-                              style={{
-                                left: spark.left,
-                                top: spark.top,
-                                animation: "settlementChampionSpark 1.8s ease-in-out infinite",
-                                animationDelay: spark.delay,
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <div className="rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center">
-                          <p className="text-[10px] tracking-[0.15em] text-slate-300">#3</p>
-                          <p className="mt-1 truncate text-xs font-semibold text-slate-100">
-                            {thirdPlace
-                              ? `${thirdPlace.username}${
-                                  me && thirdPlace.clientId === me.clientId ? "（我）" : ""
-                                }`
-                              : "--"}
-                          </p>
-                          <div className="mt-2 h-10 rounded-lg bg-slate-800/80 pt-2 text-sm font-bold text-slate-100">
-                            {thirdPlace?.score ?? "--"}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2">
-                        <p className="text-sm font-bold text-amber-100">
-                          冠軍 #1 {winner.username}
-                          {me && winner.clientId === me.clientId ? "（我）" : ""}
-                        </p>
-                        <p className="mt-1 text-xs text-amber-50/90">
-                          分數 {winner.score} · 答對 {winner.correctCount ?? 0}/{playedQuestionCount}
-                          {" · "}
-                          Combo x{Math.max(winner.maxCombo ?? 0, winner.combo)}
-                        </p>
-                      </div>
-                      {me && (
-                        <div className="mt-2 rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100">
-                            你的位置
-                          </p>
-                          <p className="mt-1 text-sm font-bold text-sky-50">
-                            第 {myRank}/{Math.max(1, participants.length)} 名 · 分數 {me.score}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="mt-4 text-sm text-slate-400">目前沒有玩家資料</p>
-                  )}
-
-                  <div className="mt-4 rounded-xl border border-slate-700/70 bg-slate-950/50 p-2.5">
-                    <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">
-                      全場關鍵紀錄
-                    </p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                      <div className="rounded-xl border border-cyan-300/35 bg-cyan-500/10 px-3 py-2">
-                        <p className="text-[11px] text-cyan-100/90">最高答對率</p>
-                        <div className="mt-1 flex items-end justify-between gap-2">
-                          <p className="text-2xl font-black leading-none text-cyan-50">
-                            {topAccuracyEntry ? formatPercent(topAccuracyEntry.accuracy) : "--"}
-                          </p>
-                        </div>
-                        <p className="mt-1 text-xs font-semibold text-cyan-100/95">
-                          {topAccuracyEntry
-                            ? `${topAccuracyEntry.participant.username}${
-                                meClientId && topAccuracyEntry.participant.clientId === meClientId
-                                  ? "（我）"
-                                  : ""
-                              }`
-                            : "尚無資料"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/10 px-3 py-2">
-                        <p className="text-[11px] text-fuchsia-100/90">最高 COMBO</p>
-                        <div className="mt-1 flex items-end justify-between gap-2">
-                          <p className="text-2xl font-black leading-none text-fuchsia-50">
-                            {topComboEntry ? `x${topComboEntry.combo}` : "--"}
-                          </p>
-                        </div>
-                        <p className="mt-1 text-xs font-semibold text-fuchsia-100/95">
-                          {topComboEntry
-                            ? `${topComboEntry.participant.username}${
-                                meClientId && topComboEntry.participant.clientId === meClientId
-                                  ? "（我）"
-                                  : ""
-                              }`
-                            : "尚無資料"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
-                        <p className="text-[11px] text-amber-100/90">最快答題平均（只算答對）</p>
-                        <div className="mt-1 flex items-end justify-between gap-2">
-                          <p className="text-2xl font-black leading-none text-amber-50">
-                            {fastestAverageAnswerEntry
-                              ? formatMs(fastestAverageAnswerEntry.ms)
-                              : "--"}
-                          </p>
-                        </div>
-                        <p className="mt-1 text-xs font-semibold text-amber-100/95">
-                          {fastestAverageAnswerEntry
-                            ? `${fastestAverageAnswerEntry.participant.username}${
-                                meClientId &&
-                                fastestAverageAnswerEntry.participant.clientId === meClientId
-                                  ? "（我）"
-                                  : ""
-                              }`
-                            : "尚無資料"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 border-t border-slate-700/80 pt-3">
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      <div className="rounded-xl border border-emerald-300/35 bg-emerald-500/10 px-3 py-2">
-                        <p className="text-[11px] text-emerald-100/90">我的分數</p>
-                        <p className="mt-1 text-xl font-bold text-emerald-50">
-                          {me ? me.score : "--"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2">
-                        <p className="text-[11px] text-sky-100/90">我的名次</p>
-                        <p className="mt-1 text-xl font-bold text-sky-50">
-                          {myRank > 0 ? `${myRank}/${Math.max(1, participants.length)}` : "--"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
-                        <p className="text-[11px] text-amber-100/90">我的答對</p>
-                        <p className="mt-1 text-xl font-bold text-amber-50">
-                          {me?.correctCount ?? 0}/{playedQuestionCount}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </article>
-
-              <article className="rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">排行榜</p>
-                <div className="mt-3 max-h-[520px] space-y-2 overflow-y-auto pr-1">
-                  {sortedParticipants.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/55 px-3 py-4 text-sm text-slate-400">
-                      目前沒有玩家資料
-                    </div>
-                  ) : (
-                    sortedParticipants.map((participant, index) => {
-                      const isMe = meClientId && participant.clientId === meClientId;
-                      const rank = index + 1;
-                      const metrics =
-                        participantScoreMeta.metricsByClientId[participant.clientId];
-                      const title =
-                        participantScoreMeta.byClientId[participant.clientId] ?? "穩定";
-                      return (
-                        <div
-                          key={participant.clientId}
-                          className={`rounded-xl border px-3 py-2 transition-colors ${
-                            isMe
-                              ? "border-sky-300/60 bg-sky-500/14 shadow-[0_0_0_1px_rgba(56,189,248,0.28)]"
-                              : "border-slate-700/80 bg-slate-950/55"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <span
-                                className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black ${
-                                  isMe
-                                    ? "border-sky-200/70 bg-sky-400/20 text-sky-50"
-                                    : "border-slate-500/70 bg-slate-800/70 text-slate-200"
-                                }`}
-                              >
-                                {rank}
-                              </span>
-                              <p
-                                className="text-sm font-semibold text-slate-100"
-                                style={MULTILINE_ELLIPSIS_2}
-                              >
-                                {participant.username}
-                                {isMe ? "（你）" : ""}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full border border-slate-500/70 bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
-                                {title}
-                              </span>
-                              <p className="text-sm font-bold text-slate-100">{participant.score}</p>
-                            </div>
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-300">
-                            <span className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2 py-0.5">
-                              答對率 {formatPercent(metrics?.accuracy ?? 0)}
-                            </span>
-                            <span className="rounded-full border border-sky-300/35 bg-sky-500/12 px-2 py-0.5">
-                              平均 {formatMs(metrics?.avgSpeedMs)}
-                            </span>
-                            <span className="rounded-full border border-fuchsia-300/35 bg-fuchsia-500/12 px-2 py-0.5">
-                              Combo x{metrics?.combo ?? Math.max(participant.maxCombo ?? 0, participant.combo)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </article>
-            </section>
-          )}
-
-          {activeTab === "recommend" && (
-            <section
-              ref={recommendSectionRef}
-              className="rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-100">
-                    {activeRecommendCategory === "quick"
-                      ? "秒猜精選 · 本場熱門歌曲"
-                      : activeRecommendCategory === "confuse"
-                        ? "易混淆題 · 最多人換答案"
-                        : "高難挑戰 · 補完你的曲庫"}
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-300">
-                    {activeRecommendCategory === "quick"
-                      ? "這些歌曲在本場最容易被快速識別，適合直接加入你的常聽清單。"
-                      : activeRecommendCategory === "confuse"
-                        ? "這些題目最容易出現改答案，建議多聽幾次避免下次猶豫。"
-                        : "這些歌曲在本場最容易卡關，回聽後更容易記住作者與歌名。"}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-                    <span className="rounded-full border border-emerald-300/35 bg-emerald-500/10 px-2 py-0.5">
-                      秒猜 {recommendationCardsByCategory.quick.length} 首
-                    </span>
-                    <span className="rounded-full border border-fuchsia-300/35 bg-fuchsia-500/10 px-2 py-0.5">
-                      易混淆 {recommendationCardsByCategory.confuse.length} 首
-                    </span>
-                    <span className="rounded-full border border-amber-300/35 bg-amber-500/10 px-2 py-0.5">
-                      高難 {recommendationCardsByCategory.hard.length} 首
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex rounded-full border border-slate-600/70 bg-slate-950/70 p-1">
-                    <button
-                      type="button"
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        activeRecommendCategory === "quick"
-                          ? "bg-emerald-500/20 text-emerald-100"
-                          : "text-slate-300 hover:text-slate-100"
-                      }`}
-                      onClick={() => activateRecommendationCategory("quick")}
-                    >
-                      秒猜精選
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        activeRecommendCategory === "confuse"
-                          ? "bg-fuchsia-500/20 text-fuchsia-100"
-                          : "text-slate-300 hover:text-slate-100"
-                      } ${recommendationCardsByCategory.confuse.length === 0 ? "opacity-45" : ""}`}
-                      onClick={() => activateRecommendationCategory("confuse")}
-                      disabled={recommendationCardsByCategory.confuse.length === 0}
-                    >
-                      易混淆
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        activeRecommendCategory === "hard"
-                          ? "bg-amber-500/20 text-amber-100"
-                          : "text-slate-300 hover:text-slate-100"
-                      } ${recommendationCardsByCategory.hard.length === 0 ? "opacity-45" : ""}`}
-                      onClick={() => activateRecommendationCategory("hard")}
-                      disabled={recommendationCardsByCategory.hard.length === 0}
-                    >
-                      高難挑戰
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      autoPreviewEnabled
-                        ? "border-cyan-300/50 bg-cyan-400/15 text-cyan-100"
-                        : "border-slate-600/80 bg-slate-900/70 text-slate-300 hover:text-slate-100"
-                    }`}
-                    onClick={() => {
-                      setAutoPreviewEnabled((prev) => {
-                        const next = !prev;
-                        if (!next) {
-                          setPreviewRecapKey(null);
-                          setAutoAdvanceAtMs(null);
-                        } else {
-                          const nextIndex = getFirstAutoPlayableIndex(recommendationCards);
-                          jumpToRecommendation(activeRecommendCategory, nextIndex);
-                        }
-                        setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
-                        return next;
-                      });
-                    }}
-                  >
-                    {autoPreviewEnabled ? "自動試聽：開" : "自動試聽：關"}
-                  </button>
-                  <button
-                    type="button"
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      reviewDrawerOpen
-                        ? "border-sky-300/60 bg-sky-400/18 text-sky-100"
-                        : "border-slate-600/80 bg-slate-900/70 text-slate-300 hover:text-slate-100"
-                    }`}
-                    onClick={() => setReviewDrawerOpen((prev) => !prev)}
-                  >
-                    {reviewDrawerOpen ? "隱藏全員作答" : "查看全員作答"}
-                  </button>
-                </div>
-              </div>
-
-              {canAutoGuideLoop && (
-                <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
-                  <div className="flex items-center justify-between gap-2 text-xs text-amber-100">
-                    <span className="font-semibold">
-                      本首 {previewCountdownSec}s 後自動前進（秒猜 → 易混淆 → 高難）
-                    </span>
-                    <span className="rounded-full border border-amber-300/45 px-2 py-0.5 font-bold">
-                      AUTO
-                    </span>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-amber-500/20">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-100 transition-[width] duration-500"
-                      style={{
-                        width: `${Math.max(
-                          6,
-                          ((RECOMMEND_PREVIEW_SECONDS - previewCountdownSec + 1) /
-                            RECOMMEND_PREVIEW_SECONDS) *
-                            100,
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {!currentRecommendation || !currentRecommendationLink ? (
-                <div className="mt-4 rounded-xl border border-dashed border-slate-600/70 bg-slate-900/55 px-4 py-6 text-sm text-slate-400">
-                  目前沒有可推薦的曲目。
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
-                  <article
-                    key={recommendationTransitionKey}
-                    className="rounded-2xl border border-cyan-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 p-4 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.16),0_25px_55px_-45px_rgba(56,189,248,0.55)]"
-                    style={{ animation: "settlementSwapIn 240ms ease-out both" }}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                          Artist Spotlight
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleOpenRecommendationTitle}
-                          disabled={!currentRecommendationLink.href}
-                          className="mt-1 text-left text-2xl font-black leading-tight text-slate-100 underline-offset-4 transition hover:text-cyan-200 hover:underline disabled:cursor-default disabled:opacity-85 disabled:no-underline sm:text-[2rem]"
-                          style={MULTILINE_ELLIPSIS_2}
-                          title={currentRecommendation.recap.title}
-                        >
-                          {currentRecommendation.recap.title}
-                        </button>
-                        <p className="mt-2 text-sm font-semibold text-slate-200">
-                          作者：{currentRecommendation.recap.uploader || "Unknown"}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span className="rounded-full border border-slate-500/55 bg-slate-800/75 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
-                          {currentRecommendation.providerLabel}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                      <div className="rounded-lg border border-emerald-300/35 bg-emerald-500/10 px-2.5 py-2">
-                        <p className="text-[10px] text-emerald-100/90">本場觀察</p>
-                        <p className="mt-1 text-xs font-semibold text-emerald-50">
-                          {currentRecommendationHint}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-amber-300/35 bg-amber-500/10 px-2.5 py-2">
-                        <p className="text-[10px] text-amber-100/90">重點標記</p>
-                        <p className="mt-1 text-xs font-semibold text-amber-50">
-                          {currentRecommendation.emphasis}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-sky-300/35 bg-sky-500/10 px-2.5 py-2">
-                        <p className="text-[10px] text-sky-100/90">答對時間（中位數）</p>
-                        <p className="mt-1 text-xs font-semibold text-sky-50">
-                          {formatMs(currentRecommendation.recap.medianCorrectMs)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="rounded-full border border-sky-300/45 bg-sky-400/15 px-3 py-1 text-xs font-semibold text-sky-100 transition hover:bg-sky-400/25"
-                        onClick={() =>
-                          handleOpenTrackLink(
-                            currentRecommendationLink,
-                            currentRecommendation.recap,
-                          )
-                        }
-                        disabled={!currentRecommendationLink.href}
-                      >
-                        如果喜歡這首歌曲，請至 {currentRecommendation.providerLabel} 支持
-                      </button>
-                      {currentRecommendationPreviewUrl && (
-                        <button
-                          type="button"
-                          className="rounded-full border border-amber-300/45 bg-amber-500/12 px-3 py-1 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/24"
-                          onClick={() => {
-                            setPreviewRecapKey((prev) => {
-                              const next =
-                                prev === currentRecommendation.recap.key
-                                  ? null
-                                  : currentRecommendation.recap.key;
-                              if (next) {
-                                setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          {isCurrentRecommendationPreviewOpen
-                            ? `播放中 ${previewCountdownSec}s`
-                            : `直接播放 ${RECOMMEND_PREVIEW_SECONDS} 秒`}
-                        </button>
-                      )}
-                    </div>
-
-                    <p className="mt-2 text-[11px] text-slate-400">
-                      試聽音量 {effectivePreviewVolume}% ·
-                      {settlementPreviewSyncGameVolume ? " 同步遊玩音量" : " 使用自訂音量"}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      如果喜歡該歌曲或清單，請至 {currentRecommendation.providerLabel} 支持創作者與平台。
-                    </p>
-
-                    <div
-                      ref={recommendPreviewStageRef}
-                      className="mt-3 overflow-hidden rounded-xl border border-slate-700/80 bg-black/45 scroll-mt-24"
-                    >
-                      <div className="relative aspect-video w-full">
-                        {isCurrentRecommendationPreviewOpen &&
-                        currentRecommendationPreviewUrl ? (
-                          <iframe
-                            ref={previewIframeRef}
-                            src={currentRecommendationPreviewUrl}
-                            className="absolute inset-0 h-full w-full"
-                            allow="autoplay; encrypted-media; picture-in-picture"
-                            allowFullScreen
-                            title={`preview-${currentRecommendation.recap.key}`}
-                            onLoad={() => {
-                              syncPreviewVolume();
-                            }}
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-                            {currentRecommendation.recap.thumbnail && (
-                              <img
-                                src={currentRecommendation.recap.thumbnail}
-                                alt={currentRecommendation.recap.title}
-                                className="absolute inset-0 h-full w-full object-cover opacity-30"
-                              />
-                            )}
-                            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/55 to-slate-950/80" />
-                            <div className="relative z-10 flex flex-col items-center gap-2">
-                            {currentRecommendationPreviewUrl ? (
-                              <>
-                                <p className="text-sm font-semibold text-slate-200">
-                                  按下「直接播放 {RECOMMEND_PREVIEW_SECONDS} 秒」可快速試聽
-                                </p>
-                                <p className="text-xs text-slate-400">
-                                  進入下一首或切換分類時，會保留固定區塊大小避免畫面膨脹。
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-sm font-semibold text-slate-200">
-                                  此平台不支援嵌入試聽
-                                </p>
-                                <p className="text-xs text-slate-400">
-                                  請使用上方連結前往 {currentRecommendation.providerLabel} 收聽。
-                                </p>
-                              </>
-                            )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-
-                  <aside className="flex min-h-[520px] flex-col rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 xl:min-h-[620px]">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                        推薦清單
+            {activeTab === "overview" && (
+              <section className="grid gap-4 xl:grid-cols-[1.15fr_1.15fr]">
+                <article className="relative isolate overflow-hidden rounded-2xl border border-amber-300/45 bg-[radial-gradient(circle_at_50%_-5%,rgba(250,204,21,0.24),transparent_45%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.96))] p-4">
+                  <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-72 -translate-x-1/2 bg-[radial-gradient(circle,rgba(251,191,36,0.3)_0%,rgba(251,191,36,0.08)_35%,transparent_75%)] blur-2xl" />
+                  <div className="pointer-events-none absolute -left-10 bottom-0 h-36 w-36 rounded-full bg-sky-400/15 blur-2xl" />
+                  <div className="relative">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs uppercase tracking-[0.24em] text-amber-200/85">
+                        Podium
                       </p>
-                      <span className="text-xs text-slate-300">
-                        {recommendationCards.length === 0
-                          ? "0/0"
-                          : `${safeRecommendIndex + 1}/${recommendationCards.length}`}
+                      <span className="rounded-full border border-amber-200/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+                        本局前三
                       </span>
                     </div>
-                    <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-                      {recommendationCards.map((card, index) => {
-                        const active = index === safeRecommendIndex;
-                        return (
-                          <button
-                            key={card.recap.key}
-                            type="button"
-                            className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                              active
-                                ? "border-amber-300/50 bg-amber-400/10"
-                                : "border-slate-700/70 bg-slate-900/65 hover:border-slate-500/75"
-                            }`}
-                            onClick={() => {
-                              jumpToRecommendation(activeRecommendCategory, index);
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p
-                                className="min-w-0 text-xs font-semibold text-slate-100"
-                                style={MULTILINE_ELLIPSIS_2}
-                              >
-                                #{card.recap.order} {card.recap.title}
-                              </p>
-                              <span className="shrink-0 rounded-full border border-slate-600/70 bg-slate-900/70 px-2 py-0.5 text-[10px] text-slate-300">
-                                {card.providerLabel}
-                              </span>
-                            </div>
+
+                    {winner ? (
+                      <>
+                        <div className="mt-4 grid grid-cols-3 items-end gap-2">
+                          <div className="flex min-h-[154px] flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center">
+                            <p className="text-[10px] tracking-[0.15em] text-slate-300">
+                              #2
+                            </p>
                             <p
-                              className="mt-1 text-[11px] text-slate-300"
+                              className="mt-2 min-h-[2.5rem] w-full px-1 text-xs font-semibold leading-tight text-slate-100"
                               style={MULTILINE_ELLIPSIS_2}
                             >
-                              {card.recap.uploader || "Unknown"}
+                              {runnerUp
+                                ? `${runnerUp.username}${
+                                    me && runnerUp.clientId === me.clientId
+                                      ? "（我）"
+                                      : ""
+                                  }`
+                                : "--"}
                             </p>
-                            <p className="mt-1 text-[10px] text-slate-400">
-                              {card.hint} · {card.emphasis}
-                            </p>
-                            {card.link?.href && (
-                              <button
-                                type="button"
-                                className="mt-1 rounded-full border border-sky-300/35 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-100 hover:bg-sky-400/20"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  if (!card.link) return;
-                                  handleOpenTrackLink(card.link, card.recap);
+                            <div className="mt-auto flex h-14 w-full items-center justify-center rounded-lg bg-slate-800/80 text-2xl font-black leading-none text-slate-100">
+                              {runnerUp?.score ?? "--"}
+                            </div>
+                          </div>
+                          <div
+                            className={`relative flex min-h-[172px] flex-col items-center rounded-xl border border-amber-300/60 bg-amber-500/12 px-2 pb-2 pt-3 text-center shadow-[0_0_0_1px_rgba(252,211,77,0.25),0_18px_46px_-24px_rgba(251,191,36,0.65)] ${
+                              me && winner.clientId === me.clientId
+                                ? "ring-2 ring-amber-200/70"
+                                : ""
+                            }`}
+                            style={{
+                              animation:
+                                "settlementChampionGlow 2.2s ease-in-out infinite",
+                            }}
+                          >
+                            <span
+                              className="pointer-events-none absolute inset-x-0 -top-4 flex justify-center text-[1.35rem]"
+                              aria-hidden
+                            >
+                              <span
+                                className="drop-shadow-[0_0_8px_rgba(251,191,36,0.65)]"
+                                style={{
+                                  animation:
+                                    "settlementCrownFloat 1.8s ease-in-out infinite",
                                 }}
                               >
-                                前往 {card.providerLabel}
-                              </button>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
-                        onClick={goPrevRecommendation}
-                        disabled={recommendationCards.length <= 1}
-                      >
-                        上一首
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
-                        onClick={goNextRecommendation}
-                        disabled={recommendationCards.length <= 1}
-                      >
-                        下一首
-                      </button>
-                    </div>
-                  </aside>
-                </div>
-              )}
-            </section>
-          )}
-          {activeTab === "recommend" && reviewDrawerOpen && (
-            <section
-              className="mt-4 rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4"
-              style={{ animation: "settlementStageEnter 220ms ease-out both" }}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="rounded-full border border-emerald-300/45 bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-100">
-                    答對 {reviewRecapSummary.correct}
-                  </span>
-                  <span className="rounded-full border border-rose-300/45 bg-rose-400/10 px-2 py-0.5 font-semibold text-rose-100">
-                    答錯 {reviewRecapSummary.wrong}
-                  </span>
-                  <span className="rounded-full border border-slate-400/55 bg-slate-700/55 px-2 py-0.5 font-semibold text-slate-100">
-                    未作答 {reviewRecapSummary.unanswered}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                  <div className="flex items-center gap-1 rounded-full border border-sky-300/35 bg-sky-500/10 px-2 py-1">
-                    <button
-                      type="button"
-                      className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-                      onClick={goPrevReviewParticipant}
-                      disabled={sortedParticipants.length <= 1}
-                    >
-                      上一位
-                    </button>
-                    <span
-                      key={`review-participant-${effectiveSelectedReviewParticipantClientId ?? "none"}`}
-                      className="max-w-[200px] truncate px-1 text-[11px] font-semibold text-sky-100"
-                      style={{ animation: "settlementSwapIn 200ms ease-out both" }}
-                    >
-                      {selectedReviewParticipant
-                        ? `#${selectedReviewParticipantRank} ${selectedReviewParticipant.username}${
-                            meClientId &&
-                            selectedReviewParticipant.clientId === meClientId
-                              ? "（你）"
-                              : ""
-                          }`
-                        : "未選擇玩家"}
-                    </span>
-                    <button
-                      type="button"
-                      className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-                      onClick={goNextReviewParticipant}
-                      disabled={sortedParticipants.length <= 1}
-                    >
-                      下一位
-                    </button>
-                  </div>
-
-                  <div className="ml-auto flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-                      onClick={() => setReviewPage((prev) => Math.max(0, prev - 1))}
-                      disabled={safeReviewPage <= 0}
-                    >
-                      上一頁
-                    </button>
-                    <span>
-                      {safeReviewPage + 1}/{reviewPageCount}
-                    </span>
-                    <button
-                      type="button"
-                      className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-                      onClick={() =>
-                        setReviewPage((prev) => Math.min(reviewPageCount - 1, prev + 1))
-                      }
-                      disabled={safeReviewPage >= reviewPageCount - 1}
-                    >
-                      下一頁
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-3 lg:grid-cols-[340px_minmax(0,1fr)]">
-                <div
-                  key={`review-list-${reviewContextTransitionKey}`}
-                  className="max-h-[500px] space-y-2 overflow-y-auto pr-1"
-                  style={{ animation: "settlementSwapIn 220ms ease-out both" }}
-                >
-                  {pagedRecaps.map((recap) => {
-                    const result = resolveParticipantResult(
-                      recap,
-                      effectiveSelectedReviewParticipantClientId,
-                      meClientId,
-                    );
-                    const tone = RESULT_META[result];
-                    const active = selectedRecap?.key === recap.key;
-                    return (
-                      <button
-                        key={recap.key}
-                        type="button"
-                        className={`w-full rounded-xl border px-3 py-2 text-left transition ${
-                          active
-                            ? "border-amber-300/55 bg-amber-400/10"
-                            : "border-slate-700/70 bg-slate-950/55 hover:border-slate-500/80"
-                        }`}
-                        onClick={() => setSelectedRecapKey(recap.key)}
-                        onDoubleClick={() => {
-                          setSelectedRecapKey(recap.key);
-                          jumpToRecapPreview(recap);
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 text-xs font-semibold text-amber-100">
-                            {recap.order}
-                          </span>
-                          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">
-                            {recap.title}
-                          </p>
-                          <span
-                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone.badgeClass}`}
-                          >
-                            {tone.label}
-                          </span>
+                                👑
+                              </span>
+                            </span>
+                            <p className="text-[10px] tracking-[0.18em] text-amber-200">
+                              #1
+                            </p>
+                            <p
+                              className="mt-1 min-h-[2.5rem] w-full px-1 text-center text-sm font-black leading-tight text-amber-100"
+                              style={MULTILINE_ELLIPSIS_2}
+                            >
+                              {winner.username}
+                              {me && winner.clientId === me.clientId
+                                ? "（我）"
+                                : ""}
+                            </p>
+                            <div className="mt-auto flex h-20 w-full items-center justify-center rounded-lg bg-amber-300/20 text-[2rem] font-black leading-none text-amber-50">
+                              <span>{winner.score}</span>
+                            </div>
+                            {[
+                              { left: "16%", top: "16%", delay: "0ms" },
+                              { left: "82%", top: "20%", delay: "220ms" },
+                              { left: "74%", top: "72%", delay: "420ms" },
+                              { left: "24%", top: "74%", delay: "640ms" },
+                            ].map((spark) => (
+                              <span
+                                key={`${spark.left}-${spark.top}`}
+                                className="pointer-events-none absolute inline-block h-1.5 w-1.5 rounded-full bg-amber-200/95"
+                                style={{
+                                  left: spark.left,
+                                  top: spark.top,
+                                  animation:
+                                    "settlementChampionSpark 1.8s ease-in-out infinite",
+                                  animationDelay: spark.delay,
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex min-h-[142px] flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center">
+                            <p className="text-[10px] tracking-[0.15em] text-slate-300">
+                              #3
+                            </p>
+                            <p
+                              className="mt-2 min-h-[2.5rem] w-full px-1 text-xs font-semibold leading-tight text-slate-100"
+                              style={MULTILINE_ELLIPSIS_2}
+                            >
+                              {thirdPlace
+                                ? `${thirdPlace.username}${
+                                    me && thirdPlace.clientId === me.clientId
+                                      ? "（我）"
+                                      : ""
+                                  }`
+                                : "--"}
+                            </p>
+                            <div className="mt-auto flex h-12 w-full items-center justify-center rounded-lg bg-slate-800/80 text-xl font-black leading-none text-slate-100">
+                              {thirdPlace?.score ?? "--"}
+                            </div>
+                          </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
 
-                <div className="rounded-xl border border-slate-700/70 bg-slate-950/60 p-3">
-                  {selectedRecap ? (
-                    <div
-                      key={reviewDetailTransitionKey}
-                      style={{ animation: "settlementSwapIn 240ms ease-out both" }}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                            第 {selectedRecap.order} 題
-                            {selectedReviewParticipant
-                              ? ` · ${selectedReviewParticipant.username}`
+                        <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-center">
+                          <p className="text-sm font-bold text-amber-100">
+                            冠軍 #1 {winner.username}
+                            {me && winner.clientId === me.clientId
+                              ? "（我）"
                               : ""}
                           </p>
-                          <p
-                            className="mt-1 text-sm font-semibold text-slate-100"
-                            style={MULTILINE_ELLIPSIS_3}
-                            title={selectedRecap.title}
-                          >
-                            {selectedRecap.title}
+                          <p className="mt-1 text-xs text-amber-50/90">
+                            分數 {winner.score} · 答對{" "}
+                            {winner.correctCount ?? 0}/{playedQuestionCount}
+                            {" · "}
+                            Combo x
+                            {Math.max(winner.maxCombo ?? 0, winner.combo)}
                           </p>
-                          <p className="mt-1 text-xs text-slate-400">{selectedRecap.uploader}</p>
                         </div>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                            RESULT_META[
-                              selectedRecapAnswer.result as keyof typeof RESULT_META
-                            ].badgeClass
-                          }`}
-                        >
-                          {
-                            RESULT_META[
-                              selectedRecapAnswer.result as keyof typeof RESULT_META
-                            ].label
-                          }
-                        </span>
-                      </div>
-                      <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/70 px-3 py-2">
-                        <p className="text-[11px] text-slate-400">作答統計</p>
-                        <p className="mt-1 text-xs text-slate-300">
-                          答對 {selectedRecap.correctCount ?? 0} · 答錯 {selectedRecap.wrongCount ?? 0}
-                          · 未作答 {selectedRecap.unansweredCount ?? 0} · 最快{" "}
-                          {formatMs(selectedRecap.fastestCorrectMs)}
-                        </p>
-                        {selectedReviewParticipant && (
-                          <p className="mt-1 text-xs text-sky-100">
-                            玩家：第 {selectedReviewParticipantRank}/
-                            {Math.max(1, sortedParticipants.length)} 名 · 分數{" "}
-                            {selectedReviewParticipant.score} · Combo x
-                            {Math.max(
-                              selectedReviewParticipant.maxCombo ?? 0,
-                              selectedReviewParticipant.combo,
-                            )}
-                          </p>
+                        {me && (
+                          <div className="mt-2 rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100">
+                              你的位置
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-sky-50">
+                              第 {myRank}/{Math.max(1, participants.length)} 名
+                              · 分數 {me.score}
+                            </p>
+                          </div>
                         )}
+                      </>
+                    ) : (
+                      <p className="mt-4 text-sm text-slate-400">
+                        目前沒有玩家資料
+                      </p>
+                    )}
+
+                    <div className="mt-4 rounded-xl border border-slate-700/70 bg-slate-950/50 p-2.5">
+                      <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">
+                        全場關鍵紀錄
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                        <div className="rounded-xl border border-cyan-300/35 bg-cyan-500/10 px-3 py-2">
+                          <p className="text-[11px] text-cyan-100/90">
+                            最高答對率
+                          </p>
+                          <div className="mt-1 flex items-end justify-between gap-2">
+                            <p className="text-2xl font-black leading-none text-cyan-50">
+                              {topAccuracyEntry
+                                ? formatPercent(topAccuracyEntry.accuracy)
+                                : "--"}
+                            </p>
+                          </div>
+                          <p className="mt-1 text-xs font-semibold text-cyan-100/95">
+                            {topAccuracyEntry
+                              ? `${topAccuracyEntry.participant.username}${
+                                  meClientId &&
+                                  topAccuracyEntry.participant.clientId ===
+                                    meClientId
+                                    ? "（我）"
+                                    : ""
+                                }`
+                              : "尚無資料"}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/10 px-3 py-2">
+                          <p className="text-[11px] text-fuchsia-100/90">
+                            最高 COMBO
+                          </p>
+                          <div className="mt-1 flex items-end justify-between gap-2">
+                            <p className="text-2xl font-black leading-none text-fuchsia-50">
+                              {topComboEntry ? `x${topComboEntry.combo}` : "--"}
+                            </p>
+                          </div>
+                          <p className="mt-1 text-xs font-semibold text-fuchsia-100/95">
+                            {topComboEntry
+                              ? `${topComboEntry.participant.username}${
+                                  meClientId &&
+                                  topComboEntry.participant.clientId ===
+                                    meClientId
+                                    ? "（我）"
+                                    : ""
+                                }`
+                              : "尚無資料"}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
+                          <p
+                            className="text-[11px] text-amber-100/90"
+                            title="僅統計答對題目的平均答題速度"
+                          >
+                            最快答題平均
+                          </p>
+                          <div className="mt-1 flex items-end justify-between gap-2">
+                            <p className="text-2xl font-black leading-none text-amber-50">
+                              {fastestAverageAnswerEntry
+                                ? formatMs(fastestAverageAnswerEntry.ms)
+                                : "--"}
+                            </p>
+                          </div>
+                          <p className="mt-1 text-xs font-semibold text-amber-100/95">
+                            {fastestAverageAnswerEntry
+                              ? `${fastestAverageAnswerEntry.participant.username}${
+                                  meClientId &&
+                                  fastestAverageAnswerEntry.participant
+                                    .clientId === meClientId
+                                    ? "（我）"
+                                    : ""
+                                }`
+                              : "尚無資料"}
+                          </p>
+                        </div>
                       </div>
-                      <div className="mt-3 grid gap-2">
-                        {selectedRecap.choices.map((choice) => {
-                          const isCorrect = choice.index === selectedRecap.correctChoiceIndex;
-                          const isMine = selectedRecapAnswer.choiceIndex === choice.index;
-                          return (
-                            <div
-                              key={`${selectedRecap.key}-${choice.index}`}
-                              className={`rounded-lg border px-3 py-2 ${
-                                isCorrect
-                                  ? "border-emerald-300/40 bg-emerald-500/10"
-                                  : isMine
-                                    ? "border-rose-300/40 bg-rose-500/10"
-                                    : "border-slate-700/70 bg-slate-900/55"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <p
-                                  className="min-w-0 flex-1 text-sm leading-5 text-slate-100"
-                                  style={MULTILINE_ELLIPSIS_2}
-                                  title={choice.title}
+                    </div>
+
+                    <div className="mt-3 border-t border-slate-700/80 pt-3">
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <div className="rounded-xl border border-emerald-300/35 bg-emerald-500/10 px-3 py-2">
+                          <p className="text-[11px] text-emerald-100/90">
+                            我的分數
+                          </p>
+                          <p className="mt-1 text-xl font-bold text-emerald-50">
+                            {me ? me.score : "--"}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2">
+                          <p className="text-[11px] text-sky-100/90">
+                            我的名次
+                          </p>
+                          <p className="mt-1 text-xl font-bold text-sky-50">
+                            {myRank > 0
+                              ? `${myRank}/${Math.max(1, participants.length)}`
+                              : "--"}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
+                          <p className="text-[11px] text-amber-100/90">
+                            我的答對
+                          </p>
+                          <p className="mt-1 text-xl font-bold text-amber-50">
+                            {me?.correctCount ?? 0}/{playedQuestionCount}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                    排行榜
+                  </p>
+                  <div className="mt-3 max-h-[520px] space-y-2 overflow-y-auto pr-1">
+                    {sortedParticipants.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/55 px-3 py-4 text-sm text-slate-400">
+                        目前沒有玩家資料
+                      </div>
+                    ) : (
+                      sortedParticipants.map((participant, index) => {
+                        const isMe =
+                          meClientId && participant.clientId === meClientId;
+                        const rank = index + 1;
+                        const metrics =
+                          participantScoreMeta.metricsByClientId[
+                            participant.clientId
+                          ];
+                        const title =
+                          participantScoreMeta.byClientId[
+                            participant.clientId
+                          ] ?? "穩定";
+                        return (
+                          <div
+                            key={participant.clientId}
+                            className={`rounded-xl border px-3 py-2 transition-colors ${
+                              isMe
+                                ? "border-sky-300/60 bg-sky-500/14 shadow-[0_0_0_1px_rgba(56,189,248,0.28)]"
+                                : "border-slate-700/80 bg-slate-950/55"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span
+                                  className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black ${
+                                    isMe
+                                      ? "border-sky-200/70 bg-sky-400/20 text-sky-50"
+                                      : "border-slate-500/70 bg-slate-800/70 text-slate-200"
+                                  }`}
                                 >
-                                  {choice.title}
+                                  {rank}
+                                </span>
+                                <p
+                                  className="text-sm font-semibold text-slate-100"
+                                  style={MULTILINE_ELLIPSIS_2}
+                                >
+                                  {participant.username}
+                                  {isMe ? "（你）" : ""}
                                 </p>
-                                <div className="flex flex-wrap gap-1">
-                                  {isCorrect && (
-                                    <span className="rounded-full border border-emerald-300/45 bg-emerald-400/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
-                                      正確
-                                    </span>
-                                  )}
-                                  {isMine && (
-                                    <span className="rounded-full border border-sky-300/45 bg-sky-400/15 px-2 py-0.5 text-[10px] font-semibold text-sky-100">
-                                      玩家選擇
-                                    </span>
-                                  )}
-                                </div>
+                              </div>
+                              <div className="flex min-w-[92px] shrink-0 flex-col items-center justify-center gap-1 text-center">
+                                <span className="rounded-full border border-slate-500/70 bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold leading-none text-slate-200">
+                                  {title}
+                                </span>
+                                <p className="text-2xl font-black leading-none text-slate-100 sm:text-[1.7rem]">
+                                  {participant.score}
+                                </p>
                               </div>
                             </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-300">
+                              <span className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2 py-0.5">
+                                答對率 {formatPercent(metrics?.accuracy ?? 0)}
+                              </span>
+                              <span className="rounded-full border border-sky-300/35 bg-sky-500/12 px-2 py-0.5">
+                                平均 {formatMs(metrics?.avgSpeedMs)}
+                              </span>
+                              <span className="rounded-full border border-fuchsia-300/35 bg-fuchsia-500/12 px-2 py-0.5">
+                                Combo x
+                                {metrics?.combo ??
+                                  Math.max(
+                                    participant.maxCombo ?? 0,
+                                    participant.combo,
+                                  )}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </article>
+              </section>
+            )}
+
+            {activeTab === "recommend" && (
+              <section
+                ref={recommendSectionRef}
+                className="rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4"
+              >
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-100">
+                        推薦導覽 ·{" "}
+                        {RECOMMEND_CATEGORY_LABELS[activeRecommendCategory]}
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-300">
+                        {RECOMMEND_CATEGORY_SHORT_HINT[activeRecommendCategory]}
+                      </p>
+                    </div>
+                    {showRecommendControlsHint && (
+                      <span className="rounded-full border border-cyan-300/45 bg-cyan-500/12 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+                        可切換推薦與播放方式
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+                    <div className="min-w-0 overflow-x-auto pb-1">
+                      <div
+                        className="inline-flex min-w-max items-center gap-2 rounded-2xl border border-slate-600/80 bg-slate-950/80 p-1.5"
+                        style={
+                          showRecommendControlsHint
+                            ? {
+                                animation:
+                                  "settlementControlHintPulse 1.2s ease-in-out 2",
+                              }
+                            : undefined
+                        }
+                      >
+                        {(
+                          [
+                            { key: "quick", icon: BoltRoundedIcon },
+                            { key: "confuse", icon: ShuffleRoundedIcon },
+                            {
+                              key: "hard",
+                              icon: LocalFireDepartmentRoundedIcon,
+                            },
+                            { key: "other", icon: LibraryMusicRoundedIcon },
+                          ] as const
+                        ).map((item) => {
+                          const category = item.key;
+                          const active = activeRecommendCategory === category;
+                          const count =
+                            recommendationCardsByCategory[category].length;
+                          const Icon = item.icon;
+                          const theme = RECOMMEND_CATEGORY_THEME[category];
+                          return (
+                            <button
+                              key={category}
+                              type="button"
+                              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                                active
+                                  ? `${theme.badgeClass} shadow-[0_0_0_1px_rgba(148,163,184,0.25)]`
+                                  : "border-slate-600/70 bg-slate-900/70 text-slate-200 hover:border-slate-400"
+                              } ${count <= 0 ? "cursor-not-allowed opacity-45" : ""}`}
+                              onClick={() =>
+                                activateRecommendationCategory(category)
+                              }
+                              disabled={count <= 0}
+                              title={RECOMMEND_CATEGORY_SHORT_HINT[category]}
+                            >
+                              <Icon
+                                fontSize="small"
+                                className="text-[0.95rem]"
+                              />
+                              <span>{RECOMMEND_CATEGORY_LABELS[category]}</span>
+                              <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
+                                {count}
+                              </span>
+                            </button>
                           );
                         })}
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-4 text-sm text-slate-400">
-                      目前沒有可查看的題目內容
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="mt-3 text-xs text-slate-400">
-                顯示第 {safeReviewPage * RECAPS_PER_PAGE + 1} -{" "}
-                {Math.min(
-                  normalizedRecaps.length,
-                  (safeReviewPage + 1) * RECAPS_PER_PAGE,
-                )}{" "}
-                題（共 {normalizedRecaps.length} 題）
-              </div>
-            </section>
-          )}
-          </div>
 
-          <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outlined"
-                color="inherit"
-                onClick={goPrevStep}
-                disabled={stepIndex <= 0}
+                    <div className="min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
+                      <div
+                        className="inline-flex min-w-max items-center gap-2 rounded-2xl border border-slate-600/80 bg-slate-950/80 p-1.5"
+                        style={
+                          showRecommendControlsHint
+                            ? {
+                                animation:
+                                  "settlementControlHintPulse 1.2s ease-in-out 2 200ms",
+                              }
+                            : undefined
+                        }
+                      >
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                            autoPreviewEnabled
+                              ? "border-cyan-300/55 bg-cyan-500/18 text-cyan-50"
+                              : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
+                          }`}
+                          onClick={() => {
+                            setAutoPreviewEnabled((prev) => {
+                              const next = !prev;
+                              if (!next) {
+                                setPreviewPlaybackMode("idle");
+                                setPreviewRecapKey(null);
+                                setPreviewPlayerState("idle");
+                                setAutoAdvanceAtMs(null);
+                              } else {
+                                const nextIndex =
+                                  getFirstAutoPlayableIndex(
+                                    recommendationCards,
+                                  );
+                                jumpToRecommendation(
+                                  activeRecommendCategory,
+                                  nextIndex,
+                                  {
+                                    playbackMode: "auto",
+                                  },
+                                );
+                              }
+                              setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
+                              return next;
+                            });
+                          }}
+                        >
+                          <GraphicEqRoundedIcon
+                            fontSize="small"
+                            className="text-[0.95rem]"
+                          />
+                          自動導覽
+                          <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
+                            {autoPreviewEnabled ? "ON" : "OFF"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                            reviewDoubleClickPlayEnabled
+                              ? "border-violet-300/55 bg-violet-500/18 text-violet-50"
+                              : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
+                          }`}
+                          onClick={() =>
+                            setReviewDoubleClickPlayEnabled((prev) => !prev)
+                          }
+                        >
+                          <AdsClickRoundedIcon
+                            fontSize="small"
+                            className="text-[0.95rem]"
+                          />
+                          雙擊播放
+                          <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
+                            {reviewDoubleClickPlayEnabled ? "ON" : "OFF"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                            reviewDrawerOpen
+                              ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
+                              : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
+                          }`}
+                          onClick={() => setReviewDrawerOpen((prev) => !prev)}
+                        >
+                          <GroupsRoundedIcon
+                            fontSize="small"
+                            className="text-[0.95rem]"
+                          />
+                          全員作答
+                          <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
+                            {reviewDrawerOpen ? "顯示" : "隱藏"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {!currentRecommendation || !currentRecommendationLink ? (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-600/70 bg-slate-900/55 px-4 py-6 text-sm text-slate-400">
+                    目前沒有可推薦的曲目。
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+                    <article
+                      key={recommendationTransitionKey}
+                      className={`rounded-2xl border p-4 ${activeCategoryTheme.sectionClass}`}
+                      style={{
+                        animation: "settlementSwapIn 240ms ease-out both",
+                      }}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                            Artist Spotlight
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleOpenRecommendationTitle}
+                            disabled={!currentRecommendationLink.href}
+                            className="mt-1 text-left text-2xl font-black leading-tight text-slate-100 underline-offset-4 transition hover:text-cyan-200 hover:underline disabled:cursor-default disabled:opacity-85 disabled:no-underline sm:text-[2rem]"
+                            style={MULTILINE_ELLIPSIS_2}
+                            title={currentRecommendation.recap.title}
+                          >
+                            {currentRecommendation.recap.title}
+                          </button>
+                          <p className="mt-2 text-sm font-semibold text-slate-200">
+                            作者：
+                            {currentRecommendation.recap.uploader || "Unknown"}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="rounded-full border border-slate-500/55 bg-slate-800/75 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
+                            {currentRecommendation.providerLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        <div className="rounded-lg border border-emerald-300/35 bg-emerald-500/10 px-2.5 py-2">
+                          <p className="text-[10px] text-emerald-100/90">
+                            本場觀察
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-emerald-50">
+                            {currentRecommendationHint}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-amber-300/35 bg-amber-500/10 px-2.5 py-2">
+                          <p className="text-[10px] text-amber-100/90">
+                            重點標記
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-amber-50">
+                            {currentRecommendation.emphasis}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-sky-300/35 bg-sky-500/10 px-2.5 py-2">
+                          <p className="text-[10px] text-sky-100/90">
+                            答對時間（中位數）
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-sky-50">
+                            {formatMs(
+                              currentRecommendation.recap.medianCorrectMs,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          className="rounded-full border border-sky-300/45 bg-sky-400/15 px-3 py-1 text-xs font-semibold text-sky-100 transition hover:bg-sky-400/25"
+                          onClick={() =>
+                            handleOpenTrackLink(
+                              currentRecommendationLink,
+                              currentRecommendation.recap,
+                            )
+                          }
+                          disabled={!currentRecommendationLink.href}
+                        >
+                          如果喜歡這首歌曲，請至{" "}
+                          {currentRecommendation.providerLabel} 支持作者
+                        </button>
+                        {canAutoGuideLoop && (
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${activeCategoryTheme.badgeClass}`}
+                          >
+                            AUTO {previewCountdownSec}s
+                          </span>
+                        )}
+                        {previewSwitchNotice && (
+                          <span
+                            className="rounded-full border border-cyan-300/40 bg-cyan-500/12 px-2.5 py-1 text-[11px] font-semibold text-cyan-100"
+                            style={{
+                              animation: "settlementSwapIn 180ms ease-out both",
+                            }}
+                          >
+                            {previewSwitchNotice}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-2 text-[11px] text-slate-400">
+                        試聽音量目標 {effectivePreviewVolume}% ·
+                        {settlementPreviewSyncGameVolume
+                          ? " 同步遊玩音量"
+                          : " 使用自訂音量"}
+                      </p>
+
+                      <div
+                        ref={recommendPreviewStageRef}
+                        className="mt-3 overflow-hidden rounded-xl border border-slate-700/80 bg-black/45 scroll-mt-24"
+                      >
+                        <div className="relative aspect-video w-full">
+                          {isCurrentRecommendationPreviewOpen &&
+                          currentRecommendationPreviewUrl ? (
+                            <>
+                              <iframe
+                                ref={previewIframeRef}
+                                src={currentRecommendationPreviewUrl}
+                                className="absolute inset-0 h-full w-full"
+                                allow="autoplay; encrypted-media; picture-in-picture"
+                                allowFullScreen
+                                title={`preview-${currentRecommendation.recap.key}`}
+                                onLoad={() => {
+                                  syncPreviewVolume();
+                                  registerYouTubeBridge();
+                                }}
+                              />
+                              {previewPlayerState !== "playing" && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                                  <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/55 to-slate-950/82" />
+                                  <div className="relative z-10 flex flex-col items-center gap-2">
+                                    <div className="flex flex-wrap items-center justify-center gap-2">
+                                      <p className="text-sm font-semibold text-slate-200">
+                                        按下
+                                      </p>
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-amber-300/45 bg-amber-500/20 px-3 py-1 text-sm font-bold text-amber-50 transition hover:bg-amber-500/30"
+                                        onClick={handleQuickPlayStart}
+                                      >
+                                        快速播放
+                                      </button>
+                                      <p className="text-sm font-semibold text-slate-200">
+                                        即可試聽，暫停後可切換其他歌曲
+                                      </p>
+                                    </div>
+                                    <p className="text-xs text-slate-300">
+                                      如果喜歡這首歌曲，請至{" "}
+                                      {currentRecommendation.providerLabel}{" "}
+                                      支持作者。
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                              {currentRecommendation.recap.thumbnail && (
+                                <img
+                                  src={currentRecommendation.recap.thumbnail}
+                                  alt={currentRecommendation.recap.title}
+                                  className="absolute inset-0 h-full w-full object-cover opacity-30"
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/55 to-slate-950/80" />
+                              <div className="relative z-10 flex flex-col items-center gap-2">
+                                {currentRecommendationPreviewUrl ? (
+                                  <>
+                                    <div className="flex flex-wrap items-center justify-center gap-2">
+                                      <p className="text-sm font-semibold text-slate-200">
+                                        按下
+                                      </p>
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-amber-300/45 bg-amber-500/20 px-3 py-1 text-sm font-bold text-amber-50 transition hover:bg-amber-500/30"
+                                        onClick={handleQuickPlayStart}
+                                      >
+                                        快速播放
+                                      </button>
+                                      <p className="text-sm font-semibold text-slate-200">
+                                        即可試聽，暫停後可切換其他歌曲
+                                      </p>
+                                    </div>
+                                    <p className="text-xs text-slate-300">
+                                      如果喜歡這首歌曲，請至{" "}
+                                      {currentRecommendation.providerLabel}{" "}
+                                      支持作者。
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="text-sm font-semibold text-slate-200">
+                                      此平台不支援嵌入試聽
+                                    </p>
+                                    <p className="text-xs text-slate-400">
+                                      請使用上方連結前往{" "}
+                                      {currentRecommendation.providerLabel}{" "}
+                                      收聽。
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+
+                    <aside className="flex min-h-[520px] flex-col rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 xl:min-h-[620px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                          推薦清單
+                        </p>
+                        <span className="text-xs text-slate-300">
+                          {recommendationCards.length === 0
+                            ? "0/0"
+                            : `${safeRecommendIndex + 1}/${recommendationCards.length}`}
+                        </span>
+                      </div>
+                      <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                        {recommendationCards.map((card, index) => {
+                          const active = index === safeRecommendIndex;
+                          return (
+                            <button
+                              key={card.recap.key}
+                              type="button"
+                              className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                                active
+                                  ? activeCategoryTheme.listActiveClass
+                                  : "border-slate-700/70 bg-slate-900/65 hover:border-slate-500/75"
+                              }`}
+                              onClick={() => {
+                                jumpToRecommendation(
+                                  activeRecommendCategory,
+                                  index,
+                                  {
+                                    playbackMode:
+                                      previewPlaybackMode === "manual"
+                                        ? "manual"
+                                        : undefined,
+                                    forcePreview:
+                                      previewPlaybackMode === "manual",
+                                  },
+                                );
+                              }}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="min-w-0 text-xs font-semibold text-slate-100">
+                                  <span
+                                    className={`inline ${
+                                      card.link?.href
+                                        ? "cursor-pointer underline decoration-slate-500/60 underline-offset-2 transition hover:text-cyan-200 hover:decoration-cyan-300/70"
+                                        : ""
+                                    }`}
+                                    style={MULTILINE_ELLIPSIS_2}
+                                    onClick={(event) => {
+                                      if (!card.link?.href) return;
+                                      event.stopPropagation();
+                                      handleOpenTrackLink(
+                                        card.link,
+                                        card.recap,
+                                      );
+                                    }}
+                                    title={
+                                      card.link?.href
+                                        ? `前往 ${card.providerLabel}`
+                                        : card.recap.title
+                                    }
+                                  >
+                                    #{card.recap.order} {card.recap.title}
+                                  </span>
+                                </p>
+                                <span className="shrink-0 rounded-full border border-slate-600/70 bg-slate-900/70 px-2 py-0.5 text-[10px] text-slate-300">
+                                  {card.providerLabel}
+                                </span>
+                              </div>
+                              <p
+                                className="mt-1 text-[11px] text-slate-300"
+                                style={MULTILINE_ELLIPSIS_2}
+                              >
+                                {card.recap.uploader || "Unknown"}
+                              </p>
+                              <p className="mt-1 text-[10px] text-slate-400">
+                                {card.hint} · {card.emphasis}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          className="rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
+                          onClick={goPrevRecommendation}
+                          disabled={!canNavigateRecommendations}
+                        >
+                          {recommendNavLabels.prev}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
+                          onClick={goNextRecommendation}
+                          disabled={!canNavigateRecommendations}
+                        >
+                          {recommendNavLabels.next}
+                        </button>
+                      </div>
+                    </aside>
+                  </div>
+                )}
+              </section>
+            )}
+            {activeTab === "recommend" && reviewDrawerOpen && (
+              <section
+                className="mt-4 rounded-2xl border border-slate-700/80 bg-slate-900/72 p-4"
+                style={{
+                  animation: "settlementStageEnter 220ms ease-out both",
+                }}
               >
-                上一步
-              </Button>
-              {stepIndex < TAB_ORDER.length - 1 ? (
-                <Button
-                  variant="contained"
-                  color="warning"
-                  onClick={goNextStep}
-                >
-                  下一步：{TAB_LABELS[TAB_ORDER[stepIndex + 1]]}
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={goNextStep}
-                  disabled={!onBackToLobby}
-                >
-                  完成結算
-                </Button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {onRequestExit && (
-                <Button
-                  variant="contained"
-                  color="error"
-                  onClick={onRequestExit}
-                >
-                  離開房間
-                </Button>
-              )}
-            </div>
-          </footer>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full border border-emerald-300/45 bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-100">
+                      答對 {reviewRecapSummary.correct}
+                    </span>
+                    <span className="rounded-full border border-rose-300/45 bg-rose-400/10 px-2 py-0.5 font-semibold text-rose-100">
+                      答錯 {reviewRecapSummary.wrong}
+                    </span>
+                    <span className="rounded-full border border-slate-400/55 bg-slate-700/55 px-2 py-0.5 font-semibold text-slate-100">
+                      未作答 {reviewRecapSummary.unanswered}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                    <div className="flex items-center gap-1 rounded-full border border-sky-300/35 bg-sky-500/10 px-2 py-1">
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
+                        onClick={goPrevReviewParticipant}
+                        disabled={sortedParticipants.length <= 1}
+                      >
+                        上一位
+                      </button>
+                      <span
+                        key={`review-participant-${effectiveSelectedReviewParticipantClientId ?? "none"}`}
+                        className="max-w-[200px] truncate px-1 text-[11px] font-semibold text-sky-100"
+                        style={{
+                          animation: "settlementSwapIn 200ms ease-out both",
+                        }}
+                      >
+                        {selectedReviewParticipant
+                          ? `#${selectedReviewParticipantRank} ${selectedReviewParticipant.username}${
+                              meClientId &&
+                              selectedReviewParticipant.clientId === meClientId
+                                ? "（你）"
+                                : ""
+                            }`
+                          : "未選擇玩家"}
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
+                        onClick={goNextReviewParticipant}
+                        disabled={sortedParticipants.length <= 1}
+                      >
+                        下一位
+                      </button>
+                    </div>
+
+                    <div className="ml-auto flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
+                        onClick={() =>
+                          setReviewPage((prev) => Math.max(0, prev - 1))
+                        }
+                        disabled={safeReviewPage <= 0}
+                      >
+                        上一頁
+                      </button>
+                      <span>
+                        {safeReviewPage + 1}/{reviewPageCount}
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
+                        onClick={() =>
+                          setReviewPage((prev) =>
+                            Math.min(reviewPageCount - 1, prev + 1),
+                          )
+                        }
+                        disabled={safeReviewPage >= reviewPageCount - 1}
+                      >
+                        下一頁
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {sortedParticipants.length > 0 && (
+                  <div className="mt-2 overflow-x-auto pb-1">
+                    <div className="inline-flex min-w-max items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-950/60 px-2 py-1.5">
+                      {sortedParticipants.map((participant, index) => {
+                        const isActive =
+                          participant.clientId ===
+                          effectiveSelectedReviewParticipantClientId;
+                        const isMe = participant.clientId === meClientId;
+                        return (
+                          <button
+                            key={`review-chip-${participant.clientId}`}
+                            type="button"
+                            onClick={() =>
+                              setSelectedReviewParticipantClientId(
+                                participant.clientId,
+                              )
+                            }
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-semibold transition ${
+                              isActive
+                                ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
+                                : "border-slate-600/70 bg-slate-900/70 text-slate-200 hover:border-slate-400"
+                            }`}
+                          >
+                            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-current/40 px-1 text-[10px] leading-none">
+                              {index + 1}
+                            </span>
+                            <span className="max-w-[120px] truncate">
+                              {participant.username}
+                              {isMe ? "（你）" : ""}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <p className="mt-2 text-[11px] text-slate-400">
+                  提示：雙擊題目可切換到該首試聽（上方控制列可切換雙擊播放）
+                </p>
+
+                <div className="mt-3 grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
+                  <div
+                    key={`review-list-${reviewContextTransitionKey}`}
+                    className="max-h-[500px] space-y-2 overflow-y-auto pr-1"
+                    style={{
+                      animation: "settlementSwapIn 220ms ease-out both",
+                    }}
+                  >
+                    {pagedRecaps.map((recap) => {
+                      const result = resolveParticipantResult(
+                        recap,
+                        effectiveSelectedReviewParticipantClientId,
+                        meClientId,
+                      );
+                      const tone = RESULT_META[result];
+                      const active = selectedRecap?.key === recap.key;
+                      return (
+                        <button
+                          key={recap.key}
+                          type="button"
+                          className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                            active
+                              ? "border-amber-300/55 bg-amber-400/10"
+                              : "border-slate-700/70 bg-slate-950/55 hover:border-slate-500/80"
+                          }`}
+                          onClick={() => setSelectedRecapKey(recap.key)}
+                          onDoubleClick={() => {
+                            setSelectedRecapKey(recap.key);
+                            jumpToRecapPreview(recap);
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 text-xs font-semibold text-amber-100">
+                              {recap.order}
+                            </span>
+                            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">
+                              {recap.title}
+                            </p>
+                            <span
+                              className={`shrink-0 ${REVIEW_STATUS_BADGE_BASE} ${tone.badgeClass}`}
+                            >
+                              {tone.label}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-700/70 bg-slate-950/60 p-2.5 sm:p-3">
+                    {selectedRecap ? (
+                      <div
+                        key={reviewDetailTransitionKey}
+                        style={{
+                          animation: "settlementSwapIn 240ms ease-out both",
+                        }}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                              第 {selectedRecap.order} 題
+                              {selectedReviewParticipant
+                                ? ` · ${selectedReviewParticipant.username}`
+                                : ""}
+                            </p>
+                            <button
+                              type="button"
+                              className={`mt-1 w-full text-left text-sm font-semibold leading-5 underline-offset-4 transition ${
+                                selectedRecapLink?.href
+                                  ? "text-slate-100 hover:text-cyan-200 hover:underline"
+                                  : "cursor-default text-slate-100"
+                              }`}
+                              onClick={() => {
+                                if (!selectedRecapLink?.href) return;
+                                handleOpenTrackLink(
+                                  selectedRecapLink,
+                                  selectedRecap,
+                                );
+                              }}
+                              disabled={!selectedRecapLink?.href}
+                              title={
+                                selectedRecapLink?.href
+                                  ? `前往 ${selectedRecapLink.providerLabel || "平台"}`
+                                  : selectedRecap.title
+                              }
+                            >
+                              <p style={MULTILINE_ELLIPSIS_2}>
+                                {selectedRecap.title}
+                              </p>
+                            </button>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {selectedRecap.uploader}
+                            </p>
+                          </div>
+                          <span
+                            className={`${REVIEW_STATUS_BADGE_BASE} ${
+                              RESULT_META[selectedRecapAnswer.result].badgeClass
+                            }`}
+                          >
+                            {RESULT_META[selectedRecapAnswer.result].label}
+                          </span>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/70 px-3 py-2">
+                          <p className="text-[11px] text-slate-400">作答統計</p>
+                          <p className="mt-1 text-xs text-slate-300">
+                            答對 {selectedRecap.correctCount ?? 0} · 答錯{" "}
+                            {selectedRecap.wrongCount ?? 0}· 未作答{" "}
+                            {selectedRecap.unansweredCount ?? 0} · 最快{" "}
+                            {formatMs(selectedRecap.fastestCorrectMs)}
+                          </p>
+                          {selectedReviewParticipant && (
+                            <p className="mt-1 text-xs text-sky-100">
+                              玩家：第 {selectedReviewParticipantRank}/
+                              {Math.max(1, sortedParticipants.length)} 名 · 分數{" "}
+                              {selectedReviewParticipant.score} · Combo x
+                              {Math.max(
+                                selectedReviewParticipant.maxCombo ?? 0,
+                                selectedReviewParticipant.combo,
+                              )}
+                            </p>
+                          )}
+                        </div>
+                        <div className="mt-3 grid gap-2">
+                          {selectedRecap.choices.map((choice) => {
+                            const isCorrect =
+                              choice.index === selectedRecap.correctChoiceIndex;
+                            const isMine =
+                              selectedRecapAnswer.choiceIndex === choice.index;
+                            return (
+                              <div
+                                key={`${selectedRecap.key}-${choice.index}`}
+                                className={`rounded-lg border px-3 py-2 ${
+                                  isCorrect
+                                    ? "border-emerald-300/40 bg-emerald-500/10"
+                                    : isMine
+                                      ? "border-rose-300/40 bg-rose-500/10"
+                                      : "border-slate-700/70 bg-slate-900/55"
+                                }`}
+                              >
+                                <div className="relative min-h-[2.75rem]">
+                                  <p
+                                    className="min-w-0 pr-[9rem] text-sm leading-5 text-slate-100 h-[2.5rem]"
+                                    style={MULTILINE_ELLIPSIS_2}
+                                    title={choice.title}
+                                  >
+                                    {choice.title}
+                                  </p>
+                                  <div className="absolute inset-y-0 right-0 flex items-center gap-1">
+                                    {isCorrect && (
+                                      <span
+                                        className={`${REVIEW_STATUS_BADGE_BASE} border-emerald-300/45 bg-emerald-400/15 text-emerald-100`}
+                                      >
+                                        正確
+                                      </span>
+                                    )}
+                                    {isMine && (
+                                      <span
+                                        className={`${REVIEW_STATUS_BADGE_BASE} border-sky-300/45 bg-sky-400/15 text-sky-100`}
+                                      >
+                                        玩家選擇
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-4 text-sm text-slate-400">
+                        目前沒有可查看的題目內容
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-slate-400">
+                  顯示第 {safeReviewPage * RECAPS_PER_PAGE + 1} -{" "}
+                  {Math.min(
+                    normalizedRecaps.length,
+                    (safeReviewPage + 1) * RECAPS_PER_PAGE,
+                  )}{" "}
+                  題（共 {normalizedRecaps.length} 題）
+                </div>
+              </section>
+            )}
+          </div>
         </div>
       </section>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-700/70 bg-slate-950/92 px-2 backdrop-blur lg:hidden">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.6rem)]">
+          <Button
+            variant="outlined"
+            color="inherit"
+            size="small"
+            onClick={goPrevStep}
+            disabled={stepIndex <= 0}
+            className="!min-w-0 !flex-1"
+          >
+            上一步
+          </Button>
+          {stepIndex < TAB_ORDER.length - 1 ? (
+            <Button
+              variant="contained"
+              color="warning"
+              size="small"
+              onClick={goNextStep}
+              className="!min-w-0 !flex-[1.1]"
+            >
+              下一步
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              onClick={goNextStep}
+              disabled={!onBackToLobby}
+              className="!min-w-0 !flex-[1.1]"
+            >
+              完成結算
+            </Button>
+          )}
+          {onRequestExit && (
+            <Button
+              variant="contained"
+              color="error"
+              size="small"
+              onClick={() => setExitConfirmOpen(true)}
+              className="!min-w-[84px] !shrink-0"
+            >
+              離開
+            </Button>
+          )}
+        </div>
+      </div>
+      <Dialog
+        open={exitConfirmOpen}
+        onClose={() => setExitConfirmOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>確認離開房間？</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-slate-700">
+            離開後會中斷目前結算導覽，並返回房間外。
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExitConfirmOpen(false)} color="inherit">
+            取消
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setExitConfirmOpen(false);
+              onRequestExit?.();
+            }}
+          >
+            確認離開
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

@@ -243,6 +243,7 @@ export interface RoomSummary {
   gameSettings?: {
     questionCount: number;
     playDurationSec?: number;
+    revealDurationSec?: number;
     startOffsetSec?: number;
     allowCollectionClipTiming?: boolean;
   };
@@ -280,6 +281,7 @@ export interface ClientToServerEvents {
       gameSettings?: {
         questionCount: number;
         playDurationSec?: number;
+        revealDurationSec?: number;
         startOffsetSec?: number;
         allowCollectionClipTiming?: boolean;
       };
@@ -352,6 +354,7 @@ export interface ClientToServerEvents {
       password?: string | null;
       questionCount?: number;
       playDurationSec?: number;
+      revealDurationSec?: number;
       startOffsetSec?: number;
       allowCollectionClipTiming?: boolean;
       maxPlayers?: number | null;
