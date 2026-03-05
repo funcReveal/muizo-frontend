@@ -32,61 +32,33 @@ import {
   parseTimeInput,
   thumbnailFromId,
 } from "./lib/editUtils";
+import {
+  ANSWER_MAX_LENGTH,
+  CLIP_DURATION_LABEL,
+  COLLECTION_SELECT_LABEL,
+  DUPLICATE_SONG_ERROR,
+  EDIT_AUTOPLAY_STORAGE_KEY,
+  EDIT_LOOP_STORAGE_KEY,
+  EDIT_MUTE_STORAGE_KEY,
+  EDIT_VOLUME_STORAGE_KEY,
+  END_TIME_LABEL,
+  LEGACY_ID_KEY,
+  LEGACY_VOLUME_STORAGE_KEY,
+  NEW_COLLECTION_LABEL,
+  PAUSE_LABEL,
+  PLAY_LABEL,
+  SAVED_LABEL,
+  SAVE_ERROR_LABEL,
+  SAVING_LABEL,
+  START_TIME_LABEL,
+  TEXT,
+  UNSAVED_PROMPT,
+  VOLUME_LABEL,
+} from "./lib/editConstants";
 
 type YTPlayer = YT.Player;
 type YTPlayerEvent = YT.PlayerEvent;
 type YTPlayerStateEvent = YT.OnStateChangeEvent;
-
-const TEXT = {
-  notSet: "(未設定)",
-  createTitle: "建立收藏庫",
-  backRooms: "返回收藏庫",
-  collectionName: "收藏庫名稱",
-  collectionNamePlaceholder: "例如：我的 K-POP 收藏",
-  playlistLabel: "YouTube 播放清單",
-  loadPlaylist: "載入清單",
-  loading: "載入中...",
-  playlistErrorInvalid: "請貼上有效的 YouTube 播放清單網址",
-  playlistErrorApi: "尚未設定 API 位置 (API_URL)",
-  playlistErrorLoad: "讀取播放清單失敗，請稍後重試",
-  playlistErrorEmpty: "清單沒有可用影片，請確認播放清單是否公開",
-  playlistErrorGeneric: "讀取播放清單時發生錯誤",
-  playlistCount: "清單歌曲：",
-  songsUnit: " 首",
-  noThumb: "無縮圖",
-  noSelection: "尚未選擇歌曲",
-  selectSong: "請先選擇歌曲",
-  editTime: "剪輯時間",
-  start: "開始",
-  end: "結束",
-  startSec: "開始秒數",
-  endSec: "結束秒數",
-  answer: "答案",
-  answerPlaceholder: "輸入歌曲答案",
-  listTodo: "收藏庫列表（待實作）",
-};
-
-const START_TIME_LABEL = "開始時間 (mm:ss)";
-const END_TIME_LABEL = "結束時間 (mm:ss)";
-const ANSWER_MAX_LENGTH = 80;
-const PLAY_LABEL = "播放";
-const PAUSE_LABEL = "暫停";
-const VOLUME_LABEL = "音量";
-const DUPLICATE_SONG_ERROR = "曲目已存在";
-const CLIP_DURATION_LABEL = "播放時長";
-// const SAVE_LABEL = "儲存";
-const SAVING_LABEL = "儲存中";
-const SAVE_ERROR_LABEL = "儲存失敗";
-const SAVED_LABEL = "已儲存";
-const UNSAVED_PROMPT = "尚未儲存，確定要離開嗎？";
-const COLLECTION_SELECT_LABEL = "收藏庫清單";
-const NEW_COLLECTION_LABEL = "建立新收藏庫";
-const EDIT_VOLUME_STORAGE_KEY = "mq_edit_volume";
-const LEGACY_VOLUME_STORAGE_KEY = "mq_volume";
-const EDIT_MUTE_STORAGE_KEY = "mq_edit_muted";
-const EDIT_AUTOPLAY_STORAGE_KEY = "mq_edit_autoplay";
-const EDIT_LOOP_STORAGE_KEY = "mq_edit_loop";
-const LEGACY_ID_KEY = "video" + "_id";
 
 const EditPage = () => {
   const navigate = useNavigate();

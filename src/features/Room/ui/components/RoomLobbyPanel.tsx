@@ -1,8 +1,5 @@
 ﻿import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Avatar,
   Badge,
   Box,
@@ -16,14 +13,11 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   IconButton,
   List as MUIList,
   ListItem,
-  MenuItem,
   Popover,
   Stack,
-  Switch,
   TextField,
   Typography,
   useMediaQuery,
@@ -52,563 +46,16 @@ import {
   DEFAULT_START_OFFSET_SEC,
   PLAYER_MAX,
   PLAYER_MIN,
-  PLAY_DURATION_MAX,
-  PLAY_DURATION_MIN,
   QUESTION_MIN,
-  QUESTION_STEP,
-  REVEAL_DURATION_MAX,
-  REVEAL_DURATION_MIN,
-  START_OFFSET_MAX,
-  START_OFFSET_MIN,
 } from "../../model/roomConstants";
-import QuestionCountControls from "./QuestionCountControls";
-import RoomAccessSettingsFields from "./RoomAccessSettingsFields";
-
-const formatTime = (timestamp: number) => {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString();
-};
-
-const normalizeDisplayText = (value: string | null | undefined, fallback: string) => {
-  const text = (value ?? "").trim();
-  if (!text) return fallback;
-  const replacementCount = (text.match(/\uFFFD/g) ?? []).length;
-  const questionCount = (text.match(/\?/g) ?? []).length;
-  const looksBroken =
-    replacementCount > 0 ||
-    (questionCount >= 3 && questionCount / Math.max(1, text.length) > 0.15);
-  return looksBroken ? fallback : text;
-};
-
-const SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX = "settlement-review:";
-
-type CollectionOption = {
-  id: string;
-  title: string;
-  description?: string | null;
-  visibility?: "private" | "public";
-  use_count?: number;
-};
-
-interface SuggestionPanelProps {
-  collectionScope: "public" | "owner";
-  onCollectionScopeChange: (scope: "public" | "owner") => void;
-  collections: CollectionOption[];
-  collectionsLoading: boolean;
-  isGoogleAuthed: boolean;
-  youtubePlaylists: YoutubePlaylist[];
-  youtubePlaylistsLoading: boolean;
-  youtubePlaylistsError: string | null;
-  requestCollections: (scope: "public" | "owner") => void;
-  requestYoutubePlaylists: (force?: boolean) => void;
-  onSuggestPlaylist: (
-    type: "collection" | "playlist",
-    value: string,
-    options?: { useSnapshot?: boolean; sourceId?: string | null; title?: string | null },
-  ) => Promise<{ ok: boolean; error?: string }>;
-  extractPlaylistId: (url: string) => string | null;
-}
-
-const SuggestionPanel: React.FC<SuggestionPanelProps> = ({
-  collectionScope,
-  onCollectionScopeChange,
-  collections,
-  collectionsLoading,
-  isGoogleAuthed,
-  youtubePlaylists,
-  youtubePlaylistsLoading,
-  youtubePlaylistsError,
-  requestCollections,
-  requestYoutubePlaylists,
-  onSuggestPlaylist,
-  extractPlaylistId,
-}) => {
-  const [suggestType, setSuggestType] = useState<
-    "playlist" | "collection" | "youtube"
-  >("playlist");
-  const [suggestPlaylistUrl, setSuggestPlaylistUrl] = useState("");
-  const [suggestCollectionId, setSuggestCollectionId] = useState<string | null>(
-    null,
-  );
-  const [suggestYoutubePlaylistId, setSuggestYoutubePlaylistId] = useState<
-    string | null
-  >(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
-  const [cooldownNow, setCooldownNow] = useState(() => Date.now());
-  const [suggestError, setSuggestError] = useState<string | null>(null);
-  const [suggestNotice, setSuggestNotice] = useState<string | null>(null);
-  const lastCollectionRequestScopeRef = useRef<"public" | "owner" | null>(null);
-  const hasRequestedYoutubeRef = useRef(false);
-  const cooldownTimerRef = useRef<number | null>(null);
-  const cooldownIntervalRef = useRef<number | null>(null);
-  const SUGGESTION_COOLDOWN_MS = 5000;
-  const selectedSuggestCollection = collections.find(
-    (item) => item.id === suggestCollectionId,
-  );
-  const isSuggestCollectionPrivate =
-    selectedSuggestCollection?.visibility === "private";
-  const isCooldownActive =
-    typeof cooldownUntil === "number" && cooldownUntil > Date.now();
-  const remainingCooldownSeconds = cooldownUntil
-    ? Math.max(0, Math.ceil((cooldownUntil - cooldownNow) / 1000))
-    : 0;
-  const isSuggestCollectionEmptyNotice =
-    !collectionsLoading &&
-    collections.length === 0 &&
-    !(collectionScope === "owner" && !isGoogleAuthed);
-  const suggestPlaylistPrimaryText = "貼上播放清單連結，將歌單推薦給房主。";
-  const suggestCollectionPrimaryText = (() => {
-    const scopeLabel = collectionScope === "public" ? "公開" : "私人";
-    if (collectionScope === "owner" && !isGoogleAuthed) {
-      return "請先登入 Google 才能使用私人收藏庫。";
-    }
-    if (collectionsLoading) {
-      return `正在讀取${scopeLabel}收藏庫...`;
-    }
-    if (collections.length === 0) {
-      return `目前沒有可用的${scopeLabel}收藏庫。`;
-    }
-    return `請選擇要推薦的${scopeLabel}收藏庫。`;
-  })();
-  const isSuggestYoutubeEmptyNotice =
-    isGoogleAuthed &&
-    !youtubePlaylistsLoading &&
-    youtubePlaylists.length === 0 &&
-    !youtubePlaylistsError;
-  const isSuggestYoutubeMissingNotice = Boolean(
-    youtubePlaylistsError &&
-    (
-      youtubePlaylistsError.toLowerCase().includes("youtube") ||
-      youtubePlaylistsError.includes("YouTube")
-    ),
-  );
-  const visibleSuggestYoutubeError =
-    youtubePlaylistsError && !isSuggestYoutubeMissingNotice
-      ? youtubePlaylistsError
-      : null;
-  const suggestYoutubePrimaryText = (() => {
-    if (!isGoogleAuthed) {
-      return "請先登入 Google 以載入 YouTube 播放清單。";
-    }
-    if (youtubePlaylistsLoading) {
-      return "正在讀取 YouTube 播放清單...";
-    }
-    if (isSuggestYoutubeMissingNotice) {
-      return "目前尚未取得可用的 YouTube 播放清單。";
-    }
-    if (isSuggestYoutubeEmptyNotice) {
-      return "你的帳號目前沒有可用的 YouTube 播放清單。";
-    }
-    return "選擇 YouTube 播放清單後即可送出推薦。";
-  })();
-
-  useEffect(() => {
-    if (suggestType !== "collection") {
-      return;
-    }
-    if (lastCollectionRequestScopeRef.current === collectionScope) {
-      return;
-    }
-    lastCollectionRequestScopeRef.current = collectionScope;
-    requestCollections(collectionScope);
-  }, [collectionScope, requestCollections, suggestType]);
-
-  useEffect(() => {
-    if (suggestType !== "youtube") return;
-    if (!isGoogleAuthed) return;
-    if (hasRequestedYoutubeRef.current) return;
-    hasRequestedYoutubeRef.current = true;
-    requestYoutubePlaylists();
-  }, [isGoogleAuthed, requestYoutubePlaylists, suggestType]);
-
-  useEffect(() => {
-    if (suggestType !== "youtube") {
-      hasRequestedYoutubeRef.current = false;
-    }
-  }, [suggestType]);
-
-  useEffect(() => {
-    if (isGoogleAuthed) return;
-    hasRequestedYoutubeRef.current = false;
-  }, [isGoogleAuthed]);
-
-  useEffect(() => {
-    if (cooldownTimerRef.current) {
-      window.clearTimeout(cooldownTimerRef.current);
-      cooldownTimerRef.current = null;
-    }
-    if (cooldownIntervalRef.current) {
-      window.clearInterval(cooldownIntervalRef.current);
-      cooldownIntervalRef.current = null;
-    }
-    if (!cooldownUntil) return;
-    const remaining = cooldownUntil - Date.now();
-    if (remaining <= 0) {
-      setCooldownUntil(null);
-      setSuggestNotice(null);
-      return;
-    }
-    setCooldownNow(Date.now());
-    cooldownIntervalRef.current = window.setInterval(() => {
-      setCooldownNow(Date.now());
-    }, 500);
-    cooldownTimerRef.current = window.setTimeout(() => {
-      setCooldownUntil(null);
-      setSuggestNotice(null);
-    }, remaining);
-    return () => {
-      if (cooldownTimerRef.current) {
-        window.clearTimeout(cooldownTimerRef.current);
-        cooldownTimerRef.current = null;
-      }
-      if (cooldownIntervalRef.current) {
-        window.clearInterval(cooldownIntervalRef.current);
-        cooldownIntervalRef.current = null;
-      }
-    };
-  }, [cooldownUntil]);
-
-  return (
-    <Accordion
-      disableGutters
-      expanded
-      className="border border-slate-800/80 bg-slate-950/40 room-lobby-suggestion-accordion"
-    >
-      <AccordionSummary>
-        <Typography variant="subtitle2" className="text-slate-200">
-          推薦歌單給房主
-        </Typography>
-      </AccordionSummary>
-      <AccordionDetails>
-        <Stack spacing={1}>
-          <Stack direction="row" className="room-lobby-mode-row">
-            <Button
-              size="small"
-              variant={suggestType === "playlist" ? "contained" : "outlined"}
-              className="room-lobby-mode-button"
-              onClick={() => {
-                setSuggestType("playlist");
-                if (suggestError) {
-                  setSuggestError(null);
-                }
-              }}
-              disabled={isSubmitting}
-            >
-              貼上連結
-            </Button>
-            <Button
-              size="small"
-              variant={
-                suggestType === "collection" && collectionScope === "public"
-                  ? "contained"
-                  : "outlined"
-              }
-              className="room-lobby-mode-button"
-              onClick={() => {
-                setSuggestType("collection");
-                onCollectionScopeChange("public");
-                setSuggestCollectionId(null);
-                if (suggestError) {
-                  setSuggestError(null);
-                }
-              }}
-              disabled={isSubmitting}
-            >
-              公開收藏庫
-            </Button>
-            <Button
-              size="small"
-              variant={
-                suggestType === "collection" && collectionScope === "owner"
-                  ? "contained"
-                  : "outlined"
-              }
-              className="room-lobby-mode-button"
-              onClick={() => {
-                setSuggestType("collection");
-                onCollectionScopeChange("owner");
-                setSuggestCollectionId(null);
-                if (suggestError) {
-                  setSuggestError(null);
-                }
-              }}
-              disabled={isSubmitting || !isGoogleAuthed}
-            >
-              私人收藏庫
-            </Button>
-            <Button
-              size="small"
-              variant={suggestType === "youtube" ? "contained" : "outlined"}
-              className="room-lobby-mode-button"
-              onClick={() => {
-                setSuggestType("youtube");
-                if (suggestError) {
-                  setSuggestError(null);
-                }
-              }}
-              disabled={isSubmitting}
-            >
-              我的播放清單
-            </Button>
-          </Stack>
-          {suggestType === "playlist" && (
-            <>
-              <Typography variant="caption" className="text-slate-400">
-                {suggestPlaylistPrimaryText}
-              </Typography>
-              <TextField
-                size="small"
-                value={suggestPlaylistUrl}
-                onChange={(e) => {
-                  setSuggestPlaylistUrl(e.target.value);
-                  if (suggestError) {
-                    setSuggestError(null);
-                  }
-                  if (suggestNotice && !isCooldownActive) {
-                    setSuggestNotice(null);
-                  }
-                }}
-                placeholder="貼上 YouTube 播放清單 URL"
-                disabled={isSubmitting}
-                fullWidth
-              />
-            </>
-          )}
-          {suggestType === "collection" && (
-            <>
-              <Typography
-                variant="caption"
-                className={
-                  isSuggestCollectionEmptyNotice ? "text-rose-300" : "text-slate-400"
-                }
-              >
-                {suggestCollectionPrimaryText}
-              </Typography>
-              {!isGoogleAuthed && collectionScope === "owner" && (
-                <Typography variant="caption" className="text-slate-400">
-                  登入後可使用私人收藏庫
-                </Typography>
-              )}
-              <TextField
-                select
-                size="small"
-                value={suggestCollectionId ?? ""}
-                onChange={(e) => {
-                  setSuggestCollectionId(
-                    e.target.value ? e.target.value : null,
-                  );
-                  if (suggestError) {
-                    setSuggestError(null);
-                  }
-                  if (suggestNotice && !isCooldownActive) {
-                    setSuggestNotice(null);
-                  }
-                }}
-                disabled={isSubmitting}
-                fullWidth
-                SelectProps={{
-                  displayEmpty: true,
-                  renderValue: (selected) => {
-                    const selectedId = String(selected ?? "");
-                    if (!selectedId) return "請選擇收藏庫";
-                    const selectedOption = collections.find(
-                      (item) => item.id === selectedId,
-                    );
-                    if (!selectedOption) return selectedId;
-                    return normalizeDisplayText(
-                      selectedOption.title,
-                      "未命名收藏庫",
-                    );
-                  },
-                }}
-              >
-                <MenuItem value="">請選擇收藏庫</MenuItem>
-                {collections.map((collection) => (
-                  <MenuItem key={collection.id} value={collection.id}>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate">
-                        {normalizeDisplayText(collection.title, "未命名收藏庫")}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        熱門度 {Math.max(0, Number(collection.use_count ?? 0))}
-                      </span>
-                    </div>
-                  </MenuItem>
-                ))}
-              </TextField>
-            </>
-          )}
-          {suggestType === "youtube" && (
-            <>
-              <Typography
-                variant="caption"
-                className={
-                  isSuggestYoutubeEmptyNotice || isSuggestYoutubeMissingNotice
-                    ? "text-rose-300"
-                    : "text-slate-400"
-                }
-              >
-                {suggestYoutubePrimaryText}
-              </Typography>
-              {visibleSuggestYoutubeError && (
-                <Typography variant="caption" className="text-rose-300">
-                  {visibleSuggestYoutubeError}
-                </Typography>
-              )}
-              <TextField
-                select
-                size="small"
-                value={suggestYoutubePlaylistId ?? ""}
-                onChange={(e) => {
-                  setSuggestYoutubePlaylistId(
-                    e.target.value ? e.target.value : null,
-                  );
-                  if (suggestError) {
-                    setSuggestError(null);
-                  }
-                  if (suggestNotice && !isCooldownActive) {
-                    setSuggestNotice(null);
-                  }
-                }}
-                disabled={isSubmitting || !isGoogleAuthed}
-                fullWidth
-                SelectProps={{
-                  displayEmpty: true,
-                  renderValue: (selected) => {
-                    const selectedId = String(selected ?? "");
-                    if (!selectedId) return "請選擇 YouTube 播放清單";
-                    const selectedOption = youtubePlaylists.find(
-                      (item) => item.id === selectedId,
-                    );
-                    if (!selectedOption) return selectedId;
-                    return `${normalizeDisplayText(selectedOption.title, "未命名播放清單")} (${selectedOption.itemCount})`;
-                  },
-                }}
-              >
-                <MenuItem value="">請選擇 YouTube 播放清單</MenuItem>
-                {youtubePlaylists.map((playlist) => (
-                  <MenuItem key={playlist.id} value={playlist.id}>
-                    {normalizeDisplayText(playlist.title, "未命名播放清單")} ({playlist.itemCount})
-                  </MenuItem>
-                ))}
-              </TextField>
-            </>
-          )}
-          {suggestError && (
-            <Typography variant="caption" className="text-rose-300">
-              {suggestError}
-            </Typography>
-          )}
-          {suggestType === "collection" && suggestCollectionId && (
-            <Typography
-              variant="caption"
-              className={
-                isSuggestCollectionPrivate
-                  ? "text-amber-200"
-                  : "text-emerald-300"
-              }
-            >
-              {isSuggestCollectionPrivate
-                ? "此推薦來自私人收藏庫，會以快照方式送出。"
-                : "此推薦來自公開收藏庫，會以來源連結送出。"}
-            </Typography>
-          )}
-          {(suggestNotice || isCooldownActive) && (
-            <Typography variant="caption" className="text-emerald-300">
-              {isCooldownActive
-                ? `冷卻中，請等待 ${remainingCooldownSeconds}s 後再推薦。`
-                : suggestNotice}
-            </Typography>
-          )}
-          <Button
-            size="small"
-            variant="contained"
-            disabled={
-              isSubmitting ||
-              isCooldownActive ||
-              (suggestType === "playlist" && !suggestPlaylistUrl.trim()) ||
-              (suggestType === "collection" && !suggestCollectionId) ||
-              (suggestType === "youtube" && !suggestYoutubePlaylistId)
-            }
-            onClick={async () => {
-              if (isCooldownActive) {
-                const remaining = Math.max(
-                  1,
-                  Math.ceil(((cooldownUntil ?? Date.now()) - Date.now()) / 1000),
-                );
-                setSuggestNotice(`請等待 ${remaining}s 後再送出下一次推薦。`);
-                return;
-              }
-              setIsSubmitting(true);
-              setSuggestError(null);
-              setSuggestNotice(null);
-              try {
-                let result: { ok: boolean; error?: string } | null = null;
-                if (suggestType === "playlist") {
-                  const trimmed = suggestPlaylistUrl.trim();
-                  const playlistId = extractPlaylistId(trimmed);
-                  if (!playlistId) {
-                    setSuggestError("請輸入有效的 YouTube 播放清單 URL");
-                    setSuggestNotice(null);
-                    return;
-                  }
-                  result = await onSuggestPlaylist("playlist", trimmed, {
-                    useSnapshot: false,
-                    sourceId: playlistId,
-                  });
-                } else if (suggestType === "youtube") {
-                  if (!suggestYoutubePlaylistId) {
-                    setSuggestError("請先選擇 YouTube 播放清單。");
-                    setSuggestNotice(null);
-                    return;
-                  }
-                  const selected = youtubePlaylists.find(
-                    (playlist) => playlist.id === suggestYoutubePlaylistId,
-                  );
-                  result = await onSuggestPlaylist(
-                    "playlist",
-                    suggestYoutubePlaylistId,
-                    {
-                      useSnapshot: true,
-                      sourceId: suggestYoutubePlaylistId,
-                      title: selected?.title ?? null,
-                    },
-                  );
-                } else if (suggestCollectionId) {
-                  result = await onSuggestPlaylist(
-                    "collection",
-                    suggestCollectionId,
-                    {
-                      useSnapshot: isSuggestCollectionPrivate,
-                      sourceId: suggestCollectionId,
-                      title: selectedSuggestCollection?.title ?? null,
-                    },
-                  );
-                }
-                if (!result?.ok) {
-                  setSuggestError(result?.error ?? "提交推薦失敗");
-                  setSuggestNotice(null);
-                  return;
-                }
-                setCooldownUntil(Date.now() + SUGGESTION_COOLDOWN_MS);
-                setSuggestNotice("推薦已送出");
-              } finally {
-                setIsSubmitting(false);
-              }
-            }}
-          >
-            {isSubmitting
-              ? "送出中..."
-              : isCooldownActive
-                ? `冷卻 ${Math.max(1, remainingCooldownSeconds)}s`
-                : "推薦給房主"}
-          </Button>
-        </Stack>
-      </AccordionDetails>
-    </Accordion>
-  );
-};
+import RoomLobbyChatPanel from "./RoomLobbyChatPanel";
+import RoomLobbyHostControls from "./RoomLobbyHostControls";
+import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
+import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
+import type { CollectionOption } from "./roomLobbyPanelTypes";
+import {
+  normalizeDisplayText,
+} from "./roomLobbyPanelUtils";
 
 interface RoomLobbyPanelProps {
   currentRoom: RoomState["room"] | null;
@@ -797,15 +244,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const maskedRoomPassword = roomPassword
     ? "*".repeat(roomPassword.length)
     : "";
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const playlistListContainerRef = useRef<HTMLDivElement | null>(null);
   const [playlistListHeight, setPlaylistListHeight] = useState(280);
-
-  useEffect(() => {
-    const container = chatScrollRef.current;
-    if (!container) return;
-    container.scrollTop = container.scrollHeight;
-  }, [messages.length]);
 
   useLayoutEffect(() => {
     const container = playlistListContainerRef.current;
@@ -1761,458 +1201,55 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           </Box>
 
           {isHost && (
-            <Accordion
-              disableGutters
-              className="border border-slate-800/80 bg-slate-950/40 room-lobby-host-accordion room-lobby-host-accordion-fixed"
-              expanded={isHostPanelExpanded}
-            >
-              <AccordionSummary>
-                <div className="flex items-center gap-2">
-                  <Typography variant="subtitle2" className="text-slate-200">
-                    房主控制
-                  </Typography>
-                  {hasNewSuggestions && (
-                    <Chip
-                      size="small"
-                      color="warning"
-                      label={`新建議 ${playlistSuggestions.length}`}
-                    />
-                  )}
-                </div>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Stack spacing={2}>
-                  {gameState?.status === "playing" && (
-                    <Typography variant="caption" className="text-slate-400">
-                      遊戲進行中無法切換來源或套用新題庫。
-                    </Typography>
-                  )}
-                  <Box className="room-lobby-host-controls">
-                    <Stack
-                      spacing={1}
-                      className={`room-lobby-source-panel room-lobby-source-panel--host ${hostSourceType === "suggestions"
-                          ? "room-lobby-source-panel-suggestions"
-                          : "room-lobby-source-panel-fixed"
-                        }`}
-                    >
-                      <Stack
-                        direction="row"
-                        className="room-lobby-mode-row room-lobby-mode-row--host"
-                      >
-                        <Button
-                          size="small"
-                          variant={
-                            hostSourceType === "suggestions"
-                              ? "contained"
-                              : "outlined"
-                          }
-                          className="room-lobby-mode-button"
-                          onClick={() => {
-                            if (
-                              isHostPanelExpanded &&
-                              hostSourceType !== "suggestions"
-                            ) {
-                              markSuggestionsSeen();
-                            }
-                            setHostSourceType("suggestions");
-                          }}
-                        >
-                          玩家推薦
-                        </Button>
-                        <Button
-                          size="small"
-                          variant={
-                            hostSourceType === "playlist" ? "contained" : "outlined"
-                          }
-                          className="room-lobby-mode-button"
-                          onClick={() => {
-                            if (
-                              isHostPanelExpanded &&
-                              hostSourceType === "suggestions"
-                            ) {
-                              markSuggestionsSeen();
-                            }
-                            setHostSourceType("playlist");
-                          }}
-                        >
-                          貼上連結
-                        </Button>
-                        <Button
-                          size="small"
-                          variant={
-                            hostSourceType === "collection" &&
-                              collectionScope === "public"
-                              ? "contained"
-                              : "outlined"
-                          }
-                          className="room-lobby-mode-button"
-                          onClick={() => {
-                            if (
-                              isHostPanelExpanded &&
-                              hostSourceType === "suggestions"
-                            ) {
-                              markSuggestionsSeen();
-                            }
-                            setHostSourceType("collection");
-                            setCollectionScope("public");
-                            onSelectCollection(null);
-                          }}
-                        >
-                          公開收藏庫
-                        </Button>
-                        <Button
-                          size="small"
-                          variant={
-                            hostSourceType === "collection" &&
-                              collectionScope === "owner"
-                              ? "contained"
-                              : "outlined"
-                          }
-                          className="room-lobby-mode-button"
-                          onClick={() => {
-                            if (
-                              isHostPanelExpanded &&
-                              hostSourceType === "suggestions"
-                            ) {
-                              markSuggestionsSeen();
-                            }
-                            setHostSourceType("collection");
-                            setCollectionScope("owner");
-                            onSelectCollection(null);
-                          }}
-                          disabled={!isGoogleAuthed}
-                        >
-                          私人收藏庫
-                        </Button>
-                        <Button
-                          size="small"
-                          variant={
-                            hostSourceType === "youtube" ? "contained" : "outlined"
-                          }
-                          className="room-lobby-mode-button"
-                          onClick={() => {
-                            if (
-                              isHostPanelExpanded &&
-                              hostSourceType === "suggestions"
-                            ) {
-                              markSuggestionsSeen();
-                            }
-                            setHostSourceType("youtube");
-                          }}
-                        >
-                          我的播放清單
-                        </Button>
-                      </Stack>
-
-                      <Stack spacing={1} className="room-lobby-source-view">
-                        {hostSourceType === "suggestions" && (
-                          <Stack spacing={1}>
-                            <Typography
-                              variant="caption"
-                              className={
-                                isApplyingHostSuggestion
-                                  ? "text-amber-200"
-                                  : "text-slate-400"
-                              }
-                            >
-                              {hostSuggestionHint}
-                            </Typography>
-                            <TextField
-                              select
-                              size="small"
-                              value={selectedSuggestionKey}
-                              onChange={(e) => {
-                                const nextKey = e.target.value;
-                                setSelectedSuggestionKey(nextKey);
-                                if (!nextKey) return;
-                                const suggestion = playlistSuggestions.find(
-                                  (item) => getSuggestionKey(item) === nextKey,
-                                );
-                                if (!suggestion) return;
-                                requestApplyHostSuggestion(suggestion);
-                              }}
-                              disabled={isApplyingHostSuggestion}
-                              fullWidth
-                              SelectProps={{
-                                displayEmpty: true,
-                                renderValue: (selected) => {
-                                  const key = String(selected ?? "");
-                                  if (!key) {
-                                    return "請選擇要套用的建議";
-                                  }
-                                  const selectedSuggestion = playlistSuggestions.find(
-                                    (suggestion) =>
-                                      getSuggestionKey(suggestion) === key,
-                                  );
-                                  if (!selectedSuggestion) {
-                                    return "建議已不存在";
-                                  }
-                                  const label =
-                                    selectedSuggestion.title ??
-                                    selectedSuggestion.value;
-                                  const count =
-                                    selectedSuggestion.totalCount ??
-                                    selectedSuggestion.items?.length;
-                                  return `${selectedSuggestion.username} · ${label}${count ? ` (${count})` : ""}`;
-                                },
-                              }}
-                            >
-                              <MenuItem value="">請選擇要套用的建議</MenuItem>
-                              {playlistSuggestions.map((suggestion) => {
-                                const optionKey = getSuggestionKey(suggestion);
-                                const displayLabel =
-                                  suggestion.title ?? suggestion.value;
-                                const displayCount =
-                                  suggestion.totalCount ?? suggestion.items?.length;
-                                const sourceLabel =
-                                  suggestion.type === "playlist" ? "播放清單" : "收藏庫";
-                                const snapshotLabel = suggestion.items?.length
-                                  ? " · 快照"
-                                  : "";
-                                return (
-                                  <MenuItem key={optionKey} value={optionKey}>
-                                    <Stack
-                                      spacing={0.25}
-                                      sx={{ width: "100%", minWidth: 0 }}
-                                    >
-                                      <Typography variant="body2" noWrap>
-                                        {`${suggestion.username} · ${sourceLabel}${snapshotLabel}`}
-                                      </Typography>
-                                      <Typography
-                                        variant="caption"
-                                        className="text-slate-400"
-                                        noWrap
-                                      >
-                                        {`${displayLabel}${displayCount ? ` (${displayCount})` : ""}`}
-                                      </Typography>
-                                    </Stack>
-                                  </MenuItem>
-                                );
-                              })}
-                            </TextField>
-                          </Stack>
-                        )}
-
-                        {hostSourceType === "playlist" && (
-                          <>
-                            <Typography variant="caption" className="text-slate-400">
-                              {hostPlaylistPrimaryText}
-                            </Typography>
-                            <TextField
-                              size="small"
-                              value={playlistUrl}
-                              onChange={(e) => {
-                                onPlaylistUrlChange(e.target.value);
-                              }}
-                              onPaste={handlePlaylistPaste}
-                              placeholder="貼上 YouTube 播放清單 URL"
-                              disabled={
-                                playlistLoading || gameState?.status === "playing"
-                              }
-                              fullWidth
-                            />
-                          </>
-                        )}
-
-                        {hostSourceType === "collection" && (
-                          <>
-                            <Typography
-                              variant="caption"
-                              className={
-                                isHostCollectionEmptyNotice ? "text-rose-300" : "text-slate-400"
-                              }
-                            >
-                              {hostCollectionPrimaryText}
-                            </Typography>
-                            {!isGoogleAuthed && collectionScope === "owner" && (
-                              <Typography
-                                variant="caption"
-                                className="text-slate-400"
-                              >
-                                登入後可讀取你的私人收藏庫。
-                              </Typography>
-                            )}
-                            <TextField
-                              select
-                              size="small"
-                              value={selectedCollectionId ?? ""}
-                              onChange={(e) => {
-                                const nextId = e.target.value || null;
-                                if (!nextId) {
-                                  onSelectCollection(null);
-                                  return;
-                                }
-                                const selected = collections.find(
-                                  (item) => item.id === nextId,
-                                );
-                                const label = selected
-                                  ? normalizeDisplayText(selected.title, "未命名收藏庫")
-                                  : nextId;
-                                openConfirmModal("套用這個收藏庫？", label, () => {
-                                  onSelectCollection(nextId);
-                                  void onLoadCollectionItems(nextId);
-                                });
-                              }}
-                              disabled={
-                                collectionsLoading || gameState?.status === "playing"
-                              }
-                              fullWidth
-                              placeholder="選擇收藏庫"
-                              SelectProps={{
-                                displayEmpty: true,
-                                renderValue: (selected) => {
-                                  const selectedId = String(selected ?? "");
-                                  if (!selectedId) return "請選擇收藏庫";
-                                  const selectedOption = collections.find(
-                                    (item) => item.id === selectedId,
-                                  );
-                                  if (!selectedOption) return selectedId;
-                                  return normalizeDisplayText(
-                                    selectedOption.title,
-                                    "未命名收藏庫",
-                                  );
-                                },
-                              }}
-                            >
-                              <MenuItem value="">未選擇</MenuItem>
-                              {collections.map((collection) => (
-                                <MenuItem key={collection.id} value={collection.id}>
-                                  <div className="flex min-w-0 flex-col">
-                                    <span className="truncate">
-                                      {normalizeDisplayText(
-                                        collection.title,
-                                        "未命名收藏庫",
-                                      )}
-                                    </span>
-                                    <span className="text-xs text-slate-400">
-                                      熱門度{" "}
-                                      {Math.max(0, Number(collection.use_count ?? 0))}
-                                    </span>
-                                  </div>
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                            {visibleCollectionsError && (
-                              <Typography variant="caption" className="text-rose-300">
-                                {visibleCollectionsError}
-                              </Typography>
-                            )}
-                            {collectionItemsError && (
-                              <Typography variant="caption" className="text-rose-300">
-                                {collectionItemsError}
-                              </Typography>
-                            )}
-                          </>
-                        )}
-
-                        {hostSourceType === "youtube" && (
-                          <>
-                            <Typography
-                              variant="caption"
-                              className={
-                                isHostYoutubeEmptyNotice || isHostYoutubeMissingNotice
-                                  ? "text-rose-300"
-                                  : "text-slate-400"
-                              }
-                            >
-                              {hostYoutubePrimaryText}
-                            </Typography>
-                            {visibleHostYoutubeError && (
-                              <Typography variant="caption" className="text-rose-300">
-                                {visibleHostYoutubeError}
-                              </Typography>
-                            )}
-                            <TextField
-                              select
-                              size="small"
-                              value={selectedYoutubePlaylistId ?? ""}
-                              onChange={(e) => {
-                                const nextId = e.target.value || null;
-                                if (!nextId) {
-                                  setSelectedYoutubePlaylistId(null);
-                                  return;
-                                }
-                                const selected = youtubePlaylists.find(
-                                  (item) => item.id === nextId,
-                                );
-                                const label = selected
-                                  ? `${normalizeDisplayText(selected.title, "未命名 YouTube 播放清單")} (${selected.itemCount})`
-                                  : nextId;
-                                openConfirmModal("匯入這份 YouTube 播放清單？", label, () => {
-                                  setSelectedYoutubePlaylistId(nextId);
-                                  void onImportYoutubePlaylist(nextId);
-                                });
-                              }}
-                              disabled={youtubePlaylistsLoading || !isGoogleAuthed}
-                              fullWidth
-                              SelectProps={{
-                                displayEmpty: true,
-                                renderValue: (selected) => {
-                                  const selectedId = String(selected ?? "");
-                                  if (!selectedId) return "請選擇 YouTube 播放清單";
-                                  const selectedOption = youtubePlaylists.find(
-                                    (item) => item.id === selectedId,
-                                  );
-                                  if (!selectedOption) return selectedId;
-                                  return `${normalizeDisplayText(
-                                    selectedOption.title,
-                                    "未命名 YouTube 播放清單",
-                                  )} (${selectedOption.itemCount})`;
-                                },
-                              }}
-                            >
-                              <MenuItem value="">未選擇</MenuItem>
-                              {youtubePlaylists.map((playlist) => (
-                                <MenuItem key={playlist.id} value={playlist.id}>
-                                  {normalizeDisplayText(
-                                    playlist.title,
-                                    "未命名 YouTube 播放清單",
-                                  )} ({playlist.itemCount})
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          </>
-                        )}
-
-                      </Stack>
-
-                      <Stack spacing={0.75} className="room-lobby-source-footer">
-                        {playlistLoadNotice && (
-                          <Typography
-                            variant="caption"
-                            className={
-                              playlistError || collectionItemsError
-                                ? "text-rose-300"
-                                : "text-slate-400"
-                            }
-                          >
-                            {playlistLoadNotice}
-                          </Typography>
-                        )}
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="success"
-                          className="room-lobby-apply-button"
-                          onClick={() => void onChangePlaylist()}
-                          disabled={
-                            playlistItemsForChange.length === 0 ||
-                            playlistLoading ||
-                            gameState?.status === "playing"
-                          }
-                        >
-                          套用到房間
-                        </Button>
-                      </Stack>
-                    </Stack>
-                  </Box>
-                </Stack>
-              </AccordionDetails>
-            </Accordion>
+            <RoomLobbyHostControls
+              isHostPanelExpanded={isHostPanelExpanded}
+              hasNewSuggestions={hasNewSuggestions}
+              playlistSuggestions={playlistSuggestions}
+              gameStatus={gameState?.status}
+              hostSourceType={hostSourceType}
+              setHostSourceType={setHostSourceType}
+              markSuggestionsSeen={markSuggestionsSeen}
+              isApplyingHostSuggestion={isApplyingHostSuggestion}
+              hostSuggestionHint={hostSuggestionHint}
+              selectedSuggestionKey={selectedSuggestionKey}
+              setSelectedSuggestionKey={setSelectedSuggestionKey}
+              requestApplyHostSuggestion={requestApplyHostSuggestion}
+              hostPlaylistPrimaryText={hostPlaylistPrimaryText}
+              playlistUrl={playlistUrl}
+              onPlaylistUrlChange={onPlaylistUrlChange}
+              onPlaylistPaste={handlePlaylistPaste}
+              isGoogleAuthed={isGoogleAuthed}
+              collectionScope={collectionScope}
+              setCollectionScope={setCollectionScope}
+              onSelectCollection={onSelectCollection}
+              selectedCollectionId={selectedCollectionId}
+              collections={collections}
+              collectionsLoading={collectionsLoading}
+              isHostCollectionEmptyNotice={isHostCollectionEmptyNotice}
+              hostCollectionPrimaryText={hostCollectionPrimaryText}
+              visibleCollectionsError={visibleCollectionsError}
+              collectionItemsError={collectionItemsError}
+              onLoadCollectionItems={onLoadCollectionItems}
+              isHostYoutubeEmptyNotice={isHostYoutubeEmptyNotice}
+              isHostYoutubeMissingNotice={isHostYoutubeMissingNotice}
+              hostYoutubePrimaryText={hostYoutubePrimaryText}
+              visibleHostYoutubeError={visibleHostYoutubeError}
+              youtubePlaylists={youtubePlaylists}
+              youtubePlaylistsLoading={youtubePlaylistsLoading}
+              selectedYoutubePlaylistId={selectedYoutubePlaylistId}
+              setSelectedYoutubePlaylistId={setSelectedYoutubePlaylistId}
+              onImportYoutubePlaylist={onImportYoutubePlaylist}
+              openConfirmModal={openConfirmModal}
+              playlistLoadNotice={playlistLoadNotice}
+              playlistError={playlistError}
+              playlistItemsForChangeLength={playlistItemsForChange.length}
+              playlistLoading={playlistLoading}
+              onChangePlaylist={onChangePlaylist}
+            />
           )}
 
           {!isHost && gameState?.status !== "playing" && (
-            <SuggestionPanel
+            <RoomLobbySuggestionPanel
               key={suggestionResetKey}
               collectionScope={collectionScope}
               onCollectionScopeChange={setCollectionScope}
@@ -2230,160 +1267,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           )}
         </div>
 
-        <Box
-          className="room-lobby-chat-log"
-          ref={chatScrollRef}
-          sx={{
-            flex: 1,
-            border: "1px solid rgba(245,158,11,0.14)",
-            borderRadius: 2,
-            background:
-              "radial-gradient(260px 160px at 8% 0%, rgba(245,158,11,0.05), transparent 70%), linear-gradient(180deg, rgba(8,12,19,0.92), rgba(6,10,16,0.9))",
-            p: 1.5,
-            maxHeight: "150px",
-            overflowY: "auto",
-            overflowX: "hidden",
-          }}
-        >
-          {messages.length === 0 ? (
-            <Typography
-              variant="body2"
-              className="text-slate-500"
-              align="center"
-            >
-              尚無聊天訊息，輸入訊息開始互動吧。
-            </Typography>
-          ) : (
-            <MUIList dense disablePadding>
-              {messages.map((msg) => {
-                // const isSelf = msg.username === username;
-                const isPresenceSystemMessage = msg.userId === "system:presence";
-                const settlementRoundKey =
-                  msg.userId === "system:settlement-review" &&
-                    msg.id.startsWith(SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX)
-                    ? msg.id.slice(SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX.length)
-                    : null;
-                const canOpenSettlementReview = Boolean(
-                  settlementRoundKey && onOpenSettlementByRoundKey,
-                );
-                if (isPresenceSystemMessage) {
-                  return (
-                    <ListItem key={msg.id} sx={{ justifyContent: "center" }}>
-                      <Box
-                        sx={{
-                          mx: "auto",
-                          maxWidth: "100%",
-                          borderRadius: 999,
-                          px: 1.25,
-                          py: 0.5,
-                          border: "1px solid rgba(148,163,184,0.18)",
-                          background: "rgba(15,23,42,0.58)",
-                          color: "rgba(226,232,240,0.9)",
-                          fontSize: 11,
-                          lineHeight: 1.35,
-                        }}
-                      >
-                        <Box component="span" sx={{ color: "rgba(248,250,252,0.95)", fontWeight: 600 }}>
-                          {msg.content}
-                        </Box>
-                        <Box component="span" sx={{ ml: 1, color: "rgba(148,163,184,0.85)" }}>
-                          {formatTime(msg.timestamp)}
-                        </Box>
-                      </Box>
-                    </ListItem>
-                  );
-                }
-                return (
-                  <ListItem
-                    key={msg.id}
-                    sx={
-                      {
-                        // justifyContent: isSelf ? "flex-end" : "flex-start",
-                        // textAlign: isSelf ? "right" : "left",
-                      }
-                    }
-                  >
-                    <Box
-                      className="room-lobby-chat-message"
-                      sx={{
-                        maxWidth: "100%",
-                        borderRadius: 1,
-                        px: 1,
-                        py: 0.75,
-                        border: "none",
-                        borderLeft: "2px solid rgba(148,163,184,0.16)",
-                        background: "transparent",
-                        boxShadow: "none",
-                        color: "white",
-                        // whiteSpace: "wrap",
-                      }}
-                    >
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                      // justifyContent="space-between"
-                      >
-                        <Typography variant="caption" fontWeight={600}>
-                          {normalizeDisplayText(msg.username, "玩家")}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color="rgba(255,255,255,0.7)"
-                        >
-                          {formatTime(msg.timestamp)}
-                        </Typography>
-                      </Stack>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          mt: 0.5,
-                          overflowWrap: "anywhere",
-                          wordBreak: "break-word",
-                          whiteSpace: "pre-wrap",
-                        }}
-                      >
-                        {msg.content}
-                      </Typography>
-                      {canOpenSettlementReview && settlementRoundKey && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="inherit"
-                          sx={{ mt: 1, borderColor: "rgba(148,163,184,0.6)" }}
-                          onClick={() =>
-                            onOpenSettlementByRoundKey?.(settlementRoundKey)
-                          }
-                        >
-                          查看結算
-                        </Button>
-                      )}
-                    </Box>
-                  </ListItem>
-                );
-              })}
-            </MUIList>
-          )}
-        </Box>
-
-        <Stack direction="row" spacing={1} className="room-lobby-chat-input">
-          <TextField
-            autoComplete="off"
-            fullWidth
-            size="small"
-            placeholder="輸入聊天訊息，按 Enter 送出"
-            value={messageInput}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                onSend();
-              }
-            }}
-          />
-          <Button variant="contained" onClick={onSend}>
-            送出
-          </Button>
-        </Stack>
+        <RoomLobbyChatPanel
+          messages={messages}
+          messageInput={messageInput}
+          onInputChange={onInputChange}
+          onSend={onSend}
+          onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
+        />
 
         <Divider className="room-lobby-divider" />
 
@@ -2441,322 +1331,89 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           )}
         </Box>
       </CardContent>
-      <Dialog
+      <RoomLobbySettingsDialog
         open={settingsOpen}
-        onClose={closeSettingsModal}
-        fullWidth
-        maxWidth="lg"
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            border: "1px solid rgba(56,189,248,0.28)",
-            background:
-              "radial-gradient(680px 240px at 12% 0%, rgba(56,189,248,0.12), transparent 70%), radial-gradient(520px 220px at 88% 0%, rgba(34,197,94,0.10), transparent 68%), linear-gradient(180deg, rgba(2,6,23,0.98), rgba(2,8,26,0.97))",
-            boxShadow: "0 26px 72px -38px rgba(2,132,199,0.55)",
-          },
+        settingsDisabled={settingsDisabled}
+        settingsName={settingsName}
+        onSettingsNameChange={(value) => {
+          setSettingsName(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
         }}
-      >
-        <DialogTitle
-          sx={{
-            pb: 1.5,
-            borderBottom: "1px solid rgba(56,189,248,0.18)",
-          }}
-        >
-          <Stack spacing={1}>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              justifyContent="space-between"
-              alignItems={{ xs: "flex-start", sm: "center" }}
-            >
-              <Typography variant="h6" className="font-semibold text-slate-100">
-                房主設定
-              </Typography>
-              <Stack direction="row" spacing={0.75} flexWrap="wrap">
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={`題數 ${settingsQuestionCount}`}
-                  className="border-slate-500/60 text-slate-200"
-                />
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={
-                    useCollectionTimingForSettings
-                      ? `收藏庫時間 / 揭曉 ${settingsRevealDurationSec}s`
-                      : `${settingsPlayDurationSec}s / ${settingsStartOffsetSec}s / ${settingsRevealDurationSec}s`
-                  }
-                  className="border-cyan-500/40 text-cyan-200"
-                />
-              </Stack>
-            </Stack>
-            <Typography variant="caption" className="text-slate-400">
-              調整房間規則與題庫節奏，儲存後立即套用到本房間。
-            </Typography>
-          </Stack>
-        </DialogTitle>
-        <DialogContent
-          dividers
-          sx={{
-            borderColor: "rgba(56,189,248,0.16)",
-            py: 2,
-            maxHeight: {
-              xs: "72vh",
-              md: "78vh",
-            },
-            overflowY: "auto",
-          }}
-        >
-          <Stack spacing={1.75}>
-            {settingsDisabled && (
-              <Box className="rounded-lg border border-amber-400/45 bg-amber-500/12 px-3 py-2">
-                <Typography variant="caption" className="text-amber-200">
-                  遊戲進行中時無法儲存設定；請於下一輪開始前調整。
-                </Typography>
-              </Box>
-            )}
-            <Box className="grid gap-1.75 lg:grid-cols-2">
-              <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
-                <Stack spacing={1.25}>
-                  <Typography variant="subtitle2" className="text-slate-100">
-                    基本資料與權限
-                  </Typography>
-                  <TextField
-                    label="房間名稱"
-                    value={settingsName}
-                    onChange={(e) => {
-                      setSettingsName(e.target.value);
-                      if (settingsError) {
-                        setSettingsError(null);
-                      }
-                    }}
-                    disabled={settingsDisabled}
-                    fullWidth
-                  />
-                  <RoomAccessSettingsFields
-                    visibility={settingsVisibility}
-                    password={settingsPassword}
-                    disabled={settingsDisabled}
-                    allowPasswordWhenPublic
-                    onVisibilityChange={(nextVisibility) => {
-                      setSettingsVisibility(nextVisibility);
-                      if (settingsError) {
-                        setSettingsError(null);
-                      }
-                    }}
-                    onPasswordChange={(value) => {
-                      setSettingsPassword(value);
-                      setSettingsPasswordDirty(true);
-                      if (settingsError) {
-                        setSettingsError(null);
-                      }
-                    }}
-                    onPasswordClear={() => {
-                      setSettingsPassword("");
-                      setSettingsPasswordDirty(true);
-                      if (settingsError) {
-                        setSettingsError(null);
-                      }
-                    }}
-                    classes={{
-                      helperText: "text-slate-400",
-                      noteText: "text-slate-400",
-                    }}
-                  />
-                  <Stack spacing={0.75}>
-                    <TextField
-                      label="玩家上限"
-                      type="number"
-                      value={settingsMaxPlayers}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        if (!/^\d*$/.test(next)) return;
-                        setSettingsMaxPlayers(next);
-                        if (settingsError) {
-                          setSettingsError(null);
-                        }
-                      }}
-                      inputProps={{ min: PLAYER_MIN, max: PLAYER_MAX, inputMode: "numeric" }}
-                      placeholder="留空則使用房間預設"
-                      disabled={settingsDisabled}
-                      fullWidth
-                    />
-                    <Typography variant="caption" className="text-slate-400">
-                      玩家上限可設定為 {PLAYER_MIN} - {PLAYER_MAX} 人
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Box>
-
-              <Stack spacing={1.75} className="min-w-0">
-                <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
-                  <Stack spacing={1.25}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="subtitle2" className="text-slate-100">
-                        題數設定
-                      </Typography>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={`${settingsQuestionCount} 題`}
-                        className="border-slate-600 text-slate-200"
-                      />
-                    </Stack>
-                    <QuestionCountControls
-                      value={settingsQuestionCount}
-                      min={questionMinLimit}
-                      max={questionMaxLimit}
-                      step={QUESTION_STEP}
-                      disabled={settingsDisabled}
-                      onChange={(nextValue) => {
-                        setSettingsQuestionCount(nextValue);
-                        if (settingsError) {
-                          setSettingsError(null);
-                        }
-                      }}
-                    />
-                  </Stack>
-                </Box>
-
-                <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
-                  <Stack spacing={1.25}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="subtitle2" className="text-slate-100">
-                        時間設定
-                      </Typography>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={
-                          useCollectionTimingForSettings
-                            ? `揭曉 ${settingsRevealDurationSec}s（收藏庫片段）`
-                            : `揭曉 ${settingsRevealDurationSec}s / 作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s`
-                        }
-                        className="border-slate-600 text-slate-200"
-                      />
-                    </Stack>
-                    <TextField
-                      label="公布答案時間 (秒)"
-                      type="number"
-                      value={settingsRevealDurationSec}
-                      onChange={(e) => {
-                        const next = Number(e.target.value);
-                        if (!Number.isFinite(next)) return;
-                        setSettingsRevealDurationSec(next);
-                        if (settingsError) {
-                          setSettingsError(null);
-                        }
-                      }}
-                      inputProps={{
-                        min: REVEAL_DURATION_MIN,
-                        max: REVEAL_DURATION_MAX,
-                        inputMode: "numeric",
-                      }}
-                      disabled={settingsDisabled}
-                      fullWidth
-                    />
-                    {settingsUseCollectionSource && (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={settingsAllowCollectionClipTiming}
-                            onChange={(_event, checked) => {
-                              setSettingsAllowCollectionClipTiming(checked);
-                              if (settingsError) {
-                                setSettingsError(null);
-                              }
-                            }}
-                            disabled={settingsDisabled}
-                          />
-                        }
-                        label="使用收藏庫設定的時間"
-                      />
-                    )}
-                    {useCollectionTimingForSettings ? (
-                      <Typography variant="caption" className="text-cyan-200/90">
-                        已啟用收藏庫時間，作答時間與起始時間已隱藏。
-                      </Typography>
-                    ) : (
-                      <Stack spacing={1}>
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                          <TextField
-                            label="作答時間設定"
-                            type="number"
-                            value={settingsPlayDurationSec}
-                            onChange={(e) => {
-                              const next = Number(e.target.value);
-                              if (!Number.isFinite(next)) return;
-                              setSettingsPlayDurationSec(next);
-                              if (settingsError) {
-                                setSettingsError(null);
-                              }
-                            }}
-                            inputProps={{
-                              min: PLAY_DURATION_MIN,
-                              max: PLAY_DURATION_MAX,
-                              inputMode: "numeric",
-                            }}
-                            disabled={settingsDisabled}
-                            fullWidth
-                          />
-                          <TextField
-                            label="起始時間 (秒)"
-                            type="number"
-                            value={settingsStartOffsetSec}
-                            onChange={(e) => {
-                              const next = Number(e.target.value);
-                              if (!Number.isFinite(next)) return;
-                              setSettingsStartOffsetSec(next);
-                              if (settingsError) {
-                                setSettingsError(null);
-                              }
-                            }}
-                            inputProps={{
-                              min: START_OFFSET_MIN,
-                              max: START_OFFSET_MAX,
-                              inputMode: "numeric",
-                            }}
-                            disabled={settingsDisabled}
-                            fullWidth
-                          />
-                        </Stack>
-                        <Typography variant="caption" className="text-slate-400">
-                          若超過歌曲長度，系統會依據起始時間做循環裁切。
-                        </Typography>
-                      </Stack>
-                    )}
-                  </Stack>
-                </Box>
-              </Stack>
-            </Box>
-            {settingsError && (
-              <Typography variant="caption" className="text-rose-300">
-                {settingsError}
-              </Typography>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            borderTop: "1px solid rgba(56,189,248,0.12)",
-            px: 2.5,
-            py: 1.5,
-          }}
-        >
-          <Button onClick={closeSettingsModal} variant="text">
-            取消
-          </Button>
-          <Button
-            onClick={() => void handleSaveSettings()}
-            variant="contained"
-            disabled={settingsDisabled}
-          >
-            儲存
-          </Button>
-        </DialogActions>
-      </Dialog>
+        settingsVisibility={settingsVisibility}
+        settingsPassword={settingsPassword}
+        onSettingsVisibilityChange={(nextVisibility) => {
+          setSettingsVisibility(nextVisibility);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        onSettingsPasswordChange={(value) => {
+          setSettingsPassword(value);
+          setSettingsPasswordDirty(true);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        onSettingsPasswordClear={() => {
+          setSettingsPassword("");
+          setSettingsPasswordDirty(true);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        settingsMaxPlayers={settingsMaxPlayers}
+        onSettingsMaxPlayersChange={(value) => {
+          if (!/^\d*$/.test(value)) return;
+          setSettingsMaxPlayers(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        settingsQuestionCount={settingsQuestionCount}
+        questionMinLimit={questionMinLimit}
+        questionMaxLimit={questionMaxLimit}
+        onSettingsQuestionCountChange={(value) => {
+          setSettingsQuestionCount(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        settingsRevealDurationSec={settingsRevealDurationSec}
+        onSettingsRevealDurationSecChange={(value) => {
+          setSettingsRevealDurationSec(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        settingsUseCollectionSource={settingsUseCollectionSource}
+        settingsAllowCollectionClipTiming={settingsAllowCollectionClipTiming}
+        onSettingsAllowCollectionClipTimingChange={(value) => {
+          setSettingsAllowCollectionClipTiming(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        useCollectionTimingForSettings={useCollectionTimingForSettings}
+        settingsPlayDurationSec={settingsPlayDurationSec}
+        onSettingsPlayDurationSecChange={(value) => {
+          setSettingsPlayDurationSec(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        settingsStartOffsetSec={settingsStartOffsetSec}
+        onSettingsStartOffsetSecChange={(value) => {
+          setSettingsStartOffsetSec(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        settingsError={settingsError}
+        onClose={closeSettingsModal}
+        onSave={() => void handleSaveSettings()}
+      />
       <Dialog open={Boolean(confirmModal)} onClose={closeConfirmModal}>
         <DialogTitle>{confirmModal?.title ?? "切換播放清單"}</DialogTitle>
         <DialogContent>

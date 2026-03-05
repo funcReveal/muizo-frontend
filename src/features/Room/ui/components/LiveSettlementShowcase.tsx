@@ -621,6 +621,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const previewPlayerStateRef = useRef<"idle" | "playing" | "paused">(
     previewPlayerState,
   );
+  const previewCurrentTimeSecRef = useRef<number | null>(null);
+  const previewLastProgressAtMsRef = useRef<number | null>(null);
   const canAutoGuideLoopRef = useRef(false);
 
   const stepIndex = TAB_ORDER.indexOf(activeTab);
@@ -941,47 +943,65 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     previewRecapKey,
   ]);
 
-  const readYouTubePlayerState = useCallback(
-    (rawData: unknown): number | null => {
+  const normalizePlayerNumeric = useCallback((value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const parsed = Number(trimmed);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  }, []);
+
+  const readYouTubePlayerSnapshot = useCallback(
+    (rawData: unknown): { state: number | null; currentTime: number | null } => {
       let payload: unknown = rawData;
       if (typeof payload === "string") {
         try {
           payload = JSON.parse(payload);
         } catch {
-          return null;
+          return { state: null, currentTime: null };
         }
       }
-      if (!payload || typeof payload !== "object") return null;
+      if (!payload || typeof payload !== "object") {
+        return { state: null, currentTime: null };
+      }
       const eventValue =
         "event" in payload ? (payload as { event?: unknown }).event : null;
       const infoValue =
         "info" in payload ? (payload as { info?: unknown }).info : null;
-      if (eventValue === "onStateChange" && typeof infoValue === "number") {
-        return infoValue;
-      }
-      if (
-        eventValue === "onStateChange" &&
-        infoValue &&
-        typeof infoValue === "object" &&
-        "playerState" in infoValue
-      ) {
-        const state = (infoValue as { playerState?: unknown }).playerState;
-        return typeof state === "number" ? state : null;
+      if (eventValue === "onStateChange") {
+        if (infoValue && typeof infoValue === "object" && "playerState" in infoValue) {
+          const state = normalizePlayerNumeric(
+            (infoValue as { playerState?: unknown }).playerState,
+          );
+          return { state, currentTime: null };
+        }
+        return { state: normalizePlayerNumeric(infoValue), currentTime: null };
       }
       if (
         eventValue !== "infoDelivery" ||
         !infoValue ||
         typeof infoValue !== "object"
       ) {
-        return null;
+        return { state: null, currentTime: null };
       }
-      const playerState =
+      const state =
         "playerState" in infoValue
-          ? (infoValue as { playerState?: unknown }).playerState
+          ? normalizePlayerNumeric(
+              (infoValue as { playerState?: unknown }).playerState,
+            )
           : null;
-      return typeof playerState === "number" ? playerState : null;
+      const currentTime =
+        "currentTime" in infoValue
+          ? normalizePlayerNumeric(
+              (infoValue as { currentTime?: unknown }).currentTime,
+            )
+          : null;
+      return { state, currentTime };
     },
-    [],
+    [normalizePlayerNumeric],
   );
 
   useEffect(() => {
@@ -993,11 +1013,42 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         origin.includes("youtube.com") ||
         origin.includes("youtube-nocookie.com");
       if (!trusted) return;
-      const state = readYouTubePlayerState(event.data);
+      const frameWindow = previewIframeRef.current?.contentWindow;
+      if (frameWindow && event.source !== frameWindow) return;
+      const snapshot = readYouTubePlayerSnapshot(event.data);
+      const state = snapshot.state;
+      const currentTime = snapshot.currentTime;
+      if (currentTime !== null) {
+        const lastCurrentTime = previewCurrentTimeSecRef.current;
+        previewCurrentTimeSecRef.current = currentTime;
+        const progressed =
+          lastCurrentTime !== null && currentTime > lastCurrentTime + 0.04;
+        if (progressed) {
+          previewLastProgressAtMsRef.current = Date.now();
+          if (previewPlayerStateRef.current !== "playing") {
+            previewPlayerStateRef.current = "playing";
+            setPreviewPlayerState("playing");
+          }
+          if (
+            canAutoGuideLoopRef.current &&
+            autoAdvanceAtMsRef.current === null &&
+            pausedCountdownRemainingMsRef.current !== null
+          ) {
+            const remainingMs = Math.max(0, pausedCountdownRemainingMsRef.current);
+            const nextAutoAdvanceAtMs = Date.now() + remainingMs;
+            autoAdvanceAtMsRef.current = nextAutoAdvanceAtMs;
+            pausedCountdownRemainingMsRef.current = null;
+            setAutoAdvanceAtMs(nextAutoAdvanceAtMs);
+            setPreviewCountdownSec(Math.max(0, Math.ceil(remainingMs / 1000)));
+            setPausedCountdownRemainingMs(null);
+          }
+        }
+      }
       if (state === null) return;
       if (state === 1) {
         const wasPlaying = previewPlayerStateRef.current === "playing";
         previewPlayerStateRef.current = "playing";
+        previewLastProgressAtMsRef.current = Date.now();
         if (!wasPlaying) {
           setPreviewPlayerState("playing");
         }
@@ -1016,7 +1067,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         }
         return;
       }
-      if (state === 2 || state === 0) {
+      if (state === 2) {
         const wasPaused = previewPlayerStateRef.current === "paused";
         previewPlayerStateRef.current = "paused";
         if (!wasPaused) {
@@ -1035,6 +1086,13 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         }
         return;
       }
+      if (state === 0) {
+        if (previewPlayerStateRef.current !== "idle") {
+          previewPlayerStateRef.current = "idle";
+          setPreviewPlayerState("idle");
+        }
+        return;
+      }
       if (state === -1) {
         if (previewPlayerStateRef.current !== "idle") {
           previewPlayerStateRef.current = "idle";
@@ -1046,7 +1104,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     return () => {
       window.removeEventListener("message", onMessage);
     };
-  }, [previewRecapKey, readYouTubePlayerState]);
+  }, [previewRecapKey, readYouTubePlayerSnapshot]);
 
   useEffect(() => {
     if (previewStatePollTimerRef.current !== null) {
@@ -1073,6 +1131,11 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     previewRecapKey,
     registerYouTubeBridge,
   ]);
+
+  useEffect(() => {
+    previewCurrentTimeSecRef.current = null;
+    previewLastProgressAtMsRef.current = null;
+  }, [previewRecapKey]);
 
   useEffect(() => {
     if (!previewRecapKey) return;
@@ -1714,6 +1777,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     currentRecommendationSpeedInsight.value !== "--";
   const isPreviewFrozen =
     pausedCountdownRemainingMs !== null || previewPlayerState === "paused";
+  const shouldShowPreviewOverlay =
+    !isCurrentRecommendationPreviewOpen ||
+    previewPlayerState === "paused" ||
+    (previewPlaybackMode !== "auto" && previewPlayerState !== "playing");
 
   const getFirstAutoPlayableIndex = useCallback(
     (cards: RecommendationCard[]) => {
@@ -2193,6 +2260,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     if (autoAdvanceAtMs === null) return;
     const timer = window.setTimeout(() => {
       if (previewPlayerStateRef.current === "playing") return;
+      const lastProgressAt = previewLastProgressAtMsRef.current;
+      if (lastProgressAt !== null && Date.now() - lastProgressAt <= 1800) {
+        previewPlayerStateRef.current = "playing";
+        setPreviewPlayerState("playing");
+        return;
+      }
       const remainingMs = Math.max(
         0,
         autoAdvanceAtMsRef.current !== null
@@ -3234,8 +3307,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                                 }}
                               />
                             )}
-                          {(!isCurrentRecommendationPreviewOpen ||
-                            previewPlayerState !== "playing") && (
+                          {shouldShowPreviewOverlay && (
                             <div
                               className={`absolute inset-0 bg-gradient-to-b ${
                                 previewPlayerState === "paused"
@@ -3245,8 +3317,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                             />
                           )}
                           {currentRecommendationPreviewUrl ? (
-                            (!isCurrentRecommendationPreviewOpen ||
-                              previewPlayerState !== "playing") && (
+                            shouldShowPreviewOverlay && (
                               <button
                                 type="button"
                                 className="absolute inset-0 z-20 flex items-center justify-center px-4 text-center"
