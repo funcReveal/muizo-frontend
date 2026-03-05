@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 
 import AppHeader from "../../../app/layout/AppHeader";
-import LoginPage from "../../Auth/ui/LoginPage";
+import LandingPage from "../../Landing/ui/LandingPage";
 import { USERNAME_MAX } from "../model/roomConstants";
 import { useRoom } from "../model/useRoom";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
@@ -47,11 +47,11 @@ const RoomsLayoutShell: React.FC = () => {
     setStatusText,
   } = useRoom();
   const hasIdentity = Boolean(username || authUser);
-  const shouldShowLoginOnly = !authLoading && !hasIdentity;
+  const shouldShowLandingOnly = !authLoading && !hasIdentity;
   const isInviteRoute = location.pathname.startsWith("/invited/");
 
   const shouldRedirectToRooms =
-    shouldShowLoginOnly && location.pathname !== "/rooms" && !isInviteRoute;
+    shouldShowLandingOnly && location.pathname !== "/rooms" && !isInviteRoute;
 
   useEffect(() => {
     if (!shouldRedirectToRooms) return;
@@ -125,7 +125,7 @@ const RoomsLayoutShell: React.FC = () => {
     if (currentRoom) {
       return {
         title: "確定要登出？",
-        description: "登出後會離開目前登入狀態，並返回首頁登入畫面。",
+        description: "登出後會離開目前登入狀態，並返回首頁入口頁。",
       };
     }
     return {
@@ -250,8 +250,8 @@ const RoomsLayoutShell: React.FC = () => {
           />
         )}
 
-        {shouldShowLoginOnly && !shouldRedirectToRooms && !isInviteRoute && (
-          <LoginPage
+        {shouldShowLandingOnly && !shouldRedirectToRooms && !isInviteRoute && (
+          <LandingPage
             usernameInput={usernameInput}
             onInputChange={setUsernameInput}
             onConfirm={handleSetUsername}
