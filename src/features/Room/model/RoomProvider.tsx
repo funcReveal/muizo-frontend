@@ -9,7 +9,6 @@
 import { useLocation } from "react-router-dom";
 
 import type {
-  Ack,
   ChatMessage,
   ClientSocket,
   GameState,
@@ -28,7 +27,6 @@ import {
 } from "./RoomContext";
 import {
   API_URL,
-  DEFAULT_PAGE_SIZE,
   DEFAULT_PLAY_DURATION_SEC,
   DEFAULT_REVEAL_DURATION_SEC,
   DEFAULT_START_OFFSET_SEC,
@@ -40,7 +38,6 @@ import {
   clampPlayDurationSec,
   clampRevealDurationSec,
   clampStartOffsetSec,
-  normalizePlaylistItems,
 } from "./roomUtils";
 import {
   clearRoomPassword,
@@ -58,16 +55,11 @@ import {
   setStoredRoomId,
   setStoredUsername,
 } from "./roomStorage";
-import {
-  apiFetchCollectionItems,
-  apiCreateCollectionReadToken,
-} from "./roomApi";
 import { useRoomAuth } from "./useRoomAuth";
 import { useRoomPlaylist } from "./useRoomPlaylist";
 import { useRoomCollections } from "./useRoomCollections";
 import {
   extractVideoIdFromUrl,
-  mapCollectionItemsToPlaylist,
   mergeGameSettings,
   sanitizePossibleGarbledText,
 } from "./roomProviderUtils";
@@ -79,6 +71,8 @@ import { useRoomProviderPlaylistActions } from "./useRoomProviderPlaylistActions
 import { useRoomProviderCreateRoomAction } from "./useRoomProviderCreateRoomAction";
 import { useRoomProviderReadActions } from "./useRoomProviderReadActions";
 import { useRoomProviderSettingsActions } from "./useRoomProviderSettingsActions";
+import { useRoomProviderCollectionAccess } from "./useRoomProviderCollectionAccess";
+import { useRoomProviderPlaylistPaging } from "./useRoomProviderPlaylistPaging";
 
 export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -150,13 +144,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     null,
   );
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
-  const [playlistViewItems, setPlaylistViewItems] = useState<PlaylistItem[]>(
-    [],
-  );
-  const [playlistHasMore, setPlaylistHasMore] = useState(false);
-  const [playlistLoadingMore, setPlaylistLoadingMore] = useState(false);
-  const [playlistPageCursor, setPlaylistPageCursor] = useState(1);
-  const [playlistPageSize, setPlaylistPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [playlistProgress, setPlaylistProgress] = useState<{
     received: number;
     total: number;
@@ -429,82 +416,40 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     setServerOffsetMs(offset);
   }, []);
 
-  const fetchCollectionSnapshot = useCallback(
-    async (collectionId: string) => {
-      if (!API_URL) {
-        throw new Error("嚙罵嚙踝蕭嚙稽嚙緩嚙踝蕭嚙衛庫 API 嚙踝蕭m (API_URL)");
-      }
-      if (!collectionId) {
-        throw new Error("嚙請伐蕭嚙踝蕭雃嚙踝蕭簾w");
-      }
-      const tokenToUse = authToken
-        ? await ensureFreshAuthToken({ token: authToken, refreshAuthToken })
-        : null;
-      if (authToken && !tokenToUse) {
-        throw new Error("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙請哨蕭嚙編嚙緯嚙皚");
-      }
-      const run = async (token: string | null, allowRetry: boolean) => {
-        const { ok, status, payload } = await apiFetchCollectionItems(
-          API_URL,
-          token,
-          collectionId,
-        );
-        if (ok) {
-          const items = payload?.data?.items ?? [];
-          if (items.length === 0) {
-            throw new Error("嚙踝蕭嚙衛庫嚙踝蕭嚙磅嚙踝蕭嚙緬嚙踝蕭");
-          }
-          return normalizePlaylistItems(
-            mapCollectionItemsToPlaylist(collectionId, items),
-          );
-        }
-        if (status === 401 && allowRetry && token) {
-          const refreshed = await refreshAuthToken();
-          if (refreshed) {
-            return await run(refreshed, false);
-          }
-        }
-        throw new Error(payload?.error ?? "嚙踝蕭嚙皚嚙踝蕭嚙衛庫嚙踝蕭嚙踝蕭");
-      };
-      return await run(tokenToUse, Boolean(tokenToUse));
-    },
-      [authToken, refreshAuthToken],
-    );
+  const { fetchCollectionSnapshot, createCollectionReadToken } =
+    useRoomProviderCollectionAccess({
+      apiUrl: API_URL,
+      authToken,
+      refreshAuthToken,
+    });
 
-  const createCollectionReadToken = useCallback(
-    async (collectionId: string) => {
-      if (!API_URL) {
-        throw new Error("嚙罵嚙踝蕭嚙稽嚙緩嚙踝蕭嚙衛庫 API 嚙踝蕭m (API_URL)");
-      }
-      if (!authToken) {
-        throw new Error("嚙請伐蕭嚙緯嚙皚嚙踝蕭A嚙踝蕭嚙誼私嚙瘡嚙踝蕭嚙衛庫");
-      }
-      const tokenToUse = await ensureFreshAuthToken({
-        token: authToken,
-        refreshAuthToken,
-      });
-      if (!tokenToUse) {
-        throw new Error("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙請哨蕭嚙編嚙緯嚙皚");
-      }
-      const run = async (token: string, allowRetry: boolean) => {
-        const { ok, status, payload } = await apiCreateCollectionReadToken(
-          API_URL,
-          token,
-          collectionId,
-        );
-        if (ok && payload?.data?.token) return payload.data.token;
-        if (status === 401 && allowRetry) {
-          const refreshed = await refreshAuthToken();
-          if (refreshed) {
-            return await run(refreshed, false);
-          }
-        }
-        throw new Error(payload?.error ?? "嚙踝蕭嚙緻嚙踝蕭嚙衛庫讀嚙踝蕭嚙緞嚙踝蕭嚙踝蕭嚙踝蕭");
-      };
-      return await run(tokenToUse, true);
+  const handlePlaylistPagePayload = useCallback(
+    (payload: { totalCount: number; ready: boolean }) => {
+      setPlaylistProgress((prev) => ({
+        ...prev,
+        total: payload.totalCount,
+        ready: payload.ready,
+      }));
     },
-    [authToken, refreshAuthToken],
+    [],
   );
+
+  const {
+    playlistViewItems,
+    playlistHasMore,
+    playlistLoadingMore,
+    playlistPageCursor,
+    playlistPageSize,
+    setPlaylistViewItems,
+    setPlaylistHasMore,
+    setPlaylistLoadingMore,
+    resetPlaylistPagingState,
+    fetchPlaylistPage,
+    fetchCompletePlaylist,
+  } = useRoomProviderPlaylistPaging({
+    getSocket,
+    onPagePayload: handlePlaylistPagePayload,
+  });
 
   const {
     fetchRooms,
@@ -535,108 +480,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       }
     });
   }, [fetchRoomById, inviteRoomId, setStatusText]);
-
-  const fetchPlaylistPage = useCallback((
-    roomId: string,
-    page: number,
-    pageSize?: number,
-    opts?: { reset?: boolean },
-  ) => {
-    const s = getSocket();
-    if (!s) {
-      if (opts?.reset) {
-        setPlaylistViewItems([]);
-        setPlaylistHasMore(false);
-      }
-      return;
-    }
-    if (opts?.reset) {
-      setPlaylistViewItems([]);
-      setPlaylistHasMore(false);
-      setPlaylistPageCursor(1);
-      setPlaylistLoadingMore(true);
-    } else {
-      setPlaylistLoadingMore(true);
-    }
-    s.emit(
-      "getPlaylistPage",
-      { roomId, page, pageSize },
-      (
-        ack: Ack<{
-          items: PlaylistItem[];
-          totalCount: number;
-          page: number;
-          pageSize: number;
-          ready: boolean;
-        }>,
-      ) => {
-        if (ack?.ok) {
-          setPlaylistViewItems((prev) => {
-            const next = opts?.reset
-              ? ack.data.items
-              : [...prev, ...ack.data.items];
-            const total = ack.data.totalCount;
-            setPlaylistHasMore(next.length < total);
-            return next;
-          });
-          setPlaylistPageCursor(ack.data.page);
-          setPlaylistPageSize(ack.data.pageSize);
-          setPlaylistProgress((prev) => ({
-            ...prev,
-            total: ack.data.totalCount,
-            ready: ack.data.ready,
-          }));
-        }
-        setPlaylistLoadingMore(false);
-      },
-    );
-  }, [getSocket]);
-
-  const fetchCompletePlaylist = useCallback(
-    (roomId: string) =>
-      new Promise<PlaylistItem[]>((resolve) => {
-        const s = getSocket();
-        if (!s) {
-          resolve([]);
-          return;
-        }
-        const aggregated: PlaylistItem[] = [];
-        const pageSize = Math.max(playlistPageSize, DEFAULT_PAGE_SIZE);
-
-        const loadPage = (page: number) => {
-          s.emit(
-            "getPlaylistPage",
-            { roomId, page, pageSize },
-            (
-              ack: Ack<{
-                items: PlaylistItem[];
-                totalCount: number;
-                page: number;
-                pageSize: number;
-                ready: boolean;
-              }>,
-            ) => {
-              if (ack?.ok) {
-                aggregated.push(...ack.data.items);
-                if (
-                  aggregated.length < ack.data.totalCount &&
-                  ack.data.items.length > 0
-                ) {
-                  loadPage(page + 1);
-                } else {
-                  resolve(normalizePlaylistItems(aggregated));
-                }
-              } else {
-                resolve(normalizePlaylistItems(aggregated));
-              }
-            },
-          );
-        };
-
-        loadPage(1);
-      }),
-    [getSocket, playlistPageSize],
-  );
 
   const { handleUpdateRoomSettings } = useRoomProviderSettingsActions({
     getSocket,
@@ -847,13 +690,15 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     resetPlaylistState();
     resetCollectionSelection();
     clearCollectionsError();
-    setPlaylistViewItems([]);
-    setPlaylistHasMore(false);
-    setPlaylistLoadingMore(false);
-    setPlaylistPageCursor(1);
-    setPlaylistPageSize(DEFAULT_PAGE_SIZE);
+    resetPlaylistPagingState();
     setPlaylistProgress({ received: 0, total: 0, ready: false });
-  }, [clearCollectionsError, resetCollectionSelection, resetPlaylistState, username]);
+  }, [
+    clearCollectionsError,
+    resetCollectionSelection,
+    resetPlaylistPagingState,
+    resetPlaylistState,
+    username,
+  ]);
 
   const loadMorePlaylist = useCallback(() => {
     if (!currentRoom) return;

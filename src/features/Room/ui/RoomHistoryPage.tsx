@@ -5,7 +5,7 @@
   Quiz,
   TimerOutlined,
 } from "@mui/icons-material";
-import { Chip, CircularProgress, Dialog, DialogContent } from "@mui/material";
+import { Chip, CircularProgress } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -17,7 +17,8 @@ import type {
 } from "../model/types";
 import { useRoom } from "../model/useRoom";
 import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
-import HistoryReplayCompactView from "./components/HistoryReplayCompactView";
+import HistoryArchiveHeader from "./components/roomHistoryPage/HistoryArchiveHeader";
+import HistoryReplayDialog from "./components/roomHistoryPage/HistoryReplayDialog";
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
@@ -963,241 +964,6 @@ const RoomHistoryPage: React.FC = () => {
     [getSelfRankForSummary, openReplayDetail],
   );
 
-  const archiveHeader = (
-    <section className="relative overflow-hidden rounded-[26px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.94),rgba(8,7,5,0.98))] p-4 shadow-[0_16px_36px_-28px_rgba(0,0,0,0.72)] sm:p-5">
-      <div className="relative grid gap-4 lg:grid-cols-1">
-        <div className="min-w-0">
-          <div className="mb-4 inline-flex min-w-[180px] items-center rounded-2xl border border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface-strong)_86%,black_14%)] px-4 py-3 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.08)]">
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-[var(--mc-text-muted)]">
-                Match Archive
-              </div>
-              <h1 className="truncate text-lg font-semibold text-[var(--mc-text)] sm:text-xl">
-                對戰歷史
-              </h1>
-            </div>
-          </div>
-
-          <p className="max-w-3xl text-sm leading-6 text-[var(--mc-text-muted)] sm:text-[15px]">
-            近 {HISTORY_PAGE_LIMIT} 場對戰快照，點擊指標可直接開啟對應回顧。
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs text-amber-100/90">
-              已載入 {recentItems.length} / {HISTORY_PAGE_LIMIT} 場
-            </div>
-            <div className="inline-flex items-center gap-1 rounded-full border border-amber-300/28 bg-amber-300/8 p-1">
-              <button
-                type="button"
-                aria-pressed={historyDisplayMode === "expanded"}
-                onClick={() => setHistoryDisplayMode("expanded")}
-                className={`rounded-full px-3 py-1 text-xs font-semibold tracking-[0.08em] transition ${
-                  historyDisplayMode === "expanded"
-                    ? "border border-emerald-300/35 bg-emerald-300/14 text-emerald-100"
-                    : "border border-transparent text-amber-100/80 hover:border-amber-300/25 hover:bg-amber-300/10"
-                }`}
-              >
-                完整顯示
-              </button>
-              <button
-                type="button"
-                aria-pressed={historyDisplayMode === "collapsed"}
-                onClick={() => setHistoryDisplayMode("collapsed")}
-                className={`rounded-full px-3 py-1 text-xs font-semibold tracking-[0.08em] transition ${
-                  historyDisplayMode === "collapsed"
-                    ? "border border-amber-300/40 bg-amber-300/16 text-amber-50"
-                    : "border border-transparent text-amber-100/80 hover:border-amber-300/25 hover:bg-amber-300/10"
-                }`}
-              >
-                摺疊顯示
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <button
-              type="button"
-              disabled={!recentTopScoreEntry}
-              onClick={() => {
-                if (!recentTopScoreEntry) return;
-                void openReplayDetail(recentTopScoreEntry);
-              }}
-              className={`min-h-[112px] rounded-2xl border p-3.5 text-left transition ${recentTopScoreEntry
-                ? "border-emerald-300/25 bg-[linear-gradient(180deg,rgba(16,185,129,0.14),rgba(5,30,24,0.78))] hover:-translate-y-0.5 hover:border-emerald-300/45"
-                : "cursor-default border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface)_88%,black_12%)]"
-                }`}
-            >
-              <div className="flex h-full flex-col">
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
-                  近10把最高分
-                </div>
-                <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
-                  {loadingList
-                    ? "-"
-                    : (recentTopScoreEntry?.selfPlayer?.finalScore ?? "-")}
-                </div>
-                <div className="mt-auto flex items-center justify-between gap-2 text-xs text-[var(--mc-text-muted)]">
-                  <span className="min-w-0 truncate whitespace-nowrap">
-                    {recentTopScoreEntry
-                      ? `第 ${recentTopScoreEntry.roundNo} 場`
-                      : "尚無可用分數資料"}
-                  </span>
-                  {recentTopScoreEntry && (
-                    <span className="rounded-full border border-emerald-300/35 bg-emerald-300/12 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-emerald-100">
-                      查看
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              disabled={!recentBestRankEntry}
-              onClick={() => {
-                if (!recentBestRankEntry) return;
-                void openReplayDetail(recentBestRankEntry.item);
-              }}
-              className={`min-h-[112px] rounded-2xl border p-3.5 text-left transition ${
-                recentBestRankEntry
-                  ? "border-amber-300/28 bg-[linear-gradient(180deg,rgba(245,158,11,0.16),rgba(40,24,8,0.78))] hover:-translate-y-0.5 hover:border-amber-300/50"
-                  : "cursor-default border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface)_88%,black_12%)]"
-              }`}
-            >
-              <div className="flex h-full flex-col">
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
-                  近10把最佳名次
-                </div>
-                <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
-                  {loadingList
-                    ? "-"
-                    : recentBestRankEntry
-                      ? formatRankFraction(
-                          recentBestRankEntry.rank,
-                          recentBestRankEntry.item.playerCount,
-                        )
-                      : "-"}
-                </div>
-                <div className="mt-auto flex items-center justify-between gap-2 text-xs text-[var(--mc-text-muted)]">
-                  <span className="min-w-0 truncate whitespace-nowrap">
-                    {recentBestRankEntry
-                      ? `第 ${recentBestRankEntry.item.roundNo} 場`
-                      : "尚無可用名次資料"}
-                  </span>
-                  {recentBestRankEntry && (
-                    <span className="rounded-full border border-amber-300/38 bg-amber-300/14 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-amber-50">
-                      查看
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              disabled={!recentBestComboEntry}
-              onClick={() => {
-                if (!recentBestComboEntry) return;
-                void openReplayDetail(recentBestComboEntry);
-              }}
-              className={`min-h-[112px] rounded-2xl border p-3.5 text-left transition ${recentBestComboEntry
-                ? "border-fuchsia-300/22 bg-[linear-gradient(180deg,rgba(116,58,176,0.14),rgba(22,12,32,0.78))] hover:-translate-y-0.5 hover:border-fuchsia-300/38"
-                : "cursor-default border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface)_88%,black_12%)]"
-                }`}
-            >
-              <div className="flex h-full flex-col">
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
-                  近10把最佳 COMBO
-                </div>
-                <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
-                  {loadingList
-                    ? "-"
-                    : recentBestComboEntry?.selfPlayer
-                      ? `x${recentBestComboEntry.selfPlayer.maxCombo}`
-                      : "-"}
-                </div>
-                <div className="mt-auto flex items-center justify-between gap-2 text-xs text-[var(--mc-text-muted)]">
-                  <span className="min-w-0 truncate whitespace-nowrap">
-                    {recentBestComboEntry
-                      ? `第 ${recentBestComboEntry.roundNo} 場`
-                      : "尚無可用 Combo 資料"}
-                  </span>
-                  {recentBestComboEntry && (
-                    <span className="rounded-full border border-fuchsia-300/35 bg-fuchsia-300/12 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-fuchsia-100">
-                      查看
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              disabled={!recentBestAccuracyEntry}
-              onClick={() => {
-                if (!recentBestAccuracyEntry) return;
-                void openReplayDetail(recentBestAccuracyEntry.item);
-              }}
-              className={`min-h-[112px] rounded-2xl border p-3.5 text-left transition ${recentBestAccuracyEntry
-                ? "border-sky-300/24 bg-[linear-gradient(180deg,rgba(14,116,144,0.16),rgba(7,23,38,0.8))] hover:-translate-y-0.5 hover:border-sky-300/45"
-                : "cursor-default border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface)_88%,black_12%)]"
-                }`}
-            >
-              <div className="flex h-full flex-col">
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
-                  近10把最佳答對率
-                </div>
-                <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
-                  {loadingList
-                    ? "-"
-                    : recentBestAccuracyEntry
-                      ? `${Math.round(recentBestAccuracyEntry.rate * 100)}%`
-                      : "-"}
-                </div>
-                <div className="mt-auto flex items-center justify-between gap-2 text-xs text-[var(--mc-text-muted)]">
-                  <span className="min-w-0 truncate whitespace-nowrap">
-                    {recentBestAccuracyEntry
-                      ? `第 ${recentBestAccuracyEntry.item.roundNo} 場`
-                      : "尚無可用答對率資料"}
-                  </span>
-                  {recentBestAccuracyEntry && (
-                    <span className="rounded-full border border-sky-300/35 bg-sky-300/12 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-sky-100">
-                      查看
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          </div>
-          <div className="mt-2 text-xs text-[var(--mc-text-muted)]/80">
-            近況：{latestRecentEntry
-              ? `分布 ${recentRoomSpread} 個房間，最近一場在 ${formatRelative(latestRecentEntry.endedAt) || formatDateTime(latestRecentEntry.endedAt)}`
-              : "尚無對戰資料"}
-          </div>
-        </div>
-
-        <div className="hidden rounded-2xl border border-amber-300/18 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02))] p-4 sm:p-5">
-          <div className="text-xs uppercase tracking-[0.22em] text-amber-200/80">
-            使用提示
-          </div>
-          <ol className="mt-3 space-y-3 text-sm leading-6 text-[var(--mc-text-muted)]">
-            <li>1. 點擊房間群組可展開同一房間的多場對戰紀錄。</li>
-            <li>2. 每場紀錄會顯示分數、答對數、最大 Combo 與歌單來源。</li>
-            <li>3. 點進詳情後可查看完整結算回顧與題目紀錄。</li>
-          </ol>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center rounded-full border border-[var(--mc-accent)]/55 bg-[var(--mc-accent)]/16 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-[var(--mc-text)] transition hover:bg-[var(--mc-accent)]/22"
-              onClick={() => navigate("/rooms", { replace: true })}
-            >
-              返回房間列表
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-
   const listView = (
     <section className="mt-5 space-y-4">
       {historyRequestBlockedUntil > Date.now() && (
@@ -1467,92 +1233,41 @@ const RoomHistoryPage: React.FC = () => {
     </section>
   );
 
-  const replayModal = (
-    <Dialog
-      open={Boolean(selectedMatchId)}
-      onClose={() => setSelectedMatchId(null)}
-      fullScreen
-      PaperProps={{
-        sx: {
-          background: "linear-gradient(180deg, rgba(2,6,23,0.96), rgba(2,6,23,0.9))",
-        },
-      }}
-    >
-      <DialogContent
-        sx={{
-          p: { xs: 1.5, sm: 2 },
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-          overflow: "hidden",
-        }}
-      >
-        {selectedSummary && (
-          <div className="mb-3 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                  Match Replay
-                </p>
-                <p className="mt-1 truncate text-base font-semibold text-[var(--mc-text)]">
-                  {selectedSummary.roomName || selectedSummary.roomId}
-                </p>
-                <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                  第 {selectedSummary.roundNo} 場 · {selectedSummary.playerCount} 人 · {selectedSummary.questionCount} 題 ·
-                  {" "}開始 {formatDateTime(selectedSummary.startedAt)} · 結束 {formatDateTime(selectedSummary.endedAt)} ·
-                  {" "}遊玩 {formatDuration(getMatchDurationMs(selectedSummary.startedAt, selectedSummary.endedAt))}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="rounded-full border border-slate-500/70 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-slate-400"
-                onClick={() => setSelectedMatchId(null)}
-              >
-                關閉回放
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {isLoadingSelectedReplay && !selectedReplay ? (
-            <div className="rounded-[20px] border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-6">
-              <div className="flex items-center justify-center rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/50 px-4 py-12 text-[var(--mc-text-muted)]">
-                <div className="inline-flex items-center gap-3">
-                  <CircularProgress size={18} thickness={5} sx={{ color: "#f59e0b" }} />
-                  載入對戰回顧中...
-                </div>
-              </div>
-            </div>
-          ) : selectedReplay ? (
-            <HistoryReplayCompactView
-              key={selectedSummary?.matchId}
-              room={selectedReplay.room}
-              participants={selectedReplay.participants}
-              messages={selectedReplay.messages}
-              playlistItems={selectedReplay.playlistItems ?? []}
-              trackOrder={selectedReplay.trackOrder}
-              playedQuestionCount={selectedReplay.playedQuestionCount}
-              startedAt={selectedReplay.startedAt}
-              endedAt={selectedReplay.endedAt}
-              meClientId={clientId}
-              questionRecaps={normalizedSelectedQuestionRecaps}
-            />
-          ) : (
-            <div className="rounded-[20px] border border-amber-300/16 bg-amber-300/5 px-4 py-5 text-sm text-amber-100/90">
-              這場對戰尚未取得完整回放內容，可能已被精簡或仍在同步中，請稍後再試。
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <div className="mx-auto w-full max-w-[1320px] min-w-0 px-1 sm:px-0">
-      {archiveHeader}
+      <HistoryArchiveHeader
+        historyPageLimit={HISTORY_PAGE_LIMIT}
+        loadingList={loadingList}
+        recentItemsLength={recentItems.length}
+        historyDisplayMode={historyDisplayMode}
+        onHistoryDisplayModeChange={setHistoryDisplayMode}
+        recentTopScoreEntry={recentTopScoreEntry}
+        recentBestRankEntry={recentBestRankEntry}
+        recentBestComboEntry={recentBestComboEntry}
+        recentBestAccuracyEntry={recentBestAccuracyEntry}
+        latestRecentEntry={latestRecentEntry}
+        recentRoomSpread={recentRoomSpread}
+        onOpenReplay={(summary) => {
+          void openReplayDetail(summary);
+        }}
+        onBackToRooms={() => navigate("/rooms", { replace: true })}
+        formatRankFraction={formatRankFraction}
+        formatRelative={formatRelative}
+        formatDateTime={formatDateTime}
+      />
       {listView}
-      {replayModal}
+      <HistoryReplayDialog
+        open={Boolean(selectedMatchId)}
+        onClose={() => setSelectedMatchId(null)}
+        selectedSummary={selectedSummary}
+        selectedReplay={selectedReplay}
+        isLoadingSelectedReplay={isLoadingSelectedReplay}
+        meClientId={clientId}
+        questionRecaps={normalizedSelectedQuestionRecaps}
+        formatDateTime={formatDateTime}
+        getMatchDurationMs={getMatchDurationMs}
+        formatDuration={formatDuration}
+      />
     </div>
   );
 };

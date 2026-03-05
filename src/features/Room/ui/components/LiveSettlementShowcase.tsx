@@ -1,23 +1,14 @@
-﻿import React, {
+import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import {
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-} from "@mui/material";
 
 import { trackEvent } from "../../../../shared/analytics/track";
 import { useSettingsModel } from "../../../Setting/model/settingsContext";
 import {
-  resolveSettlementTrackLink,
   type SettlementTrackLink,
 } from "../../model/settlementLinks";
 import type {
@@ -28,12 +19,36 @@ import type {
 } from "../../model/types";
 import type { SettlementQuestionRecap } from "./GameSettlementPanel";
 import {
-  buildCorrectAnsweredRankMap,
   type RecommendCategory,
-  type SongPerformanceGrade,
 } from "./liveSettlementUtils";
 import OverviewSection from "./liveSettlementShowcase/OverviewSection";
 import RecommendGuideSection from "./liveSettlementShowcase/RecommendGuideSection";
+import {
+  AUTO_PREVIEW_STORAGE_KEY,
+  MULTILINE_ELLIPSIS_2,
+  PERFORMANCE_GRADE_META,
+  QUICK_SOLVE_TIME_CAP_MS,
+  RECAPS_PER_PAGE,
+  RECOMMEND_CATEGORY_THEME,
+  RECOMMEND_CONTROLS_HINT_STORAGE_KEY,
+  RECOMMEND_PREVIEW_SECONDS,
+  REVIEW_DOUBLE_PLAY_STORAGE_KEY,
+  REVIEW_STATUS_BADGE_BASE,
+  buildRecommendationCard,
+  buildRecommendationLink,
+  clampMs,
+  formatElapsed,
+  formatMs,
+  formatPercent,
+  isParticipantGlobalFastestCorrect,
+  readStoredBoolean,
+  resolveCorrectAnsweredRank,
+  resolveParticipantAnswer,
+  resolveParticipantResult,
+  resolveRecapTrack,
+  type SettlementExtendedRecap,
+  type SettlementRecommendationCard,
+} from "./liveSettlementShowcase/showcasePrimitives";
 import useSettlementPreviewPlayback from "./liveSettlementShowcase/useSettlementPreviewPlayback";
 import useSettlementRecommendLifecycle from "./liveSettlementShowcase/useSettlementRecommendLifecycle";
 import useSettlementRecommendationNavigator from "./liveSettlementShowcase/useSettlementRecommendationNavigator";
@@ -41,34 +56,15 @@ import useSettlementRecommendationInsights from "./liveSettlementShowcase/useSet
 import ReviewRecapSection from "./liveSettlementShowcase/ReviewRecapSection";
 import useSettlementRecapSelectionState from "./liveSettlementShowcase/useSettlementRecapSelectionState";
 import useSettlementReviewState from "./liveSettlementShowcase/useSettlementReviewState";
+import SettlementStageHeader from "./liveSettlementShowcase/SettlementStageHeader";
+import SettlementMobileFooter from "./liveSettlementShowcase/SettlementMobileFooter";
+import SettlementExitDialog from "./liveSettlementShowcase/SettlementExitDialog";
 
 type LiveSettlementTab = "overview" | "recommend";
 type PreviewPlaybackMode = "idle" | "auto" | "manual";
 
-type ExtendedRecap = SettlementQuestionRecap & {
-  provider?: string;
-  sourceId?: string | null;
-  videoId?: string;
-  url?: string;
-};
-
-type RecommendationCard = {
-  recap: ExtendedRecap;
-  hint: string;
-  emphasis: string;
-  link: SettlementTrackLink;
-  providerLabel: string;
-  previewUrl: string | null;
-};
-
-type SongPerformanceRating = {
-  score: number;
-  grade: SongPerformanceGrade;
-  result: "correct" | "wrong" | "unanswered";
-  answeredRank: number | null;
-  answeredAtMs: number | null;
-  correctRate: number;
-};
+type ExtendedRecap = SettlementExtendedRecap;
+type RecommendationCard = SettlementRecommendationCard<ExtendedRecap>;
 
 interface LiveSettlementShowcaseProps {
   room: RoomState["room"];
@@ -99,9 +95,6 @@ const TAB_HINTS: Record<LiveSettlementTab, string> = {
   recommend: "邊聽推薦、邊查看全員作答回顧",
 };
 
-const RECAPS_PER_PAGE = 12;
-const RECOMMEND_PREVIEW_SECONDS = 15;
-const QUICK_SOLVE_TIME_CAP_MS = 10_000;
 const RECOMMEND_CATEGORY_LABELS: Record<RecommendCategory, string> = {
   quick: "全員速解",
   confuse: "易混淆",
@@ -116,97 +109,6 @@ const RECOMMEND_CATEGORY_SHORT_HINT: Record<RecommendCategory, string> = {
 };
 const RECOMMEND_CONTROLS_TOOLTIP =
   "分類可切換不同推薦來源；自動導覽會依倒數自動切歌；雙擊播放可在題目回顧直接開啟試聽。";
-const RECOMMEND_CATEGORY_THEME: Record<
-  RecommendCategory,
-  {
-    shellClass: string;
-    sectionClass: string;
-    asideClass: string;
-    drawerClass: string;
-    controlGroupClass: string;
-    listActiveClass: string;
-    autoWrapClass: string;
-    autoBarClass: string;
-    badgeClass: string;
-  }
-> = {
-  quick: {
-    shellClass:
-      "border-emerald-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(16,185,129,0.24),transparent_48%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(3,16,28,0.94))] shadow-[0_28px_60px_-44px_rgba(16,185,129,0.72)]",
-    sectionClass:
-      "border-emerald-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.16),0_25px_55px_-45px_rgba(16,185,129,0.55)]",
-    asideClass:
-      "border-emerald-300/30 bg-[linear-gradient(180deg,rgba(5,24,37,0.92),rgba(2,12,23,0.95))]",
-    drawerClass:
-      "border-emerald-300/38 bg-[linear-gradient(180deg,rgba(6,26,37,0.9),rgba(2,14,26,0.94))]",
-    controlGroupClass:
-      "border-emerald-300/42 bg-emerald-500/12 shadow-[0_10px_24px_-16px_rgba(16,185,129,0.86)]",
-    listActiveClass: "border-emerald-300/50 bg-emerald-400/10",
-    autoWrapClass:
-      "border-emerald-300/45 bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(16,185,129,0.2),0_12px_24px_-18px_rgba(16,185,129,0.7)]",
-    autoBarClass: "bg-gradient-to-r from-emerald-300 to-cyan-200",
-    badgeClass: "border-emerald-300/45 bg-emerald-500/16 text-emerald-50",
-  },
-  confuse: {
-    shellClass:
-      "border-fuchsia-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(217,70,239,0.24),transparent_48%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(19,8,34,0.94))] shadow-[0_28px_60px_-44px_rgba(217,70,239,0.72)]",
-    sectionClass:
-      "border-fuchsia-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.16),0_25px_55px_-45px_rgba(217,70,239,0.55)]",
-    asideClass:
-      "border-fuchsia-300/30 bg-[linear-gradient(180deg,rgba(33,10,43,0.92),rgba(18,8,30,0.95))]",
-    drawerClass:
-      "border-fuchsia-300/38 bg-[linear-gradient(180deg,rgba(36,10,44,0.9),rgba(18,8,31,0.94))]",
-    controlGroupClass:
-      "border-fuchsia-300/42 bg-fuchsia-500/12 shadow-[0_10px_24px_-16px_rgba(217,70,239,0.86)]",
-    listActiveClass: "border-fuchsia-300/50 bg-fuchsia-400/10",
-    autoWrapClass:
-      "border-fuchsia-300/45 bg-gradient-to-r from-fuchsia-500/20 via-fuchsia-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(217,70,239,0.2),0_12px_24px_-18px_rgba(217,70,239,0.7)]",
-    autoBarClass: "bg-gradient-to-r from-fuchsia-300 to-pink-200",
-    badgeClass: "border-fuchsia-300/45 bg-fuchsia-500/16 text-fuchsia-50",
-  },
-  hard: {
-    shellClass:
-      "border-amber-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(251,191,36,0.25),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(34,20,6,0.94))] shadow-[0_28px_60px_-44px_rgba(251,191,36,0.76)]",
-    sectionClass:
-      "border-amber-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.16),0_25px_55px_-45px_rgba(251,191,36,0.55)]",
-    asideClass:
-      "border-amber-300/30 bg-[linear-gradient(180deg,rgba(39,23,8,0.92),rgba(24,14,4,0.95))]",
-    drawerClass:
-      "border-amber-300/38 bg-[linear-gradient(180deg,rgba(42,24,9,0.9),rgba(26,15,5,0.94))]",
-    controlGroupClass:
-      "border-amber-300/42 bg-amber-500/12 shadow-[0_10px_24px_-16px_rgba(251,191,36,0.86)]",
-    listActiveClass: "border-amber-300/50 bg-amber-400/10",
-    autoWrapClass:
-      "border-amber-300/45 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-slate-900/20 shadow-[0_0_0_1px_rgba(251,191,36,0.2),0_12px_24px_-18px_rgba(251,191,36,0.7)]",
-    autoBarClass: "bg-gradient-to-r from-amber-300 to-yellow-100",
-    badgeClass: "border-amber-300/45 bg-amber-500/16 text-amber-50",
-  },
-  other: {
-    shellClass:
-      "border-sky-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(56,189,248,0.2),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(7,16,36,0.94))] shadow-[0_28px_60px_-44px_rgba(56,189,248,0.68)]",
-    sectionClass:
-      "border-sky-300/30 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-sky-950/42 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.2),0_25px_55px_-45px_rgba(56,189,248,0.55)]",
-    asideClass:
-      "border-sky-300/30 bg-[linear-gradient(180deg,rgba(8,20,42,0.92),rgba(4,12,26,0.95))]",
-    drawerClass:
-      "border-sky-300/38 bg-[linear-gradient(180deg,rgba(9,23,45,0.9),rgba(4,14,30,0.94))]",
-    controlGroupClass:
-      "border-sky-300/42 bg-sky-500/12 shadow-[0_10px_24px_-16px_rgba(56,189,248,0.86)]",
-    listActiveClass: "border-sky-300/55 bg-sky-400/12",
-    autoWrapClass:
-      "border-sky-300/45 bg-gradient-to-r from-sky-500/20 via-cyan-400/14 to-slate-900/20 shadow-[0_0_0_1px_rgba(56,189,248,0.2),0_12px_24px_-18px_rgba(56,189,248,0.7)]",
-    autoBarClass: "bg-gradient-to-r from-sky-300 to-cyan-100",
-    badgeClass: "border-sky-300/45 bg-sky-500/16 text-sky-50",
-  },
-};
-
-const MULTILINE_ELLIPSIS_2: React.CSSProperties = {
-  display: "-webkit-box",
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: "vertical",
-  overflow: "hidden",
-};
-
 const RESULT_META: Record<
   "correct" | "wrong" | "unanswered",
   { label: string; badgeClass: string }
@@ -224,171 +126,6 @@ const RESULT_META: Record<
     badgeClass: "border-slate-400/55 bg-slate-700/55 text-slate-100",
   },
 };
-const REVIEW_STATUS_BADGE_BASE =
-  "inline-flex h-6 min-w-[4.25rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold";
-
-const PERFORMANCE_GRADE_META: Record<
-  SongPerformanceGrade,
-  { badgeClass: string; detailClass: string }
-> = {
-  S: {
-    badgeClass: "border-emerald-200/65 bg-emerald-500/28 text-emerald-50",
-    detailClass: "text-emerald-100",
-  },
-  A: {
-    badgeClass: "border-cyan-200/65 bg-cyan-500/26 text-cyan-50",
-    detailClass: "text-cyan-100",
-  },
-  B: {
-    badgeClass: "border-sky-200/60 bg-sky-500/24 text-sky-50",
-    detailClass: "text-sky-100",
-  },
-  C: {
-    badgeClass: "border-amber-200/58 bg-amber-500/22 text-amber-50",
-    detailClass: "text-amber-100",
-  },
-  D: {
-    badgeClass: "border-orange-200/58 bg-orange-500/20 text-orange-50",
-    detailClass: "text-orange-100",
-  },
-  E: {
-    badgeClass: "border-rose-200/58 bg-rose-500/20 text-rose-50",
-    detailClass: "text-rose-100",
-  },
-};
-
-const AUTO_PREVIEW_STORAGE_KEY = "mq_settlement_auto_preview";
-const REVIEW_DOUBLE_PLAY_STORAGE_KEY = "mq_settlement_review_double_click_play";
-const RECOMMEND_CONTROLS_HINT_STORAGE_KEY =
-  "mq_settlement_recommend_controls_hint_seen";
-
-const readStoredBoolean = (key: string, fallback: boolean) => {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (raw === "1" || raw === "true") return true;
-  if (raw === "0" || raw === "false") return false;
-  return fallback;
-};
-
-const resolveParticipantAnswer = (
-  recap: SettlementQuestionRecap,
-  participantClientId: string | null,
-  meClientId?: string,
-) => {
-  if (!participantClientId) {
-    return {
-      choiceIndex: null as number | null,
-      result: "unanswered" as SettlementQuestionRecap["myResult"],
-      answeredAtMs: null as number | null,
-    };
-  }
-  const answer = recap.answersByClientId?.[participantClientId];
-  if (answer) {
-    return {
-      choiceIndex:
-        typeof answer.choiceIndex === "number" ? answer.choiceIndex : null,
-      result: answer.result ?? "unanswered",
-      answeredAtMs:
-        typeof answer.answeredAtMs === "number" ? answer.answeredAtMs : null,
-    };
-  }
-  if (meClientId && participantClientId === meClientId) {
-    const fallbackChoiceIndex =
-      typeof recap.myChoiceIndex === "number" ? recap.myChoiceIndex : null;
-    const fallbackResult: SettlementQuestionRecap["myResult"] =
-      fallbackChoiceIndex === null
-        ? "unanswered"
-        : fallbackChoiceIndex === recap.correctChoiceIndex
-          ? "correct"
-          : "wrong";
-    return {
-      choiceIndex: fallbackChoiceIndex,
-      result: fallbackResult,
-      answeredAtMs: null as number | null,
-    };
-  }
-  return {
-    choiceIndex: null as number | null,
-    result: "unanswered" as SettlementQuestionRecap["myResult"],
-    answeredAtMs: null as number | null,
-  };
-};
-
-const resolveParticipantResult = (
-  recap: SettlementQuestionRecap,
-  participantClientId: string | null,
-  meClientId?: string,
-): "correct" | "wrong" | "unanswered" => {
-  const answer = resolveParticipantAnswer(
-    recap,
-    participantClientId,
-    meClientId,
-  );
-  if (answer.result === "correct" || answer.result === "wrong") {
-    return answer.result;
-  }
-  if (typeof answer.choiceIndex !== "number") return "unanswered";
-  return answer.choiceIndex === recap.correctChoiceIndex ? "correct" : "wrong";
-};
-
-const resolveCorrectAnsweredRank = (
-  recap: SettlementQuestionRecap,
-  participantClientId: string | null,
-) => {
-  if (!participantClientId) return null;
-  const rankMap = buildCorrectAnsweredRankMap(recap.answersByClientId);
-  return rankMap.get(participantClientId) ?? null;
-};
-
-const isParticipantGlobalFastestCorrect = (
-  recap: SettlementQuestionRecap,
-  rating: SongPerformanceRating | null | undefined,
-) => {
-  if (!rating || rating.result !== "correct") return false;
-  if (
-    typeof rating.answeredAtMs !== "number" ||
-    !Number.isFinite(rating.answeredAtMs)
-  ) {
-    return false;
-  }
-  if (
-    typeof recap.fastestCorrectMs !== "number" ||
-    !Number.isFinite(recap.fastestCorrectMs)
-  ) {
-    return false;
-  }
-  return Math.floor(rating.answeredAtMs) === Math.floor(recap.fastestCorrectMs);
-};
-
-const formatElapsed = (startedAt?: number, endedAt?: number) => {
-  if (!startedAt || !endedAt || endedAt <= startedAt) return null;
-  const totalSeconds = Math.floor((endedAt - startedAt) / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-};
-
-const formatMs = (value: number | null | undefined) => {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-    return "--";
-  }
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
-  return `${Math.round(value)}ms`;
-};
-
-const formatPercent = (value: number) =>
-  `${Math.round(Math.max(0, value) * 100)}%`;
-
-const resolveRecapTrack = (
-  recap: ExtendedRecap,
-  playlistItems: PlaylistItem[],
-): PlaylistItem | null => {
-  const direct = playlistItems[recap.trackIndex];
-  return direct ?? null;
-};
-
-const clampMs = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
 
 const buildFallbackRecaps = (
   playlistItems: PlaylistItem[],
@@ -433,78 +170,6 @@ const buildFallbackRecaps = (
       url: item?.url,
     };
   });
-
-const extractYouTubeId = (
-  sourceId?: string | null,
-  videoId?: string | null,
-  url?: string | null,
-): string | null => {
-  if (sourceId?.trim()) return sourceId.trim();
-  if (videoId?.trim()) return videoId.trim();
-  if (!url) return null;
-  const raw = url.trim();
-  if (!raw) return null;
-  const m1 = raw.match(/[?&]v=([^&]+)/);
-  if (m1?.[1]) return m1[1];
-  const m2 = raw.match(/youtu\.be\/([^?&]+)/);
-  if (m2?.[1]) return m2[1];
-  const m3 = raw.match(/youtube\.com\/embed\/([^?&]+)/);
-  if (m3?.[1]) return m3[1];
-  return null;
-};
-
-const resolvePreviewEmbedUrl = (
-  recap: ExtendedRecap,
-  link: SettlementTrackLink,
-): string | null => {
-  const provider = (recap.provider || link.provider || "").toLowerCase();
-  if (provider === "youtube") {
-    const id = extractYouTubeId(
-      recap.sourceId,
-      recap.videoId,
-      recap.url || link.href,
-    );
-    if (!id) return null;
-    const originParam =
-      typeof window !== "undefined" && window.location?.origin
-        ? `&origin=${encodeURIComponent(window.location.origin)}`
-        : "";
-    return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1${originParam}`;
-  }
-  return null;
-};
-
-const buildRecommendationLink = (recap: ExtendedRecap) =>
-  resolveSettlementTrackLink({
-    provider: recap.provider,
-    sourceId: recap.sourceId,
-    videoId: recap.videoId,
-    url: recap.url ?? "",
-    title: recap.title ?? "",
-    answerText: recap.title ?? "",
-    uploader: recap.uploader,
-  });
-
-const buildRecommendationCard = (
-  recap: ExtendedRecap,
-  hint: string,
-  emphasis: string,
-): RecommendationCard => {
-  const link = buildRecommendationLink(recap);
-  const providerLabel =
-    link.providerLabel ||
-    ((recap.provider ?? "").trim()
-      ? (recap.provider ?? "").trim().toUpperCase()
-      : "Unknown");
-  return {
-    recap,
-    hint,
-    emphasis,
-    link,
-    providerLabel,
-    previewUrl: link ? resolvePreviewEmbedUrl(recap, link) : null,
-  };
-};
 
 const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   room,
@@ -1125,13 +790,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     return () => window.clearTimeout(timer);
   }, [activeTab, endedAt, room.id, startedAt]);
 
-  const activeTabButtonClass = (tab: LiveSettlementTab) =>
-    `rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.08em] transition ${
-      activeTab === tab
-        ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-        : "border-slate-500/60 bg-slate-900/60 text-slate-300"
-    }`;
-
   const progressPercent = Math.round(
     ((stepIndex + 1) / TAB_ORDER.length) * 100,
   );
@@ -1143,130 +801,30 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         <div className="pointer-events-none absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-sky-500/15 blur-3xl" />
 
         <div className="relative space-y-4">
-          <header className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200">
-                Match Settlement
-              </div>
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-100 sm:text-3xl">
-                對戰結算
-              </h2>
-              <p className="mt-1 truncate text-sm text-slate-300">
-                {room.name}
-                {room.playlist.title ? ` · ${room.playlist.title}` : ""}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Chip
-                size="small"
-                label={`題數 ${playedQuestionCount}`}
-                variant="outlined"
-                className="border-amber-300/40 text-amber-100"
-              />
-              <Chip
-                size="small"
-                label={`玩家 ${participants.length}`}
-                variant="outlined"
-                className="border-sky-400/45 text-sky-100"
-              />
-              {elapsedLabel && (
-                <Chip
-                  size="small"
-                  label={`局長 ${elapsedLabel}`}
-                  variant="outlined"
-                  className="border-emerald-300/45 text-emerald-100"
-                />
-              )}
-              {settlementTimeChipLabel && (
-                <Chip
-                  size="small"
-                  label={settlementTimeChipLabel}
-                  variant="outlined"
-                  className="border-slate-400/50 text-slate-200"
-                />
-              )}
-            </div>
-          </header>
-
-          <div className="rounded-2xl border border-slate-700/70 bg-slate-900/60 px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  結算導覽
-                </p>
-                <p className="text-sm font-semibold text-slate-100">
-                  Step {stepIndex + 1}/{TAB_ORDER.length} ·{" "}
-                  {TAB_HINTS[activeTab]}
-                </p>
-              </div>
-              <div className="text-xs font-semibold text-amber-100">
-                {progressPercent}%
-              </div>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800/90">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-300/90 via-amber-200 to-sky-300 transition-[width] duration-500"
-                style={{ width: `${Math.max(8, progressPercent)}%` }}
-              />
-            </div>
-          </div>
-
-          <nav className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              {TAB_ORDER.map((tab, index) => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={activeTabButtonClass(tab)}
-                  onClick={() => goToTab(tab)}
-                  title={TAB_HINTS[tab]}
-                >
-                  {index + 1}. {TAB_LABELS[tab]}
-                </button>
-              ))}
-            </div>
-            <div className="hidden items-center justify-end gap-2 lg:flex">
-              <Button
-                variant="outlined"
-                color="inherit"
-                size="small"
-                onClick={goPrevStep}
-                disabled={stepIndex <= 0}
-              >
-                上一步
-              </Button>
-              {stepIndex < TAB_ORDER.length - 1 ? (
-                <Button
-                  variant="contained"
-                  color="warning"
-                  size="small"
-                  onClick={goNextStep}
-                >
-                  下一步
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="small"
-                  onClick={goNextStep}
-                  disabled={!onBackToLobby}
-                >
-                  完成結算
-                </Button>
-              )}
-              {onRequestExit && (
-                <Button
-                  variant="contained"
-                  color="error"
-                  size="small"
-                  onClick={() => setExitConfirmOpen(true)}
-                >
-                  離開房間
-                </Button>
-              )}
-            </div>
-          </nav>
+          <SettlementStageHeader
+            roomName={room.name}
+            playlistTitle={room.playlist.title}
+            playedQuestionCount={playedQuestionCount}
+            participantsLength={participants.length}
+            elapsedLabel={elapsedLabel}
+            settlementTimeChipLabel={settlementTimeChipLabel}
+            stepIndex={stepIndex}
+            totalSteps={TAB_ORDER.length}
+            activeTab={activeTab}
+            tabOrder={TAB_ORDER}
+            tabLabels={TAB_LABELS}
+            tabHints={TAB_HINTS}
+            progressPercent={progressPercent}
+            onGoToTab={goToTab}
+            onGoPrevStep={goPrevStep}
+            onGoNextStep={goNextStep}
+            onOpenExitConfirm={
+              onRequestExit ? () => setExitConfirmOpen(true) : undefined
+            }
+            canGoPrev={stepIndex > 0}
+            hasNextStep={stepIndex < TAB_ORDER.length - 1}
+            canFinish={Boolean(onBackToLobby)}
+          />
 
           <div
             key={`${activeTab}-${tabRenderKey}`}
@@ -1443,81 +1001,21 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
           </div>
         </div>
       </section>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-700/70 bg-slate-950/92 px-2 backdrop-blur lg:hidden">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.6rem)]">
-          <Button
-            variant="outlined"
-            color="inherit"
-            size="small"
-            onClick={goPrevStep}
-            disabled={stepIndex <= 0}
-            className="!min-w-0 !flex-1"
-          >
-            上一步
-          </Button>
-          {stepIndex < TAB_ORDER.length - 1 ? (
-            <Button
-              variant="contained"
-              color="warning"
-              size="small"
-              onClick={goNextStep}
-              className="!min-w-0 !flex-[1.1]"
-            >
-              下一步
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              color="success"
-              size="small"
-              onClick={goNextStep}
-              disabled={!onBackToLobby}
-              className="!min-w-0 !flex-[1.1]"
-            >
-              完成結算
-            </Button>
-          )}
-          {onRequestExit && (
-            <Button
-              variant="contained"
-              color="error"
-              size="small"
-              onClick={() => setExitConfirmOpen(true)}
-              className="!min-w-[84px] !shrink-0"
-            >
-              離開
-            </Button>
-          )}
-        </div>
-      </div>
-      <Dialog
+      <SettlementMobileFooter
+        onGoPrevStep={goPrevStep}
+        onGoNextStep={goNextStep}
+        onOpenExitConfirm={
+          onRequestExit ? () => setExitConfirmOpen(true) : undefined
+        }
+        canGoPrev={stepIndex > 0}
+        hasNextStep={stepIndex < TAB_ORDER.length - 1}
+        canFinish={Boolean(onBackToLobby)}
+      />
+      <SettlementExitDialog
         open={exitConfirmOpen}
         onClose={() => setExitConfirmOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>確認離開房間？</DialogTitle>
-        <DialogContent>
-          <p className="text-sm text-slate-700">
-            離開後會中斷目前結算導覽，並返回房間外。
-          </p>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExitConfirmOpen(false)} color="inherit">
-            取消
-          </Button>
-          <Button
-            color="error"
-            variant="contained"
-            onClick={() => {
-              setExitConfirmOpen(false);
-              onRequestExit?.();
-            }}
-          >
-            確認離開
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={onRequestExit}
+      />
     </div>
   );
 };

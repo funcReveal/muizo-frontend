@@ -3,6 +3,7 @@ import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction 
 import { trackEvent } from "../../../shared/analytics/track";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { apiFetchRooms } from "./roomApi";
+import type { RoomCreateSourceMode } from "./RoomContext";
 import {
   CHUNK_SIZE,
   DEFAULT_PAGE_SIZE,
@@ -53,7 +54,7 @@ interface UseRoomProviderCreateRoomActionParams {
   setIsCreatingRoom: Dispatch<SetStateAction<boolean>>;
   roomNameInput: string;
   roomVisibilityInput: "public" | "private";
-  roomCreateSourceMode: "link" | "collection";
+  roomCreateSourceMode: RoomCreateSourceMode;
   roomPasswordInput: string;
   roomMaxPlayersInput: string;
   questionCount: number;
@@ -648,4 +649,3 @@ export const useRoomProviderCreateRoomAction = ({
 };
 
 export default useRoomProviderCreateRoomAction;
-
