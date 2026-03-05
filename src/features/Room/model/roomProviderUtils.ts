@@ -1,0 +1,252 @@
+import {
+  DEFAULT_CLIP_SEC,
+  DEFAULT_PLAY_DURATION_SEC,
+  DEFAULT_REVEAL_DURATION_SEC,
+  DEFAULT_START_OFFSET_SEC,
+  QUESTION_MIN,
+} from "./roomConstants";
+import {
+  clampPlayDurationSec,
+  clampRevealDurationSec,
+  clampStartOffsetSec,
+  formatSeconds,
+  normalizePlaylistItems,
+} from "./roomUtils";
+import { resolveSettlementTrackLink } from "./settlementLinks";
+import type { PlaylistItem, RoomState, RoomSummary } from "./types";
+import type { WorkerCollectionItem } from "./roomApi";
+
+export const mapCollectionItemsToPlaylist = (
+  _collectionId: string,
+  items: WorkerCollectionItem[],
+) =>
+  items.map((item, index) => {
+    const startSec = Math.max(0, item.start_sec ?? 0);
+    const explicitEndSec =
+      typeof item.end_sec === "number" && item.end_sec > startSec
+        ? item.end_sec
+        : null;
+    const hasExplicitEndSec = explicitEndSec !== null;
+    const hasExplicitStartSec = startSec > 0;
+    const safeEnd = Math.max(
+      startSec + 1,
+      explicitEndSec ?? startSec + DEFAULT_CLIP_SEC,
+    );
+    const provider = (item.provider ?? "manual").trim().toLowerCase();
+    const sourceId = (item.source_id ?? "").trim();
+    const videoId = provider === "youtube" && sourceId ? sourceId : "";
+    const durationValue =
+      typeof item.duration_sec === "number" && item.duration_sec > 0
+        ? formatSeconds(item.duration_sec)
+        : formatSeconds(safeEnd - startSec);
+    const rawTitle = item.title ?? item.answer_text ?? `歌曲 ${index + 1}`;
+    const answerText = item.answer_text ?? rawTitle;
+    const resolvedLink = resolveSettlementTrackLink({
+      provider,
+      sourceId: sourceId || null,
+      videoId,
+      url: "",
+      title: rawTitle,
+      answerText,
+      uploader: item.channel_title ?? undefined,
+    });
+    return {
+      title: rawTitle,
+      answerText,
+      url: resolvedLink.href ?? "",
+      thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : undefined,
+      uploader: item.channel_title ?? undefined,
+      duration: durationValue,
+      startSec,
+      endSec: safeEnd,
+      hasExplicitStartSec,
+      hasExplicitEndSec,
+      collectionClipStartSec: startSec,
+      collectionClipEndSec: explicitEndSec ?? undefined,
+      collectionHasExplicitStartSec: hasExplicitStartSec,
+      collectionHasExplicitEndSec: hasExplicitEndSec,
+      ...(videoId ? { videoId } : {}),
+      sourceId: sourceId || null,
+      provider,
+    };
+  });
+
+export const extractVideoIdFromUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    const vid = parsed.searchParams.get("v");
+    if (vid) return vid;
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    return segments.pop() || null;
+  } catch {
+    try {
+      const parsed = new URL(`https://${url}`);
+      const vid = parsed.searchParams.get("v");
+      if (vid) return vid;
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      return segments.pop() || null;
+    } catch {
+      const match =
+        url.match(/[?&]v=([^&]+)/) ||
+        url.match(/youtu\.be\/([^?&]+)/) ||
+        url.match(/youtube\.com\/embed\/([^?&]+)/);
+      return match?.[1] ?? null;
+    }
+  }
+};
+
+const GARBLED_TEXT_RE = /[嚙甇蝘撠]/;
+
+export const sanitizePossibleGarbledText = (
+  value: string,
+  fallback = "系統訊息",
+) => (GARBLED_TEXT_RE.test(value) ? fallback : value);
+
+export const formatAckError = (prefix: string, error?: string) => {
+  const safePrefix = sanitizePossibleGarbledText(prefix, "操作失敗");
+  const detail = sanitizePossibleGarbledText(
+    error?.trim() || "未知錯誤",
+    "未知錯誤",
+  );
+  return `${safePrefix}：${detail}`;
+};
+
+export const normalizeQuestionCount = (value: number | undefined, fallback: number) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.floor(value);
+};
+
+export type RoomGameSettings = NonNullable<RoomSummary["gameSettings"]>;
+
+export const mergeGameSettings = (
+  current: RoomSummary["gameSettings"] | undefined,
+  incoming: Partial<RoomGameSettings> | undefined,
+): RoomGameSettings => {
+  const fallbackQuestionCount = normalizeQuestionCount(
+    current?.questionCount,
+    QUESTION_MIN,
+  );
+  return {
+    questionCount: normalizeQuestionCount(
+      incoming?.questionCount,
+      fallbackQuestionCount,
+    ),
+    playDurationSec: clampPlayDurationSec(
+      incoming?.playDurationSec ??
+        current?.playDurationSec ??
+        DEFAULT_PLAY_DURATION_SEC,
+    ),
+    revealDurationSec: clampRevealDurationSec(
+      incoming?.revealDurationSec ??
+        current?.revealDurationSec ??
+        DEFAULT_REVEAL_DURATION_SEC,
+    ),
+    startOffsetSec: clampStartOffsetSec(
+      incoming?.startOffsetSec ??
+        current?.startOffsetSec ??
+        DEFAULT_START_OFFSET_SEC,
+    ),
+    allowCollectionClipTiming:
+      incoming?.allowCollectionClipTiming ??
+      current?.allowCollectionClipTiming ??
+      true,
+  };
+};
+
+export const applyGameSettingsPatch = (
+  room: RoomState["room"],
+  patch: Partial<RoomGameSettings>,
+): RoomState["room"] => ({
+  ...room,
+  gameSettings: mergeGameSettings(room.gameSettings, {
+    ...room.gameSettings,
+    ...patch,
+  }),
+});
+
+export const buildUploadPlaylistItems = (
+  sourceItems: PlaylistItem[],
+  options: {
+    playDurationSec: number;
+    startOffsetSec: number;
+    allowCollectionClipTiming: boolean;
+  },
+): PlaylistItem[] => {
+  const roomPlayDurationSec = clampPlayDurationSec(options.playDurationSec);
+  const roomStartOffsetSec = clampStartOffsetSec(options.startOffsetSec);
+  return normalizePlaylistItems(sourceItems).map((item) => {
+    const itemStartSec = Math.max(0, item.startSec ?? 0);
+    const rawHasExplicitEndSec =
+      typeof item.hasExplicitEndSec === "boolean"
+        ? item.hasExplicitEndSec
+        : typeof item.endSec === "number" && item.endSec > itemStartSec;
+    const rawHasExplicitStartSec =
+      typeof item.hasExplicitStartSec === "boolean"
+        ? item.hasExplicitStartSec
+        : itemStartSec > 0 || rawHasExplicitEndSec;
+    const collectionClipStartSec = Math.max(
+      0,
+      item.collectionClipStartSec ?? itemStartSec,
+    );
+    const inferredTrackClip = item.timingSource === "track_clip";
+    const collectionHasExplicitStartSec =
+      typeof item.collectionHasExplicitStartSec === "boolean"
+        ? item.collectionHasExplicitStartSec
+        : inferredTrackClip
+          ? rawHasExplicitStartSec
+          : false;
+    const collectionHasExplicitEndSec =
+      typeof item.collectionHasExplicitEndSec === "boolean"
+        ? item.collectionHasExplicitEndSec
+        : inferredTrackClip
+          ? rawHasExplicitEndSec
+          : false;
+    const collectionClipEndSec =
+      typeof item.collectionClipEndSec === "number" &&
+      item.collectionClipEndSec > collectionClipStartSec
+        ? item.collectionClipEndSec
+        : collectionHasExplicitEndSec &&
+            typeof item.endSec === "number" &&
+            item.endSec > collectionClipStartSec
+          ? item.endSec
+          : undefined;
+    const isCollectionItem = item.provider === "collection";
+    const useTrackClip =
+      options.allowCollectionClipTiming &&
+      isCollectionItem &&
+      (collectionHasExplicitStartSec || collectionHasExplicitEndSec);
+    const startSec = useTrackClip ? collectionClipStartSec : roomStartOffsetSec;
+    const fallbackEndSec = startSec + roomPlayDurationSec;
+    const itemEndSec =
+      useTrackClip && collectionHasExplicitEndSec && collectionClipEndSec
+        ? collectionClipEndSec
+        : fallbackEndSec;
+    const endSec = Math.max(startSec + 1, useTrackClip ? itemEndSec : fallbackEndSec);
+    return {
+      ...item,
+      startSec,
+      endSec,
+      hasExplicitStartSec: useTrackClip ? collectionHasExplicitStartSec : false,
+      hasExplicitEndSec: useTrackClip ? collectionHasExplicitEndSec : false,
+      collectionClipStartSec,
+      collectionClipEndSec,
+      collectionHasExplicitStartSec,
+      collectionHasExplicitEndSec,
+      timingSource: useTrackClip
+        ? ("track_clip" as const)
+        : ("room_settings" as const),
+    };
+  });
+};
+
+export const mergeRoomSummaryIntoCurrentRoom = (
+  current: RoomState["room"],
+  summary: RoomSummary,
+): RoomState["room"] => ({
+  ...current,
+  ...summary,
+  gameSettings: mergeGameSettings(current.gameSettings, summary.gameSettings),
+});
+
