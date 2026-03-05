@@ -248,7 +248,7 @@ const EditPage = () => {
       };
       return JSON.stringify(payload);
     },
-    [collectionVisibility, extractVideoId],
+    [collectionVisibility],
   );
 
   const showAutoSaveNotice = (type: "success" | "error", message: string) => {
@@ -835,6 +835,7 @@ const EditPage = () => {
     itemsLoading,
     collectionsLoading,
     selectedVideoId,
+    volume,
     syncDurationFromPlayer,
   ]);
 
@@ -950,7 +951,7 @@ const EditPage = () => {
     setCurrentTimeSec(nextStart);
     shouldSeekToStartRef.current = true;
     selectedStartRef.current = nextStart;
-  }, [selectedItemId, maxSec]);
+  }, [selectedItemId, selectedItem, maxSec]);
 
   useEffect(() => {
     if (!selectedItem) return;
@@ -967,7 +968,7 @@ const EditPage = () => {
       setEndSec(nextEnd);
       setEndTimeInput(formatSeconds(nextEnd));
     }
-  }, [selectedItem?.startSec, selectedItem?.endSec, maxSec, startSec, endSec]);
+  }, [selectedItem, maxSec, startSec, endSec]);
 
   const updateSelectedItem = useCallback(
     (updates: Partial<EditableItem>) => {
@@ -1064,7 +1065,6 @@ const EditPage = () => {
     setDuplicateIndex(null);
   }, [
     appendItems,
-    extractVideoId,
     playlistItems,
     singleTrackAnswer,
     singleTrackDuration,

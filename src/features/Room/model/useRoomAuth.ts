@@ -122,7 +122,7 @@ export const useRoomAuth = ({
     };
     refreshInFlightRef.current = run();
     return refreshInFlightRef.current;
-  }, [apiUrl, clearAuth, persistAuth]);
+  }, [apiUrl, persistAuth]);
 
   const confirmNickname = useCallback(async () => {
     const trimmed = nicknameDraft.trim();
@@ -145,7 +145,6 @@ export const useRoomAuth = ({
     setIsProfileEditorOpen(false);
     setStatusText("暱稱已設定");
   }, [
-    authToken,
     authUser,
     nicknameDraft,
     persistUsername,

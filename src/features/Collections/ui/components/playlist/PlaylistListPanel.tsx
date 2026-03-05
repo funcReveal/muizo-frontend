@@ -299,7 +299,7 @@ const PlaylistListPanel = ({
   onSingleTrackCancel,
   onAddSingle,
 }: PlaylistListPanelProps) => {
-  const safeItems = Array.isArray(items) ? items : [];
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const itemIds = useMemo(
     () => safeItems.map((item) => item.localId),
     [safeItems],

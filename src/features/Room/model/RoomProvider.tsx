@@ -823,7 +823,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     }
     persistUsername(trimmed);
     setStatusText(null);
-  }, [persistUsername, usernameInput]);
+  }, [persistUsername, setStatusText, usernameInput]);
 
 
   const getSocket = useCallback(() => socketRef.current, []);
@@ -936,7 +936,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       console.error(error);
       setStatusText("取得房間列表失敗");
     }
-  }, [isInviteMode, inviteRoomId]);
+  }, [inviteRoomId, isInviteMode, setStatusText]);
 
   const fetchRoomById = useCallback(async (roomId: string) => {
     if (!API_URL) {
@@ -953,7 +953,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       console.error(error);
       return null;
     }
-  }, []);
+  }, [setStatusText]);
 
   const fetchSettlementHistorySummaries = useCallback(
     async (options?: { limit?: number; beforeEndedAt?: number | null }) => {
@@ -1030,7 +1030,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         setStatusText("嚙踝蕭嚙豌房塚蕭嚙踝蕭嚙編嚙箭嚙諄已嚙踝蕭嚙踝蕭");
       }
     });
-  }, [fetchRoomById, inviteRoomId]);
+  }, [fetchRoomById, inviteRoomId, setStatusText]);
 
   const fetchPlaylistPage = useCallback((
     roomId: string,
@@ -1536,6 +1536,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     seedPresenceParticipants,
     mergeCachedParticipantPing,
     appendPresenceSystemMessage,
+    setStatusText,
     syncServerOffset,
   ]);
 
@@ -2051,6 +2052,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     roomVisibilityInput,
     roomPasswordInput,
     saveRoomPassword,
+    setStatusText,
     startOffsetSec,
     syncServerOffset,
     username,
@@ -2132,6 +2134,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     syncServerOffset,
     username,
     seedPresenceParticipants,
+    setStatusText,
   ]);
 
   const handleLeaveRoom = useCallback((onLeft?: () => void) => {
@@ -2161,7 +2164,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         setStatusText(formatAckError("嚙踝蕭嚙罷嚙請塚蕭嚙踝蕭嚙踝蕭", ack.error));
       }
     });
-  }, [currentRoom, getSocket, persistRoomId, resetPresenceParticipants, resetSessionClientId]);
+  }, [currentRoom, getSocket, persistRoomId, resetPresenceParticipants, resetSessionClientId, setStatusText]);
 
   const handleSendMessage = useCallback(() => {
     const s = getSocket();
@@ -2180,7 +2183,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     setMessageInput("");
-  }, [currentRoom, getSocket, messageInput]);
+  }, [currentRoom, getSocket, messageInput, setStatusText]);
 
   const handleStartGame = useCallback(() => {
     const s = getSocket();
@@ -2221,6 +2224,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     fetchCompletePlaylist,
     getSocket,
     playlistProgress.ready,
+    setStatusText,
     syncServerOffset,
   ]);
 
@@ -2230,7 +2234,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       // even if settlementHistoryUpdated arrives slightly later.
       setStatusText("遊戲已結束，正在整理結算結果");
     }
-  }, [gameState?.status]);
+  }, [gameState?.status, setStatusText]);
 
   const handleSubmitChoice = useCallback(
     async (choiceIndex: number): Promise<SubmitAnswerResult> => {
@@ -2314,7 +2318,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         );
       });
     },
-    [currentRoom, gameState, getSocket],
+    [currentRoom, gameState, getSocket, setStatusText],
   );
 
   useEffect(() => {
@@ -2468,7 +2472,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         },
       );
     },
-    [currentRoom, getSocket],
+    [currentRoom, getSocket, setStatusText],
   );
 
   const handleTransferHost = useCallback(
@@ -2486,7 +2490,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
         },
       );
     },
-    [currentRoom, getSocket],
+    [currentRoom, getSocket, setStatusText],
   );
 
   const handleSuggestPlaylist = useCallback(

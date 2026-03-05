@@ -995,13 +995,15 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
   const handleOpenRecommendationCardLink = useCallback(
     (card: {
-      recap: ExtendedRecap;
-      link?: { href?: string | null; provider?: string } | null;
+      recap: { key: string };
+      link?: { href?: string | null } | null;
     }) => {
       if (!card.link?.href) return;
-      handleOpenTrackLink(card.link as SettlementTrackLink, card.recap);
+      const recap = normalizedRecaps.find((entry) => entry.key === card.recap.key);
+      if (!recap) return;
+      handleOpenTrackLink(buildRecommendationLink(recap), recap);
     },
-    [handleOpenTrackLink],
+    [handleOpenTrackLink, normalizedRecaps],
   );
 
   const handleSupportArtistClick = useCallback(() => {

@@ -5,5 +5,6 @@ const SOCKET_URL =
   (typeof window !== "undefined" ? window.location.origin : "");
 
 export const socket = io(SOCKET_URL, {
-  transports: ["websocket"],
+  transports: ["polling", "websocket"],
+  upgrade: true,
 });
