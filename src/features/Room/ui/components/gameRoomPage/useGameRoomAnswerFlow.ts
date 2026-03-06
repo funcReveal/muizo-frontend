@@ -261,7 +261,12 @@ const useGameRoomAnswerFlow = ({
       const requestId = (submitRequestSeqRef.current += 1);
 
       primeSfxAudio();
-      playGameSfx("lock");
+      const lockSfxPlayed = playGameSfx("lock");
+      if (!lockSfxPlayed) {
+        window.setTimeout(() => {
+          playGameSfx("lock");
+        }, 90);
+      }
       setPendingChoiceState({
         trackSessionKey,
         choiceIndex,

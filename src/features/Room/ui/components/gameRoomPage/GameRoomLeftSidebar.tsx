@@ -3,6 +3,7 @@ import { Button, Chip, Switch } from "@mui/material";
 
 import type { ChatMessage, RoomParticipant } from "../../../model/types";
 import type { TopTwoSwapState } from "./gameRoomPageTypes";
+import { resolveComboTier } from "../../gameRoomUiUtils";
 
 type ScoreboardRow =
   | { type: "player"; player: RoomParticipant }
@@ -48,7 +49,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   chatScrollRef,
 }) => {
   return (
-    <aside className="game-room-panel game-room-panel--left flex h-full flex-col gap-3 overflow-hidden p-3 text-slate-50">
+    <aside className="game-room-panel game-room-panel--left game-room-panel--blaze flex h-full flex-col gap-3 overflow-hidden p-3 text-slate-50">
       <div className="flex items-center gap-3">
         <div>
           <p className="game-room-kicker">排行榜</p>
@@ -63,7 +64,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           className="ml-auto game-room-chip"
         />
       </div>
-      <div className="space-y-2">
+      <div className="game-room-scoreboard-stack space-y-1.5">
         {scoreboardRows.length === 0 ? (
           <div className="text-xs text-slate-500">尚無玩家</div>
         ) : (
@@ -132,6 +133,9 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     p.clientId === topTwoSwapState.secondClientId
                   ? "second"
                   : null;
+            const rowComboTier = resolveComboTier(p.combo ?? 0);
+            const rowComboTierClass =
+              rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
             return (
               <div
                 key={p.clientId}
@@ -151,6 +155,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     : topSwapRole === "second"
                       ? "game-room-score-row--top-swap-second"
                       : ""
+                } ${rowComboTierClass} ${
+                  rowComboTier > 0 ? "game-room-score-row--combo-flare" : ""
                 }`}
               >
                 <span className="truncate flex items-center gap-2">
@@ -297,3 +303,4 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
 };
 
 export default GameRoomLeftSidebar;
+

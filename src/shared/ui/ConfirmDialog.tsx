@@ -36,18 +36,19 @@ const ConfirmDialog = ({
     fullWidth
     sx={{
       "& .MuiDialog-paper": {
-        backgroundColor:
-          "color-mix(in srgb, var(--mc-surface-strong) 45%, black)",
-        color: "var(--mc-text)",
-        border: "1px solid var(--mc-border)",
+        background:
+          "linear-gradient(180deg, rgba(10,16,28,0.96), rgba(6,10,18,0.98))",
+        color: "#f8fafc",
+        border: "1px solid rgba(125, 211, 252, 0.28)",
         borderRadius: "1rem",
-        boxShadow: "0 24px 80px -40px rgba(0,0,0,0.9)",
+        boxShadow:
+          "0 28px 80px -36px rgba(2,6,23,0.92), 0 0 0 1px rgba(56,189,248,0.12)",
       },
     }}
   >
-    <DialogTitle className="text-[var(--mc-text)]">{title}</DialogTitle>
+    <DialogTitle className="!font-black !text-slate-50">{title}</DialogTitle>
     <DialogContent>
-      <DialogContentText className="text-[var(--mc-text-muted)]">
+      <DialogContentText className="!text-[15px] !font-semibold !leading-relaxed !text-slate-200">
         {description}
       </DialogContentText>
       {extraContent}

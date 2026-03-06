@@ -57,9 +57,10 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           <div>
             <p className="game-room-kicker">正在播放</p>
             <p className="game-room-title">{roomName}</p>
-            <p className="text-xs text-slate-400">
-              曲目 {boundedCursor + 1}/{trackOrderLength || "?"}
-            </p>
+            <div className="game-room-track-counter mt-1 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black tracking-[0.14em] text-amber-100">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+              題目 {boundedCursor + 1}/{trackOrderLength || "?"}
+            </div>
           </div>
         </div>
         <Button variant="outlined" color="inherit" size="small" onClick={onOpenExitConfirm}>

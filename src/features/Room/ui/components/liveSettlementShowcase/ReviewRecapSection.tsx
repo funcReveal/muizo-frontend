@@ -190,7 +190,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                       ? "（你）"
                       : ""
                   }`
-                : "未選擇玩家"}
+                : "尚未選擇玩家"}
             </span>
             <button
               type="button"
@@ -259,7 +259,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
         </div>
       )}
       <p className="mt-2 text-[11px] text-slate-400">
-        提示：雙擊題目可切換到該首試聽（上方控制列可切換雙擊播放）
+        提示：雙擊題目可切換到試聽區（上方控制列可切換雙擊播放）。
       </p>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -336,6 +336,14 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   >
                     {tone.label}
                   </span>
+                  {recapRating && recapGradeMeta && (
+                    <span
+                      className={`inline-flex h-6 min-w-[2.2rem] items-center justify-center rounded-full border px-2 text-[11px] font-semibold ${recapGradeMeta.badgeClass}`}
+                      title={`評分 ${recapRating.grade}`}
+                    >
+                      {recapRating.grade}
+                    </span>
+                  )}
                   {typeof recapCorrectRank === "number" && recapCorrectRank > 1 && (
                     <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-sky-300/45 bg-sky-500/16 px-2 text-[10px] font-semibold text-sky-50">
                       第{recapCorrectRank}答
@@ -344,14 +352,6 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   {recapCorrectRank === 1 && (
                     <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-emerald-300/45 bg-emerald-500/16 px-2 text-[10px] font-semibold text-emerald-100">
                       首答
-                    </span>
-                  )}
-                  {recapRating && recapGradeMeta && (
-                    <span
-                      className={`inline-flex h-6 min-w-[2.2rem] items-center justify-center rounded-full border px-2 text-[11px] font-semibold ${recapGradeMeta.badgeClass}`}
-                      title={`評分 ${recapRating.grade}`}
-                    >
-                      {recapRating.grade}
                     </span>
                   )}
                   {isFastestRecap && (
@@ -396,7 +396,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                     disabled={!selectedRecapLink?.href}
                     title={
                       selectedRecapLink?.href
-                        ? `前往 ${selectedRecapLink.providerLabel || "平台"}`
+                        ? `開啟 ${selectedRecapLink.providerLabel || "外部連結"}`
                         : selectedRecap.title
                     }
                   >
@@ -414,6 +414,14 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   >
                     {resultMeta[selectedRecapAnswer.result].label}
                   </span>
+                  {selectedRecapRating && selectedRecapGradeMeta && (
+                    <span
+                      className={`inline-flex h-6 min-w-[2.2rem] items-center justify-center rounded-full border px-2 text-[11px] font-semibold ${selectedRecapGradeMeta.badgeClass}`}
+                      title={`評分 ${selectedRecapRating.grade}`}
+                    >
+                      {selectedRecapRating.grade}
+                    </span>
+                  )}
                   {typeof selectedRecapCorrectRank === "number" &&
                     selectedRecapCorrectRank > 1 && (
                       <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-sky-300/45 bg-sky-500/16 px-2 text-[10px] font-semibold text-sky-50">
@@ -451,7 +459,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                       >
                         {selectedRecapRating.grade}
                       </span>{" "}
-                      · {selectedRecapRating.score}
+                        · {selectedRecapRating.score}
                     </p>
                     <p
                       className={`mt-1 text-[11px] ${selectedRecapGradeMeta.detailClass}`}
@@ -461,7 +469,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   </>
                 ) : (
                   <p className="mt-1 text-xs text-slate-400">
-                    尚無作答資料可計算評分
+                    尚無可計算的評分資料。
                   </p>
                 )}
               </div>
@@ -512,7 +520,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
             </div>
           ) : (
             <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-4 text-sm text-slate-400">
-              目前沒有可查看的題目內容
+              目前沒有可顯示的題目回顧。
             </div>
           )}
         </div>

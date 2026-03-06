@@ -322,7 +322,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                         {isMe ? "（你）" : ""}
                       </p>
                     </div>
-                    <div className="flex min-w-[92px] shrink-0 flex-col items-center justify-center gap-1 text-center">
+                    <div className="flex min-w-[92px] shrink-0 flex-col items-center justify-end gap-1.5 pt-1 text-center">
                       <span className="rounded-full border border-slate-500/70 bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold leading-none text-slate-200">
                         {title}
                       </span>

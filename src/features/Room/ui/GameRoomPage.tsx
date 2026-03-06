@@ -109,6 +109,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const lastGuessUrgencySfxKeyRef = useRef<string | null>(null);
   const lastCountdownGoSfxKeyRef = useRef<string | null>(null);
   const lastRevealResultSfxKeyRef = useRef<string | null>(null);
+  const lastComboStateSfxKeyRef = useRef<string | null>(null);
   const answerPanelRef = useRef<HTMLDivElement | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
@@ -297,12 +298,25 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   });
   const shouldShowGestureOverlay =
     !isEnded && requiresAudioGesture && !audioUnlocked;
+  const participantCount = participants.length;
+  const serverAnsweredCount =
+    typeof gameState.questionStats?.answeredCount === "number" &&
+    Number.isFinite(gameState.questionStats.answeredCount)
+      ? Math.max(0, Math.floor(gameState.questionStats.answeredCount))
+      : Array.isArray(gameState.questionStats?.answerOrderLatest)
+        ? gameState.questionStats.answerOrderLatest.length
+        : 0;
+  const allAnsweredByServer =
+    gameState.phase === "guess" &&
+    participantCount > 0 &&
+    serverAnsweredCount >= participantCount;
   const canAnswerNow =
     gameState.status === "playing" &&
     gameState.phase === "guess" &&
     !waitingToStart &&
     !isReveal &&
     !isEnded &&
+    !allAnsweredByServer &&
     !shouldShowGestureOverlay;
   const {
     selectedChoiceState,
@@ -327,8 +341,20 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     primeSfxAudio,
     playGameSfx,
   });
+  const allAnsweredReadyForReveal =
+    gameState.phase === "guess" &&
+    participantCount > 0 &&
+    (allAnsweredByServer || answeredCount >= participantCount);
+  const isRevealPendingServerSync = allAnsweredReadyForReveal && !isReveal;
+  const displayedPhaseRemainingMs = allAnsweredReadyForReveal
+    ? 0
+    : phaseRemainingMs;
   const isTrackLoading = loadedTrackKey !== trackLoadKey;
-  const showGuessMask = gameState.phase === "guess" && !isEnded && !waitingToStart;
+  const showGuessMask =
+    gameState.phase === "guess" &&
+    !allAnsweredReadyForReveal &&
+    !isEnded &&
+    !waitingToStart;
   const showPreStartMask =
     waitingToStart &&
     !isEnded &&
@@ -416,7 +442,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   const phaseLabel = isEnded
     ? "已結束"
-    : gameState.phase === "guess"
+    : gameState.phase === "guess" && !allAnsweredReadyForReveal
       ? "猜歌中"
       : "公布答案";
 
@@ -427,10 +453,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const progressPct =
     phaseEndsAt === gameState.startedAt || activePhaseDurationMs <= 0
       ? 0
+      : allAnsweredReadyForReveal
+        ? 100
       : ((activePhaseDurationMs - phaseRemainingMs) / activePhaseDurationMs) *
       100;
   const isGuessUrgency =
     gameState.phase === "guess" &&
+    !allAnsweredReadyForReveal &&
     !isInterTrackWait &&
     !isEnded &&
     phaseRemainingMs > 0 &&
@@ -438,6 +467,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const phaseCountdownSec =
     !isInterTrackWait &&
     !isEnded &&
+    !allAnsweredReadyForReveal &&
     phaseRemainingMs > 0 &&
     phaseRemainingMs <= 3999
       ? Math.min(3, Math.ceil(phaseRemainingMs / 1000))
@@ -586,6 +616,51 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     waitingToStart,
   ]);
 
+  useEffect(() => {
+    if (!isReveal || isInterTrackWait || waitingToStart || isEnded) return;
+    if (!meClientId) return;
+    let timerId: number | null = null;
+    if (isComboBreakThisQuestion && comboBreakTier > 0) {
+      const sfxKey = `${trackSessionKey}:combo-break:${comboBreakTier}`;
+      if (lastComboStateSfxKeyRef.current === sfxKey) return;
+      lastComboStateSfxKeyRef.current = sfxKey;
+      timerId = window.setTimeout(() => {
+        playGameSfx("comboBreak");
+      }, 110);
+      return () => {
+        if (timerId !== null) {
+          window.clearTimeout(timerId);
+        }
+      };
+    }
+    if (!myIsCorrect || !myComboMilestone || myComboTier <= 0) return;
+    const sfxKey = `${trackSessionKey}:combo-up:${myComboNow}:${myComboTier}`;
+    if (lastComboStateSfxKeyRef.current === sfxKey) return;
+    lastComboStateSfxKeyRef.current = sfxKey;
+    timerId = window.setTimeout(() => {
+      playGameSfx("combo");
+    }, 120);
+    return () => {
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, [
+    comboBreakTier,
+    isComboBreakThisQuestion,
+    isEnded,
+    isInterTrackWait,
+    isReveal,
+    meClientId,
+    myComboMilestone,
+    myComboNow,
+    myComboTier,
+    myIsCorrect,
+    playGameSfx,
+    trackSessionKey,
+    waitingToStart,
+  ]);
+
   const playedQuestionCount = trackOrderLength || room.gameSettings?.questionCount || 0;
   const scoreboardRows = useMemo(
     () => buildScoreboardRows(sortedParticipants, meClientId),
@@ -716,7 +791,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             revealTone={revealTone}
             isInterTrackWait={isInterTrackWait}
             phaseLabel={phaseLabel}
-            phaseRemainingMs={phaseRemainingMs}
+            phaseRemainingMs={displayedPhaseRemainingMs}
             gamePhase={gameState.phase}
             isGuessUrgency={isGuessUrgency}
             progressPct={progressPct}
@@ -746,6 +821,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             resolvedAnswerTitle={resolvedAnswerTitle}
             onOpenExitConfirm={openExitConfirm}
             isPendingFeedbackCard={isPendingFeedbackCard}
+            allAnsweredReadyForReveal={allAnsweredReadyForReveal}
+            isRevealPendingServerSync={isRevealPendingServerSync}
           />
         </section>
         {audioGestureOverlay}

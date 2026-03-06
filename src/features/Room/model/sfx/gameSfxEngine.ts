@@ -265,18 +265,26 @@ const getSfxSteps = (preset: SfxPresetProfile, event: GameSfxEvent): SfxStep[] =
       return [
         {
           atSec: 0,
-          durationSec: 0.055,
-          freq: p(760),
+          durationSec: 0.048,
+          freq: p(700),
           endFreq: p(840),
-          gain: g(0.15),
+          gain: g(0.26),
           type: preset.accentWave,
         },
         {
-          atSec: 0.07,
-          durationSec: 0.06,
-          freq: p(940),
-          endFreq: p(1120),
-          gain: g(0.11),
+          atSec: 0.032,
+          durationSec: 0.052,
+          freq: p(980),
+          endFreq: p(1220),
+          gain: g(0.2),
+          type: preset.primaryWave,
+        },
+        {
+          atSec: 0.09,
+          durationSec: 0.09,
+          freq: p(1360),
+          endFreq: p(1720),
+          gain: g(0.14),
           type: preset.softWave,
         },
       ];
@@ -330,18 +338,34 @@ const getSfxSteps = (preset: SfxPresetProfile, event: GameSfxEvent): SfxStep[] =
       return [
         {
           atSec: 0,
-          durationSec: 0.06,
-          freq: p(1040),
-          endFreq: p(1180),
+          durationSec: 0.054,
+          freq: p(980),
+          endFreq: p(1120),
+          gain: g(0.13),
+          type: preset.accentWave,
+        },
+        {
+          atSec: 0.05,
+          durationSec: 0.068,
+          freq: p(1260),
+          endFreq: p(1480),
+          gain: g(0.125),
+          type: preset.primaryWave,
+        },
+        {
+          atSec: 0.11,
+          durationSec: 0.074,
+          freq: p(1580),
+          endFreq: p(1980),
           gain: g(0.11),
           type: preset.accentWave,
         },
         {
-          atSec: 0.055,
-          durationSec: 0.075,
-          freq: p(1320),
-          endFreq: p(1520),
-          gain: g(0.1),
+          atSec: 0.176,
+          durationSec: 0.09,
+          freq: p(2040),
+          endFreq: p(2360),
+          gain: g(0.082),
           type: preset.primaryWave,
         },
       ];
@@ -349,19 +373,27 @@ const getSfxSteps = (preset: SfxPresetProfile, event: GameSfxEvent): SfxStep[] =
       return [
         {
           atSec: 0,
-          durationSec: 0.07,
-          freq: p(430),
-          endFreq: p(360),
-          gain: g(0.09),
-          type: preset.softWave,
+          durationSec: 0.06,
+          freq: p(520),
+          endFreq: p(390),
+          gain: g(0.105),
+          type: preset.primaryWave,
         },
         {
-          atSec: 0.05,
-          durationSec: 0.09,
-          freq: p(330),
-          endFreq: p(240),
-          gain: g(0.08),
+          atSec: 0.045,
+          durationSec: 0.11,
+          freq: p(360),
+          endFreq: p(220),
+          gain: g(0.105),
           type: "sawtooth",
+        },
+        {
+          atSec: 0.13,
+          durationSec: 0.11,
+          freq: p(240),
+          endFreq: p(170),
+          gain: g(0.084),
+          type: preset.softWave,
         },
       ];
     case "correct":
@@ -405,19 +437,27 @@ const getSfxSteps = (preset: SfxPresetProfile, event: GameSfxEvent): SfxStep[] =
       return [
         {
           atSec: 0,
-          durationSec: 0.1,
-          freq: p(520),
-          endFreq: p(420),
-          gain: g(0.14),
+          durationSec: 0.08,
+          freq: p(540),
+          endFreq: p(430),
+          gain: g(0.16),
           type: preset.primaryWave,
         },
         {
-          atSec: 0.09,
-          durationSec: 0.14,
-          freq: p(380),
-          endFreq: p(260),
-          gain: g(0.12),
+          atSec: 0.07,
+          durationSec: 0.15,
+          freq: p(390),
+          endFreq: p(230),
+          gain: g(0.13),
           type: "sawtooth",
+        },
+        {
+          atSec: 0.19,
+          durationSec: 0.11,
+          freq: p(280),
+          endFreq: p(210),
+          gain: g(0.085),
+          type: preset.softWave,
         },
       ];
     case "unanswered":
@@ -479,6 +519,27 @@ export const playSynthSfx = (
   const limiter = ctx.createDynamicsCompressor();
   const baseTime = ctx.currentTime + Math.max(0, offsetSec);
   const safeVolume = Math.min(1, Math.max(0, volumeRatio));
+  const isComboEvent =
+    event === "combo" ||
+    event === "correctCombo1" ||
+    event === "correctCombo2" ||
+    event === "correctCombo3" ||
+    event === "correctCombo4" ||
+    event === "correctCombo5";
+  const eventBoost =
+    event === "lock"
+      ? 1.08
+      : event === "wrong" || event === "comboBreak"
+        ? 1.12
+        : isComboEvent
+          ? 1.18
+          : 1;
+  const releaseSec =
+    isComboEvent || event === "comboBreak"
+      ? 0.72
+      : event === "wrong"
+        ? 0.66
+        : 0.56;
 
   filter.type = "highpass";
   filter.frequency.setValueAtTime(90, baseTime);
@@ -489,8 +550,11 @@ export const playSynthSfx = (
   limiter.release.setValueAtTime(0.06, baseTime);
 
   master.gain.setValueAtTime(0.0001, baseTime);
-  master.gain.linearRampToValueAtTime(0.5 * safeVolume, baseTime + 0.01);
-  master.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.45);
+  master.gain.linearRampToValueAtTime(
+    0.62 * safeVolume * eventBoost,
+    baseTime + 0.01,
+  );
+  master.gain.exponentialRampToValueAtTime(0.0001, baseTime + releaseSec);
 
   master.connect(filter);
   filter.connect(limiter);

@@ -27,7 +27,7 @@ import {
   Typography,
 } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import BrandLogo from "../../shared/ui/BrandLogo";
 
@@ -155,6 +155,18 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     setMenuAnchorEl(null);
   };
 
+  const handleBrandNavigate = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      if (onNavigateRooms) {
+        onNavigateRooms();
+        return;
+      }
+      navigate("/rooms");
+    },
+    [navigate, onNavigateRooms],
+  );
+
   const fetchSystemStatus = useCallback(async () => {
     setSystemLoading(true);
     setSystemError(null);
@@ -275,12 +287,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
   return (
     <header className="flex w-full min-w-0 items-center justify-between gap-3 text-[var(--mc-text)] sm:gap-4">
-      <Link
-        to="/rooms"
-        className="inline-flex shrink-0 items-center px-3 py-2 transition"
+      <button
+        type="button"
+        onClick={handleBrandNavigate}
+        className="inline-flex shrink-0 cursor-pointer items-center px-3 py-2 transition"
       >
         <BrandLogo compact />
-      </Link>
+      </button>
 
       <div className="relative inline-flex min-w-0 shrink-0 items-center">
         {authUser ? (

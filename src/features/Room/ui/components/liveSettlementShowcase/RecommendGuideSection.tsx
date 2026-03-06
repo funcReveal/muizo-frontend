@@ -155,6 +155,33 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   multilineEllipsis2Style,
   onSupportArtistClick,
 }) => {
+  const recommendationTitleButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const [recommendationTitleOverflowPx, setRecommendationTitleOverflowPx] =
+    React.useState(0);
+
+  React.useLayoutEffect(() => {
+    const button = recommendationTitleButtonRef.current;
+    if (!button) return;
+    const measure = () => {
+      const overflow = Math.max(0, Math.ceil(button.scrollWidth - button.clientWidth));
+      setRecommendationTitleOverflowPx((prev) =>
+        Math.abs(prev - overflow) <= 1 ? prev : overflow,
+      );
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+    };
+  }, [currentRecommendation?.recap.title, recommendationTransitionKey]);
+
+  const shouldRunTitleMarquee = recommendationTitleOverflowPx > 10;
+  const titleMarqueeStyle = shouldRunTitleMarquee
+    ? ({
+        ["--settlement-title-shift" as const]: `-${recommendationTitleOverflowPx}px`,
+      } as React.CSSProperties)
+    : undefined;
+
   return (
     <section
       ref={recommendSectionRef}
@@ -225,7 +252,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                         } ${count <= 0 ? "cursor-not-allowed opacity-45" : ""}`}
                         onClick={() => onActivateCategory(category)}
                         disabled={count <= 0}
-                        title={categoryHint}
                       >
                         <Icon fontSize="small" className="text-[0.95rem]" />
                         <span>{recommendCategoryLabels[category]}</span>
@@ -240,7 +266,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
             </div>
           </div>
 
-          <div className="min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
+          <div className="game-settlement-controls-sticky min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
             <div
               className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
               style={
@@ -265,7 +291,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                         ? "border-cyan-300/55 bg-cyan-500/18 text-cyan-50"
                         : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
                     }`}
-                    title="自動導覽：自動倒數並切換推薦曲目"
                     onClick={onToggleAutoPreview}
                   >
                     <GraphicEqRoundedIcon
@@ -292,7 +317,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                         ? "border-violet-300/55 bg-violet-500/18 text-violet-50"
                         : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
                     }`}
-                    title="雙擊播放：雙擊回顧題目可直接切換試聽"
                     onClick={onToggleReviewDoubleClickPlay}
                   >
                     <AdsClickRoundedIcon
@@ -315,7 +339,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                         ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
                         : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
                     }`}
-                    title="全員作答：開啟或收合題目回顧區"
                     onClick={onToggleReviewDrawerOpen}
                   >
                     <GroupsRoundedIcon
@@ -353,14 +376,22 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                   Artist Spotlight
                 </p>
                 <button
+                  ref={recommendationTitleButtonRef}
                   type="button"
                   onClick={onOpenRecommendationTitle}
                   disabled={!currentRecommendation.link?.href}
-                  className="mt-1 text-left text-2xl font-black leading-tight text-slate-100 underline-offset-4 transition hover:text-cyan-200 hover:underline disabled:cursor-default disabled:opacity-85 disabled:no-underline sm:text-[2rem]"
-                  style={multilineEllipsis2Style}
-                  title={currentRecommendation.recap.title}
+                  className="game-settlement-title-marquee mt-1 w-full overflow-hidden text-left text-2xl font-black leading-tight text-slate-100 underline-offset-4 transition hover:text-cyan-200 hover:underline disabled:cursor-default disabled:opacity-85 disabled:no-underline sm:text-[2rem]"
                 >
-                  {currentRecommendation.recap.title}
+                  <span
+                    className={`game-settlement-title-marquee-track ${
+                      shouldRunTitleMarquee
+                        ? "game-settlement-title-marquee-track--run"
+                        : ""
+                    }`}
+                    style={titleMarqueeStyle}
+                  >
+                    {currentRecommendation.recap.title}
+                  </span>
                 </button>
                 <p className="mt-2 text-sm font-semibold text-slate-200">
                   作者：{currentRecommendation.recap.uploader || "Unknown"}
@@ -554,14 +585,13 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     }}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 text-xs font-semibold text-slate-100">
+                      <p className="min-w-0 truncate text-xs font-semibold text-slate-100">
                         <span
-                          className={`inline ${
+                          className={`block truncate ${
                             card.link?.href
                               ? "cursor-pointer underline decoration-slate-500/60 underline-offset-2 transition hover:text-cyan-200 hover:decoration-cyan-300/70"
                               : ""
                           }`}
-                          style={multilineEllipsis2Style}
                           onClick={(event) => {
                             if (!card.link?.href) return;
                             event.stopPropagation();

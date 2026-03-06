@@ -754,7 +754,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       ? `ended-${gameState?.startedAt ?? 0}`
       : "not-ended";
 
-  const PlaylistRow = ({ index, style, ariaAttributes }: RowComponentProps) => {
+  const handleOpenPlaylistItem = React.useCallback((url?: string | null) => {
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const playlistRowProps = React.useMemo<Record<string, never>>(() => ({}), []);
+
+  const PlaylistRow = React.useCallback(({ index, style, ariaAttributes }: RowComponentProps) => {
     if (index >= playlistItems.length) {
       if (playlistHasMore && !playlistLoadingMore) {
         onLoadMorePlaylist();
@@ -771,12 +778,26 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     }
 
     const item = playlistItems[index];
+    const canOpenItem = Boolean(item.url);
     const displayTitle = normalizeDisplayText(item.title, `未命名歌曲 ${index + 1}`);
     const displayUploader = normalizeDisplayText(item.uploader ?? "", "Unknown");
 
     return (
       <div style={style}>
-        <div className="room-lobby-playlist-row px-3 py-2 flex items-center gap-2 border-b border-slate-800/60">
+        <div
+          className={`room-lobby-playlist-row px-3 py-2 flex items-center gap-2 border-b border-slate-800/60 ${
+            canOpenItem ? "cursor-pointer" : ""
+          }`}
+          role={canOpenItem ? "button" : undefined}
+          tabIndex={canOpenItem ? 0 : -1}
+          onClick={() => handleOpenPlaylistItem(item.url)}
+          onKeyDown={(event) => {
+            if (!canOpenItem) return;
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            handleOpenPlaylistItem(item.url);
+          }}
+        >
           <div className="flex flex-1 min-w-0 items-center gap-2 overflow-x-hidden">
             <Avatar
               variant="rounded"
@@ -798,15 +819,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 variant="body2"
                 className="max-w-99/100 truncate text-slate-400 "
               >
-                <a
-                  className="room-lobby-playlist-row-link text-slate-100 hover:text-sky-300 transition-colors duration-300"
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={displayTitle}
+                <span
+                  className="room-lobby-playlist-row-link block w-full truncate text-left text-slate-100 hover:text-sky-300 transition-colors duration-300"
                 >
                   {displayTitle}
-                </a>
+                </span>
               </Typography>
 
               <p className="text-[11px] text-slate-400">
@@ -818,7 +835,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         </div>
       </div>
     );
-  };
+  }, [handleOpenPlaylistItem, onLoadMorePlaylist, playlistHasMore, playlistItems, playlistLoadingMore]);
 
   return (
     <Card
@@ -1323,7 +1340,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   style={{ height: playlistListViewportHeight, width: "100%" }}
                   rowCount={rowCount}
                   rowHeight={75}
-                  rowProps={{}}
+                  rowProps={playlistRowProps}
                   rowComponent={PlaylistRow}
                 />
               </div>
@@ -1414,11 +1431,27 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         onClose={closeSettingsModal}
         onSave={() => void handleSaveSettings()}
       />
-      <Dialog open={Boolean(confirmModal)} onClose={closeConfirmModal}>
-        <DialogTitle>{confirmModal?.title ?? "切換播放清單"}</DialogTitle>
-        <DialogContent>
+      <Dialog
+        open={Boolean(confirmModal)}
+        onClose={closeConfirmModal}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: "1px solid rgba(56, 189, 248, 0.32)",
+            color: "#f8fafc",
+            background:
+              "radial-gradient(900px 420px at -8% -18%, rgba(56,189,248,0.20), transparent 62%), linear-gradient(180deg, rgba(2,6,23,0.98), rgba(2,6,23,0.92))",
+            boxShadow:
+              "0 34px 88px -44px rgba(2,6,23,0.95), 0 0 0 1px rgba(255,255,255,0.03)",
+          },
+        }}
+      >
+        <DialogTitle className="!pb-2 !text-base !font-extrabold !text-slate-50">
+          {confirmModal?.title ?? "切換播放清單"}
+        </DialogTitle>
+        <DialogContent className="!pt-0">
           {confirmModal?.detail && (
-            <Typography variant="body2" className="text-slate-600">
+            <Typography variant="body2" className="text-slate-100">
               {confirmModal.detail}
             </Typography>
           )}

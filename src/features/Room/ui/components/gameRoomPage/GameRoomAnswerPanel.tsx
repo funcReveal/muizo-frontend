@@ -46,6 +46,8 @@ interface GameRoomAnswerPanelProps {
   resolvedAnswerTitle: string;
   onOpenExitConfirm: () => void;
   isPendingFeedbackCard: boolean;
+  allAnsweredReadyForReveal: boolean;
+  isRevealPendingServerSync: boolean;
 }
 
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
@@ -87,11 +89,22 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   resolvedAnswerTitle,
   onOpenExitConfirm,
   isPendingFeedbackCard,
+  allAnsweredReadyForReveal,
+  isRevealPendingServerSync,
 }) => {
+  const showGuessComboAtmosphere =
+    !isReveal && hasActiveComboStreak && myComboTier > 0;
+  const guessComboPanelClass = showGuessComboAtmosphere
+    ? `game-room-panel--combo-live game-room-panel--combo-tier-${myComboTier}`
+    : "";
+  const guessComboLayoutClass = showGuessComboAtmosphere
+    ? `game-room-answer-layout--combo-live game-room-answer-layout--combo-tier-${myComboTier}`
+    : "";
+
   return (
     <div
       ref={answerPanelRef}
-      className="game-room-panel game-room-panel--warm flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1"
+      className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${guessComboPanelClass} flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
     >
       {isInitialCountdown ? (
         <div className="flex flex-col items-center py-6 text-center">
@@ -118,7 +131,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             !isReveal && revealTone === "neutral"
               ? "game-room-answer-layout--neutral"
               : ""
-          }`}
+          } ${guessComboLayoutClass}`}
         >
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
@@ -132,18 +145,24 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 label={
                   isInterTrackWait
                     ? `${startCountdownSec}s`
-                    : `${Math.ceil(phaseRemainingMs / 1000)}s`
+                    : allAnsweredReadyForReveal
+                      ? "READY"
+                      : `${Math.ceil(phaseRemainingMs / 1000)}s`
                 }
                 size="small"
                 color={
                   isInterTrackWait
                     ? "info"
+                    : allAnsweredReadyForReveal
+                      ? "success"
                     : gamePhase === "guess"
                       ? "warning"
                       : "success"
                 }
-                variant="outlined"
-                className={`game-room-chip ${isGuessUrgency ? "game-room-chip--urgent" : ""}`}
+                variant={allAnsweredReadyForReveal ? "filled" : "outlined"}
+                className={`game-room-chip ${
+                  isGuessUrgency ? "game-room-chip--urgent" : ""
+                } ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
               />
             </div>
 
@@ -165,8 +184,13 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 className="game-room-phase-progress-bar"
               />
             </div>
+            {isRevealPendingServerSync && (
+              <div className="mt-2 rounded-lg border border-emerald-300/45 bg-emerald-500/14 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+                全員已作答，正在切換至公布答案...
+              </div>
+            )}
 
-            <div className="game-room-options-grid grid grid-cols-1 gap-2 md:grid-cols-2">
+            <div className="game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 md:grid-cols-2">
               {isInterTrackWait
                 ? Array.from(
                     {
@@ -265,8 +289,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                               : "info"
                         }
                         className={`game-room-choice-button justify-start ${
-                          isReveal ? "" : isSelected ? "bg-sky-700/30" : ""
-                        } ${
                           choiceCommitFxKind === "lock"
                             ? "game-room-choice-button--commit-lock"
                             : choiceCommitFxKind === "reselect"
@@ -320,10 +342,28 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                             className={`game-room-choice-burst game-room-choice-burst--${choiceCommitFxKind}`}
                           />
                         )}
+                        {choiceCommitFxKind && (
+                          <span
+                            aria-hidden="true"
+                            className={`game-room-choice-particle-burst game-room-choice-particle-burst--${choiceCommitFxKind}`}
+                          />
+                        )}
                         {showComboMilestoneStyle && (
                           <span
                             aria-hidden="true"
                             className={`game-room-choice-burst game-room-choice-burst--combo-milestone game-room-choice-burst--combo-tier-${myComboTier}`}
+                          />
+                        )}
+                        {showComboMilestoneStyle && (
+                          <span
+                            aria-hidden="true"
+                            className={`game-room-choice-particle-burst game-room-choice-particle-burst--combo-tier-${myComboTier}`}
+                          />
+                        )}
+                        {showComboBreakStyle && (
+                          <span
+                            aria-hidden="true"
+                            className={`game-room-choice-particle-burst game-room-choice-particle-burst--combo-break game-room-choice-particle-burst--combo-break-tier-${comboBreakTier}`}
                           />
                         )}
                         {showComboLiveStyle && (

@@ -18,11 +18,24 @@ const SettlementExitDialog: React.FC<SettlementExitDialogProps> = ({
   onClose,
   onConfirm,
 }) => (
-  <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-    <DialogTitle>確認離開房間？</DialogTitle>
+  <Dialog
+    open={open}
+    onClose={onClose}
+    fullWidth
+    maxWidth="xs"
+    PaperProps={{
+      sx: {
+        background:
+          "linear-gradient(180deg, rgba(10,16,28,0.96), rgba(6,10,18,0.98))",
+        border: "1px solid rgba(56, 189, 248, 0.34)",
+        color: "#f8fafc",
+      },
+    }}
+  >
+    <DialogTitle className="!font-black !text-slate-50">要離開結算畫面嗎？</DialogTitle>
     <DialogContent>
-      <p className="text-sm text-slate-700">
-        離開後會中斷目前結算導覽，並返回房間外。
+      <p className="text-sm font-semibold text-slate-200">
+        離開後會回到房間大廳，仍可從歷史紀錄再次開啟本場結算。
       </p>
     </DialogContent>
     <DialogActions>
@@ -37,7 +50,7 @@ const SettlementExitDialog: React.FC<SettlementExitDialogProps> = ({
           onConfirm?.();
         }}
       >
-        確認離開
+        離開
       </Button>
     </DialogActions>
   </Dialog>
