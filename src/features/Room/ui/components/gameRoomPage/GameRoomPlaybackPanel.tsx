@@ -52,7 +52,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 }) => {
   return (
     <div className="game-room-panel game-room-panel--accent flex-none p-3 text-slate-50">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div>
             <p className="game-room-kicker">正在播放</p>
@@ -63,7 +63,13 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
             </div>
           </div>
         </div>
-        <Button variant="outlined" color="inherit" size="small" onClick={onOpenExitConfirm}>
+        <Button
+          variant="outlined"
+          color="inherit"
+          size="small"
+          onClick={onOpenExitConfirm}
+          className="max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
+        >
           退出遊戲
         </Button>
       </div>
@@ -115,7 +121,10 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         )}
         {showGuessMask && (
           <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950">
-            <div className="h-24 w-24 animate-spin rounded-full border-4 border-slate-700 shadow-lg shadow-emerald-500/30" />
+            <div className="relative h-24 w-24">
+              <div className="absolute inset-0 animate-spin rounded-full border-4 border-slate-700 border-t-cyan-300 border-r-emerald-300 shadow-[0_0_26px_rgba(34,211,238,0.35)]" />
+              <div className="absolute inset-[22%] animate-pulse rounded-full bg-cyan-300/10" />
+            </div>
             <p className="mt-2 text-xs text-slate-300">猜歌中，影片已隱藏</p>
           </div>
         )}
@@ -123,7 +132,12 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           <div className="pointer-events-none absolute inset-0 z-20 bg-slate-950" />
         )}
         {showLoadingMask && (
-          <div className="pointer-events-none absolute inset-0 z-20 bg-slate-950" />
+          <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/95">
+            <div className="relative h-16 w-16">
+              <div className="absolute inset-0 animate-spin rounded-full border-4 border-slate-700 border-t-amber-300 border-r-cyan-300 shadow-[0_0_20px_rgba(250,204,21,0.28)]" />
+            </div>
+            <p className="mt-2 text-[11px] tracking-[0.12em] text-slate-300">切換歌曲中</p>
+          </div>
         )}
         {showAudioOnlyMask && (
           <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950">
@@ -135,16 +149,18 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         )}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+      <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
           <Switch
             color="info"
             checked={showVideo}
             onChange={(e) => onShowVideoChange(e.target.checked)}
           />
-          <span className="text-xs text-slate-300">公布階段顯示影片（猜歌時自動隱藏）</span>
+          <span className="text-xs text-slate-300 max-[760px]:text-[11px]">
+            公布階段顯示影片（猜歌時自動隱藏）
+          </span>
         </div>
-        <div className="flex items-center gap-2 sm:min-w-[200px]">
+        <div className="flex items-center gap-2 md:min-w-[200px] max-[760px]:w-full">
           <span className="text-xs text-slate-300">音量</span>
           <input
             type="range"

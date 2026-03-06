@@ -266,6 +266,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const {
     audioUnlocked,
     isPlayerReady,
+    isPlayerPlaying,
     loadedTrackKey,
     playerVideoId,
     iframeRef,
@@ -354,13 +355,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     gameState.phase === "guess" &&
     !allAnsweredReadyForReveal &&
     !isEnded &&
-    !waitingToStart;
+    !waitingToStart &&
+    !isTrackLoading;
   const showPreStartMask =
     waitingToStart &&
     !isEnded &&
     !shouldShowGestureOverlay;
   const showLoadingMask =
-    isTrackLoading && !isReveal && !requiresAudioGesture && !waitingToStart;
+    isTrackLoading &&
+    !isPlayerPlaying &&
+    !isReveal &&
+    !requiresAudioGesture &&
+    !waitingToStart;
   const shouldHideVideoFrame =
     shouldShowGestureOverlay || showPreStartMask || showLoadingMask || showGuessMask;
   const showAudioOnlyMask = !shouldHideVideoFrame && !showVideo;

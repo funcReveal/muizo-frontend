@@ -15,6 +15,10 @@ import { useRoom } from "../model/useRoom";
 
 const SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX = "settlement-review:";
 const SETTLEMENT_SESSION_CACHE_KEY_PREFIX = "mq:settlement-cache:v1:";
+const SETTLEMENT_SESSION_CACHE_ENTRY_LIMIT = 24;
+const SETTLEMENT_SUMMARY_CACHE_LIMIT = 40;
+const SETTLEMENT_REPLAY_CACHE_LIMIT = 10;
+const SETTLEMENT_RECAP_CACHE_LIMIT = 10;
 
 const cloneSettlementRecaps = (recaps: SettlementQuestionRecap[]) =>
   recaps.map((item) => ({
@@ -25,6 +29,91 @@ const cloneSettlementRecaps = (recaps: SettlementQuestionRecap[]) =>
 type SettlementSessionCachePayload = {
   summaries: RoomSettlementHistorySummary[];
   replays: Record<string, RoomSettlementSnapshot>;
+};
+
+const limitSettlementSummaries = (
+  summaries: RoomSettlementHistorySummary[],
+  limit = SETTLEMENT_SUMMARY_CACHE_LIMIT,
+) =>
+  [...summaries]
+    .sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo)
+    .slice(0, limit);
+
+const parseRoundTimestampFromKey = (roundKey: string) => {
+  const lastColonIndex = roundKey.lastIndexOf(":");
+  if (lastColonIndex < 0) return Number.NaN;
+  return Number(roundKey.slice(lastColonIndex + 1));
+};
+
+const pruneSettlementReplayByRoundKey = (
+  replayByRoundKey: Record<string, RoomSettlementSnapshot>,
+  options: {
+    roomId?: string | null;
+    pinnedRoundKeys?: (string | null | undefined)[];
+    limit?: number;
+  },
+) => {
+  const limit = options.limit ?? SETTLEMENT_REPLAY_CACHE_LIMIT;
+  if (limit <= 0) return {} as Record<string, RoomSettlementSnapshot>;
+  const pinnedRoundKeys = options.pinnedRoundKeys ?? [];
+  const roomId = options.roomId ?? null;
+  const next: Record<string, RoomSettlementSnapshot> = {};
+  for (const roundKey of pinnedRoundKeys) {
+    if (!roundKey) continue;
+    const snapshot = replayByRoundKey[roundKey];
+    if (!snapshot) continue;
+    if (roomId && snapshot.room.id !== roomId) continue;
+    next[roundKey] = snapshot;
+    if (Object.keys(next).length >= limit) return next;
+  }
+  const sortedSnapshots = Object.values(replayByRoundKey)
+    .filter((snapshot) => (roomId ? snapshot.room.id === roomId : true))
+    .sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo);
+  for (const snapshot of sortedSnapshots) {
+    if (next[snapshot.roundKey]) continue;
+    next[snapshot.roundKey] = snapshot;
+    if (Object.keys(next).length >= limit) break;
+  }
+  return next;
+};
+
+const pruneSettlementRecapsByRoundKey = (
+  recapsByRoundKey: Record<string, SettlementQuestionRecap[]>,
+  options: {
+    roomId?: string | null;
+    pinnedRoundKeys?: (string | null | undefined)[];
+    limit?: number;
+  },
+) => {
+  const limit = options.limit ?? SETTLEMENT_RECAP_CACHE_LIMIT;
+  if (limit <= 0) return {} as Record<string, SettlementQuestionRecap[]>;
+  const pinnedRoundKeys = options.pinnedRoundKeys ?? [];
+  const roomId = options.roomId ?? null;
+  const next: Record<string, SettlementQuestionRecap[]> = {};
+  for (const roundKey of pinnedRoundKeys) {
+    if (!roundKey) continue;
+    const recaps = recapsByRoundKey[roundKey];
+    if (!Array.isArray(recaps)) continue;
+    if (roomId && !roundKey.startsWith(`${roomId}:`)) continue;
+    next[roundKey] = recaps;
+    if (Object.keys(next).length >= limit) return next;
+  }
+  const sortedRoundKeys = Object.keys(recapsByRoundKey)
+    .filter((roundKey) => (roomId ? roundKey.startsWith(`${roomId}:`) : true))
+    .sort((a, b) => {
+      const aTs = parseRoundTimestampFromKey(a);
+      const bTs = parseRoundTimestampFromKey(b);
+      if (Number.isFinite(aTs) && Number.isFinite(bTs)) return bTs - aTs;
+      if (Number.isFinite(aTs)) return -1;
+      if (Number.isFinite(bTs)) return 1;
+      return b.localeCompare(a);
+    });
+  for (const roundKey of sortedRoundKeys) {
+    if (next[roundKey]) continue;
+    next[roundKey] = recapsByRoundKey[roundKey];
+    if (Object.keys(next).length >= limit) break;
+  }
+  return next;
 };
 
 const buildSettlementSummaryFromSnapshot = (
@@ -85,7 +174,10 @@ const readSettlementSessionCache = (
         : [],
       replays:
         parsed.replays && typeof parsed.replays === "object"
-          ? (parsed.replays as Record<string, RoomSettlementSnapshot>)
+          ? pruneSettlementReplayByRoundKey(
+              parsed.replays as Record<string, RoomSettlementSnapshot>,
+              {},
+            )
           : {},
     };
   } catch {
@@ -101,6 +193,61 @@ const writeSettlementSessionCache = (
     window.sessionStorage.setItem(key, JSON.stringify(payload));
   } catch {
     // Best-effort cache only. Quota errors should not break the room UI.
+  }
+};
+
+const parseSettlementSessionCacheMeta = (key: string) => {
+  if (!key.startsWith(SETTLEMENT_SESSION_CACHE_KEY_PREFIX)) return null;
+  const suffix = key.slice(SETTLEMENT_SESSION_CACHE_KEY_PREFIX.length);
+  const lastColonIndex = suffix.lastIndexOf(":");
+  if (lastColonIndex <= 0) return null;
+  const firstColonIndex = suffix.indexOf(":");
+  if (firstColonIndex <= 0 || firstColonIndex >= lastColonIndex) return null;
+  const roomId = suffix.slice(0, firstColonIndex);
+  const clientId = suffix.slice(firstColonIndex + 1, lastColonIndex);
+  const joinedAtMs = Number(suffix.slice(lastColonIndex + 1));
+  if (!roomId || !clientId || !Number.isFinite(joinedAtMs)) return null;
+  return {
+    roomId,
+    clientId,
+    joinedAtMs,
+  };
+};
+
+const pruneSettlementSessionCacheForClient = (
+  clientId: string,
+  keepKey: string | null,
+  limit = SETTLEMENT_SESSION_CACHE_ENTRY_LIMIT,
+) => {
+  if (limit <= 0) return;
+  try {
+    const entries: {
+      key: string;
+      joinedAtMs: number;
+    }[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const candidateKey = window.sessionStorage.key(i);
+      if (!candidateKey) continue;
+      const parsed = parseSettlementSessionCacheMeta(candidateKey);
+      if (!parsed || parsed.clientId !== clientId) continue;
+      entries.push({
+        key: candidateKey,
+        joinedAtMs: parsed.joinedAtMs,
+      });
+    }
+    if (entries.length <= limit) return;
+    entries.sort((a, b) => b.joinedAtMs - a.joinedAtMs);
+    const keep = new Set(
+      entries.slice(0, limit).map((entry) => entry.key),
+    );
+    if (keepKey) keep.add(keepKey);
+    entries.forEach((entry) => {
+      if (!keep.has(entry.key)) {
+        window.sessionStorage.removeItem(entry.key);
+      }
+    });
+  } catch {
+    // ignore
   }
 };
 
@@ -333,9 +480,10 @@ const RoomLobbyPage: React.FC = () => {
       }
       const cached = readSettlementSessionCache(settlementSessionCacheKey);
       if (cached) {
-        setSettlementHistorySummaries(cached.summaries);
+        const nextSummaries = limitSettlementSummaries(cached.summaries);
+        setSettlementHistorySummaries(nextSummaries);
         setSettlementReplayByRoundKey(cached.replays);
-        setSettlementSummaryListLoaded(cached.summaries.length > 0);
+        setSettlementSummaryListLoaded(nextSummaries.length > 0);
       }
       setSettlementCacheHydrated(true);
     }, 0);
@@ -344,16 +492,36 @@ const RoomLobbyPage: React.FC = () => {
 
   useEffect(() => {
     if (!settlementSessionCacheKey || !settlementCacheHydrated) return;
+    const trimmedReplayCache = pruneSettlementReplayByRoundKey(
+      settlementReplayByRoundKey,
+      {
+        roomId: currentRoom?.id ?? null,
+        pinnedRoundKeys: [activeSettlementRoundKey],
+      },
+    );
     writeSettlementSessionCache(settlementSessionCacheKey, {
-      summaries: settlementHistorySummaries,
-      replays: settlementReplayByRoundKey,
+      summaries: limitSettlementSummaries(settlementHistorySummaries),
+      replays: trimmedReplayCache,
     });
   }, [
+    activeSettlementRoundKey,
+    currentRoom?.id,
     settlementCacheHydrated,
     settlementHistorySummaries,
     settlementReplayByRoundKey,
     settlementSessionCacheKey,
   ]);
+
+  useEffect(() => {
+    if (!clientId) return;
+    const timer = window.setTimeout(() => {
+      pruneSettlementSessionCacheForClient(
+        clientId,
+        settlementSessionCacheKey,
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [clientId, settlementSessionCacheKey]);
 
   useEffect(() => {
     if (gameState?.status !== "playing") return;
@@ -412,7 +580,11 @@ const RoomLobbyPage: React.FC = () => {
           next[snapshot.roundKey] = snapshot;
           changed = true;
         }
-        return changed ? next : prev;
+        if (!changed) return prev;
+        return pruneSettlementReplayByRoundKey(next, {
+          roomId: currentRoom.id,
+          pinnedRoundKeys: [activeSettlementRoundKey, roomScopedSettlementHistory[0]?.roundKey],
+        });
       });
       setSettlementHistorySummaries((prev) => {
         const map = new Map(prev.map((item) => [item.roundKey, item] as const));
@@ -432,13 +604,11 @@ const RoomLobbyPage: React.FC = () => {
           changed = true;
         }
         if (!changed) return prev;
-        return Array.from(map.values()).sort(
-          (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
-        );
+        return limitSettlementSummaries(Array.from(map.values()));
       });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [currentRoom?.id, roomScopedSettlementHistory]);
+  }, [activeSettlementRoundKey, currentRoom?.id, roomScopedSettlementHistory]);
 
   const ensureSettlementSummaryListLoaded = useCallback(async () => {
     if (!currentRoom?.id) return [] as RoomSettlementHistorySummary[];
@@ -458,9 +628,7 @@ const RoomLobbyPage: React.FC = () => {
             const merged = new Map<string, RoomSettlementHistorySummary>();
             prev.forEach((item) => merged.set(item.roundKey, item));
             items.forEach((item) => merged.set(item.roundKey, item));
-            return Array.from(merged.values()).sort(
-              (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
-            );
+            return limitSettlementSummaries(Array.from(merged.values()));
           });
         }
         return items;
@@ -530,10 +698,22 @@ const RoomLobbyPage: React.FC = () => {
       setLoadingSettlementRoundKey(roundKey);
       try {
         const snapshot = await fetchSettlementReplay(summary.matchId);
-        setSettlementReplayByRoundKey((prev) => ({
-          ...prev,
-          [snapshot.roundKey]: snapshot,
-        }));
+        setSettlementReplayByRoundKey((prev) =>
+          pruneSettlementReplayByRoundKey(
+            {
+              ...prev,
+              [snapshot.roundKey]: snapshot,
+            },
+            {
+              roomId: currentRoom?.id ?? null,
+              pinnedRoundKeys: [
+                snapshot.roundKey,
+                roundKey,
+                activeSettlementRoundKey,
+              ],
+            },
+          ),
+        );
         if (snapshot.roundKey !== roundKey) {
           setActiveSettlementRoundKey(snapshot.roundKey);
         }
@@ -554,6 +734,8 @@ const RoomLobbyPage: React.FC = () => {
       roomScopedSettlementHistory,
       roomScopedSettlementReplayByRoundKey,
       roomScopedSettlementHistorySummaries,
+      activeSettlementRoundKey,
+      currentRoom?.id,
       setStatusText,
     ],
   );
@@ -567,7 +749,10 @@ const RoomLobbyPage: React.FC = () => {
           if (!(liveRoundKey in prev)) return prev;
           const next = { ...prev };
           delete next[liveRoundKey];
-          return next;
+          return pruneSettlementRecapsByRoundKey(next, {
+            roomId: currentRoom?.id ?? null,
+            pinnedRoundKeys: [activeSettlementRoundKey],
+          });
         }
         const nextRecaps = cloneSettlementRecaps(recaps);
         latestLiveRecapsRef.current = nextRecaps;
@@ -584,13 +769,19 @@ const RoomLobbyPage: React.FC = () => {
         ) {
           return prev;
         }
-        return {
-          ...prev,
-          [liveRoundKey]: nextRecaps,
-        };
+        return pruneSettlementRecapsByRoundKey(
+          {
+            ...prev,
+            [liveRoundKey]: nextRecaps,
+          },
+          {
+            roomId: currentRoom?.id ?? null,
+            pinnedRoundKeys: [liveRoundKey, activeSettlementRoundKey],
+          },
+        );
       });
     },
-    [liveRoundKey],
+    [activeSettlementRoundKey, currentRoom?.id, liveRoundKey],
   );
 
   useEffect(() => {
@@ -614,12 +805,18 @@ const RoomLobbyPage: React.FC = () => {
       ) {
         return prev;
       }
-      return {
-        ...prev,
-        [topSnapshot.roundKey]: cloneSettlementRecaps(liveRecaps),
-      };
+      return pruneSettlementRecapsByRoundKey(
+        {
+          ...prev,
+          [topSnapshot.roundKey]: cloneSettlementRecaps(liveRecaps),
+        },
+        {
+          roomId: currentRoom?.id ?? null,
+          pinnedRoundKeys: [topSnapshot.roundKey, activeSettlementRoundKey],
+        },
+      );
     });
-  }, [roomScopedSettlementHistory]);
+  }, [activeSettlementRoundKey, currentRoom?.id, roomScopedSettlementHistory]);
 
   useEffect(() => {
     const nextStatus = gameState?.status ?? null;
@@ -785,11 +982,15 @@ const RoomLobbyPage: React.FC = () => {
   }, [messages, settlementReviewMessages]);
 
   useEffect(() => {
+    if (!activeSettlementSnapshot) {
+      setUiNowMs(Date.now() + serverOffsetMs);
+      return;
+    }
     const tick = () => setUiNowMs(Date.now() + serverOffsetMs);
     tick();
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
-  }, [serverOffsetMs]);
+  }, [activeSettlementSnapshot, serverOffsetMs]);
 
   useEffect(() => {
     setRouteRoomId(roomId ?? null);

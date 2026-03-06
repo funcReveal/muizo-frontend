@@ -4,7 +4,9 @@
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import { useLocation } from "react-router-dom";
 
@@ -59,6 +61,8 @@ import { useRoomAuth } from "./useRoomAuth";
 import { useRoomPlaylist } from "./useRoomPlaylist";
 import { useRoomCollections } from "./useRoomCollections";
 import {
+  capRoomMessages,
+  capSettlementHistory,
   extractVideoIdFromUrl,
   mergeGameSettings,
   sanitizePossibleGarbledText,
@@ -130,6 +134,30 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const [settlementHistory, setSettlementHistory] = useState<
     RoomSettlementSnapshot[]
   >([]);
+  const setMessagesWithCap = useCallback<
+    Dispatch<SetStateAction<ChatMessage[]>>
+  >((value) => {
+    setMessages((previous) => {
+      const next =
+        typeof value === "function"
+          ? (value as (prevState: ChatMessage[]) => ChatMessage[])(previous)
+          : value;
+      return capRoomMessages(next);
+    });
+  }, []);
+  const setSettlementHistoryWithCap = useCallback<
+    Dispatch<SetStateAction<RoomSettlementSnapshot[]>>
+  >((value) => {
+    setSettlementHistory((previous) => {
+      const next =
+        typeof value === "function"
+          ? (value as (
+              prevState: RoomSettlementSnapshot[],
+            ) => RoomSettlementSnapshot[])(previous)
+          : value;
+      return capSettlementHistory(next);
+    });
+  }, []);
   const [messageInput, setMessageInput] = useState("");
   const [statusText, setStatusTextState] = useState<string | null>(null);
   const setStatusText = useCallback((value: string | null) => {
@@ -186,7 +214,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     appendPresenceSystemMessage,
     mergeCachedParticipantPing,
   } = useRoomProviderPresence({
-    setMessages,
+    setMessages: setMessagesWithCap,
     serverOffsetRef,
   });
   const lastLatencyProbeRoomIdRef = useRef<string | null>(null);
@@ -521,8 +549,8 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       setSessionProgress,
       setCurrentRoom,
       setParticipants,
-      setMessages,
-      setSettlementHistory,
+      setMessages: setMessagesWithCap,
+      setSettlementHistory: setSettlementHistoryWithCap,
       setPlaylistSuggestions,
       setPlaylistProgress,
       setGameState,
@@ -584,8 +612,8 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     currentRoomIdRef,
     setCurrentRoom,
     setParticipants,
-    setMessages,
-    setSettlementHistory,
+    setMessages: setMessagesWithCap,
+    setSettlementHistory: setSettlementHistoryWithCap,
     setPlaylistProgress,
     setGameState,
     setIsGameView,
@@ -627,8 +655,8 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     resetPresenceParticipants,
     setCurrentRoom,
     setParticipants,
-    setMessages,
-    setSettlementHistory,
+    setMessages: setMessagesWithCap,
+    setSettlementHistory: setSettlementHistoryWithCap,
     setPlaylistProgress,
     setGameState,
     setIsGameView,
@@ -1058,5 +1086,4 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;
 };
-
 

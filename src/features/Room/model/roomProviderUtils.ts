@@ -13,8 +13,17 @@ import {
   normalizePlaylistItems,
 } from "./roomUtils";
 import { resolveSettlementTrackLink } from "./settlementLinks";
-import type { PlaylistItem, RoomState, RoomSummary } from "./types";
+import type {
+  ChatMessage,
+  PlaylistItem,
+  RoomSettlementSnapshot,
+  RoomState,
+  RoomSummary,
+} from "./types";
 import type { WorkerCollectionItem } from "./roomApi";
+
+export const MAX_ROOM_MESSAGE_COUNT = 1200;
+export const MAX_SETTLEMENT_HISTORY_COUNT = 30;
 
 export const mapCollectionItemsToPlaylist = (
   _collectionId: string,
@@ -250,3 +259,23 @@ export const mergeRoomSummaryIntoCurrentRoom = (
   gameSettings: mergeGameSettings(current.gameSettings, summary.gameSettings),
 });
 
+export const capRoomMessages = (
+  messages: ChatMessage[],
+  limit = MAX_ROOM_MESSAGE_COUNT,
+) => {
+  if (limit <= 0) return [];
+  if (messages.length <= limit) return messages;
+  return messages.slice(-limit);
+};
+
+export const capSettlementHistory = (
+  history: RoomSettlementSnapshot[],
+  limit = MAX_SETTLEMENT_HISTORY_COUNT,
+) => {
+  if (limit <= 0) return [];
+  if (history.length <= limit) return history;
+  const sorted = [...history].sort(
+    (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
+  );
+  return sorted.slice(0, limit);
+};
