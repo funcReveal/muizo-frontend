@@ -373,6 +373,14 @@ const useGameRoomPlayerSync = ({
       toleranceSec = RESUME_DRIFT_TOLERANCE_SEC,
       requirePlayerTime = false,
     ) => {
+      if (isReveal && !revealReplayRef.current && !forceSeek) {
+        if (lastPlayerStateRef.current !== 1) {
+          postCommand("playVideo");
+          postCommand("unMute");
+          applyVolume(gameVolume);
+        }
+        return false;
+      }
       const serverPosition = getDesiredPositionSec();
       const playerTime = getFreshPlayerTimeSec();
       if (requirePlayerTime && playerTime === null) {
@@ -401,6 +409,7 @@ const useGameRoomPlayerSync = ({
       getEstimatedLocalPositionSec,
       getFreshPlayerTimeSec,
       getServerNowMs,
+      isReveal,
       postCommand,
       startPlayback,
     ],
@@ -697,7 +706,16 @@ const useGameRoomPlayerSync = ({
             lastPlayerStateRef.current === 1 &&
             document.visibilityState === "visible"
           ) {
-            syncToServerPosition("watchdog", false, WATCHDOG_DRIFT_TOLERANCE_SEC);
+            if (isReveal && !revealReplayRef.current) {
+              return;
+            }
+            syncToServerPosition(
+              "watchdog",
+              false,
+              isReveal
+                ? WATCHDOG_DRIFT_TOLERANCE_SEC + 1.2
+                : WATCHDOG_DRIFT_TOLERANCE_SEC,
+            );
           }
           if (resumeNeedsSyncRef.current) {
             resumeNeedsSyncRef.current = false;
@@ -802,10 +820,23 @@ const useGameRoomPlayerSync = ({
     }
 
     revealReplayRef.current = false;
+    const state = lastPlayerStateRef.current;
     postCommand("playVideo");
     postCommand("unMute");
     applyVolume(gameVolume);
     startSilentAudio();
+    if (state === 1) {
+      return;
+    }
+    const fallbackTimer = window.setTimeout(() => {
+      if (lastPlayerStateRef.current !== 1) {
+        postCommand("playVideo");
+        postCommand("unMute");
+        applyVolume(gameVolume);
+        startSilentAudio();
+      }
+    }, 420);
+    return () => window.clearTimeout(fallbackTimer);
   }, [
     applyVolume,
     clipEndSec,

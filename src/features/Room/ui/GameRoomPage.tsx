@@ -261,13 +261,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const isEnded = gameState.status === "ended";
   const isReveal = gameState.phase === "reveal";
   const showVideo = showVideoOverride ?? gameState.showVideo ?? true;
-  const trackLoadKey = `${videoId ?? "none"}:${clipStartSec}-${clipEndSec}`;
+  const clipIdentityStartSec = Math.round(clipStartSec * 1000) / 1000;
+  const clipIdentityEndSec = Math.round(clipEndSec * 1000) / 1000;
+  const trackLoadKey = `${videoId ?? "none"}:${clipIdentityStartSec}-${clipIdentityEndSec}`;
   const trackSessionKey = `${gameState.startedAt}:${trackCursor}:${currentTrackIndex}`;
   const {
     audioUnlocked,
     isPlayerReady,
-    isPlayerPlaying,
-    loadedTrackKey,
     playerVideoId,
     iframeRef,
     silentAudioRef,
@@ -350,25 +350,24 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const displayedPhaseRemainingMs = allAnsweredReadyForReveal
     ? 0
     : phaseRemainingMs;
-  const isTrackLoading = loadedTrackKey !== trackLoadKey;
+  const shouldHideVideoInGuessPhase = gameState.phase === "guess" && !isEnded;
   const showGuessMask =
-    gameState.phase === "guess" &&
+    shouldHideVideoInGuessPhase &&
     !allAnsweredReadyForReveal &&
     !isEnded &&
-    !waitingToStart &&
-    !isTrackLoading;
+    !waitingToStart;
   const showPreStartMask =
     waitingToStart &&
     !isEnded &&
     !shouldShowGestureOverlay;
   const showLoadingMask =
-    isTrackLoading &&
-    !isPlayerPlaying &&
-    !isReveal &&
-    !requiresAudioGesture &&
-    !waitingToStart;
+    false;
   const shouldHideVideoFrame =
-    shouldShowGestureOverlay || showPreStartMask || showLoadingMask || showGuessMask;
+    shouldShowGestureOverlay ||
+    showPreStartMask ||
+    showLoadingMask ||
+    showGuessMask ||
+    shouldHideVideoInGuessPhase;
   const showAudioOnlyMask = !shouldHideVideoFrame && !showVideo;
   const correctChoiceIndex = currentTrackIndex;
   const sortedParticipants = useMemo(
