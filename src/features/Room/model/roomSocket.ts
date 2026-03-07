@@ -74,10 +74,7 @@ export const connectRoomSocket = (
   handlers: RoomSocketHandlers,
 ) => {
   const socket = io(socketUrl, {
-    // Keep polling fallback for environments where WS upgrade can fail
-    // (local reverse proxies / antivirus / corporate networks).
-    transports: ["polling", "websocket"],
-    upgrade: true,
+    transports: ["websocket"],
     auth,
   });
 
