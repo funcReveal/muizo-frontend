@@ -217,25 +217,25 @@ describe("liveSettlementUtils", () => {
   });
 
   it("resolveSpeedComparisonInsight keeps fixed label and signed values", () => {
-    const formatMs = (value: number) => `${(value / 1000).toFixed(2)}s`;
+    const formatMs = (value: number) => `${(value / 1000).toFixed(2)}S`;
     const faster = resolveSpeedComparisonInsight(
       {
-        medianCorrectMs: 2800,
+        averageCorrectMs: 2800,
         answeredAtMs: 1600,
       },
       formatMs,
     );
     const slower = resolveSpeedComparisonInsight(
       {
-        medianCorrectMs: 1400,
+        averageCorrectMs: 1400,
         answeredAtMs: 2200,
       },
       formatMs,
     );
 
     expect(faster.label).toBe("你比大家快多少");
-    expect(faster.value).toBe("+1.20s");
+    expect(faster.value).toBe("+1.20S");
     expect(slower.label).toBe("你比大家快多少");
-    expect(slower.value).toBe("-0.80s");
+    expect(slower.value).toBe("-0.80S");
   });
 });

@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Button, Chip, LinearProgress } from "@mui/material";
 
 import type { GameState, PlaylistItem } from "../../../model/types";
@@ -48,6 +48,7 @@ interface GameRoomAnswerPanelProps {
   isPendingFeedbackCard: boolean;
   allAnsweredReadyForReveal: boolean;
   isRevealPendingServerSync: boolean;
+  isRevealPendingOptimisticSync: boolean;
 }
 
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
@@ -91,6 +92,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   isPendingFeedbackCard,
   allAnsweredReadyForReveal,
   isRevealPendingServerSync,
+  isRevealPendingOptimisticSync,
 }) => {
   const showGuessComboAtmosphere =
     !isReveal && hasActiveComboStreak && myComboTier > 0;
@@ -187,6 +189,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             {isRevealPendingServerSync && (
               <div className="mt-2 rounded-lg border border-emerald-300/45 bg-emerald-500/14 px-3 py-1.5 text-xs font-semibold text-emerald-100">
                 全員已作答，正在切換至公布答案...
+              </div>
+            )}
+            {!isRevealPendingServerSync && isRevealPendingOptimisticSync && (
+              <div className="mt-2 rounded-lg border border-sky-300/40 bg-sky-500/14 px-3 py-1.5 text-xs font-semibold text-sky-100">
+                答案已送出，等待伺服器同步...
               </div>
             )}
 

@@ -15,8 +15,7 @@ import { useRoom } from "../model/useRoom";
 
 const SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX = "settlement-review:";
 const SETTLEMENT_SESSION_CACHE_KEY_PREFIX = "mq:settlement-cache:v1:";
-const SETTLEMENT_SESSION_CACHE_ENTRY_LIMIT = 24;
-const SETTLEMENT_SUMMARY_CACHE_LIMIT = 40;
+const SETTLEMENT_SUMMARY_CACHE_LIMIT = 10;
 const SETTLEMENT_REPLAY_CACHE_LIMIT = 10;
 const SETTLEMENT_RECAP_CACHE_LIMIT = 10;
 
@@ -29,6 +28,7 @@ const cloneSettlementRecaps = (recaps: SettlementQuestionRecap[]) =>
 type SettlementSessionCachePayload = {
   summaries: RoomSettlementHistorySummary[];
   replays: Record<string, RoomSettlementSnapshot>;
+  updatedAt?: number;
 };
 
 const limitSettlementSummaries = (
@@ -151,12 +151,14 @@ const hasCompleteSettlementRecaps = (
   return recapCount >= expectedCount;
 };
 
-const getSettlementSessionCacheKey = (
-  roomId: string,
-  clientId: string,
-  joinedAtMs: number,
-) =>
-  `${SETTLEMENT_SESSION_CACHE_KEY_PREFIX}${roomId}:${clientId}:${joinedAtMs}`;
+const getSettlementSessionCacheKey = (roomId: string, clientId: string) =>
+  `${SETTLEMENT_SESSION_CACHE_KEY_PREFIX}${roomId}:${clientId}`;
+
+type SettlementSessionCacheMeta = {
+  roomId: string;
+  clientId: string;
+  legacyJoinedAtMs: number | null;
+};
 
 const readSettlementSessionCache = (
   key: string,
@@ -179,6 +181,10 @@ const readSettlementSessionCache = (
               {},
             )
           : {},
+      updatedAt:
+        typeof parsed.updatedAt === "number" && Number.isFinite(parsed.updatedAt)
+          ? parsed.updatedAt
+          : undefined,
     };
   } catch {
     return null;
@@ -190,7 +196,13 @@ const writeSettlementSessionCache = (
   payload: SettlementSessionCachePayload,
 ) => {
   try {
-    window.sessionStorage.setItem(key, JSON.stringify(payload));
+    window.sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        ...payload,
+        updatedAt: Date.now(),
+      }),
+    );
   } catch {
     // Best-effort cache only. Quota errors should not break the room UI.
   }
@@ -199,56 +211,29 @@ const writeSettlementSessionCache = (
 const parseSettlementSessionCacheMeta = (key: string) => {
   if (!key.startsWith(SETTLEMENT_SESSION_CACHE_KEY_PREFIX)) return null;
   const suffix = key.slice(SETTLEMENT_SESSION_CACHE_KEY_PREFIX.length);
-  const lastColonIndex = suffix.lastIndexOf(":");
-  if (lastColonIndex <= 0) return null;
   const firstColonIndex = suffix.indexOf(":");
-  if (firstColonIndex <= 0 || firstColonIndex >= lastColonIndex) return null;
+  if (firstColonIndex <= 0) return null;
   const roomId = suffix.slice(0, firstColonIndex);
-  const clientId = suffix.slice(firstColonIndex + 1, lastColonIndex);
-  const joinedAtMs = Number(suffix.slice(lastColonIndex + 1));
-  if (!roomId || !clientId || !Number.isFinite(joinedAtMs)) return null;
+  const rest = suffix.slice(firstColonIndex + 1);
+  if (!roomId || !rest) return null;
+  const legacySplitIndex = rest.lastIndexOf(":");
+  if (legacySplitIndex > 0) {
+    const maybeTimestamp = Number(rest.slice(legacySplitIndex + 1));
+    if (Number.isFinite(maybeTimestamp)) {
+      const clientId = rest.slice(0, legacySplitIndex);
+      if (!clientId) return null;
+      return {
+        roomId,
+        clientId,
+        legacyJoinedAtMs: maybeTimestamp,
+      } as SettlementSessionCacheMeta;
+    }
+  }
   return {
     roomId,
-    clientId,
-    joinedAtMs,
-  };
-};
-
-const pruneSettlementSessionCacheForClient = (
-  clientId: string,
-  keepKey: string | null,
-  limit = SETTLEMENT_SESSION_CACHE_ENTRY_LIMIT,
-) => {
-  if (limit <= 0) return;
-  try {
-    const entries: {
-      key: string;
-      joinedAtMs: number;
-    }[] = [];
-    for (let i = 0; i < window.sessionStorage.length; i += 1) {
-      const candidateKey = window.sessionStorage.key(i);
-      if (!candidateKey) continue;
-      const parsed = parseSettlementSessionCacheMeta(candidateKey);
-      if (!parsed || parsed.clientId !== clientId) continue;
-      entries.push({
-        key: candidateKey,
-        joinedAtMs: parsed.joinedAtMs,
-      });
-    }
-    if (entries.length <= limit) return;
-    entries.sort((a, b) => b.joinedAtMs - a.joinedAtMs);
-    const keep = new Set(
-      entries.slice(0, limit).map((entry) => entry.key),
-    );
-    if (keepKey) keep.add(keepKey);
-    entries.forEach((entry) => {
-      if (!keep.has(entry.key)) {
-        window.sessionStorage.removeItem(entry.key);
-      }
-    });
-  } catch {
-    // ignore
-  }
+    clientId: rest,
+    legacyJoinedAtMs: null,
+  } as SettlementSessionCacheMeta;
 };
 
 const clearSettlementSessionCacheForRoomClient = (
@@ -256,13 +241,52 @@ const clearSettlementSessionCacheForRoomClient = (
   clientId: string,
 ) => {
   try {
-    const prefix = `${SETTLEMENT_SESSION_CACHE_KEY_PREFIX}${roomId}:${clientId}:`;
+    const nextKey = `${SETTLEMENT_SESSION_CACHE_KEY_PREFIX}${roomId}:${clientId}`;
+    const legacyPrefix = `${SETTLEMENT_SESSION_CACHE_KEY_PREFIX}${roomId}:${clientId}:`;
     const toRemove: string[] = [];
     for (let i = 0; i < window.sessionStorage.length; i += 1) {
       const key = window.sessionStorage.key(i);
-      if (key && key.startsWith(prefix)) {
+      if (!key) continue;
+      if (key === nextKey || key.startsWith(legacyPrefix)) {
         toRemove.push(key);
       }
+    }
+    toRemove.forEach((key) => window.sessionStorage.removeItem(key));
+  } catch {
+    // ignore
+  }
+};
+
+const clearSettlementSessionCacheForOtherRooms = (
+  clientId: string,
+  keepRoomId: string,
+) => {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const key = window.sessionStorage.key(i);
+      if (!key) continue;
+      const parsed = parseSettlementSessionCacheMeta(key);
+      if (!parsed || parsed.clientId !== clientId) continue;
+      if (parsed.roomId !== keepRoomId) {
+        toRemove.push(key);
+      }
+    }
+    toRemove.forEach((key) => window.sessionStorage.removeItem(key));
+  } catch {
+    // ignore
+  }
+};
+
+const clearSettlementSessionCacheForClient = (clientId: string) => {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const key = window.sessionStorage.key(i);
+      if (!key) continue;
+      const parsed = parseSettlementSessionCacheMeta(key);
+      if (!parsed || parsed.clientId !== clientId) continue;
+      toRemove.push(key);
     }
     toRemove.forEach((key) => window.sessionStorage.removeItem(key));
   } catch {
@@ -365,13 +389,6 @@ const RoomLobbyPage: React.FC = () => {
   const settlementSummaryListRequestRef = useRef<Promise<
     RoomSettlementHistorySummary[]
   > | null>(null);
-  const selfParticipantJoinedAt = useMemo(
-    () =>
-      participants.find((participant) => participant.clientId === clientId)
-        ?.joinedAt ?? null,
-    [clientId, participants],
-  );
-
   const waitingChecklist = useMemo(() => {
     const backendOrder = [
       "server_validating",
@@ -438,12 +455,8 @@ const RoomLobbyPage: React.FC = () => {
   }, [isConnected, sessionProgress]);
 
   const settlementSessionCacheKey =
-    currentRoom?.id && clientId && typeof selfParticipantJoinedAt === "number"
-      ? getSettlementSessionCacheKey(
-          currentRoom.id,
-          clientId,
-          selfParticipantJoinedAt,
-        )
+    currentRoom?.id && clientId
+      ? getSettlementSessionCacheKey(currentRoom.id, clientId)
       : null;
 
   useEffect(() => {
@@ -513,15 +526,12 @@ const RoomLobbyPage: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId || !currentRoom?.id) return;
     const timer = window.setTimeout(() => {
-      pruneSettlementSessionCacheForClient(
-        clientId,
-        settlementSessionCacheKey,
-      );
+      clearSettlementSessionCacheForOtherRooms(clientId, currentRoom.id);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [clientId, settlementSessionCacheKey]);
+  }, [clientId, currentRoom?.id]);
 
   useEffect(() => {
     if (gameState?.status !== "playing") return;
@@ -1029,10 +1039,15 @@ const RoomLobbyPage: React.FC = () => {
       currentRoom?.id ?? roomId ?? lastJoinedRoomIdRef.current;
     setActiveSettlementRoundKey(null);
     handleLeaveRoom(() => {
-      removeSettlementCacheForRoom(targetRoomId ?? null);
+      if (clientId) {
+        clearSettlementSessionCacheForClient(clientId);
+      } else {
+        removeSettlementCacheForRoom(targetRoomId ?? null);
+      }
       navigate("/rooms", { replace: true });
     });
   }, [
+    clientId,
     currentRoom?.id,
     handleLeaveRoom,
     navigate,
@@ -1076,10 +1091,13 @@ const RoomLobbyPage: React.FC = () => {
   useEffect(() => {
     if (currentRoom) return;
     if (!routeRoomResolved) return;
-    if (!lastJoinedRoomIdRef.current) return;
-    removeSettlementCacheForRoom(lastJoinedRoomIdRef.current);
+    if (clientId) {
+      clearSettlementSessionCacheForClient(clientId);
+    } else if (lastJoinedRoomIdRef.current) {
+      removeSettlementCacheForRoom(lastJoinedRoomIdRef.current);
+    }
     lastJoinedRoomIdRef.current = null;
-  }, [currentRoom, removeSettlementCacheForRoom, routeRoomResolved]);
+  }, [clientId, currentRoom, removeSettlementCacheForRoom, routeRoomResolved]);
 
   if (roomId && username && !currentRoom && !routeRoomResolved) {
     return (

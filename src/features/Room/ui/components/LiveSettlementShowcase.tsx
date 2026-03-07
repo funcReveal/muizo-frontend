@@ -28,7 +28,6 @@ import {
   MULTILINE_ELLIPSIS_2,
   PERFORMANCE_GRADE_META,
   QUICK_SOLVE_TIME_CAP_MS,
-  RECAPS_PER_PAGE,
   RECOMMEND_CATEGORY_THEME,
   RECOMMEND_CONTROLS_HINT_STORAGE_KEY,
   RECOMMEND_PREVIEW_SECONDS,
@@ -91,8 +90,8 @@ const TAB_LABELS: Record<LiveSettlementTab, string> = {
 };
 
 const TAB_HINTS: Record<LiveSettlementTab, string> = {
-  overview: "先看本局勝負與個人表現",
-  recommend: "邊聽推薦、邊查看全員作答回顧",
+  overview: "查看頒獎台、排行榜與本場關鍵表現",
+  recommend: "依分類快速導覽，並結合題目回顧做重播分析",
 };
 
 const RECOMMEND_CATEGORY_LABELS: Record<RecommendCategory, string> = {
@@ -101,14 +100,17 @@ const RECOMMEND_CATEGORY_LABELS: Record<RecommendCategory, string> = {
   hard: "高難挑戰",
   other: "其餘歌單",
 };
+
 const RECOMMEND_CATEGORY_SHORT_HINT: Record<RecommendCategory, string> = {
-  quick: "全員答對・10 秒內",
-  confuse: "最常改答案",
-  hard: "低答對率挑戰",
-  other: "延伸聆聽",
+  quick: "全員答對且速度快的題目",
+  confuse: "最常改答與最容易猶豫的題目",
+  hard: "答錯與未作答比例較高的題目",
+  other: "不屬於前三類的完整題目",
 };
+
 const RECOMMEND_CONTROLS_TOOLTIP =
-  "分類可切換不同推薦來源；自動導覽會依倒數自動切歌；雙擊播放可在題目回顧直接開啟試聽。";
+  "分類可切換推薦來源；自動導覽會依倒數切歌；雙擊播放可在題目回顧區控制。";
+
 const RESULT_META: Record<
   "correct" | "wrong" | "unanswered",
   { label: string; badgeClass: string }
@@ -134,7 +136,7 @@ const buildFallbackRecaps = (
   trackOrder.map((trackIndex, index) => {
     const item = playlistItems[trackIndex];
     const title =
-      item?.answerText?.trim() || item?.title?.trim() || `第 ${index + 1} 題`;
+      item?.answerText?.trim() || item?.title?.trim() || `第${index + 1} 題`;
     const uploader = item?.uploader?.trim() || "Unknown";
     const choices = trackOrder
       .slice(0, 4)
@@ -229,7 +231,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const [previewSwitchNotice, setPreviewSwitchNotice] = useState<string | null>(
     null,
   );
-  const [reviewPage, setReviewPage] = useState(0);
   const [reviewDrawerOpen, setReviewDrawerOpen] = useState(true);
   const [showRecommendControlsHint, setShowRecommendControlsHint] =
     useState(false);
@@ -255,7 +256,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     effectiveSelectedReviewParticipantClientId,
     selectedReviewParticipant,
     selectedReviewParticipantRank,
-    currentReviewTargetLabel,
     goPrevReviewParticipant,
     goNextReviewParticipant,
     topAccuracyEntry,
@@ -352,9 +352,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
   const {
     reviewRecapSummary,
-    reviewPageCount,
-    safeReviewPage,
-    pagedRecaps,
+    reviewRecaps,
     effectiveSelectedRecapKey,
     selectedRecap,
     selectedRecapLink,
@@ -364,8 +362,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     reviewDetailTransitionKey,
   } = useSettlementRecapSelectionState({
     normalizedRecaps,
-    reviewPage,
-    recapsPerPage: RECAPS_PER_PAGE,
     selectedRecapKey,
     effectiveSelectedReviewParticipantClientId,
     meClientId,
@@ -399,6 +395,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     selectedRecapAverageCorrectMs,
     selectedRecapGradeMeta,
     isSelectedRecapFastest,
+    isSelectedRecapGlobalFastest,
     selectedRecapFastestBadgeText,
     selectedRecapRatingBreakdown,
     activeRecommendCategory,
@@ -419,13 +416,17 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     currentRecommendationResultTone,
     isCurrentRecommendationFirstCorrect,
     showCurrentRecommendationRankBadge,
+    isCurrentRecommendationGlobalFastest,
     currentRecommendationFastestBadgeText,
+    selectedRecapFastestCorrectMeta,
+    currentRecommendationFastestCorrectMeta,
     hasCurrentRecommendationSpeedDelta,
     isPreviewFrozen,
     shouldShowPreviewOverlay,
     canAutoGuideLoop,
   } = useSettlementRecommendationInsights<ExtendedRecap, RecommendationCard>({
     normalizedRecaps,
+    participants,
     participantsLength: participants.length,
     configuredAnswerWindowMs,
     quickSolveThresholdMs,
@@ -445,7 +446,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     buildRecommendationCard,
     resolveParticipantAnswer,
     resolveCorrectAnsweredRank,
-    isParticipantGlobalFastestCorrect,
     getChangedAnswerCount,
     formatMs,
     formatPercent,
@@ -652,7 +652,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     (index: number) => {
       jumpToRecommendation(activeRecommendCategory, index, {
         playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
-        forcePreview: previewPlaybackMode === "manual",
       });
     },
     [activeRecommendCategory, jumpToRecommendation, previewPlaybackMode],
@@ -677,9 +676,26 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   }, [currentRecommendation, currentRecommendationLink, handleOpenTrackLink]);
 
   const handleRecommendPreviewIframeLoad = useCallback(() => {
-    syncPreviewVolume();
     registerYouTubeBridge();
-  }, [registerYouTubeBridge, syncPreviewVolume]);
+    syncPreviewVolume();
+    const shouldAttemptPlay =
+      (previewPlaybackMode === "manual" &&
+        previewPlayerStateRef.current === "playing") ||
+      (previewPlaybackMode === "auto" &&
+        autoAdvanceAtMsRef.current !== null &&
+        pausedCountdownRemainingMsRef.current === null);
+    if (!shouldAttemptPlay) return;
+    window.setTimeout(() => postYouTubeCommand("playVideo"), 180);
+    window.setTimeout(() => postYouTubeCommand("playVideo"), 520);
+  }, [
+    autoAdvanceAtMsRef,
+    pausedCountdownRemainingMsRef,
+    postYouTubeCommand,
+    previewPlaybackMode,
+    previewPlayerStateRef,
+    registerYouTubeBridge,
+    syncPreviewVolume,
+  ]);
 
   const goToTab = (tab: LiveSettlementTab) => {
     if (tab === activeTab) return;
@@ -699,7 +715,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
           }, 2500);
         }
       }
-      setReviewPage(0);
       if (autoPreviewEnabled) {
         startAutoGuideFromPreferredCategory(recommendCategory);
       } else {
@@ -840,15 +855,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold">
-                    房主已啟動下一局，仍有玩家正在查看結算畫面
+                    新的一局即將開始，請先完成本場結算與回顧
                   </p>
                   <span className="rounded-full border border-current/50 px-2 py-0.5 text-xs font-bold">
                     {settlementStartGuard.remainingSec}s
                   </span>
                 </div>
                 <p className="mt-1 text-xs opacity-90">
-                  將在 {settlementStartGuard.remainingSec}{" "}
-                  秒後同步切回遊戲倒數，確保全員同時開始。
+                  將在 {settlementStartGuard.remainingSec} 秒後回到房間準備階段
                 </p>
               </div>
             )}
@@ -886,10 +900,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 onActivateCategory={activateRecommendationCategory}
                 autoPreviewEnabled={autoPreviewEnabled}
                 onToggleAutoPreview={handleToggleAutoPreview}
-                reviewDoubleClickPlayEnabled={reviewDoubleClickPlayEnabled}
-                onToggleReviewDoubleClickPlay={() =>
-                  setReviewDoubleClickPlayEnabled((prev) => !prev)
-                }
                 reviewDrawerOpen={reviewDrawerOpen}
                 onToggleReviewDrawerOpen={() => setReviewDrawerOpen((prev) => !prev)}
                 currentRecommendation={currentRecommendation}
@@ -897,12 +907,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 recommendationTransitionKey={recommendationTransitionKey}
                 onOpenRecommendationTitle={handleOpenRecommendationTitle}
                 isCurrentRecommendationFastest={isCurrentRecommendationFastest}
-                currentReviewTargetLabel={currentReviewTargetLabel}
                 reviewStatusBadgeBaseClass={REVIEW_STATUS_BADGE_BASE}
                 currentRecommendationResultTone={currentRecommendationResultTone}
                 showCurrentRecommendationRankBadge={showCurrentRecommendationRankBadge}
                 currentRecommendationCorrectRank={currentRecommendationCorrectRank}
                 isCurrentRecommendationFirstCorrect={isCurrentRecommendationFirstCorrect}
+                isCurrentRecommendationGlobalFastest={
+                  isCurrentRecommendationGlobalFastest
+                }
                 currentRecommendationGradeBadgeClass={
                   currentRecommendationGradeMeta?.badgeClass ?? null
                 }
@@ -919,6 +931,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 currentRecommendationFastestBadgeText={
                   currentRecommendationFastestBadgeText
                 }
+                currentRecommendationFastestCorrectMeta={
+                  currentRecommendationFastestCorrectMeta
+                }
                 canAutoGuideLoop={canAutoGuideLoop}
                 isPreviewFrozen={isPreviewFrozen}
                 previewCountdownSec={previewCountdownSec}
@@ -934,6 +949,19 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 previewPlayerState={previewPlayerState}
                 onQuickPlayStart={handleQuickPlayStart}
                 recommendationCards={recommendationCards}
+                selectedReviewParticipantLabel={
+                  selectedReviewParticipant
+                    ? `#${selectedReviewParticipantRank} ${selectedReviewParticipant.username}${
+                        meClientId &&
+                        selectedReviewParticipant.clientId === meClientId
+                          ? " (你)"
+                          : ""
+                      }`
+                    : "未選擇玩家"
+                }
+                canCycleReviewParticipants={sortedParticipants.length > 1}
+                onGoPrevReviewParticipant={goPrevReviewParticipant}
+                onGoNextReviewParticipant={goNextReviewParticipant}
                 safeRecommendIndex={safeRecommendIndex}
                 onSelectRecommendation={handleSelectRecommendationByIndex}
                 onOpenCardLink={handleOpenRecommendationCardLink}
@@ -952,21 +980,19 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 reviewRecapSummary={reviewRecapSummary}
                 sortedParticipants={sortedParticipants}
                 meClientId={meClientId}
+                reviewDoubleClickPlayEnabled={reviewDoubleClickPlayEnabled}
+                onToggleReviewDoubleClickPlay={() =>
+                  setReviewDoubleClickPlayEnabled((prev) => !prev)
+                }
                 effectiveSelectedReviewParticipantClientId={
                   effectiveSelectedReviewParticipantClientId
                 }
                 selectedReviewParticipant={selectedReviewParticipant}
-                selectedReviewParticipantRank={selectedReviewParticipantRank}
-                onGoPrevReviewParticipant={goPrevReviewParticipant}
-                onGoNextReviewParticipant={goNextReviewParticipant}
-                safeReviewPage={safeReviewPage}
-                reviewPageCount={reviewPageCount}
-                onSetReviewPage={setReviewPage}
                 onSelectReviewParticipantClientId={
                   setSelectedReviewParticipantClientId
                 }
                 reviewContextTransitionKey={reviewContextTransitionKey}
-                pagedRecaps={pagedRecaps}
+                reviewRecaps={reviewRecaps}
                 selectedRecap={selectedRecap}
                 selectedRecapKey={effectiveSelectedRecapKey}
                 onSetSelectedRecapKey={setSelectedRecapKey}
@@ -987,14 +1013,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 selectedRecapAnswer={selectedRecapAnswer}
                 selectedRecapCorrectRank={selectedRecapCorrectRank}
                 isSelectedRecapFastest={isSelectedRecapFastest}
+                isSelectedRecapGlobalFastest={isSelectedRecapGlobalFastest}
                 selectedRecapFastestBadgeText={selectedRecapFastestBadgeText}
+                selectedRecapFastestCorrectMeta={selectedRecapFastestCorrectMeta}
                 selectedRecapAverageCorrectMs={selectedRecapAverageCorrectMs}
                 formatMs={formatMs}
                 selectedRecapRating={selectedRecapRating}
                 selectedRecapGradeMeta={selectedRecapGradeMeta}
                 selectedRecapRatingBreakdown={selectedRecapRatingBreakdown}
-                normalizedRecapCount={normalizedRecaps.length}
-                recapsPerPage={RECAPS_PER_PAGE}
                 multilineEllipsis2Style={MULTILINE_ELLIPSIS_2}
               />
             )}
@@ -1021,3 +1047,4 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 };
 
 export default LiveSettlementShowcase;
+

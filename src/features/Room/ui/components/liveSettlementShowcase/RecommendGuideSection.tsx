@@ -5,9 +5,9 @@ import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
 import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
 import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
-import AdsClickRoundedIcon from "@mui/icons-material/AdsClickRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
+import { List as VirtualList, type RowComponentProps } from "react-window";
 import type { RecommendCategory } from "../liveSettlementUtils";
 
 type RecommendationCardItem = {
@@ -46,8 +46,6 @@ interface RecommendGuideSectionProps {
   onActivateCategory: (category: RecommendCategory) => void;
   autoPreviewEnabled: boolean;
   onToggleAutoPreview: () => void;
-  reviewDoubleClickPlayEnabled: boolean;
-  onToggleReviewDoubleClickPlay: () => void;
   reviewDrawerOpen: boolean;
   onToggleReviewDrawerOpen: () => void;
   currentRecommendation: RecommendationCardItem | null;
@@ -55,12 +53,12 @@ interface RecommendGuideSectionProps {
   recommendationTransitionKey: string;
   onOpenRecommendationTitle: () => void;
   isCurrentRecommendationFastest: boolean;
-  currentReviewTargetLabel: string;
   reviewStatusBadgeBaseClass: string;
   currentRecommendationResultTone: { badgeClass: string; label: string };
   showCurrentRecommendationRankBadge: boolean;
   currentRecommendationCorrectRank: number | null;
   isCurrentRecommendationFirstCorrect: boolean;
+  isCurrentRecommendationGlobalFastest: boolean;
   currentRecommendationGradeBadgeClass: string | null;
   currentRecommendationGradeLabel: string | null;
   hasCurrentRecommendationSpeedDelta: boolean;
@@ -69,6 +67,11 @@ interface RecommendGuideSectionProps {
   currentRecommendationAverageCorrectMs: number | null;
   formatMs: (value: number | null | undefined) => string;
   currentRecommendationFastestBadgeText: string;
+  currentRecommendationFastestCorrectMeta: {
+    clientId: string;
+    username: string;
+    answeredAtMs: number;
+  } | null;
   canAutoGuideLoop: boolean;
   isPreviewFrozen: boolean;
   previewCountdownSec: number;
@@ -84,6 +87,10 @@ interface RecommendGuideSectionProps {
   previewPlayerState: "idle" | "playing" | "paused";
   onQuickPlayStart: () => void;
   recommendationCards: RecommendationCardItem[];
+  selectedReviewParticipantLabel: string;
+  canCycleReviewParticipants: boolean;
+  onGoPrevReviewParticipant: () => void;
+  onGoNextReviewParticipant: () => void;
   safeRecommendIndex: number;
   onSelectRecommendation: (index: number) => void;
   onOpenCardLink: (card: RecommendationCardItem) => void;
@@ -94,6 +101,85 @@ interface RecommendGuideSectionProps {
   multilineEllipsis2Style: React.CSSProperties;
   onSupportArtistClick: () => void;
 }
+
+interface RecommendationRowProps {
+  recommendationCards: RecommendationCardItem[];
+  safeRecommendIndex: number;
+  activeCategoryTheme: RecommendTheme;
+  onSelectRecommendation: (index: number) => void;
+  onOpenCardLink: (card: RecommendationCardItem) => void;
+  multilineEllipsis2Style: React.CSSProperties;
+}
+
+const RecommendationListRow = (props: RowComponentProps<RecommendationRowProps>) => {
+  const { index, style } = props;
+  const legacyRowProps = (props as unknown as { rowProps?: RecommendationRowProps })
+    .rowProps;
+  const resolvedRowProps =
+    legacyRowProps ??
+    (props as unknown as Partial<RecommendationRowProps> | undefined);
+  const recommendationCards = resolvedRowProps?.recommendationCards ?? [];
+  const safeRecommendIndex = resolvedRowProps?.safeRecommendIndex ?? 0;
+  const activeCategoryTheme = resolvedRowProps?.activeCategoryTheme;
+  const onSelectRecommendation = resolvedRowProps?.onSelectRecommendation;
+  const onOpenCardLink = resolvedRowProps?.onOpenCardLink;
+  const multilineEllipsis2Style = resolvedRowProps?.multilineEllipsis2Style;
+  if (
+    !activeCategoryTheme ||
+    !onSelectRecommendation ||
+    !onOpenCardLink ||
+    !multilineEllipsis2Style
+  ) {
+    return <div style={style} />;
+  }
+  const card = recommendationCards[index];
+  if (!card) return <div style={style} />;
+  const active = index === safeRecommendIndex;
+  return (
+    <div style={style} className="px-0.5 pb-2">
+      <button
+        type="button"
+        className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+          active
+            ? activeCategoryTheme.listActiveClass
+            : "border-slate-700/70 bg-slate-900/65 hover:border-slate-500/75"
+        }`}
+        onClick={() => onSelectRecommendation(index)}
+        onMouseDown={(event) => {
+          event.preventDefault();
+        }}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 truncate text-xs font-semibold text-slate-100">
+            <span
+              className={`block truncate ${
+                card.link?.href
+                  ? "cursor-pointer underline decoration-slate-500/60 underline-offset-2 transition hover:text-cyan-200 hover:decoration-cyan-300/70"
+                  : ""
+              }`}
+              onClick={(event) => {
+                if (!card.link?.href) return;
+                event.stopPropagation();
+                onOpenCardLink(card);
+              }}
+            >
+              #{card.recap.order} {card.recap.title}
+            </span>
+          </p>
+          <span className="shrink-0 rounded-full border border-slate-600/70 bg-slate-900/70 px-2 py-0.5 text-[10px] text-slate-300">
+            {card.providerLabel}
+          </span>
+        </div>
+        <p className="mt-1 text-[11px] text-slate-300" style={multilineEllipsis2Style}>
+          {card.recap.uploader || "Unknown"}
+        </p>
+        <p className="mt-1 text-[10px] text-slate-400">
+          {card.hint} · {card.emphasis}
+        </p>
+      </button>
+    </div>
+  );
+};
 
 const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   recommendSectionRef,
@@ -107,8 +193,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   onActivateCategory,
   autoPreviewEnabled,
   onToggleAutoPreview,
-  reviewDoubleClickPlayEnabled,
-  onToggleReviewDoubleClickPlay,
   reviewDrawerOpen,
   onToggleReviewDrawerOpen,
   currentRecommendation,
@@ -116,12 +200,12 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   recommendationTransitionKey,
   onOpenRecommendationTitle,
   isCurrentRecommendationFastest,
-  currentReviewTargetLabel,
   reviewStatusBadgeBaseClass,
   currentRecommendationResultTone,
   showCurrentRecommendationRankBadge,
   currentRecommendationCorrectRank,
   isCurrentRecommendationFirstCorrect,
+  isCurrentRecommendationGlobalFastest,
   currentRecommendationGradeBadgeClass,
   currentRecommendationGradeLabel,
   hasCurrentRecommendationSpeedDelta,
@@ -130,6 +214,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   currentRecommendationAverageCorrectMs,
   formatMs,
   currentRecommendationFastestBadgeText,
+  currentRecommendationFastestCorrectMeta,
   canAutoGuideLoop,
   isPreviewFrozen,
   previewCountdownSec,
@@ -145,6 +230,10 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   previewPlayerState,
   onQuickPlayStart,
   recommendationCards,
+  selectedReviewParticipantLabel,
+  canCycleReviewParticipants,
+  onGoPrevReviewParticipant,
+  onGoNextReviewParticipant,
   safeRecommendIndex,
   onSelectRecommendation,
   onOpenCardLink,
@@ -176,11 +265,37 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   }, [currentRecommendation?.recap.title, recommendationTransitionKey]);
 
   const shouldRunTitleMarquee = recommendationTitleOverflowPx > 10;
+  const marqueeDurationSec = Math.min(
+    20,
+    Math.max(7.2, 3.6 + recommendationTitleOverflowPx / 34),
+  );
   const titleMarqueeStyle = shouldRunTitleMarquee
     ? ({
         ["--settlement-title-shift" as const]: `-${recommendationTitleOverflowPx}px`,
+        ["--settlement-title-duration" as const]: `${marqueeDurationSec.toFixed(2)}s`,
       } as React.CSSProperties)
     : undefined;
+  const isCurrentRecommendationLegendFastest =
+    currentRecommendationFastestBadgeText === "全場最速王";
+
+  const recommendationRowProps = React.useMemo<RecommendationRowProps>(
+    () => ({
+      recommendationCards,
+      safeRecommendIndex,
+      activeCategoryTheme,
+      onSelectRecommendation,
+      onOpenCardLink,
+      multilineEllipsis2Style,
+    }),
+    [
+      recommendationCards,
+      safeRecommendIndex,
+      activeCategoryTheme,
+      onSelectRecommendation,
+      onOpenCardLink,
+      multilineEllipsis2Style,
+    ],
+  );
 
   return (
     <section
@@ -198,7 +313,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 <IconButton
                   size="small"
                   className="!h-6 !w-6 !border !border-cyan-300/45 !bg-cyan-500/12 !text-cyan-100"
-                  aria-label="推薦功能提示"
+                  aria-label="推薦導覽提示"
                 >
                   <HelpOutlineRoundedIcon fontSize="inherit" />
                 </IconButton>
@@ -210,148 +325,124 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           </div>
           {showRecommendControlsHint && (
             <span className="rounded-full border border-cyan-300/45 bg-cyan-500/12 px-3 py-1 text-[11px] font-semibold text-cyan-100">
-              可切換推薦與播放方式
+              提示：可切換分類、啟用自動導覽，並在回顧中雙擊播放
             </span>
           )}
         </div>
 
-        <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-          <div className="min-w-0 overflow-x-auto pb-1">
-            <div
-              className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
-              style={
-                showRecommendControlsHint
-                  ? {
-                      animation: "settlementControlHintPulse 1.2s ease-in-out 2",
-                    }
-                  : undefined
-              }
-            >
-              {(
-                [
-                  { key: "quick", icon: BoltRoundedIcon },
-                  { key: "confuse", icon: ShuffleRoundedIcon },
-                  { key: "hard", icon: LocalFireDepartmentRoundedIcon },
-                  { key: "other", icon: LibraryMusicRoundedIcon },
-                ] as const
-              ).map((item) => {
-                const category = item.key;
-                const active = activeRecommendCategory === category;
-                const count = recommendationCardsByCategory[category].length;
-                const Icon = item.icon;
-                const categoryHint = `${recommendCategoryLabels[category]}：${recommendCategoryShortHints[category]}`;
-                return (
-                  <Tooltip key={category} title={categoryHint} placement="top" arrow>
-                    <span className="inline-flex">
-                      <button
-                        type="button"
-                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                          active
-                            ? `${activeCategoryTheme.badgeClass} shadow-[0_0_0_1px_rgba(148,163,184,0.25)]`
-                            : "border-slate-600/70 bg-slate-900/70 text-slate-200 hover:border-slate-400"
-                        } ${count <= 0 ? "cursor-not-allowed opacity-45" : ""}`}
-                        onClick={() => onActivateCategory(category)}
-                        disabled={count <= 0}
-                      >
-                        <Icon fontSize="small" className="text-[0.95rem]" />
-                        <span>{recommendCategoryLabels[category]}</span>
-                        <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
-                          {count}
-                        </span>
-                      </button>
-                    </span>
-                  </Tooltip>
-                );
-              })}
+        <div className="game-settlement-controls-sticky game-settlement-controls-dock rounded-2xl border border-slate-500/35 bg-slate-950/72 p-2">
+          <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+            <div className="min-w-0 overflow-x-auto pb-1">
+              <div
+                className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
+                style={
+                  showRecommendControlsHint
+                    ? {
+                        animation: "settlementControlHintPulse 1.2s ease-in-out 2",
+                      }
+                    : undefined
+                }
+              >
+                {(
+                  [
+                    { key: "quick", icon: BoltRoundedIcon },
+                    { key: "confuse", icon: ShuffleRoundedIcon },
+                    { key: "hard", icon: LocalFireDepartmentRoundedIcon },
+                    { key: "other", icon: LibraryMusicRoundedIcon },
+                  ] as const
+                ).map((item) => {
+                  const category = item.key;
+                  const active = activeRecommendCategory === category;
+                  const count = recommendationCardsByCategory[category].length;
+                  const Icon = item.icon;
+                  const categoryHint = `${recommendCategoryLabels[category]}：${recommendCategoryShortHints[category]}`;
+                  return (
+                    <Tooltip key={category} title={categoryHint} placement="top" arrow>
+                      <span className="inline-flex">
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                            active
+                              ? `${activeCategoryTheme.badgeClass} shadow-[0_0_0_1px_rgba(148,163,184,0.25)]`
+                              : "border-slate-600/70 bg-slate-900/70 text-slate-200 hover:border-slate-400"
+                          } ${count <= 0 ? "cursor-not-allowed opacity-45" : ""}`}
+                          onClick={() => onActivateCategory(category)}
+                          disabled={count <= 0}
+                        >
+                          <Icon fontSize="small" className="text-[0.95rem]" />
+                          <span>{recommendCategoryLabels[category]}</span>
+                          <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
+                            {count}
+                          </span>
+                        </button>
+                      </span>
+                    </Tooltip>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          <div className="game-settlement-controls-sticky min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
-            <div
-              className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
-              style={
-                showRecommendControlsHint
-                  ? {
-                      animation:
-                        "settlementControlHintPulse 1.2s ease-in-out 2 200ms",
-                    }
-                  : undefined
-              }
-            >
-              <Tooltip
-                title="自動導覽：自動倒數並切換推薦曲目"
-                placement="top"
-                arrow
+            <div className="min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
+              <div
+                className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
+                style={
+                  showRecommendControlsHint
+                    ? {
+                        animation:
+                          "settlementControlHintPulse 1.2s ease-in-out 2 200ms",
+                      }
+                    : undefined
+                }
               >
-                <span className="inline-flex">
-                  <button
-                    type="button"
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                      autoPreviewEnabled
-                        ? "border-cyan-300/55 bg-cyan-500/18 text-cyan-50"
-                        : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
-                    }`}
-                    onClick={onToggleAutoPreview}
-                  >
-                    <GraphicEqRoundedIcon
-                      fontSize="small"
-                      className="text-[0.95rem]"
-                    />
-                    自動導覽
-                    <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
-                      {autoPreviewEnabled ? "ON" : "OFF"}
-                    </span>
-                  </button>
-                </span>
-              </Tooltip>
-              <Tooltip
-                title="雙擊播放：雙擊回顧題目可直接切換試聽"
-                placement="top"
-                arrow
-              >
-                <span className="inline-flex">
-                  <button
-                    type="button"
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                      reviewDoubleClickPlayEnabled
-                        ? "border-violet-300/55 bg-violet-500/18 text-violet-50"
-                        : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
-                    }`}
-                    onClick={onToggleReviewDoubleClickPlay}
-                  >
-                    <AdsClickRoundedIcon
-                      fontSize="small"
-                      className="text-[0.95rem]"
-                    />
-                    雙擊播放
-                    <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
-                      {reviewDoubleClickPlayEnabled ? "ON" : "OFF"}
-                    </span>
-                  </button>
-                </span>
-              </Tooltip>
-              <Tooltip title="全員作答：開啟或收合題目回顧區" placement="top" arrow>
-                <span className="inline-flex">
-                  <button
-                    type="button"
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                      reviewDrawerOpen
-                        ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
-                        : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
-                    }`}
-                    onClick={onToggleReviewDrawerOpen}
-                  >
-                    <GroupsRoundedIcon
-                      fontSize="small"
-                      className="text-[0.95rem]"
-                    />
-                    全員作答
-                    <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
-                      {reviewDrawerOpen ? "顯示" : "隱藏"}
-                    </span>
-                  </button>
-                </span>
-              </Tooltip>
+                <Tooltip
+                  title="自動導覽會依倒數切歌；暫停時會凍結倒數"
+                  placement="top"
+                  arrow
+                >
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                        autoPreviewEnabled
+                          ? "border-cyan-300/55 bg-cyan-500/18 text-cyan-50"
+                          : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
+                      }`}
+                      onClick={onToggleAutoPreview}
+                    >
+                      <GraphicEqRoundedIcon
+                        fontSize="small"
+                        className="text-[0.95rem]"
+                      />
+                      自動導覽
+                      <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
+                        {autoPreviewEnabled ? "ON" : "OFF"}
+                      </span>
+                    </button>
+                  </span>
+                </Tooltip>
+                <Tooltip title="切換題目回顧面板顯示/隱藏" placement="top" arrow>
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                        reviewDrawerOpen
+                          ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
+                          : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
+                      }`}
+                      onClick={onToggleReviewDrawerOpen}
+                    >
+                      <GroupsRoundedIcon
+                        fontSize="small"
+                        className="text-[0.95rem]"
+                      />
+                      全員作答
+                      <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
+                        {reviewDrawerOpen ? "顯示" : "隱藏"}
+                      </span>
+                    </button>
+                  </span>
+                </Tooltip>
+              </div>
             </div>
           </div>
         </div>
@@ -359,7 +450,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
 
       {!currentRecommendation || !hasCurrentRecommendationLink ? (
         <div className="mt-4 rounded-xl border border-dashed border-slate-600/70 bg-slate-900/55 px-4 py-6 text-sm text-slate-400">
-          目前沒有可推薦的曲目。
+          目前沒有可播放的推薦歌曲，請切換分類或回到題目回顧。
         </div>
       ) : (
         <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
@@ -398,77 +489,100 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 </p>
               </div>
               <div className="ml-auto flex shrink-0 flex-row flex-wrap items-center justify-end gap-1.5 sm:flex-col sm:items-end sm:justify-start">
+                <span className="rounded-full border border-slate-500/55 bg-slate-800/75 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
+                  {currentRecommendation.providerLabel}
+                </span>
                 {isCurrentRecommendationFastest && (
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-orange-300/45 bg-orange-500/16 text-orange-100">
                     <LocalFireDepartmentRoundedIcon className="text-[0.85rem]" />
                   </span>
                 )}
-                <span className="rounded-full border border-slate-500/55 bg-slate-800/75 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
-                  {currentRecommendation.providerLabel}
-                </span>
-                <span className="rounded-full border border-sky-300/40 bg-sky-500/14 px-2 py-0.5 text-[10px] font-semibold text-sky-100">
-                  目前檢視：{currentReviewTargetLabel}
-                </span>
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span
-                className={`${reviewStatusBadgeBaseClass} ${currentRecommendationResultTone.badgeClass}`}
-              >
-                {currentRecommendationResultTone.label}
-              </span>
-              {showCurrentRecommendationRankBadge && (
-                <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-sky-300/45 bg-sky-500/16 px-2 text-[10px] font-semibold text-sky-50">
-                  第{currentRecommendationCorrectRank}答
+            <div className="mt-3 space-y-1.5">
+              <div className="game-settlement-badge-row min-h-[2rem]">
+                <span
+                  className={`${reviewStatusBadgeBaseClass} game-settlement-pill game-settlement-pill--result ${currentRecommendationResultTone.badgeClass}`}
+                >
+                  {currentRecommendationResultTone.label}
                 </span>
-              )}
-              {isCurrentRecommendationFirstCorrect && (
-                <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-emerald-300/45 bg-emerald-500/16 px-2 text-[10px] font-semibold text-emerald-100">
-                  首答
-                </span>
-              )}
-              {currentRecommendationGradeLabel &&
-                currentRecommendationGradeBadgeClass && (
-                  <span
-                    className={`inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold ${currentRecommendationGradeBadgeClass}`}
-                  >
-                    評級 {currentRecommendationGradeLabel}
+                {currentRecommendationGradeLabel &&
+                  currentRecommendationGradeBadgeClass && (
+                    <span
+                      className={`inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold game-settlement-pill game-settlement-pill--grade ${currentRecommendationGradeBadgeClass}`}
+                    >
+                      評級 {currentRecommendationGradeLabel}
+                    </span>
+                  )}
+                {isCurrentRecommendationFirstCorrect && (
+                  <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-violet-300/45 bg-violet-500/16 px-2.5 text-[11px] font-semibold text-violet-50 game-settlement-pill game-settlement-pill--rank">
+                    首答
                   </span>
                 )}
-              {hasCurrentRecommendationSpeedDelta && (
-                <span
-                  className={`inline-flex h-6 min-w-[5.8rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold ${
-                    currentRecommendationSpeedValue.startsWith("-")
-                      ? "border-rose-300/45 bg-rose-500/16 text-rose-100"
-                      : "border-emerald-300/45 bg-emerald-500/16 text-emerald-100"
-                  }`}
-                  title={currentRecommendationSpeedNote}
-                >
-                  快度 {currentRecommendationSpeedValue}
-                </span>
-              )}
-              {typeof currentRecommendationAverageCorrectMs === "number" && (
-                <span className="inline-flex h-6 min-w-[7.2rem] items-center justify-center rounded-full border border-amber-300/40 bg-amber-500/14 px-2.5 text-[11px] font-semibold text-amber-100">
-                  平均答對 {formatMs(currentRecommendationAverageCorrectMs)}
-                </span>
-              )}
-              {isCurrentRecommendationFastest && (
-                <span className="inline-flex h-6 min-w-[5.1rem] items-center justify-center gap-1 rounded-full border border-orange-300/45 bg-orange-500/16 px-2.5 text-[11px] font-semibold text-orange-100">
-                  <LocalFireDepartmentRoundedIcon className="text-[0.85rem]" />
-                  {currentRecommendationFastestBadgeText}
-                </span>
-              )}
+                {showCurrentRecommendationRankBadge && (
+                  <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-indigo-300/45 bg-indigo-500/16 px-2.5 text-[11px] font-semibold text-indigo-50 game-settlement-pill game-settlement-pill--rank">
+                    第{currentRecommendationCorrectRank}答
+                  </span>
+                )}
+                {hasCurrentRecommendationSpeedDelta && (
+                  <span
+                    className={`inline-flex h-6 min-w-[7.2rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold game-settlement-pill game-settlement-pill--speed ${
+                      currentRecommendationSpeedValue.startsWith("-")
+                        ? "border-rose-300/45 bg-rose-500/16 text-rose-100"
+                        : "border-cyan-300/45 bg-cyan-500/16 text-cyan-100"
+                    }`}
+                    title={currentRecommendationSpeedNote}
+                  >
+                    速度差 {currentRecommendationSpeedValue}
+                  </span>
+                )}
+                {typeof currentRecommendationAverageCorrectMs === "number" && (
+                  <span className="inline-flex h-6 min-w-[9.8rem] items-center justify-center rounded-full border border-amber-300/40 bg-amber-500/14 px-2.5 text-[11px] font-semibold text-amber-100 game-settlement-pill game-settlement-pill--average">
+                    平均答對時長 {formatMs(currentRecommendationAverageCorrectMs)}
+                  </span>
+                )}
+              </div>
+              <div className="game-settlement-badge-row min-h-[2rem]">
+                {currentRecommendationFastestCorrectMeta && (
+                  <span className="inline-flex h-6 min-w-[13rem] items-center justify-center rounded-full border border-orange-300/45 bg-orange-500/14 px-2.5 text-[11px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest-meta">
+                    全場最快 {currentRecommendationFastestCorrectMeta.username}{" "}
+                    {formatMs(currentRecommendationFastestCorrectMeta.answeredAtMs)}
+                  </span>
+                )}
+                {isCurrentRecommendationFastest && (
+                  <Tooltip
+                    title={
+                      isCurrentRecommendationGlobalFastest
+                        ? "你是本場所有玩家中的單題最快答對者"
+                        : "這是你在本場所有答對題目中的最快一題"
+                    }
+                    placement="top"
+                    arrow
+                  >
+                    <span
+                      className={`inline-flex h-6 min-w-[8rem] items-center justify-center gap-1 rounded-full border border-orange-300/45 bg-orange-500/16 px-2.5 text-[11px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest ${
+                        isCurrentRecommendationLegendFastest
+                          ? "game-settlement-pill--legend"
+                          : ""
+                      }`}
+                    >
+                      <LocalFireDepartmentRoundedIcon className="text-[0.85rem]" />
+                      {currentRecommendationFastestBadgeText}
+                    </span>
+                  </Tooltip>
+                )}
+              </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2"> 
               <button
                 type="button"
                 className="rounded-full border border-sky-300/45 bg-sky-400/15 px-3 py-1 text-xs font-semibold text-sky-100 transition hover:bg-sky-400/25"
                 onClick={onSupportArtistClick}
                 disabled={!currentRecommendation.link?.href}
               >
-                如果喜歡這首歌曲，請至 {currentRecommendation.providerLabel} 支持作者
+                如果喜歡這首歌曲，請至 YouTube 支持作者
               </button>
               {canAutoGuideLoop && !isPreviewFrozen && (
                 <span
@@ -491,7 +605,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
 
             <p className="mt-2 text-[11px] text-slate-400">
               試聽音量目標 {effectivePreviewVolume}% ·
-              {settlementPreviewSyncGameVolume ? " 同步遊玩音量" : " 使用自訂音量"}
+              {settlementPreviewSyncGameVolume ? " 同步遊戲音量" : " 自訂試聽音量"}
             </p>
 
             <div
@@ -533,7 +647,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                       type="button"
                       className="absolute inset-0 z-20 flex items-center justify-center px-4 text-center"
                       onClick={onQuickPlayStart}
-                      title="點擊播放試聽"
                     >
                       <span className="text-xs font-semibold text-slate-100 sm:text-sm">
                         如果喜歡這首歌曲，請至 YouTube 支持作者。
@@ -543,10 +656,10 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 ) : (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 px-4 text-center">
                     <p className="text-sm font-semibold text-slate-200">
-                      此平台不支援嵌入試聽
+                      目前沒有可用的試聽來源
                     </p>
                     <p className="text-xs text-slate-400">
-                      請使用上方連結前往 {currentRecommendation.providerLabel} 收聽。
+                      請改用 {currentRecommendation.providerLabel} 連結開啟
                     </p>
                   </div>
                 )}
@@ -555,73 +668,55 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           </article>
 
           <aside
-            className={`flex min-h-[520px] flex-col rounded-2xl border p-3 transition-colors duration-300 xl:min-h-[620px] ${activeCategoryTheme.asideClass}`}
+            className={`flex min-h-[420px] flex-col rounded-2xl border p-3 transition-colors duration-300 ${activeCategoryTheme.asideClass}`}
           >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                推薦清單
-              </p>
-              <span className="text-xs text-slate-300">
-                {recommendationCards.length === 0
-                  ? "0/0"
-                  : `${safeRecommendIndex + 1}/${recommendationCards.length}`}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  推薦清單
+                </p>
+                <span className="text-xs text-slate-300">
+                  {recommendationCards.length === 0
+                    ? "0/0"
+                    : `${safeRecommendIndex + 1}/${recommendationCards.length}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 rounded-full border border-sky-300/35 bg-sky-500/10 px-1 py-1">
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-400 disabled:opacity-40"
+                  onClick={onGoPrevReviewParticipant}
+                  disabled={!canCycleReviewParticipants}
+                >
+                  上一位
+                </button>
+                <span className="max-w-[150px] truncate whitespace-nowrap px-1 text-[11px] font-semibold text-sky-100">
+                  {selectedReviewParticipantLabel}
+                </span>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-400 disabled:opacity-40"
+                  onClick={onGoNextReviewParticipant}
+                  disabled={!canCycleReviewParticipants}
+                >
+                  下一位
+                </button>
+              </div>
             </div>
-            <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-              {recommendationCards.map((card, index) => {
-                const active = index === safeRecommendIndex;
-                return (
-                  <button
-                    key={card.recap.key}
-                    type="button"
-                    className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                      active
-                        ? activeCategoryTheme.listActiveClass
-                        : "border-slate-700/70 bg-slate-900/65 hover:border-slate-500/75"
-                    }`}
-                    onClick={() => onSelectRecommendation(index)}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 truncate text-xs font-semibold text-slate-100">
-                        <span
-                          className={`block truncate ${
-                            card.link?.href
-                              ? "cursor-pointer underline decoration-slate-500/60 underline-offset-2 transition hover:text-cyan-200 hover:decoration-cyan-300/70"
-                              : ""
-                          }`}
-                          onClick={(event) => {
-                            if (!card.link?.href) return;
-                            event.stopPropagation();
-                            onOpenCardLink(card);
-                          }}
-                          title={
-                            card.link?.href
-                              ? `前往 ${card.providerLabel}`
-                              : card.recap.title
-                          }
-                        >
-                          #{card.recap.order} {card.recap.title}
-                        </span>
-                      </p>
-                      <span className="shrink-0 rounded-full border border-slate-600/70 bg-slate-900/70 px-2 py-0.5 text-[10px] text-slate-300">
-                        {card.providerLabel}
-                      </span>
-                    </div>
-                    <p
-                      className="mt-1 text-[11px] text-slate-300"
-                      style={multilineEllipsis2Style}
-                    >
-                      {card.recap.uploader || "Unknown"}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-400">
-                      {card.hint} · {card.emphasis}
-                    </p>
-                  </button>
-                );
-              })}
+            <div className="mt-3 flex-1 overflow-hidden pr-1">
+              {recommendationCards.length === 0 ? (
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-700/70 bg-slate-900/55 px-3 text-sm text-slate-400">
+                  目前沒有推薦清單
+                </div>
+              ) : (
+                <VirtualList
+                  style={{ height: "100%", width: "100%" }}
+                  rowCount={recommendationCards.length}
+                  rowHeight={96}
+                  rowProps={recommendationRowProps}
+                  rowComponent={RecommendationListRow}
+                />
+              )}
             </div>
             <div className="mt-3 flex items-center justify-between gap-2">
               <button
@@ -649,3 +744,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
 };
 
 export default RecommendGuideSection;
+
+
+
+

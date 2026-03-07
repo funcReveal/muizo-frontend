@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Button, Chip, Switch } from "@mui/material";
 
 import type { ChatMessage, RoomParticipant } from "../../../model/types";
@@ -136,6 +136,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             const rowComboTier = resolveComboTier(p.combo ?? 0);
             const rowComboTierClass =
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
+            const isMeRow = p.clientId === meClientId;
             return (
               <div
                 key={p.clientId}
@@ -149,7 +150,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       : rowAnswerState === "answered"
                         ? "game-room-score-row--answered"
                         : ""
-                } ${p.clientId === meClientId ? "game-room-score-row--me" : ""} ${
+                } ${isMeRow ? "game-room-score-row--me game-room-score-row--me-locate" : ""} ${
                   topSwapRole === "first"
                     ? "game-room-score-row--top-swap-first"
                     : topSwapRole === "second"
@@ -166,7 +167,14 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       title={answerDotTitle}
                     />
                   )}
-                  {idx + 1}. {p.clientId === meClientId ? `${p.username}（我）` : p.username}
+                  <span className="truncate">
+                    {idx + 1}. {isMeRow ? `${p.username}（我）` : p.username}
+                  </span>
+                  {isMeRow && (
+                    <span className="game-room-score-row-you-badge" title="你">
+                      YOU
+                    </span>
+                  )}
                 </span>
                 <div className="flex items-center gap-2">
                   {topSwapRole && (

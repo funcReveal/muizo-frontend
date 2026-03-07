@@ -279,8 +279,7 @@ export const formatMs = (value: number | null | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     return "--";
   }
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
-  return `${Math.round(value)}ms`;
+  return `${(value / 1000).toFixed(2)}s`;
 };
 
 export const formatPercent = (value: number) =>
@@ -332,7 +331,8 @@ export const resolvePreviewEmbedUrl = (
       typeof window !== "undefined" && window.location?.origin
         ? `&origin=${encodeURIComponent(window.location.origin)}`
         : "";
-    return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1${originParam}`;
+    // Keep initial frame muted and let JS API restore the configured volume.
+    return `https://www.youtube.com/embed/${id}?autoplay=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&mute=1${originParam}`;
   }
   return null;
 };

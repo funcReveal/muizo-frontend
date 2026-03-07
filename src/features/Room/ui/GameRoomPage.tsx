@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -300,6 +300,19 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const shouldShowGestureOverlay =
     !isEnded && requiresAudioGesture && !audioUnlocked;
   const participantCount = participants.length;
+  const participantClientIdSet = useMemo(
+    () => new Set(participants.map((participant) => participant.clientId)),
+    [participants],
+  );
+  const questionParticipantCount =
+    typeof gameState.questionStats?.participantCount === "number" &&
+    Number.isFinite(gameState.questionStats.participantCount)
+      ? Math.max(0, Math.floor(gameState.questionStats.participantCount))
+      : participantCount;
+  const requiredAnswerCount =
+    participantCount > 0 && questionParticipantCount > 0
+      ? Math.min(participantCount, questionParticipantCount)
+      : Math.max(participantCount, questionParticipantCount);
   const serverAnsweredCount =
     typeof gameState.questionStats?.answeredCount === "number" &&
     Number.isFinite(gameState.questionStats.answeredCount)
@@ -307,10 +320,45 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       : Array.isArray(gameState.questionStats?.answerOrderLatest)
         ? gameState.questionStats.answerOrderLatest.length
         : 0;
+  const serverAnsweredCurrentParticipantCount = useMemo(() => {
+    const answersByClientId = gameState.questionStats?.answersByClientId;
+    if (
+      answersByClientId &&
+      typeof answersByClientId === "object" &&
+      participantClientIdSet.size > 0
+    ) {
+      return Object.entries(answersByClientId).reduce((count, [clientId, answer]) => {
+        if (!participantClientIdSet.has(clientId)) return count;
+        const hasChoiceIndex =
+          typeof answer?.choiceIndex === "number" &&
+          Number.isFinite(answer.choiceIndex);
+        const hasResolvedResult =
+          answer?.result === "correct" || answer?.result === "wrong";
+        return hasChoiceIndex || hasResolvedResult ? count + 1 : count;
+      }, 0);
+    }
+    const answerOrderLatest = gameState.questionStats?.answerOrderLatest;
+    if (Array.isArray(answerOrderLatest) && participantClientIdSet.size > 0) {
+      const seen = new Set<string>();
+      let count = 0;
+      answerOrderLatest.forEach((clientId) => {
+        if (!participantClientIdSet.has(clientId) || seen.has(clientId)) return;
+        seen.add(clientId);
+        count += 1;
+      });
+      return count;
+    }
+    return serverAnsweredCount;
+  }, [
+    gameState.questionStats?.answerOrderLatest,
+    gameState.questionStats?.answersByClientId,
+    participantClientIdSet,
+    serverAnsweredCount,
+  ]);
   const allAnsweredByServer =
     gameState.phase === "guess" &&
-    participantCount > 0 &&
-    serverAnsweredCount >= participantCount;
+    requiredAnswerCount > 0 &&
+    serverAnsweredCurrentParticipantCount >= requiredAnswerCount;
   const canAnswerNow =
     gameState.status === "playing" &&
     gameState.phase === "guess" &&
@@ -342,11 +390,20 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     primeSfxAudio,
     playGameSfx,
   });
+  const allAnsweredByLocalSnapshot =
+    gameState.phase === "guess" &&
+    requiredAnswerCount > 0 &&
+    answeredCount >= requiredAnswerCount;
   const allAnsweredReadyForReveal =
     gameState.phase === "guess" &&
-    participantCount > 0 &&
-    (allAnsweredByServer || answeredCount >= participantCount);
+    (allAnsweredByServer || (requiredAnswerCount === 1 && allAnsweredByLocalSnapshot));
   const isRevealPendingServerSync = allAnsweredReadyForReveal && !isReveal;
+  const isRevealPendingOptimisticSync =
+    gameState.phase === "guess" &&
+    requiredAnswerCount > 0 &&
+    !isReveal &&
+    allAnsweredByLocalSnapshot &&
+    !allAnsweredByServer;
   const displayedPhaseRemainingMs = allAnsweredReadyForReveal
     ? 0
     : phaseRemainingMs;
@@ -828,6 +885,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             isPendingFeedbackCard={isPendingFeedbackCard}
             allAnsweredReadyForReveal={allAnsweredReadyForReveal}
             isRevealPendingServerSync={isRevealPendingServerSync}
+            isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
           />
         </section>
         {audioGestureOverlay}

@@ -279,26 +279,26 @@ export type SpeedComparisonInsight = {
   value: string;
   deltaMs: number | null;
   answeredMs: number | null;
-  medianMs: number | null;
+  averageMs: number | null;
 };
 
 export const resolveSpeedComparisonInsight = (
   input: {
-    medianCorrectMs: number | null | undefined;
+    averageCorrectMs: number | null | undefined;
     answeredAtMs: number | null | undefined;
   },
   formatMs: (ms: number) => string,
 ): SpeedComparisonInsight => {
   const answeredMs = normalizeTimingMs(input.answeredAtMs);
-  const medianMs = normalizeTimingMs(input.medianCorrectMs);
-  if (answeredMs !== null && medianMs !== null) {
-    const deltaMs = medianMs - answeredMs;
+  const averageMs = normalizeTimingMs(input.averageCorrectMs);
+  if (answeredMs !== null && averageMs !== null) {
+    const deltaMs = averageMs - answeredMs;
     return {
       label: "你比大家快多少",
       value: `${deltaMs >= 0 ? "+" : "-"}${formatMs(Math.abs(deltaMs))}`,
       deltaMs,
       answeredMs,
-      medianMs,
+      averageMs,
     };
   }
   return {
@@ -306,6 +306,7 @@ export const resolveSpeedComparisonInsight = (
     value: "--",
     deltaMs: null,
     answeredMs,
-    medianMs,
+    averageMs,
   };
 };
+

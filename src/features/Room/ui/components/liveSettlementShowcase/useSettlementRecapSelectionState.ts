@@ -13,8 +13,6 @@ interface RecapAnswerSnapshot {
 
 interface UseSettlementRecapSelectionStateParams<TRecap extends SettlementQuestionRecap> {
   normalizedRecaps: TRecap[];
-  reviewPage: number;
-  recapsPerPage: number;
   selectedRecapKey: string | null;
   effectiveSelectedReviewParticipantClientId: string | null;
   meClientId?: string;
@@ -45,9 +43,7 @@ interface UseSettlementRecapSelectionStateResult<TRecap extends SettlementQuesti
     wrong: number;
     unanswered: number;
   };
-  reviewPageCount: number;
-  safeReviewPage: number;
-  pagedRecaps: TRecap[];
+  reviewRecaps: TRecap[];
   effectiveSelectedRecapKey: string | null;
   selectedRecap: TRecap | null;
   selectedRecapLink: SettlementTrackLink | null;
@@ -61,8 +57,6 @@ const useSettlementRecapSelectionState = <
   TRecap extends SettlementQuestionRecap,
 >({
   normalizedRecaps,
-  reviewPage,
-  recapsPerPage,
   selectedRecapKey,
   effectiveSelectedReviewParticipantClientId,
   meClientId,
@@ -93,22 +87,11 @@ const useSettlementRecapSelectionState = <
     resolveParticipantResult,
   ]);
 
-  const reviewPageCount = Math.max(
-    1,
-    Math.ceil(normalizedRecaps.length / recapsPerPage),
-  );
-  const safeReviewPage = Math.min(reviewPage, Math.max(0, reviewPageCount - 1));
-
-  const pagedRecaps = useMemo(() => {
-    const start = safeReviewPage * recapsPerPage;
-    return normalizedRecaps.slice(start, start + recapsPerPage);
-  }, [normalizedRecaps, recapsPerPage, safeReviewPage]);
-
   const effectiveSelectedRecapKey =
     selectedRecapKey &&
-    pagedRecaps.some((item) => item.key === selectedRecapKey)
+    normalizedRecaps.some((item) => item.key === selectedRecapKey)
       ? selectedRecapKey
-      : (pagedRecaps[0]?.key ?? null);
+      : (normalizedRecaps[0]?.key ?? null);
 
   const selectedRecap = useMemo(() => {
     if (!normalizedRecaps.length) return null;
@@ -170,14 +153,13 @@ const useSettlementRecapSelectionState = <
     selectedRecapAnswer.result,
   ]);
 
-  const reviewContextTransitionKey = `${effectiveSelectedReviewParticipantClientId ?? "none"}:${safeReviewPage}`;
+  const reviewContextTransitionKey =
+    effectiveSelectedReviewParticipantClientId ?? "none";
   const reviewDetailTransitionKey = `${reviewContextTransitionKey}:${selectedRecap?.key ?? "none"}`;
 
   return {
     reviewRecapSummary,
-    reviewPageCount,
-    safeReviewPage,
-    pagedRecaps,
+    reviewRecaps: normalizedRecaps,
     effectiveSelectedRecapKey,
     selectedRecap,
     selectedRecapLink,

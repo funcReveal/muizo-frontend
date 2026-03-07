@@ -1,5 +1,7 @@
 import React from "react";
 import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
+import AdsClickRoundedIcon from "@mui/icons-material/AdsClickRounded";
+import { List as VirtualList, type RowComponentProps } from "react-window";
 
 import type { SettlementTrackLink } from "../../../model/settlementLinks";
 import type { RoomParticipant } from "../../../model/types";
@@ -47,17 +49,13 @@ interface ReviewRecapSectionProps {
   reviewRecapSummary: ReviewRecapSummary;
   sortedParticipants: RoomParticipant[];
   meClientId?: string;
+  reviewDoubleClickPlayEnabled: boolean;
+  onToggleReviewDoubleClickPlay: () => void;
   effectiveSelectedReviewParticipantClientId: string | null;
   selectedReviewParticipant: RoomParticipant | null;
-  selectedReviewParticipantRank: number;
-  onGoPrevReviewParticipant: () => void;
-  onGoNextReviewParticipant: () => void;
-  safeReviewPage: number;
-  reviewPageCount: number;
-  onSetReviewPage: React.Dispatch<React.SetStateAction<number>>;
   onSelectReviewParticipantClientId: (clientId: string | null) => void;
   reviewContextTransitionKey: string;
-  pagedRecaps: SettlementQuestionRecap[];
+  reviewRecaps: SettlementQuestionRecap[];
   selectedRecap: SettlementQuestionRecap | null;
   selectedRecapKey: string | null;
   onSetSelectedRecapKey: (recapKey: string) => void;
@@ -92,33 +90,193 @@ interface ReviewRecapSectionProps {
   selectedRecapAnswer: RecapAnswerSnapshot;
   selectedRecapCorrectRank: number | null;
   isSelectedRecapFastest: boolean;
+  isSelectedRecapGlobalFastest: boolean;
   selectedRecapFastestBadgeText: string;
+  selectedRecapFastestCorrectMeta: {
+    clientId: string;
+    username: string;
+    answeredAtMs: number;
+  } | null;
   selectedRecapAverageCorrectMs: number | null;
   formatMs: (value: number | null | undefined) => string;
   selectedRecapRating: SongPerformanceRating | null;
   selectedRecapGradeMeta: GradeMeta | null;
   selectedRecapRatingBreakdown: string;
-  normalizedRecapCount: number;
-  recapsPerPage: number;
   multilineEllipsis2Style: React.CSSProperties;
 }
+
+interface ReviewRecapRowProps {
+  reviewRecaps: SettlementQuestionRecap[];
+  selectedRecapKey: string | null;
+  effectiveSelectedReviewParticipantClientId: string | null;
+  meClientId?: string;
+  resolveParticipantResult: (
+    recap: SettlementQuestionRecap,
+    participantClientId: string | null,
+    meClientId?: string,
+  ) => RecapAnswerResult;
+  resolveCorrectAnsweredRank: (
+    recap: SettlementQuestionRecap,
+    participantClientId: string | null,
+  ) => number | null;
+  resultMeta: Record<RecapAnswerResult, ResultTone>;
+  performanceRatingByRecapKey: Map<string, SongPerformanceRating>;
+  performanceGradeMeta: Record<SongPerformanceGrade, GradeMeta>;
+  personalFastestCorrectRecapKeys: Set<string>;
+  isParticipantGlobalFastestCorrect: (
+    recap: SettlementQuestionRecap,
+    rating: SongPerformanceRating | null | undefined,
+  ) => boolean;
+  reviewStatusBadgeBaseClass: string;
+  onSetSelectedRecapKey: (recapKey: string) => void;
+  onJumpToRecapPreview: (
+    recap: SettlementQuestionRecap,
+    source: "click" | "doubleClick",
+  ) => void;
+}
+
+const ReviewRecapRow = (props: RowComponentProps<ReviewRecapRowProps>) => {
+  const { index, style } = props;
+  const legacyRowProps = (props as unknown as { rowProps?: ReviewRecapRowProps }).rowProps;
+  const resolvedRowProps =
+    legacyRowProps ?? (props as unknown as Partial<ReviewRecapRowProps> | undefined);
+  const reviewRecaps = resolvedRowProps?.reviewRecaps ?? [];
+  const selectedRecapKey = resolvedRowProps?.selectedRecapKey ?? null;
+  const effectiveSelectedReviewParticipantClientId =
+    resolvedRowProps?.effectiveSelectedReviewParticipantClientId ?? null;
+  const meClientId = resolvedRowProps?.meClientId;
+  const resolveParticipantResult = resolvedRowProps?.resolveParticipantResult;
+  const resolveCorrectAnsweredRank = resolvedRowProps?.resolveCorrectAnsweredRank;
+  const resultMeta = resolvedRowProps?.resultMeta;
+  const performanceRatingByRecapKey = resolvedRowProps?.performanceRatingByRecapKey;
+  const performanceGradeMeta = resolvedRowProps?.performanceGradeMeta;
+  const personalFastestCorrectRecapKeys =
+    resolvedRowProps?.personalFastestCorrectRecapKeys;
+  const isParticipantGlobalFastestCorrect =
+    resolvedRowProps?.isParticipantGlobalFastestCorrect;
+  const reviewStatusBadgeBaseClass = resolvedRowProps?.reviewStatusBadgeBaseClass;
+  const onSetSelectedRecapKey = resolvedRowProps?.onSetSelectedRecapKey;
+  const onJumpToRecapPreview = resolvedRowProps?.onJumpToRecapPreview;
+  if (
+    !resolveParticipantResult ||
+    !resolveCorrectAnsweredRank ||
+    !resultMeta ||
+    !performanceRatingByRecapKey ||
+    !performanceGradeMeta ||
+    !personalFastestCorrectRecapKeys ||
+    !isParticipantGlobalFastestCorrect ||
+    !reviewStatusBadgeBaseClass ||
+    !onSetSelectedRecapKey ||
+    !onJumpToRecapPreview
+  ) {
+    return <div style={style} />;
+  }
+  const recap = reviewRecaps[index];
+  if (!recap) return <div style={style} />;
+
+  const result = resolveParticipantResult(
+    recap,
+    effectiveSelectedReviewParticipantClientId,
+    meClientId,
+  );
+  const tone = resultMeta[result];
+  const active = selectedRecapKey === recap.key;
+  const recapCorrectRank =
+    result === "correct"
+      ? resolveCorrectAnsweredRank(recap, effectiveSelectedReviewParticipantClientId)
+      : null;
+  const recapRating = performanceRatingByRecapKey.get(recap.key) ?? null;
+  const recapGradeMeta = recapRating ? performanceGradeMeta[recapRating.grade] : null;
+  const isFastestRecap =
+    personalFastestCorrectRecapKeys.has(recap.key) && result === "correct";
+  const isGlobalFastestRecap =
+    isFastestRecap &&
+    isParticipantGlobalFastestCorrect(recap, recapRating);
+  const fastestRecapBadgeText = isGlobalFastestRecap ? "全場最速王" : "個人最快";
+
+  return (
+    <div style={style} className="px-0.5 pb-2">
+      <button
+        type="button"
+        className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+          active
+            ? "border-amber-300/55 bg-amber-400/10"
+            : "border-slate-700/70 bg-slate-950/55 hover:border-slate-500/80"
+        }`}
+        onClick={() => {
+          onSetSelectedRecapKey(recap.key);
+          onJumpToRecapPreview(recap, "click");
+        }}
+        onDoubleClick={() => {
+          onSetSelectedRecapKey(recap.key);
+          onJumpToRecapPreview(recap, "doubleClick");
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 text-xs font-semibold text-amber-100">
+            {recap.order}
+          </span>
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">
+            {recap.title}
+          </p>
+          {isFastestRecap && (
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-orange-300/45 bg-orange-500/16 text-orange-100">
+              <LocalFireDepartmentRoundedIcon className="text-[0.95rem]" />
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <span className={`shrink-0 ${reviewStatusBadgeBaseClass} min-w-[3.6rem] px-2 text-[10.5px] leading-none game-settlement-pill game-settlement-pill--result ${tone.badgeClass}`}>
+            {tone.label}
+          </span>
+          {recapRating && recapGradeMeta && (
+            <span
+              className={`inline-flex h-5 min-w-[2rem] items-center justify-center rounded-full border px-1.5 text-[10.5px] font-semibold game-settlement-pill game-settlement-pill--grade ${recapGradeMeta.badgeClass}`}
+            >
+              {recapRating.grade}
+            </span>
+          )}
+          {recapCorrectRank === 1 && (
+            <span className="inline-flex h-5 min-w-[3.7rem] items-center justify-center rounded-full border border-violet-300/45 bg-violet-500/16 px-2 text-[10.5px] font-semibold text-violet-50 game-settlement-pill game-settlement-pill--rank">
+              首答
+            </span>
+          )}
+          {typeof recapCorrectRank === "number" && recapCorrectRank > 1 && (
+            <span className="inline-flex h-5 min-w-[3.7rem] items-center justify-center rounded-full border border-indigo-300/45 bg-indigo-500/16 px-2 text-[10.5px] font-semibold text-indigo-50 game-settlement-pill game-settlement-pill--rank">
+              第{recapCorrectRank}答
+            </span>
+          )}
+          {isFastestRecap && (
+            <span
+              title={
+                isGlobalFastestRecap
+                  ? "你是本場所有玩家中的單題最快答對者"
+                  : "這是你在本場所有答對題目中的最快一題"
+              }
+              className="inline-flex h-5 min-w-[3.85rem] items-center justify-center gap-0.5 rounded-full border border-orange-300/45 bg-orange-500/16 px-2 text-[10.5px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest game-settlement-pill--legend"
+            >
+              <LocalFireDepartmentRoundedIcon className="text-[0.8rem]" />
+              {fastestRecapBadgeText}
+            </span>
+          )}
+        </div>
+      </button>
+    </div>
+  );
+};
 
 const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   activeCategoryTheme,
   reviewRecapSummary,
   sortedParticipants,
   meClientId,
+  reviewDoubleClickPlayEnabled,
+  onToggleReviewDoubleClickPlay,
   effectiveSelectedReviewParticipantClientId,
   selectedReviewParticipant,
-  selectedReviewParticipantRank,
-  onGoPrevReviewParticipant,
-  onGoNextReviewParticipant,
-  safeReviewPage,
-  reviewPageCount,
-  onSetReviewPage,
   onSelectReviewParticipantClientId,
   reviewContextTransitionKey,
-  pagedRecaps,
+  reviewRecaps,
   selectedRecap,
   selectedRecapKey,
   onSetSelectedRecapKey,
@@ -137,16 +295,51 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   selectedRecapAnswer,
   selectedRecapCorrectRank,
   isSelectedRecapFastest,
+  isSelectedRecapGlobalFastest,
   selectedRecapFastestBadgeText,
+  selectedRecapFastestCorrectMeta,
   selectedRecapAverageCorrectMs,
   formatMs,
   selectedRecapRating,
   selectedRecapGradeMeta,
   selectedRecapRatingBreakdown,
-  normalizedRecapCount,
-  recapsPerPage,
   multilineEllipsis2Style,
 }) => {
+  const recapRowProps = React.useMemo<ReviewRecapRowProps>(
+    () => ({
+      reviewRecaps,
+      selectedRecapKey,
+      effectiveSelectedReviewParticipantClientId,
+      meClientId,
+      resolveParticipantResult,
+      resolveCorrectAnsweredRank,
+      resultMeta,
+      performanceRatingByRecapKey,
+      performanceGradeMeta,
+      personalFastestCorrectRecapKeys,
+      isParticipantGlobalFastestCorrect,
+      reviewStatusBadgeBaseClass,
+      onSetSelectedRecapKey,
+      onJumpToRecapPreview,
+    }),
+    [
+      reviewRecaps,
+      selectedRecapKey,
+      effectiveSelectedReviewParticipantClientId,
+      meClientId,
+      resolveParticipantResult,
+      resolveCorrectAnsweredRank,
+      resultMeta,
+      performanceRatingByRecapKey,
+      performanceGradeMeta,
+      personalFastestCorrectRecapKeys,
+      isParticipantGlobalFastestCorrect,
+      reviewStatusBadgeBaseClass,
+      onSetSelectedRecapKey,
+      onJumpToRecapPreview,
+    ],
+  );
+
   return (
     <section
       className={`mt-4 rounded-2xl border p-4 transition-colors duration-300 ${activeCategoryTheme.drawerClass}`}
@@ -166,70 +359,24 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
             未作答 {reviewRecapSummary.unanswered}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-          <div className="flex items-center gap-1 rounded-full border border-sky-300/35 bg-sky-500/10 px-2 py-1">
-            <button
-              type="button"
-              className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-              onClick={onGoPrevReviewParticipant}
-              disabled={sortedParticipants.length <= 1}
-            >
-              上一位
-            </button>
-            <span
-              key={`review-participant-${effectiveSelectedReviewParticipantClientId ?? "none"}`}
-              className="max-w-[200px] truncate px-1 text-[11px] font-semibold text-sky-100"
-              style={{
-                animation: "settlementSwapIn 200ms ease-out both",
-              }}
-            >
-              {selectedReviewParticipant
-                ? `#${selectedReviewParticipantRank} ${selectedReviewParticipant.username}${
-                    meClientId &&
-                    selectedReviewParticipant.clientId === meClientId
-                      ? "（你）"
-                      : ""
-                  }`
-                : "尚未選擇玩家"}
-            </span>
-            <button
-              type="button"
-              className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-              onClick={onGoNextReviewParticipant}
-              disabled={sortedParticipants.length <= 1}
-            >
-              下一位
-            </button>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-              onClick={() => onSetReviewPage((prev) => Math.max(0, prev - 1))}
-              disabled={safeReviewPage <= 0}
-            >
-              上一頁
-            </button>
-            <span>
-              {safeReviewPage + 1}/{reviewPageCount}
-            </span>
-            <button
-              type="button"
-              className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 transition hover:border-slate-400 disabled:opacity-40"
-              onClick={() =>
-                onSetReviewPage((prev) => Math.min(reviewPageCount - 1, prev + 1))
-              }
-              disabled={safeReviewPage >= reviewPageCount - 1}
-            >
-              下一頁
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
+          <button
+            type="button"
+            onClick={onToggleReviewDoubleClickPlay}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+              reviewDoubleClickPlayEnabled
+                ? "border-violet-300/55 bg-violet-500/18 text-violet-50"
+                : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
+            }`}
+          >
+            <AdsClickRoundedIcon className="text-[0.9rem]" />
+            雙擊播放 {reviewDoubleClickPlayEnabled ? "ON" : "OFF"}
+          </button>
         </div>
       </div>
       {sortedParticipants.length > 0 && (
         <div className="mt-2 overflow-x-auto pb-1">
-          <div className="inline-flex min-w-max items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-950/60 px-2 py-1.5">
+          <div className="inline-flex min-w-max flex-nowrap items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-950/60 px-2 py-1.5">
             {sortedParticipants.map((participant, index) => {
               const isActive =
                 participant.clientId === effectiveSelectedReviewParticipantClientId;
@@ -239,7 +386,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   key={`review-chip-${participant.clientId}`}
                   type="button"
                   onClick={() => onSelectReviewParticipantClientId(participant.clientId)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-semibold transition ${
+                  className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-semibold transition ${
                     isActive
                       ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
                       : "border-slate-600/70 bg-slate-900/70 text-slate-200 hover:border-slate-400"
@@ -248,9 +395,9 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-current/40 px-1 text-[10px] leading-none">
                     {index + 1}
                   </span>
-                  <span className="max-w-[120px] truncate">
+                  <span className="max-w-[96px] truncate whitespace-nowrap">
                     {participant.username}
-                    {isMe ? "（你）" : ""}
+                    {isMe ? " (你)" : ""}
                   </span>
                 </button>
               );
@@ -259,111 +406,30 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
         </div>
       )}
       <p className="mt-2 text-[11px] text-slate-400">
-        提示：雙擊題目可切換到試聽區（上方控制列可切換雙擊播放）。
+        提示：雙擊題目可同步到上方試聽區（可於此處開關雙擊播放）。
       </p>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
         <div
           key={`review-list-${reviewContextTransitionKey}`}
-          className="max-h-[500px] space-y-2 overflow-y-auto pr-1"
+          className="h-[clamp(260px,54vh,560px)] overflow-hidden"
           style={{
             animation: "settlementSwapIn 220ms ease-out both",
           }}
         >
-          {pagedRecaps.map((recap) => {
-            const result = resolveParticipantResult(
-              recap,
-              effectiveSelectedReviewParticipantClientId,
-              meClientId,
-            );
-            const tone = resultMeta[result];
-            const active = selectedRecapKey === recap.key;
-            const recapCorrectRank =
-              result === "correct"
-                ? resolveCorrectAnsweredRank(
-                    recap,
-                    effectiveSelectedReviewParticipantClientId,
-                  )
-                : null;
-            const recapRating = performanceRatingByRecapKey.get(recap.key) ?? null;
-            const recapGradeMeta = recapRating
-              ? performanceGradeMeta[recapRating.grade]
-              : null;
-            const isFastestRecap =
-              personalFastestCorrectRecapKeys.has(recap.key) &&
-              result === "correct";
-            const isGlobalFastestRecap = isParticipantGlobalFastestCorrect(
-              recap,
-              recapRating,
-            );
-            const fastestRecapBadgeText = isGlobalFastestRecap
-              ? "全場最快"
-              : "我的最快";
-            return (
-              <button
-                key={recap.key}
-                type="button"
-                className={`w-full rounded-xl border px-3 py-2 text-left transition ${
-                  active
-                    ? "border-amber-300/55 bg-amber-400/10"
-                    : "border-slate-700/70 bg-slate-950/55 hover:border-slate-500/80"
-                }`}
-                onClick={() => {
-                  onSetSelectedRecapKey(recap.key);
-                  onJumpToRecapPreview(recap, "click");
-                }}
-                onDoubleClick={() => {
-                  onSetSelectedRecapKey(recap.key);
-                  onJumpToRecapPreview(recap, "doubleClick");
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 text-xs font-semibold text-amber-100">
-                    {recap.order}
-                  </span>
-                  <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">
-                    {recap.title}
-                  </p>
-                  {isFastestRecap && (
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-orange-300/45 bg-orange-500/16 text-orange-100">
-                      <LocalFireDepartmentRoundedIcon className="text-[0.95rem]" />
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <span
-                    className={`shrink-0 ${reviewStatusBadgeBaseClass} ${tone.badgeClass}`}
-                  >
-                    {tone.label}
-                  </span>
-                  {recapRating && recapGradeMeta && (
-                    <span
-                      className={`inline-flex h-6 min-w-[2.2rem] items-center justify-center rounded-full border px-2 text-[11px] font-semibold ${recapGradeMeta.badgeClass}`}
-                      title={`評分 ${recapRating.grade}`}
-                    >
-                      {recapRating.grade}
-                    </span>
-                  )}
-                  {typeof recapCorrectRank === "number" && recapCorrectRank > 1 && (
-                    <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-sky-300/45 bg-sky-500/16 px-2 text-[10px] font-semibold text-sky-50">
-                      第{recapCorrectRank}答
-                    </span>
-                  )}
-                  {recapCorrectRank === 1 && (
-                    <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-emerald-300/45 bg-emerald-500/16 px-2 text-[10px] font-semibold text-emerald-100">
-                      首答
-                    </span>
-                  )}
-                  {isFastestRecap && (
-                    <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center gap-1 rounded-full border border-orange-300/45 bg-orange-500/16 px-2.5 text-[11px] font-semibold text-orange-100">
-                      <LocalFireDepartmentRoundedIcon className="text-[0.85rem]" />
-                      {fastestRecapBadgeText}
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+          {reviewRecaps.length === 0 ? (
+            <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50 px-4 text-sm text-slate-400">
+              目前沒有題目回顧資料
+            </div>
+          ) : (
+            <VirtualList
+              style={{ height: "100%", width: "100%" }}
+              rowCount={reviewRecaps.length}
+              rowHeight={98}
+              rowProps={recapRowProps}
+              rowComponent={ReviewRecapRow}
+            />
+          )}
         </div>
 
         <div className="rounded-xl border border-slate-700/70 bg-slate-950/60 p-2.5 sm:p-3">
@@ -377,7 +443,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                    第 {selectedRecap.order} 題
+                    {`第 ${selectedRecap.order} 題`}
                     {selectedReviewParticipant
                       ? ` · ${selectedReviewParticipant.username}`
                       : ""}
@@ -394,11 +460,6 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                       onOpenTrackLink(selectedRecapLink, selectedRecap);
                     }}
                     disabled={!selectedRecapLink?.href}
-                    title={
-                      selectedRecapLink?.href
-                        ? `開啟 ${selectedRecapLink.providerLabel || "外部連結"}`
-                        : selectedRecap.title
-                    }
                   >
                     <p style={multilineEllipsis2Style}>{selectedRecap.title}</p>
                   </button>
@@ -408,7 +469,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
                   <span
-                    className={`${reviewStatusBadgeBaseClass} ${
+                    className={`${reviewStatusBadgeBaseClass} game-settlement-pill game-settlement-pill--result ${
                       resultMeta[selectedRecapAnswer.result].badgeClass
                     }`}
                   >
@@ -416,25 +477,31 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   </span>
                   {selectedRecapRating && selectedRecapGradeMeta && (
                     <span
-                      className={`inline-flex h-6 min-w-[2.2rem] items-center justify-center rounded-full border px-2 text-[11px] font-semibold ${selectedRecapGradeMeta.badgeClass}`}
-                      title={`評分 ${selectedRecapRating.grade}`}
+                      className={`inline-flex h-6 min-w-[2.2rem] items-center justify-center rounded-full border px-2 text-[11px] font-semibold game-settlement-pill game-settlement-pill--grade ${selectedRecapGradeMeta.badgeClass}`}
                     >
                       {selectedRecapRating.grade}
                     </span>
                   )}
-                  {typeof selectedRecapCorrectRank === "number" &&
-                    selectedRecapCorrectRank > 1 && (
-                      <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-sky-300/45 bg-sky-500/16 px-2 text-[10px] font-semibold text-sky-50">
-                        第{selectedRecapCorrectRank}答
-                      </span>
-                    )}
                   {selectedRecapCorrectRank === 1 && (
-                    <span className="inline-flex h-5 min-w-[3.9rem] items-center justify-center rounded-full border border-emerald-300/45 bg-emerald-500/16 px-2 text-[10px] font-semibold text-emerald-100">
+                    <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-violet-300/45 bg-violet-500/16 px-2.5 text-[11px] font-semibold text-violet-50 game-settlement-pill game-settlement-pill--rank">
                       首答
                     </span>
                   )}
+                  {typeof selectedRecapCorrectRank === "number" &&
+                    selectedRecapCorrectRank > 1 && (
+                      <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-indigo-300/45 bg-indigo-500/16 px-2.5 text-[11px] font-semibold text-indigo-50 game-settlement-pill game-settlement-pill--rank">
+                        第{selectedRecapCorrectRank}答
+                      </span>
+                    )}
                   {isSelectedRecapFastest && (
-                    <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center gap-1 rounded-full border border-orange-300/45 bg-orange-500/16 px-2.5 text-[11px] font-semibold text-orange-100">
+                    <span
+                      title={
+                        isSelectedRecapGlobalFastest
+                          ? "你是本場所有玩家中的單題最快答對者"
+                          : "這是你在本場所有答對題目中的最快一題"
+                      }
+                      className="inline-flex h-6 min-w-[4.4rem] items-center justify-center gap-1 rounded-full border border-orange-300/45 bg-orange-500/16 px-2.5 text-[11px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest game-settlement-pill--legend"
+                    >
                       <LocalFireDepartmentRoundedIcon className="text-[0.85rem]" />
                       {selectedRecapFastestBadgeText}
                     </span>
@@ -444,11 +511,15 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
               <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/70 px-3 py-2">
                 <p className="text-[11px] text-slate-400">作答評分</p>
                 <p className="mt-1 text-xs text-slate-300">
-                  答對 {selectedRecap.correctCount ?? 0} · 答錯{" "}
-                  {selectedRecap.wrongCount ?? 0} · 未作答{" "}
-                  {selectedRecap.unansweredCount ?? 0} · 最快答對{" "}
-                  {formatMs(selectedRecap.fastestCorrectMs)} · 平均答對{" "}
-                  {formatMs(selectedRecapAverageCorrectMs)}
+                  答對 {selectedRecap.correctCount ?? 0} · 答錯 {selectedRecap.wrongCount ?? 0} · 未作答 {selectedRecap.unansweredCount ?? 0}
+                </p>
+                <p className="mt-1 text-xs text-slate-300">
+                  {selectedRecapFastestCorrectMeta
+                    ? `全場最快 ${selectedRecapFastestCorrectMeta.username} ${formatMs(
+                        selectedRecapFastestCorrectMeta.answeredAtMs,
+                      )}`
+                    : `全場最快 ${formatMs(selectedRecap.fastestCorrectMs)}`}{" "}
+                  · 平均答對時長 {formatMs(selectedRecapAverageCorrectMs)}
                 </p>
                 {selectedRecapRating && selectedRecapGradeMeta ? (
                   <>
@@ -459,18 +530,14 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                       >
                         {selectedRecapRating.grade}
                       </span>{" "}
-                        · {selectedRecapRating.score}
+                      · {selectedRecapRating.score}
                     </p>
-                    <p
-                      className={`mt-1 text-[11px] ${selectedRecapGradeMeta.detailClass}`}
-                    >
+                    <p className={`mt-1 text-[11px] ${selectedRecapGradeMeta.detailClass}`}>
                       {selectedRecapRatingBreakdown}
                     </p>
                   </>
                 ) : (
-                  <p className="mt-1 text-xs text-slate-400">
-                    尚無可計算的評分資料。
-                  </p>
+                  <p className="mt-1 text-xs text-slate-400">本題尚無可用評分資料</p>
                 )}
               </div>
               <div className="mt-3 grid gap-2">
@@ -520,18 +587,18 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
             </div>
           ) : (
             <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-4 text-sm text-slate-400">
-              目前沒有可顯示的題目回顧。
+              請從左側題目回顧清單選擇一題查看詳細資訊
             </div>
           )}
         </div>
       </div>
-      <div className="mt-3 text-xs text-slate-400">
-        顯示第 {safeReviewPage * recapsPerPage + 1} -{" "}
-        {Math.min(normalizedRecapCount, (safeReviewPage + 1) * recapsPerPage)}{" "}
-        題（共 {normalizedRecapCount} 題）
-      </div>
+      <div className="mt-3 text-xs text-slate-400">共 {reviewRecaps.length} 題</div>
     </section>
   );
 };
 
 export default ReviewRecapSection;
+
+
+
+

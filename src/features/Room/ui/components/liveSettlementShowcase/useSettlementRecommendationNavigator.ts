@@ -56,7 +56,9 @@ interface UseSettlementRecommendationNavigatorParams<
   setPreviewCountdownSec: Dispatch<SetStateAction<number>>;
 }
 
-interface UseSettlementRecommendationNavigatorResult<TRecap extends RecommendCardRecapBase> {
+interface UseSettlementRecommendationNavigatorResult<
+  TRecap extends RecommendCardRecapBase,
+> {
   jumpToRecommendation: (
     nextCategory: RecommendCategory,
     nextIndex: number,
@@ -99,7 +101,10 @@ const useSettlementRecommendationNavigator = <
   setAutoAdvanceAtMs,
   setPausedCountdownRemainingMs,
   setPreviewCountdownSec,
-}: UseSettlementRecommendationNavigatorParams<TRecap, TCard>): UseSettlementRecommendationNavigatorResult<TRecap> => {
+}: UseSettlementRecommendationNavigatorParams<
+  TRecap,
+  TCard
+>): UseSettlementRecommendationNavigatorResult<TRecap> => {
   const recommendationCardsByCategoryRef = useRef(recommendationCardsByCategory);
   useEffect(() => {
     recommendationCardsByCategoryRef.current = recommendationCardsByCategory;
@@ -128,10 +133,12 @@ const useSettlementRecommendationNavigator = <
       }
       const safeIndex = Math.max(0, Math.min(nextIndex, nextCards.length - 1));
       const targetCard = nextCards[safeIndex];
+
       setRecommendCategory(nextCategory);
       setRecommendIndex(safeIndex);
       setSelectedRecapKey(targetCard?.recap.key ?? null);
-      pushPreviewSwitchNotice(`已切換到第 ${targetCard.recap.order} 題`);
+      pushPreviewSwitchNotice(`已切換至第 ${targetCard.recap.order} 題`);
+
       const nextPlaybackMode =
         options?.playbackMode ?? (autoPreviewEnabled ? "auto" : "idle");
       const hasPreview = Boolean(targetCard?.previewUrl);
@@ -139,24 +146,44 @@ const useSettlementRecommendationNavigator = <
         !options?.forcePreview &&
         (pausedCountdownRemainingMsRef.current !== null ||
           previewPlayerStateRef.current === "paused");
+
       if (nextPlaybackMode === "manual") {
         setPreviewPlaybackMode("manual");
-        setPreviewRecapKey(hasPreview ? targetCard.recap.key : null);
-        setPreviewPlayerState(hasPreview ? "playing" : "idle");
-        setAutoAdvanceAtMs(null);
-        setPausedCountdownRemainingMs(null);
-        setPreviewCountdownSec(recommendPreviewSeconds);
-        return;
-      }
-      if (nextPlaybackMode === "auto" || options?.forcePreview) {
-        setPreviewPlaybackMode("auto");
-        if (keepPausedWhenSwitching) {
-          const frozenMs = recommendPreviewSeconds * 1000;
+        if (!hasPreview) {
           setPreviewRecapKey(null);
+          setPreviewPlayerState("idle");
+          setAutoAdvanceAtMs(null);
+          setPausedCountdownRemainingMs(null);
+          setPreviewCountdownSec(recommendPreviewSeconds);
+          return;
+        }
+        setPreviewRecapKey(targetCard.recap.key);
+        if (keepPausedWhenSwitching) {
+          const frozenMs =
+            pausedCountdownRemainingMsRef.current ?? recommendPreviewSeconds * 1000;
           setPreviewPlayerState("paused");
           setAutoAdvanceAtMs(null);
           setPausedCountdownRemainingMs(frozenMs);
+          setPreviewCountdownSec(Math.max(0, Math.ceil(frozenMs / 1000)));
+        } else {
+          setPreviewPlayerState("playing");
+          setAutoAdvanceAtMs(null);
+          setPausedCountdownRemainingMs(null);
           setPreviewCountdownSec(recommendPreviewSeconds);
+        }
+        return;
+      }
+
+      if (nextPlaybackMode === "auto" || options?.forcePreview) {
+        setPreviewPlaybackMode("auto");
+        if (keepPausedWhenSwitching) {
+          const frozenMs =
+            pausedCountdownRemainingMsRef.current ?? recommendPreviewSeconds * 1000;
+          setPreviewRecapKey(hasPreview ? targetCard.recap.key : null);
+          setPreviewPlayerState("paused");
+          setAutoAdvanceAtMs(null);
+          setPausedCountdownRemainingMs(frozenMs);
+          setPreviewCountdownSec(Math.max(0, Math.ceil(frozenMs / 1000)));
         } else {
           setPreviewRecapKey(hasPreview ? targetCard.recap.key : null);
           setPreviewPlayerState("idle");
@@ -168,19 +195,20 @@ const useSettlementRecommendationNavigator = <
         }
         return;
       }
+
       setPreviewPlaybackMode("idle");
       setAutoAdvanceAtMs(null);
       if (keepPausedWhenSwitching) {
-        const frozenMs = recommendPreviewSeconds * 1000;
+        const frozenMs =
+          pausedCountdownRemainingMsRef.current ?? recommendPreviewSeconds * 1000;
+        setPreviewRecapKey(hasPreview ? targetCard.recap.key : null);
         setPreviewPlayerState("paused");
         setPausedCountdownRemainingMs(frozenMs);
-        setPreviewCountdownSec(recommendPreviewSeconds);
+        setPreviewCountdownSec(Math.max(0, Math.ceil(frozenMs / 1000)));
       } else {
         setPreviewPlayerState("idle");
         setPausedCountdownRemainingMs(null);
         setPreviewCountdownSec(recommendPreviewSeconds);
-      }
-      if (!options?.forcePreview) {
         setPreviewRecapKey(null);
       }
     },
@@ -255,7 +283,6 @@ const useSettlementRecommendationNavigator = <
       const nextIndex = getFirstAutoPlayableIndex(nextCards);
       jumpToRecommendation(nextCategory, nextIndex, {
         playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
-        forcePreview: previewPlaybackMode === "manual",
       });
     },
     [
@@ -272,7 +299,6 @@ const useSettlementRecommendationNavigator = <
     if (safeRecommendIndex > 0) {
       jumpToRecommendation(activeRecommendCategory, safeRecommendIndex - 1, {
         playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
-        forcePreview: previewPlaybackMode === "manual",
       });
       return;
     }
@@ -287,7 +313,6 @@ const useSettlementRecommendationNavigator = <
       if (!cards.length) continue;
       jumpToRecommendation(prevCategory, cards.length - 1, {
         playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
-        forcePreview: previewPlaybackMode === "manual",
       });
       return;
     }
@@ -305,7 +330,6 @@ const useSettlementRecommendationNavigator = <
     if (safeRecommendIndex < total - 1) {
       jumpToRecommendation(activeRecommendCategory, safeRecommendIndex + 1, {
         playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
-        forcePreview: previewPlaybackMode === "manual",
       });
       return;
     }
@@ -319,7 +343,6 @@ const useSettlementRecommendationNavigator = <
       if (!cards.length) continue;
       jumpToRecommendation(nextCategory, 0, {
         playbackMode: previewPlaybackMode === "manual" ? "manual" : undefined,
-        forcePreview: previewPlaybackMode === "manual",
       });
       return;
     }
@@ -364,9 +387,9 @@ const useSettlementRecommendationNavigator = <
       if (hasPrevCategory && hasNextCategory) break;
     }
     return {
-      prev: safeRecommendIndex <= 0 && hasPrevCategory ? "上一頁" : "上一首",
+      prev: safeRecommendIndex <= 0 && hasPrevCategory ? "上一類" : "上一首",
       next:
-        safeRecommendIndex >= total - 1 && hasNextCategory ? "下一頁" : "下一首",
+        safeRecommendIndex >= total - 1 && hasNextCategory ? "下一類" : "下一首",
     };
   }, [
     activeRecommendCategory,

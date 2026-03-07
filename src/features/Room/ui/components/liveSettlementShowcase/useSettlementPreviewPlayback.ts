@@ -52,7 +52,6 @@ const useSettlementPreviewPlayback = ({
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const previewVolumeRetryTimersRef = useRef<number[]>([]);
   const previewSwitchNoticeTimerRef = useRef<number | null>(null);
-  const previewProgressWatchTimerRef = useRef<number | null>(null);
   const previewBridgeRetryTimersRef = useRef<number[]>([]);
   const autoAdvanceAtMsRef = useRef<number | null>(autoAdvanceAtMs);
   const pausedCountdownRemainingMsRef = useRef<number | null>(
@@ -106,11 +105,21 @@ const useSettlementPreviewPlayback = ({
 
   const syncPreviewVolume = useCallback(() => {
     if (!previewRecapKey) return;
+    const normalizedVolume = Math.max(0, Math.min(100, effectivePreviewVolume));
+    const apply = () => {
+      postYouTubeCommand("setVolume", [normalizedVolume]);
+      if (normalizedVolume <= 0) {
+        postYouTubeCommand("mute");
+      } else {
+        postYouTubeCommand("unMute");
+      }
+    };
     clearPreviewVolumeRetryTimers();
-    const retryDelays = [800, 1500];
+    apply();
+    const retryDelays = [140, 380, 780, 1300];
     previewVolumeRetryTimersRef.current = retryDelays.map((delay) =>
       window.setTimeout(() => {
-        postYouTubeCommand("setVolume", [effectivePreviewVolume]);
+        apply();
       }, delay),
     );
   }, [
@@ -235,6 +244,13 @@ const useSettlementPreviewPlayback = ({
         previewCurrentTimeSecRef.current = currentTime;
         const progressed =
           lastCurrentTime !== null && currentTime > lastCurrentTime + 0.04;
+        const shouldKeepFrozen =
+          previewPlayerStateRef.current === "paused" &&
+          pausedCountdownRemainingMsRef.current !== null;
+        if (progressed && shouldKeepFrozen) {
+          postYouTubeCommand("pauseVideo");
+          return;
+        }
         if (progressed) {
           previewLastProgressAtMsRef.current = Date.now();
           if (previewPlayerStateRef.current !== "playing") {
@@ -258,6 +274,13 @@ const useSettlementPreviewPlayback = ({
       }
       if (state === null) return;
       if (state === 1) {
+        const shouldKeepFrozen =
+          previewPlayerStateRef.current === "paused" &&
+          pausedCountdownRemainingMsRef.current !== null;
+        if (shouldKeepFrozen) {
+          postYouTubeCommand("pauseVideo");
+          return;
+        }
         const wasPlaying = previewPlayerStateRef.current === "playing";
         previewPlayerStateRef.current = "playing";
         previewLastProgressAtMsRef.current = Date.now();
@@ -295,6 +318,11 @@ const useSettlementPreviewPlayback = ({
         }
         return;
       }
+      if (state === 3) {
+        // Treat buffering as active playback to avoid false freeze on short stalls.
+        previewLastProgressAtMsRef.current = Date.now();
+        return;
+      }
       if (state === 0 || state === -1) {
         if (previewPlayerStateRef.current !== "idle") {
           previewPlayerStateRef.current = "idle";
@@ -308,6 +336,7 @@ const useSettlementPreviewPlayback = ({
     };
   }, [
     previewRecapKey,
+    postYouTubeCommand,
     readYouTubePlayerSnapshot,
     setAutoAdvanceAtMs,
     setPausedCountdownRemainingMs,
@@ -336,42 +365,6 @@ const useSettlementPreviewPlayback = ({
   ]);
 
   useEffect(() => {
-    if (previewProgressWatchTimerRef.current !== null) {
-      window.clearInterval(previewProgressWatchTimerRef.current);
-      previewProgressWatchTimerRef.current = null;
-    }
-    if (!previewRecapKey || !canAutoGuideLoop) return;
-    previewProgressWatchTimerRef.current = window.setInterval(() => {
-      if (autoAdvanceAtMsRef.current === null) return;
-      if (previewPlayerStateRef.current !== "playing") return;
-      const lastProgressAt = previewLastProgressAtMsRef.current;
-      if (lastProgressAt === null) return;
-      if (Date.now() - lastProgressAt < 1400) return;
-      const remainingMs = Math.max(0, autoAdvanceAtMsRef.current - Date.now());
-      autoAdvanceAtMsRef.current = null;
-      pausedCountdownRemainingMsRef.current = remainingMs;
-      previewPlayerStateRef.current = "paused";
-      setAutoAdvanceAtMs(null);
-      setPausedCountdownRemainingMs(remainingMs);
-      setPreviewCountdownSec(Math.max(0, Math.ceil(remainingMs / 1000)));
-      setPreviewPlayerState("paused");
-    }, 260);
-    return () => {
-      if (previewProgressWatchTimerRef.current !== null) {
-        window.clearInterval(previewProgressWatchTimerRef.current);
-        previewProgressWatchTimerRef.current = null;
-      }
-    };
-  }, [
-    canAutoGuideLoop,
-    previewRecapKey,
-    setAutoAdvanceAtMs,
-    setPausedCountdownRemainingMs,
-    setPreviewCountdownSec,
-    setPreviewPlayerState,
-  ]);
-
-  useEffect(() => {
     previewCurrentTimeSecRef.current = null;
     previewLastProgressAtMsRef.current = null;
   }, [previewRecapKey]);
@@ -391,9 +384,6 @@ const useSettlementPreviewPlayback = ({
     () => () => {
       if (previewSwitchNoticeTimerRef.current !== null) {
         window.clearTimeout(previewSwitchNoticeTimerRef.current);
-      }
-      if (previewProgressWatchTimerRef.current !== null) {
-        window.clearInterval(previewProgressWatchTimerRef.current);
       }
       clearPreviewBridgeRetryTimers();
       clearPreviewVolumeRetryTimers();

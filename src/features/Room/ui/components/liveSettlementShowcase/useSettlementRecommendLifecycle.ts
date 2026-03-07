@@ -129,7 +129,7 @@ const useSettlementRecommendLifecycle = ({
     const timer = window.setTimeout(() => {
       if (previewPlayerStateRef.current === "playing") return;
       const lastProgressAt = previewLastProgressAtMsRef.current;
-      if (lastProgressAt !== null && Date.now() - lastProgressAt <= 1800) {
+      if (lastProgressAt !== null && Date.now() - lastProgressAt <= 3200) {
         previewPlayerStateRef.current = "playing";
         setPreviewPlayerState("playing");
         return;
@@ -147,7 +147,7 @@ const useSettlementRecommendLifecycle = ({
       setPreviewCountdownSec(Math.max(0, Math.ceil(remainingMs / 1000)));
       setPreviewPlayerState("paused");
       pushPreviewSwitchNotice("瀏覽器限制自動播放，點擊影片區即可開始");
-    }, 2800);
+    }, 4200);
     return () => window.clearTimeout(timer);
   }, [
     activeTab,

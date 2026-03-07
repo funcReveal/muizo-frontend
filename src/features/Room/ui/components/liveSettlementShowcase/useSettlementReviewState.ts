@@ -31,6 +31,7 @@ interface FastestAverageAnswerEntry {
 
 interface ParticipantScoreMeta {
   byClientId: Record<string, string>;
+  tooltipByClientId: Record<string, string>;
   metricsByClientId: Record<string, ScoreMetrics>;
 }
 
@@ -150,7 +151,7 @@ const useSettlementReviewState = ({
           ? "（你）"
           : ""
       }`
-    : "你";
+    : "尚無玩家";
 
   const goPrevReviewParticipant = useCallback(() => {
     if (sortedParticipants.length <= 1) return;
@@ -261,17 +262,21 @@ const useSettlementReviewState = ({
     }, null);
 
     const titleByClientId: Record<string, string> = {};
+    const tooltipByClientId: Record<string, string> = {};
     rows.forEach((row, idx) => {
       if (idx === 0) {
         titleByClientId[row.participant.clientId] = "冠軍";
+        tooltipByClientId[row.participant.clientId] = "本場總分第一";
         return;
       }
       if (maxAccuracy > 0 && Math.abs(row.accuracy - maxAccuracy) < 0.00001) {
-        titleByClientId[row.participant.clientId] = "高命中";
+        titleByClientId[row.participant.clientId] = "神準狙擊";
+        tooltipByClientId[row.participant.clientId] = "本場答對率最高";
         return;
       }
       if (maxCombo > 0 && row.combo === maxCombo) {
-        titleByClientId[row.participant.clientId] = "連擊王";
+        titleByClientId[row.participant.clientId] = "連擊壓制";
+        tooltipByClientId[row.participant.clientId] = "本場連擊最高";
         return;
       }
       if (
@@ -279,14 +284,17 @@ const useSettlementReviewState = ({
         row.avgSpeedMs !== null &&
         row.avgSpeedMs === fastestAvgSpeedMs
       ) {
-        titleByClientId[row.participant.clientId] = "快手";
+        titleByClientId[row.participant.clientId] = "速攻王";
+        tooltipByClientId[row.participant.clientId] = "本場平均答對時長最快";
         return;
       }
-      titleByClientId[row.participant.clientId] = "穩定";
+      titleByClientId[row.participant.clientId] = "競技者";
+      tooltipByClientId[row.participant.clientId] = "本場穩定作答";
     });
 
     return {
       byClientId: titleByClientId,
+      tooltipByClientId,
       metricsByClientId: rows.reduce<Record<string, ScoreMetrics>>(
         (acc, row) => {
           acc[row.participant.clientId] = {
@@ -325,3 +333,4 @@ const useSettlementReviewState = ({
 };
 
 export default useSettlementReviewState;
+

@@ -1,5 +1,6 @@
-﻿import { useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
+import type { RoomParticipant } from "../../../model/types";
 import type { SettlementQuestionRecap } from "../GameSettlementPanel";
 import {
   buildAnsweredRankMap,
@@ -44,6 +45,7 @@ interface UseSettlementRecommendationInsightsParams<
   TRecommendationCard extends RecommendationCardLike<TRecap>,
 > {
   normalizedRecaps: TRecap[];
+  participants: RoomParticipant[];
   participantsLength: number;
   configuredAnswerWindowMs: number;
   quickSolveThresholdMs: number;
@@ -78,10 +80,6 @@ interface UseSettlementRecommendationInsightsParams<
     recap: SettlementQuestionRecap,
     participantClientId: string | null,
   ) => number | null;
-  isParticipantGlobalFastestCorrect: (
-    recap: SettlementQuestionRecap,
-    rating: SongPerformanceRating | null | undefined,
-  ) => boolean;
   getChangedAnswerCount: (answer: unknown) => number;
   formatMs: (value: number | null | undefined) => string;
   formatPercent: (value: number) => string;
@@ -101,7 +99,13 @@ interface UseSettlementRecommendationInsightsResult<
   selectedRecapAverageCorrectMs: number | null;
   selectedRecapGradeMeta: GradeMeta | null;
   isSelectedRecapFastest: boolean;
+  isSelectedRecapGlobalFastest: boolean;
   selectedRecapFastestBadgeText: string;
+  selectedRecapFastestCorrectMeta: {
+    clientId: string;
+    username: string;
+    answeredAtMs: number;
+  } | null;
   selectedRecapRatingBreakdown: string;
   availableRecommendCategories: RecommendCategory[];
   activeRecommendCategory: RecommendCategory;
@@ -119,18 +123,24 @@ interface UseSettlementRecommendationInsightsResult<
   currentRecommendationGradeMeta: GradeMeta | null;
   currentRecommendationCorrectRank: number | null;
   currentRecommendationSpeedInsight: {
-    label: "你比大家快多少";
+    label: string;
     value: string;
     valueClass: string;
     note: string;
     deltaMs: number | null;
     answeredMs: number | null;
-    medianMs: number | null;
+    averageMs: number | null;
   };
   currentRecommendationResultTone: ResultTone;
   isCurrentRecommendationFirstCorrect: boolean;
   showCurrentRecommendationRankBadge: boolean;
+  isCurrentRecommendationGlobalFastest: boolean;
   currentRecommendationFastestBadgeText: string;
+  currentRecommendationFastestCorrectMeta: {
+    clientId: string;
+    username: string;
+    answeredAtMs: number;
+  } | null;
   hasCurrentRecommendationSpeedDelta: boolean;
   isPreviewFrozen: boolean;
   shouldShowPreviewOverlay: boolean;
@@ -142,6 +152,7 @@ const useSettlementRecommendationInsights = <
   TRecommendationCard extends RecommendationCardLike<TRecap>,
 >({
   normalizedRecaps,
+  participants,
   participantsLength,
   configuredAnswerWindowMs,
   quickSolveThresholdMs,
@@ -161,7 +172,6 @@ const useSettlementRecommendationInsights = <
   buildRecommendationCard,
   resolveParticipantAnswer,
   resolveCorrectAnsweredRank,
-  isParticipantGlobalFastestCorrect,
   getChangedAnswerCount,
   formatMs,
   formatPercent,
@@ -172,6 +182,13 @@ const useSettlementRecommendationInsights = <
   TRecommendationCard
 >): UseSettlementRecommendationInsightsResult<TRecap, TRecommendationCard> => {
   const defaultParticipantCount = Math.max(1, participantsLength);
+  const participantNameByClientId = useMemo(() => {
+    const next = new Map<string, string>();
+    participants.forEach((participant) => {
+      next.set(participant.clientId, participant.username);
+    });
+    return next;
+  }, [participants]);
   const resolveParticipantCount = useCallback(
     (recap: SettlementQuestionRecap) => {
       const raw =
@@ -202,11 +219,8 @@ const useSettlementRecommendationInsights = <
         const correctRate = correctCount / participantCount;
         const unansweredRate = unansweredCount / participantCount;
         const allCorrect = participantCount > 0 && correctCount >= participantCount;
-        const medianCorrectMs =
-          typeof recap.medianCorrectMs === "number" &&
-          Number.isFinite(recap.medianCorrectMs)
-            ? recap.medianCorrectMs
-            : Number.POSITIVE_INFINITY;
+        const averageCorrectMs =
+          averageCorrectMsByRecapKey.get(recap.key) ?? Number.POSITIVE_INFINITY;
         const fastestCorrectMs =
           typeof recap.fastestCorrectMs === "number" &&
           Number.isFinite(recap.fastestCorrectMs)
@@ -217,20 +231,25 @@ const useSettlementRecommendationInsights = <
           correctRate,
           unansweredRate,
           allCorrect,
-          medianCorrectMs,
+          averageCorrectMs,
           fastestCorrectMs,
         };
       })
       .filter(
-        (row) => row.allCorrect && row.medianCorrectMs <= quickSolveThresholdMs,
+        (row) => row.allCorrect && row.averageCorrectMs <= quickSolveThresholdMs,
       )
       .sort(
         (a, b) =>
-          a.medianCorrectMs - b.medianCorrectMs ||
+          a.averageCorrectMs - b.averageCorrectMs ||
           a.fastestCorrectMs - b.fastestCorrectMs ||
           a.recap.order - b.recap.order,
       );
-  }, [normalizedRecaps, quickSolveThresholdMs, resolveParticipantCount]);
+  }, [
+    averageCorrectMsByRecapKey,
+    normalizedRecaps,
+    quickSolveThresholdMs,
+    resolveParticipantCount,
+  ]);
 
   const confuseRecommendations = useMemo(() => {
     return normalizedRecaps
@@ -326,29 +345,29 @@ const useSettlementRecommendationInsights = <
         quick: quickRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
-            `全員答對 · 中位 ${formatMs(entry.medianCorrectMs)}`,
-            `最快答對 ${formatMs(entry.fastestCorrectMs)}`,
+            `全員答對 · 平均 ${formatMs(entry.averageCorrectMs)}`,
+            `最快答題 ${formatMs(entry.fastestCorrectMs)}`,
           ),
         ),
         confuse: confuseRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
-            `換答案 ${entry.changedUsers} 人 · ${entry.changedTimes} 次`,
-            "最容易混淆",
+            `改答玩家 ${entry.changedUsers} 位 · 改答次數 ${entry.changedTimes}`,
+            "容易混淆",
           ),
         ),
         hard: hardRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
             `答錯 ${entry.recap.wrongCount ?? 0} · 未作答 ${entry.recap.unansweredCount ?? 0}`,
-            "高難保留題",
+            "高難挑戰",
           ),
         ),
         other: otherRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
-            `答對率 ${formatPercent(entry.correctRate)}`,
-            "延伸推薦",
+            `全員答對率 ${formatPercent(entry.correctRate)}`,
+            "其餘歌單",
           ),
         ),
       }),
@@ -416,23 +435,21 @@ const useSettlementRecommendationInsights = <
     resolveParticipantCount,
   ]);
 
-  const personalFastestCorrectRecapKeys = useMemo(() => {
-    let fastestMs: number | null = null;
-    performanceRatingByRecapKey.forEach((rating) => {
-      if (rating.result !== "correct") return;
-      if (
-        typeof rating.answeredAtMs !== "number" ||
-        !Number.isFinite(rating.answeredAtMs)
-      ) {
-        return;
-      }
-      fastestMs =
-        fastestMs === null
-          ? rating.answeredAtMs
-          : Math.min(fastestMs, rating.answeredAtMs);
+  const recapOrderByKey = useMemo(() => {
+    const next = new Map<string, number>();
+    normalizedRecaps.forEach((recap, index) => {
+      next.set(
+        recap.key,
+        typeof recap.order === "number" && Number.isFinite(recap.order)
+          ? recap.order
+          : index + 1,
+      );
     });
-    if (fastestMs === null) return new Set<string>();
-    const keys = new Set<string>();
+    return next;
+  }, [normalizedRecaps]);
+
+  const personalFastestCorrectRecapKeys = useMemo(() => {
+    const candidates: Array<{ key: string; answeredAtMs: number; order: number }> = [];
     performanceRatingByRecapKey.forEach((rating, key) => {
       if (rating.result !== "correct") return;
       if (
@@ -441,12 +458,74 @@ const useSettlementRecommendationInsights = <
       ) {
         return;
       }
-      if (rating.answeredAtMs === fastestMs) {
-        keys.add(key);
-      }
+      candidates.push({
+        key,
+        answeredAtMs: rating.answeredAtMs,
+        order: recapOrderByKey.get(key) ?? Number.MAX_SAFE_INTEGER,
+      });
     });
+    if (!candidates.length) return new Set<string>();
+    candidates.sort(
+      (a, b) =>
+        a.answeredAtMs - b.answeredAtMs ||
+        a.order - b.order ||
+        a.key.localeCompare(b.key),
+    );
+    const keys = new Set<string>();
+    keys.add(candidates[0].key);
     return keys;
-  }, [performanceRatingByRecapKey]);
+  }, [performanceRatingByRecapKey, recapOrderByKey]);
+
+  const fastestCorrectMetaByRecapKey = useMemo(() => {
+    const next = new Map<
+      string,
+      { clientId: string; username: string; answeredAtMs: number } | null
+    >();
+    normalizedRecaps.forEach((recap) => {
+      const answers = recap.answersByClientId
+        ? Object.entries(recap.answersByClientId)
+        : [];
+      const candidates = answers
+        .map(([clientId, answer]) => {
+          if (answer?.result !== "correct") return null;
+          if (
+            typeof answer.answeredAtMs !== "number" ||
+            !Number.isFinite(answer.answeredAtMs) ||
+            answer.answeredAtMs < 0
+          ) {
+            return null;
+          }
+          return {
+            clientId,
+            answeredAtMs: Math.floor(answer.answeredAtMs),
+          };
+        })
+        .filter(
+          (
+            value,
+          ): value is {
+            clientId: string;
+            answeredAtMs: number;
+          } => value !== null,
+        )
+        .sort(
+          (a, b) =>
+            a.answeredAtMs - b.answeredAtMs ||
+            a.clientId.localeCompare(b.clientId),
+        );
+      const best = candidates[0];
+      if (!best) {
+        next.set(recap.key, null);
+        return;
+      }
+      next.set(recap.key, {
+        clientId: best.clientId,
+        username: participantNameByClientId.get(best.clientId) ?? best.clientId,
+        answeredAtMs: best.answeredAtMs,
+      });
+    });
+    return next;
+  }, [normalizedRecaps, participantNameByClientId]);
 
   const selectedRecapRating = selectedRecap
     ? performanceRatingByRecapKey.get(selectedRecap.key) ?? null
@@ -461,12 +540,25 @@ const useSettlementRecommendationInsights = <
     ? personalFastestCorrectRecapKeys.has(selectedRecap.key) &&
       selectedRecapAnswerResult === "correct"
     : false;
-  const isSelectedRecapGlobalFastest = selectedRecap
-    ? isParticipantGlobalFastestCorrect(selectedRecap, selectedRecapRating)
-    : false;
+  const isSelectedRecapGlobalFastest =
+    isSelectedRecapFastest &&
+    Boolean(
+      selectedRecap &&
+        selectedRecapRating &&
+        selectedRecapRating.result === "correct" &&
+        typeof selectedRecapRating.answeredAtMs === "number" &&
+        Number.isFinite(selectedRecapRating.answeredAtMs) &&
+        typeof selectedRecap.fastestCorrectMs === "number" &&
+        Number.isFinite(selectedRecap.fastestCorrectMs) &&
+        Math.floor(selectedRecapRating.answeredAtMs) ===
+          Math.floor(selectedRecap.fastestCorrectMs),
+    );
   const selectedRecapFastestBadgeText = isSelectedRecapGlobalFastest
-    ? "全場最快"
-    : "我的最快";
+    ? "全場最速王"
+    : "個人最快";
+  const selectedRecapFastestCorrectMeta = selectedRecap
+    ? fastestCorrectMetaByRecapKey.get(selectedRecap.key) ?? null
+    : null;
   const selectedRecapRatingBreakdown = (() => {
     if (!selectedRecapRating) return "--";
     const parts: string[] = [];
@@ -519,6 +611,9 @@ const useSettlementRecommendationInsights = <
   const isCurrentRecommendationFastest = currentRecommendation
     ? personalFastestCorrectRecapKeys.has(currentRecommendation.recap.key)
     : false;
+  const currentRecommendationFastestCorrectMeta = currentRecommendation
+    ? fastestCorrectMetaByRecapKey.get(currentRecommendation.recap.key) ?? null
+    : null;
   const recommendationTransitionKey = `${activeRecommendCategory}:${currentRecommendation?.recap.key ?? "none"}`;
   const currentRecommendationRating = currentRecommendation
     ? performanceRatingByRecapKey.get(currentRecommendation.recap.key) ?? null
@@ -542,18 +637,15 @@ const useSettlementRecommendationInsights = <
         label: "你比大家快多少" as const,
         value: "--",
         valueClass: "text-slate-300",
-        note: "尚無作答資料",
+        note: "尚無作答時間資料",
         deltaMs: null,
         answeredMs: null,
-        medianMs: null,
+        averageMs: null,
       };
     }
     const speedInsight = resolveSpeedComparisonInsight(
       {
-        medianCorrectMs:
-          currentRecommendationRating.result === "correct"
-            ? currentRecommendation.recap.medianCorrectMs
-            : null,
+        averageCorrectMs: currentRecommendationAverageCorrectMs,
         answeredAtMs: currentRecommendationRating.answeredAtMs,
       },
       (ms) => formatMs(ms),
@@ -562,21 +654,18 @@ const useSettlementRecommendationInsights = <
       return {
         ...speedInsight,
         valueClass: "text-slate-300",
-        note: "尚無作答資料",
+        note: "尚無作答時間資料",
       };
     }
-    if (
-      currentRecommendationRating.result === "correct" &&
-      speedInsight.deltaMs !== null
-    ) {
+    if (speedInsight.deltaMs !== null) {
       const isAhead = speedInsight.deltaMs >= 0;
-      const medianMsText = formatMs(
-        speedInsight.medianMs ?? speedInsight.answeredMs,
+      const averageMsText = formatMs(
+        speedInsight.averageMs ?? speedInsight.answeredMs,
       );
       return {
         ...speedInsight,
         valueClass: isAhead ? "text-emerald-100" : "text-rose-100",
-        note: `你的作答 ${formatMs(speedInsight.answeredMs)} · 全場中位 ${medianMsText}`,
+        note: `你的作答 ${formatMs(speedInsight.answeredMs)} · 平均答對時長 ${averageMsText}`,
       };
     }
     return {
@@ -595,14 +684,21 @@ const useSettlementRecommendationInsights = <
   const showCurrentRecommendationRankBadge =
     typeof currentRecommendationCorrectRank === "number" &&
     currentRecommendationCorrectRank > 1;
-  const isCurrentRecommendationGlobalFastest = currentRecommendation
-    ? isParticipantGlobalFastestCorrect(
-        currentRecommendation.recap,
-        currentRecommendationRating,
-      )
-    : false;
+  const isCurrentRecommendationGlobalFastest =
+    isCurrentRecommendationFastest &&
+    Boolean(
+      currentRecommendation &&
+        currentRecommendationRating &&
+        currentRecommendationRating.result === "correct" &&
+        typeof currentRecommendationRating.answeredAtMs === "number" &&
+        Number.isFinite(currentRecommendationRating.answeredAtMs) &&
+        typeof currentRecommendation.recap.fastestCorrectMs === "number" &&
+        Number.isFinite(currentRecommendation.recap.fastestCorrectMs) &&
+        Math.floor(currentRecommendationRating.answeredAtMs) ===
+          Math.floor(currentRecommendation.recap.fastestCorrectMs),
+    );
   const currentRecommendationFastestBadgeText =
-    isCurrentRecommendationGlobalFastest ? "全場最快" : "我的最快";
+    isCurrentRecommendationGlobalFastest ? "全場最速王" : "個人最快";
   const hasCurrentRecommendationSpeedDelta =
     currentRecommendationSpeedInsight.value !== "--";
   const isPreviewFrozen =
@@ -627,7 +723,9 @@ const useSettlementRecommendationInsights = <
     selectedRecapAverageCorrectMs,
     selectedRecapGradeMeta,
     isSelectedRecapFastest,
+    isSelectedRecapGlobalFastest,
     selectedRecapFastestBadgeText,
+    selectedRecapFastestCorrectMeta,
     selectedRecapRatingBreakdown,
     availableRecommendCategories,
     activeRecommendCategory,
@@ -648,7 +746,9 @@ const useSettlementRecommendationInsights = <
     currentRecommendationResultTone,
     isCurrentRecommendationFirstCorrect,
     showCurrentRecommendationRankBadge,
+    isCurrentRecommendationGlobalFastest,
     currentRecommendationFastestBadgeText,
+    currentRecommendationFastestCorrectMeta,
     hasCurrentRecommendationSpeedDelta,
     isPreviewFrozen,
     shouldShowPreviewOverlay,
@@ -657,3 +757,7 @@ const useSettlementRecommendationInsights = <
 };
 
 export default useSettlementRecommendationInsights;
+
+
+
+
