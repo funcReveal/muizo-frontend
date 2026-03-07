@@ -57,7 +57,7 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
 
   return (
     <>
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="game-settlement-stage-header flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200">
             Match Settlement
@@ -102,7 +102,7 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
         </div>
       </header>
 
-      <div className="rounded-2xl border border-slate-700/70 bg-slate-900/60 px-4 py-3">
+      <div className="game-settlement-stage-progress rounded-2xl border border-slate-700/70 bg-slate-900/60 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
@@ -124,13 +124,13 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
         </div>
       </div>
 
-      <nav className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <nav className="game-settlement-stage-tab-nav flex flex-wrap items-center justify-between gap-2">
+        <div className="game-settlement-stage-tab-list flex min-w-0 flex-wrap items-center gap-2">
           {tabOrder.map((tab, index) => (
             <button
               key={tab}
               type="button"
-              className={activeTabButtonClass(tab)}
+              className={`${activeTabButtonClass(tab)} game-settlement-stage-tab-btn`}
               onClick={() => onGoToTab(tab)}
               title={tabHints[tab]}
             >

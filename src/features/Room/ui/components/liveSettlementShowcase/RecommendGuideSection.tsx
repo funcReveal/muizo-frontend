@@ -35,6 +35,7 @@ interface RecommendTheme {
 }
 
 interface RecommendGuideSectionProps {
+  isMobileView?: boolean;
   recommendSectionRef: React.RefObject<HTMLElement | null>;
   activeCategoryTheme: RecommendTheme;
   activeRecommendCategory: RecommendCategory;
@@ -182,6 +183,7 @@ const RecommendationListRow = (props: RowComponentProps<RecommendationRowProps>)
 };
 
 const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
+  isMobileView = false,
   recommendSectionRef,
   activeCategoryTheme,
   activeRecommendCategory,
@@ -300,10 +302,10 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   return (
     <section
       ref={recommendSectionRef}
-      className={`rounded-2xl border p-4 transition-colors duration-300 ${activeCategoryTheme.shellClass}`}
+      className={`game-settlement-recommend-shell rounded-2xl border p-4 transition-colors duration-300 ${activeCategoryTheme.shellClass}`}
     >
       <div className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="game-settlement-recommend-head flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-semibold text-slate-100">
@@ -332,7 +334,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
 
         <div className="game-settlement-controls-sticky game-settlement-controls-dock rounded-2xl border border-slate-500/35 bg-slate-950/72 p-2">
           <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-            <div className="min-w-0 overflow-x-auto pb-1">
+            <div className="game-settlement-recommend-control-scroll min-w-0 overflow-x-auto pb-1">
               <div
                 className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
                 style={
@@ -382,7 +384,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
               </div>
             </div>
 
-            <div className="min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
+            <div className="game-settlement-recommend-control-scroll min-w-0 overflow-x-auto pb-1 xl:justify-self-end">
               <div
                 className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
                 style={
@@ -453,10 +455,16 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           目前沒有可播放的推薦歌曲，請切換分類或回到題目回顧。
         </div>
       ) : (
-        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+        <div
+          className={`game-settlement-recommend-layout mt-4 grid gap-4 ${
+            isMobileView
+              ? "grid-cols-1"
+              : "xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]"
+          }`}
+        >
           <article
             key={recommendationTransitionKey}
-            className={`rounded-2xl border p-4 ${activeCategoryTheme.sectionClass}`}
+            className={`game-settlement-recommend-preview-card rounded-2xl border p-4 ${activeCategoryTheme.sectionClass}`}
             style={{
               animation: "settlementSwapIn 240ms ease-out both",
             }}
@@ -471,7 +479,9 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                   type="button"
                   onClick={onOpenRecommendationTitle}
                   disabled={!currentRecommendation.link?.href}
-                  className="game-settlement-title-marquee mt-1 w-full overflow-hidden text-left text-2xl font-black leading-tight text-slate-100 underline-offset-4 transition hover:text-cyan-200 hover:underline disabled:cursor-default disabled:opacity-85 disabled:no-underline sm:text-[2rem]"
+                  className={`game-settlement-title-marquee mt-1 w-full overflow-hidden text-left font-black leading-tight text-slate-100 underline-offset-4 transition hover:text-cyan-200 hover:underline disabled:cursor-default disabled:opacity-85 disabled:no-underline ${
+                    isMobileView ? "text-[1.55rem]" : "text-2xl sm:text-[2rem]"
+                  }`}
                 >
                   <span
                     className={`game-settlement-title-marquee-track ${
@@ -668,7 +678,9 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           </article>
 
           <aside
-            className={`flex min-h-[420px] flex-col rounded-2xl border p-3 transition-colors duration-300 ${activeCategoryTheme.asideClass}`}
+            className={`game-settlement-recommend-list-card flex flex-col rounded-2xl border p-3 transition-colors duration-300 ${
+              isMobileView ? "min-h-[320px]" : "min-h-[420px]"
+            } ${activeCategoryTheme.asideClass}`}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -681,7 +693,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     : `${safeRecommendIndex + 1}/${recommendationCards.length}`}
                 </span>
               </div>
-              <div className="flex items-center gap-1 rounded-full border border-sky-300/35 bg-sky-500/10 px-1 py-1">
+              <div className="game-settlement-recommend-review-switch flex items-center gap-1 rounded-full border border-sky-300/35 bg-sky-500/10 px-1 py-1">
                 <button
                   type="button"
                   className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-400 disabled:opacity-40"
@@ -703,7 +715,11 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 </button>
               </div>
             </div>
-            <div className="mt-3 flex-1 overflow-hidden pr-1">
+            <div
+              className={`game-settlement-recommend-list-viewport mt-3 flex-1 overflow-hidden pr-1 ${
+                isMobileView ? "h-[clamp(240px,42vh,360px)]" : ""
+              }`}
+            >
               {recommendationCards.length === 0 ? (
                 <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-700/70 bg-slate-900/55 px-3 text-sm text-slate-400">
                   目前沒有推薦清單
@@ -712,13 +728,13 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 <VirtualList
                   style={{ height: "100%", width: "100%" }}
                   rowCount={recommendationCards.length}
-                  rowHeight={96}
+                  rowHeight={isMobileView ? 90 : 96}
                   rowProps={recommendationRowProps}
                   rowComponent={RecommendationListRow}
                 />
               )}
             </div>
-            <div className="mt-3 flex items-center justify-between gap-2">
+            <div className="game-settlement-recommend-list-nav mt-3 flex items-center justify-between gap-2">
               <button
                 type="button"
                 className="rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"

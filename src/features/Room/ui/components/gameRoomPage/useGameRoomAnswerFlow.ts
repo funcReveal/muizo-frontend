@@ -15,6 +15,7 @@ import {
   buildScoreBaselineMap,
   collectAnsweredClientIds,
   deferStateUpdate,
+  triggerHapticFeedback,
 } from "./gameRoomPageUtils";
 
 interface UseGameRoomAnswerFlowParams {
@@ -262,6 +263,11 @@ const useGameRoomAnswerFlow = ({
 
       primeSfxAudio();
       const lockSfxPlayed = playGameSfx("lock");
+      if (fxKind === "reselect") {
+        triggerHapticFeedback("reselect");
+      } else {
+        triggerHapticFeedback("tap");
+      }
       if (!lockSfxPlayed) {
         window.setTimeout(() => {
           playGameSfx("lock");
@@ -307,8 +313,10 @@ const useGameRoomAnswerFlow = ({
         return prev;
       });
       if (!result.ok) {
+        triggerHapticFeedback("wrong");
         return;
       }
+      triggerHapticFeedback("confirm");
       const acceptedChoiceIndex = result.data.choiceIndex;
       if (meClientId && (changedChoice || currentSelectedChoice === null)) {
         setAnsweredOrderSnapshot((prev) => {

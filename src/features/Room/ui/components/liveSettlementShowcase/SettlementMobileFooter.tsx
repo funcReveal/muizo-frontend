@@ -18,7 +18,7 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
   hasNextStep,
   canFinish,
 }) => (
-  <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-700/70 bg-slate-950/92 px-2 backdrop-blur lg:hidden">
+  <div className="game-settlement-mobile-footer fixed inset-x-0 bottom-0 z-40 border-t border-slate-700/70 bg-slate-950/92 px-2 backdrop-blur lg:hidden">
     <div className="mx-auto flex w-full max-w-6xl items-center gap-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.6rem)]">
       <Button
         variant="outlined"

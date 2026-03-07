@@ -8,6 +8,7 @@ import type {
 } from "./gameRoomPageTypes";
 
 interface GameRoomAnswerPanelProps {
+  isMobileView?: boolean;
   answerPanelRef: React.RefObject<HTMLDivElement | null>;
   isInitialCountdown: boolean;
   countdownTone: string;
@@ -52,6 +53,7 @@ interface GameRoomAnswerPanelProps {
 }
 
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
+  isMobileView = false,
   answerPanelRef,
   isInitialCountdown,
   countdownTone,
@@ -106,7 +108,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   return (
     <div
       ref={answerPanelRef}
-      className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${guessComboPanelClass} flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
+      className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${guessComboPanelClass} ${
+        isMobileView ? "game-room-answer-panel--mobile" : ""
+      } flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
     >
       {isInitialCountdown ? (
         <div className="flex flex-col items-center py-6 text-center">
@@ -133,7 +137,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             !isReveal && revealTone === "neutral"
               ? "game-room-answer-layout--neutral"
               : ""
-          } ${guessComboLayoutClass}`}
+          } ${guessComboLayoutClass} ${
+            isMobileView ? "game-room-answer-layout--mobile" : ""
+          }`}
         >
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
@@ -196,8 +202,17 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 答案已送出，等待伺服器同步...
               </div>
             )}
+            {isMobileView && !isReveal && (
+              <div className="game-room-mobile-guess-hint mt-1 rounded-lg border border-cyan-300/35 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-100">
+                拇指點選作答，可在倒數內改答
+              </div>
+            )}
 
-            <div className="game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 md:grid-cols-2">
+            <div
+              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 md:grid-cols-2 ${
+                isMobileView ? "game-room-options-grid--mobile" : ""
+              }`}
+            >
               {isInterTrackWait
                 ? Array.from(
                     {
@@ -333,7 +348,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                           isLocked || waitingToStart || shouldShowGestureOverlay
                             ? "pointer-events-none"
                             : ""
-                        }`}
+                        } ${isMobileView ? "game-room-choice-button--mobile" : ""}`}
                         disabled={false}
                         onClick={() => {
                           if (isLocked || !canAnswerNow) return;

@@ -4,6 +4,7 @@ import { Button, Switch } from "@mui/material";
 import type { DanmuItem } from "./gameRoomPageTypes";
 
 interface GameRoomPlaybackPanelProps {
+  isMobileView?: boolean;
   roomName: string;
   boundedCursor: number;
   trackOrderLength: number;
@@ -28,6 +29,7 @@ interface GameRoomPlaybackPanelProps {
 }
 
 const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
+  isMobileView = false,
   roomName,
   boundedCursor,
   trackOrderLength,
@@ -51,7 +53,11 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   onGameVolumeChange,
 }) => {
   return (
-    <div className="game-room-panel game-room-panel--accent flex-none p-3 text-slate-50">
+    <div
+      className={`game-room-panel game-room-panel--accent flex-none p-3 text-slate-50 ${
+        isMobileView ? "game-room-playback-panel--mobile" : ""
+      }`}
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div>
@@ -74,7 +80,11 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         </Button>
       </div>
 
-      <div className="game-room-media-frame relative h-[140px] w-full overflow-hidden sm:h-[188px] md:h-[214px] xl:h-[236px]">
+      <div
+        className={`game-room-media-frame relative w-full overflow-hidden sm:h-[188px] md:h-[214px] xl:h-[236px] ${
+          isMobileView ? "h-[182px]" : "h-[140px]"
+        }`}
+      >
         {iframeSrc ? (
           <iframe
             src={iframeSrc}

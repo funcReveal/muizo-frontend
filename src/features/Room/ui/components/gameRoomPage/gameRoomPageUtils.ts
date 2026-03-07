@@ -212,6 +212,33 @@ export const deferStateUpdate = (callback: () => void) => {
   void Promise.resolve().then(callback);
 };
 
+type HapticFeedbackKind =
+  | "tap"
+  | "reselect"
+  | "confirm"
+  | "correct"
+  | "wrong"
+  | "combo"
+  | "comboBreak";
+
+const HAPTIC_PATTERNS: Record<HapticFeedbackKind, number | number[]> = {
+  tap: 8,
+  reselect: [8, 28, 8],
+  confirm: [10, 22, 14],
+  correct: [12, 24, 18],
+  wrong: [24, 42, 14],
+  combo: [8, 20, 10, 20, 14],
+  comboBreak: [26, 46, 16],
+};
+
+export const triggerHapticFeedback = (kind: HapticFeedbackKind) => {
+  if (typeof navigator === "undefined") return false;
+  if (typeof navigator.vibrate !== "function") return false;
+  if (typeof document !== "undefined" && document.hidden) return false;
+  if (!isMobileDevice()) return false;
+  return navigator.vibrate(HAPTIC_PATTERNS[kind]);
+};
+
 export const cloneSettlementQuestionRecaps = (recaps: SettlementQuestionRecap[]) =>
   recaps.map((recap) => ({
     ...recap,

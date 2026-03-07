@@ -66,8 +66,8 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
   multilineEllipsis2Style,
 }) => {
   return (
-    <section className="grid gap-4 xl:grid-cols-[1.15fr_1.15fr]">
-      <article className="relative isolate overflow-hidden rounded-2xl border border-amber-300/45 bg-[radial-gradient(circle_at_50%_-5%,rgba(250,204,21,0.24),transparent_45%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.96))] p-4">
+    <section className="game-settlement-overview-shell grid gap-4 xl:grid-cols-[1.15fr_1.15fr]">
+      <article className="game-settlement-overview-podium relative isolate overflow-hidden rounded-2xl border border-amber-300/45 bg-[radial-gradient(circle_at_50%_-5%,rgba(250,204,21,0.24),transparent_45%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.96))] p-4">
         <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-72 -translate-x-1/2 bg-[radial-gradient(circle,rgba(251,191,36,0.3)_0%,rgba(251,191,36,0.08)_35%,transparent_75%)] blur-2xl" />
         <div className="pointer-events-none absolute -left-10 bottom-0 h-36 w-36 rounded-full bg-sky-400/15 blur-2xl" />
         <div className="relative">
@@ -289,9 +289,9 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
         </div>
       </article>
 
-      <article className="rounded-2xl border border-cyan-300/30 bg-[radial-gradient(circle_at_92%_8%,rgba(56,189,248,0.16),transparent_38%),linear-gradient(175deg,rgba(3,10,28,0.96),rgba(4,16,34,0.9))] p-4 shadow-[0_24px_52px_-40px_rgba(56,189,248,0.65)]">
+      <article className="game-settlement-overview-ranking rounded-2xl border border-cyan-300/30 bg-[radial-gradient(circle_at_92%_8%,rgba(56,189,248,0.16),transparent_38%),linear-gradient(175deg,rgba(3,10,28,0.96),rgba(4,16,34,0.9))] p-4 shadow-[0_24px_52px_-40px_rgba(56,189,248,0.65)]">
         <p className="text-xs uppercase tracking-[0.24em] text-slate-400">排行榜</p>
-        <div className="mt-3 max-h-[520px] space-y-2 overflow-y-auto pr-1">
+        <div className="game-settlement-overview-ranking-list mt-3 max-h-[520px] space-y-2 overflow-y-auto pr-1">
           {sortedParticipants.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/55 px-3 py-4 text-sm text-slate-400">
               目前尚無玩家資料

@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { trackEvent } from "../../../../shared/analytics/track";
 import { useSettingsModel } from "../../../Setting/model/settingsContext";
@@ -237,6 +238,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [tabRenderKey, setTabRenderKey] = useState(0);
   const [tickerNowMs, setTickerNowMs] = useState(() => Date.now());
+  const isMobileSettlementViewport = useMediaQuery("(max-width: 1023.95px)");
   const recommendSectionRef = useRef<HTMLElement | null>(null);
   const recommendPreviewStageRef = useRef<HTMLDivElement | null>(null);
   const celebrationKeyRef = useRef<string | null>(null);
@@ -810,8 +812,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl min-w-0 px-2 pb-24 sm:px-4 lg:pb-4">
-      <section className="relative min-w-0 overflow-hidden rounded-[30px] border border-amber-400/35 bg-slate-950/95 px-4 py-6 shadow-[0_30px_120px_-60px_rgba(245,158,11,0.6)] sm:px-6 sm:py-7">
+    <div className="game-settlement-mobile-shell mx-auto w-full max-w-6xl min-w-0 px-2 pb-28 sm:px-4 lg:pb-4">
+      <section className="game-settlement-mobile-stage relative min-w-0 overflow-hidden rounded-[30px] border border-amber-400/35 bg-slate-950/95 px-4 py-6 shadow-[0_30px_120px_-60px_rgba(245,158,11,0.6)] sm:px-6 sm:py-7">
         <div className="pointer-events-none absolute -left-20 -top-20 h-52 w-52 rounded-full bg-amber-400/20 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-sky-500/15 blur-3xl" />
 
@@ -889,6 +891,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
             {activeTab === "recommend" && (
               <RecommendGuideSection
+                isMobileView={isMobileSettlementViewport}
                 recommendSectionRef={recommendSectionRef}
                 activeCategoryTheme={activeCategoryTheme}
                 activeRecommendCategory={activeRecommendCategory}
@@ -976,6 +979,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
             {activeTab === "recommend" && reviewDrawerOpen && (
               <ReviewRecapSection
+                isMobileView={isMobileSettlementViewport}
                 activeCategoryTheme={activeCategoryTheme}
                 reviewRecapSummary={reviewRecapSummary}
                 sortedParticipants={sortedParticipants}

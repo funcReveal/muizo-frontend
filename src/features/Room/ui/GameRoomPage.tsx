@@ -39,6 +39,7 @@ import {
   extractYouTubeId,
   isMobileDevice,
   SILENT_AUDIO_SRC,
+  triggerHapticFeedback,
 } from "./components/gameRoomPage/gameRoomPageUtils";
 import {
   buildScoreboardRows,
@@ -676,6 +677,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     if (lastRevealResultSfxKeyRef.current === sfxKey) return;
     lastRevealResultSfxKeyRef.current = sfxKey;
     playGameSfx(resultSfxEvent);
+    if (resultSfxEvent === "wrong") {
+      triggerHapticFeedback("wrong");
+      return;
+    }
+    if (resultSfxEvent === "unanswered") {
+      return;
+    }
+    triggerHapticFeedback("correct");
   }, [
     isEnded,
     isInterTrackWait,
@@ -700,6 +709,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       lastComboStateSfxKeyRef.current = sfxKey;
       timerId = window.setTimeout(() => {
         playGameSfx("comboBreak");
+        triggerHapticFeedback("comboBreak");
       }, 110);
       return () => {
         if (timerId !== null) {
@@ -713,6 +723,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     lastComboStateSfxKeyRef.current = sfxKey;
     timerId = window.setTimeout(() => {
       playGameSfx("combo");
+      triggerHapticFeedback("combo");
     }, 120);
     return () => {
       if (timerId !== null) {
@@ -864,33 +875,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             chatScrollRef={desktopChatScrollRef}
           />
         </div>
-        <div className="lg:hidden">
-          <GameRoomLeftSidebar
-            answeredCount={answeredCount}
-            participantCount={participants.length}
-            scoreboardRows={mobileScoreboardRows}
-            answeredClientIdSet={answeredClientIdSet}
-            answeredRankByClientId={answeredRankByClientId}
-            scorePartsByClientId={scorePartsByClientId}
-            isReveal={isReveal}
-            meClientId={meClientId}
-            topTwoSwapState={topTwoSwapState}
-            danmuEnabled={danmuEnabled}
-            onDanmuEnabledChange={setDanmuEnabled}
-            messagesLength={messages.length}
-            recentMessages={recentMessages}
-            messageInput={messageInput}
-            onMessageChange={onMessageChange}
-            onSendMessage={onSendMessage}
-            chatScrollRef={mobileChatScrollRef}
-            className="!h-auto"
-            showChat={false}
-          />
-        </div>
-
         {/* 右側：播放區 + 答題區 */}
-        <section className="flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
+        <section className="game-room-main-section flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
           <GameRoomPlaybackPanel
+            isMobileView={isMobileGameViewport}
             roomName={room.name}
             boundedCursor={boundedCursor}
             trackOrderLength={trackOrderLength}
@@ -914,6 +902,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             onGameVolumeChange={setGameVolume}
           />
           <GameRoomAnswerPanel
+            isMobileView={isMobileGameViewport}
             answerPanelRef={answerPanelRef}
             isInitialCountdown={isInitialCountdown}
             countdownTone={countdownTone}
@@ -957,12 +946,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
           />
         </section>
-        {isMobileGameViewport && (
-          <GameRoomMobileChatPopover
-            open={mobileChatOpen}
-            unreadCount={mobileChatUnread}
-            onOpen={handleOpenMobileChat}
-            onClose={handleCloseMobileChat}
+        <div className="lg:hidden">
+          <GameRoomLeftSidebar
+            answeredCount={answeredCount}
+            participantCount={participants.length}
+            scoreboardRows={mobileScoreboardRows}
+            answeredClientIdSet={answeredClientIdSet}
+            answeredRankByClientId={answeredRankByClientId}
+            scorePartsByClientId={scorePartsByClientId}
+            isReveal={isReveal}
+            meClientId={meClientId}
+            topTwoSwapState={topTwoSwapState}
             danmuEnabled={danmuEnabled}
             onDanmuEnabledChange={setDanmuEnabled}
             messagesLength={messages.length}
@@ -971,8 +965,26 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             onMessageChange={onMessageChange}
             onSendMessage={onSendMessage}
             chatScrollRef={mobileChatScrollRef}
+            className="game-room-left-sidebar--mobile !h-auto"
+            showChat={false}
+            onOpenMobileChat={handleOpenMobileChat}
+            mobileChatUnread={mobileChatUnread}
           />
-        )}
+        </div>
+        <GameRoomMobileChatPopover
+          open={mobileChatOpen}
+          unreadCount={mobileChatUnread}
+          onOpen={handleOpenMobileChat}
+          onClose={handleCloseMobileChat}
+          danmuEnabled={danmuEnabled}
+          onDanmuEnabledChange={setDanmuEnabled}
+          messagesLength={messages.length}
+          recentMessages={recentMessages}
+          messageInput={messageInput}
+          onMessageChange={onMessageChange}
+          onSendMessage={onSendMessage}
+          chatScrollRef={mobileChatScrollRef}
+        />
         {audioGestureOverlay}
         {startBroadcastOverlay}
         {exitGameDialog}

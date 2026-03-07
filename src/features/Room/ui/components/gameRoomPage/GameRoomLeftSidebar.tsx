@@ -1,5 +1,6 @@
 import React from "react";
-import { Chip } from "@mui/material";
+import { Badge, Chip } from "@mui/material";
+import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 
 import type { ChatMessage, RoomParticipant } from "../../../model/types";
 import type { TopTwoSwapState } from "./gameRoomPageTypes";
@@ -27,6 +28,8 @@ interface GameRoomLeftSidebarProps {
   chatScrollRef: React.RefObject<HTMLDivElement | null>;
   className?: string;
   showChat?: boolean;
+  onOpenMobileChat?: () => void;
+  mobileChatUnread?: number;
 }
 
 const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
@@ -49,6 +52,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   chatScrollRef,
   className,
   showChat = true,
+  onOpenMobileChat,
+  mobileChatUnread = 0,
 }) => {
   return (
     <aside
@@ -60,13 +65,31 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           <p className="game-room-title">分數榜</p>
         </div>
         <span className="ml-2 text-[11px] text-slate-400">(前五名 + 自己)</span>
-        <Chip
-          label={`已答 ${answeredCount}/${participantCount || 0}`}
-          size="small"
-          color="success"
-          variant="outlined"
-          className="ml-auto game-room-chip"
-        />
+        <div className="ml-auto flex items-center gap-2">
+          {!showChat && onOpenMobileChat && (
+            <button
+              type="button"
+              onClick={onOpenMobileChat}
+              className="game-room-mobile-chat-entry inline-flex items-center gap-1 rounded-full border border-cyan-300/45 bg-cyan-500/12 px-2 py-1 text-[11px] font-semibold text-cyan-100"
+            >
+              <Badge
+                color="error"
+                badgeContent={mobileChatUnread > 99 ? "99+" : mobileChatUnread}
+                invisible={mobileChatUnread <= 0}
+              >
+                <ChatBubbleRoundedIcon className="text-[0.9rem]" />
+              </Badge>
+              聊天
+            </button>
+          )}
+          <Chip
+            label={`已答 ${answeredCount}/${participantCount || 0}`}
+            size="small"
+            color="success"
+            variant="outlined"
+            className="game-room-chip"
+          />
+        </div>
       </div>
 
       <div className="game-room-scoreboard-stack space-y-1.5">

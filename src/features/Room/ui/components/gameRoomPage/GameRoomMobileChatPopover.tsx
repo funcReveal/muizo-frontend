@@ -69,7 +69,7 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
                 Match Chat
               </p>
               <p className="truncate text-sm font-semibold text-slate-100">
-                即時聊天室
+                房間聊天室
               </p>
             </div>
             <IconButton
@@ -101,4 +101,3 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
 };
 
 export default GameRoomMobileChatPopover;
-

@@ -45,6 +45,7 @@ interface ReviewRecapSummary {
 }
 
 interface ReviewRecapSectionProps {
+  isMobileView?: boolean;
   activeCategoryTheme: ReviewTheme;
   reviewRecapSummary: ReviewRecapSummary;
   sortedParticipants: RoomParticipant[];
@@ -266,6 +267,7 @@ const ReviewRecapRow = (props: RowComponentProps<ReviewRecapRowProps>) => {
 };
 
 const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
+  isMobileView = false,
   activeCategoryTheme,
   reviewRecapSummary,
   sortedParticipants,
@@ -342,12 +344,12 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
 
   return (
     <section
-      className={`mt-4 rounded-2xl border p-4 transition-colors duration-300 ${activeCategoryTheme.drawerClass}`}
+      className={`game-settlement-review-shell mt-4 rounded-2xl border p-4 transition-colors duration-300 ${activeCategoryTheme.drawerClass}`}
       style={{
         animation: "settlementStageEnter 220ms ease-out both",
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="game-settlement-review-topbar flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full border border-emerald-300/45 bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-100">
             答對 {reviewRecapSummary.correct}
@@ -359,7 +361,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
             未作答 {reviewRecapSummary.unanswered}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
+        <div className="game-settlement-review-toolbar flex flex-wrap items-center gap-2 text-xs text-slate-200">
           <button
             type="button"
             onClick={onToggleReviewDoubleClickPlay}
@@ -375,7 +377,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
         </div>
       </div>
       {sortedParticipants.length > 0 && (
-        <div className="mt-2 overflow-x-auto pb-1">
+        <div className="game-settlement-review-player-strip mt-2 overflow-x-auto pb-1">
           <div className="inline-flex min-w-max flex-nowrap items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-950/60 px-2 py-1.5">
             {sortedParticipants.map((participant, index) => {
               const isActive =
@@ -409,10 +411,20 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
         提示：雙擊題目可同步到上方試聽區（可於此處開關雙擊播放）。
       </p>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div
+        className={`game-settlement-review-layout mt-3 grid gap-3 ${
+          isMobileView
+            ? "grid-cols-1"
+            : "lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]"
+        }`}
+      >
         <div
           key={`review-list-${reviewContextTransitionKey}`}
-          className="h-[clamp(260px,54vh,560px)] overflow-hidden"
+          className={`game-settlement-review-list overflow-hidden ${
+            isMobileView
+              ? "h-[clamp(230px,42vh,420px)]"
+              : "h-[clamp(260px,54vh,560px)]"
+          }`}
           style={{
             animation: "settlementSwapIn 220ms ease-out both",
           }}
@@ -425,14 +437,14 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
             <VirtualList
               style={{ height: "100%", width: "100%" }}
               rowCount={reviewRecaps.length}
-              rowHeight={98}
+              rowHeight={isMobileView ? 92 : 98}
               rowProps={recapRowProps}
               rowComponent={ReviewRecapRow}
             />
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-700/70 bg-slate-950/60 p-2.5 sm:p-3">
+        <div className="game-settlement-review-detail rounded-xl border border-slate-700/70 bg-slate-950/60 p-2.5 sm:p-3">
           {selectedRecap ? (
             <div
               key={reviewDetailTransitionKey}
