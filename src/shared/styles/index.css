@@ -6217,6 +6217,100 @@ body {
     );
 }
 
+.game-room-mobile-chat-fab {
+  position: fixed;
+  right: 14px;
+  bottom: max(16px, env(safe-area-inset-bottom) + 10px);
+  z-index: 55;
+  height: 44px;
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  border-radius: 999px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #e0f2fe;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background:
+    radial-gradient(
+      120px 56px at 16% 16%,
+      rgba(56, 189, 248, 0.26),
+      transparent 74%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(11, 18, 30, 0.96),
+      rgba(8, 14, 24, 0.94)
+    );
+  box-shadow:
+    0 10px 28px -20px rgba(14, 165, 233, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.game-room-mobile-chat-sheet {
+  border-top-left-radius: 20px !important;
+  border-top-right-radius: 20px !important;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-bottom: none;
+  min-height: min(74vh, 620px);
+  max-height: min(78vh, 680px);
+  background:
+    radial-gradient(
+      420px 220px at 16% -4%,
+      rgba(56, 189, 248, 0.12),
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(8, 13, 23, 0.97),
+      rgba(6, 10, 18, 0.98)
+    ) !important;
+  box-shadow:
+    0 -22px 58px -30px rgba(2, 132, 199, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  overflow: hidden;
+}
+
+.game-room-mobile-chat-sheet-head {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.62),
+    rgba(8, 14, 24, 0.34)
+  );
+}
+
+.game-room-mobile-chat-handle {
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.45);
+  margin: 0 auto 8px;
+}
+
+.game-room-chat--sheet {
+  border-radius: 14px;
+  min-height: 0;
+}
+
+@media (max-width: 640px) {
+  .game-room-mobile-chat-fab {
+    right: 12px;
+    height: 42px;
+    padding-inline: 12px;
+    font-size: 11px;
+  }
+
+  .game-room-mobile-chat-sheet {
+    min-height: min(78vh, 660px);
+    max-height: min(82vh, 720px);
+  }
+}
+
 @keyframes settlementStageEnter {
   0% {
     opacity: 0;

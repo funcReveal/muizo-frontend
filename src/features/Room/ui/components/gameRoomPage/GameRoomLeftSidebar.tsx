@@ -1,13 +1,11 @@
 import React from "react";
-import { Button, Chip, Switch } from "@mui/material";
+import { Chip } from "@mui/material";
 
 import type { ChatMessage, RoomParticipant } from "../../../model/types";
 import type { TopTwoSwapState } from "./gameRoomPageTypes";
 import { resolveComboTier } from "../../gameRoomUiUtils";
-
-type ScoreboardRow =
-  | { type: "player"; player: RoomParticipant }
-  | { type: "placeholder"; key: string };
+import type { ScoreboardRow } from "./gameRoomPageDerivations";
+import GameRoomChatPanel from "./GameRoomChatPanel";
 
 interface GameRoomLeftSidebarProps {
   answeredCount: number;
@@ -27,6 +25,8 @@ interface GameRoomLeftSidebarProps {
   onMessageChange?: (value: string) => void;
   onSendMessage?: () => void;
   chatScrollRef: React.RefObject<HTMLDivElement | null>;
+  className?: string;
+  showChat?: boolean;
 }
 
 const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
@@ -47,9 +47,13 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   onMessageChange,
   onSendMessage,
   chatScrollRef,
+  className,
+  showChat = true,
 }) => {
   return (
-    <aside className="game-room-panel game-room-panel--left game-room-panel--blaze flex h-full flex-col gap-3 overflow-hidden p-3 text-slate-50">
+    <aside
+      className={`game-room-panel game-room-panel--left game-room-panel--blaze flex h-full flex-col gap-3 overflow-hidden p-3 text-slate-50 ${className ?? ""}`}
+    >
       <div className="flex items-center gap-3">
         <div>
           <p className="game-room-kicker">排行榜</p>
@@ -64,9 +68,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           className="ml-auto game-room-chip"
         />
       </div>
+
       <div className="game-room-scoreboard-stack space-y-1.5">
         {scoreboardRows.length === 0 ? (
-          <div className="text-xs text-slate-500">尚無玩家</div>
+          <div className="text-xs text-slate-500">目前沒有玩家</div>
         ) : (
           scoreboardRows.map((row, idx) => {
             if (row.type === "placeholder") {
@@ -83,7 +88,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 </div>
               );
             }
-            const p = row.player;
+
+            const p = row.player as RoomParticipant;
             const hasAnswered = answeredClientIdSet.has(p.clientId);
             const answerRank = answeredRankByClientId.get(p.clientId);
             const scoreParts = scorePartsByClientId.get(p.clientId) ?? {
@@ -113,7 +119,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 : rowAnswerState === "wrong"
                   ? "本題答錯"
                   : rowAnswerState === "answered"
-                    ? "已選答案"
+                    ? "已送出答案"
                     : "尚未作答";
             const answerChipColor: "default" | "success" | "error" | "warning" =
               rowAnswerState === "correct"
@@ -123,6 +129,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   : rowAnswerState === "answered"
                     ? "warning"
                     : "default";
+
             const topSwapRole =
               topTwoSwapState &&
               idx === 0 &&
@@ -133,10 +140,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     p.clientId === topTwoSwapState.secondClientId
                   ? "second"
                   : null;
+
             const rowComboTier = resolveComboTier(p.combo ?? 0);
             const rowComboTierClass =
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
             const isMeRow = p.clientId === meClientId;
+
             return (
               <div
                 key={p.clientId}
@@ -185,7 +194,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                           : "border-slate-400/35 bg-slate-700/45 text-slate-200"
                       }`}
                     >
-                      {topSwapRole === "first" ? "奪冠" : "交棒"}
+                      {topSwapRole === "first" ? "冠軍" : "亞軍"}
                     </span>
                   )}
                   {typeof answerRank === "number" ? (
@@ -219,96 +228,25 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           })
         )}
       </div>
-      <div className="h-px bg-slate-800/80" />
 
-      <div className="game-room-chat flex min-h-[240px] flex-1 flex-col gap-2 overflow-hidden p-3">
-        <div className="game-room-chat-header flex items-center justify-between text-sm font-semibold text-slate-200">
-          <div className="flex items-center gap-2">
-            <span>聊天室</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">彈幕</span>
-            <Switch
-              size="small"
-              color="info"
-              checked={danmuEnabled}
-              onChange={(event) => onDanmuEnabledChange(event.target.checked)}
-            />
-            <span className="text-[11px] text-slate-500">{danmuEnabled ? "開啟" : "關閉"}</span>
-            <span className="text-xs text-slate-400">{messagesLength} 則訊息</span>
-          </div>
-        </div>
-        <div className="game-room-chat-divider h-px" />
-        <div
-          ref={chatScrollRef}
-          className="game-room-chat-list flex-1 space-y-3 overflow-y-auto overflow-x-hidden pr-1 md:max-h-80"
-        >
-          {recentMessages.length === 0 ? (
-            <div className="py-4 text-center text-xs text-slate-500">目前沒有訊息</div>
-          ) : (
-            recentMessages.map((msg) => {
-              const isPresenceSystemMessage = msg.userId === "system:presence";
-              if (isPresenceSystemMessage) {
-                return (
-                  <div key={msg.id} className="flex justify-center">
-                    <div className="max-w-full rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1 text-[11px] text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                      <span className="font-medium text-slate-200">{msg.content}</span>
-                      <span className="ml-2 text-slate-500">
-                        {new Date(msg.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
-              return (
-                <div key={msg.id} className="flex">
-                  <div className="game-room-chat-bubble game-room-chat-message max-w-full px-2.5 py-1.5 text-xs">
-                    <div className="flex items-center gap-4 text-[11px] text-slate-300">
-                      <span className="font-semibold">{msg.username}</span>
-                      <span className="text-slate-500">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-
-                    <p className="mt-1 whitespace-pre-wrap wrap-anywhere leading-relaxed">
-                      {msg.content}
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            className="game-room-chat-input-field flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100 focus:border-sky-500 focus:outline-none"
-            placeholder="輸入訊息..."
-            value={messageInput}
-            onChange={(e) => onMessageChange?.(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                onSendMessage?.();
-              }
-            }}
+      {showChat && (
+        <>
+          <div className="h-px bg-slate-800/80" />
+          <GameRoomChatPanel
+            danmuEnabled={danmuEnabled}
+            onDanmuEnabledChange={onDanmuEnabledChange}
+            messagesLength={messagesLength}
+            recentMessages={recentMessages}
+            messageInput={messageInput}
+            onMessageChange={onMessageChange}
+            onSendMessage={onSendMessage}
+            chatScrollRef={chatScrollRef}
+            variant="sidebar"
           />
-          <Button
-            variant="contained"
-            color="info"
-            size="small"
-            className="game-room-chat-send"
-            onClick={() => onSendMessage?.()}
-          >
-            送出
-          </Button>
-        </div>
-      </div>
+        </>
+      )}
     </aside>
   );
 };
 
 export default GameRoomLeftSidebar;
-

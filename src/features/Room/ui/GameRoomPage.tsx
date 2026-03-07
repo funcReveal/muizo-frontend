@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import type {
   ChatMessage,
   GameState,
@@ -28,6 +29,7 @@ import { useGameSfx } from "./hooks/useGameSfx";
 import LiveSettlementShowcase from "./components/LiveSettlementShowcase";
 import GameRoomAnswerPanel from "./components/gameRoomPage/GameRoomAnswerPanel";
 import GameRoomLeftSidebar from "./components/gameRoomPage/GameRoomLeftSidebar";
+import GameRoomMobileChatPopover from "./components/gameRoomPage/GameRoomMobileChatPopover";
 import GameRoomPlaybackPanel from "./components/gameRoomPage/GameRoomPlaybackPanel";
 import {
   AudioGestureOverlayPortal,
@@ -103,6 +105,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     null,
   );
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const isMobileGameViewport = useMediaQuery("(max-width: 1023.95px)");
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [mobileChatUnread, setMobileChatUnread] = useState(0);
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
   const lastPreStartCountdownSfxKeyRef = useRef<string | null>(null);
@@ -127,6 +132,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => Date.now() + serverOffsetMs,
     [serverOffsetMs],
   );
+  const handleOpenMobileChat = useCallback(() => {
+    setMobileChatUnread(0);
+    setMobileChatOpen(true);
+  }, []);
+  const handleCloseMobileChat = useCallback(() => {
+    setMobileChatOpen(false);
+  }, []);
 
   useGameRoomAnswerPanelAutoScroll({
     roomId: room.id,
@@ -728,6 +740,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => buildScoreboardRows(sortedParticipants, meClientId),
     [meClientId, sortedParticipants],
   );
+  const mobileScoreboardRows = useMemo(
+    () => buildScoreboardRows(sortedParticipants, meClientId, 4),
+    [meClientId, sortedParticipants],
+  );
 
   const recentMessages = messages.slice(-80);
   const { settlementSnapshot } = useSettlementSnapshot({
@@ -743,13 +759,41 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     serverOffsetMs,
   });
 
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const desktopChatScrollRef = useRef<HTMLDivElement | null>(null);
+  const mobileChatScrollRef = useRef<HTMLDivElement | null>(null);
+  const lastMessageCountRef = useRef(messages.length);
 
   useEffect(() => {
-    const container = chatScrollRef.current;
-    if (!container) return;
-    container.scrollTop = container.scrollHeight;
-  }, [messages.length]);
+    const targets = [desktopChatScrollRef.current, mobileChatScrollRef.current];
+    targets.forEach((container) => {
+      if (!container) return;
+      container.scrollTop = container.scrollHeight;
+    });
+  }, [messages.length, mobileChatOpen]);
+
+  useEffect(() => {
+    const previousCount = lastMessageCountRef.current;
+    if (
+      isMobileGameViewport &&
+      !mobileChatOpen &&
+      messages.length > previousCount
+    ) {
+      setMobileChatUnread((current) => current + (messages.length - previousCount));
+    }
+    lastMessageCountRef.current = messages.length;
+  }, [isMobileGameViewport, messages.length, mobileChatOpen]);
+
+  useEffect(() => {
+    if (!isMobileGameViewport) {
+      const clearId = window.setTimeout(() => {
+        setMobileChatOpen(false);
+        setMobileChatUnread(0);
+      }, 0);
+      return () => {
+        window.clearTimeout(clearId);
+      };
+    }
+  }, [isMobileGameViewport]);
 
   const exitGameDialog = (
     <GameRoomExitDialog
@@ -798,26 +842,51 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   return (
     <div className="game-room-shell">
-      <div className="game-room-grid grid w-full grid-cols-1 gap-3 lg:grid-cols-[400px_1fr] xl:grid-cols-[440px_1fr] lg:h-[calc(100vh-140px)] lg:items-stretch">
-        <GameRoomLeftSidebar
-          answeredCount={answeredCount}
-          participantCount={participants.length}
-          scoreboardRows={scoreboardRows}
-          answeredClientIdSet={answeredClientIdSet}
-          answeredRankByClientId={answeredRankByClientId}
-          scorePartsByClientId={scorePartsByClientId}
-          isReveal={isReveal}
-          meClientId={meClientId}
-          topTwoSwapState={topTwoSwapState}
-          danmuEnabled={danmuEnabled}
-          onDanmuEnabledChange={setDanmuEnabled}
-          messagesLength={messages.length}
-          recentMessages={recentMessages}
-          messageInput={messageInput}
-          onMessageChange={onMessageChange}
-          onSendMessage={onSendMessage}
-          chatScrollRef={chatScrollRef}
-        />
+      <div className="game-room-grid grid w-full grid-cols-1 gap-3 pb-20 lg:grid-cols-[400px_1fr] lg:pb-0 xl:grid-cols-[440px_1fr] lg:h-[calc(100vh-140px)] lg:items-stretch">
+        <div className="hidden lg:flex lg:h-full">
+          <GameRoomLeftSidebar
+            answeredCount={answeredCount}
+            participantCount={participants.length}
+            scoreboardRows={scoreboardRows}
+            answeredClientIdSet={answeredClientIdSet}
+            answeredRankByClientId={answeredRankByClientId}
+            scorePartsByClientId={scorePartsByClientId}
+            isReveal={isReveal}
+            meClientId={meClientId}
+            topTwoSwapState={topTwoSwapState}
+            danmuEnabled={danmuEnabled}
+            onDanmuEnabledChange={setDanmuEnabled}
+            messagesLength={messages.length}
+            recentMessages={recentMessages}
+            messageInput={messageInput}
+            onMessageChange={onMessageChange}
+            onSendMessage={onSendMessage}
+            chatScrollRef={desktopChatScrollRef}
+          />
+        </div>
+        <div className="lg:hidden">
+          <GameRoomLeftSidebar
+            answeredCount={answeredCount}
+            participantCount={participants.length}
+            scoreboardRows={mobileScoreboardRows}
+            answeredClientIdSet={answeredClientIdSet}
+            answeredRankByClientId={answeredRankByClientId}
+            scorePartsByClientId={scorePartsByClientId}
+            isReveal={isReveal}
+            meClientId={meClientId}
+            topTwoSwapState={topTwoSwapState}
+            danmuEnabled={danmuEnabled}
+            onDanmuEnabledChange={setDanmuEnabled}
+            messagesLength={messages.length}
+            recentMessages={recentMessages}
+            messageInput={messageInput}
+            onMessageChange={onMessageChange}
+            onSendMessage={onSendMessage}
+            chatScrollRef={mobileChatScrollRef}
+            className="!h-auto"
+            showChat={false}
+          />
+        </div>
 
         {/* 右側：播放區 + 答題區 */}
         <section className="flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
@@ -888,6 +957,22 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
           />
         </section>
+        {isMobileGameViewport && (
+          <GameRoomMobileChatPopover
+            open={mobileChatOpen}
+            unreadCount={mobileChatUnread}
+            onOpen={handleOpenMobileChat}
+            onClose={handleCloseMobileChat}
+            danmuEnabled={danmuEnabled}
+            onDanmuEnabledChange={setDanmuEnabled}
+            messagesLength={messages.length}
+            recentMessages={recentMessages}
+            messageInput={messageInput}
+            onMessageChange={onMessageChange}
+            onSendMessage={onSendMessage}
+            chatScrollRef={mobileChatScrollRef}
+          />
+        )}
         {audioGestureOverlay}
         {startBroadcastOverlay}
         {exitGameDialog}
