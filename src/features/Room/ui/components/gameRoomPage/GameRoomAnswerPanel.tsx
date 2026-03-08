@@ -104,34 +104,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   const guessComboLayoutClass = showGuessComboAtmosphere
     ? `game-room-answer-layout--combo-live game-room-answer-layout--combo-tier-${myComboTier}`
     : "";
-  const visibleChoices = React.useMemo(() => {
-    if (!isMobileView || !isReveal || isInterTrackWait) {
-      return choices;
-    }
-    const choiceIndexSet = new Set<number>();
-    choiceIndexSet.add(correctChoiceIndex);
-    if (selectedChoice !== null) {
-      choiceIndexSet.add(selectedChoice);
-    }
-    const filtered = choices.filter((choice) => choiceIndexSet.has(choice.index));
-    if (filtered.length > 0) {
-      return filtered;
-    }
-    const fallbackCorrect = choices.find(
-      (choice) => choice.index === correctChoiceIndex,
-    );
-    if (fallbackCorrect) {
-      return [fallbackCorrect];
-    }
-    return choices.slice(0, Math.min(2, choices.length));
-  }, [
-    choices,
-    correctChoiceIndex,
-    isInterTrackWait,
-    isMobileView,
-    isReveal,
-    selectedChoice,
-  ]);
 
   return (
     <div
@@ -237,11 +209,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             )}
 
             <div
-              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 ${
-                isMobileView && isReveal && !isInterTrackWait
-                  ? "md:grid-cols-1"
-                  : "md:grid-cols-2"
-              } ${
+              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 md:grid-cols-2 ${
                 isMobileView ? "game-room-options-grid--mobile" : ""
               }`}
             >
@@ -268,7 +236,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                       </Button>
                     ),
                   )
-                : visibleChoices.map((choice, idx) => {
+                : choices.map((choice, idx) => {
                     const isSelected = selectedChoice === choice.index;
                     const isCorrect = choice.index === correctChoiceIndex;
                     const isLocked = isReveal || isEnded;

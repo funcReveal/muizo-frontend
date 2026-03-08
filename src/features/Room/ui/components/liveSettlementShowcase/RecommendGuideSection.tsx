@@ -249,6 +249,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   const recommendationTitleButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const [recommendationTitleOverflowPx, setRecommendationTitleOverflowPx] =
     React.useState(0);
+  const [mobileDetailExpanded, setMobileDetailExpanded] = React.useState(false);
 
   React.useLayoutEffect(() => {
     const button = recommendationTitleButtonRef.current;
@@ -265,6 +266,14 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
       window.removeEventListener("resize", measure);
     };
   }, [currentRecommendation?.recap.title, recommendationTransitionKey]);
+
+  React.useEffect(() => {
+    if (!isMobileView) {
+      setMobileDetailExpanded(false);
+      return;
+    }
+    setMobileDetailExpanded(false);
+  }, [isMobileView, recommendationTransitionKey]);
 
   const shouldRunTitleMarquee = recommendationTitleOverflowPx > 10;
   const marqueeDurationSec = Math.min(
@@ -517,7 +526,8 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 >
                   {currentRecommendationResultTone.label}
                 </span>
-                {currentRecommendationGradeLabel &&
+                {(!isMobileView || mobileDetailExpanded) &&
+                  currentRecommendationGradeLabel &&
                   currentRecommendationGradeBadgeClass && (
                     <span
                       className={`inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold game-settlement-pill game-settlement-pill--grade ${currentRecommendationGradeBadgeClass}`}
@@ -525,16 +535,18 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                       評級 {currentRecommendationGradeLabel}
                     </span>
                   )}
-                {isCurrentRecommendationFirstCorrect && (
-                  <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-violet-300/45 bg-violet-500/16 px-2.5 text-[11px] font-semibold text-violet-50 game-settlement-pill game-settlement-pill--rank">
-                    首答
-                  </span>
-                )}
-                {showCurrentRecommendationRankBadge && (
-                  <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-indigo-300/45 bg-indigo-500/16 px-2.5 text-[11px] font-semibold text-indigo-50 game-settlement-pill game-settlement-pill--rank">
-                    第{currentRecommendationCorrectRank}答
-                  </span>
-                )}
+                {(!isMobileView || mobileDetailExpanded) &&
+                  isCurrentRecommendationFirstCorrect && (
+                    <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-violet-300/45 bg-violet-500/16 px-2.5 text-[11px] font-semibold text-violet-50 game-settlement-pill game-settlement-pill--rank">
+                      首答
+                    </span>
+                  )}
+                {(!isMobileView || mobileDetailExpanded) &&
+                  showCurrentRecommendationRankBadge && (
+                    <span className="inline-flex h-6 min-w-[4.4rem] items-center justify-center rounded-full border border-indigo-300/45 bg-indigo-500/16 px-2.5 text-[11px] font-semibold text-indigo-50 game-settlement-pill game-settlement-pill--rank">
+                      第{currentRecommendationCorrectRank}答
+                    </span>
+                  )}
                 {!isMobileView && hasCurrentRecommendationSpeedDelta && (
                   <span
                     className={`inline-flex h-6 min-w-[7.2rem] items-center justify-center rounded-full border px-2.5 text-[11px] font-semibold game-settlement-pill game-settlement-pill--speed ${
@@ -555,6 +567,15 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                   )}
               </div>
               {isMobileView && (
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-full border border-slate-500/65 bg-slate-900/68 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300/70"
+                  onClick={() => setMobileDetailExpanded((prev) => !prev)}
+                >
+                  {mobileDetailExpanded ? "收合其他標籤" : "展開其他標籤"}
+                </button>
+              )}
+              {isMobileView && mobileDetailExpanded && (
                 <div className="game-settlement-mobile-metrics rounded-lg border border-slate-700/70 bg-slate-950/55 px-2.5 py-2 text-[11px] text-slate-200">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     {hasCurrentRecommendationSpeedDelta && (
@@ -577,38 +598,39 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                   </div>
                 </div>
               )}
-              <div className="game-settlement-badge-row min-h-[2rem]">
-                {currentRecommendationFastestCorrectMeta && (
-                  <span className={`inline-flex h-6 ${isMobileView ? "min-w-[10.8rem]" : "min-w-[13rem]"} items-center justify-center rounded-full border border-orange-300/45 bg-orange-500/14 px-2.5 text-[11px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest-meta`}>
-                    全場最快 {currentRecommendationFastestCorrectMeta.username}{" "}
-                    {formatMs(currentRecommendationFastestCorrectMeta.answeredAtMs)}
-                  </span>
-                )}
-                {isCurrentRecommendationFastest && (
-                  <Tooltip
-                    title={
-                      isCurrentRecommendationGlobalFastest
-                        ? "你是本場所有玩家中的單題最快答對者"
-                        : "這是你在本場所有答對題目中的最快一題"
-                    }
-                    placement="top"
-                    arrow
-                  >
-                    <span
-                      className={`inline-flex h-6 min-w-[8rem] items-center justify-center gap-1 rounded-full border border-orange-300/45 bg-orange-500/16 px-2.5 text-[11px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest ${
-                        isCurrentRecommendationLegendFastest
-                          ? "game-settlement-pill--legend"
-                          : ""
-                      }`}
-                    >
-                      <LocalFireDepartmentRoundedIcon className="text-[0.85rem]" />
-                      {currentRecommendationFastestBadgeText}
+              {(!isMobileView || mobileDetailExpanded) && (
+                <div className="game-settlement-badge-row min-h-[2rem]">
+                  {currentRecommendationFastestCorrectMeta && (
+                    <span className={`inline-flex h-6 ${isMobileView ? "min-w-[10.8rem]" : "min-w-[13rem]"} items-center justify-center rounded-full border border-orange-300/45 bg-orange-500/14 px-2.5 text-[11px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest-meta`}>
+                      全場最快 {currentRecommendationFastestCorrectMeta.username}{" "}
+                      {formatMs(currentRecommendationFastestCorrectMeta.answeredAtMs)}
                     </span>
-                  </Tooltip>
-                )}
-              </div>
+                  )}
+                  {isCurrentRecommendationFastest && (
+                    <Tooltip
+                      title={
+                        isCurrentRecommendationGlobalFastest
+                          ? "你是這題全場最快，維持火力！"
+                          : "你是自己在這題的最快答題紀錄。"
+                      }
+                      placement="top"
+                      arrow
+                    >
+                      <span
+                        className={`inline-flex h-6 min-w-[8rem] items-center justify-center gap-1 rounded-full border border-orange-300/45 bg-orange-500/16 px-2.5 text-[11px] font-semibold text-orange-100 game-settlement-pill game-settlement-pill--fastest ${
+                          isCurrentRecommendationLegendFastest
+                            ? "game-settlement-pill--legend"
+                            : ""
+                        }`}
+                      >
+                        <LocalFireDepartmentRoundedIcon className="text-[0.85rem]" />
+                        {currentRecommendationFastestBadgeText}
+                      </span>
+                    </Tooltip>
+                  )}
+                </div>
+              )}
             </div>
-
             <div className="mt-3 flex flex-wrap items-center gap-2"> 
               <button
                 type="button"
@@ -786,7 +808,3 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
 };
 
 export default RecommendGuideSection;
-
-
-
-

@@ -256,7 +256,8 @@ export const resolveRecapPreviewNavigation = (
 ): RecapPreviewNavigation => {
   if (source === "click") {
     return {
-      playbackMode: options.autoPreviewEnabled ? "auto" : "idle",
+      // Single-click in recap list is selection-only and should not auto-play.
+      playbackMode: "idle",
       forcePreview: false,
     };
   }

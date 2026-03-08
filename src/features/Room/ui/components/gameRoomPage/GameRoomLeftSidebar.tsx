@@ -57,7 +57,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
 }) => {
   return (
     <aside
-      className={`game-room-panel game-room-panel--left game-room-panel--blaze flex h-full flex-col gap-3 overflow-hidden p-3 text-slate-50 ${className ?? ""}`}
+      className={`game-room-panel game-room-panel--left game-room-panel--blaze flex h-full w-full flex-col gap-3 overflow-hidden p-3 text-slate-50 ${className ?? ""}`}
     >
       <div className="flex items-center gap-3">
         <div>

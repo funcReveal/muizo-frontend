@@ -11,6 +11,7 @@ interface GameRoomMobileChatPopoverProps {
   unreadCount: number;
   onOpen: () => void;
   onClose: () => void;
+  showFab?: boolean;
   danmuEnabled: boolean;
   onDanmuEnabledChange: (enabled: boolean) => void;
   messagesLength: number;
@@ -26,6 +27,7 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
   unreadCount,
   onOpen,
   onClose,
+  showFab = true,
   danmuEnabled,
   onDanmuEnabledChange,
   messagesLength,
@@ -37,21 +39,23 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
 }) => {
   return (
     <>
-      <button
-        type="button"
-        className="game-room-mobile-chat-fab lg:hidden"
-        onClick={onOpen}
-        aria-label="開啟聊天室"
-      >
-        <Badge
-          color="error"
-          badgeContent={unreadCount > 99 ? "99+" : unreadCount}
-          invisible={unreadCount <= 0}
+      {showFab && (
+        <button
+          type="button"
+          className="game-room-mobile-chat-fab lg:hidden"
+          onClick={onOpen}
+          aria-label="開啟聊天室"
         >
-          <ChatBubbleRoundedIcon fontSize="small" />
-        </Badge>
-        <span>聊天室</span>
-      </button>
+          <Badge
+            color="error"
+            badgeContent={unreadCount > 99 ? "99+" : unreadCount}
+            invisible={unreadCount <= 0}
+          >
+            <ChatBubbleRoundedIcon fontSize="small" />
+          </Badge>
+          <span>聊天室</span>
+        </button>
+      )}
       <Drawer
         anchor="bottom"
         open={open}

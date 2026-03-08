@@ -181,7 +181,7 @@ describe("liveSettlementUtils", () => {
         reviewDoubleClickPlayEnabled: false,
       }),
     ).toEqual({
-      playbackMode: "auto",
+      playbackMode: "idle",
       forcePreview: false,
     });
     expect(
