@@ -7,6 +7,11 @@ import React, {
 } from "react";
 import { Drawer } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import LeaderboardRoundedIcon from "@mui/icons-material/LeaderboardRounded";
+import SmartDisplayRoundedIcon from "@mui/icons-material/SmartDisplayRounded";
+import ForumRoundedIcon from "@mui/icons-material/ForumRounded";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import type {
   ChatMessage,
   GameState,
@@ -114,13 +119,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [mobileScoreboardOpen, setMobileScoreboardOpen] = useState(false);
   const [mobileRevealAutoOverlayEnabled, setMobileRevealAutoOverlayEnabled] =
     useState(true);
-  const [mobileScoreboardAnchor, setMobileScoreboardAnchor] = useState<
-    "top" | "bottom"
-  >("bottom");
-  const [mobilePlaybackPosition, setMobilePlaybackPosition] = useState({
-    x: 12,
-    y: 96,
-  });
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
   const lastPreStartCountdownSfxKeyRef = useRef<string | null>(null);
@@ -130,12 +128,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const lastComboStateSfxKeyRef = useRef<string | null>(null);
   const previousPhaseRef = useRef<GameState["phase"]>(gameState.phase);
   const answerPanelRef = useRef<HTMLDivElement | null>(null);
-  const mobilePlaybackWindowRef = useRef<HTMLDivElement | null>(null);
-  const mobilePlaybackDragRef = useRef<{
-    pointerId: number;
-    offsetX: number;
-    offsetY: number;
-  } | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
     volume: Math.round((sfxVolume * gameVolume) / 100),
@@ -152,22 +144,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => Date.now() + serverOffsetMs,
     [serverOffsetMs],
   );
-  const clampMobilePlaybackPosition = useCallback(
-    (position: { x: number; y: number }) => {
-      if (typeof window === "undefined") return position;
-      const panelWidth = mobilePlaybackWindowRef.current?.offsetWidth ?? 340;
-      const panelHeight = mobilePlaybackWindowRef.current?.offsetHeight ?? 420;
-      const minX = 8;
-      const minY = 8;
-      const maxX = Math.max(minX, window.innerWidth - panelWidth - 8);
-      const maxY = Math.max(minY, window.innerHeight - panelHeight - 8);
-      return {
-        x: Math.min(maxX, Math.max(minX, position.x)),
-        y: Math.min(maxY, Math.max(minY, position.y)),
-      };
-    },
-    [],
-  );
   const handleToggleMobilePlayback = useCallback(() => {
     setMobileChatOpen(false);
     setMobilePlaybackOpen((current) => !current);
@@ -182,11 +158,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const handleCloseMobileScoreboard = useCallback(() => {
     setMobileScoreboardOpen(false);
   }, []);
-  const handleToggleMobileScoreboardAnchor = useCallback(() => {
-    setMobileScoreboardAnchor((current) =>
-      current === "bottom" ? "top" : "bottom",
-    );
-  }, []);
   const handleOpenMobileChat = useCallback(() => {
     setMobilePlaybackOpen(false);
     setMobileScoreboardOpen(false);
@@ -196,44 +167,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const handleCloseMobileChat = useCallback(() => {
     setMobileChatOpen(false);
   }, []);
-  const handleMobilePlaybackDragStart = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!isMobileGameViewport) return;
-      const panel = mobilePlaybackWindowRef.current;
-      if (!panel) return;
-      const rect = panel.getBoundingClientRect();
-      mobilePlaybackDragRef.current = {
-        pointerId: event.pointerId,
-        offsetX: event.clientX - rect.left,
-        offsetY: event.clientY - rect.top,
-      };
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [isMobileGameViewport],
-  );
-  const handleMobilePlaybackDragMove = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const drag = mobilePlaybackDragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      const next = clampMobilePlaybackPosition({
-        x: event.clientX - drag.offsetX,
-        y: event.clientY - drag.offsetY,
-      });
-      setMobilePlaybackPosition(next);
-    },
-    [clampMobilePlaybackPosition],
-  );
-  const handleMobilePlaybackDragEnd = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const drag = mobilePlaybackDragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      mobilePlaybackDragRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-    },
-    [],
-  );
 
   useGameRoomAnswerPanelAutoScroll({
     roomId: room.id,
@@ -903,19 +836,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [isMobileGameViewport]);
 
   useEffect(() => {
-    if (!isMobileGameViewport || !mobilePlaybackOpen) return;
-    const syncPosition = () => {
-      setMobilePlaybackPosition((current) => clampMobilePlaybackPosition(current));
-    };
-    const timer = window.setTimeout(syncPosition, 0);
-    window.addEventListener("resize", syncPosition);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("resize", syncPosition);
-    };
-  }, [clampMobilePlaybackPosition, isMobileGameViewport, mobilePlaybackOpen]);
-
-  useEffect(() => {
     if (!isMobileGameViewport) {
       previousPhaseRef.current = gameState.phase;
       return;
@@ -949,6 +869,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       }
     };
   }, [gameState.phase, isMobileGameViewport, mobileRevealAutoOverlayEnabled]);
+  const mobileRevealSplitMode =
+    isMobileGameViewport &&
+    gameState.phase === "reveal" &&
+    mobilePlaybackOpen &&
+    mobileScoreboardOpen;
 
   const exitGameDialog = (
     <GameRoomExitDialog
@@ -1093,35 +1018,48 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
           />
           {isMobileGameViewport && (
-            <div className="game-room-mobile-action-dock lg:hidden">
+            <div
+              className={`game-room-mobile-action-dock lg:hidden ${
+                mobileRevealSplitMode ? "game-room-mobile-action-dock--hidden" : ""
+              }`}
+            >
               <button
                 type="button"
-                className="game-room-mobile-action-btn"
+                className="game-room-mobile-action-btn game-room-mobile-action-btn--icon"
                 onClick={handleToggleMobileScoreboard}
               >
-                <span>分數榜</span>
+                <span className="game-room-mobile-action-icon" aria-hidden>
+                  <LeaderboardRoundedIcon fontSize="inherit" />
+                </span>
+                <span className="game-room-mobile-action-label">分數榜</span>
                 <span className="game-room-mobile-action-meta">
                   {answeredCount}/{participants.length || 0}
                 </span>
               </button>
               <button
                 type="button"
-                className="game-room-mobile-action-btn"
+                className="game-room-mobile-action-btn game-room-mobile-action-btn--icon"
                 onClick={handleToggleMobilePlayback}
               >
-                <span>影片視窗</span>
+                <span className="game-room-mobile-action-icon" aria-hidden>
+                  <SmartDisplayRoundedIcon fontSize="inherit" />
+                </span>
+                <span className="game-room-mobile-action-label">影片</span>
                 <span className="game-room-mobile-action-meta">
-                  第 {boundedCursor + 1} 題
+                  {isReveal ? "公布答案" : `第 ${boundedCursor + 1} 題`}
                 </span>
               </button>
               <button
                 type="button"
-                className={`game-room-mobile-action-btn ${
+                className={`game-room-mobile-action-btn game-room-mobile-action-btn--icon ${
                   mobileChatUnread > 0 ? "game-room-mobile-action-btn--unread" : ""
                 }`}
                 onClick={handleOpenMobileChat}
               >
-                <span>聊天室</span>
+                <span className="game-room-mobile-action-icon" aria-hidden>
+                  <ForumRoundedIcon fontSize="inherit" />
+                </span>
+                <span className="game-room-mobile-action-label">聊天室</span>
                 <span className="game-room-mobile-action-meta">
                   {mobileChatUnread > 0
                     ? `未讀 ${mobileChatUnread > 99 ? "99+" : mobileChatUnread}`
@@ -1131,24 +1069,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               <div className="game-room-mobile-action-subdock col-span-3">
                 <button
                   type="button"
-                  className="game-room-mobile-toggle-btn"
+                  className="game-room-mobile-toggle-chip"
                   onClick={() =>
                     setMobileRevealAutoOverlayEnabled((current) => !current)
                   }
                 >
-                  <span>公布答案自動彈出</span>
+                  <span className="game-room-mobile-action-icon" aria-hidden>
+                    <AutoAwesomeRoundedIcon fontSize="inherit" />
+                  </span>
+                  <span>公布答案自動分割</span>
                   <span className="game-room-mobile-action-meta">
                     {mobileRevealAutoOverlayEnabled ? "ON" : "OFF"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="game-room-mobile-toggle-btn"
-                  onClick={handleToggleMobileScoreboardAnchor}
-                >
-                  <span>分數榜位置</span>
-                  <span className="game-room-mobile-action-meta">
-                    {mobileScoreboardAnchor === "top" ? "上方" : "下方"}
                   </span>
                 </button>
               </div>
@@ -1157,97 +1088,96 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         </section>
         {isMobileGameViewport && (
           <>
-            <div
-              ref={mobilePlaybackWindowRef}
-              className={`game-room-mobile-floating-player lg:!hidden ${
-                mobilePlaybackOpen
-                  ? "game-room-mobile-floating-player--open"
-                  : "game-room-mobile-floating-player--closed"
-              }`}
-              style={{
-                left: mobilePlaybackPosition.x,
-                top: mobilePlaybackPosition.y,
+            <Drawer
+              anchor="top"
+              open={mobilePlaybackOpen}
+              onClose={handleCloseMobilePlayback}
+              keepMounted
+              ModalProps={{
+                keepMounted: true,
+                hideBackdrop: true,
+                disableAutoFocus: true,
+                disableEnforceFocus: true,
+                disableRestoreFocus: true,
+              }}
+              PaperProps={{
+                className: `game-room-mobile-playback-drawer ${
+                  mobileRevealSplitMode
+                    ? "game-room-mobile-playback-drawer--split"
+                    : "game-room-mobile-playback-drawer--single"
+                } lg:!hidden`,
               }}
             >
-                <div
-                  className="game-room-mobile-floating-player-head"
-                  onPointerDown={handleMobilePlaybackDragStart}
-                  onPointerMove={handleMobilePlaybackDragMove}
-                  onPointerUp={handleMobilePlaybackDragEnd}
-                  onPointerCancel={handleMobilePlaybackDragEnd}
-                  onLostPointerCapture={handleMobilePlaybackDragEnd}
+              <div className="game-room-mobile-drawer-head game-room-mobile-drawer-head--playback">
+                <span className="game-room-mobile-drawer-title">影片視窗</span>
+                <button
+                  type="button"
+                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon"
+                  onClick={handleCloseMobilePlayback}
+                  aria-label="關閉影片視窗"
                 >
-                  <span className="game-room-mobile-floating-player-title">
-                    影片視窗
-                  </span>
-                  <button
-                    type="button"
-                    className="game-room-mobile-floating-player-close"
-                    onClick={handleCloseMobilePlayback}
-                  >
-                    關閉
-                  </button>
-                </div>
-                <div className="game-room-mobile-floating-player-body">
-                  <GameRoomPlaybackPanel
-                    isMobileView
-                    isRevealPhase={isReveal}
-                    revealAnswerTitle={resolvedAnswerTitle}
-                    roomName={room.name}
-                    boundedCursor={boundedCursor}
-                    trackOrderLength={trackOrderLength}
-                    onOpenExitConfirm={openExitConfirm}
-                    iframeSrc={iframeSrc}
-                    shouldHideVideoFrame={shouldHideVideoFrame}
-                    shouldShowVideo={shouldShowVideo}
-                    iframeRef={iframeRef}
-                    onIframeLoad={handlePlaybackIframeLoad}
-                    silentAudioRef={silentAudioRef}
-                    silentAudioSrc={SILENT_AUDIO_SRC}
-                    danmuEnabled={danmuEnabled}
-                    danmuItems={danmuItems}
-                    showGuessMask={showGuessMask}
-                    showPreStartMask={showPreStartMask}
-                    showLoadingMask={showLoadingMask}
-                    showAudioOnlyMask={showAudioOnlyMask}
-                    showVideo={showVideo}
-                    onShowVideoChange={(show) => setShowVideoOverride(show)}
-                    gameVolume={gameVolume}
-                    onGameVolumeChange={setGameVolume}
-                  />
-                </div>
-            </div>
+                  <CloseRoundedIcon fontSize="inherit" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden p-2">
+                <GameRoomPlaybackPanel
+                  isMobileView
+                  isOverlayMode
+                  isRevealPhase={isReveal}
+                  revealAnswerTitle={resolvedAnswerTitle}
+                  roomName={room.name}
+                  boundedCursor={boundedCursor}
+                  trackOrderLength={trackOrderLength}
+                  onOpenExitConfirm={openExitConfirm}
+                  iframeSrc={iframeSrc}
+                  shouldHideVideoFrame={shouldHideVideoFrame}
+                  shouldShowVideo={shouldShowVideo}
+                  iframeRef={iframeRef}
+                  onIframeLoad={handlePlaybackIframeLoad}
+                  silentAudioRef={silentAudioRef}
+                  silentAudioSrc={SILENT_AUDIO_SRC}
+                  danmuEnabled={danmuEnabled}
+                  danmuItems={danmuItems}
+                  showGuessMask={showGuessMask}
+                  showPreStartMask={showPreStartMask}
+                  showLoadingMask={showLoadingMask}
+                  showAudioOnlyMask={showAudioOnlyMask}
+                  showVideo={showVideo}
+                  onShowVideoChange={(show) => setShowVideoOverride(show)}
+                  gameVolume={gameVolume}
+                  onGameVolumeChange={setGameVolume}
+                />
+              </div>
+            </Drawer>
             <Drawer
-              anchor={mobileScoreboardAnchor}
+              anchor="bottom"
               open={mobileScoreboardOpen}
               onClose={handleCloseMobileScoreboard}
               keepMounted
+              ModalProps={{
+                keepMounted: true,
+                hideBackdrop: true,
+                disableAutoFocus: true,
+                disableEnforceFocus: true,
+                disableRestoreFocus: true,
+              }}
               PaperProps={{
-                className: `game-room-mobile-scoreboard-drawer game-room-mobile-scoreboard-drawer--${mobileScoreboardAnchor} lg:!hidden`,
+                className: `game-room-mobile-scoreboard-drawer ${
+                  mobileRevealSplitMode
+                    ? "game-room-mobile-scoreboard-drawer--split"
+                    : "game-room-mobile-scoreboard-drawer--single"
+                } lg:!hidden`,
               }}
             >
-              <div
-                className={`game-room-mobile-drawer-head ${
-                  mobileScoreboardAnchor === "bottom"
-                    ? "game-room-mobile-drawer-head--bottom"
-                    : "game-room-mobile-drawer-head--top"
-                }`}
-              >
+              <div className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard">
+                <span className="game-room-mobile-drawer-title">分數榜</span>
                 <button
                   type="button"
-                  className="game-room-mobile-drawer-close"
-                  onClick={handleToggleMobileScoreboardAnchor}
-                >
-                  {mobileScoreboardAnchor === "bottom"
-                    ? "切換到上方"
-                    : "切換到下方"}
-                </button>
-                <button
-                  type="button"
-                  className="game-room-mobile-drawer-close"
+                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon"
                   onClick={handleCloseMobileScoreboard}
+                  aria-label="關閉分數榜"
                 >
-                  關閉
+                  <CloseRoundedIcon fontSize="inherit" />
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-hidden p-2">

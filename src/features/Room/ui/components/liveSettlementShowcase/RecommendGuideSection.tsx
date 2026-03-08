@@ -7,6 +7,10 @@ import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import SubjectRoundedIcon from "@mui/icons-material/SubjectRounded";
+import KeyboardArrowUpRoundedIcon from "@mui/icons-material/KeyboardArrowUpRounded";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type { RecommendCategory } from "../liveSettlementUtils";
 
@@ -345,10 +349,17 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           {isMobileView && (
             <button
               type="button"
-              className="rounded-full border border-slate-500/65 bg-slate-900/68 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300/70"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/65 bg-slate-900/68 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300/70"
               onClick={() => setMobileControlsExpanded((prev) => !prev)}
+              aria-label={mobileControlsExpanded ? "收合操作" : "展開操作"}
             >
-              {mobileControlsExpanded ? "收合操作" : "展開操作"}
+              <TuneRoundedIcon className="text-[1rem]" />
+              <span>{mobileControlsExpanded ? "收合" : "操作"}</span>
+              {mobileControlsExpanded ? (
+                <KeyboardArrowUpRoundedIcon className="text-[1rem]" />
+              ) : (
+                <KeyboardArrowDownRoundedIcon className="text-[1rem]" />
+              )}
             </button>
           )}
           {!isMobileView && showRecommendControlsHint && (
@@ -756,10 +767,16 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 </button>
                 <button
                   type="button"
-                  className="rounded-full border border-cyan-300/50 bg-cyan-500/12 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/70"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/50 bg-cyan-500/12 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/70"
                   onClick={() => setMobileListExpanded((prev) => !prev)}
                 >
-                  {mobileListExpanded ? "收合清單" : "展開清單"}
+                  <SubjectRoundedIcon className="text-[1rem]" />
+                  {mobileListExpanded ? "收合詳情" : "答題詳情"}
+                  {mobileListExpanded ? (
+                    <KeyboardArrowDownRoundedIcon className="text-[1rem]" />
+                  ) : (
+                    <KeyboardArrowUpRoundedIcon className="text-[1rem]" />
+                  )}
                 </button>
                 <button
                   type="button"
@@ -782,7 +799,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                  推薦清單
+                  {isMobileView ? "答題詳情" : "推薦清單"}
                 </p>
                 <span className="text-xs text-slate-300">
                   {recommendationCards.length === 0
