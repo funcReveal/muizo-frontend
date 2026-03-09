@@ -1301,6 +1301,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 disableAutoFocus: true,
                 disableEnforceFocus: true,
                 disableRestoreFocus: true,
+                disableScrollLock: true,
               }}
               PaperProps={{
                 className: `game-room-mobile-playback-drawer ${
@@ -1377,6 +1378,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 disableAutoFocus: true,
                 disableEnforceFocus: true,
                 disableRestoreFocus: true,
+                disableScrollLock: true,
               }}
               PaperProps={{
                 className: `game-room-mobile-scoreboard-drawer ${

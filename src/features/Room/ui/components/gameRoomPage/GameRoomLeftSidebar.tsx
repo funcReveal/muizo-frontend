@@ -88,7 +88,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   const rankSwapTimerRef = React.useRef<number | null>(null);
   const rankSwapKeyRef = React.useRef(0);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (displayedPlayerOrder.length === 0) {
       lastDisplayedPlayerOrderRef.current = [];
       if (rankSwapTimerRef.current !== null) {
@@ -282,6 +282,17 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             const rowSwapOffsetRows =
               rankSwapState?.offsetByClientId[p.clientId] ?? 0;
             const hasRowSwapAnimation = rowSwapOffsetRows !== 0;
+            const topSwapRole =
+              topTwoSwapState &&
+              idx === 0 &&
+              p.clientId === topTwoSwapState.firstClientId
+                ? "first"
+                : topTwoSwapState &&
+                    idx === 1 &&
+                    p.clientId === topTwoSwapState.secondClientId
+                  ? "second"
+                  : null;
+            const hasTopSwapAnimation = topSwapRole !== null && !mobileOverlayMode;
             const isTopSwapParticipant = Boolean(
               topTwoSwapState &&
                 (p.clientId === topTwoSwapState.firstClientId ||
@@ -307,15 +318,43 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     60 + Math.max(0, rowSwapDistanceRows - 1) * 34,
                   )
                 : 0;
-            const rowSwapStyle = hasRowSwapAnimation
+            const topSwapOffsetRows =
+              topSwapRole === "first"
+                ? (topTwoSwapState?.firstOffsetRows ?? 1)
+                : topSwapRole === "second"
+                  ? (topTwoSwapState?.secondOffsetRows ?? -1)
+                  : 0;
+            const topSwapDistanceRows = Math.max(1, Math.abs(topSwapOffsetRows));
+            const topSwapStartPx = topSwapOffsetRows * swapRowHeightPx;
+            const topSwapMidPx = Math.round(topSwapStartPx * 0.42);
+            const topSwapOvershootPx =
+              topSwapOffsetRows > 0
+                ? -Math.min(12, 5 + topSwapDistanceRows * 1.2)
+                : Math.min(12, 5 + topSwapDistanceRows * 1.2);
+            const topSwapDurationMs = Math.min(
+              1880,
+              1320 + Math.max(0, topSwapDistanceRows - 1) * 130,
+            );
+            const topSwapDelayMs = topSwapRole === "second" ? 80 : 0;
+            const rowSwapStyle = hasTopSwapAnimation
               ? ({
-                  "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
-                  "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
-                  "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
-                  "--game-room-rank-swap-duration": `${rowSwapDurationMs}ms`,
-                  "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
+                  "--game-room-swap-start": `${topSwapStartPx}px`,
+                  "--game-room-swap-mid": `${topSwapMidPx}px`,
+                  "--game-room-swap-overshoot": `${topSwapOvershootPx}px`,
+                  "--game-room-swap-duration": `${topSwapDurationMs}ms`,
+                  "--game-room-swap-second-delay": `${topSwapDelayMs}ms`,
+                  "--game-room-swap-tilt-start": topSwapRole === "first" ? "-2.2deg" : "1.6deg",
+                  "--game-room-swap-tilt-end": topSwapRole === "first" ? "1.1deg" : "-1deg",
                 } as React.CSSProperties)
-              : undefined;
+              : hasRowSwapAnimation
+                ? ({
+                    "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
+                    "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
+                    "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
+                    "--game-room-rank-swap-duration": `${rowSwapDurationMs}ms`,
+                    "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
+                  } as React.CSSProperties)
+                : undefined;
 
             const rowComboTier = resolveComboTier(p.combo ?? 0);
             const rowComboTierClass =
@@ -338,13 +377,19 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                         ? "game-room-score-row--answered"
                         : ""
                 } ${isMeRow ? "game-room-score-row--me game-room-score-row--me-locate" : ""} ${
-                  hasRowSwapAnimation
+                  hasTopSwapAnimation
+                    ? topSwapRole === "first"
+                      ? "game-room-score-row--top-swap-first"
+                      : "game-room-score-row--top-swap-second"
+                    : ""
+                } ${
+                  hasRowSwapAnimation && !hasTopSwapAnimation
                     ? rowSwapOffsetRows > 0
                       ? "game-room-score-row--rank-swap-up"
                       : "game-room-score-row--rank-swap-down"
                     : ""
                 } ${
-                  hasRowSwapAnimation && isTopSwapParticipant
+                  hasRowSwapAnimation && !hasTopSwapAnimation && isTopSwapParticipant
                     ? "game-room-score-row--rank-swap-focus"
                     : ""
                 } ${rowComboTierClass} ${

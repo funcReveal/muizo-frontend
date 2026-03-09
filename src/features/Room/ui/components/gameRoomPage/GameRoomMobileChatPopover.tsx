@@ -100,6 +100,7 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
           disableAutoFocus: true,
           disableEnforceFocus: true,
           disableRestoreFocus: true,
+          disableScrollLock: true,
         }}
         PaperProps={{
           className: "game-room-mobile-chat-sheet",
