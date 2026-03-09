@@ -1135,24 +1135,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             >
               <div
                 className="game-room-mobile-drawer-head game-room-mobile-drawer-head--playback"
-                role="presentation"
-                aria-label="向上拖曳收合影片視窗"
-                {...mobilePlaybackDragDismiss.dragHandleProps}
               >
-                <div
-                  className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
-                  aria-hidden="true"
-                >
-                  <span className="game-room-mobile-drawer-handle-bar" />
-                  <span className="game-room-mobile-drawer-handle-direction">
-                    向上拖曳收合
-                  </span>
-                </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="game-room-mobile-drawer-title">影片視窗</span>
                   <span className="game-room-mobile-drawer-gesture-hint">
                     <DragHandleRoundedIcon className="text-[1rem]" />
-                    拖曳調整
+                    下方向上拖曳收合
                   </span>
                 </div>
               </div>
@@ -1267,6 +1255,22 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   mobileOverlayMode
                   swapAnimationEnabled={mobileScoreboardOpen}
                 />
+              </div>
+              <div
+                className="game-room-mobile-drawer-foot game-room-mobile-drawer-foot--playback"
+                role="presentation"
+                aria-label="由下往上拖曳收合影片視窗"
+                {...mobilePlaybackDragDismiss.dragHandleProps}
+              >
+                <div
+                  className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
+                  aria-hidden="true"
+                >
+                  <span className="game-room-mobile-drawer-handle-bar" />
+                  <span className="game-room-mobile-drawer-handle-direction">
+                    由下往上拖曳收合
+                  </span>
+                </div>
               </div>
             </SwipeableDrawer>
             <GameRoomMobileChatPopover

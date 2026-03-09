@@ -8273,8 +8273,9 @@ body {
   }
 
   .game-room-mobile-playback-drawer--single {
-    min-height: min(72vh, 660px);
-    max-height: min(76vh, 720px);
+    height: min(54svh, 520px);
+    min-height: min(46svh, 420px);
+    max-height: min(58svh, 560px);
     border-bottom-left-radius: 16px !important;
     border-bottom-right-radius: 16px !important;
   }
@@ -8407,6 +8408,19 @@ body {
 
   .game-room-mobile-drawer-head--playback {
     padding-top: calc(8px + env(safe-area-inset-top) * 0.42);
+  }
+
+  .game-room-mobile-drawer-foot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 9px 8px;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(8, 15, 26, 0.78);
+  }
+
+  .game-room-mobile-drawer-foot--playback {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom) * 0.14);
   }
 
   .game-room-mobile-drawer-head--scoreboard {
@@ -8658,6 +8672,12 @@ body {
 }
 
 @media (max-width: 560px) {
+  .game-room-mobile-playback-drawer--single {
+    height: min(52svh, 490px);
+    min-height: min(44svh, 390px);
+    max-height: min(56svh, 530px);
+  }
+
   .game-room-mobile-action-dock {
     gap: 6px;
     padding: 6px;
