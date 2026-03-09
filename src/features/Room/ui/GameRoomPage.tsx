@@ -61,6 +61,7 @@ import useTopTwoSwapState from "./components/gameRoomPage/useTopTwoSwapState";
 import useGameRoomDanmu from "./components/gameRoomPage/useGameRoomDanmu";
 import useGameRoomChoiceHotkeys from "./components/gameRoomPage/useGameRoomChoiceHotkeys";
 import useGameRoomAnswerPanelAutoScroll from "./components/gameRoomPage/useGameRoomAnswerPanelAutoScroll";
+import useMobileDrawerDragDismiss from "./components/gameRoomPage/useMobileDrawerDragDismiss";
 import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
 
 interface GameRoomPageProps {
@@ -175,6 +176,16 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const handleCloseMobileChat = useCallback(() => {
     setMobileChatOpen(false);
   }, []);
+  const mobilePlaybackDragDismiss = useMobileDrawerDragDismiss({
+    open: mobilePlaybackOpen,
+    direction: "up",
+    onDismiss: handleCloseMobilePlayback,
+  });
+  const mobileScoreboardDragDismiss = useMobileDrawerDragDismiss({
+    open: mobileScoreboardOpen,
+    direction: "down",
+    onDismiss: handleCloseMobileScoreboard,
+  });
 
   useGameRoomAnswerPanelAutoScroll({
     roomId: room.id,
@@ -1119,11 +1130,23 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     ? "game-room-mobile-playback-drawer--split"
                     : "game-room-mobile-playback-drawer--single"
                 }`,
+                style: mobilePlaybackDragDismiss.paperStyle,
               }}
             >
-              <div className="game-room-mobile-drawer-head game-room-mobile-drawer-head--playback">
-                <div className="game-room-mobile-drawer-handle-wrap" aria-hidden="true">
+              <div
+                className="game-room-mobile-drawer-head game-room-mobile-drawer-head--playback"
+                role="presentation"
+                aria-label="向上拖曳收合影片視窗"
+                {...mobilePlaybackDragDismiss.dragHandleProps}
+              >
+                <div
+                  className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
+                  aria-hidden="true"
+                >
                   <span className="game-room-mobile-drawer-handle-bar" />
+                  <span className="game-room-mobile-drawer-handle-direction">
+                    向上拖曳收合
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="game-room-mobile-drawer-title">影片視窗</span>
@@ -1190,11 +1213,23 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     ? "game-room-mobile-scoreboard-drawer--split"
                     : "game-room-mobile-scoreboard-drawer--single"
                 }`,
+                style: mobileScoreboardDragDismiss.paperStyle,
               }}
             >
-              <div className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard">
-                <div className="game-room-mobile-drawer-handle-wrap" aria-hidden="true">
+              <div
+                className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard"
+                role="presentation"
+                aria-label="向下拖曳收合分數榜"
+                {...mobileScoreboardDragDismiss.dragHandleProps}
+              >
+                <div
+                  className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
+                  aria-hidden="true"
+                >
                   <span className="game-room-mobile-drawer-handle-bar" />
+                  <span className="game-room-mobile-drawer-handle-direction">
+                    向下拖曳收合
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="game-room-mobile-drawer-title">分數榜</span>

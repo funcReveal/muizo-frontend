@@ -8359,11 +8359,36 @@ body {
     margin-bottom: 2px;
   }
 
+  .game-room-mobile-drawer-handle-wrap--draggable {
+    flex-direction: column;
+    gap: 4px;
+    min-height: 28px;
+    margin-bottom: 0;
+    padding: 4px 0;
+    border-radius: 12px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: ns-resize;
+  }
+
+  .game-room-mobile-drawer-handle-wrap--draggable:active {
+    background: rgba(15, 23, 42, 0.35);
+  }
+
   .game-room-mobile-drawer-handle-bar {
     width: 44px;
     height: 4px;
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.5);
+  }
+
+  .game-room-mobile-drawer-handle-direction {
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: rgba(148, 163, 184, 0.88);
   }
 
   .game-room-mobile-drawer-gesture-hint {

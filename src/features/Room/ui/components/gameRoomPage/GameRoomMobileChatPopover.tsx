@@ -5,6 +5,7 @@ import DragHandleRoundedIcon from "@mui/icons-material/DragHandleRounded";
 
 import type { ChatMessage } from "../../../model/types";
 import GameRoomChatPanel from "./GameRoomChatPanel";
+import useMobileDrawerDragDismiss from "./useMobileDrawerDragDismiss";
 
 interface GameRoomMobileChatPopoverProps {
   open: boolean;
@@ -37,6 +38,12 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
   onSendMessage,
   chatScrollRef,
 }) => {
+  const mobileChatDragDismiss = useMobileDrawerDragDismiss({
+    open,
+    direction: "down",
+    onDismiss: onClose,
+  });
+
   return (
     <>
       {showFab && (
@@ -75,11 +82,23 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
         }}
         PaperProps={{
           className: "game-room-mobile-chat-sheet",
+          style: mobileChatDragDismiss.paperStyle,
         }}
       >
-        <div className="game-room-mobile-chat-sheet-head">
-          <div className="game-room-mobile-drawer-handle-wrap" aria-hidden="true">
+        <div
+          className="game-room-mobile-chat-sheet-head"
+          role="presentation"
+          aria-label="向下拖曳收合聊天室"
+          {...mobileChatDragDismiss.dragHandleProps}
+        >
+          <div
+            className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
+            aria-hidden="true"
+          >
             <span className="game-room-mobile-drawer-handle-bar" />
+            <span className="game-room-mobile-drawer-handle-direction">
+              向下拖曳收合
+            </span>
           </div>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
