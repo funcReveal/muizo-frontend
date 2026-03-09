@@ -62,6 +62,8 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
         open={open}
         onOpen={onOpen}
         onClose={onClose}
+        disableSwipeToOpen={false}
+        allowSwipeInChildren
         swipeAreaWidth={26}
         keepMounted
         ModalProps={{

@@ -8238,6 +8238,10 @@ body {
     pointer-events: auto;
   }
 
+  .game-room-mobile-drawer-root .MuiSwipeArea-root {
+    pointer-events: auto;
+  }
+
   .game-room-mobile-drawer-root--playback {
     z-index: 1370 !important;
   }

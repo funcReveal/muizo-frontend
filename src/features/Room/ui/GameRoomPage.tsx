@@ -1102,6 +1102,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               open={mobilePlaybackOpen}
               onOpen={handleOpenMobilePlayback}
               onClose={handleCloseMobilePlayback}
+              disableSwipeToOpen={false}
+              allowSwipeInChildren
               swipeAreaWidth={26}
               keepMounted
               ModalProps={{
@@ -1171,6 +1173,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               open={mobileScoreboardOpen}
               onOpen={handleOpenMobileScoreboard}
               onClose={handleCloseMobileScoreboard}
+              disableSwipeToOpen={false}
+              allowSwipeInChildren
               swipeAreaWidth={26}
               keepMounted
               ModalProps={{
