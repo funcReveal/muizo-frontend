@@ -334,7 +334,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     minHeight: MOBILE_PLAYBACK_MIN_HEIGHT_VH,
     maxHeight: MOBILE_PLAYBACK_MAX_HEIGHT_VH,
     onHeightChange: handlePlaybackHeightChange,
-    threshold: 46,
+    threshold: 34,
   });
   const mobileScoreboardDragDismiss = useMobileDrawerDragDismiss({
     open: mobileScoreboardOpen,
@@ -344,7 +344,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     minHeight: MOBILE_SCOREBOARD_MIN_HEIGHT_VH,
     maxHeight: MOBILE_SCOREBOARD_MAX_HEIGHT_VH,
     onHeightChange: handleScoreboardHeightChange,
-    threshold: 46,
+    threshold: 34,
   });
 
   useGameRoomAnswerPanelAutoScroll({
@@ -1388,10 +1388,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     向下拖曳收合
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="game-room-mobile-drawer-title">已答 {answeredCount}/{participants.length || 0}</span>
-                  <span className="game-room-mobile-drawer-gesture-hint game-room-mobile-drawer-gesture-hint--minimal">
-                    向下收合
+                <div className="game-room-mobile-scoreboard-headline">
+                  <div className="game-room-mobile-scoreboard-title-group">
+                    <span className="game-room-mobile-scoreboard-kicker">SCOREBOARD</span>
+                    <span className="game-room-mobile-scoreboard-title">分數榜</span>
+                  </div>
+                  <span className="game-room-mobile-scoreboard-answered-pill">
+                    已答 {answeredCount}/{participants.length || 0}
                   </span>
                 </div>
               </div>

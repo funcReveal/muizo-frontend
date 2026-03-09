@@ -53,7 +53,7 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
     minHeight: minHeightVh,
     maxHeight: maxHeightVh,
     onHeightChange,
-    threshold: 46,
+    threshold: 34,
   });
 
   return (

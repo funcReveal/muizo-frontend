@@ -20,14 +20,14 @@ interface DragState {
   startY: number;
   startHeight: number;
   latestHeight: number;
-  dismissStretch: number;
+  dismissStretchPx: number;
   lastY: number;
   lastTs: number;
   velocity: number;
   pointerId: number | null;
 }
 
-const DEFAULT_THRESHOLD = 42;
+const DEFAULT_THRESHOLD = 34;
 const DEFAULT_VELOCITY_THRESHOLD = 0.55;
 const SNAP_BACK_TRANSITION = "transform 220ms cubic-bezier(0.2, 0.82, 0.24, 1)";
 
@@ -50,7 +50,7 @@ const useMobileDrawerDragDismiss = ({
     startY: 0,
     startHeight: height,
     latestHeight: height,
-    dismissStretch: 0,
+    dismissStretchPx: 0,
     lastY: 0,
     lastTs: 0,
     velocity: 0,
@@ -76,7 +76,7 @@ const useMobileDrawerDragDismiss = ({
     dragStateRef.current.startY = clientY;
     dragStateRef.current.startHeight = height;
     dragStateRef.current.latestHeight = height;
-    dragStateRef.current.dismissStretch = 0;
+    dragStateRef.current.dismissStretchPx = 0;
     dragStateRef.current.lastY = clientY;
     dragStateRef.current.lastTs = now;
     dragStateRef.current.velocity = 0;
@@ -91,11 +91,16 @@ const useMobileDrawerDragDismiss = ({
       const directionalDistance = resolveDirectionalDistance(rawDelta);
 
       if (canResize && typeof minHeight === "number" && typeof maxHeight === "number") {
-        const rawHeight = dragStateRef.current.startHeight - directionalDistance;
-        const clampedHeight = clamp(rawHeight, minHeight, maxHeight);
-        dragStateRef.current.latestHeight = clampedHeight;
-        dragStateRef.current.dismissStretch = Math.max(0, minHeight - rawHeight);
-        onHeightChange(clampedHeight);
+        const viewportHeightPx = Math.max(window.innerHeight || 0, 1);
+        const directionalDistanceVh = (directionalDistance / viewportHeightPx) * 100;
+        const rawHeightVh = dragStateRef.current.startHeight - directionalDistanceVh;
+        const clampedHeightVh = clamp(rawHeightVh, minHeight, maxHeight);
+        const dismissStretchVh = Math.max(0, minHeight - rawHeightVh);
+        const dismissStretchPx = (dismissStretchVh / 100) * viewportHeightPx;
+        const normalizedHeightVh = Number(clampedHeightVh.toFixed(2));
+        dragStateRef.current.latestHeight = normalizedHeightVh;
+        dragStateRef.current.dismissStretchPx = dismissStretchPx;
+        onHeightChange(normalizedHeightVh);
       } else {
         const fallbackOffset = direction === "up"
           ? clamp(rawDelta, -180, 0)
@@ -125,10 +130,10 @@ const useMobileDrawerDragDismiss = ({
 
     if (canResize && typeof minHeight === "number" && typeof maxHeight === "number") {
       const latestHeight = clamp(dragStateRef.current.latestHeight, minHeight, maxHeight);
-      const reachedCloseZone = latestHeight <= minHeight + 3;
+      const reachedCloseZone = latestHeight <= minHeight + 0.8;
       shouldDismiss =
         reachedCloseZone &&
-        (dragStateRef.current.dismissStretch >= threshold ||
+        (dragStateRef.current.dismissStretchPx >= threshold ||
           directionalVelocity >= velocityThreshold);
       onHeightChange(latestHeight);
     } else {
