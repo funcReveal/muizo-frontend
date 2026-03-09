@@ -57,5 +57,8 @@ export type MyFeedbackModel = {
 export type TopTwoSwapState = {
   firstClientId: string;
   secondClientId: string;
+  firstOffsetRows: number;
+  secondOffsetRows: number;
+  isExactSwap: boolean;
   key: number;
 };

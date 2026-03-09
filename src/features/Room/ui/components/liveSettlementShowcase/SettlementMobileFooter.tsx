@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Button } from "@mui/material";
 
 interface SettlementMobileFooterProps {
@@ -102,7 +102,7 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             onClick={onOpenExitConfirm}
             className="!min-w-0 !flex-[1.1]"
           >
-            離開房間
+            離開結算
           </Button>
         ) : (
           <Button
@@ -112,7 +112,7 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             disabled
             className="!min-w-0 !flex-[1.1]"
           >
-            等待房主
+            暫無操作
           </Button>
         )}
         {onOpenExitConfirm && hasNextStep && (

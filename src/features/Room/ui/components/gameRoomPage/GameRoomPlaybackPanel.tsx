@@ -58,6 +58,8 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   gameVolume,
   onGameVolumeChange,
 }) => {
+  const shouldShowRoomName = !(isMobileView && isOverlayMode);
+
   return (
     <div
       className={`game-room-panel game-room-panel--accent flex-none p-3 text-slate-50 ${
@@ -72,7 +74,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         <div className="flex items-center gap-2">
           <div>
             <p className="game-room-kicker">正在播放</p>
-            <p className="game-room-title">{roomName}</p>
+            {shouldShowRoomName && <p className="game-room-title">{roomName}</p>}
             <div className="game-room-track-counter mt-1 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black tracking-[0.14em] text-amber-100">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
               題目 {boundedCursor + 1}/{trackOrderLength || "?"}

@@ -110,20 +110,20 @@ export const RECOMMEND_CATEGORY_THEME: Record<
   },
   other: {
     shellClass:
-      "border-sky-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(56,189,248,0.2),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(7,16,36,0.94))] shadow-[0_28px_60px_-44px_rgba(56,189,248,0.68)]",
+      "border-indigo-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(99,102,241,0.25),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(8,14,40,0.94))] shadow-[0_28px_60px_-44px_rgba(99,102,241,0.68)]",
     sectionClass:
-      "border-sky-300/30 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-sky-950/42 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.2),0_25px_55px_-45px_rgba(56,189,248,0.55)]",
+      "border-indigo-300/30 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-indigo-950/45 shadow-[inset_0_0_0_1px_rgba(129,140,248,0.22),0_25px_55px_-45px_rgba(99,102,241,0.55)]",
     asideClass:
-      "border-sky-300/30 bg-[linear-gradient(180deg,rgba(8,20,42,0.92),rgba(4,12,26,0.95))]",
+      "border-indigo-300/30 bg-[linear-gradient(180deg,rgba(11,18,52,0.92),rgba(8,10,30,0.95))]",
     drawerClass:
-      "border-sky-300/38 bg-[linear-gradient(180deg,rgba(9,23,45,0.9),rgba(4,14,30,0.94))]",
+      "border-indigo-300/38 bg-[linear-gradient(180deg,rgba(14,21,56,0.9),rgba(9,12,35,0.94))]",
     controlGroupClass:
-      "border-sky-300/42 bg-sky-500/12 shadow-[0_10px_24px_-16px_rgba(56,189,248,0.86)]",
-    listActiveClass: "border-sky-300/55 bg-sky-400/12",
+      "border-indigo-300/42 bg-indigo-500/12 shadow-[0_10px_24px_-16px_rgba(99,102,241,0.86)]",
+    listActiveClass: "border-indigo-300/55 bg-indigo-400/12",
     autoWrapClass:
-      "border-sky-300/45 bg-gradient-to-r from-sky-500/20 via-cyan-400/14 to-slate-900/20 shadow-[0_0_0_1px_rgba(56,189,248,0.2),0_12px_24px_-18px_rgba(56,189,248,0.7)]",
-    autoBarClass: "bg-gradient-to-r from-sky-300 to-cyan-100",
-    badgeClass: "border-sky-300/45 bg-sky-500/16 text-sky-50",
+      "border-indigo-300/45 bg-gradient-to-r from-indigo-500/20 via-blue-400/14 to-slate-900/20 shadow-[0_0_0_1px_rgba(99,102,241,0.2),0_12px_24px_-18px_rgba(99,102,241,0.7)]",
+    autoBarClass: "bg-gradient-to-r from-indigo-300 to-sky-200",
+    badgeClass: "border-indigo-300/45 bg-indigo-500/16 text-indigo-50",
   },
 };
 

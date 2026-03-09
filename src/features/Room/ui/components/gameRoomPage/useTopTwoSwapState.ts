@@ -1,20 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { RoomParticipant } from "../../../model/types";
 import type { TopTwoSwapState } from "./gameRoomPageTypes";
 import { deferStateUpdate } from "./gameRoomPageUtils";
 
-const TOP_TWO_SWAP_DURATION_MS = 720;
+const TOP_TWO_SWAP_DURATION_MS = 3400;
+const MAX_SWAP_OFFSET_ROWS = 6;
+
+const clampSwapOffsetRows = (value: number) =>
+  Math.max(-MAX_SWAP_OFFSET_ROWS, Math.min(MAX_SWAP_OFFSET_ROWS, value));
 
 const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
   const [topTwoSwapState, setTopTwoSwapState] = useState<TopTwoSwapState | null>(
     null,
   );
-  const lastTopTwoOrderRef = useRef<[string | null, string | null]>([null, null]);
+  const lastParticipantOrderRef = useRef<string[]>([]);
   const topTwoSwapTimerRef = useRef<number | null>(null);
 
   const resetTopTwoSwapState = useCallback(() => {
-    lastTopTwoOrderRef.current = [null, null];
+    lastParticipantOrderRef.current = [];
     if (topTwoSwapTimerRef.current !== null) {
       window.clearTimeout(topTwoSwapTimerRef.current);
       topTwoSwapTimerRef.current = null;
@@ -22,13 +26,17 @@ const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
     setTopTwoSwapState(null);
   }, []);
 
-  useEffect(() => {
-    const nextTopTwo: [string | null, string | null] = [
-      sortedParticipants[0]?.clientId ?? null,
-      sortedParticipants[1]?.clientId ?? null,
+  useLayoutEffect(() => {
+    const nextParticipantOrder = sortedParticipants.map((participant) => participant.clientId);
+    const prevParticipantOrder = lastParticipantOrderRef.current;
+    const [prevFirst, prevSecond] = [
+      prevParticipantOrder[0] ?? null,
+      prevParticipantOrder[1] ?? null,
     ];
-    const [prevFirst, prevSecond] = lastTopTwoOrderRef.current;
-    const [nextFirst, nextSecond] = nextTopTwo;
+    const [nextFirst, nextSecond] = [
+      nextParticipantOrder[0] ?? null,
+      nextParticipantOrder[1] ?? null,
+    ];
     const didSwapTopTwo =
       !!prevFirst &&
       !!prevSecond &&
@@ -36,8 +44,23 @@ const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
       !!nextSecond &&
       prevFirst === nextSecond &&
       prevSecond === nextFirst;
+    const didTopTwoChange =
+      !!prevFirst &&
+      !!prevSecond &&
+      !!nextFirst &&
+      !!nextSecond &&
+      (prevFirst !== nextFirst || prevSecond !== nextSecond);
 
-    if (didSwapTopTwo) {
+    if (didTopTwoChange) {
+      const prevIndexOfNextFirst = prevParticipantOrder.indexOf(nextFirst);
+      const prevIndexOfNextSecond = prevParticipantOrder.indexOf(nextSecond);
+      const firstOffsetRows = clampSwapOffsetRows(
+        prevIndexOfNextFirst >= 0 ? prevIndexOfNextFirst : 1,
+      );
+      const secondOffsetRows = clampSwapOffsetRows(
+        prevIndexOfNextSecond >= 0 ? prevIndexOfNextSecond - 1 : -1,
+      );
+
       if (topTwoSwapTimerRef.current !== null) {
         window.clearTimeout(topTwoSwapTimerRef.current);
       }
@@ -45,6 +68,9 @@ const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
         setTopTwoSwapState((prev) => ({
           firstClientId: nextFirst,
           secondClientId: nextSecond,
+          firstOffsetRows,
+          secondOffsetRows,
+          isExactSwap: didSwapTopTwo,
           key: (prev?.key ?? 0) + 1,
         }));
       });
@@ -63,7 +89,7 @@ const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
       }, TOP_TWO_SWAP_DURATION_MS);
     }
 
-    lastTopTwoOrderRef.current = nextTopTwo;
+    lastParticipantOrderRef.current = nextParticipantOrder;
   }, [sortedParticipants]);
 
   useEffect(

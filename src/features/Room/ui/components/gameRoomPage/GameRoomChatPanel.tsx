@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Button, Switch } from "@mui/material";
 
 import type { ChatMessage } from "../../../model/types";
@@ -123,4 +123,3 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
 };
 
 export default GameRoomChatPanel;
-

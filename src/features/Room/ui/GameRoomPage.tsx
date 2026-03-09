@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -214,7 +214,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     gameState.answerTitle?.trim() ||
     item?.answerText?.trim() ||
     item?.title?.trim() ||
-    "（未提供名稱）";
+    "未命名答案";
 
   const roomPlayDurationSec = Math.max(
     1,
@@ -1089,6 +1089,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         {isMobileGameViewport && (
           <>
             <Drawer
+              className="game-room-mobile-drawer-root lg:!hidden"
               anchor="top"
               open={mobilePlaybackOpen}
               onClose={handleCloseMobilePlayback}
@@ -1105,7 +1106,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   mobileRevealSplitMode
                     ? "game-room-mobile-playback-drawer--split"
                     : "game-room-mobile-playback-drawer--single"
-                } lg:!hidden`,
+                }`,
               }}
             >
               <div className="game-room-mobile-drawer-head game-room-mobile-drawer-head--playback">
@@ -1150,6 +1151,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </div>
             </Drawer>
             <Drawer
+              className="game-room-mobile-drawer-root lg:!hidden"
               anchor="bottom"
               open={mobileScoreboardOpen}
               onClose={handleCloseMobileScoreboard}
@@ -1166,7 +1168,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   mobileRevealSplitMode
                     ? "game-room-mobile-scoreboard-drawer--split"
                     : "game-room-mobile-scoreboard-drawer--single"
-                } lg:!hidden`,
+                }`,
               }}
             >
               <div className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard">
@@ -1201,6 +1203,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   chatScrollRef={mobileChatScrollRef}
                   className="game-room-mobile-scoreboard-shell !h-full"
                   showChat={false}
+                  mobileOverlayMode
+                  swapAnimationEnabled={mobileScoreboardOpen}
                 />
               </div>
             </Drawer>

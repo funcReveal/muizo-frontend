@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Badge, Drawer, IconButton } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
@@ -57,12 +57,20 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
         </button>
       )}
       <Drawer
+        className="game-room-mobile-drawer-root lg:!hidden"
         anchor="bottom"
         open={open}
         onClose={onClose}
         keepMounted
+        ModalProps={{
+          keepMounted: true,
+          hideBackdrop: true,
+          disableAutoFocus: true,
+          disableEnforceFocus: true,
+          disableRestoreFocus: true,
+        }}
         PaperProps={{
-          className: "game-room-mobile-chat-sheet lg:!hidden",
+          className: "game-room-mobile-chat-sheet",
         }}
       >
         <div className="game-room-mobile-chat-sheet-head">
@@ -72,17 +80,15 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
               <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
                 Match Chat
               </p>
-              <p className="truncate text-sm font-semibold text-slate-100">
-                房間聊天室
-              </p>
+              <p className="truncate text-sm font-semibold text-slate-100">房間聊天室</p>
             </div>
             <IconButton
-              size="small"
+              size="medium"
               aria-label="關閉聊天室"
               onClick={onClose}
-              className="!text-slate-300"
+              className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon !text-slate-100"
             >
-              <CloseRoundedIcon fontSize="small" />
+              <CloseRoundedIcon fontSize="inherit" />
             </IconButton>
           </div>
         </div>
