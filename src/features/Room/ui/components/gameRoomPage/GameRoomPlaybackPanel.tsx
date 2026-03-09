@@ -58,11 +58,19 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   gameVolume,
   onGameVolumeChange,
 }) => {
+  const isMobileOverlay = isMobileView && isOverlayMode;
   const shouldShowRoomName = !(isMobileView && isOverlayMode);
+  const mediaFrameHeightClass = isMobileOverlay
+    ? "h-full min-h-0 flex-1"
+    : isMobileView
+      ? "h-[182px]"
+      : "h-[140px] sm:h-[188px] md:h-[214px] xl:h-[236px]";
 
   return (
     <div
-      className={`game-room-panel game-room-panel--accent flex-none p-3 text-slate-50 ${
+      className={`game-room-panel game-room-panel--accent p-3 text-slate-50 ${
+        isMobileOverlay ? "game-room-playback-panel--mobile-overlay-fill flex h-full min-h-0 flex-col" : "flex-none"
+      } ${
         isMobileView
           ? isOverlayMode
             ? "game-room-playback-panel--mobile game-room-playback-panel--mobile-overlay"
@@ -70,7 +78,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           : ""
       }`}
     >
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className={`${isMobileOverlay ? "mb-2" : "mb-3"} flex flex-wrap items-center justify-between gap-2`}>
         <div className="flex items-center gap-2">
           <div>
             <p className="game-room-kicker">正在播放</p>
@@ -108,9 +116,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
       </div>
 
       <div
-        className={`game-room-media-frame relative w-full overflow-hidden sm:h-[188px] md:h-[214px] xl:h-[236px] ${
-          isMobileView ? "h-[182px]" : "h-[140px]"
-        }`}
+        className={`game-room-media-frame relative w-full overflow-hidden ${mediaFrameHeightClass}`}
       >
         {iframeSrc ? (
           <iframe

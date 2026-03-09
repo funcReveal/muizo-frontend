@@ -58,7 +58,9 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
         }`}
       >
         {recentMessages.length === 0 ? (
-          <div className="py-4 text-center text-xs text-slate-500">目前沒有訊息</div>
+          <div className="flex h-full items-center justify-center py-4 text-center text-xs text-slate-500">
+            目前沒有訊息
+          </div>
         ) : (
           recentMessages.map((msg) => {
             const isPresenceSystemMessage = msg.userId === "system:presence";

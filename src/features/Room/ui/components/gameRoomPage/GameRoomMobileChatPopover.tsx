@@ -1,5 +1,5 @@
 ﻿import React from "react";
-import { Badge, Drawer, IconButton } from "@mui/material";
+import { Badge, IconButton, SwipeableDrawer } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
@@ -56,11 +56,13 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
           <span>聊天室</span>
         </button>
       )}
-      <Drawer
+      <SwipeableDrawer
         className="game-room-mobile-drawer-root lg:!hidden"
         anchor="bottom"
         open={open}
+        onOpen={onOpen}
         onClose={onClose}
+        disableSwipeToOpen
         keepMounted
         ModalProps={{
           keepMounted: true,
@@ -105,7 +107,7 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
             chatScrollRef={chatScrollRef}
           />
         </div>
-      </Drawer>
+      </SwipeableDrawer>
     </>
   );
 };

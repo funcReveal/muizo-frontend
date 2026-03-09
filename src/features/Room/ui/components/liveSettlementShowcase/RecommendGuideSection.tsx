@@ -258,7 +258,10 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
     return window.localStorage.getItem("settlement:mobile:detail-expanded") === "1";
   });
   const [mobileControlsExpanded, setMobileControlsExpanded] = React.useState(false);
-  const [mobileListExpanded, setMobileListExpanded] = React.useState(false);
+  const [mobileListExpanded, setMobileListExpanded] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 1023.95px)").matches;
+  });
 
   React.useLayoutEffect(() => {
     const button = recommendationTitleButtonRef.current;
@@ -414,6 +417,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     </button>
                   );
                 })}
+                <div className="game-settlement-mobile-control-divider" aria-hidden />
 
                 <button
                   type="button"
