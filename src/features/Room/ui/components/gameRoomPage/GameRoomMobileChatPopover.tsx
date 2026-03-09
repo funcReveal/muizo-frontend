@@ -16,6 +16,7 @@ interface GameRoomMobileChatPopoverProps {
   minHeightVh: number;
   maxHeightVh: number;
   onHeightChange: (nextHeight: number) => void;
+  onDraggingChange?: (isDragging: boolean) => void;
   danmuEnabled: boolean;
   onDanmuEnabledChange: (enabled: boolean) => void;
   messagesLength: number;
@@ -36,6 +37,7 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
   minHeightVh,
   maxHeightVh,
   onHeightChange,
+  onDraggingChange,
   danmuEnabled,
   onDanmuEnabledChange,
   messagesLength,
@@ -55,6 +57,13 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
     onHeightChange,
     threshold: 34,
   });
+
+  React.useEffect(() => {
+    onDraggingChange?.(mobileChatDragDismiss.isDragging);
+    return () => {
+      onDraggingChange?.(false);
+    };
+  }, [mobileChatDragDismiss.isDragging, onDraggingChange]);
 
   return (
     <>

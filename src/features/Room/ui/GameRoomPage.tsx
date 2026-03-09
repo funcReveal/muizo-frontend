@@ -95,7 +95,7 @@ const MOBILE_CHAT_MIN_HEIGHT_VH = 42;
 const MOBILE_CHAT_MAX_HEIGHT_VH = 68;
 const MOBILE_CHAT_DEFAULT_HEIGHT_VH = 50;
 
-const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 94;
+const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 100;
 
 const clampMobileVh = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -185,6 +185,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     useState(false);
   const [mobileRevealAutoOverlayEnabled, setMobileRevealAutoOverlayEnabled] =
     useState(true);
+  const [mobileChatDragging, setMobileChatDragging] = useState(false);
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
   const lastPreStartCountdownSfxKeyRef = useRef<string | null>(null);
@@ -302,6 +303,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const handleCloseMobileChat = useCallback(() => {
     setMobileBottomPanel((current) => (current === "chat" ? null : current));
   }, []);
+  const handleMobileChatDraggingChange = useCallback((isDragging: boolean) => {
+    setMobileChatDragging(isDragging);
+  }, []);
   const effectiveMobilePlaybackHeight = mobileRevealSplitMode
     ? normalizedSplitHeights.playbackHeight
     : clampMobileVh(
@@ -346,6 +350,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     onHeightChange: handleScoreboardHeightChange,
     threshold: 34,
   });
+  const isMobileDrawerGestureActive =
+    mobilePlaybackDragDismiss.isDragging ||
+    mobileScoreboardDragDismiss.isDragging ||
+    mobileChatDragging;
 
   useGameRoomAnswerPanelAutoScroll({
     roomId: room.id,
@@ -1246,10 +1254,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               <div className="game-room-mobile-action-subdock col-span-3">
                 <button
                   type="button"
-                  className="game-room-mobile-toggle-chip"
+                  className={`game-room-mobile-toggle-chip ${
+                    mobileRevealAutoOverlayEnabled
+                      ? "game-room-mobile-toggle-chip--active"
+                      : ""
+                  }`}
                   onClick={() =>
                     setMobileRevealAutoOverlayEnabled((current) => !current)
                   }
+                  aria-pressed={mobileRevealAutoOverlayEnabled}
                 >
                   <span className="game-room-mobile-action-icon" aria-hidden>
                     <AutoAwesomeRoundedIcon fontSize="inherit" />
@@ -1265,7 +1278,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         </section>
         {isMobileGameViewport && (
           <>
-            {(mobilePlaybackOpen || mobileBottomPanel !== null) && (
+            {(mobilePlaybackOpen || mobileBottomPanel !== null) &&
+              isMobileDrawerGestureActive && (
               <div
                 className="game-room-mobile-overlay-blocker"
                 aria-hidden="true"
@@ -1446,6 +1460,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               minHeightVh={MOBILE_CHAT_MIN_HEIGHT_VH}
               maxHeightVh={MOBILE_CHAT_MAX_HEIGHT_VH}
               onHeightChange={handleChatHeightChange}
+              onDraggingChange={handleMobileChatDraggingChange}
               danmuEnabled={danmuEnabled}
               onDanmuEnabledChange={setDanmuEnabled}
               messagesLength={messages.length}
