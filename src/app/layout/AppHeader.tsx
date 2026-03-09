@@ -142,15 +142,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const isMenuOpen = Boolean(menuAnchorEl);
   const menuId = isMenuOpen ? "header-menu-popover" : undefined;
 
-  const equalizerBars = useMemo(
-    () => [
-      { height: 8, delay: "0s" },
-      { height: 14, delay: "0.12s" },
-      { height: 10, delay: "0.24s" },
-    ],
-    [],
-  );
-
   const handleMenuToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
     setMenuAnchorEl((prev) => (prev ? null : event.currentTarget));
   };
@@ -162,13 +153,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const handleBrandNavigate = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
-      if (onNavigateRooms) {
-        onNavigateRooms();
+      if (authUser || hasGuestIdentity) {
+        if (onNavigateRooms) {
+          onNavigateRooms();
+          return;
+        }
+        navigate("/rooms");
         return;
       }
-      navigate("/rooms");
+      navigate("/");
     },
-    [navigate, onNavigateRooms],
+    [authUser, hasGuestIdentity, navigate, onNavigateRooms],
   );
 
   const fetchSystemStatus = useCallback(async () => {
@@ -422,7 +417,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   letterSpacing: "0.12em",
                 }}
               >
-                {isAnonymousVisitor ? "體驗模式" : "帳號"}
+                {isAnonymousVisitor ? "" : "帳號"}
               </Typography>
               <Typography
                 variant="subtitle2"
@@ -438,28 +433,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   {authSubLabel}
                 </Typography>
               )}
-            </Box>
-            <Box sx={{ display: "flex", gap: 0.5, alignItems: "flex-end" }}>
-              {equalizerBars.map((bar) => (
-                <Box
-                  key={bar.delay}
-                  sx={{
-                    width: 4,
-                    height: bar.height,
-                    borderRadius: 999,
-                    background:
-                      "linear-gradient(180deg, rgba(56, 189, 248, 0.95), rgba(129, 140, 248, 0.95))",
-                    transformOrigin: "bottom",
-                    animation: "eqPulse 1.05s ease-in-out infinite",
-                    animationDelay: bar.delay,
-                    "@keyframes eqPulse": {
-                      "0%": { transform: "scaleY(0.6)", opacity: 0.75 },
-                      "50%": { transform: "scaleY(1.4)", opacity: 1 },
-                      "100%": { transform: "scaleY(0.7)", opacity: 0.85 },
-                    },
-                  }}
-                />
-              ))}
             </Box>
           </Box>
 

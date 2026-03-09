@@ -1,5 +1,5 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+﻿import React, { useCallback, useMemo, useState } from "react";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import {
   Button,
   Dialog,
@@ -11,18 +11,15 @@ import {
 } from "@mui/material";
 
 import AppHeader from "../../../app/layout/AppHeader";
-import LandingPage from "../../Landing/ui/LandingPage";
 import { USERNAME_MAX } from "../model/roomConstants";
 import { useRoom } from "../model/useRoom";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
-import RouteRedirectNotice from "../../../shared/ui/RouteRedirectNotice";
 import SettingsPage from "../../Setting/ui/SettingsPage";
 
 type NavigationTarget = "rooms" | "collections" | "history" | "settings";
 
 const RoomsLayoutShell: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const {
     authLoading,
     authUser,
@@ -38,28 +35,11 @@ const RoomsLayoutShell: React.FC = () => {
     displayUsername,
     statusText,
     username,
-    usernameInput,
-    setUsernameInput,
-    handleSetUsername,
     currentRoom,
     gameState,
     handleLeaveRoom,
     setStatusText,
   } = useRoom();
-  const hasIdentity = Boolean(username || authUser);
-  const shouldShowLandingOnly = !authLoading && !hasIdentity;
-  const isInviteRoute = location.pathname.startsWith("/invited/");
-
-  const shouldRedirectToRooms =
-    shouldShowLandingOnly && location.pathname !== "/rooms" && !isInviteRoute;
-
-  useEffect(() => {
-    if (!shouldRedirectToRooms) return;
-    const timer = window.setTimeout(() => {
-      navigate("/rooms", { replace: true });
-    }, 200);
-    return () => window.clearTimeout(timer);
-  }, [navigate, shouldRedirectToRooms]);
   const [loginConfirmOpen, setLoginConfirmOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [inRoomSettingsOpen, setInRoomSettingsOpen] = useState(false);
@@ -243,26 +223,7 @@ const RoomsLayoutShell: React.FC = () => {
           />
         </div>
 
-        {shouldRedirectToRooms && (
-          <RouteRedirectNotice
-            title="正在返回首頁登入"
-            subtitle="尚未設定訪客身分或登入帳號，請先完成登入。"
-            fullHeight
-          />
-        )}
-
-        {shouldShowLandingOnly && !shouldRedirectToRooms && !isInviteRoute && (
-          <LandingPage
-            usernameInput={usernameInput}
-            onInputChange={setUsernameInput}
-            onConfirm={handleSetUsername}
-            onGoogleLogin={handleLoginRequest}
-            googleLoading={authLoading}
-            nicknameMaxLength={USERNAME_MAX}
-          />
-        )}
-
-        {(hasIdentity || isInviteRoute) && <Outlet />}
+        <Outlet />
 
         <footer className="flex m-0 items-center justify-center gap-4 text-xs text-[var(--mc-text-muted)]">
           <Link to="/privacy" className="hover:text-[var(--mc-text)]">

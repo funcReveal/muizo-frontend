@@ -13,7 +13,7 @@ import {
 import type { RoomSummary } from "../model/types";
 import { useRoom } from "../model/useRoom";
 import { apiFetchRoomById } from "../model/roomApi";
-import { API_URL } from "../model/roomConstants";
+import { API_URL, USERNAME_MAX } from "../model/roomConstants";
 
 const isRoomCurrentlyPlaying = (room: RoomSummary) => {
   const source = room as RoomSummary &
@@ -63,6 +63,11 @@ const RoomListPage: React.FC = () => {
   const [statusMode, setStatusMode] = useState<"online" | "quiet">("online");
   const {
     username,
+    usernameInput,
+    setUsernameInput,
+    handleSetUsername,
+    loginWithGoogle,
+    authLoading,
     rooms,
     currentRoom,
     currentRoomId,
@@ -192,6 +197,96 @@ const RoomListPage: React.FC = () => {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-6 pt-4 text-[var(--mc-text)]">
+      {!currentRoom?.id && !username && (
+        <section className="relative w-full overflow-hidden rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 p-5 sm:p-6">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -left-12 top-0 h-40 w-40 rounded-full bg-cyan-500/10 blur-3xl" />
+            <div className="absolute -right-14 bottom-0 h-44 w-44 rounded-full bg-amber-400/10 blur-3xl" />
+          </div>
+
+          <div className="relative">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-cyan-300/90">
+              Room Access
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--mc-text)]">
+              選擇進入方式，開始遊戲
+            </h2>
+            <p className="mt-2 text-sm text-[var(--mc-text-muted)]">
+              訪客可快速加入房間，Google 登入可保留收藏、歷史與跨裝置狀態。
+            </p>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <article className="rounded-2xl border border-amber-300/30 bg-amber-400/5 p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/90">
+                  先試玩
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-[var(--mc-text)]">
+                  訪客快速進入
+                </h3>
+                <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                  設定暱稱即可加入房間，隨時可升級為 Google 登入。
+                </p>
+                <div className="mt-3 space-y-3">
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="訪客暱稱"
+                    value={usernameInput}
+                    onChange={(e) =>
+                      setUsernameInput(e.target.value.slice(0, USERNAME_MAX))
+                    }
+                    inputProps={{ maxLength: USERNAME_MAX }}
+                  />
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={handleSetUsername}
+                    disabled={!usernameInput.trim()}
+                  >
+                    以訪客身份繼續
+                  </Button>
+                </div>
+              </article>
+
+              <article className="rounded-2xl border border-cyan-300/35 bg-cyan-500/5 p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/90">
+                  推薦登入
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-[var(--mc-text)]">
+                  Google 登入
+                </h3>
+                <ul className="mt-2 space-y-1 text-xs text-[var(--mc-text-muted)]">
+                  <li>同步收藏與題庫設定</li>
+                  <li>保留對戰歷史與回顧</li>
+                  <li>跨裝置延續狀態</li>
+                </ul>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 3 }}
+                  onClick={loginWithGoogle}
+                  disabled={authLoading}
+                >
+                  {authLoading ? "登入中..." : "使用 Google 登入"}
+                </Button>
+              </article>
+            </div>
+
+            <div className="mt-4 text-xs text-[var(--mc-text-muted)]">
+              先看看玩法？可前往
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="ml-1 text-cyan-300 hover:text-cyan-200"
+              >
+                首頁導覽
+              </button>
+              。
+            </div>
+          </div>
+        </section>
+      )}
+
       {!currentRoom?.id && username && (
         <section className="w-full">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

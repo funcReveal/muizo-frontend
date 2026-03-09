@@ -69,6 +69,36 @@ const LandingPage: React.FC<LandingPageProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    const updateGuidePeekByScroll = () => {
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+      if (!isDesktop) {
+        shell.style.setProperty("--landing-guide-peek", "0");
+        return;
+      }
+
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      const fadeDistance = 300;
+      const progress = Math.min(Math.max(scrollY / fadeDistance, 0), 1);
+      const peekStrength = 1 - progress;
+      shell.style.setProperty("--landing-guide-peek", peekStrength.toFixed(3));
+    };
+
+    updateGuidePeekByScroll();
+    window.addEventListener("scroll", updateGuidePeekByScroll, {
+      passive: true,
+    });
+    window.addEventListener("resize", updateGuidePeekByScroll);
+
+    return () => {
+      window.removeEventListener("scroll", updateGuidePeekByScroll);
+      window.removeEventListener("resize", updateGuidePeekByScroll);
+    };
+  }, []);
+
   return (
     <section
       ref={shellRef}
@@ -98,7 +128,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <section className="landing-stage landing-stage-guide" data-landing-stage>
+      <section
+        className="landing-stage landing-stage-guide landing-stage-scroll-fade"
+        data-landing-stage
+      >
         <div className="landing-stage-head">
           <p className="landing-stage-kicker">快速導覽</p>
           <h2 className="landing-stage-title">開始前，先看這 3 件重點</h2>
@@ -111,7 +144,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       <section
-        className="landing-stage landing-stage-community"
+        className="landing-stage landing-stage-community landing-stage-scroll-fade"
         data-landing-stage
       >
         <div className="landing-stage-head">

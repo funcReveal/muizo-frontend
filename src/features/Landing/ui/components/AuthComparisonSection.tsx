@@ -14,11 +14,20 @@ const AuthComparisonSection: React.FC = () => {
           <FactCheckRoundedIcon fontSize="small" />
           登入方式比較
         </h3>
-        <p className="landing-info-subtitle">先玩可用訪客，長期使用建議綁定 Google。</p>
+        <p className="landing-info-subtitle">
+          試玩可用訪客，建議使用 Google 免註冊，可直接登入。
+        </p>
       </header>
 
-      <div className="landing-compare-table" role="table" aria-label="登入方式比較">
-        <div className="landing-compare-row landing-compare-row-head" role="row">
+      <div
+        className="landing-compare-table"
+        role="table"
+        aria-label="登入方式比較"
+      >
+        <div
+          className="landing-compare-row landing-compare-row-head"
+          role="row"
+        >
           <span role="columnheader">功能</span>
           <span role="columnheader">訪客</span>
           <span role="columnheader">Google</span>
@@ -33,7 +42,10 @@ const AuthComparisonSection: React.FC = () => {
                   fontSize="inherit"
                 />
               ) : (
-                <CancelRoundedIcon className="landing-compare-icon" fontSize="inherit" />
+                <CancelRoundedIcon
+                  className="landing-compare-icon"
+                  fontSize="inherit"
+                />
               )}
               {row.guest ? "可用" : "不支援"}
             </span>
@@ -44,7 +56,10 @@ const AuthComparisonSection: React.FC = () => {
                   fontSize="inherit"
                 />
               ) : (
-                <CancelRoundedIcon className="landing-compare-icon" fontSize="inherit" />
+                <CancelRoundedIcon
+                  className="landing-compare-icon"
+                  fontSize="inherit"
+                />
               )}
               {row.google ? "可用" : "不支援"}
             </span>

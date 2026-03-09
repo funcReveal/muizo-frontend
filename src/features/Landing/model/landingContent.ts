@@ -31,10 +31,10 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
 ];
 
 export const AUTH_COMPARISON_ROWS: AuthComparisonRow[] = [
-  { label: "快速進入房間", guest: true, google: true },
-  { label: "YouTube 題庫同步", guest: false, google: true },
-  { label: "收藏與編輯紀錄保留", guest: false, google: true },
-  { label: "跨裝置延續狀態", guest: false, google: true },
+  { label: "遊玩功能", guest: true, google: true },
+  { label: "匯入 YouTube 清單", guest: false, google: true },
+  { label: "建立平台收藏庫", guest: false, google: true },
+  { label: "跨裝置保存資料", guest: false, google: true },
   { label: "完整歷史資料", guest: false, google: true },
 ];
 
