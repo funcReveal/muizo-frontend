@@ -36,8 +36,11 @@ interface GameRoomLeftSidebarProps {
   swapReplayToken?: number;
 }
 
-const RANK_SWAP_DURATION_MS = 760;
+const RANK_SWAP_DURATION_MS = 960;
 const MAX_RANK_SWAP_OFFSET_ROWS = 6;
+const DESKTOP_FLIP_BASE_DURATION_MS = 860;
+const DESKTOP_FLIP_MAX_DURATION_MS = 1680;
+const DESKTOP_FLIP_ROW_HEIGHT_PX = 60;
 
 type RankSwapState = {
   key: number;
@@ -87,6 +90,9 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   const lastDisplayedPlayerOrderRef = React.useRef<string[]>([]);
   const rankSwapTimerRef = React.useRef<number | null>(null);
   const rankSwapKeyRef = React.useRef(0);
+  const rowElementByClientIdRef = React.useRef(new Map<string, HTMLDivElement>());
+  const previousDesktopTopByClientIdRef = React.useRef(new Map<string, number>());
+  const desktopFlipAnimationsRef = React.useRef<Animation[]>([]);
 
   React.useLayoutEffect(() => {
     if (displayedPlayerOrder.length === 0) {
@@ -157,12 +163,102 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     }, RANK_SWAP_DURATION_MS + releaseDelayMs + 160);
   }, [displayedPlayerOrder, swapAnimationEnabled, swapReplayToken]);
 
+  React.useLayoutEffect(() => {
+    if (mobileOverlayMode) {
+      desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
+      desktopFlipAnimationsRef.current = [];
+      previousDesktopTopByClientIdRef.current.clear();
+      return;
+    }
+
+    const nextTopByClientId = new Map<string, number>();
+    displayedPlayerOrder.forEach((clientId) => {
+      const rowElement = rowElementByClientIdRef.current.get(clientId);
+      if (!rowElement) return;
+      nextTopByClientId.set(clientId, rowElement.getBoundingClientRect().top);
+    });
+
+    const previousTopByClientId = previousDesktopTopByClientIdRef.current;
+    if (!swapAnimationEnabled || previousTopByClientId.size === 0) {
+      previousDesktopTopByClientIdRef.current = nextTopByClientId;
+      return;
+    }
+
+    const movedRows: Array<{
+      element: HTMLDivElement;
+      deltaY: number;
+    }> = [];
+    nextTopByClientId.forEach((nextTop, clientId) => {
+      const prevTop = previousTopByClientId.get(clientId);
+      if (typeof prevTop !== "number") return;
+      const deltaY = prevTop - nextTop;
+      if (Math.abs(deltaY) < 1) return;
+      const rowElement = rowElementByClientIdRef.current.get(clientId);
+      if (!rowElement) return;
+      movedRows.push({ element: rowElement, deltaY });
+    });
+
+    desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
+    desktopFlipAnimationsRef.current = [];
+
+    movedRows.forEach(({ element, deltaY }) => {
+      const distanceRows = Math.max(
+        1,
+        Math.min(
+          MAX_RANK_SWAP_OFFSET_ROWS,
+          Math.abs(deltaY) / DESKTOP_FLIP_ROW_HEIGHT_PX,
+        ),
+      );
+      const durationMs = Math.min(
+        DESKTOP_FLIP_MAX_DURATION_MS,
+        DESKTOP_FLIP_BASE_DURATION_MS + Math.max(0, distanceRows - 1) * 160,
+      );
+      const overshootY = deltaY > 0 ? -10 : 10;
+      const animation = element.animate(
+        [
+          {
+            transform: `translateY(${deltaY}px)`,
+            opacity: 0.88,
+            filter: "brightness(0.9) saturate(0.95)",
+          },
+          {
+            transform: `translateY(${Math.round(deltaY * 0.5)}px)`,
+            opacity: 1,
+            filter: "brightness(1.04) saturate(1.02)",
+            offset: 0.48,
+          },
+          {
+            transform: `translateY(${overshootY}px)`,
+            opacity: 1,
+            filter: "brightness(1.02) saturate(1.01)",
+            offset: 0.82,
+          },
+          {
+            transform: "translateY(0)",
+            opacity: 1,
+            filter: "brightness(1) saturate(1)",
+          },
+        ],
+        {
+          duration: Math.round(durationMs),
+          easing: "cubic-bezier(0.2, 0.82, 0.24, 1)",
+          fill: "both",
+        },
+      );
+      desktopFlipAnimationsRef.current.push(animation);
+    });
+
+    previousDesktopTopByClientIdRef.current = nextTopByClientId;
+  }, [displayedPlayerOrder, mobileOverlayMode, swapAnimationEnabled, swapReplayToken]);
+
   React.useEffect(
     () => () => {
       if (rankSwapTimerRef.current !== null) {
         window.clearTimeout(rankSwapTimerRef.current);
         rankSwapTimerRef.current = null;
       }
+      desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
+      desktopFlipAnimationsRef.current = [];
     },
     [],
   );
@@ -279,9 +375,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     ? "warning"
                     : "default";
 
-            const rowSwapOffsetRows =
+            const rankSwapOffsetRows =
               rankSwapState?.offsetByClientId[p.clientId] ?? 0;
-            const hasRowSwapAnimation = rowSwapOffsetRows !== 0;
             const topSwapRole =
               topTwoSwapState &&
               idx === 0 &&
@@ -292,38 +387,42 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     p.clientId === topTwoSwapState.secondClientId
                   ? "second"
                   : null;
+            const shouldUseCssSwapAnimation = mobileOverlayMode;
             const hasTopSwapAnimation = topSwapRole !== null && !mobileOverlayMode;
-            const isTopSwapParticipant = Boolean(
-              topTwoSwapState &&
-                (p.clientId === topTwoSwapState.firstClientId ||
-                  p.clientId === topTwoSwapState.secondClientId),
-            );
-            const rowSwapDistanceRows = Math.abs(rowSwapOffsetRows);
-            const swapRowHeightPx = mobileOverlayMode ? 58 : 44;
-            const rowSwapStartPx = rowSwapOffsetRows * swapRowHeightPx;
-            const rowSwapMidPx = Math.round(rowSwapStartPx * 0.36);
-            const rowSwapOvershootPx =
-              rowSwapOffsetRows > 0
-                ? -Math.min(8, 4 + rowSwapDistanceRows * 1.2)
-                : Math.min(8, 4 + rowSwapDistanceRows * 1.2);
-            const rowSwapDurationMs = Math.min(
-              1360,
-              RANK_SWAP_DURATION_MS +
-                Math.max(0, rowSwapDistanceRows - 1) * 96,
-            );
-            const rowSwapDelayMs =
-              rowSwapOffsetRows < 0
-                ? Math.min(
-                    200,
-                    60 + Math.max(0, rowSwapDistanceRows - 1) * 34,
-                  )
-                : 0;
             const topSwapOffsetRows =
               topSwapRole === "first"
                 ? (topTwoSwapState?.firstOffsetRows ?? 1)
                 : topSwapRole === "second"
                   ? (topTwoSwapState?.secondOffsetRows ?? -1)
                   : 0;
+            const rowSwapOffsetRows =
+              rankSwapOffsetRows !== 0 ? rankSwapOffsetRows : topSwapOffsetRows;
+            const hasRowSwapAnimation = rowSwapOffsetRows !== 0;
+            const isTopSwapParticipant = Boolean(
+              topTwoSwapState &&
+                (p.clientId === topTwoSwapState.firstClientId ||
+                  p.clientId === topTwoSwapState.secondClientId),
+            );
+            const rowSwapDistanceRows = Math.abs(rowSwapOffsetRows);
+            const swapRowHeightPx = mobileOverlayMode ? 58 : 60;
+            const rowSwapStartPx = rowSwapOffsetRows * swapRowHeightPx;
+            const rowSwapMidPx = Math.round(rowSwapStartPx * 0.52);
+            const rowSwapOvershootPx =
+              rowSwapOffsetRows > 0
+                ? -Math.min(12, 6 + rowSwapDistanceRows * 1.8)
+                : Math.min(12, 6 + rowSwapDistanceRows * 1.8);
+            const rowSwapDurationMs = Math.min(
+              1680,
+              RANK_SWAP_DURATION_MS +
+                Math.max(0, rowSwapDistanceRows - 1) * 128,
+            );
+            const rowSwapDelayMs =
+              rowSwapOffsetRows < 0
+                ? Math.min(
+                    260,
+                    90 + Math.max(0, rowSwapDistanceRows - 1) * 40,
+                  )
+                : 0;
             const topSwapDistanceRows = Math.max(1, Math.abs(topSwapOffsetRows));
             const topSwapStartPx = topSwapOffsetRows * swapRowHeightPx;
             const topSwapMidPx = Math.round(topSwapStartPx * 0.42);
@@ -336,25 +435,30 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               1320 + Math.max(0, topSwapDistanceRows - 1) * 130,
             );
             const topSwapDelayMs = topSwapRole === "second" ? 80 : 0;
-            const rowSwapStyle = hasTopSwapAnimation
+            const swapReplayNudgeMs =
+              rankSwapState !== null ? (rankSwapState.key % 17) * 0.07 : 0;
+            const rowSwapStyle = shouldUseCssSwapAnimation && hasRowSwapAnimation
               ? ({
-                  "--game-room-swap-start": `${topSwapStartPx}px`,
-                  "--game-room-swap-mid": `${topSwapMidPx}px`,
-                  "--game-room-swap-overshoot": `${topSwapOvershootPx}px`,
-                  "--game-room-swap-duration": `${topSwapDurationMs}ms`,
-                  "--game-room-swap-second-delay": `${topSwapDelayMs}ms`,
-                  "--game-room-swap-tilt-start": topSwapRole === "first" ? "-2.2deg" : "1.6deg",
-                  "--game-room-swap-tilt-end": topSwapRole === "first" ? "1.1deg" : "-1deg",
+                  "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
+                  "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
+                  "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
+                  "--game-room-rank-swap-duration": `${rowSwapDurationMs + swapReplayNudgeMs}ms`,
+                  "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
+                  ...(hasTopSwapAnimation
+                    ? {
+                        "--game-room-swap-start": `${topSwapStartPx}px`,
+                        "--game-room-swap-mid": `${topSwapMidPx}px`,
+                        "--game-room-swap-overshoot": `${topSwapOvershootPx}px`,
+                        "--game-room-swap-duration": `${topSwapDurationMs}ms`,
+                        "--game-room-swap-second-delay": `${topSwapDelayMs}ms`,
+                        "--game-room-swap-tilt-start":
+                          topSwapRole === "first" ? "-2.2deg" : "1.6deg",
+                        "--game-room-swap-tilt-end":
+                          topSwapRole === "first" ? "1.1deg" : "-1deg",
+                      }
+                    : {}),
                 } as React.CSSProperties)
-              : hasRowSwapAnimation
-                ? ({
-                    "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
-                    "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
-                    "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
-                    "--game-room-rank-swap-duration": `${rowSwapDurationMs}ms`,
-                    "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
-                  } as React.CSSProperties)
-                : undefined;
+              : undefined;
 
             const rowComboTier = resolveComboTier(p.combo ?? 0);
             const rowComboTierClass =
@@ -366,6 +470,13 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             return (
               <div
                 key={p.clientId}
+                ref={(node) => {
+                  if (node) {
+                    rowElementByClientIdRef.current.set(p.clientId, node);
+                    return;
+                  }
+                  rowElementByClientIdRef.current.delete(p.clientId);
+                }}
                 className={`game-room-score-row flex items-center justify-between text-sm ${
                   isReveal ? "game-room-score-row--revealed" : ""
                 } ${
@@ -377,19 +488,19 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                         ? "game-room-score-row--answered"
                         : ""
                 } ${isMeRow ? "game-room-score-row--me game-room-score-row--me-locate" : ""} ${
-                  hasTopSwapAnimation
+                  shouldUseCssSwapAnimation && hasTopSwapAnimation
                     ? topSwapRole === "first"
                       ? "game-room-score-row--top-swap-first"
                       : "game-room-score-row--top-swap-second"
                     : ""
                 } ${
-                  hasRowSwapAnimation && !hasTopSwapAnimation
+                  shouldUseCssSwapAnimation && hasRowSwapAnimation
                     ? rowSwapOffsetRows > 0
                       ? "game-room-score-row--rank-swap-up"
                       : "game-room-score-row--rank-swap-down"
                     : ""
                 } ${
-                  hasRowSwapAnimation && !hasTopSwapAnimation && isTopSwapParticipant
+                  hasRowSwapAnimation && isTopSwapParticipant
                     ? "game-room-score-row--rank-swap-focus"
                     : ""
                 } ${rowComboTierClass} ${
