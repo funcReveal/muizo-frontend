@@ -12,17 +12,18 @@ import {
   Switch,
   TextField,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import {
   PLAYER_MAX,
   PLAYER_MIN,
   PLAY_DURATION_MAX,
   PLAY_DURATION_MIN,
+  QUESTION_STEP,
   REVEAL_DURATION_MAX,
   REVEAL_DURATION_MIN,
   START_OFFSET_MAX,
   START_OFFSET_MIN,
-  QUESTION_STEP,
 } from "../../model/roomConstants";
 import QuestionCountControls from "./QuestionCountControls";
 import RoomAccessSettingsFields from "./RoomAccessSettingsFields";
@@ -88,15 +89,18 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   onClose,
   onSave,
 }) => {
+  const isMobileDialog = useMediaQuery("(max-width:900px)");
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
+      fullScreen={isMobileDialog}
       fullWidth
-      maxWidth="lg"
+      maxWidth="md"
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: isMobileDialog ? 0 : 3,
           border: "1px solid rgba(56,189,248,0.28)",
           background:
             "radial-gradient(680px 240px at 12% 0%, rgba(56,189,248,0.12), transparent 70%), radial-gradient(520px 220px at 88% 0%, rgba(34,197,94,0.10), transparent 68%), linear-gradient(180deg, rgba(2,6,23,0.98), rgba(2,8,26,0.97))",
@@ -132,27 +136,25 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                 variant="outlined"
                 label={
                   useCollectionTimingForSettings
-                    ? `收藏庫時間 / 揭曉 ${settingsRevealDurationSec}s`
-                    : `${settingsPlayDurationSec}s / ${settingsStartOffsetSec}s / ${settingsRevealDurationSec}s`
+                    ? `揭曉 ${settingsRevealDurationSec}s（收藏庫）`
+                    : `作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s / 揭曉 ${settingsRevealDurationSec}s`
                 }
                 className="border-cyan-500/40 text-cyan-200"
               />
             </Stack>
           </Stack>
           <Typography variant="caption" className="text-slate-400">
-            調整房間規則與題庫節奏，儲存後立即套用到本房間。
+            調整後會立即同步到房間，建議在開局前完成設定。
           </Typography>
         </Stack>
       </DialogTitle>
+
       <DialogContent
         dividers
         sx={{
           borderColor: "rgba(56,189,248,0.16)",
           py: 2,
-          maxHeight: {
-            xs: "72vh",
-            md: "78vh",
-          },
+          maxHeight: { xs: "76vh", md: "80vh" },
           overflowY: "auto",
         }}
       >
@@ -160,20 +162,21 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
           {settingsDisabled && (
             <Box className="rounded-lg border border-amber-400/45 bg-amber-500/12 px-3 py-2">
               <Typography variant="caption" className="text-amber-200">
-                遊戲進行中時無法儲存設定；請於下一輪開始前調整。
+                遊戲進行中無法修改房間規則，請待本輪結束後再調整。
               </Typography>
             </Box>
           )}
+
           <Box className="grid gap-1.75 lg:grid-cols-2">
             <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
               <Stack spacing={1.25}>
                 <Typography variant="subtitle2" className="text-slate-100">
-                  基本資料與權限
+                  房間資訊
                 </Typography>
                 <TextField
                   label="房間名稱"
                   value={settingsName}
-                  onChange={(e) => onSettingsNameChange(e.target.value)}
+                  onChange={(event) => onSettingsNameChange(event.target.value)}
                   disabled={settingsDisabled}
                   fullWidth
                 />
@@ -195,18 +198,18 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                     label="玩家上限"
                     type="number"
                     value={settingsMaxPlayers}
-                    onChange={(e) => onSettingsMaxPlayersChange(e.target.value)}
+                    onChange={(event) => onSettingsMaxPlayersChange(event.target.value)}
                     inputProps={{
                       min: PLAYER_MIN,
                       max: PLAYER_MAX,
                       inputMode: "numeric",
                     }}
-                    placeholder="留空則使用房間預設"
+                    placeholder="留空代表不限制"
                     disabled={settingsDisabled}
                     fullWidth
                   />
                   <Typography variant="caption" className="text-slate-400">
-                    玩家上限可設定為 {PLAYER_MIN} - {PLAYER_MAX} 人
+                    可設定範圍：{PLAYER_MIN} - {PLAYER_MAX} 人
                   </Typography>
                 </Stack>
               </Stack>
@@ -248,18 +251,18 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                       variant="outlined"
                       label={
                         useCollectionTimingForSettings
-                          ? `揭曉 ${settingsRevealDurationSec}s（收藏庫片段）`
-                          : `揭曉 ${settingsRevealDurationSec}s / 作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s`
+                          ? `揭曉 ${settingsRevealDurationSec}s（收藏庫）`
+                          : `作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s / 揭曉 ${settingsRevealDurationSec}s`
                       }
                       className="border-slate-600 text-slate-200"
                     />
                   </Stack>
                   <TextField
-                    label="公布答案時間 (秒)"
+                    label="公布答案時間（秒）"
                     type="number"
                     value={settingsRevealDurationSec}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
                       if (!Number.isFinite(next)) return;
                       onSettingsRevealDurationSecChange(next);
                     }}
@@ -271,6 +274,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                     disabled={settingsDisabled}
                     fullWidth
                   />
+
                   {settingsUseCollectionSource && (
                     <FormControlLabel
                       control={
@@ -283,22 +287,23 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                           disabled={settingsDisabled}
                         />
                       }
-                      label="使用收藏庫設定的時間"
+                      label="使用收藏庫時間設定"
                     />
                   )}
+
                   {useCollectionTimingForSettings ? (
                     <Typography variant="caption" className="text-cyan-200/90">
-                      已啟用收藏庫時間，作答時間與起始時間已隱藏。
+                      已啟用收藏庫時間，作答時間與起始時間將由收藏庫片段決定。
                     </Typography>
                   ) : (
                     <Stack spacing={1}>
                       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                         <TextField
-                          label="作答時間設定"
+                          label="作答時間（秒）"
                           type="number"
                           value={settingsPlayDurationSec}
-                          onChange={(e) => {
-                            const next = Number(e.target.value);
+                          onChange={(event) => {
+                            const next = Number(event.target.value);
                             if (!Number.isFinite(next)) return;
                             onSettingsPlayDurationSecChange(next);
                           }}
@@ -311,11 +316,11 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                           fullWidth
                         />
                         <TextField
-                          label="起始時間 (秒)"
+                          label="起始秒數（秒）"
                           type="number"
                           value={settingsStartOffsetSec}
-                          onChange={(e) => {
-                            const next = Number(e.target.value);
+                          onChange={(event) => {
+                            const next = Number(event.target.value);
                             if (!Number.isFinite(next)) return;
                             onSettingsStartOffsetSecChange(next);
                           }}
@@ -329,7 +334,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                         />
                       </Stack>
                       <Typography variant="caption" className="text-slate-400">
-                        若超過歌曲長度，系統會依據起始時間做循環裁切。
+                        作答階段會從起始秒數開始播放，再於作答時間結束後進入揭曉。
                       </Typography>
                     </Stack>
                   )}
@@ -337,6 +342,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
               </Box>
             </Stack>
           </Box>
+
           {settingsError && (
             <Typography variant="caption" className="text-rose-300">
               {settingsError}
@@ -344,6 +350,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
           )}
         </Stack>
       </DialogContent>
+
       <DialogActions
         sx={{
           borderTop: "1px solid rgba(56,189,248,0.12)",

@@ -849,92 +849,83 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     }
   }, [isMobileTabletLobbyLayout]);
 
+  const roomSettingChips = (
+    <Stack
+      direction="row"
+      spacing={0.75}
+      alignItems="center"
+      flexWrap="wrap"
+      className="room-lobby-room-meta"
+    >
+      <Chip
+        size="small"
+        variant="outlined"
+        label={`題數 ${currentRoom?.gameSettings?.questionCount ?? "-"}`}
+        className="text-slate-200 border-slate-600"
+      />
+      <Chip
+        size="small"
+        variant="outlined"
+        label={`公布 ${roomRevealDurationSec}s`}
+        className="text-slate-200 border-slate-600"
+      />
+      {!roomAllowCollectionClipTiming && (
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`作答 ${roomPlayDurationSec}s`}
+          className="text-slate-200 border-slate-600"
+        />
+      )}
+      {!roomAllowCollectionClipTiming && (
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`起始 ${roomStartOffsetSec}s`}
+          className="text-slate-200 border-slate-600"
+        />
+      )}
+      <Chip
+        size="small"
+        variant="outlined"
+        label={roomAllowCollectionClipTiming ? "收藏庫時間 ON" : "收藏庫時間 OFF"}
+        className="text-slate-200 border-slate-600"
+      />
+      <Chip
+        size="small"
+        variant="outlined"
+        label={`曲目 ${currentRoom?.playlist.totalCount ?? "-"} 首`}
+        className="text-slate-200 border-slate-600"
+      />
+      <Chip
+        size="small"
+        variant="outlined"
+        label={playlistProgress.ready ? "同步完成" : "同步中"}
+        className="text-slate-200 border-slate-600"
+      />
+      {currentRoom?.hasPassword && (
+        <Chip
+          size="small"
+          variant="outlined"
+          label="密碼房"
+          className="text-slate-200 border-slate-600"
+        />
+      )}
+      {currentRoom?.visibility === "private" && (
+        <Chip
+          size="small"
+          variant="outlined"
+          label="私人"
+          className="text-slate-200 border-slate-600"
+        />
+      )}
+    </Stack>
+  );
+
   const participantsPanel = (
     <Box className="room-lobby-participants">
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="center"
-        flexWrap="wrap"
-        mb={1}
-      >
-        <Typography variant="subtitle2" className="text-slate-200">
-          房間設定
-        </Typography>
-        <Chip
-          size="small"
-          variant="outlined"
-          label={`題數 ${currentRoom?.gameSettings?.questionCount ?? "-"}`}
-          className="text-slate-200 border-slate-600"
-        />
-        <Chip
-          size="small"
-          variant="outlined"
-          label={`公布答案 ${roomRevealDurationSec} 秒`}
-          className="text-slate-200 border-slate-600"
-        />
-        {!roomAllowCollectionClipTiming && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`作答時間 ${roomPlayDurationSec} 秒`}
-            className="text-slate-200 border-slate-600"
-          />
-        )}
-        {!roomAllowCollectionClipTiming && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`起始 ${roomStartOffsetSec} 秒`}
-            className="text-slate-200 border-slate-600"
-          />
-        )}
-        <Chip
-          size="small"
-          variant="outlined"
-          label={
-            roomAllowCollectionClipTiming
-              ? "收藏庫時間：開啟"
-              : "收藏庫時間：關閉"
-          }
-          className="text-slate-200 border-slate-600"
-        />
-        <Chip
-          size="small"
-          variant="outlined"
-          label={`歌單 ${currentRoom?.playlist.totalCount ?? "-"} 首`}
-          className="text-slate-200 border-slate-600"
-        />
-        <Chip
-          size="small"
-          variant="outlined"
-          label={playlistProgress.ready ? "歌單已準備" : "歌單同步中"}
-          className="text-slate-200 border-slate-600"
-        />
-        {currentRoom?.hasPassword && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label="有密碼"
-            className="text-slate-200 border-slate-600"
-          />
-        )}
-        {currentRoom?.visibility === "private" && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label="私人"
-            className="text-slate-200 border-slate-600"
-          />
-        )}
-      </Stack>
-
-      <Typography
-        variant="subtitle2"
-        className="text-slate-200"
-        gutterBottom
-      >
-        成員
+      <Typography variant="subtitle2" className="text-slate-300" gutterBottom>
+        在線玩家
       </Typography>
       {participants.length === 0 ? (
         <Typography variant="body2" className="text-slate-500">
@@ -1160,7 +1151,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       >
         <Stack direction="row" spacing={1} alignItems="center">
           <Typography variant="subtitle2" className="text-slate-200">
-            房間歌單同步進度
+            同步進度
           </Typography>
           <Chip
             size="small"
@@ -1219,38 +1210,34 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     >
       <CardHeader
         title={
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="subtitle1" className="text-slate-100">
-              {normalizeDisplayText(currentRoom?.name, "未命名房間")}
-            </Typography>
-            <Chip
-              size="small"
-              label={
-                currentRoom?.maxPlayers
-                  ? `${participants.length}/${currentRoom.maxPlayers} 人`
-                  : `${participants.length} 人`
-              }
-              color="success"
-              variant="outlined"
-            />
+          <Stack spacing={1} className="room-lobby-header-stack">
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+              <Typography variant="subtitle1" className="text-slate-100">
+                {normalizeDisplayText(currentRoom?.name, "未命名房間")}
+              </Typography>
+              <Chip
+                size="small"
+                label={
+                  currentRoom?.maxPlayers
+                    ? `${participants.length}/${currentRoom.maxPlayers} 人`
+                    : `${participants.length} 人`
+                }
+                color="success"
+                variant="outlined"
+              />
+            </Stack>
+            {roomSettingChips}
             {isHost && currentRoom?.hasPassword && (
               <Box>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  flexWrap="wrap"
-                >
-                  <Typography variant="subtitle2" className="text-slate-200">
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <Typography variant="caption" className="text-slate-300">
                     房間密碼
                   </Typography>
                   {roomPassword ? (
                     <>
                       <TextField
                         size="small"
-                        value={
-                          showRoomPassword ? roomPassword : maskedRoomPassword
-                        }
+                        value={showRoomPassword ? roomPassword : maskedRoomPassword}
                         InputProps={{ readOnly: true }}
                         sx={{ minWidth: 180 }}
                       />
@@ -1273,6 +1260,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           </Stack>
         }
         action={
+          !isMobileTabletLobbyLayout ? (
           <Stack direction="row" spacing={1}>
             {hasLastSettlement && (
               <Button
@@ -1354,6 +1342,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               </Button>
             )}
           </Stack>
+          ) : null
         }
       />
       <CardContent
@@ -1365,6 +1354,77 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         {isMobileTabletLobbyLayout ? (
           <>
             <div className="room-lobby-mobile-shell">
+              <div className="room-lobby-mobile-top-actions">
+                {isHost && (
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    className="room-lobby-mobile-start-btn"
+                    disabled={!canStartGame || gameState?.status === "playing"}
+                    onClick={onStartGame}
+                  >
+                    {isStartBroadcastActive
+                      ? `廣播中 ${startBroadcastRemainingSec}s`
+                      : "開始遊戲"}
+                  </Button>
+                )}
+                <div className="room-lobby-mobile-quick-actions">
+                  {hasLastSettlement && (
+                    <Button
+                      variant="outlined"
+                      color="inherit"
+                      size="small"
+                      onClick={() => onOpenLastSettlement?.()}
+                    >
+                      上輪結算
+                    </Button>
+                  )}
+                  {gameState?.status === "playing" && (
+                    <Button
+                      variant="contained"
+                      color="success"
+                      size="small"
+                      onClick={() => onOpenGame?.()}
+                    >
+                      回到遊戲
+                    </Button>
+                  )}
+                  {isHost && (
+                    <IconButton size="small" color="inherit" onClick={openSettingsModal}>
+                      <SettingsOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  {isHost && (
+                    <Button
+                      variant="contained"
+                      color={inviteSuccess ? "success" : "info"}
+                      size="small"
+                      sx={{
+                        transition: "color 150ms ease, box-shadow 150ms ease",
+                        boxShadow: inviteSuccess ? 3 : "none",
+                      }}
+                      onClick={() => {
+                        void (async () => {
+                          try {
+                            await onInvite();
+                            setInviteSuccess(true);
+                            setTimeout(() => setInviteSuccess(false), 1000);
+                          } catch (e) {
+                            console.log(e);
+                          }
+                        })();
+                      }}
+                    >
+                      {inviteSuccess ? "已複製" : "邀請"}
+                    </Button>
+                  )}
+                  {currentRoom && (
+                    <Button variant="outlined" color="inherit" size="small" onClick={onLeave}>
+                      離開
+                    </Button>
+                  )}
+                </div>
+              </div>
               <div className="room-lobby-mobile-tabs" role="tablist" aria-label="房間分頁">
                 <button
                   type="button"
@@ -1375,7 +1435,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   }`}
                   onClick={() => setMobileLobbyTab("members")}
                 >
-                  成員
+                  在線
                 </button>
                 <button
                   type="button"
@@ -1386,7 +1446,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   }`}
                   onClick={() => setMobileLobbyTab("host")}
                 >
-                  主持
+                  操作
                 </button>
                 <button
                   type="button"
@@ -1397,7 +1457,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   }`}
                   onClick={() => setMobileLobbyTab("playlist")}
                 >
-                  歌單
+                  曲目
                 </button>
               </div>
               <div className="room-lobby-mobile-panel">
@@ -1424,12 +1484,19 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               </Button>
             </div>
             <SwipeableDrawer
+              className="room-lobby-mobile-chat-drawer-root"
               anchor="bottom"
               open={mobileChatDrawerOpen}
               onOpen={() => setMobileChatDrawerOpen(true)}
               onClose={() => setMobileChatDrawerOpen(false)}
               disableSwipeToOpen={false}
-              keepMounted
+              disableDiscovery={false}
+              swipeAreaWidth={38}
+              ModalProps={{
+                keepMounted: true,
+                hideBackdrop: true,
+                disableScrollLock: true,
+              }}
               PaperProps={{ className: "room-lobby-mobile-chat-drawer-paper" }}
             >
               <div className="room-lobby-mobile-chat-drawer">

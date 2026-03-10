@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useMemo, useState } from "react";
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import {
   Button,
   Dialog,
@@ -44,6 +44,7 @@ const RoomsLayoutShell: React.FC = () => {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [inRoomSettingsOpen, setInRoomSettingsOpen] = useState(false);
   const [privacyConfirmOpen, setPrivacyConfirmOpen] = useState(false);
+  const [termsConfirmOpen, setTermsConfirmOpen] = useState(false);
   const settingsDialogFullScreen = useMediaQuery("(max-width: 900px)");
   const [navigationConfirmTarget, setNavigationConfirmTarget] =
     useState<NavigationTarget | null>(null);
@@ -211,6 +212,13 @@ const RoomsLayoutShell: React.FC = () => {
     }
     setPrivacyConfirmOpen(true);
   }, [currentRoom, navigate]);
+  const handleTermsRequest = useCallback(() => {
+    if (!currentRoom) {
+      navigate("/terms");
+      return;
+    }
+    setTermsConfirmOpen(true);
+  }, [currentRoom, navigate]);
   const handleConfirmPrivacy = useCallback(() => {
     setPrivacyConfirmOpen(false);
     if (!currentRoom) {
@@ -220,6 +228,17 @@ const RoomsLayoutShell: React.FC = () => {
     handleLeaveRoom(() => {
       navigate("/privacy");
       setStatusText("已離開房間，前往隱私權政策");
+    });
+  }, [currentRoom, handleLeaveRoom, navigate, setStatusText]);
+  const handleConfirmTerms = useCallback(() => {
+    setTermsConfirmOpen(false);
+    if (!currentRoom) {
+      navigate("/terms");
+      return;
+    }
+    handleLeaveRoom(() => {
+      navigate("/terms");
+      setStatusText("已離開房間，前往服務條款");
     });
   }, [currentRoom, handleLeaveRoom, navigate, setStatusText]);
   const handleStatusClose = useCallback(
@@ -254,15 +273,19 @@ const RoomsLayoutShell: React.FC = () => {
         <footer className="flex m-0 items-center justify-center gap-4 text-xs text-[var(--mc-text-muted)]">
           <button
             type="button"
-            className="border-0 bg-transparent p-0 text-xs text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
+            className="cursor-pointer border-0 bg-transparent p-0 text-xs text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
             onClick={handlePrivacyRequest}
           >
             隱私權政策
           </button>
           <span className="text-[var(--mc-border)]">‧</span>
-          <Link to="/terms" className="hover:text-[var(--mc-text)]">
+          <button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 text-xs text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
+            onClick={handleTermsRequest}
+          >
             服務條款
-          </Link>
+          </button>
         </footer>
         <Snackbar
           key={statusText ?? "status-empty"}
@@ -307,6 +330,15 @@ const RoomsLayoutShell: React.FC = () => {
           cancelLabel="留在房間"
           onConfirm={handleConfirmPrivacy}
           onCancel={() => setPrivacyConfirmOpen(false)}
+        />
+        <ConfirmDialog
+          open={termsConfirmOpen}
+          title="前往服務條款並離開房間？"
+          description="前往服務條款會離開目前房間。確定要離開並前往服務條款頁面嗎？"
+          confirmLabel="確認前往"
+          cancelLabel="留在房間"
+          onConfirm={handleConfirmTerms}
+          onCancel={() => setTermsConfirmOpen(false)}
         />
         <Dialog
           open={inRoomSettingsOpen}
