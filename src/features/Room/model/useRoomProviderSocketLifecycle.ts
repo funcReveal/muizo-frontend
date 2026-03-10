@@ -45,6 +45,14 @@ interface SocketLifecycleSetters {
   setIsConnected: Dispatch<SetStateAction<boolean>>;
   setRouteRoomResolved: Dispatch<SetStateAction<boolean>>;
   setStatusText: (value: string | null) => void;
+  setKickedNotice: Dispatch<
+    SetStateAction<{
+      roomId: string;
+      reason: string;
+      bannedUntil: number | null;
+      kickedAt: number;
+    } | null>
+  >;
   setSessionProgress: Dispatch<SetStateAction<SessionProgressPayload | null>>;
   setCurrentRoom: Dispatch<SetStateAction<RoomState["room"] | null>>;
   setParticipants: Dispatch<SetStateAction<RoomParticipant[]>>;
@@ -140,6 +148,7 @@ export const useRoomProviderSocketLifecycle = ({
     setIsConnected,
     setRouteRoomResolved,
     setStatusText,
+    setKickedNotice,
     setSessionProgress,
     setCurrentRoom,
     setParticipants,
@@ -212,6 +221,7 @@ export const useRoomProviderSocketLifecycle = ({
               (ack: Ack<RoomState>) => {
                 if (ack?.ok) {
                   const state = ack.data;
+                  setKickedNotice(null);
                   syncServerOffset(state.serverNow);
                   setCurrentRoom(applyGameSettingsPatch(state.room, {}));
                   setParticipants((prev) =>
@@ -304,6 +314,7 @@ export const useRoomProviderSocketLifecycle = ({
         },
         onJoinedRoom: (state) => {
           setSessionProgress(null);
+          setKickedNotice(null);
           releaseCreateRoomLockRef.current?.();
           syncServerOffset(state.serverNow);
           setCurrentRoom(applyGameSettingsPatch(state.room, {}));
@@ -432,6 +443,12 @@ export const useRoomProviderSocketLifecycle = ({
         },
         onKicked: ({ roomId, reason, bannedUntil }) => {
           if (roomId !== currentRoomIdRef.current) return;
+          setKickedNotice({
+            roomId,
+            reason,
+            bannedUntil,
+            kickedAt: Date.now(),
+          });
           const suffix =
             typeof bannedUntil === "number"
               ? `嚙璀嚙箠嚙踝蕭嚙編嚙稼嚙皚嚙褕塚蕭嚙瘦${new Date(bannedUntil).toLocaleTimeString()}`
@@ -445,6 +462,7 @@ export const useRoomProviderSocketLifecycle = ({
           setGameState(null);
           setGamePlaylist([]);
           setIsGameView(false);
+          setRouteRoomResolved(true);
           setPlaylistViewItems([]);
           setPlaylistHasMore(false);
           setPlaylistLoadingMore(false);
@@ -500,6 +518,7 @@ export const useRoomProviderSocketLifecycle = ({
     lockSessionClientId,
     persistRoomId,
     setStatusText,
+    setKickedNotice,
     setRouteRoomResolved,
     resetSessionClientId,
     setSessionProgress,
@@ -562,4 +581,3 @@ export const useRoomProviderSocketLifecycle = ({
 };
 
 export default useRoomProviderSocketLifecycle;
-

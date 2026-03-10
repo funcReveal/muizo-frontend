@@ -47,6 +47,14 @@ interface UseRoomProviderRoomActionsParams {
   messageInput: string;
   setMessageInput: Dispatch<SetStateAction<string>>;
   setStatusText: (value: string | null) => void;
+  setKickedNotice: Dispatch<
+    SetStateAction<{
+      roomId: string;
+      reason: string;
+      bannedUntil: number | null;
+      kickedAt: number;
+    } | null>
+  >;
   syncServerOffset: (serverNow: number) => void;
   mergeCachedParticipantPing: (
     nextParticipants: RoomParticipant[],
@@ -101,6 +109,7 @@ export const useRoomProviderRoomActions = ({
   messageInput,
   setMessageInput,
   setStatusText,
+  setKickedNotice,
   syncServerOffset,
   mergeCachedParticipantPing,
   seedPresenceParticipants,
@@ -134,6 +143,7 @@ export const useRoomProviderRoomActions = ({
         return;
       }
 
+      setKickedNotice(null);
       socket.emit(
         "joinRoom",
         {
@@ -209,6 +219,7 @@ export const useRoomProviderRoomActions = ({
       setPlaylistProgress,
       setSettlementHistory,
       setStatusText,
+      setKickedNotice,
       setCurrentRoom,
       syncServerOffset,
       username,
@@ -235,6 +246,7 @@ export const useRoomProviderRoomActions = ({
           setPlaylistHasMore(false);
           setPlaylistLoadingMore(false);
           setPlaylistSuggestions([]);
+          setKickedNotice(null);
           persistRoomId(null);
           resetSessionClientId();
           setStatusText("嚙緩嚙踝蕭嚙罷嚙請塚蕭");
@@ -262,6 +274,7 @@ export const useRoomProviderRoomActions = ({
       setPlaylistViewItems,
       setSettlementHistory,
       setStatusText,
+      setKickedNotice,
     ],
   );
 

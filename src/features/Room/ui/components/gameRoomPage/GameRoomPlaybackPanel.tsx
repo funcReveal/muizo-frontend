@@ -12,6 +12,7 @@ interface GameRoomPlaybackPanelProps {
   boundedCursor: number;
   trackOrderLength: number;
   onOpenExitConfirm: () => void;
+  headerActions?: React.ReactNode;
   iframeSrc: string | null;
   shouldHideVideoFrame: boolean;
   shouldShowVideo: boolean;
@@ -40,6 +41,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   boundedCursor,
   trackOrderLength,
   onOpenExitConfirm,
+  headerActions,
   iframeSrc,
   shouldHideVideoFrame,
   shouldShowVideo,
@@ -110,15 +112,18 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           </div>
         </div>
         {!isOverlayMode && (
-          <Button
-            variant="outlined"
-            color="inherit"
-            size="small"
-            onClick={onOpenExitConfirm}
-            className="max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
-          >
-            退出遊戲
-          </Button>
+          <div className="flex items-center gap-2 max-[760px]:w-full max-[760px]:flex-col max-[760px]:items-stretch">
+            {headerActions}
+            <Button
+              variant="outlined"
+              color="inherit"
+              size="small"
+              onClick={onOpenExitConfirm}
+              className="max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
+            >
+              退出遊戲
+            </Button>
+          </div>
         )}
       </div>
 

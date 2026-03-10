@@ -36,6 +36,13 @@ export type RoomCreateSourceMode =
   | "publicCollection"
   | "privateCollection";
 
+export type RoomKickedNotice = {
+  roomId: string;
+  reason: string;
+  bannedUntil: number | null;
+  kickedAt: number;
+};
+
 export interface RoomContextValue {
   authToken: string | null;
   authUser: AuthUser | null;
@@ -110,6 +117,8 @@ export interface RoomContextValue {
   setMessageInput: (value: string) => void;
   statusText: string | null;
   setStatusText: (value: string | null) => void;
+  kickedNotice: RoomKickedNotice | null;
+  setKickedNotice: (value: RoomKickedNotice | null) => void;
   sessionProgress: SessionProgressPayload | null;
   playlistUrl: string;
   setPlaylistUrl: (value: string) => void;

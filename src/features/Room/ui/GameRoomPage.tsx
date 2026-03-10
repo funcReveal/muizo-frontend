@@ -5,12 +5,27 @@
   useRef,
   useState,
 } from "react";
-import { SwipeableDrawer } from "@mui/material";
+import {
+  Avatar,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  SwipeableDrawer,
+  Typography,
+} from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import LeaderboardRoundedIcon from "@mui/icons-material/LeaderboardRounded";
 import SmartDisplayRoundedIcon from "@mui/icons-material/SmartDisplayRounded";
 import ForumRoundedIcon from "@mui/icons-material/ForumRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
+import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
+import PersonRemoveRoundedIcon from "@mui/icons-material/PersonRemoveRounded";
+import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import type {
   ChatMessage,
   GameState,
@@ -62,6 +77,7 @@ import useGameRoomChoiceHotkeys from "./components/gameRoomPage/useGameRoomChoic
 import useGameRoomAnswerPanelAutoScroll from "./components/gameRoomPage/useGameRoomAnswerPanelAutoScroll";
 import useMobileDrawerDragDismiss from "./components/gameRoomPage/useMobileDrawerDragDismiss";
 import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
+import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 
 interface GameRoomPageProps {
   room: RoomState["room"];
@@ -70,6 +86,8 @@ interface GameRoomPageProps {
   onExitGame: () => void;
   onBackToLobby?: () => void;
   onSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
+  onKickPlayer?: (clientId: string, durationMs?: number | null) => void;
+  onTransferHost?: (clientId: string) => void;
   participants?: RoomState["participants"];
   meClientId?: string;
   messages?: ChatMessage[];
@@ -82,6 +100,13 @@ interface GameRoomPageProps {
 }
 
 type MobileBottomPanel = "scoreboard" | "chat" | null;
+type HostManagementActionType = "transfer" | "kick" | "ban";
+type HostManagementAction = {
+  type: HostManagementActionType;
+  targetClientId: string;
+  targetName: string;
+  targetOnline: boolean;
+};
 
 const MOBILE_PLAYBACK_MIN_HEIGHT_VH = 26;
 const MOBILE_PLAYBACK_MAX_HEIGHT_VH = 62;
@@ -141,6 +166,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   onExitGame,
   onBackToLobby,
   onSubmitChoice,
+  onKickPlayer,
+  onTransferHost,
   participants = [],
   meClientId,
   messages = [],
@@ -186,6 +213,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [mobileRevealAutoOverlayEnabled, setMobileRevealAutoOverlayEnabled] =
     useState(true);
   const [mobileChatDragging, setMobileChatDragging] = useState(false);
+  const [hostManagementOpen, setHostManagementOpen] = useState(false);
+  const [hostManagementConfirm, setHostManagementConfirm] =
+    useState<HostManagementAction | null>(null);
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
   const lastPreStartCountdownSfxKeyRef = useRef<string | null>(null);
@@ -200,6 +230,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     volume: Math.round((sfxVolume * gameVolume) / 100),
     preset: sfxPreset,
   });
+  const isHostInGame = room.hostClientId === meClientId;
+  const hostManageParticipants = useMemo(
+    () =>
+      sortParticipantsByScore(participants).filter(
+        (participant) => participant.clientId !== meClientId,
+      ),
+    [meClientId, participants],
+  );
 
   const openExitConfirm = () => setExitConfirmOpen(true);
   const closeExitConfirm = () => setExitConfirmOpen(false);
@@ -306,6 +344,64 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const handleMobileChatDraggingChange = useCallback((isDragging: boolean) => {
     setMobileChatDragging(isDragging);
   }, []);
+  const handleOpenHostManagement = useCallback(() => {
+    if (!isHostInGame) return;
+    setHostManagementOpen(true);
+  }, [isHostInGame]);
+  const handleCloseHostManagement = useCallback(() => {
+    setHostManagementOpen(false);
+  }, []);
+  const requestHostManagementAction = useCallback(
+    (type: HostManagementActionType, participant: RoomState["participants"][number]) => {
+      if (!isHostInGame) return;
+      setHostManagementConfirm({
+        type,
+        targetClientId: participant.clientId,
+        targetName: participant.username,
+        targetOnline: participant.isOnline,
+      });
+    },
+    [isHostInGame],
+  );
+  const hostManagementConfirmText = useMemo(() => {
+    if (!hostManagementConfirm) return null;
+    const target = hostManagementConfirm.targetName || "此玩家";
+    if (hostManagementConfirm.type === "transfer") {
+      return {
+        title: `轉移房主給 ${target}？`,
+        description:
+          "轉移後你會變成一般玩家。若要重新取得房主權限，需由新房主再轉移回來。",
+        confirmLabel: "確認轉移",
+      };
+    }
+    if (hostManagementConfirm.type === "ban") {
+      return {
+        title: `踢出並封鎖 ${target}？`,
+        description: "此操作會立刻將玩家移出房間，並套用伺服器預設的封鎖時長。",
+        confirmLabel: "確認踢出並封鎖",
+      };
+    }
+    return {
+      title: `踢出 ${target}？`,
+      description: "此操作會立刻將玩家移出房間，但不會額外封鎖。",
+      confirmLabel: "確認踢出",
+    };
+  }, [hostManagementConfirm]);
+  const handleConfirmHostManagementAction = useCallback(() => {
+    if (!hostManagementConfirm) return;
+    if (!isHostInGame) {
+      setHostManagementConfirm(null);
+      return;
+    }
+    if (hostManagementConfirm.type === "transfer") {
+      onTransferHost?.(hostManagementConfirm.targetClientId);
+    } else if (hostManagementConfirm.type === "kick") {
+      onKickPlayer?.(hostManagementConfirm.targetClientId, null);
+    } else {
+      onKickPlayer?.(hostManagementConfirm.targetClientId);
+    }
+    setHostManagementConfirm(null);
+  }, [hostManagementConfirm, isHostInGame, onKickPlayer, onTransferHost]);
   const effectiveMobilePlaybackHeight = mobileRevealSplitMode
     ? normalizedSplitHeights.playbackHeight
     : clampMobileVh(
@@ -1078,6 +1174,112 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       startCountdownSec={startCountdownSec}
     />
   );
+  const playbackHeaderActions = isHostInGame ? (
+    <Button
+      type="button"
+      variant="outlined"
+      color="info"
+      size="small"
+      startIcon={<ManageAccountsRoundedIcon />}
+      className="game-room-host-manage-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
+      onClick={handleOpenHostManagement}
+    >
+      房主管理
+    </Button>
+  ) : null;
+  const hostManagementPanelContent = (
+    <Stack spacing={1.1} className="game-room-host-manage-list">
+      {hostManageParticipants.length === 0 ? (
+        <Typography variant="body2" className="text-slate-300">
+          目前沒有可管理的玩家。
+        </Typography>
+      ) : (
+        hostManageParticipants.map((participant, index) => {
+          const participantPingText =
+            typeof participant.pingMs === "number"
+              ? `${Math.max(0, Math.round(participant.pingMs))} ms`
+              : participant.isOnline
+                ? "在線"
+                : "離線";
+          return (
+            <Stack
+              key={participant.clientId}
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              alignItems={{ xs: "stretch", sm: "center" }}
+              className="game-room-host-manage-item"
+            >
+              <Stack direction="row" spacing={1} alignItems="center" className="min-w-0 flex-1">
+                <Avatar
+                  sx={{
+                    width: 30,
+                    height: 30,
+                    fontSize: 12,
+                    bgcolor: "rgba(30,41,59,0.75)",
+                    color: "rgba(226,232,240,0.95)",
+                    border: "1px solid rgba(148,163,184,0.25)",
+                  }}
+                >
+                  {index + 1}
+                </Avatar>
+                <div className="min-w-0">
+                  <Typography variant="body2" className="truncate text-slate-100">
+                    {participant.username}
+                  </Typography>
+                  <Typography variant="caption" className="text-slate-400">
+                    分數 {participant.score.toLocaleString()} · {participantPingText}
+                  </Typography>
+                </div>
+                <Chip
+                  size="small"
+                  label={participant.isOnline ? "在線" : "離線"}
+                  color={participant.isOnline ? "success" : "default"}
+                  variant="outlined"
+                />
+              </Stack>
+              <Stack
+                direction="row"
+                spacing={0.7}
+                alignItems="center"
+                className="game-room-host-manage-actions"
+              >
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  startIcon={<SwapHorizRoundedIcon />}
+                  disabled={!participant.isOnline}
+                  onClick={() =>
+                    requestHostManagementAction("transfer", participant)
+                  }
+                >
+                  轉移
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<PersonRemoveRoundedIcon />}
+                  onClick={() => requestHostManagementAction("kick", participant)}
+                >
+                  踢出
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="error"
+                  startIcon={<BlockRoundedIcon />}
+                  onClick={() => requestHostManagementAction("ban", participant)}
+                >
+                  封鎖
+                </Button>
+              </Stack>
+            </Stack>
+          );
+        })
+      )}
+    </Stack>
+  );
 
   if (isEnded) {
     return (
@@ -1137,6 +1339,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               boundedCursor={boundedCursor}
               trackOrderLength={trackOrderLength}
               onOpenExitConfirm={openExitConfirm}
+              headerActions={playbackHeaderActions}
               iframeSrc={iframeSrc}
               shouldHideVideoFrame={shouldHideVideoFrame}
               shouldShowVideo={shouldShowVideo}
@@ -1252,9 +1455,28 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </span>
               </button>
               <div className="game-room-mobile-action-subdock col-span-3">
+                {isHostInGame && (
+                  <button
+                    type="button"
+                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--half ${
+                      hostManagementOpen ? "game-room-mobile-toggle-chip--active" : ""
+                    }`}
+                    onClick={handleOpenHostManagement}
+                  >
+                    <span className="game-room-mobile-action-icon" aria-hidden>
+                      <ManageAccountsRoundedIcon fontSize="inherit" />
+                    </span>
+                    <span>房主管理</span>
+                    <span className="game-room-mobile-action-meta">
+                      {hostManageParticipants.length} 人
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`game-room-mobile-toggle-chip ${
+                    isHostInGame ? "game-room-mobile-toggle-chip--half " : ""
+                  }${
                     mobileRevealAutoOverlayEnabled
                       ? "game-room-mobile-toggle-chip--active"
                       : ""
@@ -1326,6 +1548,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   boundedCursor={boundedCursor}
                   trackOrderLength={trackOrderLength}
                   onOpenExitConfirm={openExitConfirm}
+                  headerActions={playbackHeaderActions}
                   iframeSrc={iframeSrc}
                   shouldHideVideoFrame={shouldHideVideoFrame}
                   shouldShowVideo={shouldShowVideo}
@@ -1474,6 +1697,78 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             />
           </>
         )}
+        {isHostInGame && !isMobileGameViewport && (
+          <Dialog
+            open={hostManagementOpen}
+            onClose={handleCloseHostManagement}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+              className: "game-room-host-manage-dialog",
+            }}
+          >
+            <DialogTitle>房主管理面板</DialogTitle>
+            <DialogContent dividers>{hostManagementPanelContent}</DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseHostManagement} variant="outlined" color="inherit">
+                關閉
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
+        {isHostInGame && isMobileGameViewport && (
+          <SwipeableDrawer
+            className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage lg:!hidden"
+            anchor="bottom"
+            open={hostManagementOpen}
+            onOpen={handleOpenHostManagement}
+            onClose={handleCloseHostManagement}
+            disableSwipeToOpen={false}
+            swipeAreaWidth={26}
+            keepMounted
+            ModalProps={{
+              keepMounted: true,
+              hideBackdrop: true,
+              disableAutoFocus: true,
+              disableEnforceFocus: true,
+              disableRestoreFocus: true,
+              disableScrollLock: true,
+            }}
+            PaperProps={{
+              className: "game-room-mobile-host-manage-drawer",
+            }}
+          >
+            <div className="game-room-mobile-host-manage-head">
+              <span className="game-room-mobile-drawer-handle-bar" />
+              <Typography variant="subtitle2">房主管理</Typography>
+              <Typography variant="caption" className="text-slate-400">
+                可操作 {hostManageParticipants.length} 位玩家
+              </Typography>
+            </div>
+            <div className="game-room-mobile-host-manage-body">
+              {hostManagementPanelContent}
+            </div>
+            <div className="game-room-mobile-host-manage-foot">
+              <Button
+                fullWidth
+                variant="outlined"
+                color="inherit"
+                onClick={handleCloseHostManagement}
+              >
+                完成
+              </Button>
+            </div>
+          </SwipeableDrawer>
+        )}
+        <ConfirmDialog
+          open={isHostInGame && Boolean(hostManagementConfirm)}
+          title={hostManagementConfirmText?.title ?? ""}
+          description={hostManagementConfirmText?.description ?? ""}
+          confirmLabel={hostManagementConfirmText?.confirmLabel ?? "確認"}
+          cancelLabel="取消"
+          onConfirm={handleConfirmHostManagementAction}
+          onCancel={() => setHostManagementConfirm(null)}
+        />
         {audioGestureOverlay}
         {startBroadcastOverlay}
         {exitGameDialog}

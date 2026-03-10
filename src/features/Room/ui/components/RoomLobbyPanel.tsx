@@ -18,6 +18,7 @@ import {
   ListItem,
   Popover,
   Stack,
+  SwipeableDrawer,
   TextField,
   Typography,
   useMediaQuery,
@@ -182,6 +183,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onFetchYoutubePlaylists,
   onImportYoutubePlaylist,
 }) => {
+  type MobileLobbyTab = "members" | "host" | "playlist";
   const rowCount = playlistItems.length + (playlistHasMore ? 1 : 0);
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [showRoomPassword, setShowRoomPassword] = useState(false);
@@ -207,6 +209,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const hostYoutubeAutoRequestedRef = useRef(false);
   const isCompactLobbyLayout = useMediaQuery("(max-width:1180px)");
   const isMobileLobbyLayout = useMediaQuery("(max-width:640px)");
+  const isMobileTabletLobbyLayout = useMediaQuery("(max-width:1024px)");
   const isHostPanelCollapsible = false;
   const isHostPanelExpanded = true;
   const [lastSuggestionSeenAt, setLastSuggestionSeenAt] = useState(0);
@@ -241,6 +244,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     useState(true);
   const [settingsMaxPlayers, setSettingsMaxPlayers] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [mobileLobbyTab, setMobileLobbyTab] =
+    useState<MobileLobbyTab>("members");
+  const [mobileChatDrawerOpen, setMobileChatDrawerOpen] = useState(false);
   const maskedRoomPassword = roomPassword
     ? "*".repeat(roomPassword.length)
     : "";
@@ -837,6 +843,369 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     );
   }, [handleOpenPlaylistItem, onLoadMorePlaylist, playlistHasMore, playlistItems, playlistLoadingMore]);
 
+  useEffect(() => {
+    if (!isMobileTabletLobbyLayout) {
+      setMobileChatDrawerOpen(false);
+    }
+  }, [isMobileTabletLobbyLayout]);
+
+  const participantsPanel = (
+    <Box className="room-lobby-participants">
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        flexWrap="wrap"
+        mb={1}
+      >
+        <Typography variant="subtitle2" className="text-slate-200">
+          房間設定
+        </Typography>
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`題數 ${currentRoom?.gameSettings?.questionCount ?? "-"}`}
+          className="text-slate-200 border-slate-600"
+        />
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`公布答案 ${roomRevealDurationSec} 秒`}
+          className="text-slate-200 border-slate-600"
+        />
+        {!roomAllowCollectionClipTiming && (
+          <Chip
+            size="small"
+            variant="outlined"
+            label={`作答時間 ${roomPlayDurationSec} 秒`}
+            className="text-slate-200 border-slate-600"
+          />
+        )}
+        {!roomAllowCollectionClipTiming && (
+          <Chip
+            size="small"
+            variant="outlined"
+            label={`起始 ${roomStartOffsetSec} 秒`}
+            className="text-slate-200 border-slate-600"
+          />
+        )}
+        <Chip
+          size="small"
+          variant="outlined"
+          label={
+            roomAllowCollectionClipTiming
+              ? "收藏庫時間：開啟"
+              : "收藏庫時間：關閉"
+          }
+          className="text-slate-200 border-slate-600"
+        />
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`歌單 ${currentRoom?.playlist.totalCount ?? "-"} 首`}
+          className="text-slate-200 border-slate-600"
+        />
+        <Chip
+          size="small"
+          variant="outlined"
+          label={playlistProgress.ready ? "歌單已準備" : "歌單同步中"}
+          className="text-slate-200 border-slate-600"
+        />
+        {currentRoom?.hasPassword && (
+          <Chip
+            size="small"
+            variant="outlined"
+            label="有密碼"
+            className="text-slate-200 border-slate-600"
+          />
+        )}
+        {currentRoom?.visibility === "private" && (
+          <Chip
+            size="small"
+            variant="outlined"
+            label="私人"
+            className="text-slate-200 border-slate-600"
+          />
+        )}
+      </Stack>
+
+      <Typography
+        variant="subtitle2"
+        className="text-slate-200"
+        gutterBottom
+      >
+        成員
+      </Typography>
+      {participants.length === 0 ? (
+        <Typography variant="body2" className="text-slate-500">
+          目前沒有其他人
+        </Typography>
+      ) : (
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          {participants.map((p) => {
+            const isSelf = p.clientId === selfClientId;
+            const host = p.clientId === currentRoom?.hostClientId;
+            const isActionOpen =
+              Boolean(actionAnchorEl) && actionTargetId === p.clientId;
+            const showActions = isHost && !isSelf;
+            const participantPingText =
+              typeof p.pingMs === "number"
+                ? `${Math.max(0, Math.round(p.pingMs))}ms`
+                : p.isOnline
+                  ? "測速中"
+                  : "--";
+            return (
+              <Box key={p.clientId} className="flex items-center gap-1">
+                <Chip
+                  label={
+                    <Stack
+                      display={"flex"}
+                      direction="row"
+                      spacing={0.5}
+                      alignItems="center"
+                    >
+                      <Badge
+                        variant="dot"
+                        color={p.isOnline ? "success" : "default"}
+                        overlap="circular"
+                      >
+                        <Box className="h-1.5 w-1.5 rounded-full" />
+                      </Badge>
+                      <span>{p.username}</span>
+                      {host && (
+                        <span className="text-amber-200 text-[10px]">
+                          房主
+                        </span>
+                      )}
+                      {isSelf && (
+                        <span className="opacity-80 text-[10px]">(我)</span>
+                      )}
+                      <span className="opacity-85 text-[10px]">
+                        {participantPingText}
+                      </span>
+                      {showActions && (
+                        <IconButton
+                          size="small"
+                          color="inherit"
+                          sx={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: "999px",
+                            "&:hover": {
+                              backgroundColor: "rgba(148,163,184,0.25)",
+                            },
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setActionAnchorEl(event.currentTarget);
+                            setActionTargetId(p.clientId);
+                          }}
+                        >
+                          ...
+                        </IconButton>
+                      )}
+                    </Stack>
+                  }
+                  variant="outlined"
+                  color={isSelf ? "info" : "default"}
+                  className={
+                    isSelf
+                      ? "text-sky-100 border-sky-500/60"
+                      : "text-slate-200"
+                  }
+                />
+                {showActions && (
+                  <Popover
+                    open={isActionOpen}
+                    anchorEl={actionAnchorEl}
+                    onClose={closeActionMenu}
+                    anchorOrigin={{
+                      vertical: "bottom",
+                      horizontal: "left",
+                    }}
+                  >
+                    <MUIList dense>
+                      <ListItem>
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="info"
+                          disabled={!p.isOnline}
+                          onClick={() => {
+                            onTransferHost(p.clientId);
+                            closeActionMenu();
+                          }}
+                        >
+                          轉移房主
+                        </Button>
+                      </ListItem>
+                      <ListItem>
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="warning"
+                          onClick={() => {
+                            onKickPlayer(p.clientId);
+                            closeActionMenu();
+                          }}
+                        >
+                          踢出並封鎖
+                        </Button>
+                      </ListItem>
+                      <ListItem>
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="warning"
+                          onClick={() => {
+                            onKickPlayer(p.clientId, null);
+                            closeActionMenu();
+                          }}
+                        >
+                          踢出玩家
+                        </Button>
+                      </ListItem>
+                    </MUIList>
+                  </Popover>
+                )}
+              </Box>
+            );
+          })}
+        </Stack>
+      )}
+    </Box>
+  );
+
+  const hostPanel = isHost ? (
+    <RoomLobbyHostControls
+      isHostPanelExpanded={isHostPanelExpanded}
+      hasNewSuggestions={hasNewSuggestions}
+      playlistSuggestions={playlistSuggestions}
+      gameStatus={gameState?.status}
+      hostSourceType={hostSourceType}
+      setHostSourceType={setHostSourceType}
+      markSuggestionsSeen={markSuggestionsSeen}
+      isApplyingHostSuggestion={isApplyingHostSuggestion}
+      hostSuggestionHint={hostSuggestionHint}
+      selectedSuggestionKey={selectedSuggestionKey}
+      setSelectedSuggestionKey={setSelectedSuggestionKey}
+      requestApplyHostSuggestion={requestApplyHostSuggestion}
+      hostPlaylistPrimaryText={hostPlaylistPrimaryText}
+      playlistUrl={playlistUrl}
+      onPlaylistUrlChange={onPlaylistUrlChange}
+      onPlaylistPaste={handlePlaylistPaste}
+      isGoogleAuthed={isGoogleAuthed}
+      collectionScope={collectionScope}
+      setCollectionScope={setCollectionScope}
+      onSelectCollection={onSelectCollection}
+      selectedCollectionId={selectedCollectionId}
+      collections={collections}
+      collectionsLoading={collectionsLoading}
+      isHostCollectionEmptyNotice={isHostCollectionEmptyNotice}
+      hostCollectionPrimaryText={hostCollectionPrimaryText}
+      visibleCollectionsError={visibleCollectionsError}
+      collectionItemsError={collectionItemsError}
+      onLoadCollectionItems={onLoadCollectionItems}
+      isHostYoutubeEmptyNotice={isHostYoutubeEmptyNotice}
+      isHostYoutubeMissingNotice={isHostYoutubeMissingNotice}
+      hostYoutubePrimaryText={hostYoutubePrimaryText}
+      visibleHostYoutubeError={visibleHostYoutubeError}
+      youtubePlaylists={youtubePlaylists}
+      youtubePlaylistsLoading={youtubePlaylistsLoading}
+      selectedYoutubePlaylistId={selectedYoutubePlaylistId}
+      setSelectedYoutubePlaylistId={setSelectedYoutubePlaylistId}
+      onImportYoutubePlaylist={onImportYoutubePlaylist}
+      openConfirmModal={openConfirmModal}
+      playlistLoadNotice={playlistLoadNotice}
+      playlistError={playlistError}
+      playlistItemsForChangeLength={playlistItemsForChange.length}
+      playlistLoading={playlistLoading}
+      onChangePlaylist={onChangePlaylist}
+    />
+  ) : gameState?.status !== "playing" ? (
+    <RoomLobbySuggestionPanel
+      key={suggestionResetKey}
+      collectionScope={collectionScope}
+      onCollectionScopeChange={setCollectionScope}
+      collections={collections}
+      collectionsLoading={collectionsLoading}
+      isGoogleAuthed={isGoogleAuthed}
+      youtubePlaylists={youtubePlaylists}
+      youtubePlaylistsLoading={youtubePlaylistsLoading}
+      youtubePlaylistsError={youtubePlaylistsError}
+      requestCollections={requestCollections}
+      requestYoutubePlaylists={requestYoutubePlaylists}
+      onSuggestPlaylist={onSuggestPlaylist}
+      extractPlaylistId={extractPlaylistId}
+    />
+  ) : null;
+
+  const chatPanel = (
+    <RoomLobbyChatPanel
+      messages={messages}
+      messageInput={messageInput}
+      onInputChange={onInputChange}
+      onSend={onSend}
+      onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
+    />
+  );
+
+  const playlistPanel = (
+    <Box className="room-lobby-playlist-panel">
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1}
+      >
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="subtitle2" className="text-slate-200">
+            房間歌單同步進度
+          </Typography>
+          <Chip
+            size="small"
+            variant="outlined"
+            label={`${playlistProgress.received}/${playlistProgress.total}${playlistProgress.ready ? " 已準備" : ""}`}
+            className="text-slate-200 border-slate-600"
+          />
+        </Stack>
+      </Stack>
+      {playlistItems.length === 0 ? (
+        <div
+          ref={playlistListContainerRef}
+          className={playlistListShellClassName}
+          style={playlistListShellStyle}
+        >
+          <div className="flex h-full min-h-[140px] items-center justify-center rounded border border-slate-800 bg-slate-900/60 px-3">
+            <Typography
+              variant="body2"
+              className="text-slate-500"
+              align="center"
+            >
+              目前歌單為空，請先選擇來源並匯入歌曲。
+            </Typography>
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={playlistListContainerRef}
+          className={playlistListShellClassName}
+          style={playlistListShellStyle}
+        >
+          <div className="h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-900/60">
+            <VirtualList
+              style={{ height: playlistListViewportHeight, width: "100%" }}
+              rowCount={rowCount}
+              rowHeight={75}
+              rowProps={playlistRowProps}
+              rowComponent={PlaylistRow}
+            />
+          </div>
+        </div>
+      )}
+    </Box>
+  );
+
   return (
     <Card
       variant="outlined"
@@ -988,365 +1357,116 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         }
       />
       <CardContent
-        className="room-lobby-content"
+        className={`room-lobby-content ${
+          isMobileTabletLobbyLayout ? "room-lobby-content--mobile-redesign" : ""
+        }`}
         sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 1.5 }}
       >
-        <div className="room-lobby-top-grid">
-          <Box className="room-lobby-participants">
-            <Stack
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              flexWrap="wrap"
-              mb={1}
-            >
-              <Typography variant="subtitle2" className="text-slate-200">
-                房間設定
-              </Typography>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`題數 ${currentRoom?.gameSettings?.questionCount ?? "-"}`}
-                className="text-slate-200 border-slate-600"
-              />
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`公布答案 ${roomRevealDurationSec} 秒`}
-                className="text-slate-200 border-slate-600"
-              />
-              {!roomAllowCollectionClipTiming && (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={`作答時間 ${roomPlayDurationSec} 秒`}
-                  className="text-slate-200 border-slate-600"
-                />
-              )}
-              {!roomAllowCollectionClipTiming && (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={`起始 ${roomStartOffsetSec} 秒`}
-                  className="text-slate-200 border-slate-600"
-                />
-              )}
-              <Chip
-                size="small"
-                variant="outlined"
-                label={
-                  roomAllowCollectionClipTiming
-                    ? "收藏庫時間：開啟"
-                    : "收藏庫時間：關閉"
-                }
-                className="text-slate-200 border-slate-600"
-              />
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`歌單 ${currentRoom?.playlist.totalCount ?? "-"} 首`}
-                className="text-slate-200 border-slate-600"
-              />
-              <Chip
-                size="small"
-                variant="outlined"
-                label={playlistProgress.ready ? "歌單已準備" : "歌單同步中"}
-                className="text-slate-200 border-slate-600"
-              />
-              {currentRoom?.hasPassword && (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label="有密碼"
-                  className="text-slate-200 border-slate-600"
-                />
-              )}
-              {currentRoom?.visibility === "private" && (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label="私人"
-                  className="text-slate-200 border-slate-600"
-                />
-              )}
-            </Stack>
-
-            <Typography
-              variant="subtitle2"
-              className="text-slate-200"
-              gutterBottom
-            >
-              成員
-            </Typography>
-            {participants.length === 0 ? (
-              <Typography variant="body2" className="text-slate-500">
-                目前沒有其他人
-              </Typography>
-            ) : (
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {participants.map((p) => {
-                  const isSelf = p.clientId === selfClientId;
-                  const host = p.clientId === currentRoom?.hostClientId;
-                  const isActionOpen =
-                    Boolean(actionAnchorEl) && actionTargetId === p.clientId;
-                  const showActions = isHost && !isSelf;
-                  const participantPingText =
-                    typeof p.pingMs === "number"
-                      ? `${Math.max(0, Math.round(p.pingMs))}ms`
-                      : p.isOnline
-                        ? "測速中"
-                        : "--";
-                  return (
-                    <Box key={p.clientId} className="flex items-center gap-1">
-                      <Chip
-                        label={
-                          <Stack
-                            display={"flex"}
-                            direction="row"
-                            spacing={0.5}
-                            alignItems="center"
-                          >
-                            <Badge
-                              variant="dot"
-                              color={p.isOnline ? "success" : "default"}
-                              overlap="circular"
-                            >
-                              <Box className="h-1.5 w-1.5 rounded-full" />
-                            </Badge>
-                            <span>{p.username}</span>
-                            {host && (
-                              <span className="text-amber-200 text-[10px]">
-                                房主
-                              </span>
-                            )}
-                            {isSelf && (
-                              <span className="opacity-80 text-[10px]">(我)</span>
-                            )}
-                            <span className="opacity-85 text-[10px]">
-                              {participantPingText}
-                            </span>
-                            {showActions && (
-                              <IconButton
-                                size="small"
-                                color="inherit"
-                                sx={{
-                                  width: 22,
-                                  height: 22,
-                                  borderRadius: "999px",
-                                  "&:hover": {
-                                    backgroundColor: "rgba(148,163,184,0.25)",
-                                  },
-                                }}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setActionAnchorEl(event.currentTarget);
-                                  setActionTargetId(p.clientId);
-                                }}
-                              >
-                                ...
-                              </IconButton>
-                            )}
-                          </Stack>
-                        }
-                        variant="outlined"
-                        color={isSelf ? "info" : "default"}
-                        className={
-                          isSelf
-                            ? "text-sky-100 border-sky-500/60"
-                            : "text-slate-200"
-                        }
-                      />
-                      {showActions && (
-                        <Popover
-                          open={isActionOpen}
-                          anchorEl={actionAnchorEl}
-                          onClose={closeActionMenu}
-                          anchorOrigin={{
-                            vertical: "bottom",
-                            horizontal: "left",
-                          }}
-                        >
-                          <MUIList dense>
-                            <ListItem>
-                              <Button
-                                size="small"
-                                variant="text"
-                                color="info"
-                                disabled={!p.isOnline}
-                                onClick={() => {
-                                  onTransferHost(p.clientId);
-                                  closeActionMenu();
-                                }}
-                              >
-                                轉移房主
-                              </Button>
-                            </ListItem>
-                            <ListItem>
-                              <Button
-                                size="small"
-                                variant="text"
-                                color="warning"
-                                onClick={() => {
-                                  onKickPlayer(p.clientId);
-                                  closeActionMenu();
-                                }}
-                              >
-                                踢出並封鎖
-                              </Button>
-                            </ListItem>
-                            <ListItem>
-                              <Button
-                                size="small"
-                                variant="text"
-                                color="warning"
-                                onClick={() => {
-                                  onKickPlayer(p.clientId, null);
-                                  closeActionMenu();
-                                }}
-                              >
-                                踢出玩家
-                              </Button>
-                            </ListItem>
-                          </MUIList>
-                        </Popover>
-                      )}
-                    </Box>
-                  );
-                })}
-              </Stack>
-            )}
-          </Box>
-
-          {isHost && (
-            <RoomLobbyHostControls
-              isHostPanelExpanded={isHostPanelExpanded}
-              hasNewSuggestions={hasNewSuggestions}
-              playlistSuggestions={playlistSuggestions}
-              gameStatus={gameState?.status}
-              hostSourceType={hostSourceType}
-              setHostSourceType={setHostSourceType}
-              markSuggestionsSeen={markSuggestionsSeen}
-              isApplyingHostSuggestion={isApplyingHostSuggestion}
-              hostSuggestionHint={hostSuggestionHint}
-              selectedSuggestionKey={selectedSuggestionKey}
-              setSelectedSuggestionKey={setSelectedSuggestionKey}
-              requestApplyHostSuggestion={requestApplyHostSuggestion}
-              hostPlaylistPrimaryText={hostPlaylistPrimaryText}
-              playlistUrl={playlistUrl}
-              onPlaylistUrlChange={onPlaylistUrlChange}
-              onPlaylistPaste={handlePlaylistPaste}
-              isGoogleAuthed={isGoogleAuthed}
-              collectionScope={collectionScope}
-              setCollectionScope={setCollectionScope}
-              onSelectCollection={onSelectCollection}
-              selectedCollectionId={selectedCollectionId}
-              collections={collections}
-              collectionsLoading={collectionsLoading}
-              isHostCollectionEmptyNotice={isHostCollectionEmptyNotice}
-              hostCollectionPrimaryText={hostCollectionPrimaryText}
-              visibleCollectionsError={visibleCollectionsError}
-              collectionItemsError={collectionItemsError}
-              onLoadCollectionItems={onLoadCollectionItems}
-              isHostYoutubeEmptyNotice={isHostYoutubeEmptyNotice}
-              isHostYoutubeMissingNotice={isHostYoutubeMissingNotice}
-              hostYoutubePrimaryText={hostYoutubePrimaryText}
-              visibleHostYoutubeError={visibleHostYoutubeError}
-              youtubePlaylists={youtubePlaylists}
-              youtubePlaylistsLoading={youtubePlaylistsLoading}
-              selectedYoutubePlaylistId={selectedYoutubePlaylistId}
-              setSelectedYoutubePlaylistId={setSelectedYoutubePlaylistId}
-              onImportYoutubePlaylist={onImportYoutubePlaylist}
-              openConfirmModal={openConfirmModal}
-              playlistLoadNotice={playlistLoadNotice}
-              playlistError={playlistError}
-              playlistItemsForChangeLength={playlistItemsForChange.length}
-              playlistLoading={playlistLoading}
-              onChangePlaylist={onChangePlaylist}
-            />
-          )}
-
-          {!isHost && gameState?.status !== "playing" && (
-            <RoomLobbySuggestionPanel
-              key={suggestionResetKey}
-              collectionScope={collectionScope}
-              onCollectionScopeChange={setCollectionScope}
-              collections={collections}
-              collectionsLoading={collectionsLoading}
-              isGoogleAuthed={isGoogleAuthed}
-              youtubePlaylists={youtubePlaylists}
-              youtubePlaylistsLoading={youtubePlaylistsLoading}
-              youtubePlaylistsError={youtubePlaylistsError}
-              requestCollections={requestCollections}
-              requestYoutubePlaylists={requestYoutubePlaylists}
-              onSuggestPlaylist={onSuggestPlaylist}
-              extractPlaylistId={extractPlaylistId}
-            />
-          )}
-        </div>
-
-        <RoomLobbyChatPanel
-          messages={messages}
-          messageInput={messageInput}
-          onInputChange={onInputChange}
-          onSend={onSend}
-          onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
-        />
-
-        <Divider className="room-lobby-divider" />
-
-        <Box className="room-lobby-playlist-panel">
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={1}
-          >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="subtitle2" className="text-slate-200">
-                房間歌單同步進度
-              </Typography>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`${playlistProgress.received}/${playlistProgress.total}${playlistProgress.ready ? " 已準備" : ""}`}
-                className="text-slate-200 border-slate-600"
-              />
-            </Stack>
-          </Stack>
-          {playlistItems.length === 0 ? (
-            <div
-              ref={playlistListContainerRef}
-              className={playlistListShellClassName}
-              style={playlistListShellStyle}
-            >
-              <div className="flex h-full min-h-[140px] items-center justify-center rounded border border-slate-800 bg-slate-900/60 px-3">
-                <Typography
-                  variant="body2"
-                  className="text-slate-500"
-                  align="center"
+        {isMobileTabletLobbyLayout ? (
+          <>
+            <div className="room-lobby-mobile-shell">
+              <div className="room-lobby-mobile-tabs" role="tablist" aria-label="房間分頁">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileLobbyTab === "members"}
+                  className={`room-lobby-mobile-tab ${
+                    mobileLobbyTab === "members" ? "is-active" : ""
+                  }`}
+                  onClick={() => setMobileLobbyTab("members")}
                 >
-                  目前歌單為空，請先選擇來源並匯入歌曲。
-                </Typography>
+                  成員
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileLobbyTab === "host"}
+                  className={`room-lobby-mobile-tab ${
+                    mobileLobbyTab === "host" ? "is-active" : ""
+                  }`}
+                  onClick={() => setMobileLobbyTab("host")}
+                >
+                  主持
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileLobbyTab === "playlist"}
+                  className={`room-lobby-mobile-tab ${
+                    mobileLobbyTab === "playlist" ? "is-active" : ""
+                  }`}
+                  onClick={() => setMobileLobbyTab("playlist")}
+                >
+                  歌單
+                </button>
+              </div>
+              <div className="room-lobby-mobile-panel">
+                {mobileLobbyTab === "members" && participantsPanel}
+                {mobileLobbyTab === "host" &&
+                  (hostPanel ?? (
+                    <div className="room-lobby-mobile-empty-panel">
+                      <Typography variant="body2" className="text-slate-400">
+                        目前沒有可顯示的主持內容。
+                      </Typography>
+                    </div>
+                  ))}
+                {mobileLobbyTab === "playlist" && playlistPanel}
               </div>
             </div>
-          ) : (
-            <div
-              ref={playlistListContainerRef}
-              className={playlistListShellClassName}
-              style={playlistListShellStyle}
+            <div className="room-lobby-mobile-chat-trigger-wrap">
+              <Button
+                variant="outlined"
+                color="info"
+                fullWidth
+                onClick={() => setMobileChatDrawerOpen(true)}
+              >
+                開啟聊天室
+              </Button>
+            </div>
+            <SwipeableDrawer
+              anchor="bottom"
+              open={mobileChatDrawerOpen}
+              onOpen={() => setMobileChatDrawerOpen(true)}
+              onClose={() => setMobileChatDrawerOpen(false)}
+              disableSwipeToOpen={false}
+              keepMounted
+              PaperProps={{ className: "room-lobby-mobile-chat-drawer-paper" }}
             >
-              <div className="h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-900/60">
-                <VirtualList
-                  style={{ height: playlistListViewportHeight, width: "100%" }}
-                  rowCount={rowCount}
-                  rowHeight={75}
-                  rowProps={playlistRowProps}
-                  rowComponent={PlaylistRow}
-                />
+              <div className="room-lobby-mobile-chat-drawer">
+                <div className="room-lobby-mobile-chat-drawer-head">
+                  <span className="room-lobby-mobile-chat-drawer-handle" />
+                  <Typography variant="subtitle2" className="text-slate-100">
+                    房間聊天室
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="text"
+                    color="inherit"
+                    onClick={() => setMobileChatDrawerOpen(false)}
+                  >
+                    收合
+                  </Button>
+                </div>
+                <div className="room-lobby-mobile-chat-drawer-body">
+                  {chatPanel}
+                </div>
               </div>
+            </SwipeableDrawer>
+          </>
+        ) : (
+          <>
+            <div className="room-lobby-top-grid">
+              {participantsPanel}
+              {hostPanel}
             </div>
-          )}
-        </Box>
+
+            {chatPanel}
+
+            <Divider className="room-lobby-divider" />
+
+            {playlistPanel}
+          </>
+        )}
       </CardContent>
       <RoomLobbySettingsDialog
         open={settingsOpen}

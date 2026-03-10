@@ -336,6 +336,8 @@ const RoomLobbyPage: React.FC = () => {
     routeRoomResolved,
     sessionProgress,
     setStatusText,
+    kickedNotice,
+    setKickedNotice,
     hostRoomPassword,
     serverOffsetMs,
     setRouteRoomId,
@@ -453,6 +455,16 @@ const RoomLobbyPage: React.FC = () => {
           : null,
     };
   }, [isConnected, sessionProgress]);
+
+  const isKickedFromActiveRoom = Boolean(
+    roomId && !currentRoom && kickedNotice?.roomId === roomId,
+  );
+  const kickedBannedUntilLabel = useMemo(() => {
+    if (typeof kickedNotice?.bannedUntil !== "number") return null;
+    return new Date(kickedNotice.bannedUntil).toLocaleString("zh-TW", {
+      hour12: false,
+    });
+  }, [kickedNotice?.bannedUntil]);
 
   const settlementSessionCacheKey =
     currentRoom?.id && clientId
@@ -1099,6 +1111,98 @@ const RoomLobbyPage: React.FC = () => {
     lastJoinedRoomIdRef.current = null;
   }, [clientId, currentRoom, removeSettlementCacheForRoom, routeRoomResolved]);
 
+  if (roomId && username && !currentRoom && isKickedFromActiveRoom) {
+    return (
+      <div className="mx-auto mt-6 w-full max-w-[980px] min-w-0">
+        <div className="relative overflow-hidden rounded-[26px] border border-rose-300/30 bg-[radial-gradient(circle_at_12%_12%,rgba(244,63,94,0.22),transparent_44%),radial-gradient(circle_at_86%_12%,rgba(251,191,36,0.16),transparent_48%),linear-gradient(180deg,rgba(16,10,14,0.97),rgba(8,6,10,0.99))] p-6 text-[var(--mc-text)] shadow-[0_36px_90px_-58px_rgba(244,63,94,0.6)] sm:p-8">
+          <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(244,63,94,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(244,63,94,0.05)_1px,transparent_1px)] [background-size:20px_20px]" />
+          <div className="relative grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-3 rounded-2xl border border-rose-300/35 bg-rose-300/10 px-4 py-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-200/45 bg-rose-400/10 text-lg text-rose-100">
+                  !
+                </span>
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.28em] text-rose-100/80">
+                    Room Access
+                  </div>
+                  <div className="text-sm font-semibold text-rose-50 sm:text-base">
+                    你已被移出房間
+                  </div>
+                </div>
+              </div>
+
+              <h1 className="mt-5 text-2xl font-semibold tracking-tight text-[var(--mc-text)] sm:text-3xl">
+                無法繼續停留在目前房間
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)] sm:text-[15px]">
+                {kickedNotice?.reason ?? "房主已將你移出本房間。"}
+              </p>
+              {kickedBannedUntilLabel ? (
+                <p className="mt-2 text-xs leading-5 text-amber-100/85">
+                  封鎖至：{kickedBannedUntilLabel}
+                </p>
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="inline-flex max-w-full items-center rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/75 px-3 py-1 text-xs text-[var(--mc-text-muted)]">
+                  房號：
+                  <span className="ml-1 truncate text-[var(--mc-text)]">
+                    {roomId}
+                  </span>
+                </span>
+                <span className="inline-flex max-w-full items-center rounded-full border border-rose-300/22 bg-rose-400/10 px-3 py-1 text-xs text-rose-100/90">
+                  玩家：
+                  <span className="ml-1 truncate text-rose-50">{username}</span>
+                </span>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-rose-300/65 bg-rose-500/20 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-rose-50 transition hover:border-rose-200 hover:bg-rose-500/30"
+                  onClick={() => {
+                    setKickedNotice(null);
+                    navigate("/rooms", { replace: true });
+                  }}
+                >
+                  返回房間列表
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/75 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--mc-text)] transition hover:border-amber-200/25 hover:bg-[var(--mc-surface-strong)]/88"
+                  onClick={() => {
+                    setKickedNotice(null);
+                    navigate("/rooms/create");
+                  }}
+                >
+                  建立新房間
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface)_88%,black_12%)] p-4 sm:p-5">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
+                Next Steps
+              </div>
+              <ul className="mt-3 space-y-3 text-sm leading-6 text-[var(--mc-text-muted)]">
+                <li className="rounded-xl border border-[var(--mc-border)]/70 bg-black/15 px-3 py-2">
+                  你可以返回房間列表並加入其他房間。
+                </li>
+                <li className="rounded-xl border border-[var(--mc-border)]/70 bg-black/15 px-3 py-2">
+                  也可以直接建立自己的新房間。
+                </li>
+                <li className="rounded-xl border border-[var(--mc-border)]/70 bg-black/15 px-3 py-2">
+                  若需要回到原房間，請與房主確認是否解除限制。
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (roomId && username && !currentRoom && !routeRoomResolved) {
     return (
       <>
@@ -1333,6 +1437,8 @@ const RoomLobbyPage: React.FC = () => {
             onBackToLobby={() => setIsGameView(false)}
             onExitGame={() => leaveRoomAndNavigate()}
             onSubmitChoice={handleSubmitChoice}
+            onKickPlayer={handleKickPlayer}
+            onTransferHost={handleTransferHost}
             participants={participants}
             meClientId={clientId}
             messages={messages}
