@@ -1593,9 +1593,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 <div className="room-lobby-mobile-actions-card">
                   <div className="room-lobby-mobile-actions-head">
                     <span className="room-lobby-mobile-actions-kicker">Quick Access</span>
-                    <span className="room-lobby-mobile-actions-caption">
-                      {isHost ? "房主操作" : "房間操作"}
-                    </span>
                   </div>
                   {mobilePrimaryActions.length > 0 && (
                     <div

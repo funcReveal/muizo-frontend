@@ -9965,6 +9965,7 @@ body {
   }
 
   .game-room-mobile-drawer-head--scoreboard {
+    position: relative;
     padding-bottom: 8px;
     border-bottom-color: rgba(56, 189, 248, 0.2);
     background:
@@ -9981,6 +9982,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    padding-right: 54px;
   }
 
   .game-room-mobile-scoreboard-title-group {
@@ -10073,6 +10075,11 @@ body {
     top: 10px;
     right: 10px;
     z-index: 3;
+  }
+
+  .game-room-mobile-drawer-close-fab--scoreboard {
+    top: 6px;
+    right: 8px;
   }
 
   .game-room-mobile-drawer-root--opening .MuiDrawer-paper {
@@ -10173,6 +10180,10 @@ body {
     border-color: rgba(56, 189, 248, 0.32);
   }
 
+  .game-room-playback-panel--mobile-overlay > .flex.items-center.gap-2 > div {
+    min-width: 0;
+  }
+
   .game-room-playback-panel--mobile-overlay .game-room-kicker {
     font-size: 10px;
   }
@@ -10182,13 +10193,17 @@ body {
   }
 
   .game-room-playback-panel--mobile-overlay .game-room-track-counter {
-    margin-top: 0.25rem;
     font-size: 10px;
     padding: 0.24rem 0.62rem;
   }
 
+  .game-room-playback-panel--mobile-overlay .game-room-reveal-title-marquee {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
   .game-room-playback-panel--mobile-overlay .game-room-media-frame {
-    height: min(22vh, 164px) !important;
+    height: min(24vh, 178px) !important;
   }
 
   .game-room-playback-panel--mobile-overlay-fill {
@@ -10227,6 +10242,7 @@ body {
     padding: 10px 12px;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
   }
 
   .game-room-choice-button--mobile.MuiButton-root:active {
@@ -10237,6 +10253,7 @@ body {
     font-size: 15px;
     line-height: 1.32;
     -webkit-line-clamp: 3;
+    max-width: 100%;
   }
 
   .game-room-choice-button--mobile .game-room-choice-meta {
@@ -10327,10 +10344,11 @@ body {
 
   .game-room-choice-button--mobile.MuiButton-root {
     min-height: 92px;
+    padding-inline: 11px;
   }
 
   .game-room-playback-panel--mobile-overlay .game-room-media-frame {
-    height: min(21vh, 152px) !important;
+    height: min(22vh, 164px) !important;
   }
 
   .room-battle-history-shell {

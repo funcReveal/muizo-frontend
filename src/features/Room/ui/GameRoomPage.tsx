@@ -1708,20 +1708,20 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     已答 {answeredCount}/{participants.length || 0}
                   </span>
                 </div>
+                <button
+                  type="button"
+                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close-fab game-room-mobile-drawer-close-fab--scoreboard"
+                  onClick={handleCloseMobileScoreboard}
+                  aria-label="關閉分數榜"
+                >
+                  <CloseRoundedIcon fontSize="inherit" />
+                </button>
               </div>
               <div
                 className={`relative min-h-0 flex-1 overflow-hidden ${
                   mobileRevealSplitMode ? "p-1.5 pb-1" : "p-2"
                 }`}
               >
-                <button
-                  type="button"
-                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close-fab"
-                  onClick={handleCloseMobileScoreboard}
-                  aria-label="關閉分數榜"
-                >
-                  <CloseRoundedIcon fontSize="inherit" />
-                </button>
                 <GameRoomLeftSidebar
                   answeredCount={answeredCount}
                   participantCount={participants.length}
