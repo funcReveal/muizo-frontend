@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -23,10 +23,10 @@ import SmartDisplayRoundedIcon from "@mui/icons-material/SmartDisplayRounded";
 import ForumRoundedIcon from "@mui/icons-material/ForumRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
-import HistoryEduRoundedIcon from "@mui/icons-material/HistoryEduRounded";
 import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
 import PersonRemoveRoundedIcon from "@mui/icons-material/PersonRemoveRounded";
 import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import type {
   ChatMessage,
   GameState,
@@ -98,8 +98,6 @@ interface GameRoomPageProps {
   username?: string | null;
   serverOffsetMs?: number;
   onSettlementRecapChange?: (recaps: SettlementQuestionRecap[]) => void;
-  onOpenHistoryDrawer?: () => void;
-  historySummaryCount?: number;
 }
 
 type MobileBottomPanel = "scoreboard" | "chat" | null;
@@ -179,8 +177,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   onSendMessage,
   serverOffsetMs = 0,
   onSettlementRecapChange,
-  onOpenHistoryDrawer,
-  historySummaryCount = 0,
 }) => {
   const { danmuEnabled, setDanmuEnabled, danmuItems } = useGameRoomDanmu({
     roomId: room.id,
@@ -217,6 +213,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     useState(false);
   const [mobileRevealAutoOverlayEnabled, setMobileRevealAutoOverlayEnabled] =
     useState(true);
+  const [mobileAutoOverlayTransition, setMobileAutoOverlayTransition] =
+    useState<"idle" | "opening" | "closing">("idle");
   const [mobileChatDragging, setMobileChatDragging] = useState(false);
   const [hostManagementOpen, setHostManagementOpen] = useState(false);
   const [hostManagementConfirm, setHostManagementConfirm] =
@@ -229,6 +227,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const lastRevealResultSfxKeyRef = useRef<string | null>(null);
   const lastComboStateSfxKeyRef = useRef<string | null>(null);
   const previousPhaseRef = useRef<GameState["phase"]>(gameState.phase);
+  const lastAutoOverlayTransitionAtRef = useRef(0);
   const answerPanelRef = useRef<HTMLDivElement | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
@@ -353,9 +352,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     if (!isHostInGame) return;
     setHostManagementOpen(true);
   }, [isHostInGame]);
-  const handleOpenHistoryDrawer = useCallback(() => {
-    onOpenHistoryDrawer?.();
-  }, [onOpenHistoryDrawer]);
   const handleCloseHostManagement = useCallback(() => {
     setHostManagementOpen(false);
   }, []);
@@ -1127,20 +1123,40 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [isMobileGameViewport]);
 
   useEffect(() => {
+    let desktopResetTimer: number | null = null;
     if (!isMobileGameViewport) {
       previousPhaseRef.current = gameState.phase;
-      return;
+      desktopResetTimer = window.setTimeout(() => {
+        setMobileAutoOverlayTransition("idle");
+      }, 0);
+      return () => {
+        if (desktopResetTimer !== null) {
+          window.clearTimeout(desktopResetTimer);
+        }
+      };
     }
     const previousPhase = previousPhaseRef.current;
     const currentPhase = gameState.phase;
     let phaseTransitionTimer: number | null = null;
+    let transitionResetTimer: number | null = null;
     if (previousPhase !== currentPhase) {
       const shouldOpenRevealOverlay =
         currentPhase === "reveal" && mobileRevealAutoOverlayEnabled;
       const shouldCloseRevealOverlay =
         currentPhase === "guess" && previousPhase === "reveal";
-      if (shouldOpenRevealOverlay || shouldCloseRevealOverlay) {
+      if (
+        (shouldOpenRevealOverlay || shouldCloseRevealOverlay) &&
+        !isMobileDrawerGestureActive
+      ) {
+        const now = Date.now();
+        const throttleMs = Math.max(
+          0,
+          180 - (now - lastAutoOverlayTransitionAtRef.current),
+        );
         phaseTransitionTimer = window.setTimeout(() => {
+          setMobileAutoOverlayTransition(
+            shouldOpenRevealOverlay ? "opening" : "closing",
+          );
           if (shouldOpenRevealOverlay) {
             setMobileScoreboardSwapArmed(false);
             setMobilePlaybackOpen(true);
@@ -1151,16 +1167,33 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             setMobileBottomPanel(null);
             setMobileScoreboardSwapArmed(false);
           }
-        }, 0);
+          lastAutoOverlayTransitionAtRef.current = Date.now();
+          transitionResetTimer = window.setTimeout(() => {
+            setMobileAutoOverlayTransition("idle");
+          }, 260);
+        }, throttleMs);
       }
     }
-    previousPhaseRef.current = currentPhase;
+    if (!isMobileDrawerGestureActive) {
+      previousPhaseRef.current = currentPhase;
+    }
     return () => {
+      if (desktopResetTimer !== null) {
+        window.clearTimeout(desktopResetTimer);
+      }
       if (phaseTransitionTimer !== null) {
         window.clearTimeout(phaseTransitionTimer);
       }
+      if (transitionResetTimer !== null) {
+        window.clearTimeout(transitionResetTimer);
+      }
     };
-  }, [gameState.phase, isMobileGameViewport, mobileRevealAutoOverlayEnabled]);
+  }, [
+    gameState.phase,
+    isMobileDrawerGestureActive,
+    isMobileGameViewport,
+    mobileRevealAutoOverlayEnabled,
+  ]);
 
   const exitGameDialog = (
     <GameRoomExitDialog
@@ -1182,29 +1215,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       startCountdownSec={startCountdownSec}
     />
   );
-  const hasHistoryDrawerEntry = Boolean(
-    onOpenHistoryDrawer && historySummaryCount > 0,
-  );
   const playbackHeaderActions =
-    hasHistoryDrawerEntry || isHostInGame ? (
+    isHostInGame ? (
       <Stack
         direction="row"
         spacing={1}
         className="max-[760px]:w-full max-[760px]:grid max-[760px]:grid-cols-1"
       >
-        {hasHistoryDrawerEntry && (
-          <Button
-            type="button"
-            variant="outlined"
-            color="info"
-            size="small"
-            startIcon={<HistoryEduRoundedIcon />}
-            className="game-room-host-manage-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
-            onClick={handleOpenHistoryDrawer}
-          >
-            對戰歷史 {historySummaryCount}
-          </Button>
-        )}
         {isHostInGame && (
           <Button
             type="button"
@@ -1439,9 +1456,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           {isMobileGameViewport && (
             <div
               className={`game-room-mobile-action-dock lg:hidden ${
-                hasHistoryDrawerEntry ? "game-room-mobile-action-dock--with-history" : ""
-              } ${
                 mobileRevealSplitMode ? "game-room-mobile-action-dock--hidden" : ""
+              } ${
+                mobileAutoOverlayTransition !== "idle"
+                  ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
+                  : ""
               }`}
             >
               <button
@@ -1489,25 +1508,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     : "開啟"}
                 </span>
               </button>
-              {hasHistoryDrawerEntry && (
-                <button
-                  type="button"
-                  className="game-room-mobile-action-btn game-room-mobile-action-btn--icon"
-                  onClick={handleOpenHistoryDrawer}
-                >
-                  <span className="game-room-mobile-action-icon" aria-hidden>
-                    <HistoryEduRoundedIcon fontSize="inherit" />
-                  </span>
-                  <span className="game-room-mobile-action-label">歷史</span>
-                  <span className="game-room-mobile-action-meta">
-                    {historySummaryCount} 局
-                  </span>
-                </button>
-              )}
               <div
-                className={`game-room-mobile-action-subdock ${
-                  hasHistoryDrawerEntry ? "col-span-4" : "col-span-3"
-                }`}
+                className="game-room-mobile-action-subdock col-span-3"
               >
                 {isHostInGame && (
                   <button
@@ -1543,7 +1545,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <span className="game-room-mobile-action-icon" aria-hidden>
                     <AutoAwesomeRoundedIcon fontSize="inherit" />
                   </span>
-                  <span>公布答案自動分割</span>
+                  <span>公布答案自動彈出影片與分數榜</span>
                   <span className="game-room-mobile-action-meta">
                     {mobileRevealAutoOverlayEnabled ? "ON" : "OFF"}
                   </span>
@@ -1562,7 +1564,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               />
             )}
             <SwipeableDrawer
-              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--playback lg:!hidden"
+              className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--playback lg:!hidden ${
+                mobileAutoOverlayTransition !== "idle"
+                  ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
+                  : ""
+              }`}
               anchor="top"
               open={mobilePlaybackOpen}
               onOpen={handleOpenMobilePlayback}
@@ -1589,10 +1595,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               }}
             >
               <div
-                className={`min-h-0 flex-1 overflow-hidden ${
+                className={`relative min-h-0 flex-1 overflow-hidden ${
                   mobileRevealSplitMode ? "p-1.5 pt-1" : "p-2"
                 }`}
               >
+                <button
+                  type="button"
+                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close-fab"
+                  onClick={handleCloseMobilePlayback}
+                  aria-label="關閉影片視窗"
+                >
+                  <CloseRoundedIcon fontSize="inherit" />
+                </button>
                 <GameRoomPlaybackPanel
                   isMobileView
                   isOverlayMode
@@ -1640,7 +1654,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </div>
             </SwipeableDrawer>
             <SwipeableDrawer
-              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden"
+              className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${
+                mobileAutoOverlayTransition !== "idle"
+                  ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
+                  : ""
+              }`}
               anchor="bottom"
               open={mobileScoreboardOpen}
               onOpen={handleOpenMobileScoreboard}
@@ -1692,10 +1710,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </div>
               </div>
               <div
-                className={`min-h-0 flex-1 overflow-hidden ${
+                className={`relative min-h-0 flex-1 overflow-hidden ${
                   mobileRevealSplitMode ? "p-1.5 pb-1" : "p-2"
                 }`}
               >
+                <button
+                  type="button"
+                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close-fab"
+                  onClick={handleCloseMobileScoreboard}
+                  aria-label="關閉分數榜"
+                >
+                  <CloseRoundedIcon fontSize="inherit" />
+                </button>
                 <GameRoomLeftSidebar
                   answeredCount={answeredCount}
                   participantCount={participants.length}

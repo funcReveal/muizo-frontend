@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Button, Stack, Typography } from "@mui/material";
 
 interface QuestionCountControlsProps {
@@ -106,83 +106,89 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
 
   return (
     <Stack
-      className="room-question-controls"
-      direction="row"
-      spacing={1.5}
-      alignItems={{ sm: "center" }}
-      sx={{ p: 1, minWidth: "fit-content" }}
+      spacing={1.2}
+      className="room-question-controls room-question-controls--dialog"
     >
-      <Stack direction="row" spacing={1}>
-        <Button
-          variant="outlined"
-          size="small"
-          className="room-create-accent-button"
-          onClick={() => onChange(safeMin)}
-          disabled={disabled || value === safeMin}
-        >
-          最小
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          className="room-create-accent-button"
-          onClick={() => adjust(-step)}
-          disabled={disabled || value <= safeMin}
-        >
-          -{step}
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          className="room-create-accent-button"
-          onClick={() => adjust(-1)}
-          disabled={disabled || value <= safeMin}
-        >
-          -1
-        </Button>
-      </Stack>
+      <div className="room-question-summary-row">
+        {showRangeHint ? (
+          <span className="room-question-summary-chip">題數範圍 {rangeLabel}</span>
+        ) : (
+          <span className="room-question-summary-chip">目前題數 {value}</span>
+        )}
+        <span className="room-question-summary-chip room-question-summary-chip--accent">
+          快速調整 ±{step}
+        </span>
+      </div>
 
-      <Stack spacing={0.25} alignItems="center" sx={{ minWidth: 120 }}>
-        <Typography variant="body2" className="room-create-muted">
-          題數
-        </Typography>
-        <Typography variant="h4" className="room-create-figure">
-          {value}
-        </Typography>
-        <Typography variant="caption" className="room-create-muted">
-          {rangeLabel}
-        </Typography>
-      </Stack>
+      <div className="room-question-rail">
+        <div className="room-question-action-cluster">
+          <Button
+            variant="outlined"
+            size="small"
+            className="room-create-accent-button"
+            onClick={() => onChange(safeMin)}
+            disabled={disabled || value === safeMin}
+          >
+            最小
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            className="room-create-accent-button"
+            onClick={() => adjust(-step)}
+            disabled={disabled || value <= safeMin}
+          >
+            -{step}
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            className="room-create-accent-button"
+            onClick={() => adjust(-1)}
+            disabled={disabled || value <= safeMin}
+          >
+            -1
+          </Button>
+        </div>
 
-      <Stack direction="row" spacing={1}>
-        <Button
-          variant="outlined"
-          size="small"
-          className="room-create-accent-button"
-          onClick={() => adjust(1)}
-          disabled={disabled || value >= safeMax}
-        >
-          +1
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          className="room-create-accent-button"
-          onClick={() => adjust(step)}
-          disabled={disabled || value >= safeMax}
-        >
-          +{step}
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          className="room-create-accent-button"
-          onClick={() => onChange(safeMax)}
-          disabled={disabled || value === safeMax}
-        >
-          最大
-        </Button>
-      </Stack>
+        <div className="room-question-focus-card">
+          <span className="room-question-focus-card__label">目前題數</span>
+          <strong className="room-question-focus-card__value">{value}</strong>
+          <span className="room-question-focus-card__range">
+            最少 {safeMin} / 最多 {safeMax}
+          </span>
+        </div>
+
+        <div className="room-question-action-cluster">
+          <Button
+            variant="outlined"
+            size="small"
+            className="room-create-accent-button"
+            onClick={() => adjust(1)}
+            disabled={disabled || value >= safeMax}
+          >
+            +1
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            className="room-create-accent-button"
+            onClick={() => adjust(step)}
+            disabled={disabled || value >= safeMax}
+          >
+            +{step}
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            className="room-create-accent-button"
+            onClick={() => onChange(safeMax)}
+            disabled={disabled || value === safeMax}
+          >
+            最大
+          </Button>
+        </div>
+      </div>
     </Stack>
   );
 };

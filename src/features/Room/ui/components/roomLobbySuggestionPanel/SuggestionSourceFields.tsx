@@ -2,83 +2,66 @@ import React from "react";
 import { MenuItem, TextField, Typography } from "@mui/material";
 
 import type { YoutubePlaylist } from "../../../model/RoomContext";
+import RoomLobbyLoadingState from "../RoomLobbyLoadingState";
 import type { CollectionOption } from "../roomLobbyPanelTypes";
 import { normalizeDisplayText } from "../roomLobbyPanelUtils";
 import type { SuggestType } from "./types";
 
 interface SuggestionSourceFieldsProps {
   suggestType: SuggestType;
-  suggestPlaylistPrimaryText: string;
   suggestPlaylistUrl: string;
   onSuggestPlaylistUrlChange: (value: string) => void;
-  suggestCollectionPrimaryText: string;
-  isSuggestCollectionEmptyNotice: boolean;
-  isGoogleAuthed: boolean;
-  collectionScope: "public" | "owner";
   suggestCollectionId: string | null;
   collections: CollectionOption[];
+  collectionsLoading: boolean;
   onSuggestCollectionIdChange: (value: string | null) => void;
-  suggestYoutubePrimaryText: string;
-  isSuggestYoutubeEmptyNotice: boolean;
-  isSuggestYoutubeMissingNotice: boolean;
+  isGoogleAuthed: boolean;
+  collectionScope: "public" | "owner";
   visibleSuggestYoutubeError: string | null;
   suggestYoutubePlaylistId: string | null;
   youtubePlaylists: YoutubePlaylist[];
+  youtubePlaylistsLoading: boolean;
   onSuggestYoutubePlaylistIdChange: (value: string | null) => void;
   isSubmitting: boolean;
 }
 
 const SuggestionSourceFields: React.FC<SuggestionSourceFieldsProps> = ({
   suggestType,
-  suggestPlaylistPrimaryText,
   suggestPlaylistUrl,
   onSuggestPlaylistUrlChange,
-  suggestCollectionPrimaryText,
-  isSuggestCollectionEmptyNotice,
-  isGoogleAuthed,
-  collectionScope,
   suggestCollectionId,
   collections,
+  collectionsLoading,
   onSuggestCollectionIdChange,
-  suggestYoutubePrimaryText,
-  isSuggestYoutubeEmptyNotice,
-  isSuggestYoutubeMissingNotice,
+  isGoogleAuthed,
+  collectionScope,
   visibleSuggestYoutubeError,
   suggestYoutubePlaylistId,
   youtubePlaylists,
+  youtubePlaylistsLoading,
   onSuggestYoutubePlaylistIdChange,
   isSubmitting,
 }) => (
   <>
     {suggestType === "playlist" && (
-      <>
-        <Typography variant="caption" className="text-slate-400">
-          {suggestPlaylistPrimaryText}
-        </Typography>
-        <TextField
-          size="small"
-          value={suggestPlaylistUrl}
-          onChange={(event) => onSuggestPlaylistUrlChange(event.target.value)}
-          placeholder="貼上 YouTube 播放清單 URL"
-          disabled={isSubmitting}
-          fullWidth
-        />
-      </>
+      <TextField
+        size="small"
+        value={suggestPlaylistUrl}
+        onChange={(event) => onSuggestPlaylistUrlChange(event.target.value)}
+        placeholder="貼上 YouTube 播放清單 URL"
+        disabled={isSubmitting}
+        fullWidth
+      />
     )}
+
     {suggestType === "collection" && (
       <>
-        <Typography
-          variant="caption"
-          className={
-            isSuggestCollectionEmptyNotice ? "text-rose-300" : "text-slate-400"
-          }
-        >
-          {suggestCollectionPrimaryText}
-        </Typography>
-        {!isGoogleAuthed && collectionScope === "owner" && (
-          <Typography variant="caption" className="text-slate-400">
-            登入後可使用私人收藏庫
-          </Typography>
+        {collectionsLoading && (
+          <RoomLobbyLoadingState
+            className="hidden"
+            label="正在讀取收藏庫"
+            detail={`整理${collectionScope === "public" ? "公開" : "私人"}歌單來源中...`}
+          />
         )}
         <TextField
           select
@@ -89,13 +72,13 @@ const SuggestionSourceFields: React.FC<SuggestionSourceFieldsProps> = ({
               event.target.value ? event.target.value : null,
             )
           }
-          disabled={isSubmitting}
+          disabled={isSubmitting || collectionsLoading}
           fullWidth
           SelectProps={{
             displayEmpty: true,
             renderValue: (selected) => {
               const selectedId = String(selected ?? "");
-              if (!selectedId) return "請選擇收藏庫";
+              if (!selectedId) return "選擇要推薦的收藏庫";
               const selectedOption = collections.find(
                 (item) => item.id === selectedId,
               );
@@ -104,7 +87,7 @@ const SuggestionSourceFields: React.FC<SuggestionSourceFieldsProps> = ({
             },
           }}
         >
-          <MenuItem value="">請選擇收藏庫</MenuItem>
+          <MenuItem value="">選擇要推薦的收藏庫</MenuItem>
           {collections.map((collection) => (
             <MenuItem key={collection.id} value={collection.id}>
               <div className="flex min-w-0 flex-col">
@@ -112,7 +95,7 @@ const SuggestionSourceFields: React.FC<SuggestionSourceFieldsProps> = ({
                   {normalizeDisplayText(collection.title, "未命名收藏庫")}
                 </span>
                 <span className="text-xs text-slate-400">
-                  熱門度 {Math.max(0, Number(collection.use_count ?? 0))}
+                  使用次數 {Math.max(0, Number(collection.use_count ?? 0))}
                 </span>
               </div>
             </MenuItem>
@@ -120,20 +103,23 @@ const SuggestionSourceFields: React.FC<SuggestionSourceFieldsProps> = ({
         </TextField>
       </>
     )}
+
     {suggestType === "youtube" && (
       <>
-        <Typography
-          variant="caption"
-          className={
-            isSuggestYoutubeEmptyNotice || isSuggestYoutubeMissingNotice
-              ? "text-rose-300"
-              : "text-slate-400"
-          }
-        >
-          {suggestYoutubePrimaryText}
-        </Typography>
+        {!isGoogleAuthed && (
+          <Typography variant="caption" className="hidden room-lobby-field-notice">
+            請先登入 Google 才能讀取 YouTube 播放清單。
+          </Typography>
+        )}
+        {youtubePlaylistsLoading && isGoogleAuthed && (
+          <RoomLobbyLoadingState
+            className="hidden"
+            label="正在讀取 YouTube 播放清單"
+            detail="同步你的雲端播放清單中..."
+          />
+        )}
         {visibleSuggestYoutubeError && (
-          <Typography variant="caption" className="text-rose-300">
+          <Typography variant="caption" className="hidden text-rose-300">
             {visibleSuggestYoutubeError}
           </Typography>
         )}
@@ -146,25 +132,25 @@ const SuggestionSourceFields: React.FC<SuggestionSourceFieldsProps> = ({
               event.target.value ? event.target.value : null,
             )
           }
-          disabled={isSubmitting || !isGoogleAuthed}
+          disabled={isSubmitting || !isGoogleAuthed || youtubePlaylistsLoading}
           fullWidth
           SelectProps={{
             displayEmpty: true,
             renderValue: (selected) => {
               const selectedId = String(selected ?? "");
-              if (!selectedId) return "請選擇 YouTube 播放清單";
+              if (!selectedId) return "選擇 YouTube 播放清單";
               const selectedOption = youtubePlaylists.find(
                 (item) => item.id === selectedId,
               );
               if (!selectedOption) return selectedId;
-              return `${normalizeDisplayText(selectedOption.title, "未命名播放清單")} (${selectedOption.itemCount})`;
+              return `${normalizeDisplayText(selectedOption.title, "未命名 YouTube 播放清單")} (${selectedOption.itemCount})`;
             },
           }}
         >
-          <MenuItem value="">請選擇 YouTube 播放清單</MenuItem>
+          <MenuItem value="">選擇 YouTube 播放清單</MenuItem>
           {youtubePlaylists.map((playlist) => (
             <MenuItem key={playlist.id} value={playlist.id}>
-              {normalizeDisplayText(playlist.title, "未命名播放清單")} (
+              {normalizeDisplayText(playlist.title, "未命名 YouTube 播放清單")} (
               {playlist.itemCount})
             </MenuItem>
           ))}

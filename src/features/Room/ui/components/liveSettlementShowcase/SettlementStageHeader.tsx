@@ -59,10 +59,9 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
   }, [isMobileView]);
 
   const activeTabButtonClass = (tab: LiveSettlementTab) =>
-    `rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.08em] transition ${
-      activeTab === tab
-        ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-        : "border-slate-500/60 bg-slate-900/60 text-slate-300"
+    `rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.08em] transition ${activeTab === tab
+      ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+      : "border-slate-500/60 bg-slate-900/60 text-slate-300"
     }`;
 
   return (
@@ -213,7 +212,7 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
               size="small"
               onClick={onOpenExitConfirm}
             >
-              離開結算
+              離開房間
             </Button>
           )}
         </div>

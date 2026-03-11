@@ -1,5 +1,6 @@
-﻿import React from "react";
+import React from "react";
 import { Button, Switch } from "@mui/material";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 
 import type { DanmuItem } from "./gameRoomPageTypes";
 
@@ -69,6 +70,8 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   const revealAnswerTextClass = isMobileOverlay
     ? "min-w-0 truncate text-[11px] font-semibold leading-4"
     : "text-xs font-semibold leading-5 sm:text-sm";
+  const shouldUseRevealMarquee =
+    isMobileView && isRevealPhase && revealAnswerLabel.length >= 18;
   const mediaFrameHeightClass = isMobileOverlay
     ? "h-full min-h-0 flex-1"
     : isMobileView
@@ -104,9 +107,18 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 <span className="shrink-0 rounded-full border border-emerald-200/50 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black tracking-[0.12em]">
                   答案
                 </span>
-                <span className={revealAnswerTextClass}>
-                  {revealAnswerLabel}
-                </span>
+                {shouldUseRevealMarquee ? (
+                  <span className="game-room-reveal-title-marquee">
+                    <span className="game-room-reveal-title-marquee-track game-room-reveal-title-marquee-track--run">
+                      <span>{revealAnswerLabel}</span>
+                      <span aria-hidden="true">{revealAnswerLabel}</span>
+                    </span>
+                  </span>
+                ) : (
+                  <span className={revealAnswerTextClass}>
+                    {revealAnswerLabel}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -118,6 +130,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
               variant="outlined"
               color="inherit"
               size="small"
+              startIcon={<LogoutRoundedIcon fontSize="small" />}
               onClick={onOpenExitConfirm}
               className="max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
             >

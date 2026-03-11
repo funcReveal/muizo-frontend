@@ -21,6 +21,8 @@ type UseRoomProviderReadActionsParams = {
   setStatusText: (value: string | null) => void;
 };
 
+const READ_ACK_TIMEOUT_MS = 6000;
+
 export const useRoomProviderReadActions = ({
   apiUrl,
   getSocket,
@@ -31,6 +33,43 @@ export const useRoomProviderReadActions = ({
   setInviteNotFound,
   setStatusText,
 }: UseRoomProviderReadActionsParams) => {
+  const withSocketAckTimeout = useCallback(
+    <T,>(
+      label: string,
+      executor: (
+        resolve: (value: T) => void,
+        reject: (reason?: unknown) => void,
+      ) => void,
+    ) =>
+      new Promise<T>((resolve, reject) => {
+        let settled = false;
+        const timer = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(
+            new Error(`${label}\u903e\u6642\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66`),
+          );
+        }, READ_ACK_TIMEOUT_MS);
+
+        const resolveOnce = (value: T) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          resolve(value);
+        };
+
+        const rejectOnce = (reason?: unknown) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          reject(reason);
+        };
+
+        executor(resolveOnce, rejectOnce);
+      }),
+    [],
+  );
+
   const fetchRooms = useCallback(async () => {
     if (!apiUrl) {
       setStatusText("嚙罵嚙踝蕭嚙稽嚙緩 API 嚙踝蕭m (API_URL)");
@@ -91,10 +130,10 @@ export const useRoomProviderReadActions = ({
       if (!socket || !currentRoom) {
         throw new Error("嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭");
       }
-      return await new Promise<{
+      return await withSocketAckTimeout<{
         items: RoomSettlementHistorySummary[];
         nextCursor: number | null;
-      }>((resolve, reject) => {
+      }>("\u8b80\u53d6\u623f\u9593\u6b77\u53f2", (resolve, reject) => {
         socket.emit(
           "listSettlementHistorySummaries",
           {
@@ -121,7 +160,7 @@ export const useRoomProviderReadActions = ({
         );
       });
     },
-    [currentRoom, getSocket],
+    [currentRoom, getSocket, withSocketAckTimeout],
   );
 
   const fetchSettlementReplay = useCallback(
@@ -130,8 +169,10 @@ export const useRoomProviderReadActions = ({
       if (!socket || !currentRoom) {
         throw new Error("嚙罵嚙踝蕭嚙稼嚙皚嚙踝蕭嚙請塚蕭");
       }
-      return await new Promise<RoomSettlementSnapshot>((resolve, reject) => {
-        socket.emit(
+      return await withSocketAckTimeout<RoomSettlementSnapshot>(
+        "\u8b80\u53d6\u5c0d\u6230\u56de\u653e",
+        (resolve, reject) => {
+          socket.emit(
           "getSettlementReplay",
           {
             roomId: currentRoom.id,
@@ -151,7 +192,7 @@ export const useRoomProviderReadActions = ({
         );
       });
     },
-    [currentRoom, getSocket],
+    [currentRoom, getSocket, withSocketAckTimeout],
   );
 
   return {

@@ -29,6 +29,7 @@ interface UseGameRoomPlayerSyncParams {
 
 const PLAYER_ID = "mq-main-player";
 const DRIFT_TOLERANCE_SEC = 1;
+const INITIAL_RESYNC_DRIFT_TOLERANCE_SEC = 1;
 const RESUME_DRIFT_TOLERANCE_SEC = 1.2;
 const WATCHDOG_DRIFT_TOLERANCE_SEC = 1.8;
 const WATCHDOG_REQUEST_INTERVAL_MS = 1400;
@@ -465,7 +466,12 @@ const useGameRoomPlayerSync = ({
         if (getServerNowMs() < startedAt) return;
         requestPlayerTime(`initial-${idx + 1}`);
         window.setTimeout(() => {
-          syncToServerPosition(`initial-check-${idx + 1}`, false, 0.8, true);
+          syncToServerPosition(
+            `initial-check-${idx + 1}`,
+            false,
+            INITIAL_RESYNC_DRIFT_TOLERANCE_SEC,
+            true,
+          );
         }, 120);
       }, delayMs);
       initialResyncTimersRef.current.push(timerId);

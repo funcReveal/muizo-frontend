@@ -8,6 +8,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+
 import type { ChatMessage } from "../../model/types";
 import {
   formatTime,
@@ -21,8 +22,8 @@ interface RoomLobbyChatPanelProps {
   onInputChange: (value: string) => void;
   onSend: () => void;
   latestSettlementRoundKey?: string | null;
-  onOpenSettlementByRoundKey?: (roundKey: string) => void;
   onOpenHistoryDrawer?: () => void;
+  onOpenSettlementByRoundKey?: (roundKey: string) => void;
 }
 
 const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
@@ -31,8 +32,8 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
   onInputChange,
   onSend,
   latestSettlementRoundKey,
-  onOpenSettlementByRoundKey,
   onOpenHistoryDrawer,
+  onOpenSettlementByRoundKey,
 }) => {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -81,8 +82,11 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                   onOpenSettlementByRoundKey &&
                   isLatestSettlement,
               );
-              const isHistoricalSettlement =
-                settlementRoundKey !== null && !isLatestSettlement;
+              const canOpenHistoryDrawer = Boolean(
+                settlementRoundKey &&
+                  !isLatestSettlement &&
+                  onOpenHistoryDrawer,
+              );
 
               if (isPresenceSystemMessage) {
                 return (
@@ -123,7 +127,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                   <Box
                     className="room-lobby-chat-message"
                     data-settlement={settlementRoundKey ? "true" : "false"}
-                    data-archived={isHistoricalSettlement ? "true" : "false"}
+                    data-archived={canOpenHistoryDrawer ? "true" : "false"}
                     sx={{
                       maxWidth: "100%",
                       borderRadius: 1,
@@ -138,7 +142,10 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                   >
                     <Stack direction="row" spacing={1}>
                       <Typography variant="caption" fontWeight={600}>
-                        {normalizeDisplayText(msg.username, "系統")}
+                        {normalizeDisplayText(
+                          msg.username,
+                          msg.userId.startsWith("system:") ? "對戰紀錄" : "玩家",
+                        )}
                       </Typography>
                       <Typography variant="caption" color="rgba(255,255,255,0.7)">
                         {formatTime(msg.timestamp)}
@@ -165,43 +172,19 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                           onOpenSettlementByRoundKey?.(settlementRoundKey)
                         }
                       >
-                        查看上一局結算
+                        查看上一局
                       </Button>
                     )}
-                    {isHistoricalSettlement && (
-                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="inherit"
-                          disabled
-                          sx={{ borderColor: "rgba(71,85,105,0.55)" }}
-                        >
-                          已封存紀錄
-                        </Button>
-                        {onOpenHistoryDrawer && (
-                          <Button
-                            size="small"
-                            variant="text"
-                            color="inherit"
-                            onClick={onOpenHistoryDrawer}
-                          >
-                            從右側歷史查看
-                          </Button>
-                        )}
-                      </Stack>
-                    )}
-                    {settlementRoundKey && !isHistoricalSettlement && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          display: "block",
-                          mt: 0.8,
-                          color: "rgba(148,163,184,0.88)",
-                        }}
+                    {canOpenHistoryDrawer && (
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="inherit"
+                        sx={{ mt: 1, color: "rgba(191,219,254,0.92)" }}
+                        onClick={() => onOpenHistoryDrawer?.()}
                       >
-                        僅上一局可快速點開，舊局請從右側歷史抽屜查看。
-                      </Typography>
+                        查看歷史
+                      </Button>
                     )}
                   </Box>
                 </ListItem>

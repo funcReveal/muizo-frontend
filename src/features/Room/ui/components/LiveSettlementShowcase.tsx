@@ -248,6 +248,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const autoAdvanceTimeoutRef = useRef<number | null>(null);
   const autoCenteredRecommendRoundKeyRef = useRef<string | null>(null);
   const recommendControlsHintTimerRef = useRef<number | null>(null);
+  const exitConfirmLockedRef = useRef(false);
 
   const stepIndex = TAB_ORDER.indexOf(activeTab);
   const {
@@ -760,6 +761,23 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     goToTab(TAB_ORDER[stepIndex - 1]);
   };
 
+  const openExitConfirm = useCallback(() => {
+    exitConfirmLockedRef.current = false;
+    setExitConfirmOpen(true);
+  }, []);
+
+  const closeExitConfirm = useCallback(() => {
+    exitConfirmLockedRef.current = false;
+    setExitConfirmOpen(false);
+  }, []);
+
+  const handleExitConfirm = useCallback(() => {
+    if (!onRequestExit || exitConfirmLockedRef.current) return;
+    exitConfirmLockedRef.current = true;
+    setExitConfirmOpen(false);
+    onRequestExit();
+  }, [onRequestExit]);
+
   useEffect(() => {
     if (!canAutoGuideLoop || autoAdvanceAtMs === null) {
       if (autoAdvanceTimeoutRef.current !== null) {
@@ -845,9 +863,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
             onGoToTab={goToTab}
             onGoPrevStep={goPrevStep}
             onGoNextStep={goNextStep}
-            onOpenExitConfirm={
-              onRequestExit ? () => setExitConfirmOpen(true) : undefined
-            }
+            onOpenExitConfirm={onRequestExit ? openExitConfirm : undefined}
             canGoPrev={stepIndex > 0}
             hasNextStep={stepIndex < TAB_ORDER.length - 1}
             canFinish={Boolean(onBackToLobby)}
@@ -1049,17 +1065,15 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       <SettlementMobileFooter
         onGoPrevStep={goPrevStep}
         onGoNextStep={goNextStep}
-        onOpenExitConfirm={
-          onRequestExit ? () => setExitConfirmOpen(true) : undefined
-        }
+        onOpenExitConfirm={onRequestExit ? openExitConfirm : undefined}
         canGoPrev={stepIndex > 0}
         hasNextStep={stepIndex < TAB_ORDER.length - 1}
         canFinish={Boolean(onBackToLobby)}
       />
       <SettlementExitDialog
         open={exitConfirmOpen}
-        onClose={() => setExitConfirmOpen(false)}
-        onConfirm={onRequestExit}
+        onCancel={closeExitConfirm}
+        onConfirm={handleExitConfirm}
       />
     </div>
   );

@@ -90,6 +90,14 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   onSave,
 }) => {
   const isMobileDialog = useMediaQuery("(max-width:900px)");
+  const isWideDialog = useMediaQuery("(min-width:1180px)");
+  const timingSummary = useCollectionTimingForSettings
+    ? `揭曉 ${settingsRevealDurationSec}s（收藏庫）`
+    : `作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s / 揭曉 ${settingsRevealDurationSec}s`;
+  const maxPlayersLabel = settingsMaxPlayers.trim()
+    ? `${settingsMaxPlayers} 人`
+    : "不限制";
+  const visibilityLabel = settingsVisibility === "public" ? "公開房間" : "私人房間";
 
   return (
     <Dialog
@@ -97,84 +105,116 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
       onClose={onClose}
       fullScreen={isMobileDialog}
       fullWidth
-      maxWidth="md"
+      maxWidth="lg"
       PaperProps={{
+        className: "room-lobby-settings-dialog",
         sx: {
-          borderRadius: isMobileDialog ? 0 : 3,
-          border: "1px solid rgba(56,189,248,0.28)",
+          borderRadius: isMobileDialog ? 0 : 4,
+          border: "1px solid rgba(245,158,11,0.18)",
           background:
-            "radial-gradient(680px 240px at 12% 0%, rgba(56,189,248,0.12), transparent 70%), radial-gradient(520px 220px at 88% 0%, rgba(34,197,94,0.10), transparent 68%), linear-gradient(180deg, rgba(2,6,23,0.98), rgba(2,8,26,0.97))",
-          boxShadow: "0 26px 72px -38px rgba(2,132,199,0.55)",
+            "radial-gradient(720px 320px at 0% 0%, rgba(245,158,11,0.14), transparent 62%), radial-gradient(560px 280px at 100% 0%, rgba(34,211,238,0.14), transparent 64%), linear-gradient(180deg, rgba(6,10,16,0.985), rgba(3,6,11,0.985))",
+          boxShadow:
+            "0 34px 90px -48px rgba(0,0,0,0.92), 0 0 0 1px rgba(255,255,255,0.03)",
         },
       }}
     >
       <DialogTitle
+        className="room-lobby-settings-dialog__head"
         sx={{
-          pb: 1.5,
-          borderBottom: "1px solid rgba(56,189,248,0.18)",
+          pb: 0,
+          borderBottom: "1px solid rgba(245,158,11,0.12)",
         }}
       >
-        <Stack spacing={1}>
+        <Stack spacing={1.5}>
           <Stack
             direction={{ xs: "column", sm: "row" }}
-            spacing={1}
+            spacing={1.5}
             justifyContent="space-between"
             alignItems={{ xs: "flex-start", sm: "center" }}
           >
-            <Typography variant="h6" className="font-semibold text-slate-100">
-              房主設定
-            </Typography>
+            <Stack spacing={0.6}>
+              <Typography
+                variant="caption"
+                className="room-lobby-settings-kicker"
+              >
+                ROOM CONFIG
+              </Typography>
+              <Typography variant="h5" className="font-semibold text-slate-50">
+                房主設定
+              </Typography>
+              <Typography variant="caption" className="text-slate-400">
+                調整後會立即同步到房間，建議在開局前完成設定。
+              </Typography>
+            </Stack>
             <Stack direction="row" spacing={0.75} flexWrap="wrap">
               <Chip
                 size="small"
                 variant="outlined"
                 label={`題數 ${settingsQuestionCount}`}
-                className="border-slate-500/60 text-slate-200"
+                className="room-lobby-settings-chip"
               />
               <Chip
                 size="small"
                 variant="outlined"
-                label={
-                  useCollectionTimingForSettings
-                    ? `揭曉 ${settingsRevealDurationSec}s（收藏庫）`
-                    : `作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s / 揭曉 ${settingsRevealDurationSec}s`
-                }
-                className="border-cyan-500/40 text-cyan-200"
+                label={timingSummary}
+                className="room-lobby-settings-chip room-lobby-settings-chip--accent"
               />
             </Stack>
           </Stack>
-          <Typography variant="caption" className="text-slate-400">
-            調整後會立即同步到房間，建議在開局前完成設定。
-          </Typography>
+          <div className="room-lobby-settings-overview">
+            <div className="room-lobby-settings-overview-item">
+              <span>房間狀態</span>
+              <strong>{visibilityLabel}</strong>
+            </div>
+            <div className="room-lobby-settings-overview-item">
+              <span>玩家上限</span>
+              <strong>{maxPlayersLabel}</strong>
+            </div>
+            <div className="room-lobby-settings-overview-item">
+              <span>答題節奏</span>
+              <strong>{timingSummary}</strong>
+            </div>
+          </div>
         </Stack>
       </DialogTitle>
 
       <DialogContent
+        className="room-lobby-settings-dialog__body"
         dividers
         sx={{
-          borderColor: "rgba(56,189,248,0.16)",
-          py: 2,
-          maxHeight: { xs: "76vh", md: "80vh" },
+          borderColor: "rgba(245,158,11,0.12)",
+          py: 2.25,
+          px: { xs: 2, sm: 2.5 },
+          maxHeight: { xs: "76vh", md: "82vh" },
           overflowY: "auto",
         }}
       >
-        <Stack spacing={1.75}>
+        <Stack spacing={2}>
           {settingsDisabled && (
-            <Box className="rounded-lg border border-amber-400/45 bg-amber-500/12 px-3 py-2">
+            <Box className="room-lobby-settings-warning">
               <Typography variant="caption" className="text-amber-200">
                 遊戲進行中無法修改房間規則，請待本輪結束後再調整。
               </Typography>
             </Box>
           )}
 
-          <Box className="grid gap-1.75 lg:grid-cols-2">
-            <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
-              <Stack spacing={1.25}>
+          <Box className="grid gap-2 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <Box className="room-lobby-settings-card">
+              <Stack spacing={1.4}>
+                <div className="room-lobby-settings-section-head">
+                  <Typography variant="subtitle2" className="text-slate-100">
+                    房間資訊
+                  </Typography>
+                  <Typography variant="caption" className="text-slate-400">
+                    先決定房間可見性與玩家容量，再進行題數與時間微調。
+                  </Typography>
+                </div>
                 <Typography variant="subtitle2" className="text-slate-100">
-                  房間資訊
+                  房間名稱
                 </Typography>
                 <TextField
                   label="房間名稱"
+                  className="room-lobby-settings-field"
                   value={settingsName}
                   onChange={(event) => onSettingsNameChange(event.target.value)}
                   disabled={settingsDisabled}
@@ -189,14 +229,18 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                   onPasswordChange={onSettingsPasswordChange}
                   onPasswordClear={onSettingsPasswordClear}
                   classes={{
-                    helperText: "text-slate-400",
-                    noteText: "text-slate-400",
+                    visibilityRow: "room-lobby-settings-visibility-row",
+                    visibilityButton: "room-lobby-settings-visibility-btn",
+                    helperText: "room-lobby-settings-helper",
+                    passwordField: "room-lobby-settings-field",
+                    noteText: "room-lobby-settings-helper",
                   }}
                 />
                 <Stack spacing={0.75}>
                   <TextField
                     label="玩家上限"
                     type="number"
+                    className="room-lobby-settings-field"
                     value={settingsMaxPlayers}
                     onChange={(event) => onSettingsMaxPlayersChange(event.target.value)}
                     inputProps={{
@@ -216,17 +260,22 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
             </Box>
 
             <Stack spacing={1.75} className="min-w-0">
-              <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
-                <Stack spacing={1.25}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Box className="room-lobby-settings-card">
+                <Stack spacing={1.4}>
+                  <div className="room-lobby-settings-section-head">
                     <Typography variant="subtitle2" className="text-slate-100">
                       題數設定
                     </Typography>
+                    <Typography variant="caption" className="text-slate-400">
+                      保留較快的節奏，但讓桌面版不再出現擠壓與橫向捲動。
+                    </Typography>
+                  </div>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Chip
                       size="small"
                       variant="outlined"
                       label={`${settingsQuestionCount} 題`}
-                      className="border-slate-600 text-slate-200"
+                      className="room-lobby-settings-chip"
                     />
                   </Stack>
                   <QuestionCountControls
@@ -234,32 +283,36 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                     min={questionMinLimit}
                     max={questionMaxLimit}
                     step={QUESTION_STEP}
+                    compact={!isWideDialog}
+                    showRangeHint={!isWideDialog}
                     disabled={settingsDisabled}
                     onChange={onSettingsQuestionCountChange}
                   />
                 </Stack>
               </Box>
 
-              <Box className="rounded-xl border border-slate-700/70 bg-slate-950/55 p-3">
-                <Stack spacing={1.25}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Box className="room-lobby-settings-card">
+                <Stack spacing={1.4}>
+                  <div className="room-lobby-settings-section-head">
                     <Typography variant="subtitle2" className="text-slate-100">
                       時間設定
                     </Typography>
+                    <Typography variant="caption" className="text-slate-400">
+                      作答、起始與揭曉拆開調整；若使用收藏庫時間，也會在這裡清楚顯示。
+                    </Typography>
+                  </div>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Chip
                       size="small"
                       variant="outlined"
-                      label={
-                        useCollectionTimingForSettings
-                          ? `揭曉 ${settingsRevealDurationSec}s（收藏庫）`
-                          : `作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s / 揭曉 ${settingsRevealDurationSec}s`
-                      }
-                      className="border-slate-600 text-slate-200"
+                      label={timingSummary}
+                      className="room-lobby-settings-chip"
                     />
                   </Stack>
                   <TextField
                     label="公布答案時間（秒）"
                     type="number"
+                    className="room-lobby-settings-field"
                     value={settingsRevealDurationSec}
                     onChange={(event) => {
                       const next = Number(event.target.value);
@@ -288,6 +341,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                         />
                       }
                       label="使用收藏庫時間設定"
+                      className="room-lobby-settings-switch"
                     />
                   )}
 
@@ -301,6 +355,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                         <TextField
                           label="作答時間（秒）"
                           type="number"
+                          className="room-lobby-settings-field"
                           value={settingsPlayDurationSec}
                           onChange={(event) => {
                             const next = Number(event.target.value);
@@ -318,6 +373,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                         <TextField
                           label="起始秒數（秒）"
                           type="number"
+                          className="room-lobby-settings-field"
                           value={settingsStartOffsetSec}
                           onChange={(event) => {
                             const next = Number(event.target.value);
@@ -352,17 +408,23 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
       </DialogContent>
 
       <DialogActions
+        className="room-lobby-settings-dialog__actions"
         sx={{
-          borderTop: "1px solid rgba(56,189,248,0.12)",
+          borderTop: "1px solid rgba(245,158,11,0.1)",
           px: 2.5,
           py: 1.5,
         }}
       >
-        <Button onClick={onClose} variant="text">
+        <Button onClick={onClose} variant="text" className="room-lobby-settings-secondary-btn">
           取消
         </Button>
-        <Button onClick={onSave} variant="contained" disabled={settingsDisabled}>
-          儲存
+        <Button
+          onClick={onSave}
+          variant="contained"
+          disabled={settingsDisabled}
+          className="room-lobby-settings-primary-btn"
+        >
+          儲存設定
         </Button>
       </DialogActions>
     </Dialog>

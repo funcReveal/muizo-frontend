@@ -1,12 +1,8 @@
 import React from "react";
-import { Typography } from "@mui/material";
 
-import type { SuggestType } from "./types";
+import RoomLobbyStatusStrip from "../RoomLobbyStatusStrip";
 
 interface SuggestionStatusMessagesProps {
-  suggestType: SuggestType;
-  suggestCollectionId: string | null;
-  isSuggestCollectionPrivate: boolean;
   suggestError: string | null;
   suggestNotice: string | null;
   isCooldownActive: boolean;
@@ -14,40 +10,29 @@ interface SuggestionStatusMessagesProps {
 }
 
 const SuggestionStatusMessages: React.FC<SuggestionStatusMessagesProps> = ({
-  suggestType,
-  suggestCollectionId,
-  isSuggestCollectionPrivate,
   suggestError,
   suggestNotice,
   isCooldownActive,
   remainingCooldownSeconds,
 }) => (
-  <>
-    {suggestError && (
-      <Typography variant="caption" className="text-rose-300">
-        {suggestError}
-      </Typography>
-    )}
-    {suggestType === "collection" && suggestCollectionId && (
-      <Typography
-        variant="caption"
-        className={
-          isSuggestCollectionPrivate ? "text-amber-200" : "text-emerald-300"
-        }
-      >
-        {isSuggestCollectionPrivate
-          ? "此推薦來自私人收藏庫，會以快照方式送出。"
-          : "此推薦來自公開收藏庫，會以來源連結送出。"}
-      </Typography>
-    )}
-    {(suggestNotice || isCooldownActive) && (
-      <Typography variant="caption" className="text-emerald-300">
-        {isCooldownActive
-          ? `冷卻中，請等待 ${remainingCooldownSeconds}s 後再推薦。`
-          : suggestNotice}
-      </Typography>
-    )}
-  </>
+  <RoomLobbyStatusStrip
+    message={
+      suggestError
+        ? suggestError
+        : isCooldownActive
+          ? `\u51b7\u537b\u4e2d\uff0c${remainingCooldownSeconds}s \u5f8c\u53ef\u518d\u6b21\u63a8\u85a6`
+          : suggestNotice
+    }
+    tone={
+      suggestError
+        ? "error"
+        : isCooldownActive
+          ? "warning"
+          : suggestNotice
+            ? "success"
+            : "neutral"
+    }
+  />
 );
 
 export default SuggestionStatusMessages;

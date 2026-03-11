@@ -49,6 +49,8 @@ interface AppHeaderProps {
   onNavigateCollections?: () => void;
   onNavigateHistory?: () => void;
   onNavigateSettings?: () => void;
+  historyMenuLabel?: string;
+  historyMenuDescription?: string;
 }
 
 type SystemStatusPayload = {
@@ -123,6 +125,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onNavigateCollections,
   onNavigateHistory,
   onNavigateSettings,
+  historyMenuLabel,
+  historyMenuDescription,
 }) => {
   const navigate = useNavigate();
 
@@ -319,32 +323,32 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           <button
             type="button"
             onClick={handleMenuToggle}
-            className="group inline-flex min-w-0 items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 px-3 py-1.5 text-sm font-medium text-[var(--mc-text)] shadow-[0_10px_30px_-24px_rgba(15,23,42,0.8)] transition hover:border-slate-500/80 hover:bg-[var(--mc-surface-strong)]/80"
+            className="app-header-profile-pill group"
             aria-haspopup="menu"
             aria-expanded={isMenuOpen}
             aria-controls={menuId}
           >
-            <span className="text-[10px] uppercase tracking-[0.3em] text-[var(--mc-text-muted)]">
+            <span className="app-header-profile-kicker">
               Menu
             </span>
-            <span className="h-4 w-[1px] bg-[var(--mc-border)]" />
+            <span className="app-header-profile-divider" />
             {authUser.avatar_url ? (
               <img
                 src={authUser.avatar_url}
                 alt={authLabel}
-                className="h-6 w-6 rounded-full object-cover"
+                className="h-7 w-7 rounded-full object-cover ring-1 ring-white/10"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--mc-surface-strong)] text-[11px] text-[var(--mc-text)]">
+              <span className="app-header-profile-avatar-fallback">
                 {authLabel?.[0]?.toUpperCase() ?? "?"}
               </span>
             )}
-            <span className="max-w-[120px] truncate text-sm text-[var(--mc-text)] sm:max-w-[180px]">
+            <span className="max-w-[120px] truncate text-sm font-semibold text-[var(--mc-text)] sm:max-w-[180px]">
               {authLabel}
             </span>
             <span
-              className={`text-[10px] transition-transform ${
+              className={`app-header-profile-chevron ${
                 isMenuOpen ? "rotate-180" : ""
               }`}
             >
@@ -355,17 +359,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           <button
             type="button"
             onClick={handleMenuToggle}
-            className="group inline-flex min-w-[156px] items-center justify-between gap-2 rounded-full border border-[var(--mc-accent-2)]/40 bg-[var(--mc-accent-2)]/10 px-3 py-1.5 text-xs font-semibold tracking-[0.28em] text-emerald-100 shadow-[0_10px_30px_-24px_rgba(16,185,129,0.5)] transition hover:border-[var(--mc-accent-2)]/60 hover:bg-[var(--mc-accent-2)]/20"
+            className="app-header-login-pill group"
             aria-haspopup="menu"
             aria-expanded={isMenuOpen}
             aria-controls={menuId}
           >
             <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[var(--mc-accent-2)] shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
+              <span className="app-header-login-dot" />
               登入 Login
             </span>
             <span
-              className={`text-[10px] transition-transform ${
+              className={`app-header-profile-chevron ${
                 isMenuOpen ? "rotate-180" : ""
               }`}
             >
@@ -382,6 +386,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
           PaperProps={{
+            className: "app-header-menu-popover",
             sx: {
               mt: 1.5,
               minWidth: 260,
@@ -552,13 +557,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       對戰歷史
                     </Box>
                   ) : (
-                    "對戰歷史"
+                    historyMenuLabel ?? "對戰歷史"
                   )
                 }
                 secondary={
                   isAnonymousVisitor
                     ? "登入後可查看完整對戰歷程與回顧"
-                    : "查看對戰歷程與回顧入口"
+                    : historyMenuDescription ?? "查看對戰歷程與回顧入口"
                 }
               />
             </MenuItem>

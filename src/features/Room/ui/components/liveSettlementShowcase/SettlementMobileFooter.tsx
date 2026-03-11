@@ -63,7 +63,7 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             onClick={onOpenExitConfirm}
             className="!min-w-0 !flex-[1.1]"
           >
-            離開結算
+            離開房間
           </Button>
         ) : (
           <Button

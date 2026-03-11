@@ -24,7 +24,7 @@ const SuggestionModeButtons: React.FC<SuggestionModeButtonsProps> = ({
   onSelectOwnerCollection,
   onSelectYoutube,
 }) => (
-  <Stack direction="row" className="room-lobby-mode-row">
+  <Stack direction="row" className="room-lobby-mode-row room-lobby-mode-row--host">
     <Button
       size="small"
       variant={suggestType === "playlist" ? "contained" : "outlined"}

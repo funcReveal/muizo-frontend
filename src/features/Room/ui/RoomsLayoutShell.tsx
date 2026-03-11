@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useMemo, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Button,
   Dialog,
@@ -20,6 +20,7 @@ type NavigationTarget = "rooms" | "collections" | "history" | "settings";
 
 const RoomsLayoutShell: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     authLoading,
     authUser,
@@ -141,6 +142,29 @@ const RoomsLayoutShell: React.FC = () => {
     },
     [currentRoom, getNavigationPath, navigate, setStatusText],
   );
+  const handleHistoryRequest = useCallback(() => {
+    if (!currentRoom) {
+      handleNavigateRequest("history");
+      return;
+    }
+    navigate(location.pathname, {
+      replace: true,
+      state: {
+        ...(typeof location.state === "object" && location.state !== null
+          ? location.state
+          : {}),
+        roomHistoryDrawerKey: Date.now(),
+      },
+    });
+    setStatusText("已開啟目前房間對戰資訊");
+  }, [
+    currentRoom,
+    handleNavigateRequest,
+    location.pathname,
+    location.state,
+    navigate,
+    setStatusText,
+  ]);
 
   const navigationConfirmText = useMemo(() => {
     if (!navigationConfirmTarget) return null;
@@ -263,8 +287,12 @@ const RoomsLayoutShell: React.FC = () => {
             onEditProfile={openProfileEditor}
             onNavigateRooms={() => handleNavigateRequest("rooms")}
             onNavigateCollections={() => handleNavigateRequest("collections")}
-            onNavigateHistory={() => handleNavigateRequest("history")}
+            onNavigateHistory={handleHistoryRequest}
             onNavigateSettings={() => handleNavigateRequest("settings")}
+            historyMenuLabel={currentRoom ? "房間對戰資訊" : undefined}
+            historyMenuDescription={
+              currentRoom ? "查看目前房間的局數、排行與回顧" : undefined
+            }
           />
         </div>
 
