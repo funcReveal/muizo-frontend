@@ -17,7 +17,6 @@ import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import { useRoom } from "../../Room/model/useRoom";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { collectionsApi } from "../model/collectionsApi";
-import { thumbnailFromId } from "./lib/editUtils";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 
 const API_URL =
@@ -30,6 +29,12 @@ type DbCollection = {
   title: string;
   description?: string | null;
   visibility?: "private" | "public";
+  cover_title?: string | null;
+  cover_channel_title?: string | null;
+  cover_thumbnail_url?: string | null;
+  cover_duration_sec?: number | null;
+  cover_source_id?: string | null;
+  cover_provider?: string | null;
 };
 
 const TEXT = {
@@ -90,9 +95,6 @@ const CollectionsPage = () => {
     refreshAuthToken,
   } = useRoom();
   const [collections, setCollections] = useState<DbCollection[]>([]);
-  const [collectionThumbs, setCollectionThumbs] = useState<
-    Record<string, string>
-  >({});
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [visibilityUpdatingId, setVisibilityUpdatingId] = useState<
     string | null
@@ -204,51 +206,6 @@ const CollectionsPage = () => {
     ownerId,
   ]);
 
-  useEffect(() => {
-    if (!API_URL || !authToken || collections.length === 0) return;
-    let active = true;
-    const loadThumbs = async () => {
-      const token = await ensureFreshAuthToken({
-        token: authToken,
-        refreshAuthToken,
-      });
-      if (!token) return;
-      const entries = await Promise.all(
-        collections.map(async (collection) => {
-          try {
-            const res = await fetch(
-              `${API_URL}/api/collections/${collection.id}/items/all`,
-              { headers: { Authorization: `Bearer ${token}` } },
-            );
-            if (!res.ok) return [collection.id, ""] as const;
-            const payload = await res.json().catch(() => null);
-            const items = payload?.data?.items ?? payload?.items ?? [];
-            const first = Array.isArray(items) ? items[0] : null;
-            const sourceId = first?.source_id ?? "";
-            return [
-              collection.id,
-              sourceId ? thumbnailFromId(sourceId) : "",
-            ] as const;
-          } catch {
-            return [collection.id, ""] as const;
-          }
-        }),
-      );
-      if (!active) return;
-      setCollectionThumbs((prev) => {
-        const next = { ...prev };
-        entries.forEach(([id, url]) => {
-          if (url) next[id] = url;
-        });
-        return next;
-      });
-    };
-    loadThumbs();
-    return () => {
-      active = false;
-    };
-  }, [authToken, collections, refreshAuthToken]);
-
   const handleDeleteCollection = async (id: string) => {
     if (!API_URL || !authToken) return;
     setDeletingId(id);
@@ -267,11 +224,6 @@ const CollectionsPage = () => {
         throw new Error(payload?.error ?? TEXT.deleteError);
       }
       setCollections((prev) => prev.filter((item) => item.id !== id));
-      setCollectionThumbs((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : TEXT.deleteError);
     } finally {
@@ -376,7 +328,12 @@ const CollectionsPage = () => {
             </Card>
 
             {collections.map((collection) => {
-              const thumb = collectionThumbs[collection.id] ?? "";
+              const thumb =
+                collection.cover_thumbnail_url ||
+                (collection.cover_provider === "youtube" &&
+                collection.cover_source_id
+                  ? `https://i.ytimg.com/vi/${collection.cover_source_id}/hqdefault.jpg`
+                  : "");
               return (
                 <Card
                   key={collection.id}

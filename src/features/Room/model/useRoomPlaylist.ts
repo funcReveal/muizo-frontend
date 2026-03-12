@@ -33,6 +33,16 @@ export type UseRoomPlaylistResult = {
   playlistLoading: boolean;
   playlistStage: "input" | "preview";
   playlistLocked: boolean;
+  playlistPreviewMeta: {
+    expectedCount: number | null;
+    skippedCount: number;
+    skippedItems: Array<{
+      title?: string | null;
+      videoId?: string | null;
+      reason?: string | null;
+      status?: "removed" | "unavailable" | "private" | "blocked" | "unknown";
+    }>;
+  } | null;
   lastFetchedPlaylistId: string | null;
   lastFetchedPlaylistTitle: string | null;
   questionCount: number;
@@ -78,6 +88,16 @@ export const useRoomPlaylist = ({
     "input",
   );
   const [playlistLocked, setPlaylistLocked] = useState(false);
+  const [playlistPreviewMeta, setPlaylistPreviewMeta] = useState<{
+    expectedCount: number | null;
+    skippedCount: number;
+    skippedItems: Array<{
+      title?: string | null;
+      videoId?: string | null;
+      reason?: string | null;
+      status?: "removed" | "unavailable" | "private" | "blocked" | "unknown";
+    }>;
+  } | null>(null);
   const [lastFetchedPlaylistId, setLastFetchedPlaylistId] = useState<
     string | null
   >(null);
@@ -216,12 +236,27 @@ export const useRoomPlaylist = ({
             setPlaylistItems(normalizedItems);
             setPlaylistStage("preview");
             setPlaylistLocked(true);
+            setPlaylistPreviewMeta({
+              expectedCount: data.expectedCount ?? null,
+              skippedCount: data.skippedCount ?? 0,
+              skippedItems: data.skippedItems ?? [],
+            });
             setLastFetchedPlaylistId(data.playlistId ?? playlistId);
             const playlistTitle =
+              data.title ??
               youtubePlaylists.find((item) => item.id === playlistId)?.title ??
               null;
             setLastFetchedPlaylistTitle(playlistTitle);
-            setStatusText(`已載入播放清單，共 ${normalizedItems.length} 首`);
+            if (
+              typeof data.expectedCount === "number" &&
+              data.expectedCount > normalizedItems.length
+            ) {
+              setStatusText(
+                `已載入播放清單，共 ${normalizedItems.length} 首（已略過不可用影片）`,
+              );
+            } else {
+              setStatusText(`已載入播放清單，共 ${normalizedItems.length} 首`);
+            }
             return;
           }
           if (status === 401 && allowRetry) {
@@ -256,6 +291,7 @@ export const useRoomPlaylist = ({
         setPlaylistItems([]);
         setPlaylistStage("input");
         setPlaylistLocked(false);
+        setPlaylistPreviewMeta(null);
         setLastFetchedPlaylistId(null);
         setLastFetchedPlaylistTitle(null);
       } finally {
@@ -314,6 +350,11 @@ export const useRoomPlaylist = ({
       setPlaylistItems(normalizedItems);
       setPlaylistStage("preview");
       setPlaylistLocked(shouldLock);
+      setPlaylistPreviewMeta({
+        expectedCount: data.expectedCount ?? null,
+        skippedCount: data.skippedCount ?? 0,
+        skippedItems: data.skippedItems ?? [],
+      });
       setLastFetchedPlaylistId(data.playlistId ?? playlistId);
       setLastFetchedPlaylistTitle(data.title ?? null);
 
@@ -337,6 +378,7 @@ export const useRoomPlaylist = ({
       setPlaylistItems([]);
       setPlaylistStage("input");
       setPlaylistLocked(false);
+      setPlaylistPreviewMeta(null);
       setLastFetchedPlaylistId(null);
       setLastFetchedPlaylistTitle(null);
     } finally {
@@ -359,6 +401,7 @@ export const useRoomPlaylist = ({
     setPlaylistLoading(false);
     setPlaylistStage("input");
     setPlaylistLocked(false);
+    setPlaylistPreviewMeta(null);
     setLastFetchedPlaylistId(null);
     setLastFetchedPlaylistTitle(null);
     onResetCollection();
@@ -373,6 +416,7 @@ export const useRoomPlaylist = ({
     setPlaylistItems(items);
     setPlaylistStage("preview");
     setPlaylistLocked(true);
+    setPlaylistPreviewMeta(null);
     setLastFetchedPlaylistId(sourceId);
     if (title !== undefined) {
       setLastFetchedPlaylistTitle(title ?? null);
@@ -390,6 +434,7 @@ export const useRoomPlaylist = ({
     setPlaylistLoading(false);
     setPlaylistStage("input");
     setPlaylistLocked(false);
+    setPlaylistPreviewMeta(null);
     setLastFetchedPlaylistId(null);
     setLastFetchedPlaylistTitle(null);
   }, []);
@@ -417,6 +462,7 @@ export const useRoomPlaylist = ({
     playlistLoading,
     playlistStage,
     playlistLocked,
+    playlistPreviewMeta,
     lastFetchedPlaylistId,
     lastFetchedPlaylistTitle,
     questionCount,

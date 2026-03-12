@@ -50,7 +50,16 @@ export type YoutubePlaylistItemsPayload = {
   ok?: boolean;
   data?: {
     playlistId: string;
+    title?: string;
     items: PlaylistItem[];
+    expectedCount?: number | null;
+    skippedCount?: number;
+    skippedItems?: Array<{
+      title?: string | null;
+      videoId?: string | null;
+      reason?: string | null;
+      status?: "removed" | "unavailable" | "private" | "blocked" | "unknown";
+    }>;
   };
   error?: string;
 };
@@ -62,6 +71,12 @@ export type PlaylistPreviewPayload =
       items: PlaylistItem[];
       expectedCount: number | null;
       skippedCount: number;
+      skippedItems?: Array<{
+        title?: string | null;
+        videoId?: string | null;
+        reason?: string | null;
+        status?: "removed" | "unavailable" | "private" | "blocked" | "unknown";
+      }>;
     }
   | {
       error: string;
@@ -73,6 +88,12 @@ export type WorkerCollection = {
   title: string;
   description: string | null;
   visibility: "private" | "public";
+  cover_title?: string | null;
+  cover_channel_title?: string | null;
+  cover_thumbnail_url?: string | null;
+  cover_duration_sec?: number | null;
+  cover_source_id?: string | null;
+  cover_provider?: string | null;
   version: number;
   use_count: number;
   favorite_count?: number;

@@ -1,10 +1,9 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+﻿import { Navigate, Route, Routes } from "react-router-dom";
 
 import RequireAuthRoute from "./guards/RequireAuthRoute";
 import LandingHomePage from "../features/Landing/ui/LandingHomePage";
 import RoomsLayoutShell from "../features/Room/ui/RoomsLayoutShell";
 import RoomListPage from "../features/Room/ui/RoomListPage";
-import RoomCreatePage from "../features/Room/ui/RoomCreatePage";
 import RoomLobbyPage from "../features/Room/ui/RoomLobbyPage";
 import RoomHistoryPage from "../features/Room/ui/RoomHistoryPage";
 import CollectionsPage from "../features/Collections/ui/CollectionsPage";
@@ -21,14 +20,16 @@ export function AppRouter() {
       <Route element={<RoomsLayoutShell />}>
         <Route path="/" element={<LandingHomePage />} />
         <Route path="/rooms" element={<RoomListPage />} />
-        <Route path="/rooms/create" element={<RoomCreatePage />} />
         <Route path="/rooms/:roomId" element={<RoomLobbyPage />} />
         <Route
           path="/history"
           element={
             <RequireAuthRoute
-              title="對戰歷史需要登入"
-              description="登入後即可查看完整對戰記錄與回顧。"
+              badge="History Access"
+              title="先建立身分即可查看對戰歷史"
+              description="訪客可查看目前身分的對戰紀錄；登入可跨裝置保存完整歷史。"
+              highlights={["完整對戰回放", "個人戰績", "跨裝置同步"]}
+              allowGuest
             >
               <RoomHistoryPage />
             </RequireAuthRoute>
@@ -40,8 +41,10 @@ export function AppRouter() {
           path="/collections"
           element={
             <RequireAuthRoute
-              title="收藏庫需要登入"
-              description="登入後才可管理你的收藏與題庫。"
+              badge="Collections Access"
+              title="收藏庫需登入後使用"
+              description="登入後可查看、管理你的收藏題庫與公開狀態。"
+              highlights={["私人收藏管理", "公開分享設定", "快速開房套用"]}
             >
               <CollectionsPage />
             </RequireAuthRoute>
@@ -51,8 +54,10 @@ export function AppRouter() {
           path="/collections/new"
           element={
             <RequireAuthRoute
-              title="建立收藏需要登入"
-              description="請先登入後再建立新的收藏。"
+              badge="Create Collection"
+              title="建立收藏需先登入"
+              description="登入後即可建立新收藏，並同步到你的帳號。"
+              highlights={["建立個人題庫", "同步播放清單", "後續可再編輯"]}
             >
               <CollectionsCreatePage />
             </RequireAuthRoute>
@@ -62,8 +67,10 @@ export function AppRouter() {
           path="/collections/:collectionId/edit"
           element={
             <RequireAuthRoute
-              title="編輯收藏需要登入"
-              description="請先登入後再編輯收藏內容。"
+              badge="Edit Collection"
+              title="編輯收藏需先登入"
+              description="請先登入帳號，再進行收藏內容編修與管理。"
+              highlights={["編修題目內容", "管理可見權限", "保留編輯紀錄"]}
             >
               <EditPage />
             </RequireAuthRoute>
