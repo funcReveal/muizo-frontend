@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -133,6 +134,7 @@ export const useRoomProviderSocketLifecycle = ({
   setters,
   handlers,
 }: UseRoomProviderSocketLifecycleParams) => {
+  const shouldAnnounceReconnectRef = useRef(false);
   const {
     socketRef,
     socketSuspendedRef,
@@ -210,10 +212,12 @@ export const useRoomProviderSocketLifecycle = ({
         onConnect: (socket) => {
           setIsConnected(true);
           setSessionProgress(null);
-          setStatusText("已連線到房間伺服器");
-          void fetchRooms();
-
           const storedRoomId = currentRoomIdRef.current;
+          if (shouldAnnounceReconnectRef.current && !storedRoomId) {
+            setStatusText("已重新連線到房間伺服器");
+          }
+          shouldAnnounceReconnectRef.current = false;
+          void fetchRooms();
           if (storedRoomId) {
             socket.emit(
               "resumeSession",
@@ -281,6 +285,7 @@ export const useRoomProviderSocketLifecycle = ({
             return;
           }
           setIsConnected(false);
+          shouldAnnounceReconnectRef.current = true;
           setStatusText("房間連線已中斷，正在等待重新連線。");
           setRouteRoomResolved(false);
           setCurrentRoom(null);

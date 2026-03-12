@@ -36,8 +36,6 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
   onOpenSettlementByRoundKey,
 }) => {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-  const emptyChatMessage =
-    "目前還沒有訊息。\n先和房間成員打聲招呼，\n或整理歌單後開始遊戲。";
 
   useEffect(() => {
     const container = chatScrollRef.current;
@@ -61,15 +59,19 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
           overflowY: "auto",
           overflowX: "hidden",
         }}
-        >
-          {messages.length === 0 ? (
-          <Typography
-            variant="body2"
-            className="room-lobby-chat-empty-copy text-slate-500"
-            align="center"
-          >
-            {emptyChatMessage}
-          </Typography>
+      >
+        {messages.length === 0 ? (
+          <div className="room-lobby-chat-empty-state">
+            <div className="room-chat-empty-note room-chat-empty-note--lobby">
+              <span className="room-chat-empty-meta">
+                <span className="room-chat-empty-dot" aria-hidden="true" />
+                聊天室
+              </span>
+              <Typography component="p" variant="body2" className="room-chat-empty-copy">
+                目前還沒有新訊息，先和房間成員打聲招呼吧。
+              </Typography>
+            </div>
+          </div>
         ) : (
           <MUIList dense disablePadding>
             {messages.map((msg) => {
@@ -136,13 +138,14 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                     data-archived={canOpenHistoryDrawer ? "true" : "false"}
                     sx={{
                       maxWidth: "100%",
-                      borderRadius: 1,
-                      px: 1,
-                      py: 0.75,
+                      borderRadius: 1.5,
+                      px: 1.15,
+                      py: 0.85,
                       border: "none",
-                      borderLeft: "2px solid rgba(148,163,184,0.16)",
-                      background: "transparent",
-                      boxShadow: "none",
+                      borderLeft: "2px solid rgba(56,189,248,0.18)",
+                      background:
+                        "linear-gradient(180deg, rgba(10,15,24,0.34), rgba(7,11,18,0.16))",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02)",
                       color: "white",
                     }}
                   >

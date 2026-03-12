@@ -58,8 +58,16 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
         }`}
       >
         {recentMessages.length === 0 ? (
-          <div className="flex h-full items-center justify-center py-4 text-center text-xs text-slate-500">
-            目前沒有訊息
+          <div className="game-room-chat-empty-state">
+            <div className="room-chat-empty-note room-chat-empty-note--game">
+              <span className="room-chat-empty-meta">
+                <span className="room-chat-empty-dot" aria-hidden="true" />
+                聊天室
+              </span>
+              <p className="room-chat-empty-copy">
+                目前還沒有新訊息，先和房間成員打聲招呼吧。
+              </p>
+            </div>
           </div>
         ) : (
           recentMessages.map((msg) => {

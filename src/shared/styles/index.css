@@ -7046,6 +7046,9 @@ body {
 
 /* ===== Targeted Color Pass: Lobby Chat / Playlist / Settlement Frames ===== */
 .room-lobby-chat-log {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.015),
     0 14px 28px -24px rgba(0, 0, 0, 0.9);
@@ -7063,6 +7066,80 @@ body {
   margin-inline: auto;
   line-height: 1.7;
   white-space: pre-line;
+  text-wrap: pretty;
+}
+
+.room-lobby-chat-empty-state {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 100%;
+  padding-top: 10px;
+}
+
+.room-chat-empty-note {
+  position: relative;
+  width: min(100%, 22rem);
+  padding: 10px 12px 10px 14px;
+  border-left: 2px solid rgba(56, 189, 248, 0.16);
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10, 15, 24, 0.34),
+      rgba(7, 11, 18, 0.16)
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.room-chat-empty-note--lobby {
+  margin-left: 4px;
+}
+
+.room-chat-empty-note::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.012),
+      rgba(255, 255, 255, 0)
+    );
+  pointer-events: none;
+}
+
+.room-chat-empty-meta {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.78);
+}
+
+.room-chat-empty-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.12);
+}
+
+.room-chat-empty-copy {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgba(186, 198, 215, 0.8);
   text-wrap: pretty;
 }
 
@@ -7820,10 +7897,15 @@ body {
   position: relative;
   overflow: visible;
   border: none !important;
-  border-left: 2px solid rgba(148, 163, 184, 0.14) !important;
-  border-radius: 6px !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  border-left: 2px solid rgba(56, 189, 248, 0.16) !important;
+  border-radius: 10px !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10, 15, 24, 0.34),
+      rgba(7, 11, 18, 0.16)
+    ) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
   max-width: 100% !important;
 }
 
@@ -7843,7 +7925,20 @@ body {
 
 .game-room-chat-message:hover {
   border-left-color: rgba(245, 158, 11, 0.28) !important;
-  background: rgba(255, 255, 255, 0.01) !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(13, 18, 28, 0.42),
+      rgba(8, 12, 20, 0.22)
+    ) !important;
+}
+
+.game-room-chat-empty-state {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 100%;
+  padding-top: 2px;
 }
 
 .game-room-chat-input-field {
@@ -10997,6 +11092,16 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 0;
+  }
+
+  .room-lobby-mobile-chat-drawer .room-lobby-chat-log {
+    padding: 14px;
+  }
+
+  .room-lobby-mobile-chat-drawer .room-chat-empty-note {
+    width: min(100%, 18rem);
+    padding: 10px 12px 10px 14px;
+    margin-left: 0;
   }
 
   .room-lobby-mobile-chat-drawer-head {
