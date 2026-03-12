@@ -39,6 +39,12 @@ export type UseRoomCollectionsResult = {
     title: string;
     description?: string | null;
     visibility?: "private" | "public";
+    cover_title?: string | null;
+    cover_channel_title?: string | null;
+    cover_thumbnail_url?: string | null;
+    cover_duration_sec?: number | null;
+    cover_source_id?: string | null;
+    cover_provider?: string | null;
     use_count?: number;
     favorite_count?: number;
     is_favorited?: boolean;
@@ -80,6 +86,12 @@ export const useRoomCollections = ({
       title: string;
       description?: string | null;
       visibility?: "private" | "public";
+      cover_title?: string | null;
+      cover_channel_title?: string | null;
+      cover_thumbnail_url?: string | null;
+      cover_duration_sec?: number | null;
+      cover_source_id?: string | null;
+      cover_provider?: string | null;
       use_count?: number;
       favorite_count?: number;
       is_favorited?: boolean;
@@ -138,6 +150,12 @@ export const useRoomCollections = ({
             title: string;
             description?: string | null;
             visibility?: "private" | "public";
+            cover_title?: string | null;
+            cover_channel_title?: string | null;
+            cover_thumbnail_url?: string | null;
+            cover_duration_sec?: number | null;
+            cover_source_id?: string | null;
+            cover_provider?: string | null;
             use_count?: number;
             favorite_count?: number;
             is_favorited?: boolean | number;

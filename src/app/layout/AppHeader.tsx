@@ -134,6 +134,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     authUser?.display_name || authUser?.id || displayUsername || "Guest";
   const authSubLabel = authUser?.email ?? null;
   const isAnonymousVisitor = !authUser && !hasGuestIdentity;
+  const isGuestVisitor = !authUser && hasGuestIdentity;
 
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [systemOpen, setSystemOpen] = useState(false);
@@ -355,6 +356,30 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               <ExpandMore />
             </span>
           </button>
+        ) : isGuestVisitor ? (
+          <button
+            type="button"
+            onClick={handleMenuToggle}
+            className="group inline-flex min-w-0 items-center gap-2 rounded-full border border-amber-300/45 bg-amber-300/10 px-3 py-1.5 text-sm font-medium text-amber-100 shadow-[0_10px_30px_-24px_rgba(245,158,11,0.45)] transition hover:border-amber-300/65 hover:bg-amber-300/16"
+            aria-haspopup="menu"
+            aria-expanded={isMenuOpen}
+            aria-controls={menuId}
+          >
+            <span className="text-[10px] uppercase tracking-[0.3em] text-amber-100/75">
+              Menu
+            </span>
+            <span className="h-4 w-[1px] bg-amber-200/40" />
+            <span className="max-w-[120px] truncate text-sm text-amber-100 sm:max-w-[180px]">
+              訪客 {authLabel}
+            </span>
+            <span
+              className={`text-[10px] transition-transform ${
+                isMenuOpen ? "rotate-180" : ""
+              }`}
+            >
+              <ExpandMore />
+            </span>
+          </button>
         ) : (
           <button
             type="button"
@@ -422,7 +447,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   letterSpacing: "0.12em",
                 }}
               >
-                {isAnonymousVisitor ? "" : "帳號"}
+                {isAnonymousVisitor
+                  ? ""
+                  : isGuestVisitor
+                    ? "訪客身分"
+                    : "帳號"}
               </Typography>
               <Typography
                 variant="subtitle2"

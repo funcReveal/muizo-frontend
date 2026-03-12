@@ -1966,7 +1966,7 @@ const RoomLobbyPage: React.FC = () => {
                   <button
                     type="button"
                     className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--mc-text)] transition hover:border-amber-200/25 hover:bg-[var(--mc-surface-strong)]/85"
-                    onClick={() => navigate("/rooms/create")}
+                    onClick={() => navigate("/rooms")}
                   >
                     建立新房間
                   </button>

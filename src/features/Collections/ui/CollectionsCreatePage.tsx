@@ -124,7 +124,9 @@ const CollectionsCreatePage = () => {
     lastFetchedPlaylistTitle,
     playlistError,
     playlistLoading,
+    playlistPreviewMeta,
     handleFetchPlaylist,
+    handleResetPlaylist,
     setPlaylistUrl,
     authLoading,
     refreshAuthToken,
@@ -154,6 +156,13 @@ const CollectionsCreatePage = () => {
 
   const ownerId = authUser?.id ?? null;
   const hasPlaylistItems = playlistItems.length > 0;
+
+  useEffect(() => {
+    handleResetPlaylist();
+    return () => {
+      handleResetPlaylist();
+    };
+  }, [handleResetPlaylist]);
 
   useEffect(() => {
     if (!lastFetchedPlaylistTitle) return;
@@ -189,6 +198,51 @@ const CollectionsCreatePage = () => {
     () => ({ items: playlistItems }),
     [playlistItems],
   );
+  const playlistIssueSummary = useMemo(() => {
+    if (playlistPreviewMeta?.skippedItems?.length) {
+      const removed: string[] = [];
+      const privateRestricted: string[] = [];
+      const embedBlocked: string[] = [];
+      const unavailable: string[] = [];
+      const unknown: string[] = [];
+      playlistPreviewMeta.skippedItems.forEach((item) => {
+        const label = item.title?.trim() || item.videoId || "未知項目";
+        if (item.status === "removed") {
+          removed.push(label);
+          return;
+        }
+        if (item.status === "private") {
+          privateRestricted.push(label);
+          return;
+        }
+        if (item.status === "blocked") {
+          embedBlocked.push(label);
+          return;
+        }
+        if (item.status === "unavailable") {
+          unavailable.push(label);
+          return;
+        }
+        unknown.push(label);
+      });
+      return {
+        removed,
+        privateRestricted,
+        embedBlocked,
+        unavailable,
+        unknown,
+        unknownCount: 0,
+      };
+    }
+    return {
+      removed: [] as string[],
+      privateRestricted: [] as string[],
+      embedBlocked: [] as string[],
+      unavailable: [] as string[],
+      unknown: [] as string[],
+      unknownCount: playlistPreviewMeta?.skippedCount ?? 0,
+    };
+  }, [playlistPreviewMeta]);
 
   useEffect(() => {
     if (playlistSource !== "youtube") return;
@@ -577,6 +631,60 @@ const CollectionsCreatePage = () => {
                         rowProps={previewRowProps}
                         rowComponent={PreviewVirtualRow}
                       />
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    <p className="text-xs font-semibold text-[var(--mc-text-muted)]">
+                      未成功匯入原因
+                    </p>
+                    <div className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-2 py-1.5">
+                      <p className="text-xs font-semibold text-amber-100">
+                        已移除：{playlistIssueSummary.removed.length} 首
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[11px] text-amber-100/90">
+                        {playlistIssueSummary.removed.length > 0
+                          ? playlistIssueSummary.removed.join("、")
+                          : "無"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-1.5">
+                      <p className="text-xs font-semibold text-fuchsia-100">
+                        隱私限制：{playlistIssueSummary.privateRestricted.length} 首
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[11px] text-fuchsia-100/90">
+                        {playlistIssueSummary.privateRestricted.length > 0
+                          ? playlistIssueSummary.privateRestricted.join("、")
+                          : "無"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-2 py-1.5">
+                      <p className="text-xs font-semibold text-rose-100">
+                        嵌入限制：{playlistIssueSummary.embedBlocked.length} 首
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[11px] text-rose-100/90">
+                        {playlistIssueSummary.embedBlocked.length > 0
+                          ? playlistIssueSummary.embedBlocked.join("、")
+                          : "無"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-red-300/30 bg-red-300/10 px-2 py-1.5">
+                      <p className="text-xs font-semibold text-red-100">
+                        其他不可用：
+                        {playlistIssueSummary.unavailable.length +
+                          playlistIssueSummary.unknown.length +
+                          playlistIssueSummary.unknownCount} 首
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[11px] text-red-100/90">
+                        {playlistIssueSummary.unavailable.length > 0 ||
+                        playlistIssueSummary.unknown.length > 0
+                          ? [
+                              ...playlistIssueSummary.unavailable,
+                              ...playlistIssueSummary.unknown,
+                            ].join("、")
+                          : playlistIssueSummary.unknownCount > 0
+                            ? `共 ${playlistIssueSummary.unknownCount} 首（後端未提供明細）`
+                            : "無"}
+                      </p>
                     </div>
                   </div>
                 </div>
