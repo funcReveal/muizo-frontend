@@ -37,7 +37,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
 }) => {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const emptyChatMessage =
-    "目前還沒有訊息。\n可以先和房間成員打聲招呼，\n或先整理歌單、準備開始遊戲。";
+    "目前還沒有訊息。\n先和房間成員打聲招呼，\n或整理歌單後開始遊戲。";
 
   useEffect(() => {
     const container = chatScrollRef.current;

@@ -260,9 +260,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [mobileLobbyTab, setMobileLobbyTab] =
     useState<MobileLobbyTab>("members");
   const [mobileChatDrawerOpen, setMobileChatDrawerOpen] = useState(false);
+  const [mobileChatUnread, setMobileChatUnread] = useState(0);
   const [mobileChatHeight, setMobileChatHeight] = useState(
     MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH,
   );
+  const lastMobileChatMessageCountRef = useRef(messages.length);
   const maskedRoomPassword = roomPassword
     ? "*".repeat(roomPassword.length)
     : "";
@@ -876,6 +878,24 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     }
   }, [isMobileTabletLobbyLayout]);
 
+  useEffect(() => {
+    const previousCount = lastMobileChatMessageCountRef.current;
+    if (
+      isMobileTabletLobbyLayout &&
+      !mobileChatDrawerOpen &&
+      messages.length > previousCount
+    ) {
+      setMobileChatUnread((current) => current + (messages.length - previousCount));
+    }
+    lastMobileChatMessageCountRef.current = messages.length;
+  }, [isMobileTabletLobbyLayout, messages.length, mobileChatDrawerOpen]);
+
+  useEffect(() => {
+    if (!isMobileTabletLobbyLayout || mobileChatDrawerOpen) {
+      setMobileChatUnread(0);
+    }
+  }, [isMobileTabletLobbyLayout, mobileChatDrawerOpen]);
+
   const startActionDisabledReason = !isHost
     ? "只有房主可以開始遊戲"
     : gameState?.status === "playing"
@@ -1144,7 +1164,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const participantsPanel = (
     <Box className="room-lobby-participants">
       <Typography variant="subtitle2" className="text-slate-300" gutterBottom>
-        在線玩家
+        玩家
       </Typography>
       {participants.length === 0 ? (
         <Typography variant="body2" className="text-slate-500">
@@ -1666,7 +1686,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   }`}
                   onClick={() => setMobileLobbyTab("members")}
                 >
-                  在線
+                  玩家
                 </button>
                 <button
                   type="button"
@@ -1711,7 +1731,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 fullWidth
                 onClick={() => setMobileChatDrawerOpen(true)}
               >
-                開啟聊天室
+                <span className="room-lobby-mobile-chat-trigger-copy">
+                  <span>開啟聊天室</span>
+                  {mobileChatUnread > 0 ? (
+                    <span className="room-lobby-mobile-chat-trigger-count">
+                      {mobileChatUnread > 99 ? "99+" : mobileChatUnread}
+                    </span>
+                  ) : null}
+                </span>
               </Button>
             </div>
             <SwipeableDrawer

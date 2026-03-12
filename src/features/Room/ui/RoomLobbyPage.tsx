@@ -1271,6 +1271,7 @@ const RoomLobbyPage: React.FC = () => {
       (a, b) => a.timestamp - b.timestamp,
     );
   }, [messages, settlementReviewMessages]);
+  const isHost = currentRoom?.hostClientId === clientId;
 
   useEffect(() => {
     if (!activeSettlementSnapshot) {
@@ -2086,7 +2087,7 @@ const RoomLobbyPage: React.FC = () => {
             youtubePlaylists={youtubePlaylists}
             youtubePlaylistsLoading={youtubePlaylistsLoading}
             youtubePlaylistsError={youtubePlaylistsError}
-            isHost={currentRoom.hostClientId === clientId}
+            isHost={isHost}
             gameState={gameState}
             canStartGame={playlistProgress.ready}
             onLeave={() => leaveRoomAndNavigate()}

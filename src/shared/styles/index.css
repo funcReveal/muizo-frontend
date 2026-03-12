@@ -7057,7 +7057,8 @@ body {
 }
 
 .room-lobby-chat-empty-copy {
-  width: min(100%, 19ch);
+  display: block;
+  width: min(100%, 24ch);
   min-height: calc(1.7em * 3);
   margin-inline: auto;
   line-height: 1.7;
@@ -9978,11 +9979,10 @@ body {
   }
 
   .game-room-mobile-scoreboard-headline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: 10px;
-    padding-right: 54px;
   }
 
   .game-room-mobile-scoreboard-title-group {
@@ -10006,9 +10006,24 @@ body {
     text-shadow: 0 0 18px rgba(56, 189, 248, 0.2);
   }
 
+  .game-room-mobile-scoreboard-actions {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .game-room-mobile-drawer-close--scoreboard-inline {
+    width: 38px;
+    height: 38px;
+    font-size: 1.1rem;
+  }
+
   .game-room-mobile-scoreboard-answered-pill {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     white-space: nowrap;
     min-height: 30px;
     padding: 0 10px;
@@ -10180,6 +10195,24 @@ body {
     border-color: rgba(56, 189, 248, 0.32);
   }
 
+  .game-room-playback-panel--mobile-overlay .game-room-mobile-overlay-meta-row {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .game-room-playback-panel--mobile-overlay .game-room-mobile-overlay-meta-main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .game-room-playback-panel--mobile-overlay .game-room-mobile-overlay-meta-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .game-room-playback-panel--mobile-overlay .game-room-mobile-overlay-meta-main > div,
   .game-room-playback-panel--mobile-overlay > .flex.items-center.gap-2 > div {
     min-width: 0;
   }
@@ -10203,7 +10236,7 @@ body {
   }
 
   .game-room-playback-panel--mobile-overlay .game-room-media-frame {
-    height: min(24vh, 178px) !important;
+    height: min(26vh, 188px) !important;
   }
 
   .game-room-playback-panel--mobile-overlay-fill {
@@ -10348,7 +10381,7 @@ body {
   }
 
   .game-room-playback-panel--mobile-overlay .game-room-media-frame {
-    height: min(22vh, 164px) !important;
+    height: min(24vh, 174px) !important;
   }
 
   .room-battle-history-shell {
@@ -10902,6 +10935,37 @@ body {
     border-color: rgba(56, 189, 248, 0.52);
     background: rgba(8, 21, 38, 0.68);
     color: rgba(186, 230, 253, 0.94);
+  }
+
+  .room-lobby-mobile-chat-trigger-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .room-lobby-mobile-chat-trigger-count {
+    display: inline-flex;
+    min-width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 7px;
+    background:
+      radial-gradient(
+        18px 18px at 30% 30%,
+        rgba(248, 113, 113, 0.32),
+        transparent 72%
+      ),
+      rgba(190, 24, 93, 0.88);
+    color: #fff7ed;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 10px 20px -16px rgba(244, 63, 94, 0.9);
   }
 
   .room-lobby-mobile-chat-drawer-root {

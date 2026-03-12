@@ -1704,18 +1704,20 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     <span className="game-room-mobile-scoreboard-kicker">SCOREBOARD</span>
                     <span className="game-room-mobile-scoreboard-title">分數榜</span>
                   </div>
-                  <span className="game-room-mobile-scoreboard-answered-pill">
-                    已答 {answeredCount}/{participants.length || 0}
-                  </span>
+                  <div className="game-room-mobile-scoreboard-actions">
+                    <button
+                      type="button"
+                      className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close--scoreboard-inline"
+                      onClick={handleCloseMobileScoreboard}
+                      aria-label="關閉分數榜"
+                    >
+                      <CloseRoundedIcon fontSize="inherit" />
+                    </button>
+                    <span className="game-room-mobile-scoreboard-answered-pill">
+                      已答 {answeredCount}/{participants.length || 0}
+                    </span>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close-fab game-room-mobile-drawer-close-fab--scoreboard"
-                  onClick={handleCloseMobileScoreboard}
-                  aria-label="關閉分數榜"
-                >
-                  <CloseRoundedIcon fontSize="inherit" />
-                </button>
               </div>
               <div
                 className={`relative min-h-0 flex-1 overflow-hidden ${
