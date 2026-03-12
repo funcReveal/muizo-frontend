@@ -29,6 +29,7 @@ import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import HistoryEduRoundedIcon from "@mui/icons-material/HistoryEduRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
+import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type {
   ChatMessage,
@@ -261,6 +262,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     useState<MobileLobbyTab>("members");
   const [mobileChatDrawerOpen, setMobileChatDrawerOpen] = useState(false);
   const [mobileChatUnread, setMobileChatUnread] = useState(0);
+  const [mobileChatPreview, setMobileChatPreview] = useState<{
+    username: string;
+    content: string;
+  } | null>(null);
   const [mobileChatHeight, setMobileChatHeight] = useState(
     MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH,
   );
@@ -878,21 +883,49 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     }
   }, [isMobileTabletLobbyLayout]);
 
+  const isUnreadMobileChatMessage = React.useCallback(
+    (message: ChatMessage) =>
+      !message.userId.startsWith("system:") && message.userId !== selfClientId,
+    [selfClientId],
+  );
+
   useEffect(() => {
     const previousCount = lastMobileChatMessageCountRef.current;
+    if (messages.length < previousCount) {
+      setMobileChatUnread(0);
+      setMobileChatPreview(null);
+    }
     if (
       isMobileTabletLobbyLayout &&
       !mobileChatDrawerOpen &&
       messages.length > previousCount
     ) {
-      setMobileChatUnread((current) => current + (messages.length - previousCount));
+      const unreadMessages = messages
+        .slice(previousCount)
+        .filter(isUnreadMobileChatMessage);
+      if (unreadMessages.length > 0) {
+        const latestMessage = unreadMessages[unreadMessages.length - 1];
+        setMobileChatUnread((current) => current + unreadMessages.length);
+        setMobileChatPreview({
+          username: normalizeDisplayText(latestMessage.username, "玩家"),
+          content:
+            latestMessage.content.replace(/\s+/g, " ").trim() || "有新訊息",
+        });
+      }
     }
     lastMobileChatMessageCountRef.current = messages.length;
-  }, [isMobileTabletLobbyLayout, messages.length, mobileChatDrawerOpen]);
+  }, [
+    isMobileTabletLobbyLayout,
+    isUnreadMobileChatMessage,
+    messages,
+    messages.length,
+    mobileChatDrawerOpen,
+  ]);
 
   useEffect(() => {
     if (!isMobileTabletLobbyLayout || mobileChatDrawerOpen) {
       setMobileChatUnread(0);
+      setMobileChatPreview(null);
     }
   }, [isMobileTabletLobbyLayout, mobileChatDrawerOpen]);
 
@@ -1798,6 +1831,25 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 </div>
               </div>
             </SwipeableDrawer>
+            {!mobileChatDrawerOpen && mobileChatUnread > 0 && mobileChatPreview ? (
+              <button
+                type="button"
+                className="room-lobby-mobile-chat-fab"
+                onClick={() => setMobileChatDrawerOpen(true)}
+                aria-label={`開啟聊天室，目前有 ${mobileChatUnread} 則未讀訊息`}
+              >
+                <span className="room-lobby-mobile-chat-fab__badge">
+                  未讀 {mobileChatUnread > 99 ? "99+" : mobileChatUnread}
+                </span>
+                <span className="room-lobby-mobile-chat-fab__sender">
+                  <ChatBubbleRoundedIcon fontSize="inherit" />
+                  {mobileChatPreview.username}
+                </span>
+                <span className="room-lobby-mobile-chat-fab__message">
+                  {mobileChatPreview.content}
+                </span>
+              </button>
+            ) : null}
           </>
         ) : (
           <>

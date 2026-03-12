@@ -94,6 +94,9 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   const timingSummary = useCollectionTimingForSettings
     ? `揭曉 ${settingsRevealDurationSec}s（收藏庫）`
     : `作答 ${settingsPlayDurationSec}s / 起始 ${settingsStartOffsetSec}s / 揭曉 ${settingsRevealDurationSec}s`;
+  const compactTimingSummary = useCollectionTimingForSettings
+    ? `揭曉 ${settingsRevealDurationSec}s · 收藏庫`
+    : `${settingsPlayDurationSec}s / ${settingsStartOffsetSec}s / ${settingsRevealDurationSec}s`;
   const maxPlayersLabel = settingsMaxPlayers.trim()
     ? `${settingsMaxPlayers} 人`
     : "不限制";
@@ -121,18 +124,20 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
       <DialogTitle
         className="room-lobby-settings-dialog__head"
         sx={{
-          pb: 0,
+          px: { xs: 2, sm: 3 },
+          pt: { xs: 2, sm: 2.5 },
+          pb: isMobileDialog ? 1.25 : 0,
           borderBottom: "1px solid rgba(245,158,11,0.12)",
         }}
       >
-        <Stack spacing={1.5}>
+        <Stack spacing={isMobileDialog ? 1.1 : 1.5}>
           <Stack
             direction={{ xs: "column", sm: "row" }}
-            spacing={1.5}
+            spacing={isMobileDialog ? 1 : 1.5}
             justifyContent="space-between"
             alignItems={{ xs: "flex-start", sm: "center" }}
           >
-            <Stack spacing={0.6}>
+            <Stack spacing={isMobileDialog ? 0.3 : 0.6}>
               <Typography
                 variant="caption"
                 className="room-lobby-settings-kicker"
@@ -142,11 +147,31 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
               <Typography variant="h5" className="font-semibold text-slate-50">
                 房主設定
               </Typography>
-              <Typography variant="caption" className="text-slate-400">
-                調整後會立即同步到房間，建議在開局前完成設定。
-              </Typography>
+              {!isMobileDialog ? (
+                <Typography variant="caption" className="text-slate-400">
+                  調整後會立即同步到房間，建議在開局前完成設定。
+                </Typography>
+              ) : null}
             </Stack>
-            <Stack direction="row" spacing={0.75} flexWrap="wrap">
+            {!isMobileDialog ? (
+              <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`題數 ${settingsQuestionCount}`}
+                  className="room-lobby-settings-chip"
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={timingSummary}
+                  className="room-lobby-settings-chip room-lobby-settings-chip--accent"
+                />
+              </Stack>
+            ) : null}
+          </Stack>
+          {isMobileDialog ? (
+            <div className="room-lobby-settings-mobile-summary">
               <Chip
                 size="small"
                 variant="outlined"
@@ -156,25 +181,38 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
               <Chip
                 size="small"
                 variant="outlined"
-                label={timingSummary}
+                label={visibilityLabel}
+                className="room-lobby-settings-chip"
+              />
+              <Chip
+                size="small"
+                variant="outlined"
+                label={maxPlayersLabel}
+                className="room-lobby-settings-chip"
+              />
+              <Chip
+                size="small"
+                variant="outlined"
+                label={compactTimingSummary}
                 className="room-lobby-settings-chip room-lobby-settings-chip--accent"
               />
-            </Stack>
-          </Stack>
-          <div className="room-lobby-settings-overview">
-            <div className="room-lobby-settings-overview-item">
-              <span>房間狀態</span>
-              <strong>{visibilityLabel}</strong>
             </div>
-            <div className="room-lobby-settings-overview-item">
-              <span>玩家上限</span>
-              <strong>{maxPlayersLabel}</strong>
+          ) : (
+            <div className="room-lobby-settings-overview">
+              <div className="room-lobby-settings-overview-item">
+                <span>房間狀態</span>
+                <strong>{visibilityLabel}</strong>
+              </div>
+              <div className="room-lobby-settings-overview-item">
+                <span>玩家上限</span>
+                <strong>{maxPlayersLabel}</strong>
+              </div>
+              <div className="room-lobby-settings-overview-item">
+                <span>答題節奏</span>
+                <strong>{timingSummary}</strong>
+              </div>
             </div>
-            <div className="room-lobby-settings-overview-item">
-              <span>答題節奏</span>
-              <strong>{timingSummary}</strong>
-            </div>
-          </div>
+          )}
         </Stack>
       </DialogTitle>
 
@@ -183,13 +221,20 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
         dividers
         sx={{
           borderColor: "rgba(245,158,11,0.12)",
-          py: 2.25,
-          px: { xs: 2, sm: 2.5 },
-          maxHeight: { xs: "76vh", md: "82vh" },
+          py: { xs: 1.5, sm: 2.25 },
+          px: { xs: 1.5, sm: 2.5 },
+          maxHeight: { xs: "none", md: "82vh" },
           overflowY: "auto",
         }}
       >
         <Stack spacing={2}>
+          {isMobileDialog ? (
+            <Box className="room-lobby-settings-mobile-tip">
+              <Typography variant="caption" className="text-slate-300">
+                調整後會立即同步到房間，可先快速修改後再往下細調。
+              </Typography>
+            </Box>
+          ) : null}
           {settingsDisabled && (
             <Box className="room-lobby-settings-warning">
               <Typography variant="caption" className="text-amber-200">
@@ -411,8 +456,8 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
         className="room-lobby-settings-dialog__actions"
         sx={{
           borderTop: "1px solid rgba(245,158,11,0.1)",
-          px: 2.5,
-          py: 1.5,
+          px: { xs: 1.5, sm: 2.5 },
+          py: { xs: 1, sm: 1.5 },
         }}
       >
         <Button onClick={onClose} variant="text" className="room-lobby-settings-secondary-btn">
