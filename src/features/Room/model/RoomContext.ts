@@ -181,6 +181,10 @@ export interface RoomContextValue {
   handleSendMessage: () => void;
   handleStartGame: () => void;
   handleSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
+  handleRequestPlaybackExtensionVote: () => Promise<boolean>;
+  handleCastPlaybackExtensionVote: (
+    vote: "approve" | "reject",
+  ) => Promise<boolean>;
   handleUpdateRoomSettings: (payload: {
     name?: string;
     visibility?: "public" | "private";

@@ -385,6 +385,8 @@ const RoomLobbyPage: React.FC = () => {
     loadMorePlaylist,
     handleStartGame,
     handleSubmitChoice,
+    handleRequestPlaybackExtensionVote,
+    handleCastPlaybackExtensionVote,
     handleUpdateRoomSettings,
     handleKickPlayer,
     handleTransferHost,
@@ -2010,6 +2012,8 @@ const RoomLobbyPage: React.FC = () => {
             onBackToLobby={() => setIsGameView(false)}
             onExitGame={() => leaveRoomAndNavigate()}
             onSubmitChoice={handleSubmitChoice}
+            onRequestPlaybackExtensionVote={handleRequestPlaybackExtensionVote}
+            onCastPlaybackExtensionVote={handleCastPlaybackExtensionVote}
             onKickPlayer={handleKickPlayer}
             onTransferHost={handleTransferHost}
             participants={participants}

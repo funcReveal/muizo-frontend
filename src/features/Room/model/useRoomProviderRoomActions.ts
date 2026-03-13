@@ -428,6 +428,67 @@ export const useRoomProviderRoomActions = ({
     [answerSubmitRequestSeqRef, currentRoom, gameState, getSocket, pendingAnswerSubmitRef, serverOffsetRef, setStatusText],
   );
 
+  const handleRequestPlaybackExtensionVote = useCallback(async (): Promise<boolean> => {
+    const socket = getSocket();
+    if (!socket || !currentRoom) {
+      setStatusText("目前不在房間內");
+      return false;
+    }
+    return await new Promise<boolean>((resolve) => {
+      socket.emit(
+        "requestPlaybackExtensionVote",
+        { roomId: currentRoom.id },
+        (ack: Ack<{ gameState: GameState; serverNow: number }>) => {
+          if (!ack) {
+            setStatusText("發起延長投票失敗，請稍後再試");
+            resolve(false);
+            return;
+          }
+          if (!ack.ok) {
+            setStatusText(formatAckError("發起延長投票失敗", ack.error));
+            resolve(false);
+            return;
+          }
+          syncServerOffset(ack.data.serverNow);
+          setGameState(ack.data.gameState);
+          resolve(true);
+        },
+      );
+    });
+  }, [currentRoom, getSocket, setGameState, setStatusText, syncServerOffset]);
+
+  const handleCastPlaybackExtensionVote = useCallback(
+    async (vote: "approve" | "reject"): Promise<boolean> => {
+      const socket = getSocket();
+      if (!socket || !currentRoom) {
+        setStatusText("目前不在房間內");
+        return false;
+      }
+      return await new Promise<boolean>((resolve) => {
+        socket.emit(
+          "castPlaybackExtensionVote",
+          { roomId: currentRoom.id, vote },
+          (ack: Ack<{ gameState: GameState; serverNow: number }>) => {
+            if (!ack) {
+              setStatusText("送出投票失敗，請稍後再試");
+              resolve(false);
+              return;
+            }
+            if (!ack.ok) {
+              setStatusText(formatAckError("送出投票失敗", ack.error));
+              resolve(false);
+              return;
+            }
+            syncServerOffset(ack.data.serverNow);
+            setGameState(ack.data.gameState);
+            resolve(true);
+          },
+        );
+      });
+    },
+    [currentRoom, getSocket, setGameState, setStatusText, syncServerOffset],
+  );
+
   useEffect(() => {
     if (!gameState || gameState.phase !== "guess" || !currentRoom) {
       pendingAnswerSubmitRef.current = null;
@@ -489,6 +550,8 @@ export const useRoomProviderRoomActions = ({
     handleSendMessage,
     handleStartGame,
     handleSubmitChoice,
+    handleRequestPlaybackExtensionVote,
+    handleCastPlaybackExtensionVote,
     handleKickPlayer,
     handleTransferHost,
   };

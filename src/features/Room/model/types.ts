@@ -96,9 +96,24 @@ export interface GameState {
   showVideo: boolean;
   trackOrder: number[];
   trackCursor: number;
+  playbackExtensionMs?: number;
+  playbackExtensionVote?: PlaybackExtensionVoteState | null;
   lockedClientIds?: string[];
   lockedOrder?: string[];
   questionStats?: GameQuestionStats;
+}
+
+export interface PlaybackExtensionVoteState {
+  requestedByClientId: string;
+  requestedByUsername: string;
+  startedAt: number;
+  endsAt: number;
+  extendMs: number;
+  eligibleClientIds: string[];
+  approveClientIds: string[];
+  rejectClientIds: string[];
+  status: "active" | "approved" | "rejected";
+  resolvedAt?: number;
 }
 
 export interface PlaylistSuggestion {
@@ -346,6 +361,14 @@ export interface ClientToServerEvents {
   submitAnswer: (
     payload: { roomId: string; choiceIndex: number },
     callback?: (ack: Ack<SubmitAnswerAckData>) => void
+  ) => void;
+  requestPlaybackExtensionVote: (
+    payload: { roomId: string },
+    callback?: (ack: Ack<{ gameState: GameState; serverNow: number }>) => void
+  ) => void;
+  castPlaybackExtensionVote: (
+    payload: { roomId: string; vote: "approve" | "reject" },
+    callback?: (ack: Ack<{ gameState: GameState; serverNow: number }>) => void
   ) => void;
   latencyProbe: (
     payload: { roomId: string },

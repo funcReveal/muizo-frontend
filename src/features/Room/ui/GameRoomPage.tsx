@@ -27,6 +27,7 @@ import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
 import PersonRemoveRoundedIcon from "@mui/icons-material/PersonRemoveRounded";
 import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import HowToVoteRoundedIcon from "@mui/icons-material/HowToVoteRounded";
 import type {
   ChatMessage,
   GameState,
@@ -79,6 +80,7 @@ import useGameRoomAnswerPanelAutoScroll from "./components/gameRoomPage/useGameR
 import useMobileDrawerDragDismiss from "./components/gameRoomPage/useMobileDrawerDragDismiss";
 import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
+import { useRoom } from "../model/useRoom";
 
 interface GameRoomPageProps {
   room: RoomState["room"];
@@ -87,6 +89,10 @@ interface GameRoomPageProps {
   onExitGame: () => void;
   onBackToLobby?: () => void;
   onSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
+  onRequestPlaybackExtensionVote?: () => Promise<boolean>;
+  onCastPlaybackExtensionVote?: (
+    vote: "approve" | "reject",
+  ) => Promise<boolean>;
   onKickPlayer?: (clientId: string, durationMs?: number | null) => void;
   onTransferHost?: (clientId: string) => void;
   participants?: RoomState["participants"];
@@ -167,6 +173,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   onExitGame,
   onBackToLobby,
   onSubmitChoice,
+  onRequestPlaybackExtensionVote,
+  onCastPlaybackExtensionVote,
   onKickPlayer,
   onTransferHost,
   participants = [],
@@ -178,6 +186,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   serverOffsetMs = 0,
   onSettlementRecapChange,
 }) => {
+  const { setStatusText } = useRoom();
   const { danmuEnabled, setDanmuEnabled, danmuItems } = useGameRoomDanmu({
     roomId: room.id,
     messages,
@@ -219,6 +228,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [hostManagementOpen, setHostManagementOpen] = useState(false);
   const [hostManagementConfirm, setHostManagementConfirm] =
     useState<HostManagementAction | null>(null);
+  const [playbackVoteDialogOpen, setPlaybackVoteDialogOpen] = useState(false);
+  const [playbackVoteRequestPending, setPlaybackVoteRequestPending] =
+    useState(false);
+  const [playbackVoteSubmitPending, setPlaybackVoteSubmitPending] = useState<
+    "approve" | "reject" | null
+  >(null);
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
   const lastPreStartCountdownSfxKeyRef = useRef<string | null>(null);
@@ -228,6 +243,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const lastComboStateSfxKeyRef = useRef<string | null>(null);
   const previousPhaseRef = useRef<GameState["phase"]>(gameState.phase);
   const lastAutoOverlayTransitionAtRef = useRef(0);
+  const lastPlaybackVotePromptKeyRef = useRef<string | null>(null);
+  const lastPlaybackVoteResolvedKeyRef = useRef<string | null>(null);
   const answerPanelRef = useRef<HTMLDivElement | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
@@ -406,6 +423,68 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     }
     setHostManagementConfirm(null);
   }, [hostManagementConfirm, isHostInGame, onKickPlayer, onTransferHost]);
+  const playbackExtensionVote = gameState.playbackExtensionVote ?? null;
+  const playbackVoteApproveCount =
+    playbackExtensionVote?.approveClientIds.length ?? 0;
+  const playbackVoteRejectCount =
+    playbackExtensionVote?.rejectClientIds.length ?? 0;
+  const playbackVoteEligibleCount =
+    playbackExtensionVote?.eligibleClientIds.length ?? 0;
+  const playbackVoteMajorityCount =
+    playbackVoteEligibleCount > 0
+      ? Math.floor(playbackVoteEligibleCount / 2) + 1
+      : 0;
+  const playbackVoteRemainingMs =
+    playbackExtensionVote?.status === "active"
+      ? Math.max(0, playbackExtensionVote.endsAt - nowMs)
+      : 0;
+  const playbackExtensionSeconds = Math.max(
+    0,
+    Math.round((gameState.playbackExtensionMs ?? 0) / 1000),
+  );
+  const myPlaybackVote = useMemo(() => {
+    if (!playbackExtensionVote || !meClientId) return null;
+    if (playbackExtensionVote.approveClientIds.includes(meClientId)) {
+      return "approve";
+    }
+    if (playbackExtensionVote.rejectClientIds.includes(meClientId)) {
+      return "reject";
+    }
+    return null;
+  }, [meClientId, playbackExtensionVote]);
+  const playbackVoteRequesterName =
+    playbackExtensionVote?.requestedByUsername?.trim() || "有玩家";
+  const playbackVoteProposalSeconds = Math.max(
+    0,
+    Math.round((playbackExtensionVote?.extendMs ?? 0) / 1000),
+  );
+  const playbackVoteResolvedSeconds = Math.max(
+    playbackExtensionSeconds,
+    playbackVoteProposalSeconds,
+  );
+  const playbackVoteButtonLabel = playbackVoteRequestPending
+    ? "發起中..."
+    : playbackExtensionVote?.status === "active"
+      ? myPlaybackVote === null
+        ? `延長投票 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
+        : `已投票 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
+      : playbackExtensionVote?.status === "approved" && playbackVoteResolvedSeconds > 0
+        ? `已延長 ${playbackVoteResolvedSeconds} 秒`
+        : playbackExtensionVote?.status === "rejected"
+          ? "延長未通過"
+          : playbackExtensionSeconds > 0
+            ? `已延長 ${playbackExtensionSeconds} 秒`
+            : "延長播放";
+  const playbackVoteRemainingSeconds = Math.max(
+    0,
+    Math.ceil(playbackVoteRemainingMs / 1000),
+  );
+  const playbackVoteSelfStatusText =
+    myPlaybackVote === "approve"
+      ? "你已同意"
+      : myPlaybackVote === "reject"
+        ? "你已反對"
+        : null;
   const effectiveMobilePlaybackHeight = mobileRevealSplitMode
     ? normalizedSplitHeights.playbackHeight
     : clampMobileVh(
@@ -734,6 +813,21 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const displayedPhaseRemainingMs = allAnsweredReadyForReveal
     ? 0
     : phaseRemainingMs;
+  const canRequestPlaybackExtensionVote =
+    gameState.status === "playing" &&
+    gameState.phase === "guess" &&
+    !waitingToStart &&
+    !isEnded &&
+    !allAnsweredReadyForReveal &&
+    !playbackExtensionVote;
+  const canOpenPlaybackVotePrompt =
+    playbackExtensionVote?.status === "active" && myPlaybackVote === null;
+  const playbackVoteButtonDisabled =
+    playbackVoteRequestPending ||
+    playbackVoteSubmitPending !== null ||
+    (canRequestPlaybackExtensionVote && !onRequestPlaybackExtensionVote) ||
+    (canOpenPlaybackVotePrompt && !onCastPlaybackExtensionVote) ||
+    (!canRequestPlaybackExtensionVote && !canOpenPlaybackVotePrompt);
   const shouldHideVideoInGuessPhase = gameState.phase === "guess" && !isEnded;
   const showGuessMask =
     shouldHideVideoInGuessPhase &&
@@ -801,6 +895,55 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   ]);
 
   useEffect(() => {
+    setPlaybackVoteDialogOpen(false);
+    setPlaybackVoteRequestPending(false);
+    setPlaybackVoteSubmitPending(null);
+    lastPlaybackVotePromptKeyRef.current = null;
+    lastPlaybackVoteResolvedKeyRef.current = null;
+  }, [trackSessionKey]);
+
+  useEffect(() => {
+    if (!playbackExtensionVote || playbackExtensionVote.status !== "active") {
+      setPlaybackVoteDialogOpen(false);
+      return;
+    }
+    if (!meClientId || myPlaybackVote !== null) {
+      setPlaybackVoteDialogOpen(false);
+      return;
+    }
+    const promptKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}`;
+    if (lastPlaybackVotePromptKeyRef.current === promptKey) return;
+    lastPlaybackVotePromptKeyRef.current = promptKey;
+    setPlaybackVoteDialogOpen(true);
+  }, [meClientId, myPlaybackVote, playbackExtensionVote, trackSessionKey]);
+
+  useEffect(() => {
+    if (
+      !playbackExtensionVote ||
+      (playbackExtensionVote.status !== "approved" &&
+        playbackExtensionVote.status !== "rejected")
+    ) {
+      return;
+    }
+    const resolvedKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}:${playbackExtensionVote.status}:${playbackVoteResolvedSeconds}`;
+    if (lastPlaybackVoteResolvedKeyRef.current === resolvedKey) return;
+    lastPlaybackVoteResolvedKeyRef.current = resolvedKey;
+    if (
+      playbackExtensionVote.status === "approved" &&
+      playbackVoteResolvedSeconds > 0
+    ) {
+      setStatusText(`延長播放投票通過，本題已延長 ${playbackVoteResolvedSeconds} 秒`);
+      return;
+    }
+    setStatusText("延長播放投票未通過，本題維持原播放長度");
+  }, [
+    playbackExtensionVote,
+    playbackVoteResolvedSeconds,
+    setStatusText,
+    trackSessionKey,
+  ]);
+
+  useEffect(() => {
     if (legacyClipWarningShownRef.current) return;
     if (
       typeof gameState.clipStartSec === "number" &&
@@ -863,6 +1006,40 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       : null;
   const preStartCountdownSfxSec = startCountdownSec;
   const phaseElapsedMs = Math.max(0, activePhaseDurationMs - phaseRemainingMs);
+
+  const handleRequestPlaybackVote = useCallback(async () => {
+    if (canOpenPlaybackVotePrompt) {
+      setPlaybackVoteDialogOpen(true);
+      return;
+    }
+    if (!canRequestPlaybackExtensionVote || !onRequestPlaybackExtensionVote) return;
+    setPlaybackVoteRequestPending(true);
+    try {
+      await onRequestPlaybackExtensionVote();
+    } finally {
+      setPlaybackVoteRequestPending(false);
+    }
+  }, [
+    canOpenPlaybackVotePrompt,
+    canRequestPlaybackExtensionVote,
+    onRequestPlaybackExtensionVote,
+  ]);
+
+  const handleCastPlaybackVote = useCallback(
+    async (vote: "approve" | "reject") => {
+      if (!canOpenPlaybackVotePrompt || !onCastPlaybackExtensionVote) return;
+      setPlaybackVoteSubmitPending(vote);
+      try {
+        const ok = await onCastPlaybackExtensionVote(vote);
+        if (ok) {
+          setPlaybackVoteDialogOpen(false);
+        }
+      } finally {
+        setPlaybackVoteSubmitPending(null);
+      }
+    },
+    [canOpenPlaybackVotePrompt, onCastPlaybackExtensionVote],
+  );
 
   useEffect(() => {
     // Inter-track prep is usually very short; keep only the guess-start "go" sound
@@ -1215,8 +1392,31 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       startCountdownSec={startCountdownSec}
     />
   );
+  const playbackVoteButton =
+    gameState.status === "playing" ? (
+      <Button
+        type="button"
+        variant={canOpenPlaybackVotePrompt ? "contained" : "outlined"}
+        color={canOpenPlaybackVotePrompt ? "warning" : "info"}
+        size="small"
+        startIcon={<HowToVoteRoundedIcon />}
+        className={`game-room-extend-vote-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${
+          playbackExtensionVote?.status === "active"
+            ? "game-room-extend-vote-btn--active"
+            : playbackExtensionVote?.status === "approved"
+              ? "game-room-extend-vote-btn--approved"
+              : playbackExtensionVote?.status === "rejected"
+                ? "game-room-extend-vote-btn--rejected"
+                : ""
+        }`}
+        disabled={playbackVoteButtonDisabled}
+        onClick={handleRequestPlaybackVote}
+      >
+        {playbackVoteButtonLabel}
+      </Button>
+    ) : null;
   const playbackHeaderActions =
-    isHostInGame ? (
+    isHostInGame || playbackVoteButton ? (
       <Stack
         direction="row"
         spacing={1}
@@ -1235,7 +1435,39 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             房主管理
           </Button>
         )}
+        {playbackVoteButton}
       </Stack>
+    ) : null;
+  const playbackVoteBanner =
+    gameState.status === "playing" &&
+    playbackExtensionVote?.status === "active" ? (
+      <div
+        className="game-room-playback-vote-banner game-room-playback-vote-banner--active"
+      >
+        <div className="game-room-playback-vote-banner__body">
+          <div className="game-room-playback-vote-banner__kicker">延長播放投票</div>
+          <div className="game-room-playback-vote-banner__title">
+            {`${playbackVoteRequesterName} 提議將本題多播放 ${playbackVoteProposalSeconds} 秒。`}
+          </div>
+          <div className="game-room-playback-vote-banner__meta">
+            {`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount} · 不同意 ${playbackVoteRejectCount} · 剩 ${playbackVoteRemainingSeconds} 秒${
+              playbackVoteSelfStatusText ? ` · ${playbackVoteSelfStatusText}` : ""
+            }`}
+          </div>
+        </div>
+        {canOpenPlaybackVotePrompt && (
+          <Button
+            type="button"
+            variant="contained"
+            color="warning"
+            size="small"
+            className="game-room-playback-vote-banner__cta"
+            onClick={() => setPlaybackVoteDialogOpen(true)}
+          >
+            參與投票
+          </Button>
+        )}
+      </div>
     ) : null;
   const hostManagementPanelContent = (
     <Stack spacing={1.1} className="game-room-host-manage-list">
@@ -1409,6 +1641,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               onGameVolumeChange={setGameVolume}
             />
           )}
+          {playbackVoteBanner}
           <GameRoomAnswerPanel
             isMobileView={isMobileGameViewport}
             answerPanelRef={answerPanelRef}
@@ -1514,7 +1747,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 {isHostInGame && (
                   <button
                     type="button"
-                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--half ${
+                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact ${
                       hostManagementOpen ? "game-room-mobile-toggle-chip--active" : ""
                     }`}
                     onClick={handleOpenHostManagement}
@@ -1528,11 +1761,34 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     </span>
                   </button>
                 )}
+                {gameState.status === "playing" && (
+                  <button
+                    type="button"
+                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact game-room-mobile-toggle-chip--vote ${
+                      playbackExtensionVote?.status === "active" || canOpenPlaybackVotePrompt
+                        ? "game-room-mobile-toggle-chip--active"
+                        : ""
+                    }`}
+                    onClick={handleRequestPlaybackVote}
+                    disabled={playbackVoteButtonDisabled}
+                  >
+                    <span className="game-room-mobile-action-icon" aria-hidden>
+                      <HowToVoteRoundedIcon fontSize="inherit" />
+                    </span>
+                    <span>{playbackVoteButtonLabel}</span>
+                    <span className="game-room-mobile-action-meta">
+                      {playbackExtensionVote?.status === "active"
+                        ? `剩 ${playbackVoteRemainingSeconds} 秒`
+                        : playbackExtensionVote?.status === "approved" &&
+                            playbackVoteResolvedSeconds > 0
+                          ? `+${playbackVoteResolvedSeconds} 秒`
+                          : "發起多數決"}
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`game-room-mobile-toggle-chip ${
-                    isHostInGame ? "game-room-mobile-toggle-chip--half " : ""
-                  }${
                     mobileRevealAutoOverlayEnabled
                       ? "game-room-mobile-toggle-chip--active"
                       : ""
@@ -1779,6 +2035,53 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             />
           </>
         )}
+        <Dialog
+          open={playbackVoteDialogOpen && canOpenPlaybackVotePrompt}
+          onClose={() => {
+            if (playbackVoteSubmitPending !== null) return;
+            setPlaybackVoteDialogOpen(false);
+          }}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{
+            className: "game-room-playback-vote-dialog",
+          }}
+        >
+          <DialogTitle>要延長這首歌的播放時間嗎？</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={1.2}>
+              <Typography variant="body2" className="text-slate-200">
+                {playbackVoteRequesterName} 發起了延長播放投票。若同意過半，
+                這一題會多播放 {playbackVoteProposalSeconds} 秒。
+              </Typography>
+              <div className="game-room-playback-vote-dialog__stats">
+                <span>同意 {playbackVoteApproveCount}/{playbackVoteMajorityCount}</span>
+                <span>不同意 {playbackVoteRejectCount}</span>
+                <span>剩 {playbackVoteRemainingSeconds} 秒</span>
+              </div>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => handleCastPlaybackVote("reject")}
+              variant="outlined"
+              color="inherit"
+              disabled={playbackVoteSubmitPending !== null}
+            >
+              {playbackVoteSubmitPending === "reject" ? "送出中..." : "維持原時長"}
+            </Button>
+            <Button
+              onClick={() => handleCastPlaybackVote("approve")}
+              variant="contained"
+              color="warning"
+              disabled={playbackVoteSubmitPending !== null}
+            >
+              {playbackVoteSubmitPending === "approve"
+                ? "送出中..."
+                : `同意延長 ${playbackVoteProposalSeconds} 秒`}
+            </Button>
+          </DialogActions>
+        </Dialog>
         {isHostInGame && !isMobileGameViewport && (
           <Dialog
             open={hostManagementOpen}
