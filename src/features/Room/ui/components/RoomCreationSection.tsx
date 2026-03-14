@@ -357,6 +357,99 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
     playlistLoading,
     roomName,
   ]);
+  const settingsSummaryItems = React.useMemo(
+    () => [
+      {
+        label: "房間類型",
+        value: roomVisibility === "public" ? "公開房" : "私人房",
+      },
+      {
+        label: "玩家上限",
+        value: `${selectedMaxPlayers} 人`,
+      },
+      {
+        label: "題數",
+        value: `${questionCount} 題`,
+      },
+      {
+        label: "節奏",
+        value: useCollectionTimingForSource
+          ? `揭示 ${revealDurationSec}s / 題庫片段`
+          : `播放 ${playDurationSec}s / 揭示 ${revealDurationSec}s / 起點 ${startOffsetSec}s`,
+      },
+    ],
+    [
+      playDurationSec,
+      questionCount,
+      revealDurationSec,
+      roomVisibility,
+      selectedMaxPlayers,
+      startOffsetSec,
+      useCollectionTimingForSource,
+    ],
+  );
+  const roomSettingPresets = React.useMemo(
+    () => [
+      {
+        key: "casual",
+        label: "輕鬆局",
+        hint: "題數少一點，揭示長一點",
+        active:
+          questionCount === 10 &&
+          revealDurationSec === 12 &&
+          playDurationSec === 18 &&
+          startOffsetSec === 0,
+        onApply: () => {
+          onQuestionCountChange(10);
+          onRevealDurationChange(12);
+          onPlayDurationChange(18);
+          onStartOffsetChange(0);
+        },
+      },
+      {
+        key: "standard",
+        label: "標準局",
+        hint: "適合大多數房間的平均設定",
+        active:
+          questionCount === 15 &&
+          revealDurationSec === 10 &&
+          playDurationSec === 15 &&
+          startOffsetSec === 0,
+        onApply: () => {
+          onQuestionCountChange(15);
+          onRevealDurationChange(10);
+          onPlayDurationChange(15);
+          onStartOffsetChange(0);
+        },
+      },
+      {
+        key: "tempo",
+        label: "快節奏",
+        hint: "更短播放與揭示，節奏更緊",
+        active:
+          questionCount === 20 &&
+          revealDurationSec === 8 &&
+          playDurationSec === 12 &&
+          startOffsetSec === 3,
+        onApply: () => {
+          onQuestionCountChange(20);
+          onRevealDurationChange(8);
+          onPlayDurationChange(12);
+          onStartOffsetChange(3);
+        },
+      },
+    ],
+    [
+      onPlayDurationChange,
+      onQuestionCountChange,
+      onRevealDurationChange,
+      onStartOffsetChange,
+      playDurationSec,
+      questionCount,
+      revealDurationSec,
+      startOffsetSec,
+    ],
+  );
 
   const targetCollectionScope =
     sourceMode === "privateCollection"
@@ -964,6 +1057,93 @@ const RoomCreationSection: React.FC<RoomCreationSectionProps> = (props) => {
                     noteText: "room-create-muted room-create-v3-helper-note",
                   }}
                 />
+
+                <div className="rounded-3xl border border-[var(--mc-border)] bg-[linear-gradient(135deg,rgba(8,15,28,0.92),rgba(15,23,42,0.78))] p-4 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.95)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <Typography
+                        variant="subtitle1"
+                        className="room-create-step-title"
+                      >
+                        設定總覽
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        className="room-create-muted"
+                      >
+                        先確認這局的節奏與房間條件，再往下微調細項。
+                      </Typography>
+                    </div>
+                    <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] text-cyan-100">
+                      {playlistItems.length > 0 ? `已載入 ${playlistItems.length} 首` : "等待題庫"}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {settingsSummaryItems.map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3"
+                      >
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                          {item.label}
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                          {item.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <Typography
+                        variant="subtitle1"
+                        className="room-create-step-title"
+                      >
+                        快速預設
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        className="room-create-muted"
+                      >
+                        一鍵套用常見開房節奏，再依需求微調題數與時間。
+                      </Typography>
+                    </div>
+                    <span className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-[11px] text-[var(--mc-text-muted)]">
+                      預設不會變更房名與來源
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {roomSettingPresets.map((preset) => (
+                      <button
+                        key={preset.key}
+                        type="button"
+                        onClick={preset.onApply}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${
+                          preset.active
+                            ? "border-amber-300/60 bg-amber-300/10 shadow-[0_14px_32px_-24px_rgba(251,191,36,0.55)]"
+                            : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 hover:border-amber-300/35 hover:bg-[var(--mc-surface-strong)]/55"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-[var(--mc-text)]">
+                            {preset.label}
+                          </span>
+                          {preset.active ? (
+                            <span className="rounded-full border border-amber-300/40 bg-amber-300/12 px-2 py-0.5 text-[10px] text-amber-100">
+                              使用中
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                          {preset.hint}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="room-create-question-card">
                   <div className="room-create-question-head">

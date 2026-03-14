@@ -200,6 +200,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   type MobileLobbyTab = "members" | "host" | "playlist";
   const rowCount = playlistItems.length + (playlistHasMore ? 1 : 0);
   const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [roomCodeCopied, setRoomCodeCopied] = useState(false);
   const [showRoomPassword, setShowRoomPassword] = useState(false);
   const [hostSourceType, setHostSourceType] = useState<
     "suggestions" | "playlist" | "collection" | "youtube"
@@ -259,6 +260,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [settingsMaxPlayers, setSettingsMaxPlayers] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const formattedRoomCode = currentRoom?.roomCode
+    ? `${currentRoom.roomCode.slice(0, 3)}-${currentRoom.roomCode.slice(3)}`
+    : null;
   const [mobileLobbyTab, setMobileLobbyTab] =
     useState<MobileLobbyTab>("members");
   const [mobileChatDrawerOpen, setMobileChatDrawerOpen] = useState(false);
@@ -665,6 +669,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       setSettingsError(`最大人數需介於 ${PLAYER_MIN} - ${PLAYER_MAX}`);
       return;
     }
+    const normalizedPin = settingsPassword.trim();
+    if (normalizedPin && !/^\d{4}$/.test(normalizedPin)) {
+      setSettingsError("PIN 需為 4 位數字");
+      return;
+    }
 
     const nextMaxPlayers = effectiveMaxPlayers;
     const nextQuestionCount = clampQuestionCount(
@@ -683,7 +692,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       startOffsetSec: nextStartOffsetSec,
       allowCollectionClipTiming: settingsAllowCollectionClipTiming,
       maxPlayers: nextMaxPlayers,
-      ...(settingsPasswordDirty ? { password: settingsPassword } : {}),
+      ...(settingsPasswordDirty ? { pin: normalizedPin } : {}),
     };
     setSettingsSaving(true);
     try {
@@ -1195,11 +1204,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         label={playlistProgress.ready ? "同步完成" : "同步中"}
         className="text-slate-200 border-slate-600"
       />
-      {currentRoom?.hasPassword && (
+      {(currentRoom?.hasPin ?? currentRoom?.hasPassword) && (
         <Chip
           size="small"
           variant="outlined"
-          label="需密碼"
+          label="需 PIN"
           className="text-slate-200 border-slate-600"
         />
       )}
@@ -1213,6 +1222,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       )}
     </Stack>
   );
+
+  const handleCopyRoomCode = async () => {
+    if (!currentRoom?.roomCode) return;
+    try {
+      await navigator.clipboard.writeText(currentRoom.roomCode);
+      setRoomCodeCopied(true);
+      window.setTimeout(() => setRoomCodeCopied(false), 1800);
+    } catch {
+      setRoomCodeCopied(false);
+    }
+  };
 
   const participantsPanel = (
     <Box className="room-lobby-participants">
@@ -1522,11 +1542,35 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               />
             </Stack>
             {roomSettingChips}
-            {isHost && currentRoom?.hasPassword && (
+            {formattedRoomCode && (
               <Box>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <Typography variant="caption" className="text-slate-300">
-                    房間密碼
+                    房間代碼
+                  </Typography>
+                  <TextField
+                    size="small"
+                    value={formattedRoomCode}
+                    InputProps={{ readOnly: true }}
+                    sx={{ minWidth: 180 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      void handleCopyRoomCode();
+                    }}
+                  >
+                    {roomCodeCopied ? "已複製" : "複製代碼"}
+                  </Button>
+                </Stack>
+              </Box>
+            )}
+            {isHost && (currentRoom?.hasPin ?? currentRoom?.hasPassword) && (
+              <Box>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <Typography variant="caption" className="text-slate-300">
+                    房間 PIN
                   </Typography>
                   {roomPassword ? (
                     <>
@@ -1546,7 +1590,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     </>
                   ) : (
                     <Typography variant="caption" className="text-slate-500">
-                      此私人房目前未設定密碼
+                      此房間目前未設定 PIN
                     </Typography>
                   )}
                 </Stack>

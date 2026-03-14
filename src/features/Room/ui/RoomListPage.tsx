@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type UIEvent } from "react";
+﻿import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type UIEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -8,6 +15,9 @@ import {
   DialogTitle,
   IconButton,
   MenuItem,
+  Slider,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -15,12 +25,27 @@ import {
 } from "@mui/material";
 import { List, type RowComponentProps } from "react-window";
 import {
+  AddCircleOutlineRounded,
+  AccessTimeRounded,
   BookmarkBorderRounded,
+  ChevronLeftRounded,
+  ChevronRightRounded,
   CloseRounded,
+  EditRounded,
+  GroupsRounded,
+  KeyboardDoubleArrowLeftRounded,
+  KeyboardDoubleArrowRightRounded,
+  LockRounded,
   LinkRounded,
   LockOutlined,
+  PasswordRounded,
   PlayCircleOutlineRounded,
+  ScheduleRounded,
+  TimerRounded,
+  TuneRounded,
   PublicOutlined,
+  QuizRounded,
+  MeetingRoomRounded,
 } from "@mui/icons-material";
 
 import type { RoomSummary } from "../model/types";
@@ -97,7 +122,9 @@ const PlaylistPreviewRow = ({
     <div style={style} className="px-2 py-1">
       <div className="flex items-center gap-3 rounded-lg border border-[var(--mc-border)]/70 bg-slate-950/25 px-2 py-2">
         <img
-          src={item.thumbnail || "https://img.youtube.com/vi/default/hqdefault.jpg"}
+          src={
+            item.thumbnail || "https://img.youtube.com/vi/default/hqdefault.jpg"
+          }
           alt={item.title}
           className="h-10 w-16 rounded object-cover"
           loading="lazy"
@@ -131,10 +158,7 @@ const buildSkeletonClassName = (shapeClassName: string) =>
 const skeletonLineClass =
   "rounded-full bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]";
 
-const renderYoutubeSkeletonCard = (
-  idx: number,
-  view: "grid" | "list",
-) => {
+const renderYoutubeSkeletonCard = (idx: number, view: "grid" | "list") => {
   if (view === "grid") {
     return (
       <div key={`yt-skeleton-${idx}`} className={buildSkeletonClassName("p-3")}>
@@ -163,13 +187,13 @@ const renderYoutubeSkeletonCard = (
   );
 };
 
-const renderCollectionSkeletonCard = (
-  idx: number,
-  view: "grid" | "list",
-) => {
+const renderCollectionSkeletonCard = (idx: number, view: "grid" | "list") => {
   if (view === "grid") {
     return (
-      <div key={`collection-skeleton-${idx}`} className={buildSkeletonClassName("p-3")}>
+      <div
+        key={`collection-skeleton-${idx}`}
+        className={buildSkeletonClassName("p-3")}
+      >
         <div className="mb-3 h-28 w-full rounded-md bg-white/8" />
         <div className="space-y-2">
           <div className={`${skeletonLineClass} h-4 w-[76%]`} />
@@ -238,6 +262,8 @@ const VirtualLibraryListRow = ({
 };
 
 const GUIDE_MODE_STORAGE_KEY = "mq_room_guide_mode";
+const CREATE_PLAYER_QUICK_OPTIONS = [4, 8, 12];
+const CREATE_QUESTION_QUICK_OPTIONS = [10, 15, 20, 30];
 
 const formatDurationLabel = (durationSec?: number | null) => {
   if (!durationSec || durationSec <= 0) return null;
@@ -268,11 +294,25 @@ const getRoomPlaylistLabel = (room: RoomSummary) => {
     if (trimmed) return trimmed;
   }
 
-  return room.playlistCount > 0 ? `共 ${room.playlistCount} 首題目` : "題庫資訊未提供";
+  return room.playlistCount > 0
+    ? `共 ${room.playlistCount} 首題目`
+    : "題庫資訊未提供";
 };
 
 const getRoomStatusLabel = (room: RoomSummary) =>
   isRoomCurrentlyPlaying(room) ? "遊玩中" : "待機中";
+
+const roomRequiresPin = (room: RoomSummary) =>
+  Boolean(room.hasPin ?? room.hasPassword);
+
+const normalizeRoomCodeInput = (value: string) =>
+  value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+
+const formatRoomCodeDisplay = (value: string) => {
+  const normalized = normalizeRoomCodeInput(value);
+  if (normalized.length <= 3) return normalized;
+  return `${normalized.slice(0, 3)}-${normalized.slice(3)}`;
+};
 
 const RoomListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -351,7 +391,11 @@ const RoomListPage: React.FC = () => {
   } | null>(null);
   const [passwordDraft, setPasswordDraft] = useState("");
   const [directRoomIdInput, setDirectRoomIdInput] = useState("");
+  const [joinEntryTab, setJoinEntryTab] = useState<"code" | "browser">("code");
+  const [isDirectRoomCodeFocused, setIsDirectRoomCodeFocused] = useState(false);
   const [directJoinLoading, setDirectJoinLoading] = useState(false);
+  const [directJoinPreviewRoom, setDirectJoinPreviewRoom] =
+    useState<RoomSummary | null>(null);
   const [directJoinError, setDirectJoinError] = useState<string | null>(null);
   const [directJoinNeedsPassword, setDirectJoinNeedsPassword] = useState(false);
   const [guideMode, setGuideMode] = useState<"create" | "join">(() => {
@@ -373,9 +417,9 @@ const RoomListPage: React.FC = () => {
     null,
   );
   const [playlistUrlDraft, setPlaylistUrlDraft] = useState("");
-  const [playlistPreviewError, setPlaylistPreviewError] = useState<string | null>(
-    null,
-  );
+  const [playlistPreviewError, setPlaylistPreviewError] = useState<
+    string | null
+  >(null);
   const [joinPasswordFilter, setJoinPasswordFilter] = useState<
     "all" | "no_password" | "password_required"
   >("all");
@@ -391,6 +435,7 @@ const RoomListPage: React.FC = () => {
   const lastAutoPreviewUrlRef = useRef("");
   const hasRequestedYoutubePlaylistsRef = useRef(false);
   const createLibraryScrollRef = useRef<HTMLDivElement | null>(null);
+  const directRoomCodeInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (currentRoom?.id) {
@@ -403,6 +448,71 @@ const RoomListPage: React.FC = () => {
     window.sessionStorage.setItem(GUIDE_MODE_STORAGE_KEY, guideMode);
   }, [guideMode]);
 
+  const normalizedDirectRoomCode = normalizeRoomCodeInput(directRoomIdInput);
+  const directRoomCodeSlots = normalizedDirectRoomCode.padEnd(6, "_").split("");
+  const activeDirectRoomCodeIndex =
+    normalizedDirectRoomCode.length >= 6 ? 5 : normalizedDirectRoomCode.length;
+  const resolvedDirectJoinRoom = directJoinPreviewRoom;
+
+  useEffect(() => {
+    if (guideMode !== "join" || joinEntryTab !== "code") return;
+    const frame = window.requestAnimationFrame(() => {
+      directRoomCodeInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [guideMode, joinEntryTab]);
+
+  useEffect(() => {
+    if (guideMode !== "join" || joinEntryTab !== "code") return;
+    if (normalizedDirectRoomCode.length < 6) {
+      setDirectJoinLoading(false);
+      setDirectJoinPreviewRoom(null);
+      setDirectJoinNeedsPassword(false);
+      if (!normalizedDirectRoomCode.length) {
+        setDirectJoinError(null);
+      }
+      return;
+    }
+    if (!API_URL) {
+      setDirectJoinLoading(false);
+      setDirectJoinPreviewRoom(null);
+      setDirectJoinError("目前無法驗證房間，請稍後再試。");
+      return;
+    }
+
+    let isActive = true;
+    setDirectJoinLoading(true);
+    setDirectJoinError(null);
+    setDirectJoinPreviewRoom(null);
+    setDirectJoinNeedsPassword(false);
+
+    void (async () => {
+      try {
+        const result = await apiFetchRoomById(API_URL, normalizedDirectRoomCode);
+        const fetchedRoom = (result.payload as { room?: RoomSummary } | null)
+          ?.room;
+        if (!isActive) return;
+        if (!result.ok || !fetchedRoom) {
+          setDirectJoinError("找不到該房間，請確認房間代碼是否正確。");
+          return;
+        }
+        setDirectJoinPreviewRoom(fetchedRoom);
+        setDirectJoinNeedsPassword(roomRequiresPin(fetchedRoom));
+      } catch {
+        if (!isActive) return;
+        setDirectJoinError("查詢房間失敗，請稍後再試。");
+      } finally {
+        if (isActive) {
+          setDirectJoinLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [guideMode, joinEntryTab, normalizedDirectRoomCode]);
+
   const canUseGoogleLibraries = Boolean(authUser);
   const selectedJoinRoom = useMemo(
     () => rooms.find((room) => room.id === selectedJoinRoomId) ?? null,
@@ -410,8 +520,8 @@ const RoomListPage: React.FC = () => {
   );
   const filteredJoinRooms = useMemo(() => {
     const next = [...rooms].filter((room) => {
-      if (joinPasswordFilter === "no_password") return !room.hasPassword;
-      if (joinPasswordFilter === "password_required") return room.hasPassword;
+      if (joinPasswordFilter === "no_password") return !roomRequiresPin(room);
+      if (joinPasswordFilter === "password_required") return roomRequiresPin(room);
       return true;
     });
     if (joinSortMode === "players_desc") {
@@ -425,7 +535,7 @@ const RoomListPage: React.FC = () => {
     });
     return next;
   }, [joinPasswordFilter, joinSortMode, rooms]);
-  const joinPreviewRoom = selectedJoinRoom ?? filteredJoinRooms[0] ?? null;
+  const joinPreviewRoom = selectedJoinRoom;
   const playlistPreviewItems = useMemo(
     () =>
       playlistItems.map((item) => ({
@@ -500,8 +610,12 @@ const RoomListPage: React.FC = () => {
   const linkPreviewLocked =
     isLinkSourceActive &&
     (Boolean(lastFetchedPlaylistTitle) || playlistItems.length > 0);
-  const linkPlaylistTitle = isLinkSourceActive ? lastFetchedPlaylistTitle : null;
-  const linkPlaylistPreviewItems = isLinkSourceActive ? playlistPreviewItems : [];
+  const linkPlaylistTitle = isLinkSourceActive
+    ? lastFetchedPlaylistTitle
+    : null;
+  const linkPlaylistPreviewItems = isLinkSourceActive
+    ? playlistPreviewItems
+    : [];
   const linkPlaylistIssueSummary = isLinkSourceActive
     ? playlistIssueSummary
     : {
@@ -532,21 +646,119 @@ const RoomListPage: React.FC = () => {
     ? "請先填寫房間名稱。"
     : playlistItems.length === 0
       ? "請先選擇題庫來源並載入歌曲。"
-      : maxPlayersInvalid
-        ? `人數需介於 ${PLAYER_MIN}-${PLAYER_MAX}。`
-        : null;
+        : maxPlayersInvalid
+          ? `人數需介於 ${PLAYER_MIN}-${PLAYER_MAX}。`
+          : null;
+  const canDecreaseQuestionCount = questionCount > questionMin;
+  const canIncreaseQuestionCount = questionCount < questionMaxLimit;
+  const createSettingsSummary = useMemo(
+    () => [
+      {
+        label: "房間類型",
+        value: roomVisibilityInput === "private" ? "私人房" : "公開房",
+      },
+      {
+        label: "玩家上限",
+        value: parsedMaxPlayers ? `${parsedMaxPlayers} 人` : "未設定",
+      },
+      {
+        label: "題數",
+        value: `${questionCount} 題`,
+      },
+      {
+        label: "節奏",
+        value: allowCollectionClipTiming
+          ? `揭示 ${revealDurationSec}s / 題庫片段`
+          : `播放 ${playDurationSec}s / 揭示 ${revealDurationSec}s / 起點 ${startOffsetSec}s`,
+      },
+    ],
+    [
+      allowCollectionClipTiming,
+      parsedMaxPlayers,
+      playDurationSec,
+      questionCount,
+      revealDurationSec,
+      roomVisibilityInput,
+      startOffsetSec,
+    ],
+  );
+  const createSettingPresets = useMemo(
+    () => [
+      {
+        key: "casual",
+        label: "輕鬆局",
+        hint: "10 題、慢一點、適合暖身",
+        active:
+          questionCount === 10 &&
+          playDurationSec === 18 &&
+          revealDurationSec === 12 &&
+          startOffsetSec === 0,
+        onApply: () => {
+          updateQuestionCount(10);
+          updatePlayDurationSec(18);
+          updateRevealDurationSec(12);
+          updateStartOffsetSec(0);
+        },
+      },
+      {
+        key: "standard",
+        label: "標準局",
+        hint: "15 題、平衡節奏、最通用",
+        active:
+          questionCount === 15 &&
+          playDurationSec === 15 &&
+          revealDurationSec === 10 &&
+          startOffsetSec === 0,
+        onApply: () => {
+          updateQuestionCount(15);
+          updatePlayDurationSec(15);
+          updateRevealDurationSec(10);
+          updateStartOffsetSec(0);
+        },
+      },
+      {
+        key: "tempo",
+        label: "快節奏",
+        hint: "20 題、偏刺激、老手向",
+        active:
+          questionCount === 20 &&
+          playDurationSec === 12 &&
+          revealDurationSec === 8 &&
+          startOffsetSec === 3,
+        onApply: () => {
+          updateQuestionCount(20);
+          updatePlayDurationSec(12);
+          updateRevealDurationSec(8);
+          updateStartOffsetSec(3);
+        },
+      },
+    ],
+    [
+      playDurationSec,
+      questionCount,
+      revealDurationSec,
+      startOffsetSec,
+      updatePlayDurationSec,
+      updateQuestionCount,
+      updateRevealDurationSec,
+      updateStartOffsetSec,
+    ],
+  );
   const isCreateSourceReady = playlistItems.length > 0;
   const selectedYoutubePlaylist = useMemo(
     () =>
       selectedCreateYoutubeId
-        ? youtubePlaylists.find((item) => item.id === selectedCreateYoutubeId) ?? null
+        ? (youtubePlaylists.find(
+            (item) => item.id === selectedCreateYoutubeId,
+          ) ?? null)
         : null,
     [selectedCreateYoutubeId, youtubePlaylists],
   );
   const selectedCollection = useMemo(
     () =>
       selectedCreateCollectionId
-        ? collections.find((item) => item.id === selectedCreateCollectionId) ?? null
+        ? (collections.find((item) => item.id === selectedCreateCollectionId) ??
+          null)
         : null,
     [collections, selectedCreateCollectionId],
   );
@@ -571,7 +783,10 @@ const RoomListPage: React.FC = () => {
         label: "YouTube 清單",
         title: selectedYoutubePlaylist?.title || "已選擇 YouTube 播放清單",
         detail: `${playlistItems.length} 首`,
-        thumbnail: selectedYoutubePlaylist?.thumbnail || playlistPreviewItems[0]?.thumbnail || "",
+        thumbnail:
+          selectedYoutubePlaylist?.thumbnail ||
+          playlistPreviewItems[0]?.thumbnail ||
+          "",
       };
     }
     if (roomCreateSourceMode === "publicCollection") {
@@ -602,21 +817,190 @@ const RoomListPage: React.FC = () => {
     selectedYoutubePlaylist?.thumbnail,
     selectedYoutubePlaylist?.title,
   ]);
+  const createSourceShowsImportIssues =
+    roomCreateSourceMode === "link" || roomCreateSourceMode === "youtube";
+  const createSourceHasImportIssues =
+    createSourceShowsImportIssues &&
+    (playlistIssueSummary.removed.length > 0 ||
+      playlistIssueSummary.privateRestricted.length > 0 ||
+      playlistIssueSummary.embedBlocked.length > 0 ||
+      playlistIssueSummary.unavailable.length > 0 ||
+      playlistIssueSummary.unknown.length > 0 ||
+      playlistIssueSummary.unknownCount > 0);
+  const createRequirementsHintText = !roomNameInput.trim()
+    ? "請先輸入房間名稱。"
+    : playlistItems.length === 0
+      ? "請先準備題庫內容，才能建立房間。"
+      : maxPlayersInvalid
+        ? `玩家上限需介於 ${PLAYER_MIN}-${PLAYER_MAX} 人之間。`
+        : null;
+  const createSettingsCards = useMemo(
+    () => [
+      {
+        label: "房間型態",
+        value: roomVisibilityInput === "private" ? "私人房" : "公開房",
+      },
+      {
+        label: "玩家上限",
+        value: parsedMaxPlayers ? `${parsedMaxPlayers} 人` : "尚未設定",
+      },
+      {
+        label: "題數",
+        value: `${questionCount} 題`,
+      },
+      {
+        label: "遊戲節奏",
+        value: allowCollectionClipTiming
+          ? `公布答案 ${revealDurationSec}s / 沿用題庫片段`
+          : `作答時間 ${playDurationSec}s / 公布答案 ${revealDurationSec}s / 起始時間 ${startOffsetSec}s`,
+      },
+    ],
+    [
+      allowCollectionClipTiming,
+      parsedMaxPlayers,
+      playDurationSec,
+      questionCount,
+      revealDurationSec,
+      roomVisibilityInput,
+      startOffsetSec,
+    ],
+  );
+  const createPresetCards = useMemo(
+    () => [
+      {
+        key: "casual",
+        label: "輕鬆局",
+        hint: "10 題、較長播放與揭示時間，適合暖身。",
+        active:
+          questionCount === 10 &&
+          playDurationSec === 18 &&
+          revealDurationSec === 12 &&
+          startOffsetSec === 0,
+        onApply: () => {
+          updateQuestionCount(10);
+          updatePlayDurationSec(18);
+          updateRevealDurationSec(12);
+          updateStartOffsetSec(0);
+        },
+      },
+      {
+        key: "standard",
+        label: "標準局",
+        hint: "15 題、平衡節奏，適合大多數房間。",
+        active:
+          questionCount === 15 &&
+          playDurationSec === 15 &&
+          revealDurationSec === 10 &&
+          startOffsetSec === 0,
+        onApply: () => {
+          updateQuestionCount(15);
+          updatePlayDurationSec(15);
+          updateRevealDurationSec(10);
+          updateStartOffsetSec(0);
+        },
+      },
+      {
+        key: "tempo",
+        label: "快節奏",
+        hint: "20 題、縮短播放與揭示時間，節奏更緊湊。",
+        active:
+          questionCount === 20 &&
+          playDurationSec === 12 &&
+          revealDurationSec === 8 &&
+          startOffsetSec === 3,
+        onApply: () => {
+          updateQuestionCount(20);
+          updatePlayDurationSec(12);
+          updateRevealDurationSec(8);
+          updateStartOffsetSec(3);
+        },
+      },
+    ],
+    [
+      playDurationSec,
+      questionCount,
+      revealDurationSec,
+      startOffsetSec,
+      updatePlayDurationSec,
+      updateQuestionCount,
+      updateRevealDurationSec,
+      updateStartOffsetSec,
+    ],
+  );
+  const selectedCreateSourceSummary = useMemo(() => {
+    if (!isCreateSourceReady) return null;
+    if (roomCreateSourceMode === "link") {
+      return {
+        label: "貼上連結",
+        title: lastFetchedPlaylistTitle || "YouTube 播放清單",
+        detail: `共 ${playlistItems.length} 首歌曲`,
+        thumbnail: playlistPreviewItems[0]?.thumbnail || "",
+      };
+    }
+    if (roomCreateSourceMode === "youtube") {
+      return {
+        label: "YouTube 播放清單",
+        title: selectedYoutubePlaylist?.title || "尚未選擇 YouTube 播放清單",
+        detail: `${playlistItems.length} 首歌曲`,
+        thumbnail:
+          selectedYoutubePlaylist?.thumbnail ||
+          playlistPreviewItems[0]?.thumbnail ||
+          "",
+      };
+    }
+    if (roomCreateSourceMode === "publicCollection") {
+      return {
+        label: "公開收藏庫",
+        title: selectedCollection?.title || "尚未選擇公開收藏庫",
+        detail: `共 ${playlistItems.length} 首歌曲`,
+        thumbnail: selectedCollectionThumb,
+      };
+    }
+    if (roomCreateSourceMode === "privateCollection") {
+      return {
+        label: "個人收藏庫",
+        title: selectedCollection?.title || "尚未選擇個人收藏庫",
+        detail: `共 ${playlistItems.length} 首歌曲`,
+        thumbnail: selectedCollectionThumb,
+      };
+    }
+    return null;
+  }, [
+    isCreateSourceReady,
+    lastFetchedPlaylistTitle,
+    playlistItems.length,
+    playlistPreviewItems,
+    roomCreateSourceMode,
+    selectedCollection?.title,
+    selectedCollectionThumb,
+    selectedYoutubePlaylist?.thumbnail,
+    selectedYoutubePlaylist?.title,
+  ]);
   const createLibraryColumns = isLibraryGridWide ? 2 : 1;
   const youtubeListRowHeight = 80;
   const youtubeListHeight = Math.min(
     640,
-    Math.max(youtubeListRowHeight, youtubePlaylists.length * youtubeListRowHeight),
+    Math.max(
+      youtubeListRowHeight,
+      youtubePlaylists.length * youtubeListRowHeight,
+    ),
   );
   const collectionListRowHeight = 92;
   const collectionListRowCount =
     collections.length + (collectionsHasMore || collectionsLoadingMore ? 1 : 0);
   const collectionListHeight = Math.min(
     640,
-    Math.max(collectionListRowHeight, collectionListRowCount * collectionListRowHeight),
+    Math.max(
+      collectionListRowHeight,
+      collectionListRowCount * collectionListRowHeight,
+    ),
   );
 
-  const renderYoutubeCard = (playlistValue: unknown, _itemIndex: number, view: "grid" | "list") => {
+  const renderYoutubeCard = (
+    playlistValue: unknown,
+    _itemIndex: number,
+    view: "grid" | "list",
+  ) => {
     const playlist = playlistValue as (typeof youtubePlaylists)[number];
     return (
       <button
@@ -630,7 +1014,9 @@ const RoomListPage: React.FC = () => {
             ? "border-cyan-300/55 bg-cyan-500/10"
             : "border-cyan-300/25 bg-slate-950/25 hover:border-cyan-300/45"
         } ${
-          view === "grid" ? "h-full p-3" : "flex w-full items-center gap-3 px-3 py-2"
+          view === "grid"
+            ? "h-full p-3"
+            : "flex w-full items-center gap-3 px-3 py-2"
         }`}
       >
         <div
@@ -692,7 +1078,9 @@ const RoomListPage: React.FC = () => {
             : "border-cyan-300/25 bg-slate-950/25 hover:border-cyan-300/45"
         } ${view === "grid" ? "h-full p-3" : "w-full"}`}
       >
-        <div className={`${view === "grid" ? "space-y-3" : "flex items-center gap-3"}`}>
+        <div
+          className={`${view === "grid" ? "space-y-3" : "flex items-center gap-3"}`}
+        >
           <div
             className={`overflow-hidden rounded-md border border-[var(--mc-border)]/70 bg-slate-900/40 ${
               view === "grid" ? "h-28 w-full" : "h-11 w-16 shrink-0"
@@ -722,7 +1110,9 @@ const RoomListPage: React.FC = () => {
                   : "私人收藏庫")}
             </p>
             <p className="mt-1 text-[11px] text-[var(--mc-text-muted)]">
-              {(collection.visibility ?? "private") === "public" ? "公開" : "私人"}
+              {(collection.visibility ?? "private") === "public"
+                ? "公開"
+                : "私人"}
               {typeof collection.favorite_count === "number"
                 ? ` · 收藏 ${collection.favorite_count}`
                 : ""}
@@ -853,7 +1243,9 @@ const RoomListPage: React.FC = () => {
     collectionId: string,
     scope: "public" | "owner",
   ) => {
-    setRoomCreateSourceMode(scope === "public" ? "publicCollection" : "privateCollection");
+    setRoomCreateSourceMode(
+      scope === "public" ? "publicCollection" : "privateCollection",
+    );
     setSelectedCreateCollectionId(collectionId);
     setSelectedCreateYoutubeId(null);
     setCreateLeftTab("settings");
@@ -871,25 +1263,31 @@ const RoomListPage: React.FC = () => {
     setPasswordDraft("");
     setPasswordDialog({ roomId, roomName });
   };
-  const proceedJoinRoom = (roomId: string, roomName: string, hasPassword: boolean) => {
+  const proceedJoinRoom = (
+    roomCode: string,
+    roomName: string,
+    hasPassword: boolean,
+  ) => {
     if (hasPassword) {
-      openPasswordDialog(roomId, roomName);
+      openPasswordDialog(roomCode, roomName);
       return;
     }
     setJoinPasswordInput("");
-    handleJoinRoom(roomId, false);
+    handleJoinRoom(roomCode, false);
   };
   const openInProgressJoinDialog = (room: RoomSummary) => {
     setJoinConfirmDialog({
       roomId: room.id,
       roomName: room.name,
-      hasPassword: room.hasPassword,
+      hasPassword: roomRequiresPin(room),
       playlistTitle: getRoomPlaylistLabel(room),
       playerCount: room.playerCount,
       maxPlayers: room.maxPlayers,
       questionCount: room.gameSettings?.questionCount,
       currentQuestionNo:
-        typeof room.currentQuestionNo === "number" ? room.currentQuestionNo : null,
+        typeof room.currentQuestionNo === "number"
+          ? room.currentQuestionNo
+          : null,
       completedQuestionCount:
         typeof room.completedQuestionCount === "number"
           ? room.completedQuestionCount
@@ -913,60 +1311,48 @@ const RoomListPage: React.FC = () => {
     if (!passwordDialog) return;
     const trimmed = passwordDraft.trim();
     if (!trimmed) return;
-    if (!/^[a-zA-Z0-9]*$/.test(trimmed)) return;
+    if (!/^\d{4}$/.test(trimmed)) return;
     setJoinPasswordInput(trimmed);
     handleJoinRoom(passwordDialog.roomId, true, trimmed);
     closePasswordDialog();
   };
   const handleJoinRoomEntry = (room: RoomSummary) => {
     setSelectedJoinRoomId(room.id);
-    setDirectRoomIdInput(room.id);
-    setDirectJoinNeedsPassword(Boolean(room.hasPassword));
-    setDirectJoinError(null);
     if (isRoomCurrentlyPlaying(room)) {
       openInProgressJoinDialog(room);
       return;
     }
-    proceedJoinRoom(room.id, room.name || `房間 ${room.id.slice(0, 6)}`, room.hasPassword);
+    proceedJoinRoom(
+      room.roomCode,
+      room.name || `房間 ${room.roomCode}`,
+      roomRequiresPin(room),
+    );
   };
   const handleDirectJoinById = async () => {
     if (directJoinLoading) return;
     const trimmed = directRoomIdInput.trim();
     if (!trimmed) {
-      setDirectJoinError("請先輸入房號或房間 ID。");
+      setDirectJoinError("請先輸入房間代碼。");
       setDirectJoinNeedsPassword(false);
       return;
     }
-    if (!API_URL) {
-      setDirectJoinError("目前無法驗證房間，請稍後再試。");
+    if (trimmed.length < 6) {
+      setDirectJoinError("請先輸入完整的 6 碼房間代碼。");
       return;
     }
-    setDirectJoinLoading(true);
-    setDirectJoinError(null);
-    setDirectJoinNeedsPassword(false);
-    try {
-      const result = await apiFetchRoomById(API_URL, trimmed);
-      const fetchedRoom = (result.payload as { room?: RoomSummary } | null)?.room;
-      if (!result.ok || !fetchedRoom) {
-        setDirectJoinError("找不到該房間，請確認房號是否正確。");
-        return;
-      }
-      if (isRoomCurrentlyPlaying(fetchedRoom)) {
-        openInProgressJoinDialog(fetchedRoom);
-        return;
-      }
-      setSelectedJoinRoomId(fetchedRoom.id);
-      setDirectJoinNeedsPassword(Boolean(fetchedRoom.hasPassword));
-      proceedJoinRoom(
-        fetchedRoom.id,
-        fetchedRoom.name || `房間 ${fetchedRoom.id.slice(0, 6)}`,
-        fetchedRoom.hasPassword,
-      );
-    } catch {
-      setDirectJoinError("加入失敗，請稍後再試。");
-    } finally {
-      setDirectJoinLoading(false);
+    if (!resolvedDirectJoinRoom) {
+      setDirectJoinError("請先等待房間資訊載入完成。");
+      return;
     }
+    if (isRoomCurrentlyPlaying(resolvedDirectJoinRoom)) {
+      openInProgressJoinDialog(resolvedDirectJoinRoom);
+      return;
+    }
+    proceedJoinRoom(
+      resolvedDirectJoinRoom.roomCode,
+      resolvedDirectJoinRoom.name || `房間 ${resolvedDirectJoinRoom.roomCode}`,
+      roomRequiresPin(resolvedDirectJoinRoom),
+    );
   };
   const handleCollectionGridScroll = (event: UIEvent<HTMLDivElement>) => {
     if (
@@ -978,7 +1364,8 @@ const RoomListPage: React.FC = () => {
       return;
     }
     const target = event.currentTarget;
-    const remaining = target.scrollHeight - target.scrollTop - target.clientHeight;
+    const remaining =
+      target.scrollHeight - target.scrollTop - target.clientHeight;
     if (remaining <= 180) {
       void loadMoreCollections();
     }
@@ -1078,797 +1465,2325 @@ const RoomListPage: React.FC = () => {
 
       {!currentRoom?.id && username && (
         <section className="w-full">
-          <div className="mb-5 rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-4 sm:p-5">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-300/90">
-                Quick Guide
-              </p>
-              <h2 className="mt-2 text-xl font-semibold text-[var(--mc-text)]">
-                {username}，選擇你要聚焦的操作
-              </h2>
-              <p className="mt-1 text-sm text-[var(--mc-text-muted)]">
-                先決定「創建」或「加入」，系統會切換成對應的操作面板。
-              </p>
-
-              <div className="mt-4 inline-flex w-full gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-1">
-                <button
-                  type="button"
-                  style={{ flexGrow: guideMode === "create" ? 7 : 3 }}
-                  className={`cursor-pointer rounded-xl border px-4 py-3 text-left transition-[flex-grow,background-color,border-color,color] duration-220 ease-out ${
-                    guideMode === "create"
-                      ? "border-cyan-300/55 bg-cyan-500/12 text-cyan-50"
-                      : "border-transparent text-[var(--mc-text-muted)] hover:border-cyan-300/45 hover:bg-cyan-500/12 hover:text-cyan-100"
-                  }`}
-                  onClick={() => setGuideMode("create")}
-                >
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/85">
-                    Create Focus
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+          <div className="mb-5 rounded-3xl bg-[var(--mc-surface)]/70 p-4 sm:p-5">
+            <div className="inline-flex w-full gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-1">
+              <button
+                type="button"
+                style={{ flexGrow: guideMode === "create" ? 7 : 3 }}
+                className={`cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[flex-grow,background-color,border-color,color] duration-220 ease-out ${
+                  guideMode === "create"
+                    ? "border-cyan-300/55 bg-cyan-500/12 text-cyan-50"
+                    : "border-transparent text-[var(--mc-text-muted)] hover:border-cyan-300/45 hover:bg-cyan-500/12 hover:text-cyan-100"
+                }`}
+                onClick={() => setGuideMode("create")}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+                      guideMode === "create"
+                        ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-100"
+                        : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
+                    }`}
+                  >
+                    <AddCircleOutlineRounded fontSize="small" />
+                  </span>
+                  <p className="text-base font-semibold text-[var(--mc-text)]">
                     創建房間
                   </p>
-                  {guideMode === "create" && (
-                    <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                      以題庫挑選為核心，快速完成開房設定。
-                    </p>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  style={{ flexGrow: guideMode === "join" ? 7 : 3 }}
-                  className={`cursor-pointer rounded-xl border px-4 py-3 text-left transition-[flex-grow,background-color,border-color,color] duration-220 ease-out ${
-                    guideMode === "join"
-                      ? "border-amber-300/55 bg-amber-400/12 text-amber-50"
-                      : "border-transparent text-[var(--mc-text-muted)] hover:border-amber-300/45 hover:bg-amber-400/12 hover:text-amber-100"
-                  }`}
-                  onClick={() => setGuideMode("join")}
-                >
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/85">
-                    Join Focus
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                </div>
+              </button>
+              <button
+                type="button"
+                style={{ flexGrow: guideMode === "join" ? 7 : 3 }}
+                className={`cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[flex-grow,background-color,border-color,color] duration-220 ease-out ${
+                  guideMode === "join"
+                    ? "border-amber-300/55 bg-amber-400/12 text-amber-50"
+                    : "border-transparent text-[var(--mc-text-muted)] hover:border-amber-300/45 hover:bg-amber-400/12 hover:text-amber-100"
+                }`}
+                onClick={() => setGuideMode("join")}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+                      guideMode === "join"
+                        ? "border-amber-300/45 bg-amber-400/12 text-amber-100"
+                        : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
+                    }`}
+                  >
+                    <MeetingRoomRounded fontSize="small" />
+                  </span>
+                  <p className="text-base font-semibold text-[var(--mc-text)]">
                     加入房間
                   </p>
-                  {guideMode === "join" && (
-                    <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                      先輸入房號，再由房間資訊輔助你確認加入。
-                    </p>
-                  )}
-                </button>
-              </div>
+                </div>
+              </button>
+            </div>
 
-              <div
-                key={guideMode}
-                className="mt-4 animate-[guide-panel-enter_280ms_ease-out]"
-              >
+            <div
+              key={guideMode}
+              className="mt-4 animate-[guide-panel-enter_280ms_ease-out]"
+            >
               {guideMode === "create" ? (
                 <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3 sm:p-4">
                   <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-                  <aside className="p-2 sm:p-3">
-                    <div className="inline-flex w-full gap-1 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/50 p-1">
-                      <button
-                        type="button"
-                        onClick={() => setCreateLeftTab("library")}
-                        className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition ${
-                          createLeftTab === "library"
-                            ? "bg-cyan-500/20 text-cyan-100"
-                            : "text-[var(--mc-text-muted)] hover:bg-cyan-500/10 hover:text-cyan-100"
-                        }`}
-                      >
-                        題庫來源
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!isCreateSourceReady) return;
-                          setCreateLeftTab("settings");
-                        }}
-                        className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition ${
-                          createLeftTab === "settings"
-                            ? "bg-cyan-500/20 text-cyan-100"
-                            : isCreateSourceReady
-                              ? "text-[var(--mc-text-muted)] hover:bg-cyan-500/10 hover:text-cyan-100"
-                              : "cursor-not-allowed text-slate-500"
-                        }`}
-                      >
-                        房間設置
-                      </button>
-                    </div>
-
-                    {createLeftTab === "library" ? (
-                      <div className="mt-2 flex flex-col gap-2">
-                        {[
-                          { key: "public", label: "公開收藏庫", icon: <PublicOutlined fontSize="small" /> },
-                          { key: "personal", label: "個人收藏庫", icon: <BookmarkBorderRounded fontSize="small" /> },
-                          { key: "youtube", label: "從 YouTube 匯入", icon: <PlayCircleOutlineRounded fontSize="small" /> },
-                          { key: "link", label: "貼上清單連結", icon: <LinkRounded fontSize="small" /> },
-                        ].map((item) => {
-                          const key = item.key as
-                            | "public"
-                            | "personal"
-                            | "youtube"
-                            | "link";
-                          const isActive = createLibraryTab === key;
-                          const disabled =
-                            !canUseGoogleLibraries && key !== "link";
-                          return (
-                            <button
-                              key={item.key}
-                              type="button"
-                              aria-disabled={disabled}
-                              onClick={() => {
-                                if (disabled) return;
-                                setCreateLibraryTab(key);
-                              }}
-                              className={`rounded-xl px-3 py-2 text-left text-sm transition ${
-                                disabled
-                                  ? "cursor-not-allowed bg-slate-900/40 text-slate-500"
-                                  : isActive
-                                    ? "cursor-pointer bg-cyan-500/10 text-cyan-100 shadow-[inset_3px_0_0_0_rgba(34,211,238,0.85)]"
-                                    : "cursor-pointer bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:bg-cyan-500/10 hover:text-cyan-100"
-                              }`}
-                            >
-                              <span className="inline-flex w-full items-center justify-between gap-2">
-                                <span className="inline-flex items-center gap-2">
-                                <span className="text-cyan-200/90">{item.icon}</span>
-                                <span>{item.label}</span>
-                                </span>
-                                {disabled && (
-                                  <Tooltip title="登入即可解鎖此功能" placement="top">
-                                    <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                                  </Tooltip>
-                                )}
-                              </span>
-                            </button>
-                          );
-                        })}
+                    <aside className="p-2 sm:p-3">
+                      <div className="inline-flex w-full gap-1 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/50 p-1">
+                        <button
+                          type="button"
+                          onClick={() => setCreateLeftTab("library")}
+                          className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition ${
+                            createLeftTab === "library"
+                              ? "bg-cyan-500/20 text-cyan-100"
+                              : "text-[var(--mc-text-muted)] hover:bg-cyan-500/10 hover:text-cyan-100"
+                          }`}
+                        >
+                          題庫來源
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isCreateSourceReady) return;
+                            setCreateLeftTab("settings");
+                          }}
+                          className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition ${
+                            createLeftTab === "settings"
+                              ? "bg-cyan-500/20 text-cyan-100"
+                              : isCreateSourceReady
+                                ? "text-[var(--mc-text-muted)] hover:bg-cyan-500/10 hover:text-cyan-100"
+                                : "cursor-not-allowed text-slate-500"
+                          }`}
+                        >
+                          房間設置
+                        </button>
                       </div>
-                    ) : (
-                      <div className="mt-2 space-y-2">
-                        {selectedSourceSummary ? (
-                          <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/8 p-3">
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/90">
-                              {selectedSourceSummary.label}
-                            </p>
-                            <div className="mt-2 overflow-hidden rounded-lg">
-                              {selectedSourceSummary.thumbnail ? (
-                                <img
-                                  src={selectedSourceSummary.thumbnail}
-                                  alt={selectedSourceSummary.title}
-                                  className="h-28 w-full scale-[1.08] object-cover [object-position:center_35%]"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="flex h-28 w-full items-center justify-center text-xs text-[var(--mc-text-muted)]">
-                                  無縮圖
+
+                      {createLeftTab === "library" ? (
+                        <div className="mt-2 flex flex-col gap-2">
+                          {[
+                            {
+                              key: "public",
+                              label: "公開收藏庫",
+                              icon: <PublicOutlined fontSize="small" />,
+                            },
+                            {
+                              key: "personal",
+                              label: "個人收藏庫",
+                              icon: <BookmarkBorderRounded fontSize="small" />,
+                            },
+                            {
+                              key: "youtube",
+                              label: "從 YouTube 匯入",
+                              icon: (
+                                <PlayCircleOutlineRounded fontSize="small" />
+                              ),
+                            },
+                            {
+                              key: "link",
+                              label: "貼上清單連結",
+                              icon: <LinkRounded fontSize="small" />,
+                            },
+                          ].map((item) => {
+                            const key = item.key as
+                              | "public"
+                              | "personal"
+                              | "youtube"
+                              | "link";
+                            const isActive = createLibraryTab === key;
+                            const disabled =
+                              !canUseGoogleLibraries && key !== "link";
+                            return (
+                              <button
+                                key={item.key}
+                                type="button"
+                                aria-disabled={disabled}
+                                onClick={() => {
+                                  if (disabled) return;
+                                  setCreateLibraryTab(key);
+                                }}
+                                className={`rounded-xl px-3 py-2 text-left text-sm transition ${
+                                  disabled
+                                    ? "cursor-not-allowed bg-slate-900/40 text-slate-500"
+                                    : isActive
+                                      ? "cursor-pointer bg-cyan-500/10 text-cyan-100 shadow-[inset_3px_0_0_0_rgba(34,211,238,0.85)]"
+                                      : "cursor-pointer bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:bg-cyan-500/10 hover:text-cyan-100"
+                                }`}
+                              >
+                                <span className="inline-flex w-full items-center justify-between gap-2">
+                                  <span className="inline-flex items-center gap-2">
+                                    <span className="text-cyan-200/90">
+                                      {item.icon}
+                                    </span>
+                                    <span>{item.label}</span>
+                                  </span>
+                                  {disabled && (
+                                    <Tooltip
+                                      title="登入即可解鎖此功能"
+                                      placement="top"
+                                    >
+                                      <LockOutlined
+                                        sx={{ fontSize: 14, color: "#fbbf24" }}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {selectedSourceSummary ? (
+                            <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/8 p-3">
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/90">
+                                {selectedSourceSummary.label}
+                              </p>
+                              <div className="mt-2 overflow-hidden rounded-lg">
+                                {selectedSourceSummary.thumbnail ? (
+                                  <img
+                                    src={selectedSourceSummary.thumbnail}
+                                    alt={selectedSourceSummary.title}
+                                    className="h-28 w-full scale-[1.08] object-cover [object-position:center_35%]"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex h-28 w-full items-center justify-center text-xs text-[var(--mc-text-muted)]">
+                                    無縮圖
+                                  </div>
+                                )}
+                              </div>
+                              <div className="mt-2 min-w-0">
+                                <p className="truncate text-sm font-semibold text-[var(--mc-text)]">
+                                  {selectedSourceSummary.title}
+                                </p>
+                                <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                  {selectedSourceSummary.detail}
+                                </p>
+                              </div>
+                              {createSourceHasImportIssues && (
+                                <div className="mt-3 grid gap-2">
+                                  <p className="text-[11px] font-semibold text-[var(--mc-text-muted)]">
+                                    未成功匯入原因
+                                  </p>
+                                  <div className="rounded-md border border-amber-300/35 bg-amber-300/10 px-2 py-1.5">
+                                    <p className="text-[11px] font-semibold text-amber-100">
+                                      已移除：
+                                      {playlistIssueSummary.removed.length} 首
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-[11px] text-amber-100/90">
+                                      {playlistIssueSummary.removed.length > 0
+                                        ? playlistIssueSummary.removed.join(
+                                            "、",
+                                          )
+                                        : "無"}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-fuchsia-300/35 bg-fuchsia-300/10 px-2 py-1.5">
+                                    <p className="text-[11px] font-semibold text-fuchsia-100">
+                                      隱私限制：
+                                      {
+                                        playlistIssueSummary.privateRestricted
+                                          .length
+                                      }{" "}
+                                      首
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-[11px] text-fuchsia-100/90">
+                                      {playlistIssueSummary.privateRestricted
+                                        .length > 0
+                                        ? playlistIssueSummary.privateRestricted.join(
+                                            "、",
+                                          )
+                                        : "無"}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-rose-300/35 bg-rose-300/10 px-2 py-1.5">
+                                    <p className="text-[11px] font-semibold text-rose-100">
+                                      嵌入限制：
+                                      {
+                                        playlistIssueSummary.embedBlocked.length
+                                      }{" "}
+                                      首
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-[11px] text-rose-100/90">
+                                      {playlistIssueSummary.embedBlocked
+                                        .length > 0
+                                        ? playlistIssueSummary.embedBlocked.join(
+                                            "、",
+                                          )
+                                        : "無"}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-red-300/35 bg-red-300/10 px-2 py-1.5">
+                                    <p className="text-[11px] font-semibold text-red-100">
+                                      其他不可用：
+                                      {playlistIssueSummary.unavailable.length +
+                                        playlistIssueSummary.unknown.length +
+                                        playlistIssueSummary.unknownCount}{" "}
+                                      首
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-[11px] text-red-100/90">
+                                      {playlistIssueSummary.unavailable.length >
+                                        0 ||
+                                      playlistIssueSummary.unknown.length > 0
+                                        ? [
+                                            ...playlistIssueSummary.unavailable,
+                                            ...playlistIssueSummary.unknown,
+                                          ].join("、")
+                                        : playlistIssueSummary.unknownCount > 0
+                                          ? `共 ${playlistIssueSummary.unknownCount} 首（後端未提供明細）`
+                                          : "無"}
+                                    </p>
+                                  </div>
                                 </div>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => setCreateLeftTab("library")}
+                                className="mt-2 text-xs text-cyan-200/90 hover:text-cyan-100"
+                              >
+                                重新選擇題庫
+                              </button>
                             </div>
-                            <div className="mt-2 min-w-0">
-                              <p className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                                {selectedSourceSummary.title}
-                              </p>
-                              <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                                {selectedSourceSummary.detail}
-                              </p>
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-cyan-300/30 bg-cyan-500/5 p-3 text-xs text-cyan-100/90">
+                              先在上方選擇題庫來源，載入歌曲後即可切換到房間設置。
                             </div>
-                            <div className="mt-3 grid gap-2">
-                              <p className="text-[11px] font-semibold text-[var(--mc-text-muted)]">
-                                未成功匯入原因
+                          )}
+                        </div>
+                      )}
+                    </aside>
+
+                    <div className="rounded-2xl bg-[var(--mc-surface)]/25 p-4 lg:border-l lg:border-[var(--mc-border)]/45 lg:rounded-none lg:pl-5">
+                      {createLeftTab === "settings" ? (
+                        <div className="space-y-5">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--mc-text-muted)]">
+                                房間設置
                               </p>
-                              <div className="rounded-md border border-amber-300/35 bg-amber-300/10 px-2 py-1.5">
-                                <p className="text-[11px] font-semibold text-amber-100">
-                                  已移除：{playlistIssueSummary.removed.length} 首
-                                </p>
-                                <p className="mt-1 line-clamp-2 text-[11px] text-amber-100/90">
-                                  {playlistIssueSummary.removed.length > 0
-                                    ? playlistIssueSummary.removed.join("、")
-                                    : "無"}
-                                </p>
-                              </div>
-                              <div className="rounded-md border border-fuchsia-300/35 bg-fuchsia-300/10 px-2 py-1.5">
-                                <p className="text-[11px] font-semibold text-fuchsia-100">
-                                  隱私限制：{playlistIssueSummary.privateRestricted.length} 首
-                                </p>
-                                <p className="mt-1 line-clamp-2 text-[11px] text-fuchsia-100/90">
-                                  {playlistIssueSummary.privateRestricted.length > 0
-                                    ? playlistIssueSummary.privateRestricted.join("、")
-                                    : "無"}
-                                </p>
-                              </div>
-                              <div className="rounded-md border border-rose-300/35 bg-rose-300/10 px-2 py-1.5">
-                                <p className="text-[11px] font-semibold text-rose-100">
-                                  嵌入限制：{playlistIssueSummary.embedBlocked.length} 首
-                                </p>
-                                <p className="mt-1 line-clamp-2 text-[11px] text-rose-100/90">
-                                  {playlistIssueSummary.embedBlocked.length > 0
-                                    ? playlistIssueSummary.embedBlocked.join("、")
-                                    : "無"}
-                                </p>
-                              </div>
-                              <div className="rounded-md border border-red-300/35 bg-red-300/10 px-2 py-1.5">
-                                <p className="text-[11px] font-semibold text-red-100">
-                                  其他不可用：
-                                  {playlistIssueSummary.unavailable.length +
-                                    playlistIssueSummary.unknown.length +
-                                    playlistIssueSummary.unknownCount} 首
-                                </p>
-                                <p className="mt-1 line-clamp-2 text-[11px] text-red-100/90">
-                                  {playlistIssueSummary.unavailable.length > 0 ||
-                                  playlistIssueSummary.unknown.length > 0
-                                    ? [
-                                        ...playlistIssueSummary.unavailable,
-                                        ...playlistIssueSummary.unknown,
-                                      ].join("、")
-                                    : playlistIssueSummary.unknownCount > 0
-                                      ? `共 ${playlistIssueSummary.unknownCount} 首（後端未提供明細）`
-                                      : "無"}
-                                </p>
-                              </div>
+                              <h3 className="hidden">
+                                調整這場房間的規則與節奏
+                              </h3>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setCreateLeftTab("library")}
-                              className="mt-2 text-xs text-cyan-200/90 hover:text-cyan-100"
-                            >
-                              重新選擇題庫
-                            </button>
+                            <div className="rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-100">
+                              {playlistItems.length > 0
+                                ? `已載入 ${playlistItems.length} 首歌曲`
+                                : "尚未準備題庫"}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-cyan-300/30 bg-cyan-500/5 p-3 text-xs text-cyan-100/90">
-                            先在上方選擇題庫來源，載入歌曲後即可切換到房間設置。
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </aside>
 
-                  <div className="rounded-2xl bg-[var(--mc-surface)]/25 p-4 lg:border-l lg:border-[var(--mc-border)]/45 lg:rounded-none lg:pl-5">
-                    {createLeftTab === "settings" ? (
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                            房間設置
-                          </p>
-                          <p className="text-xs text-[var(--mc-text-muted)]">
-                            題庫：{playlistItems.length > 0 ? `${playlistItems.length} 首` : "尚未選擇"}
-                          </p>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <TextField
-                            size="small"
-                            fullWidth
-                            label="房間名稱"
-                            value={roomNameInput}
-                            onChange={(event) => setRoomNameInput(event.target.value)}
-                          />
-                          <TextField
-                            size="small"
-                            fullWidth
-                            select
-                            label="可見度"
-                            value={roomVisibilityInput}
-                            onChange={(event) =>
-                              setRoomVisibilityInput(
-                                event.target.value as "public" | "private",
-                              )
-                            }
-                          >
-                            <MenuItem value="public">公開</MenuItem>
-                            <MenuItem value="private">私人</MenuItem>
-                          </TextField>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            label="房間密碼（私人選填）"
-                            value={roomPasswordInput}
-                            onChange={(event) => setRoomPasswordInput(event.target.value)}
-                            disabled={roomVisibilityInput !== "private"}
-                          />
-                          <TextField
-                            size="small"
-                            fullWidth
-                            type="number"
-                            label={`人數上限（${PLAYER_MIN}-${PLAYER_MAX}）`}
-                            value={roomMaxPlayersInput}
-                            onChange={(event) => setRoomMaxPlayersInput(event.target.value)}
-                            error={Boolean(maxPlayersInvalid)}
-                            helperText={maxPlayersInvalid ? "人數格式錯誤" : "留空則使用預設"}
-                            slotProps={{
-                              htmlInput: {
-                                min: PLAYER_MIN,
-                                max: PLAYER_MAX,
-                                inputMode: "numeric",
-                              },
-                            }}
-                          />
-                          <TextField
-                            size="small"
-                            fullWidth
-                            type="number"
-                            label={`題數（${questionMin}-${questionMaxLimit}）`}
-                            value={questionCount}
-                            onChange={(event) => {
-                              const next = Number(event.target.value);
-                              if (!Number.isFinite(next)) return;
-                              updateQuestionCount(next);
-                            }}
-                            slotProps={{
-                              htmlInput: {
-                                min: questionMin,
-                                max: questionMaxLimit,
-                                inputMode: "numeric",
-                              },
-                            }}
-                          />
-                          <TextField
-                            size="small"
-                            fullWidth
-                            type="number"
-                            label={`播放秒數（${PLAY_DURATION_MIN}-${PLAY_DURATION_MAX}）`}
-                            value={playDurationSec}
-                            onChange={(event) => {
-                              const next = Number(event.target.value);
-                              if (!Number.isFinite(next)) return;
-                              updatePlayDurationSec(next);
-                            }}
-                            slotProps={{
-                              htmlInput: {
-                                min: PLAY_DURATION_MIN,
-                                max: PLAY_DURATION_MAX,
-                                inputMode: "numeric",
-                              },
-                            }}
-                          />
-                          <TextField
-                            size="small"
-                            fullWidth
-                            type="number"
-                            label={`揭示秒數（${REVEAL_DURATION_MIN}-${REVEAL_DURATION_MAX}）`}
-                            value={revealDurationSec}
-                            onChange={(event) => {
-                              const next = Number(event.target.value);
-                              if (!Number.isFinite(next)) return;
-                              updateRevealDurationSec(next);
-                            }}
-                            slotProps={{
-                              htmlInput: {
-                                min: REVEAL_DURATION_MIN,
-                                max: REVEAL_DURATION_MAX,
-                                inputMode: "numeric",
-                              },
-                            }}
-                          />
-                          <TextField
-                            size="small"
-                            fullWidth
-                            type="number"
-                            label={`起始秒數（${START_OFFSET_MIN}-${START_OFFSET_MAX}）`}
-                            value={startOffsetSec}
-                            onChange={(event) => {
-                              const next = Number(event.target.value);
-                              if (!Number.isFinite(next)) return;
-                              updateStartOffsetSec(next);
-                            }}
-                            slotProps={{
-                              htmlInput: {
-                                min: START_OFFSET_MIN,
-                                max: START_OFFSET_MAX,
-                                inputMode: "numeric",
-                              },
-                            }}
-                          />
-                        </div>
-                        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--mc-text-muted)]">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4"
-                            checked={allowCollectionClipTiming}
-                            onChange={(event) =>
-                              updateAllowCollectionClipTiming(event.target.checked)
-                            }
-                          />
-                          套用收藏庫曲目剪輯時間
-                        </label>
+                          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_320px]">
+                            <div className="space-y-4">
+                              <section className="hidden">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      設定總覽
+                                    </p>
+                                    <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                      先確認房間型態、題數與節奏，再決定是否微調。
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] text-cyan-100">
+                                    {createPresetCards.find(
+                                      (preset) => preset.active,
+                                    )?.label ?? "自訂配置"}
+                                  </span>
+                                </div>
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                  {createSettingsCards.map((item) => (
+                                    <div
+                                      key={item.label}
+                                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                                    >
+                                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                        {item.label}
+                                      </p>
+                                      <p className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                                        {item.value}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </section>
 
-                        {createRequirementsHint && (
-                          <p className="text-xs text-amber-200">{createRequirementsHint}</p>
-                        )}
-                        <div>
-                          <Button
-                            variant="contained"
-                            onClick={() => {
-                              void handleCreateRoom();
-                            }}
-                            disabled={!canCreateRoom}
-                          >
-                            {isCreatingRoom ? "建立中..." : "建立房間"}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                              可用題庫預覽
-                            </p>
-                          </div>
-                          <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
-                            <button
-                              type="button"
-                              className={`rounded-full px-3 py-1 text-xs ${
-                                createLibraryView === "grid"
-                                  ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
-                                  : "cursor-pointer text-[var(--mc-text-muted)]"
-                              }`}
-                              onClick={() => setCreateLibraryView("grid")}
-                            >
-                              圖示
-                            </button>
-                            <button
-                              type="button"
-                              className={`rounded-full px-3 py-1 text-xs ${
-                                createLibraryView === "list"
-                                  ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
-                                  : "cursor-pointer text-[var(--mc-text-muted)]"
-                              }`}
-                              onClick={() => setCreateLibraryView("list")}
-                            >
-                              清單
-                            </button>
-                          </div>
-                        </div>
+                              <section className="rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-5">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      快速預設
+                                    </p>
+                                    <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                      先選一組節奏，再微調題數與秒數。
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-[11px] text-[var(--mc-text-muted)]">
+                                    一鍵套用常用配置
+                                  </span>
+                                </div>
+                                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                  {createPresetCards.map((preset) => (
+                                    <button
+                                      key={preset.key}
+                                      type="button"
+                                      onClick={preset.onApply}
+                                      className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                        preset.active
+                                          ? "border-amber-300/60 bg-amber-300/10 shadow-[0_14px_32px_-24px_rgba(251,191,36,0.55)]"
+                                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 hover:border-amber-300/35 hover:bg-[var(--mc-surface-strong)]/55"
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-semibold text-[var(--mc-text)]">
+                                          {preset.label}
+                                        </span>
+                                        {preset.active ? (
+                                          <span className="rounded-full border border-amber-300/40 bg-amber-300/12 px-2 py-0.5 text-[10px] text-amber-100">
+                                            使用中
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                                        {preset.hint}
+                                      </p>
+                                    </button>
+                                  ))}
+                                </div>
+                              </section>
 
-                    {!canUseGoogleLibraries && createLibraryTab !== "link" ? (
-                      <div className="mt-3 rounded-xl border border-dashed border-slate-600/60 bg-slate-900/40 p-4 text-sm text-slate-300">
-                        <div className="mt-1">
-                          <Button
-                            variant="contained"
-                            onClick={loginWithGoogle}
-                            disabled={authLoading}
-                          >
-                            {authLoading ? "登入中..." : "使用 Google 登入"}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : createLibraryTab === "link" ? (
-                      <div className="mt-3 space-y-3">
-                        <div className="flex flex-col gap-2">
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="貼上 YouTube 播放清單連結"
-                            value={playlistUrlDraft}
-                            disabled={!isLinkSourceActive || linkPreviewLocked}
-                            onChange={(event) => {
-                              setPlaylistUrlDraft(event.target.value);
-                              if (playlistPreviewError) setPlaylistPreviewError(null);
-                            }}
-                            onKeyDown={(event) => {
-                              if (!isLinkSourceActive || linkPreviewLocked) return;
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                void handlePreviewPlaylistByUrl();
-                              }
-                            }}
-                            InputProps={{
-                              endAdornment: linkPreviewLocked ? (
-                                <Tooltip title="取消目前預覽，才能更換連結" placement="top">
+                              <section className="rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-5">
+                                <div className="flex items-center gap-2">
+                                  <EditRounded
+                                    sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                  />
+                                  <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                    房間身份
+                                  </p>
+                                </div>
+                                <div className="mt-4 space-y-4">
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    label="房間名稱"
+                                    value={roomNameInput}
+                                    onChange={(event) =>
+                                      setRoomNameInput(event.target.value)
+                                    }
+                                  />
+
+                                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+                                    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                      <div className="flex items-center gap-2">
+                                        {roomVisibilityInput === "private" ? (
+                                          <LockRounded
+                                            sx={{
+                                              fontSize: 18,
+                                              color: "#fbbf24",
+                                            }}
+                                          />
+                                        ) : (
+                                          <PublicOutlined
+                                            sx={{
+                                              fontSize: 18,
+                                              color: "#7dd3fc",
+                                            }}
+                                          />
+                                        )}
+                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                          房間可見性
+                                        </p>
+                                      </div>
+                                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setRoomVisibilityInput("public")
+                                          }
+                                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                            roomVisibilityInput === "public"
+                                              ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
+                                              : "border-[var(--mc-border)] bg-[var(--mc-surface)]/30 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                                          }`}
+                                        >
+                                          <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                                            <PublicOutlined
+                                              sx={{ fontSize: 18 }}
+                                            />
+                                            公開房
+                                          </span>
+                                          <p className="mt-1 text-xs opacity-80">
+                                            房間會出現在大廳列表，也能透過代碼加入。
+                                          </p>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setRoomVisibilityInput("private")
+                                          }
+                                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                            roomVisibilityInput === "private"
+                                              ? "border-amber-300/60 bg-amber-400/12 text-amber-50"
+                                              : "border-[var(--mc-border)] bg-[var(--mc-surface)]/30 text-[var(--mc-text-muted)] hover:border-amber-300/35 hover:text-[var(--mc-text)]"
+                                          }`}
+                                        >
+                                          <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                                            <LockRounded
+                                              sx={{ fontSize: 18 }}
+                                            />
+                                            私人房
+                                          </span>
+                                          <p className="mt-1 text-xs opacity-80">
+                                            不會出現在大廳列表，需透過代碼加入。
+                                          </p>
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                      <div className="flex items-center gap-2">
+                                        <PasswordRounded
+                                          sx={{
+                                            fontSize: 18,
+                                            color: "#fbbf24",
+                                          }}
+                                        />
+                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                          4 位 PIN
+                                        </p>
+                                      </div>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        label="PIN（選填）"
+                                        value={roomPasswordInput}
+                                        onChange={(event) =>
+                                          setRoomPasswordInput(
+                                            event.target.value
+                                              .replace(/\D/g, "")
+                                              .slice(0, 4),
+                                          )
+                                        }
+                                        className="mt-3"
+                                        inputProps={{
+                                          inputMode: "numeric",
+                                          pattern: "\\d{4}",
+                                          maxLength: 4,
+                                        }}
+                                        helperText={
+                                          roomPasswordInput.trim()
+                                            ? "加入者需要輸入這組 4 位 PIN。"
+                                            : "所有房間都會自動產生加入代碼；留空則不需要 PIN。"
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </section>
+
+                              <section className="rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-5">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <GroupsRounded
+                                        sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                      />
+                                      <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                        玩家規模
+                                      </p>
+                                    </div>
+                                    <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                      用左右箭頭調整本房最多可加入的人數。
+                                    </p>
+                                  </div>
+                                  <div className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-[11px] text-[var(--mc-text-muted)]">
+                                    範圍 {PLAYER_MIN} - {PLAYER_MAX}
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-white/8 bg-slate-950/20 px-4 py-3">
                                   <IconButton
                                     size="small"
-                                    onClick={handleCancelLinkPreview}
-                                    aria-label="取消目前清單預覽"
+                                    onClick={() =>
+                                      setRoomMaxPlayersInput(
+                                        String(
+                                          Math.max(
+                                            PLAYER_MIN,
+                                            (parsedMaxPlayers ?? PLAYER_MIN) -
+                                              1,
+                                          ),
+                                        ),
+                                      )
+                                    }
+                                    disabled={
+                                      (parsedMaxPlayers ?? PLAYER_MIN) <=
+                                      PLAYER_MIN
+                                    }
                                   >
-                                    <CloseRounded fontSize="small" />
+                                    <ChevronLeftRounded />
                                   </IconButton>
-                                </Tooltip>
-                              ) : undefined,
-                            }}
-                          />
-                          <p className="text-xs text-[var(--mc-text-muted)]">
-                            {!isLinkSourceActive
-                              ? "目前使用其他題庫來源。切換到「貼上連結模式」後，才會載入與預覽此區內容。"
-                              : linkPreviewLocked
-                                ? "已鎖定目前連結，請點右側取消圖示後再更換。"
-                                : "連結貼上後會自動預覽完整清單。"}
-                            {playlistLoading ? " 正在更新中..." : ""}
-                          </p>
-                        </div>
-                        {(playlistPreviewError || playlistError) && (
-                          <p className="text-xs text-rose-300">
-                            {playlistPreviewError || playlistError}
-                          </p>
-                        )}
-                        <div className="rounded-xl border border-cyan-300/25 bg-slate-950/25 p-3">
-                          <p className="text-xs text-[var(--mc-text-muted)]">
-                            {linkPlaylistTitle
-                              ? `預覽清單：${linkPlaylistTitle}`
-                              : "貼上連結後可即時看到曲目預覽"}
-                          </p>
-                          {linkPlaylistPreviewItems.length > 0 ? (
-                            <>
-                              <div className="mt-2 rounded-lg border border-[var(--mc-border)]/70 bg-slate-950/20">
-                                <List<PlaylistPreviewRowProps>
-                                  style={{ height: 320, width: "100%" }}
-                                  rowCount={linkPlaylistPreviewItems.length}
-                                  rowHeight={64}
-                                  rowProps={{ items: linkPlaylistPreviewItems }}
-                                  rowComponent={PlaylistPreviewRow}
+                                  <div className="min-w-24 text-center">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                      目前上限
+                                    </p>
+                                    <p className="mt-1 text-3xl font-semibold text-[var(--mc-text)]">
+                                      {parsedMaxPlayers ?? PLAYER_MIN}
+                                    </p>
+                                  </div>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() =>
+                                      setRoomMaxPlayersInput(
+                                        String(
+                                          Math.min(
+                                            PLAYER_MAX,
+                                            (parsedMaxPlayers ?? PLAYER_MIN) +
+                                              1,
+                                          ),
+                                        ),
+                                      )
+                                    }
+                                    disabled={
+                                      (parsedMaxPlayers ?? PLAYER_MIN) >=
+                                      PLAYER_MAX
+                                    }
+                                  >
+                                    <ChevronRightRounded />
+                                  </IconButton>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                  {CREATE_PLAYER_QUICK_OPTIONS.map((count) => (
+                                    <button
+                                      key={count}
+                                      type="button"
+                                      onClick={() =>
+                                        setRoomMaxPlayersInput(String(count))
+                                      }
+                                      className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                                        parsedMaxPlayers === count
+                                          ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
+                                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                                      }`}
+                                    >
+                                      {count} 人
+                                    </button>
+                                  ))}
+                                </div>
+
+                                {maxPlayersInvalid ? (
+                                  <p className="mt-3 text-xs text-amber-200">
+                                    請輸入有效的人數範圍。
+                                  </p>
+                                ) : null}
+                              </section>
+
+                              <section className="rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-5">
+                                <div className="flex items-center gap-2">
+                                  <TimerRounded
+                                    sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                  />
+                                  <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                    遊戲節奏
+                                  </p>
+                                </div>
+                                <div className="mt-4 space-y-4">
+                                  <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div>
+                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                          題數
+                                        </p>
+                                        <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                          題數越多，整局時間越長。
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-wrap items-center justify-end gap-2">
+                                        <span className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-[11px] text-[var(--mc-text-muted)]">
+                                          範圍 {questionMin} -{" "}
+                                          {questionMaxLimit}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-white/8 bg-slate-950/20 px-4 py-3">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                          updateQuestionCount(
+                                            Math.max(questionMin, questionCount - 1),
+                                          )
+                                        }
+                                        disabled={!canDecreaseQuestionCount}
+                                      >
+                                        <ChevronLeftRounded />
+                                      </IconButton>
+                                      <div className="min-w-24 text-center">
+                                        <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                          目前題數
+                                        </p>
+                                        <p className="mt-1 text-3xl font-semibold text-[var(--mc-text)]">
+                                          {questionCount}
+                                        </p>
+                                      </div>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                          updateQuestionCount(
+                                            Math.min(questionMaxLimit, questionCount + 1),
+                                          )
+                                        }
+                                        disabled={!canIncreaseQuestionCount}
+                                      >
+                                        <ChevronRightRounded />
+                                      </IconButton>
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                      <Tooltip title={`設為最小題數 ${questionMin}`}>
+                                        <span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              updateQuestionCount(questionMin)
+                                            }
+                                            disabled={!canDecreaseQuestionCount}
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--mc-border)] px-3 py-1.5 text-xs text-[var(--mc-text-muted)] transition hover:border-cyan-300/35 hover:text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                                          >
+                                            <KeyboardDoubleArrowLeftRounded sx={{ fontSize: 16 }} />
+                                            最小
+                                          </button>
+                                        </span>
+                                      </Tooltip>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateQuestionCount(
+                                            Math.max(questionMin, questionCount - 10),
+                                          )
+                                        }
+                                        disabled={!canDecreaseQuestionCount}
+                                        className="rounded-full border border-[var(--mc-border)] px-3 py-1.5 text-xs text-[var(--mc-text-muted)] transition hover:border-cyan-300/35 hover:text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                                      >
+                                        -10
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateQuestionCount(
+                                            Math.min(questionMaxLimit, questionCount + 10),
+                                          )
+                                        }
+                                        disabled={!canIncreaseQuestionCount}
+                                        className="rounded-full border border-[var(--mc-border)] px-3 py-1.5 text-xs text-[var(--mc-text-muted)] transition hover:border-cyan-300/35 hover:text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                                      >
+                                        +10
+                                      </button>
+                                      <Tooltip title={`設為最大題數 ${questionMaxLimit}`}>
+                                        <span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              updateQuestionCount(questionMaxLimit)
+                                            }
+                                            disabled={!canIncreaseQuestionCount}
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--mc-border)] px-3 py-1.5 text-xs text-[var(--mc-text-muted)] transition hover:border-cyan-300/35 hover:text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                                          >
+                                            最大
+                                            <KeyboardDoubleArrowRightRounded sx={{ fontSize: 16 }} />
+                                          </button>
+                                        </span>
+                                      </Tooltip>
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                      {CREATE_QUESTION_QUICK_OPTIONS.map(
+                                        (count) => (
+                                          <button
+                                            key={count}
+                                            type="button"
+                                            onClick={() =>
+                                              updateQuestionCount(count)
+                                            }
+                                            className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                                              questionCount === count
+                                                ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
+                                                : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                                            }`}
+                                          >
+                                            {count} 題
+                                          </button>
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="grid gap-3 lg:grid-cols-3">
+                                    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                      <div className="flex items-center gap-2">
+                                        <PlayCircleOutlineRounded
+                                          sx={{
+                                            fontSize: 18,
+                                            color: "#7dd3fc",
+                                          }}
+                                        />
+                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                          作答時間
+                                        </p>
+                                      </div>
+                                      <p className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                        玩家在這題可以作答的時間長度。
+                                      </p>
+                                      <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
+                                        {playDurationSec}s
+                                      </div>
+                                      <div className="mt-3 px-1">
+                                        <Slider
+                                          value={playDurationSec}
+                                          min={PLAY_DURATION_MIN}
+                                          max={PLAY_DURATION_MAX}
+                                          step={1}
+                                          onChange={(_event, value) =>
+                                            updatePlayDurationSec(
+                                              Array.isArray(value)
+                                                ? value[0]
+                                                : value,
+                                            )
+                                          }
+                                          valueLabelDisplay="auto"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                      <div className="flex items-center gap-2">
+                                        <AccessTimeRounded
+                                          sx={{
+                                            fontSize: 18,
+                                            color: "#fbbf24",
+                                          }}
+                                        />
+                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                          公布答案
+                                        </p>
+                                      </div>
+                                      <p className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                        題目結束後保留給大家看答案的時間。
+                                      </p>
+                                      <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
+                                        {revealDurationSec}s
+                                      </div>
+                                      <div className="mt-3 px-1">
+                                        <Slider
+                                          value={revealDurationSec}
+                                          min={REVEAL_DURATION_MIN}
+                                          max={REVEAL_DURATION_MAX}
+                                          step={1}
+                                          onChange={(_event, value) =>
+                                            updateRevealDurationSec(
+                                              Array.isArray(value)
+                                                ? value[0]
+                                                : value,
+                                            )
+                                          }
+                                          valueLabelDisplay="auto"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                      <div className="flex items-center gap-2">
+                                        <ScheduleRounded
+                                          sx={{
+                                            fontSize: 18,
+                                            color: "#c084fc",
+                                          }}
+                                        />
+                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                          起始時間
+                                        </p>
+                                      </div>
+                                      <p className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                        從歌曲的第幾秒開始播放題目。
+                                      </p>
+                                      <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
+                                        {startOffsetSec}s
+                                      </div>
+                                      <div className="mt-3 px-1">
+                                        <Slider
+                                          value={startOffsetSec}
+                                          min={START_OFFSET_MIN}
+                                          max={START_OFFSET_MAX}
+                                          step={1}
+                                          onChange={(_event, value) =>
+                                            updateStartOffsetSec(
+                                              Array.isArray(value)
+                                                ? value[0]
+                                                : value,
+                                            )
+                                          }
+                                          valueLabelDisplay="auto"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </section>
+
+                              <section className="rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-5">
+                                <div className="flex items-center gap-2">
+                                  <TuneRounded
+                                    sx={{ fontSize: 18, color: "#6ee7b7" }}
+                                  />
+                                  <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                    題庫規則
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateAllowCollectionClipTiming(
+                                      !allowCollectionClipTiming,
+                                    )
+                                  }
+                                  className={`mt-4 w-full rounded-2xl border px-4 py-4 text-left transition ${
+                                    allowCollectionClipTiming
+                                      ? "border-emerald-300/45 bg-emerald-400/10"
+                                      : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 hover:border-emerald-300/30"
+                                  }`}
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold text-[var(--mc-text)]">
+                                      沿用收藏庫片段時間
+                                    </span>
+                                    <span
+                                      className={`rounded-full px-3 py-1 text-[11px] ${
+                                        allowCollectionClipTiming
+                                          ? "border border-emerald-300/35 bg-emerald-300/12 text-emerald-100"
+                                          : "border border-[var(--mc-border)] text-[var(--mc-text-muted)]"
+                                      }`}
+                                    >
+                                      {allowCollectionClipTiming
+                                        ? "已啟用"
+                                        : "目前關閉"}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                                    {allowCollectionClipTiming
+                                      ? "建立房間時直接沿用收藏庫原本設定的片段時間。"
+                                      : "建立房間時使用目前這裡調整的播放與起始秒數。"}
+                                  </p>
+                                </button>
+                              </section>
+                            </div>
+                            <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+                              <section className="rounded-3xl border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(8,15,28,0.96),rgba(15,23,42,0.82))] p-5 shadow-[0_24px_60px_-36px_rgba(14,165,233,0.5)]">
+                                <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--mc-text-muted)]">
+                                  Ready Check
+                                </p>
+                                <h4 className="mt-2 text-base font-semibold text-[var(--mc-text)]">
+                                  這場房間目前會長這樣
+                                </h4>
+                                <div className="mt-4 space-y-3">
+                                  {selectedCreateSourceSummary ? (
+                                    <div className="rounded-2xl border border-cyan-300/18 bg-cyan-500/6 p-3">
+                                      <div className="flex items-start gap-3">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/18 bg-slate-950/45">
+                                          {roomCreateSourceMode === "link" ? (
+                                            <LinkRounded
+                                              sx={{
+                                                fontSize: 18,
+                                                color: "#7dd3fc",
+                                              }}
+                                            />
+                                          ) : roomCreateSourceMode ===
+                                            "youtube" ? (
+                                            <PlayCircleOutlineRounded
+                                              sx={{
+                                                fontSize: 18,
+                                                color: "#7dd3fc",
+                                              }}
+                                            />
+                                          ) : (
+                                            <BookmarkBorderRounded
+                                              sx={{
+                                                fontSize: 18,
+                                                color: "#7dd3fc",
+                                              }}
+                                            />
+                                          )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
+                                            {selectedCreateSourceSummary.label}
+                                          </p>
+                                          <p className="mt-1 line-clamp-2 text-sm font-semibold text-[var(--mc-text)]">
+                                            {selectedCreateSourceSummary.title}
+                                          </p>
+                                          <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                            {selectedCreateSourceSummary.detail}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-2xl border border-dashed border-cyan-300/25 bg-cyan-500/6 p-3 text-xs text-cyan-100/90">
+                                      先在左側選擇題庫來源，這裡會同步顯示本局使用的內容。
+                                    </div>
+                                  )}
+
+                                  <div className="grid gap-2">
+                                    {createSettingsCards.map((item) => (
+                                      <div
+                                        key={`sidebar-${item.label}`}
+                                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/5 px-3 py-2"
+                                      >
+                                        <span className="text-xs text-[var(--mc-text-muted)]">
+                                          {item.label}
+                                        </span>
+                                        <span className="text-sm font-semibold text-[var(--mc-text)]">
+                                          {item.value}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {createRequirementsHintText ? (
+                                    <div className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                                      {createRequirementsHintText}
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100">
+                                      條件已就緒，可以直接建立房間。
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="contained"
+                                  fullWidth
+                                  onClick={() => {
+                                    void handleCreateRoom();
+                                  }}
+                                  disabled={!canCreateRoom}
+                                  className="mt-5"
+                                >
+                                  {isCreatingRoom ? "建立中..." : "建立房間"}
+                                </Button>
+                              </section>
+                            </aside>
+                          </div>
+
+                          <div className="hidden">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
+                                房間設置
+                              </p>
+                              <p className="text-xs text-[var(--mc-text-muted)]">
+                                題庫：
+                                {playlistItems.length > 0
+                                  ? `${playlistItems.length} 首`
+                                  : "尚未選擇"}
+                              </p>
+                            </div>
+                            <div className="rounded-2xl border border-[var(--mc-border)] bg-[linear-gradient(135deg,rgba(8,15,28,0.92),rgba(15,23,42,0.78))] p-4 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.95)]">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                    設定總覽
+                                  </p>
+                                  <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                    先確認這局的房間條件與節奏，再往下微調每個欄位。
+                                  </p>
+                                </div>
+                                <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] text-cyan-100">
+                                  {playlistItems.length > 0
+                                    ? `已載入 ${playlistItems.length} 首`
+                                    : "等待題庫"}
+                                </span>
+                              </div>
+                              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                {createSettingsSummary.map((item) => (
+                                  <div
+                                    key={item.label}
+                                    className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3"
+                                  >
+                                    <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                      {item.label}
+                                    </div>
+                                    <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                                      {item.value}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                    快速預設
+                                  </p>
+                                  <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                    先套一個常用節奏，再視情況微調題數與秒數。
+                                  </p>
+                                </div>
+                                <span className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-[11px] text-[var(--mc-text-muted)]">
+                                  不會改動房名與來源
+                                </span>
+                              </div>
+                              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                {createSettingPresets.map((preset) => (
+                                  <button
+                                    key={preset.key}
+                                    type="button"
+                                    onClick={preset.onApply}
+                                    className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                      preset.active
+                                        ? "border-amber-300/60 bg-amber-300/10 shadow-[0_14px_32px_-24px_rgba(251,191,36,0.55)]"
+                                        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 hover:border-amber-300/35 hover:bg-[var(--mc-surface-strong)]/55"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-sm font-semibold text-[var(--mc-text)]">
+                                        {preset.label}
+                                      </span>
+                                      {preset.active ? (
+                                        <span className="rounded-full border border-amber-300/40 bg-amber-300/12 px-2 py-0.5 text-[10px] text-amber-100">
+                                          使用中
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                                      {preset.hint}
+                                    </p>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                <div className="flex items-center gap-2">
+                                  <EditRounded
+                                    sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                  />
+                                  <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                    房間名稱
+                                  </p>
+                                </div>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  label="房間名稱"
+                                  value={roomNameInput}
+                                  onChange={(event) =>
+                                    setRoomNameInput(event.target.value)
+                                  }
+                                  className="mt-3"
                                 />
                               </div>
-                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                <div className="rounded-lg border border-amber-300/30 bg-amber-300/10 p-2">
-                                  <p className="text-xs font-semibold text-amber-100">
-                                    已移除歌曲：{linkPlaylistIssueSummary.removed.length}
-                                  </p>
-                                  <div className="mt-1 max-h-20 overflow-auto text-[11px] text-amber-100/90">
-                                    {linkPlaylistIssueSummary.removed.length === 0
-                                      ? "無"
-                                      : linkPlaylistIssueSummary.removed.join("、")}
+
+                              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+                                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                  <div className="flex items-center gap-2">
+                                    {roomVisibilityInput === "private" ? (
+                                      <LockRounded
+                                        sx={{ fontSize: 18, color: "#fbbf24" }}
+                                      />
+                                    ) : (
+                                      <PublicOutlined
+                                        sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                      />
+                                    )}
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      房間可見性
+                                    </p>
+                                  </div>
+                                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setRoomVisibilityInput("public")
+                                      }
+                                      className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                        roomVisibilityInput === "public"
+                                          ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
+                                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                                      }`}
+                                    >
+                                      <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                                        <PublicOutlined sx={{ fontSize: 18 }} />
+                                        公開房
+                                      </span>
+                                      <p className="mt-1 text-xs opacity-80">
+                                        可被房間列表瀏覽與加入。
+                                      </p>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setRoomVisibilityInput("private")
+                                      }
+                                      className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                        roomVisibilityInput === "private"
+                                          ? "border-amber-300/60 bg-amber-400/12 text-amber-50"
+                                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-amber-300/35 hover:text-[var(--mc-text)]"
+                                      }`}
+                                    >
+                                      <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                                        <LockRounded sx={{ fontSize: 18 }} />
+                                        私人房
+                                      </span>
+                                      <p className="mt-1 text-xs opacity-80">
+                                        不會出現在大廳列表，需透過代碼加入。
+                                      </p>
+                                    </button>
                                   </div>
                                 </div>
-                                <div className="rounded-lg border border-fuchsia-300/30 bg-fuchsia-300/10 p-2">
-                                  <p className="text-xs font-semibold text-fuchsia-100">
-                                    隱私限制：{linkPlaylistIssueSummary.privateRestricted.length}
-                                  </p>
-                                  <div className="mt-1 max-h-20 overflow-auto text-[11px] text-fuchsia-100/90">
-                                    {linkPlaylistIssueSummary.privateRestricted.length === 0
-                                      ? "無"
-                                      : linkPlaylistIssueSummary.privateRestricted.join("、")}
+
+                                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                  <div className="flex items-center gap-2">
+                                    <PasswordRounded
+                                      sx={{ fontSize: 18, color: "#fbbf24" }}
+                                    />
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      4 位 PIN
+                                    </p>
+                                  </div>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    label="PIN（選填）"
+                                    value={roomPasswordInput}
+                                    onChange={(event) =>
+                                      setRoomPasswordInput(
+                                        event.target.value.replace(/\D/g, "").slice(0, 4),
+                                      )
+                                    }
+                                    className="mt-3"
+                                    inputProps={{
+                                      inputMode: "numeric",
+                                      pattern: "\\d{4}",
+                                      maxLength: 4,
+                                    }}
+                                    helperText={
+                                      roomPasswordInput.trim()
+                                        ? "加入者需要輸入這組 4 位 PIN。"
+                                        : "所有房間都會自動產生加入代碼；留空則不需要 PIN。"
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <GroupsRounded
+                                      sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                    />
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      玩家上限
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-xs text-[var(--mc-text)]">
+                                    {parsedMaxPlayers ?? PLAYER_MIN} 人
+                                  </span>
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {CREATE_PLAYER_QUICK_OPTIONS.map((count) => (
+                                    <button
+                                      key={count}
+                                      type="button"
+                                      onClick={() =>
+                                        setRoomMaxPlayersInput(String(count))
+                                      }
+                                      className={`rounded-full border px-3 py-1 text-xs transition ${
+                                        parsedMaxPlayers === count
+                                          ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
+                                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                                      }`}
+                                    >
+                                      {count} 人
+                                    </button>
+                                  ))}
+                                </div>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  type="number"
+                                  label={`玩家上限（${PLAYER_MIN}-${PLAYER_MAX}）`}
+                                  value={roomMaxPlayersInput}
+                                  onChange={(event) =>
+                                    setRoomMaxPlayersInput(event.target.value)
+                                  }
+                                  error={Boolean(maxPlayersInvalid)}
+                                  helperText={
+                                    maxPlayersInvalid
+                                      ? "玩家數格式錯誤"
+                                      : "也可以直接手動輸入"
+                                  }
+                                  className="mt-3"
+                                  slotProps={{
+                                    htmlInput: {
+                                      min: PLAYER_MIN,
+                                      max: PLAYER_MAX,
+                                      inputMode: "numeric",
+                                    },
+                                  }}
+                                />
+                              </div>
+
+                              <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <QuizRounded
+                                      sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                    />
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      題數
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-xs text-[var(--mc-text)]">
+                                    {questionCount} 題
+                                  </span>
+                                </div>
+                                <div className="mt-4 px-1">
+                                  <Slider
+                                    value={questionCount}
+                                    min={questionMin}
+                                    max={questionMaxLimit}
+                                    step={1}
+                                    onChange={(_event, value) =>
+                                      updateQuestionCount(
+                                        Array.isArray(value) ? value[0] : value,
+                                      )
+                                    }
+                                    valueLabelDisplay="auto"
+                                  />
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {[10, 15, 20, 30].map((count) => (
+                                    <button
+                                      key={count}
+                                      type="button"
+                                      onClick={() => updateQuestionCount(count)}
+                                      className={`rounded-full border px-3 py-1 text-xs transition ${
+                                        questionCount === count
+                                          ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
+                                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                                      }`}
+                                    >
+                                      {count} 題
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="grid gap-3 xl:grid-cols-3">
+                                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                  <div className="flex items-center gap-2">
+                                    <TimerRounded
+                                      sx={{ fontSize: 18, color: "#7dd3fc" }}
+                                    />
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      播放秒數
+                                    </p>
+                                  </div>
+                                  <div className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                    {playDurationSec} 秒
+                                  </div>
+                                  <div className="mt-3 px-1">
+                                    <Slider
+                                      value={playDurationSec}
+                                      min={PLAY_DURATION_MIN}
+                                      max={PLAY_DURATION_MAX}
+                                      step={1}
+                                      onChange={(_event, value) =>
+                                        updatePlayDurationSec(
+                                          Array.isArray(value)
+                                            ? value[0]
+                                            : value,
+                                        )
+                                      }
+                                      valueLabelDisplay="auto"
+                                    />
                                   </div>
                                 </div>
-                                <div className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-2">
-                                  <p className="text-xs font-semibold text-rose-100">
-                                    嵌入限制：{linkPlaylistIssueSummary.embedBlocked.length}
-                                  </p>
-                                  <div className="mt-1 max-h-20 overflow-auto text-[11px] text-rose-100/90">
-                                    {linkPlaylistIssueSummary.embedBlocked.length === 0
-                                      ? "無"
-                                      : linkPlaylistIssueSummary.embedBlocked.join("、")}
+                                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                  <div className="flex items-center gap-2">
+                                    <AccessTimeRounded
+                                      sx={{ fontSize: 18, color: "#fbbf24" }}
+                                    />
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      揭示秒數
+                                    </p>
+                                  </div>
+                                  <div className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                    {revealDurationSec} 秒
+                                  </div>
+                                  <div className="mt-3 px-1">
+                                    <Slider
+                                      value={revealDurationSec}
+                                      min={REVEAL_DURATION_MIN}
+                                      max={REVEAL_DURATION_MAX}
+                                      step={1}
+                                      onChange={(_event, value) =>
+                                        updateRevealDurationSec(
+                                          Array.isArray(value)
+                                            ? value[0]
+                                            : value,
+                                        )
+                                      }
+                                      valueLabelDisplay="auto"
+                                    />
                                   </div>
                                 </div>
-                                <div className="rounded-lg border border-red-300/30 bg-red-300/10 p-2">
-                                  <p className="text-xs font-semibold text-red-100">
-                                    其他不可用：
-                                    {linkPlaylistIssueSummary.unavailable.length +
-                                      linkPlaylistIssueSummary.unknown.length +
-                                      linkPlaylistIssueSummary.unknownCount}
-                                  </p>
-                                  <div className="mt-1 max-h-20 overflow-auto text-[11px] text-red-100/90">
-                                    {linkPlaylistIssueSummary.unavailable.length === 0 &&
-                                    linkPlaylistIssueSummary.unknown.length === 0
-                                      ? linkPlaylistIssueSummary.unknownCount > 0
-                                        ? `共 ${linkPlaylistIssueSummary.unknownCount} 首（後端未提供明細）`
-                                        : "無"
-                                      : [
-                                          ...linkPlaylistIssueSummary.unavailable,
-                                          ...linkPlaylistIssueSummary.unknown,
-                                        ].join("、")}
+                                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-4">
+                                  <div className="flex items-center gap-2">
+                                    <ScheduleRounded
+                                      sx={{ fontSize: 18, color: "#c084fc" }}
+                                    />
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      起始偏移
+                                    </p>
+                                  </div>
+                                  <div className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                    {startOffsetSec} 秒
+                                  </div>
+                                  <div className="mt-3 px-1">
+                                    <Slider
+                                      value={startOffsetSec}
+                                      min={START_OFFSET_MIN}
+                                      max={START_OFFSET_MAX}
+                                      step={1}
+                                      onChange={(_event, value) =>
+                                        updateStartOffsetSec(
+                                          Array.isArray(value)
+                                            ? value[0]
+                                            : value,
+                                        )
+                                      }
+                                      valueLabelDisplay="auto"
+                                    />
                                   </div>
                                 </div>
                               </div>
-                              {isLinkSourceActive &&
-                                playlistPreviewMeta &&
-                                playlistPreviewMeta.skippedCount > 0 &&
-                                !linkPlaylistIssueSummary.exact && (
-                                  <p className="mt-2 text-[11px] text-amber-200/90">
-                                    後端目前只回傳略過數量，尚未提供逐首明細；待
-                                    `skippedItems` 上線後將顯示 100% 精準名單。
-                                  </p>
-                                )}
-                            </>
-                          ) : (
-                            <p className="mt-2 text-sm text-[var(--mc-text-muted)]">
-                              {!isLinkSourceActive
-                                ? "目前尚未啟用貼上連結模式。"
-                                : "目前尚無可預覽的清單內容。"}
-                            </p>
-                          )}
-                          <div className="mt-3">
-                            {!isLinkSourceActive ? (
-                              <Button
-                                variant="outlined"
-                                onClick={handleActivateLinkSource}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateAllowCollectionClipTiming(
+                                    !allowCollectionClipTiming,
+                                  )
+                                }
+                                className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                                  allowCollectionClipTiming
+                                    ? "border-emerald-300/45 bg-emerald-400/10"
+                                    : "border-[var(--mc-border)] bg-[var(--mc-surface)]/35 hover:border-emerald-300/30"
+                                }`}
                               >
-                                切換到貼上連結模式
-                              </Button>
-                            ) : (
+                                <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--mc-text)]">
+                                  <TuneRounded
+                                    sx={{
+                                      fontSize: 18,
+                                      color: allowCollectionClipTiming
+                                        ? "#6ee7b7"
+                                        : "#94a3b8",
+                                    }}
+                                  />
+                                  題庫片段時間
+                                </span>
+                                <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                                  {allowCollectionClipTiming
+                                    ? "建立房間時沿用收藏庫原本設定的片段時間。"
+                                    : "建立房間時使用目前這裡調整的播放與起始秒數。"}
+                                </p>
+                              </button>
+                            </div>
+                            <div className="hidden grid gap-3 sm:grid-cols-2">
+                              <TextField
+                                size="small"
+                                fullWidth
+                                label="房間名稱"
+                                value={roomNameInput}
+                                onChange={(event) =>
+                                  setRoomNameInput(event.target.value)
+                                }
+                              />
+                              <TextField
+                                size="small"
+                                fullWidth
+                                select
+                                label="可見度"
+                                value={roomVisibilityInput}
+                                onChange={(event) =>
+                                  setRoomVisibilityInput(
+                                    event.target.value as "public" | "private",
+                                  )
+                                }
+                              >
+                                <MenuItem value="public">公開</MenuItem>
+                                <MenuItem value="private">私人</MenuItem>
+                              </TextField>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                label="4 位 PIN（選填）"
+                                value={roomPasswordInput}
+                                onChange={(event) =>
+                                  setRoomPasswordInput(
+                                    event.target.value.replace(/\D/g, "").slice(0, 4),
+                                  )
+                                }
+                                inputProps={{
+                                  inputMode: "numeric",
+                                  pattern: "\\d{4}",
+                                  maxLength: 4,
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                fullWidth
+                                type="number"
+                                label={`人數上限（${PLAYER_MIN}-${PLAYER_MAX}）`}
+                                value={roomMaxPlayersInput}
+                                onChange={(event) =>
+                                  setRoomMaxPlayersInput(event.target.value)
+                                }
+                                error={Boolean(maxPlayersInvalid)}
+                                helperText={
+                                  maxPlayersInvalid
+                                    ? "人數格式錯誤"
+                                    : "留空則使用預設"
+                                }
+                                slotProps={{
+                                  htmlInput: {
+                                    min: PLAYER_MIN,
+                                    max: PLAYER_MAX,
+                                    inputMode: "numeric",
+                                  },
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                fullWidth
+                                type="number"
+                                label={`題數（${questionMin}-${questionMaxLimit}）`}
+                                value={questionCount}
+                                onChange={(event) => {
+                                  const next = Number(event.target.value);
+                                  if (!Number.isFinite(next)) return;
+                                  updateQuestionCount(next);
+                                }}
+                                slotProps={{
+                                  htmlInput: {
+                                    min: questionMin,
+                                    max: questionMaxLimit,
+                                    inputMode: "numeric",
+                                  },
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                fullWidth
+                                type="number"
+                                label={`播放秒數（${PLAY_DURATION_MIN}-${PLAY_DURATION_MAX}）`}
+                                value={playDurationSec}
+                                onChange={(event) => {
+                                  const next = Number(event.target.value);
+                                  if (!Number.isFinite(next)) return;
+                                  updatePlayDurationSec(next);
+                                }}
+                                slotProps={{
+                                  htmlInput: {
+                                    min: PLAY_DURATION_MIN,
+                                    max: PLAY_DURATION_MAX,
+                                    inputMode: "numeric",
+                                  },
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                fullWidth
+                                type="number"
+                                label={`揭示秒數（${REVEAL_DURATION_MIN}-${REVEAL_DURATION_MAX}）`}
+                                value={revealDurationSec}
+                                onChange={(event) => {
+                                  const next = Number(event.target.value);
+                                  if (!Number.isFinite(next)) return;
+                                  updateRevealDurationSec(next);
+                                }}
+                                slotProps={{
+                                  htmlInput: {
+                                    min: REVEAL_DURATION_MIN,
+                                    max: REVEAL_DURATION_MAX,
+                                    inputMode: "numeric",
+                                  },
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                fullWidth
+                                type="number"
+                                label={`起始秒數（${START_OFFSET_MIN}-${START_OFFSET_MAX}）`}
+                                value={startOffsetSec}
+                                onChange={(event) => {
+                                  const next = Number(event.target.value);
+                                  if (!Number.isFinite(next)) return;
+                                  updateStartOffsetSec(next);
+                                }}
+                                slotProps={{
+                                  htmlInput: {
+                                    min: START_OFFSET_MIN,
+                                    max: START_OFFSET_MAX,
+                                    inputMode: "numeric",
+                                  },
+                                }}
+                              />
+                            </div>
+                            <label className="hidden inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--mc-text-muted)]">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4"
+                                checked={allowCollectionClipTiming}
+                                onChange={(event) =>
+                                  updateAllowCollectionClipTiming(
+                                    event.target.checked,
+                                  )
+                                }
+                              />
+                              套用收藏庫曲目剪輯時間
+                            </label>
+
+                            {createRequirementsHint && (
+                              <p className="text-xs text-amber-200">
+                                {createRequirementsHint}
+                              </p>
+                            )}
+                            <div>
                               <Button
                                 variant="contained"
-                                onClick={handlePickLinkSource}
-                                disabled={playlistItems.length === 0}
+                                onClick={() => {
+                                  void handleCreateRoom();
+                                }}
+                                disabled={!canCreateRoom}
                               >
-                                使用這份清單做為創房題庫
+                                {isCreatingRoom ? "建立中..." : "建立房間"}
                               </Button>
-                            )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ) : createLibraryTab === "youtube" ? (
-                        <div className="mt-3">
-                          {youtubePlaylistsLoading ? (
-                            <div
-                              className={
-                                createLibraryView === "grid"
-                                  ? "grid gap-2 sm:grid-cols-2"
-                                  : "space-y-2"
-                              }
-                            >
-                              {Array.from({ length: createLibraryView === "grid" ? 6 : 4 }).map((_, idx) =>
-                                renderYoutubeSkeletonCard(idx, createLibraryView),
+                      ) : (
+                        <>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
+                                可用題庫預覽
+                              </p>
+                            </div>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
+                              <button
+                                type="button"
+                                className={`rounded-full px-3 py-1 text-xs ${
+                                  createLibraryView === "grid"
+                                    ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
+                                    : "cursor-pointer text-[var(--mc-text-muted)]"
+                                }`}
+                                onClick={() => setCreateLibraryView("grid")}
+                              >
+                                圖示
+                              </button>
+                              <button
+                                type="button"
+                                className={`rounded-full px-3 py-1 text-xs ${
+                                  createLibraryView === "list"
+                                    ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
+                                    : "cursor-pointer text-[var(--mc-text-muted)]"
+                                }`}
+                                onClick={() => setCreateLibraryView("list")}
+                              >
+                                清單
+                              </button>
+                            </div>
+                          </div>
+
+                          {!canUseGoogleLibraries &&
+                          createLibraryTab !== "link" ? (
+                            <div className="mt-3 rounded-xl border border-dashed border-slate-600/60 bg-slate-900/40 p-4 text-sm text-slate-300">
+                              <div className="mt-1">
+                                <Button
+                                  variant="contained"
+                                  onClick={loginWithGoogle}
+                                  disabled={authLoading}
+                                >
+                                  {authLoading
+                                    ? "登入中..."
+                                    : "使用 Google 登入"}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : createLibraryTab === "link" ? (
+                            <div className="mt-3 space-y-3">
+                              <div className="flex flex-col gap-2">
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  label="貼上 YouTube 播放清單連結"
+                                  value={playlistUrlDraft}
+                                  disabled={
+                                    !isLinkSourceActive || linkPreviewLocked
+                                  }
+                                  onChange={(event) => {
+                                    setPlaylistUrlDraft(event.target.value);
+                                    if (playlistPreviewError)
+                                      setPlaylistPreviewError(null);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (
+                                      !isLinkSourceActive ||
+                                      linkPreviewLocked
+                                    )
+                                      return;
+                                    if (event.key === "Enter") {
+                                      event.preventDefault();
+                                      void handlePreviewPlaylistByUrl();
+                                    }
+                                  }}
+                                  InputProps={{
+                                    endAdornment: linkPreviewLocked ? (
+                                      <Tooltip
+                                        title="取消目前預覽，才能更換連結"
+                                        placement="top"
+                                      >
+                                        <IconButton
+                                          size="small"
+                                          onClick={handleCancelLinkPreview}
+                                          aria-label="取消目前清單預覽"
+                                        >
+                                          <CloseRounded fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                    ) : undefined,
+                                  }}
+                                />
+                                <p className="text-xs text-[var(--mc-text-muted)]">
+                                  {!isLinkSourceActive
+                                    ? "目前使用其他題庫來源。切換到「貼上連結模式」後，才會載入與預覽此區內容。"
+                                    : linkPreviewLocked
+                                      ? "已鎖定目前連結，請點右側取消圖示後再更換。"
+                                      : "連結貼上後會自動預覽完整清單。"}
+                                  {playlistLoading ? " 正在更新中..." : ""}
+                                </p>
+                              </div>
+                              {(playlistPreviewError || playlistError) && (
+                                <p className="text-xs text-rose-300">
+                                  {playlistPreviewError || playlistError}
+                                </p>
+                              )}
+                              <div className="rounded-xl border border-cyan-300/25 bg-slate-950/25 p-3">
+                                <p className="text-xs text-[var(--mc-text-muted)]">
+                                  {linkPlaylistTitle
+                                    ? `預覽清單：${linkPlaylistTitle}`
+                                    : "貼上連結後可即時看到曲目預覽"}
+                                </p>
+                                {linkPlaylistPreviewItems.length > 0 ? (
+                                  <>
+                                    <div className="mt-2 rounded-lg border border-[var(--mc-border)]/70 bg-slate-950/20">
+                                      <List<PlaylistPreviewRowProps>
+                                        style={{ height: 320, width: "100%" }}
+                                        rowCount={
+                                          linkPlaylistPreviewItems.length
+                                        }
+                                        rowHeight={64}
+                                        rowProps={{
+                                          items: linkPlaylistPreviewItems,
+                                        }}
+                                        rowComponent={PlaylistPreviewRow}
+                                      />
+                                    </div>
+                                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                      <div className="rounded-lg border border-amber-300/30 bg-amber-300/10 p-2">
+                                        <p className="text-xs font-semibold text-amber-100">
+                                          已移除歌曲：
+                                          {
+                                            linkPlaylistIssueSummary.removed
+                                              .length
+                                          }
+                                        </p>
+                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-amber-100/90">
+                                          {linkPlaylistIssueSummary.removed
+                                            .length === 0
+                                            ? "無"
+                                            : linkPlaylistIssueSummary.removed.join(
+                                                "、",
+                                              )}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-lg border border-fuchsia-300/30 bg-fuchsia-300/10 p-2">
+                                        <p className="text-xs font-semibold text-fuchsia-100">
+                                          隱私限制：
+                                          {
+                                            linkPlaylistIssueSummary
+                                              .privateRestricted.length
+                                          }
+                                        </p>
+                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-fuchsia-100/90">
+                                          {linkPlaylistIssueSummary
+                                            .privateRestricted.length === 0
+                                            ? "無"
+                                            : linkPlaylistIssueSummary.privateRestricted.join(
+                                                "、",
+                                              )}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-2">
+                                        <p className="text-xs font-semibold text-rose-100">
+                                          嵌入限制：
+                                          {
+                                            linkPlaylistIssueSummary
+                                              .embedBlocked.length
+                                          }
+                                        </p>
+                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-rose-100/90">
+                                          {linkPlaylistIssueSummary.embedBlocked
+                                            .length === 0
+                                            ? "無"
+                                            : linkPlaylistIssueSummary.embedBlocked.join(
+                                                "、",
+                                              )}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-lg border border-red-300/30 bg-red-300/10 p-2">
+                                        <p className="text-xs font-semibold text-red-100">
+                                          其他不可用：
+                                          {linkPlaylistIssueSummary.unavailable
+                                            .length +
+                                            linkPlaylistIssueSummary.unknown
+                                              .length +
+                                            linkPlaylistIssueSummary.unknownCount}
+                                        </p>
+                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-red-100/90">
+                                          {linkPlaylistIssueSummary.unavailable
+                                            .length === 0 &&
+                                          linkPlaylistIssueSummary.unknown
+                                            .length === 0
+                                            ? linkPlaylistIssueSummary.unknownCount >
+                                              0
+                                              ? `共 ${linkPlaylistIssueSummary.unknownCount} 首（後端未提供明細）`
+                                              : "無"
+                                            : [
+                                                ...linkPlaylistIssueSummary.unavailable,
+                                                ...linkPlaylistIssueSummary.unknown,
+                                              ].join("、")}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {isLinkSourceActive &&
+                                      playlistPreviewMeta &&
+                                      playlistPreviewMeta.skippedCount > 0 &&
+                                      !linkPlaylistIssueSummary.exact && (
+                                        <p className="mt-2 text-[11px] text-amber-200/90">
+                                          後端目前只回傳略過數量，尚未提供逐首明細；待
+                                          `skippedItems` 上線後將顯示 100%
+                                          精準名單。
+                                        </p>
+                                      )}
+                                  </>
+                                ) : (
+                                  <p className="mt-2 text-sm text-[var(--mc-text-muted)]">
+                                    {!isLinkSourceActive
+                                      ? "目前尚未啟用貼上連結模式。"
+                                      : "目前尚無可預覽的清單內容。"}
+                                  </p>
+                                )}
+                                <div className="mt-3">
+                                  {!isLinkSourceActive ? (
+                                    <Button
+                                      variant="outlined"
+                                      onClick={handleActivateLinkSource}
+                                    >
+                                      切換到貼上連結模式
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="contained"
+                                      onClick={handlePickLinkSource}
+                                      disabled={playlistItems.length === 0}
+                                    >
+                                      使用這份清單做為創房題庫
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : createLibraryTab === "youtube" ? (
+                            <div className="mt-3">
+                              {youtubePlaylistsLoading ? (
+                                <div
+                                  className={
+                                    createLibraryView === "grid"
+                                      ? "grid gap-2 sm:grid-cols-2"
+                                      : "space-y-2"
+                                  }
+                                >
+                                  {Array.from({
+                                    length:
+                                      createLibraryView === "grid" ? 6 : 4,
+                                  }).map((_, idx) =>
+                                    renderYoutubeSkeletonCard(
+                                      idx,
+                                      createLibraryView,
+                                    ),
+                                  )}
+                                </div>
+                              ) : youtubePlaylists.length === 0 ? (
+                                <p className="text-sm text-[var(--mc-text-muted)]">
+                                  目前沒有可用清單，先到收藏建立頁匯入。
+                                </p>
+                              ) : (
+                                <div className="rounded-xl border border-[var(--mc-border)]/70 bg-slate-950/18 p-2">
+                                  {createLibraryView === "grid" ? (
+                                    <div className="max-h-[640px] overflow-y-auto pr-1">
+                                      <div
+                                        className="grid gap-2"
+                                        style={{
+                                          gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
+                                        }}
+                                      >
+                                        {youtubePlaylists.map(
+                                          (playlist, index) =>
+                                            renderYoutubeCard(
+                                              playlist,
+                                              index,
+                                              "grid",
+                                            ),
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <List<VirtualLibraryListRowProps>
+                                      style={{
+                                        height: youtubeListHeight,
+                                        width: "100%",
+                                      }}
+                                      rowCount={youtubePlaylists.length}
+                                      rowHeight={youtubeListRowHeight}
+                                      rowProps={{
+                                        items: youtubePlaylists,
+                                        renderItem: renderYoutubeCard,
+                                      }}
+                                      rowComponent={VirtualLibraryListRow}
+                                    />
+                                  )}
+                                </div>
                               )}
                             </div>
-                          ) : youtubePlaylists.length === 0 ? (
-                            <p className="text-sm text-[var(--mc-text-muted)]">
-                            目前沒有可用清單，先到收藏建立頁匯入。
-                          </p>
-                        ) : (
-                          <div className="rounded-xl border border-[var(--mc-border)]/70 bg-slate-950/18 p-2">
-                            {createLibraryView === "grid" ? (
-                              <div className="max-h-[640px] overflow-y-auto pr-1">
+                          ) : (
+                            <div className="mt-3">
+                              {collectionsLoading ? (
                                 <div
-                                  className="grid gap-2"
-                                  style={{
-                                    gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
-                                  }}
+                                  className={
+                                    createLibraryView === "grid"
+                                      ? "grid gap-2 sm:grid-cols-2"
+                                      : "space-y-2"
+                                  }
                                 >
-                                  {youtubePlaylists.map((playlist, index) =>
-                                    renderYoutubeCard(playlist, index, "grid"),
+                                  {Array.from({
+                                    length:
+                                      createLibraryView === "grid" ? 6 : 4,
+                                  }).map((_, idx) =>
+                                    renderCollectionSkeletonCard(
+                                      idx,
+                                      createLibraryView,
+                                    ),
                                   )}
                                 </div>
-                              </div>
-                            ) : (
-                              <List<VirtualLibraryListRowProps>
-                                style={{ height: youtubeListHeight, width: "100%" }}
-                                rowCount={youtubePlaylists.length}
-                                rowHeight={youtubeListRowHeight}
-                                rowProps={{
-                                  items: youtubePlaylists,
-                                  renderItem: renderYoutubeCard,
-                                }}
-                                rowComponent={VirtualLibraryListRow}
-                              />
-                            )}
-                          </div>
-                          )}
-                        </div>
-                    ) : (
-                      <div className="mt-3">
-                        {collectionsLoading ? (
-                          <div
-                            className={
-                              createLibraryView === "grid"
-                                ? "grid gap-2 sm:grid-cols-2"
-                                : "space-y-2"
-                            }
-                          >
-                            {Array.from({ length: createLibraryView === "grid" ? 6 : 4 }).map(
-                              (_, idx) => renderCollectionSkeletonCard(idx, createLibraryView),
-                            )}
-                          </div>
-                        ) : collectionsError ? (
-                          <p className="text-sm text-rose-300">{collectionsError}</p>
-                        ) : collections.length === 0 ? (
-                          <p className="text-sm text-[var(--mc-text-muted)]">
-                            目前沒有可用題庫，先使用推薦題庫快速開局。
-                          </p>
-                        ) : (
-                          <div className="rounded-xl border border-[var(--mc-border)]/70 bg-slate-950/18 p-2">
-                            {createLibraryView === "grid" ? (
-                              <div
-                                ref={createLibraryScrollRef}
-                                className="max-h-[640px] overflow-y-auto pr-1"
-                                onScroll={handleCollectionGridScroll}
-                              >
-                                <div
-                                  className="grid gap-2"
-                                  style={{
-                                    gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
-                                  }}
-                                >
-                                  {collections.map((collection, index) =>
-                                    renderCollectionCard(collection, index, "grid"),
-                                  )}
-                                  {collectionsLoadingMore
-                                    ? Array.from({ length: createLibraryColumns }).map((_, idx) =>
-                                        renderCollectionSkeletonCard(idx + 1000, "grid"),
-                                      )
-                                    : null}
-                                </div>
-                              </div>
-                            ) : (
-                              <List<VirtualLibraryListRowProps>
-                                style={{ height: collectionListHeight, width: "100%" }}
-                                rowCount={collectionListRowCount}
-                                rowHeight={collectionListRowHeight}
-                                rowProps={{
-                                  items: collections,
-                                  renderItem: renderCollectionCard,
-                                  hasMore: collectionsHasMore,
-                                  isLoadingMore: collectionsLoadingMore,
-                                  onLoadMore: () => {
-                                    void loadMoreCollections();
-                                  },
-                                  renderLoader: () => (
-                                    <div className="space-y-2">
-                                      {renderCollectionSkeletonCard(1000, "list")}
+                              ) : collectionsError ? (
+                                <p className="text-sm text-rose-300">
+                                  {collectionsError}
+                                </p>
+                              ) : collections.length === 0 ? (
+                                <p className="text-sm text-[var(--mc-text-muted)]">
+                                  目前沒有可用題庫，先使用推薦題庫快速開局。
+                                </p>
+                              ) : (
+                                <div className="rounded-xl border border-[var(--mc-border)]/70 bg-slate-950/18 p-2">
+                                  {createLibraryView === "grid" ? (
+                                    <div
+                                      ref={createLibraryScrollRef}
+                                      className="max-h-[640px] overflow-y-auto pr-1"
+                                      onScroll={handleCollectionGridScroll}
+                                    >
+                                      <div
+                                        className="grid gap-2"
+                                        style={{
+                                          gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
+                                        }}
+                                      >
+                                        {collections.map((collection, index) =>
+                                          renderCollectionCard(
+                                            collection,
+                                            index,
+                                            "grid",
+                                          ),
+                                        )}
+                                        {collectionsLoadingMore
+                                          ? Array.from({
+                                              length: createLibraryColumns,
+                                            }).map((_, idx) =>
+                                              renderCollectionSkeletonCard(
+                                                idx + 1000,
+                                                "grid",
+                                              ),
+                                            )
+                                          : null}
+                                      </div>
                                     </div>
-                                  ),
-                                }}
-                                rowComponent={VirtualLibraryListRow}
-                              />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                      </>
-                    )}
-                  </div>
+                                  ) : (
+                                    <List<VirtualLibraryListRowProps>
+                                      style={{
+                                        height: collectionListHeight,
+                                        width: "100%",
+                                      }}
+                                      rowCount={collectionListRowCount}
+                                      rowHeight={collectionListRowHeight}
+                                      rowProps={{
+                                        items: collections,
+                                        renderItem: renderCollectionCard,
+                                        hasMore: collectionsHasMore,
+                                        isLoadingMore: collectionsLoadingMore,
+                                        onLoadMore: () => {
+                                          void loadMoreCollections();
+                                        },
+                                        renderLoader: () => (
+                                          <div className="space-y-2">
+                                            {renderCollectionSkeletonCard(
+                                              1000,
+                                              "list",
+                                            )}
+                                          </div>
+                                        ),
+                                      }}
+                                      rowComponent={VirtualLibraryListRow}
+                                    />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="rounded-2xl border border-amber-300/30 bg-amber-400/5 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/90">
-                      Room ID
-                    </p>
-                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                      <TextField
-                        size="small"
-                        fullWidth
-                        label="輸入房間 ID"
-                        value={directRoomIdInput}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          setDirectRoomIdInput(next);
-                          setDirectJoinError(null);
-                          const matched = filteredJoinRooms.find(
-                            (room) => room.id === next.trim(),
-                          );
-                          setDirectJoinNeedsPassword(Boolean(matched?.hasPassword));
-                          if (matched) setSelectedJoinRoomId(matched.id);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void handleDirectJoinById();
+                  <div className="rounded-2xl border border-[var(--mc-border)] bg-[linear-gradient(135deg,rgba(251,191,36,0.12),rgba(15,23,42,0.22))] p-4">
+                    <div className="flex flex-col gap-3">
+                      <div className="rounded-2xl border border-white/10 bg-slate-950/22 p-1">
+                        <Tabs
+                          value={joinEntryTab}
+                          onChange={(_, next: "code" | "browser") =>
+                            setJoinEntryTab(next)
                           }
-                        }}
-                      />
-                      <Button
-                        variant="outlined"
-                        onClick={handleDirectJoinById}
-                        disabled={directJoinLoading}
-                      >
-                        {directJoinLoading ? "確認中..." : "查詢並加入"}
-                      </Button>
+                          variant="fullWidth"
+                          TabIndicatorProps={{ style: { display: "none" } }}
+                          sx={{
+                            minHeight: 0,
+                            "& .MuiTabs-flexContainer": {
+                              gap: "0.5rem",
+                            },
+                          }}
+                        >
+                          <Tab
+                            disableRipple
+                            value="code"
+                            label="輸入代碼"
+                            sx={{
+                              minHeight: 0,
+                              borderRadius: "999px",
+                              px: 2,
+                              py: 1.25,
+                              textTransform: "none",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: "rgba(226, 232, 240, 0.72)",
+                              transition: "all 0.2s ease",
+                              "&.Mui-selected": {
+                                color: "#fef3c7",
+                                backgroundColor: "rgba(251, 191, 36, 0.16)",
+                              },
+                            }}
+                          />
+                          <Tab
+                            disableRipple
+                            value="browser"
+                            label="房間列表"
+                            sx={{
+                              minHeight: 0,
+                              borderRadius: "999px",
+                              px: 2,
+                              py: 1.25,
+                              textTransform: "none",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: "rgba(226, 232, 240, 0.72)",
+                              transition: "all 0.2s ease",
+                              "&.Mui-selected": {
+                                color: "#fef3c7",
+                                backgroundColor: "rgba(251, 191, 36, 0.16)",
+                              },
+                            }}
+                          />
+                        </Tabs>
+                      </div>
                     </div>
-                    {directJoinNeedsPassword && (
-                      <p className="mt-2 text-xs text-amber-200">
-                        此房間需要密碼，送出後會請你輸入密碼。
-                      </p>
-                    )}
-                    {directJoinError && (
-                      <p className="mt-2 text-xs text-rose-300">{directJoinError}</p>
-                    )}
                   </div>
 
+                  {joinEntryTab === "code" && (
+                  <div className="rounded-2xl border border-amber-300/30 bg-amber-400/5 p-4 sm:p-5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/90">
+                      輸入代碼
+                    </p>
+                    <div className="mx-auto mt-3 max-w-3xl rounded-[28px] border border-amber-300/18 bg-[linear-gradient(180deg,rgba(120,53,15,0.2),rgba(15,23,42,0.22))] p-4 sm:p-5">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-full max-w-2xl">
+                          <Tooltip
+                            open={Boolean(directJoinError)}
+                            title={
+                              directJoinError ? (
+                                <div className="space-y-1">
+                                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-200/80">
+                                    房間代碼無效
+                                  </div>
+                                  <div className="text-sm font-medium text-rose-50">
+                                    {directJoinError}
+                                  </div>
+                                </div>
+                              ) : (
+                                ""
+                              )
+                            }
+                            arrow
+                            placement="top"
+                            disableFocusListener
+                            disableHoverListener
+                            disableTouchListener
+                            slotProps={{
+                              popper: {
+                                modifiers: [
+                                  {
+                                    name: "offset",
+                                    options: { offset: [0, 12] },
+                                  },
+                                ],
+                              },
+                              tooltip: {
+                                sx: {
+                                  maxWidth: 320,
+                                  borderRadius: "16px",
+                                  border: "1px solid rgba(251, 113, 133, 0.28)",
+                                  background:
+                                    "linear-gradient(180deg, rgba(127, 29, 29, 0.96), rgba(69, 10, 10, 0.98))",
+                                  boxShadow:
+                                    "0 18px 40px rgba(15, 23, 42, 0.45), 0 0 0 1px rgba(251, 113, 133, 0.08)",
+                                  px: 1.75,
+                                  py: 1.25,
+                                },
+                              },
+                              arrow: {
+                                sx: {
+                                  color: "rgba(127, 29, 29, 0.98)",
+                                },
+                              },
+                            }}
+                          >
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => directRoomCodeInputRef.current?.focus()}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  directRoomCodeInputRef.current?.focus();
+                                }
+                              }}
+                              className={`relative mx-auto w-full max-w-[34rem] cursor-text rounded-[26px] border bg-slate-950/35 px-4 py-4 outline-none transition ${
+                                directJoinError
+                                  ? "border-rose-300/70 shadow-[0_0_0_4px_rgba(251,113,133,0.16)]"
+                                  : isDirectRoomCodeFocused
+                                    ? "border-amber-300/60 shadow-[0_0_0_4px_rgba(251,191,36,0.14)]"
+                                    : "border-amber-300/20 hover:border-amber-300/35"
+                              }`}
+                            >
+                              <input
+                                ref={directRoomCodeInputRef}
+                                aria-label="輸入房間代碼"
+                                value={normalizedDirectRoomCode}
+                                onFocus={() => setIsDirectRoomCodeFocused(true)}
+                                onBlur={() => {
+                                  setIsDirectRoomCodeFocused(false);
+                                }}
+                                onChange={(e) => {
+                                  const next = normalizeRoomCodeInput(e.target.value);
+                                  setDirectRoomIdInput(next);
+                                  setDirectJoinPreviewRoom(null);
+                                  setDirectJoinError(null);
+                                  setDirectJoinNeedsPassword(false);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    void handleDirectJoinById();
+                                  }
+                                }}
+                                inputMode="text"
+                                autoCapitalize="characters"
+                                spellCheck={false}
+                                maxLength={6}
+                                className="absolute inset-0 h-full w-full opacity-0"
+                              />
+                              <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+                                {directRoomCodeSlots.slice(0, 3).map((char, index) => (
+                                  <span
+                                    key={`room-code-left-${index}`}
+                                    className={`relative flex h-14 w-11 items-center justify-center rounded-2xl border text-lg font-semibold tracking-[0.14em] sm:h-16 sm:w-12 sm:text-xl ${
+                                      directJoinError
+                                        ? "border-rose-300/35 bg-rose-400/8 text-rose-50"
+                                        : isDirectRoomCodeFocused &&
+                                            activeDirectRoomCodeIndex === index
+                                          ? "border-amber-200 bg-amber-300/16 text-amber-50 shadow-[0_0_0_2px_rgba(251,191,36,0.12)]"
+                                          : char === "_"
+                                            ? "border-white/10 bg-white/5 text-slate-500"
+                                            : "border-amber-300/30 bg-amber-400/10 text-amber-50"
+                                    }`}
+                                  >
+                                    {char}
+                                  </span>
+                                ))}
+                                <span
+                                  className={`px-1 text-xl font-semibold sm:text-2xl ${
+                                    directJoinError
+                                      ? "text-rose-200/90"
+                                      : "text-amber-200/80"
+                                  }`}
+                                >
+                                  -
+                                </span>
+                                {directRoomCodeSlots.slice(3).map((char, index) => (
+                                  <span
+                                    key={`room-code-right-${index}`}
+                                    className={`relative flex h-14 w-11 items-center justify-center rounded-2xl border text-lg font-semibold tracking-[0.14em] sm:h-16 sm:w-12 sm:text-xl ${
+                                      directJoinError
+                                        ? "border-rose-300/35 bg-rose-400/8 text-rose-50"
+                                        : isDirectRoomCodeFocused &&
+                                            activeDirectRoomCodeIndex === index + 3
+                                          ? "border-amber-200 bg-amber-300/16 text-amber-50 shadow-[0_0_0_2px_rgba(251,191,36,0.12)]"
+                                          : char === "_"
+                                            ? "border-white/10 bg-white/5 text-slate-500"
+                                            : "border-amber-300/30 bg-amber-400/10 text-amber-50"
+                                    }`}
+                                  >
+                                    {char}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </Tooltip>
+                        </div>
+                        <Button
+                          variant="contained"
+                          color="warning"
+                          onClick={handleDirectJoinById}
+                          disabled={
+                            directJoinLoading ||
+                            normalizedDirectRoomCode.length < 6 ||
+                            !resolvedDirectJoinRoom
+                          }
+                          className="min-h-[48px] w-full max-w-xs text-sm sm:min-h-[52px]"
+                        >
+                          {directJoinLoading
+                            ? "查詢房間中..."
+                            : resolvedDirectJoinRoom
+                              ? "加入這個房間"
+                              : "輸入完整代碼以查詢"}
+                        </Button>
+                      </div>
+                    </div>
+                    {(resolvedDirectJoinRoom || directJoinNeedsPassword) && (
+                      <div className="mt-3 rounded-2xl border border-[var(--mc-border)]/70 bg-slate-950/20 p-3 sm:p-4">
+                        {resolvedDirectJoinRoom ? (
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-base font-semibold text-[var(--mc-text)]">
+                                  {resolvedDirectJoinRoom.name}
+                                </p>
+                                <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                  代碼 {formatRoomCodeDisplay(resolvedDirectJoinRoom.roomCode)}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[11px] text-[var(--mc-text-muted)]">
+                                  {resolvedDirectJoinRoom.playerCount}
+                                  {resolvedDirectJoinRoom.maxPlayers
+                                    ? `/${resolvedDirectJoinRoom.maxPlayers}`
+                                    : ""}{" "}
+                                  人
+                                </span>
+                                <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[11px] text-[var(--mc-text-muted)]">
+                                  {roomRequiresPin(resolvedDirectJoinRoom) ? "需 PIN" : "免 PIN"}
+                                </span>
+                                <span
+                                  className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                                    isRoomCurrentlyPlaying(resolvedDirectJoinRoom)
+                                      ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                                      : "border-slate-300/20 bg-slate-400/10 text-slate-200"
+                                  }`}
+                                >
+                                  {getRoomStatusLabel(resolvedDirectJoinRoom)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="grid gap-2 text-sm text-[var(--mc-text-muted)] sm:grid-cols-2">
+                              <p>
+                                題庫：{getRoomPlaylistLabel(resolvedDirectJoinRoom)}
+                              </p>
+                              <p>
+                                題數：{resolvedDirectJoinRoom.gameSettings?.questionCount ?? "-"}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                        {directJoinNeedsPassword && (
+                          <p className="mt-2 text-xs text-amber-200">
+                            此房間需要 4 位 PIN，按下加入後會請你輸入。
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {joinEntryTab === "browser" && (
                   <div className="grid gap-3 lg:grid-cols-[0.92fr_1.08fr]">
                     <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-4">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                        篩選與排序
-                      </p>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
+                            房間條件
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                            確認你要加入哪一間房
+                          </p>
+                        </div>
+                        <p className="text-xs text-[var(--mc-text-muted)]">
+                          左側確認條件，右側挑房間
+                        </p>
+                      </div>
                       <div className="mt-3 space-y-3">
                         <div>
                           <p className="text-xs text-[var(--mc-text-muted)]">
-                            密碼需求
+                            PIN 篩選
                           </p>
                           <div className="mt-1 flex flex-wrap gap-2">
                             {[
                               { key: "all", label: "全部" },
-                              { key: "no_password", label: "免密碼" },
-                              { key: "password_required", label: "需密碼" },
+                              { key: "no_password", label: "免 PIN" },
+                              { key: "password_required", label: "需 PIN" },
                             ].map((item) => (
                               <button
                                 key={item.key}
@@ -1894,7 +3809,9 @@ const RoomListPage: React.FC = () => {
                         </div>
 
                         <div>
-                          <p className="text-xs text-[var(--mc-text-muted)]">房間排序</p>
+                          <p className="text-xs text-[var(--mc-text-muted)]">
+                            排序方式
+                          </p>
                           <div className="mt-1 inline-flex overflow-hidden rounded-full border border-[var(--mc-border)]">
                             <button
                               type="button"
@@ -1928,7 +3845,7 @@ const RoomListPage: React.FC = () => {
 
                       <div className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-slate-950/20 p-3">
                         <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                          Room Detail
+                          已選房間
                         </p>
                         {joinPreviewRoom ? (
                           <div className="mt-2 space-y-2 text-sm">
@@ -1946,11 +3863,13 @@ const RoomListPage: React.FC = () => {
                                 {getRoomStatusLabel(joinPreviewRoom)}
                               </span>
                               <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[11px] text-[var(--mc-text-muted)]">
-                                {joinPreviewRoom.hasPassword ? "需密碼" : "免密碼"}
+                                {roomRequiresPin(joinPreviewRoom)
+                                  ? "需 PIN"
+                                  : "免 PIN"}
                               </span>
                             </div>
                             <p className="text-[var(--mc-text-muted)]">
-                              ID：{joinPreviewRoom.id}
+                              代碼：{joinPreviewRoom.roomCode.slice(0, 3)}-{joinPreviewRoom.roomCode.slice(3)}
                             </p>
                             <p className="text-[var(--mc-text-muted)]">
                               玩家 {joinPreviewRoom.playerCount}
@@ -1959,22 +3878,26 @@ const RoomListPage: React.FC = () => {
                                 : ""}
                             </p>
                             <p className="text-[var(--mc-text-muted)]">
-                              題數 {joinPreviewRoom.gameSettings?.questionCount ?? "-"} ·
-                              題庫 {getRoomPlaylistLabel(joinPreviewRoom)}
+                              題數{" "}
+                              {joinPreviewRoom.gameSettings?.questionCount ??
+                                "-"}{" "}
+                              · 題庫 {getRoomPlaylistLabel(joinPreviewRoom)}
                             </p>
                             <div className="pt-1">
                               <Button
                                 variant="contained"
                                 size="small"
-                                onClick={() => handleJoinRoomEntry(joinPreviewRoom)}
+                                onClick={() =>
+                                  handleJoinRoomEntry(joinPreviewRoom)
+                                }
                               >
-                                直接加入
+                                直接加入這間房
                               </Button>
                             </div>
                           </div>
                         ) : (
                           <p className="mt-2 text-sm text-[var(--mc-text-muted)]">
-                            尚未選擇房間，可從右側列表挑選或輸入 ID。
+                            尚未選擇房間。你可以先輸入代碼，或從右側列表挑選一間公開房。
                           </p>
                         )}
                       </div>
@@ -1982,34 +3905,42 @@ const RoomListPage: React.FC = () => {
 
                     <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                          Rooms Browser
-                        </p>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
+                            房間列表
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                            從公開房間列表直接加入
+                          </p>
+                        </div>
                         <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
                           <button
                             type="button"
-                          className={`rounded-full px-3 py-1 text-xs ${
-                            joinRoomsView === "list"
-                              ? "cursor-pointer bg-amber-500/20 text-amber-100"
-                              : "cursor-pointer text-[var(--mc-text-muted)]"
-                          }`}
+                            className={`rounded-full px-3 py-1 text-xs ${
+                              joinRoomsView === "list"
+                                ? "cursor-pointer bg-amber-500/20 text-amber-100"
+                                : "cursor-pointer text-[var(--mc-text-muted)]"
+                            }`}
                             onClick={() => setJoinRoomsView("list")}
                           >
                             清單
                           </button>
                           <button
                             type="button"
-                          className={`rounded-full px-3 py-1 text-xs ${
-                            joinRoomsView === "grid"
-                              ? "cursor-pointer bg-amber-500/20 text-amber-100"
-                              : "cursor-pointer text-[var(--mc-text-muted)]"
-                          }`}
+                            className={`rounded-full px-3 py-1 text-xs ${
+                              joinRoomsView === "grid"
+                                ? "cursor-pointer bg-amber-500/20 text-amber-100"
+                                : "cursor-pointer text-[var(--mc-text-muted)]"
+                            }`}
                             onClick={() => setJoinRoomsView("grid")}
                           >
                             圖示
                           </button>
                         </div>
                       </div>
+                      <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                        點選房間卡片可同步更新左側確認區，確認後即可加入。
+                      </p>
 
                       {filteredJoinRooms.length === 0 ? (
                         <p className="mt-3 text-sm text-[var(--mc-text-muted)]">
@@ -2032,16 +3963,13 @@ const RoomListPage: React.FC = () => {
                                   : "border-[var(--mc-border)] bg-slate-950/25 hover:border-amber-300/35"
                               }`}
                             >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedJoinRoomId(room.id);
-                                    setDirectRoomIdInput(room.id);
-                                    setDirectJoinNeedsPassword(Boolean(room.hasPassword));
-                                    setDirectJoinError(null);
-                                  }}
-                                  className="w-full text-left"
-                                >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedJoinRoomId(room.id);
+                                }}
+                                className="w-full text-left"
+                              >
                                 {joinRoomsView === "grid" ? (
                                   <div className="space-y-3">
                                     <div className="flex items-start justify-between gap-2">
@@ -2051,7 +3979,10 @@ const RoomListPage: React.FC = () => {
                                         </p>
                                         <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
                                           {room.playerCount}
-                                          {room.maxPlayers ? `/${room.maxPlayers}` : ""} 人
+                                          {room.maxPlayers
+                                            ? `/${room.maxPlayers}`
+                                            : ""}{" "}
+                                          人
                                         </p>
                                       </div>
                                       <Button
@@ -2076,7 +4007,7 @@ const RoomListPage: React.FC = () => {
                                         {getRoomStatusLabel(room)}
                                       </span>
                                       <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[var(--mc-text-muted)]">
-                                        {room.hasPassword ? "需密碼" : "免密碼"}
+                                        {roomRequiresPin(room) ? "需 PIN" : "免 PIN"}
                                       </span>
                                     </div>
                                     <p className="truncate text-xs text-[var(--mc-text-muted)]">
@@ -2101,7 +4032,9 @@ const RoomListPage: React.FC = () => {
                                             {getRoomStatusLabel(room)}
                                           </span>
                                           <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[var(--mc-text-muted)]">
-                                            {room.hasPassword ? "需密碼" : "免密碼"}
+                                            {roomRequiresPin(room)
+                                              ? "需 PIN"
+                                              : "免 PIN"}
                                           </span>
                                         </div>
                                       </div>
@@ -2118,8 +4051,11 @@ const RoomListPage: React.FC = () => {
                                     </div>
                                     <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
                                       {room.playerCount}
-                                      {room.maxPlayers ? `/${room.maxPlayers}` : ""} 人 ·
-                                      題數 {room.gameSettings?.questionCount ?? "-"}
+                                      {room.maxPlayers
+                                        ? `/${room.maxPlayers}`
+                                        : ""}{" "}
+                                      人 · 題數{" "}
+                                      {room.gameSettings?.questionCount ?? "-"}
                                     </p>
                                     <p className="mt-1 truncate text-xs text-[var(--mc-text-muted)]">
                                       題庫：{getRoomPlaylistLabel(room)}
@@ -2133,11 +4069,11 @@ const RoomListPage: React.FC = () => {
                       )}
                     </div>
                   </div>
+                  )}
                 </div>
               )}
-              </div>
-
             </div>
+          </div>
 
           <style>
             {`
@@ -2189,14 +4125,20 @@ const RoomListPage: React.FC = () => {
           >
             <DialogTitle>此對戰已進行中</DialogTitle>
             <DialogContent>
-              <Typography variant="body2" sx={{ mb: 1.5, color: "text.secondary" }}>
+              <Typography
+                variant="body2"
+                sx={{ mb: 1.5, color: "text.secondary" }}
+              >
                 {joinConfirmDialog
                   ? `房間「${joinConfirmDialog.roomName}」目前已開始遊戲。加入後會從目前進度開始參與。`
                   : ""}
               </Typography>
               {joinConfirmDialog && (
                 <div className="space-y-1">
-                  <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", color: "text.secondary" }}
+                  >
                     玩家 {joinConfirmDialog.playerCount}
                     {joinConfirmDialog.maxPlayers
                       ? `/${joinConfirmDialog.maxPlayers}`
@@ -2205,21 +4147,30 @@ const RoomListPage: React.FC = () => {
                       ? ` · 本局題數 ${joinConfirmDialog.questionCount}`
                       : ""}
                   </Typography>
-                  <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", color: "text.secondary" }}
+                  >
                     題庫 {joinConfirmDialog.playlistTitle}
                   </Typography>
                   {(typeof joinConfirmDialog.currentQuestionNo === "number" ||
-                    typeof joinConfirmDialog.completedQuestionCount === "number") && (
-                    <Typography variant="caption" sx={{ display: "block", color: "warning.main" }}>
+                    typeof joinConfirmDialog.completedQuestionCount ===
+                      "number") && (
+                    <Typography
+                      variant="caption"
+                      sx={{ display: "block", color: "warning.main" }}
+                    >
                       {typeof joinConfirmDialog.currentQuestionNo === "number"
                         ? `目前第 ${joinConfirmDialog.currentQuestionNo} 題`
                         : "對戰進行中"}
-                      {typeof joinConfirmDialog.completedQuestionCount === "number"
+                      {typeof joinConfirmDialog.completedQuestionCount ===
+                      "number"
                         ? `（已完成 ${joinConfirmDialog.completedQuestionCount} 題${
-                          typeof joinConfirmDialog.totalQuestionCount === "number"
-                            ? ` / 共 ${joinConfirmDialog.totalQuestionCount} 題`
-                            : ""
-                        }）`
+                            typeof joinConfirmDialog.totalQuestionCount ===
+                            "number"
+                              ? ` / 共 ${joinConfirmDialog.totalQuestionCount} 題`
+                              : ""
+                          }）`
                         : ""}
                     </Typography>
                   )}
@@ -2228,7 +4179,11 @@ const RoomListPage: React.FC = () => {
             </DialogContent>
             <DialogActions>
               <Button onClick={closeJoinConfirmDialog}>取消</Button>
-              <Button variant="contained" color="warning" onClick={handleConfirmJoinInProgress}>
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={handleConfirmJoinInProgress}
+              >
                 仍要加入
               </Button>
             </DialogActions>
@@ -2240,30 +4195,30 @@ const RoomListPage: React.FC = () => {
             fullWidth
             maxWidth="xs"
           >
-            <DialogTitle>輸入房間密碼</DialogTitle>
+            <DialogTitle>輸入 4 位 PIN</DialogTitle>
             <DialogContent>
               <Typography
                 variant="body2"
                 sx={{ mb: 1.5, color: "text.secondary" }}
               >
                 {passwordDialog
-                  ? `房間「${passwordDialog.roomName}」需要密碼才能加入。`
+                  ? `房間「${passwordDialog.roomName}」需要 4 位 PIN 才能加入。`
                   : ""}
               </Typography>
               <TextField
                 autoFocus
                 fullWidth
                 size="small"
-                label="房間密碼"
+                label="4 位 PIN"
                 value={passwordDraft}
                 onChange={(e) => {
-                  const next = e.target.value;
-                  if (!/^[a-zA-Z0-9]*$/.test(next)) return;
+                  const next = e.target.value.replace(/\D/g, "").slice(0, 4);
                   setPasswordDraft(next);
                 }}
                 inputProps={{
-                  inputMode: "text",
-                  pattern: "[A-Za-z0-9]*",
+                  inputMode: "numeric",
+                  pattern: "\\d{4}",
+                  maxLength: 4,
                 }}
               />
             </DialogContent>
@@ -2272,7 +4227,7 @@ const RoomListPage: React.FC = () => {
               <Button
                 variant="contained"
                 onClick={handleConfirmJoinWithPassword}
-                disabled={!passwordDraft.trim()}
+                disabled={!/^\d{4}$/.test(passwordDraft.trim())}
               >
                 進入
               </Button>
@@ -2285,4 +4240,3 @@ const RoomListPage: React.FC = () => {
 };
 
 export default RoomListPage;
-

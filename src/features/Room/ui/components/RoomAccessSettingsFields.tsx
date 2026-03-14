@@ -39,19 +39,17 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
   onPasswordClear,
   classes,
 }) => {
-  const passwordEnabled =
+  const pinEnabled =
     !disabled && (allowPasswordWhenPublic || visibility === "private");
 
   const visibilityHint =
     visibility === "private"
-      ? "私人房間不會出現在房間列表，僅能透過邀請連結加入。"
-      : "公開房間會顯示在房間列表，任何人都能搜尋並加入。";
+      ? "私人房不會出現在公開列表中，只能透過房間代碼加入。"
+      : "公開房會出現在大廳列表，也能透過房間代碼加入。";
 
-  const passwordHint = allowPasswordWhenPublic
-    ? "公開與私人房間都可設定密碼；留空代表不需要。"
-    : visibility === "private"
-      ? "密碼為選填；若有設定，加入時需要輸入。"
-      : "公開房間通常不需要密碼，可留空。";
+  const pinHint = password.trim()
+    ? "已啟用 4 位 PIN，加入者除了代碼外還需要輸入 PIN。"
+    : "所有房間都會自動產生加入代碼；留空則不需要 PIN。";
 
   const inputLabelSlotProps =
     passwordFieldLabelShrink === undefined
@@ -71,7 +69,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
           disabled={disabled}
           className={classes?.visibilityButton}
         >
-          公開
+          公開房
         </Button>
         <Button
           variant={visibility === "private" ? "contained" : "outlined"}
@@ -79,7 +77,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
           disabled={disabled}
           className={classes?.visibilityButton}
         >
-          私人
+          私人房
         </Button>
       </Stack>
 
@@ -93,13 +91,20 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
         slotProps={
           inputLabelSlotProps ? { inputLabel: inputLabelSlotProps } : undefined
         }
-        label="房間密碼（選填）"
+        label="4 位 PIN（選填）"
         value={password}
-        onChange={(e) => onPasswordChange(e.target.value)}
-        placeholder="可留空"
-        disabled={!passwordEnabled}
+        onChange={(event) =>
+          onPasswordChange(event.target.value.replace(/\D/g, "").slice(0, 4))
+        }
+        placeholder="例如 1234"
+        disabled={!pinEnabled}
         fullWidth
         className={classes?.passwordField}
+        inputProps={{
+          inputMode: "numeric",
+          pattern: "\\d{4}",
+          maxLength: 4,
+        }}
       />
 
       <Stack direction="row" spacing={1} alignItems="center">
@@ -114,7 +119,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
           </Button>
         )}
         <Typography variant="caption" className={classes?.noteText}>
-          {passwordHint}
+          {pinHint}
         </Typography>
       </Stack>
     </Stack>

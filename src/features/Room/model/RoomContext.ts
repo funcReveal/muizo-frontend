@@ -180,9 +180,9 @@ export interface RoomContextValue {
   isCreatingRoom: boolean;
   handleCreateRoom: () => Promise<void>;
   handleJoinRoom: (
-    roomId: string,
-    hasPassword: boolean,
-    passwordOverride?: string,
+    roomReference: string,
+    hasPin: boolean,
+    pinOverride?: string,
   ) => void;
   handleLeaveRoom: (onLeft?: () => void) => void;
   handleSendMessage: () => void;
@@ -196,6 +196,7 @@ export interface RoomContextValue {
     name?: string;
     visibility?: "public" | "private";
     password?: string | null;
+    pin?: string | null;
     questionCount?: number;
     playDurationSec?: number;
     revealDurationSec?: number;

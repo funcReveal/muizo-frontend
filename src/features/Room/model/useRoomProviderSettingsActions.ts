@@ -31,6 +31,7 @@ type RoomSettingsPayload = {
   name?: string;
   visibility?: "public" | "private";
   password?: string | null;
+  pin?: string | null;
   questionCount?: number;
   playDurationSec?: number;
   revealDurationSec?: number;
@@ -212,8 +213,12 @@ export const useRoomProviderSettingsActions = ({
                 : previous,
             );
 
-            if (normalizedPayload.password !== undefined) {
-              const trimmed = normalizedPayload.password?.trim() ?? "";
+            const nextPinInput =
+              normalizedPayload.pin !== undefined
+                ? normalizedPayload.pin
+                : normalizedPayload.password;
+            if (nextPinInput !== undefined) {
+              const trimmed = nextPinInput?.trim() ?? "";
               const nextPassword = trimmed ? trimmed : null;
               saveRoomPassword(currentRoom.id, nextPassword);
               setHostRoomPassword(nextPassword);

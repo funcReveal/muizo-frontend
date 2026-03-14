@@ -1,7 +1,15 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
-import { Button } from "@mui/material";
+import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
+import MoreHorizRounded from "@mui/icons-material/MoreHorizRounded";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+} from "@mui/material";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import LoadingPage from "../../../shared/ui/LoadingPage";
 import { useRoom } from "../../Room/model/useRoom";
@@ -59,6 +67,12 @@ import {
 type YTPlayer = YT.Player;
 type YTPlayerEvent = YT.PlayerEvent;
 type YTPlayerStateEvent = YT.OnStateChangeEvent;
+type AiAssistantProvider = "grok" | "perplexity";
+const AI_BATCH_PAGE_SIZE = 100;
+type AiAnswerUpdate = {
+  id: string;
+  answerText: string;
+};
 
 const EditPage = () => {
   const navigate = useNavigate();
@@ -125,6 +139,14 @@ const EditPage = () => {
   const [titleDraft, setTitleDraft] = useState("");
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
   const [playlistPanelOpen, setPlaylistPanelOpen] = useState(false);
+  const [aiBatchModalOpen, setAiBatchModalOpen] = useState(false);
+  const [aiProvider, setAiProvider] = useState<AiAssistantProvider>("grok");
+  const [aiBatchPageIndex, setAiBatchPageIndex] = useState(0);
+  const [aiJsonDrafts, setAiJsonDrafts] = useState<Record<number, string>>({});
+  const [aiAppliedPages, setAiAppliedPages] = useState<Record<number, boolean>>(
+    {},
+  );
+  const [aiHelperNotice, setAiHelperNotice] = useState<string | null>(null);
   const [collectionAnchor, setCollectionAnchor] = useState<HTMLElement | null>(
     null,
   );
@@ -477,11 +499,258 @@ const EditPage = () => {
   const selectedClipDurationSec = selectedItem
     ? Math.max(0, selectedItem.endSec - selectedItem.startSec)
     : 0;
+  const aiPromptPages = useMemo(() => {
+    const pages: Array<{
+      pageIndex: number;
+      start: number;
+      end: number;
+      items: Array<{
+        id: string;
+        title: string;
+        uploader: string;
+        answerText: string;
+      }>;
+    }> = [];
+
+    for (let start = 0; start < playlistItems.length; start += AI_BATCH_PAGE_SIZE) {
+      const end = Math.min(start + AI_BATCH_PAGE_SIZE, playlistItems.length);
+      pages.push({
+        pageIndex: pages.length,
+        start,
+        end,
+        items: playlistItems.slice(start, end).map((item) => ({
+          id: item.dbId ?? item.localId,
+          title: item.title ?? "",
+          uploader: item.uploader ?? "",
+          answerText: item.answerText ?? "",
+        })),
+      });
+    }
+
+    return pages;
+  }, [playlistItems]);
+  const currentAiPromptPage =
+    aiPromptPages[aiBatchPageIndex] ??
+    aiPromptPages[Math.max(0, aiPromptPages.length - 1)] ??
+    null;
+  const currentAiJsonDraft = aiJsonDrafts[aiBatchPageIndex] ?? "";
+  const aiPromptPayload = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          items: currentAiPromptPage?.items ?? [],
+        },
+        null,
+        2,
+      ),
+    [currentAiPromptPage],
+  );
+  const aiPromptText = useMemo(
+    () =>
+      [
+        "你是一位音樂猜歌題庫校對助手。",
+        "請根據每筆題目的歌曲標題與上傳者，修正 answerText，讓答案盡量統一為正式且常見的曲名。",
+        `這是第 ${aiBatchPageIndex + 1} 批，共 ${Math.max(aiPromptPages.length, 1)} 批，本批處理第 ${
+          (currentAiPromptPage?.start ?? 0) + 1
+        } 到 ${currentAiPromptPage?.end ?? 0} 首。`,
+        "規則：",
+        "1. 只輸出 JSON，不要附加任何說明或 Markdown。",
+        "2. 保留每筆 id，不要新增或刪除題目。",
+        "3. 只修改 answerText，其餘欄位不要輸出。",
+        "4. 如果無法判斷，請保留原本的 answerText。",
+        '5. 回傳格式必須是 {"items":[{"id":"...","answerText":"..."}]}。',
+        "",
+        "以下是待校對資料：",
+        aiPromptPayload,
+      ].join("\n"),
+    [aiBatchPageIndex, aiPromptPages.length, aiPromptPayload, currentAiPromptPage],
+  );
+  const aiPromptUrl = useMemo(() => {
+    const encoded = encodeURIComponent(aiPromptText);
+    if (aiProvider === "perplexity") {
+      return `https://www.perplexity.ai/search/new?q=${encoded}`;
+    }
+    return `https://grok.com/?q=${encoded}`;
+  }, [aiPromptText, aiProvider]);
+  const aiParsedResult = useMemo(() => {
+    if (!currentAiJsonDraft.trim()) {
+      return {
+        error: null as string | null,
+        updates: [] as AiAnswerUpdate[],
+      };
+    }
+
+    try {
+      const parsed = JSON.parse(currentAiJsonDraft) as { items?: unknown };
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.items)) {
+        return {
+          error: "JSON 格式不正確，請確認最外層包含 items 陣列。",
+          updates: [] as AiAnswerUpdate[],
+        };
+      }
+
+      const seenIds = new Set<string>();
+      const updates: AiAnswerUpdate[] = [];
+
+      for (const rawItem of parsed.items) {
+        if (!rawItem || typeof rawItem !== "object") {
+          return {
+            error: "items 內每一筆都必須是物件。",
+            updates: [] as AiAnswerUpdate[],
+          };
+        }
+        const candidateId = "id" in rawItem ? rawItem.id : null;
+        const candidateAnswer =
+          "answerText" in rawItem ? rawItem.answerText : null;
+        const id =
+          typeof candidateId === "string" ? candidateId.trim() : "";
+        const answerText =
+          typeof candidateAnswer === "string" ? candidateAnswer.trim() : "";
+
+        if (!id || !answerText) {
+          return {
+            error: "每一筆都需要有效的 id 與 answerText。",
+            updates: [] as AiAnswerUpdate[],
+          };
+        }
+        if (seenIds.has(id)) {
+          return {
+            error: `JSON 內出現重複 id：${id}`,
+            updates: [] as AiAnswerUpdate[],
+          };
+        }
+        seenIds.add(id);
+        updates.push({ id, answerText });
+      }
+
+      return {
+        error: null as string | null,
+        updates,
+      };
+    } catch {
+      return {
+        error: "JSON 解析失敗，請確認格式正確。",
+        updates: [] as AiAnswerUpdate[],
+      };
+    }
+  }, [currentAiJsonDraft]);
+  const aiPreview = useMemo(() => {
+    const lookup = new Map(
+      (currentAiPromptPage?.items ?? []).map((item) => [item.id, item] as const),
+    );
+    const missingIds: string[] = [];
+    const unchangedIds: string[] = [];
+    const changedItems: Array<{
+      id: string;
+      title: string;
+      oldAnswer: string;
+      newAnswer: string;
+    }> = [];
+
+    for (const update of aiParsedResult.updates) {
+      const target = lookup.get(update.id);
+      if (!target) {
+        missingIds.push(update.id);
+        continue;
+      }
+      const currentAnswer = (target.answerText ?? "").trim();
+      if (currentAnswer === update.answerText) {
+        unchangedIds.push(update.id);
+        continue;
+      }
+      changedItems.push({
+        id: update.id,
+        title: target.title ?? "未命名題目",
+        oldAnswer: target.answerText ?? "",
+        newAnswer: update.answerText,
+      });
+    }
+
+    return {
+      missingIds,
+      unchangedIds,
+      changedItems,
+    };
+  }, [aiParsedResult.updates, currentAiPromptPage]);
+  const canApplyAiBatch =
+    !aiParsedResult.error && aiPreview.changedItems.length > 0;
+
+  useEffect(() => {
+    if (aiPromptPages.length === 0) {
+      if (aiBatchPageIndex !== 0) {
+        setAiBatchPageIndex(0);
+      }
+      return;
+    }
+    if (aiBatchPageIndex > aiPromptPages.length - 1) {
+      setAiBatchPageIndex(aiPromptPages.length - 1);
+    }
+  }, [aiBatchPageIndex, aiPromptPages.length]);
 
   const confirmLeave = () => {
     if (!hasUnsavedChanges) return true;
     return window.confirm(UNSAVED_PROMPT);
   };
+
+  const handleCopyAiPrompt = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(aiPromptText);
+      setAiHelperNotice("Prompt 已複製，可以直接貼到 AI。");
+    } catch {
+      setAiHelperNotice("無法自動複製，請手動複製下方內容。");
+    }
+  }, [aiPromptText]);
+
+  const handleOpenAiAssistant = useCallback(() => {
+    window.open(aiPromptUrl, "_blank", "noopener,noreferrer");
+  }, [aiPromptUrl]);
+
+  const handleApplyAiBatch = useCallback(() => {
+    if (!canApplyAiBatch) return;
+    const updates = new Map(
+      aiPreview.changedItems.map((item) => [item.id, item.newAnswer] as const),
+    );
+    setPlaylistItems((prev) =>
+      prev.map((item) => {
+        const key = item.dbId ?? item.localId;
+        const nextAnswer = updates.get(key);
+        if (!nextAnswer) return item;
+        return {
+          ...item,
+          answerText: nextAnswer,
+        };
+      }),
+    );
+    if (selectedItem) {
+      const selectedKey = selectedItem.dbId ?? selectedItem.localId;
+      const selectedNextAnswer = updates.get(selectedKey);
+      if (selectedNextAnswer !== undefined) {
+        setAnswerText(selectedNextAnswer);
+      }
+    }
+    markDirty();
+    setAiJsonDrafts((prev) => ({
+      ...prev,
+      [aiBatchPageIndex]: "",
+    }));
+    setAiAppliedPages((prev) => ({
+      ...prev,
+      [aiBatchPageIndex]: true,
+    }));
+    setAiHelperNotice(
+      `已套用第 ${aiBatchPageIndex + 1} 批的 ${aiPreview.changedItems.length} 筆答案。`,
+    );
+    if (aiBatchPageIndex < aiPromptPages.length - 1) {
+      setAiBatchPageIndex(aiBatchPageIndex + 1);
+    }
+  }, [
+    aiBatchPageIndex,
+    aiPreview.changedItems,
+    aiPromptPages.length,
+    canApplyAiBatch,
+    markDirty,
+    selectedItem,
+  ]);
 
   const applyVisibilityChange = useCallback(
     async (value: "private" | "public") => {
@@ -1529,6 +1798,12 @@ const EditPage = () => {
           setPlaylistAnchor(event.currentTarget);
           setPlaylistPanelOpen((prev) => !prev);
         }}
+        onAiBatchEditClick={() => {
+          setAiHelperNotice(null);
+          setAiBatchPageIndex(0);
+          setAiBatchModalOpen(true);
+        }}
+        aiBatchDisabled={playlistItems.length === 0}
         collectionMenuOpen={collectionMenuOpen}
         playlistMenuOpen={playlistPanelOpen}
       />
@@ -1754,6 +2029,278 @@ const EditPage = () => {
           </div>
         </div>
       </div>
+      <Dialog
+        open={aiBatchModalOpen}
+        onClose={() => setAiBatchModalOpen(false)}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          className:
+            "!rounded-3xl !border !border-[var(--mc-border)] !bg-[#08111f] !text-[var(--mc-text)]",
+        }}
+      >
+        <DialogTitle className="!px-6 !pt-6 !pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.28em] text-[var(--mc-text-muted)]">
+                AI Answer Assistant
+              </div>
+              <div className="mt-1 text-lg font-semibold text-[var(--mc-text)]">
+                AI 批次修正答案
+              </div>
+              <div className="mt-1 text-sm text-[var(--mc-text-muted)]">
+                先把目前題庫轉成 prompt，交給外部 AI 校對後，再把 JSON 貼回來批次套用。
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/50 px-3 py-2 text-right">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
+                本次題目
+              </div>
+              <div className="mt-1 text-xl font-semibold text-[var(--mc-text)]">
+                {playlistItems.length}
+              </div>
+            </div>
+          </div>
+        </DialogTitle>
+        <DialogContent className="!px-6 !pb-4">
+          <div className="space-y-4">
+            <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4">
+              <div className="mb-4">
+                <div className="text-sm font-semibold text-[var(--mc-text)]">
+                  批次分頁
+                </div>
+                <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                  每批最多 {AI_BATCH_PAGE_SIZE} 首，先逐批處理再貼回 JSON，能大幅降低 AI 回傳格式失敗率。
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {aiPromptPages.map((page) => {
+                    const active = page.pageIndex === aiBatchPageIndex;
+                    const hasDraft = Boolean(aiJsonDrafts[page.pageIndex]?.trim());
+                    const isApplied = aiAppliedPages[page.pageIndex] === true;
+                    return (
+                      <button
+                        key={`${page.start}-${page.end}`}
+                        type="button"
+                        onClick={() => {
+                          setAiHelperNotice(null);
+                          setAiBatchPageIndex(page.pageIndex);
+                        }}
+                        className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                          active
+                            ? "border-[var(--mc-accent)] bg-[var(--mc-accent)]/12 text-[var(--mc-text)]"
+                            : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/50 hover:text-[var(--mc-text)]"
+                        }`}
+                      >
+                        第 {page.pageIndex + 1} 批
+                        <span className="ml-2 text-[10px] opacity-75">
+                          {page.start + 1}-{page.end}
+                        </span>
+                        {isApplied ? (
+                          <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-emerald-300">
+                            <CheckCircleOutlineRounded sx={{ fontSize: 14 }} />
+                            已套用
+                          </span>
+                        ) : hasDraft ? (
+                          <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-amber-200">
+                            <MoreHorizRounded sx={{ fontSize: 14 }} />
+                            已貼回
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-[var(--mc-text)]">
+                    Step 1. 產生 Prompt
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                    目前只處理第 {aiBatchPageIndex + 1} 批，Prompt 只會要求 AI 回傳 `id + answerText`，避免誤改其他欄位。
+                  </div>
+                </div>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => void handleCopyAiPrompt()}
+                  className="!border-[var(--mc-border)] !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60"
+                >
+                  複製 Prompt
+                </Button>
+              </div>
+              <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[#050b14]">
+                <div className="border-b border-[var(--mc-border)] px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
+                  Prompt Preview
+                </div>
+                <div className="max-h-80 overflow-y-auto px-4 py-4">
+                  <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-slate-200">
+                    {aiPromptText}
+                  </pre>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4">
+              <div className="text-sm font-semibold text-[var(--mc-text)]">
+                Step 2. 選擇 AI
+              </div>
+              <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                目前先支援透過 query 預填內容的服務。若網址過長，也可以只複製 prompt 後手動貼上。
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(["grok", "perplexity"] as const).map((provider) => {
+                  const active = aiProvider === provider;
+                  return (
+                    <button
+                      key={provider}
+                      type="button"
+                      onClick={() => setAiProvider(provider)}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                        active
+                          ? "border-[var(--mc-accent)] bg-[var(--mc-accent)]/12 text-[var(--mc-text)]"
+                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/50 hover:text-[var(--mc-text)]"
+                      }`}
+                    >
+                      {provider === "grok" ? "Grok" : "Perplexity"}
+                    </button>
+                  );
+                })}
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleOpenAiAssistant}
+                  className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90"
+                >
+                  在 {aiProvider === "grok" ? "Grok" : "Perplexity"} 開啟
+                </Button>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4">
+              <div className="text-sm font-semibold text-[var(--mc-text)]">
+                Step 3. 貼回 JSON 並預覽
+              </div>
+              <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                請貼上 AI 回傳的純 JSON。系統會先驗證格式，再預覽哪些答案會被更新。
+              </div>
+              <TextField
+                value={currentAiJsonDraft}
+                onChange={(event) => {
+                  setAiHelperNotice(null);
+                  setAiJsonDrafts((prev) => ({
+                    ...prev,
+                    [aiBatchPageIndex]: event.target.value,
+                  }));
+                  setAiAppliedPages((prev) => ({
+                    ...prev,
+                    [aiBatchPageIndex]: false,
+                  }));
+                }}
+                multiline
+                minRows={8}
+                fullWidth
+                margin="normal"
+                placeholder='{"items":[{"id":"item-id","answerText":"正式答案"}]}'
+              />
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                    會更新
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-[var(--mc-text)]">
+                    {aiPreview.changedItems.length}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                    無變更
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-[var(--mc-text)]">
+                    {aiPreview.unchangedIds.length}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                    對不到 ID
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-[var(--mc-text)]">
+                    {aiPreview.missingIds.length}
+                  </div>
+                </div>
+              </div>
+              {aiParsedResult.error && (
+                <div className="mt-3 rounded-2xl border border-rose-500/40 bg-rose-950/30 px-3 py-2 text-sm text-rose-200">
+                  {aiParsedResult.error}
+                </div>
+              )}
+              {aiHelperNotice && (
+                <div className="mt-3 rounded-2xl border border-emerald-500/30 bg-emerald-950/25 px-3 py-2 text-sm text-emerald-200">
+                  {aiHelperNotice}
+                </div>
+              )}
+              {aiPreview.missingIds.length > 0 && !aiParsedResult.error && (
+                <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-100">
+                  以下 id 在目前題庫中找不到：{aiPreview.missingIds.slice(0, 8).join(", ")}
+                  {aiPreview.missingIds.length > 8 ? " ..." : ""}
+                </div>
+              )}
+              <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                {aiPreview.changedItems.length === 0 && !aiParsedResult.error ? (
+                  <div className="rounded-2xl border border-dashed border-[var(--mc-border)] px-3 py-4 text-sm text-[var(--mc-text-muted)]">
+                    貼上有效 JSON 後，這裡會顯示即將更新的答案差異。
+                  </div>
+                ) : (
+                  aiPreview.changedItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3"
+                    >
+                      <div className="text-sm font-semibold text-[var(--mc-text)]">
+                        {item.title}
+                      </div>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        <div className="rounded-xl border border-[var(--mc-border)]/80 bg-[var(--mc-surface)]/60 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
+                            原答案
+                          </div>
+                          <div className="mt-1 text-sm text-[var(--mc-text)]">
+                            {item.oldAnswer || "未填寫"}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-[var(--mc-accent)]/35 bg-[var(--mc-accent)]/8 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
+                            新答案
+                          </div>
+                          <div className="mt-1 text-sm text-[var(--mc-text)]">
+                            {item.newAnswer}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+        </DialogContent>
+        <DialogActions className="!px-6 !pb-5 !pt-0">
+          <Button
+            onClick={() => setAiBatchModalOpen(false)}
+            className="!text-[var(--mc-text-muted)]"
+          >
+            關閉
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleApplyAiBatch}
+            disabled={!canApplyAiBatch}
+            className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90 disabled:!bg-slate-700 disabled:!text-slate-300"
+          >
+            套用 {aiPreview.changedItems.length} 筆變更
+          </Button>
+        </DialogActions>
+      </Dialog>
       {autoSaveNotice && (
         <div
           className={`fixed bottom-4 right-4 z-50 rounded-md px-3 py-2 text-xs text-white shadow ${

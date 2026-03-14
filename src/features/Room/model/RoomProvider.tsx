@@ -32,6 +32,7 @@ import {
   API_URL,
   DEFAULT_PLAY_DURATION_SEC,
   DEFAULT_REVEAL_DURATION_SEC,
+  DEFAULT_ROOM_MAX_PLAYERS,
   DEFAULT_START_OFFSET_SEC,
   QUESTION_MAX,
   USERNAME_MAX,
@@ -116,7 +117,9 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const [roomCreateSourceMode, setRoomCreateSourceMode] =
     useState<RoomCreateSourceMode>("link");
   const [roomPasswordInput, setRoomPasswordInput] = useState("");
-  const [roomMaxPlayersInput, setRoomMaxPlayersInput] = useState("");
+  const [roomMaxPlayersInput, setRoomMaxPlayersInput] = useState(
+    String(DEFAULT_ROOM_MAX_PLAYERS),
+  );
   const [playDurationSec, setPlayDurationSec] = useState(
     DEFAULT_PLAY_DURATION_SEC,
   );
@@ -754,7 +757,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     setRoomVisibilityInput("public");
     setRoomCreateSourceMode("link");
     setRoomPasswordInput("");
-    setRoomMaxPlayersInput("");
+    setRoomMaxPlayersInput(String(DEFAULT_ROOM_MAX_PLAYERS));
     setPlayDurationSec(DEFAULT_PLAY_DURATION_SEC);
     setRevealDurationSec(DEFAULT_REVEAL_DURATION_SEC);
     setStartOffsetSec(DEFAULT_START_OFFSET_SEC);
@@ -861,13 +864,14 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     const nextPassword =
       currentRoom?.id &&
       currentRoom.hostClientId === clientId &&
-      currentRoom.hasPassword
+      (currentRoom.hasPin ?? currentRoom.hasPassword)
         ? readRoomPassword(currentRoom.id)
         : null;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror local-storage password cache for host view.
     setHostRoomPassword(nextPassword);
   }, [
     clientId,
+    currentRoom?.hasPin,
     currentRoom?.hasPassword,
     currentRoom?.hostClientId,
     currentRoom?.id,

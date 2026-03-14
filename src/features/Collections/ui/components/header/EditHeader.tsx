@@ -7,6 +7,7 @@ import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import FolderOpenOutlined from "@mui/icons-material/FolderOpenOutlined";
+import AutoFixHighOutlined from "@mui/icons-material/AutoFixHighOutlined";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 
@@ -36,6 +37,8 @@ type EditHeaderProps = {
   collectionCount: number;
   onCollectionButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPlaylistButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onAiBatchEditClick: () => void;
+  aiBatchDisabled: boolean;
   collectionMenuOpen: boolean;
   playlistMenuOpen: boolean;
 };
@@ -66,6 +69,8 @@ const EditHeader = ({
   collectionCount,
   onCollectionButtonClick,
   onPlaylistButtonClick,
+  onAiBatchEditClick,
+  aiBatchDisabled,
   collectionMenuOpen,
   playlistMenuOpen,
 }: EditHeaderProps) => {
@@ -185,6 +190,15 @@ const EditHeader = ({
           ) : (
             <ExpandMore fontSize="inherit" />
           )}
+        </button>
+        <button
+          type="button"
+          onClick={onAiBatchEditClick}
+          disabled={aiBatchDisabled}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] hover:border-[var(--mc-accent)]/60 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <AutoFixHighOutlined fontSize="inherit" />
+          AI 批次修正答案
         </button>
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-2 py-1">
           <Tooltip title={visibility === "public" ? "公開中" : "私人"}>

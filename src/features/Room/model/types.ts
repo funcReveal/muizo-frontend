@@ -251,10 +251,12 @@ export interface RoomSettlementSnapshot {
 
 export interface RoomSummary {
   id: string;
+  roomCode: string;
   name: string;
   playerCount: number;
   createdAt: number;
   hasPassword: boolean;
+  hasPin?: boolean;
   playlistCount: number;
   playlistId?: string | null;
   playlistTitle?: string | null;
@@ -295,6 +297,7 @@ export interface ClientToServerEvents {
       roomName: string;
       username: string;
       password?: string;
+      pin?: string;
       visibility?: "public" | "private";
       maxPlayers?: number | null;
       gameSettings?: {
@@ -317,7 +320,13 @@ export interface ClientToServerEvents {
     callback?: (ack: Ack<RoomState>) => void
   ) => void;
   joinRoom: (
-    payload: { roomId: string; username: string; password?: string },
+    payload: {
+      roomId?: string;
+      roomCode?: string;
+      username: string;
+      password?: string;
+      pin?: string;
+    },
     callback?: (ack: Ack<RoomState>) => void
   ) => void;
   resumeSession: (
@@ -383,6 +392,7 @@ export interface ClientToServerEvents {
       name?: string;
       visibility?: "public" | "private";
       password?: string | null;
+      pin?: string | null;
       questionCount?: number;
       playDurationSec?: number;
       revealDurationSec?: number;

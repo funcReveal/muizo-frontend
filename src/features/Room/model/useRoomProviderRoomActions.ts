@@ -136,7 +136,7 @@ export const useRoomProviderRoomActions = ({
   serverOffsetRef,
 }: UseRoomProviderRoomActionsParams) => {
   const handleJoinRoom = useCallback(
-    (roomId: string, hasPassword: boolean, passwordOverride?: string) => {
+    (roomReference: string, hasPin: boolean, pinOverride?: string) => {
       const socket = getSocket();
       if (!socket || !username) {
         setStatusText("嚙罵嚙踝蕭嚙稽嚙緩嚙誕用者名嚙踝蕭");
@@ -147,10 +147,10 @@ export const useRoomProviderRoomActions = ({
       socket.emit(
         "joinRoom",
         {
-          roomId,
+          roomCode: roomReference,
           username,
-          password: hasPassword
-            ? (passwordOverride ?? joinPasswordInput).trim() || ""
+          pin: hasPin
+            ? (pinOverride ?? joinPasswordInput).trim() || ""
             : undefined,
         },
         (ack: Ack<RoomState>) => {
@@ -186,15 +186,16 @@ export const useRoomProviderRoomActions = ({
             setJoinPasswordInput("");
             trackEvent("room_join_success", {
               room_id: state.room.id,
+              room_code: state.room.roomCode,
               room_visibility: state.room.visibility,
-              has_password: hasPassword,
+              has_pin: hasPin,
               participant_count: state.participants.length,
             });
             setStatusText(`嚙緩嚙稼嚙皚嚙請塚蕭嚙瘦${state.room.name}`);
           } else {
             trackEvent("room_join_failed", {
-              room_id: roomId,
-              has_password: hasPassword,
+              room_reference: roomReference,
+              has_pin: hasPin,
               reason: ack.error ?? "unknown_error",
             });
             setStatusText(formatAckError("嚙稼嚙皚嚙請塚蕭嚙踝蕭嚙踝蕭", ack.error));

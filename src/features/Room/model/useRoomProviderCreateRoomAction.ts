@@ -14,6 +14,7 @@ import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_PLAY_DURATION_SEC,
   DEFAULT_REVEAL_DURATION_SEC,
+  DEFAULT_ROOM_MAX_PLAYERS,
   DEFAULT_START_OFFSET_SEC,
   PLAYER_MAX,
   PLAYER_MIN,
@@ -185,7 +186,7 @@ export const useRoomProviderCreateRoomAction = ({
       }
     }
     const trimmed = roomNameInput.trim();
-    const trimmedPassword = roomPasswordInput.trim();
+    const trimmedPin = roomPasswordInput.trim();
     const trimmedMaxPlayers = roomMaxPlayersInput.trim();
     if (!trimmed) {
       setStatusText("嚙請選蕭J嚙請塚蕭嚙磕嚙踝蕭");
@@ -204,11 +205,8 @@ export const useRoomProviderCreateRoomAction = ({
     }
     const desiredMaxPlayers = trimmedMaxPlayers
       ? Number(trimmedMaxPlayers)
-      : null;
-    if (
-      desiredMaxPlayers !== null &&
-      (desiredMaxPlayers < PLAYER_MIN || desiredMaxPlayers > PLAYER_MAX)
-    ) {
+      : DEFAULT_ROOM_MAX_PLAYERS;
+    if (desiredMaxPlayers < PLAYER_MIN || desiredMaxPlayers > PLAYER_MAX) {
       setStatusText(
         `嚙瘡嚙複哨蕭嚙踝蕭搕嚙踝蕭嚙?${PLAYER_MIN} 嚙踝蕭 ${PLAYER_MAX} 嚙瘡`,
       );
@@ -216,7 +214,12 @@ export const useRoomProviderCreateRoomAction = ({
       return;
     }
     const desiredVisibility = roomVisibilityInput;
-    const desiredPassword = trimmedPassword || null;
+    if (trimmedPin && !/^\d{4}$/.test(trimmedPin)) {
+      setStatusText("PIN 需為 4 位數字。");
+      releaseCreateRoomLock();
+      return;
+    }
+    const desiredPin = trimmedPin || null;
     const nextQuestionCount = clampQuestionCount(
       questionCount,
       getQuestionMax(playlistItems.length),
@@ -228,15 +231,15 @@ export const useRoomProviderCreateRoomAction = ({
     trackEvent("room_create_click", {
       source_mode: roomCreateSourceMode,
       room_visibility: desiredVisibility,
-      player_limit: desiredMaxPlayers ?? PLAYER_MAX,
+      player_limit: desiredMaxPlayers,
       question_count: nextQuestionCount,
       reveal_duration_sec: nextRevealDurationSec,
       playlist_count: playlistItems.length,
     });
     const shouldSyncRoomSettings =
       desiredVisibility !== "public" ||
-      desiredPassword !== null ||
-      desiredMaxPlayers !== null ||
+      desiredPin !== null ||
+      desiredMaxPlayers !== DEFAULT_ROOM_MAX_PLAYERS ||
       nextPlayDurationSec !== DEFAULT_PLAY_DURATION_SEC ||
       nextRevealDurationSec !== DEFAULT_REVEAL_DURATION_SEC ||
       nextStartOffsetSec !== DEFAULT_START_OFFSET_SEC ||
@@ -257,7 +260,7 @@ export const useRoomProviderCreateRoomAction = ({
     const payload = {
       roomName: trimmed,
       username,
-      password: desiredPassword ?? undefined,
+      pin: desiredPin ?? undefined,
       visibility: desiredVisibility,
       maxPlayers: desiredMaxPlayers,
       gameSettings: {
@@ -387,7 +390,7 @@ export const useRoomProviderCreateRoomAction = ({
         const candidate = nextRooms
           .filter((room) => {
             if ((room.name ?? "").trim() !== trimmed) return false;
-            if (room.hasPassword !== Boolean(desiredPassword)) return false;
+            if ((room.hasPin ?? room.hasPassword) !== Boolean(desiredPin)) return false;
             if (
               typeof room.playlistCount === "number" &&
               room.playlistCount > 0 &&
@@ -431,11 +434,11 @@ export const useRoomProviderCreateRoomAction = ({
           await new Promise<boolean>((resolve) => {
             socket.emit(
               "joinRoom",
-              {
-                roomId: candidate.id,
-                username,
-                password: desiredPassword ?? undefined,
-              },
+                {
+                  roomCode: candidate.roomCode,
+                  username,
+                  pin: desiredPin ?? undefined,
+                },
               async (joinAck: Ack<RoomState>) => {
                 if (!joinAck?.ok) {
                   resolve(false);
@@ -444,10 +447,10 @@ export const useRoomProviderCreateRoomAction = ({
                 createResolved = true;
                 const state = joinAck.data;
                 applyJoinedStateForCreatedRoom(state);
-                saveRoomPassword(state.room.id, desiredPassword);
-                setHostRoomPassword(desiredPassword);
+                saveRoomPassword(state.room.id, desiredPin);
+                setHostRoomPassword(desiredPin);
                 setRoomNameInput(getDefaultRoomName(username));
-                setRoomMaxPlayersInput("");
+                setRoomMaxPlayersInput(String(DEFAULT_ROOM_MAX_PLAYERS));
                 setStatusText(
                   `嚙諍立回嚙踝蕭嚙踝蕭嚙踝蕭A嚙緩嚙諛動進嚙皚嚙瘦${state.room.name}`,
                 );
@@ -560,7 +563,7 @@ export const useRoomProviderCreateRoomAction = ({
               {
                 roomId: state.room.id,
                 visibility: desiredVisibility,
-                password: desiredPassword,
+                pin: desiredPin,
                 questionCount: nextQuestionCount,
                 playDurationSec: nextPlayDurationSec,
                 startOffsetSec: nextStartOffsetSec,
@@ -607,15 +610,15 @@ export const useRoomProviderCreateRoomAction = ({
             );
           });
         }
-        saveRoomPassword(state.room.id, desiredPassword);
-        setHostRoomPassword(desiredPassword);
+        saveRoomPassword(state.room.id, desiredPin);
+        setHostRoomPassword(desiredPin);
         setRoomNameInput(getDefaultRoomName(username));
-        setRoomMaxPlayersInput("");
+        setRoomMaxPlayersInput(String(DEFAULT_ROOM_MAX_PLAYERS));
         trackEvent("room_create_success", {
           room_id: state.room.id,
           source_mode: roomCreateSourceMode,
           room_visibility: desiredVisibility,
-          player_limit: desiredMaxPlayers ?? PLAYER_MAX,
+          player_limit: desiredMaxPlayers,
           question_count: nextQuestionCount,
           playlist_count: uploadItems.length,
         });
