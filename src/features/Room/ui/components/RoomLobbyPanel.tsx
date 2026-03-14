@@ -30,11 +30,15 @@ import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import HistoryEduRoundedIcon from "@mui/icons-material/HistoryEduRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import QueueMusicRoundedIcon from "@mui/icons-material/QueueMusicRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type {
   ChatMessage,
   GameState,
   PlaylistItem,
+  PlaybackExtensionMode,
   PlaylistSuggestion,
   RoomParticipant,
   RoomState,
@@ -47,7 +51,9 @@ import {
   clampStartOffsetSec,
   getQuestionMax,
 } from "../../model/roomUtils";
+import { normalizePlaybackExtensionMode } from "../../model/roomProviderUtils";
 import {
+  DEFAULT_PLAYBACK_EXTENSION_MODE,
   DEFAULT_PLAY_DURATION_SEC,
   DEFAULT_REVEAL_DURATION_SEC,
   DEFAULT_START_OFFSET_SEC,
@@ -61,9 +67,7 @@ import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import useMobileDrawerDragDismiss from "./gameRoomPage/useMobileDrawerDragDismiss";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
-import {
-  normalizeDisplayText,
-} from "./roomLobbyPanelUtils";
+import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 
 interface RoomLobbyPanelProps {
   currentRoom: RoomState["room"] | null;
@@ -109,6 +113,7 @@ interface RoomLobbyPanelProps {
     revealDurationSec?: number;
     startOffsetSec?: number;
     allowCollectionClipTiming?: boolean;
+    playbackExtensionMode?: PlaybackExtensionMode;
     maxPlayers?: number | null;
   }) => Promise<boolean>;
   onOpenLastSettlement?: () => void;
@@ -256,6 +261,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
   const [settingsAllowCollectionClipTiming, setSettingsAllowCollectionClipTiming] =
     useState(true);
+  const [settingsPlaybackExtensionMode, setSettingsPlaybackExtensionMode] =
+    useState<PlaybackExtensionMode>(DEFAULT_PLAYBACK_EXTENSION_MODE);
   const [settingsMaxPlayers, setSettingsMaxPlayers] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -266,7 +273,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [mobileChatHeight, setMobileChatHeight] = useState(
     MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH,
   );
-  const lastMobileChatMessageCountRef = useRef(messages.length);
+  const lastUnreadMobileChatMessageIdRef = useRef<string | null>(null);
   const mobileChatUnreadSeededRoomRef = useRef<string | null>(null);
   const maskedRoomPassword = roomPassword
     ? "*".repeat(roomPassword.length)
@@ -424,6 +431,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
   const roomAllowCollectionClipTiming =
     currentRoom?.gameSettings?.allowCollectionClipTiming ?? true;
+  const roomPlaybackExtensionMode = normalizePlaybackExtensionMode(
+    currentRoom?.gameSettings?.playbackExtensionMode,
+  );
+  const roomPlaybackExtensionLabel =
+    roomPlaybackExtensionMode === "manual_vote"
+      ? "\u5ef6\u9577\u6295\u7968"
+      : roomPlaybackExtensionMode === "auto_once"
+        ? "\u81ea\u52d5\u5ef6\u9577"
+        : "\u5ef6\u9577\u95dc\u9589";
 
   const extractPlaylistId = (url: string) => {
     try {
@@ -619,10 +635,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       currentRoom.gameSettings?.startOffsetSec ?? DEFAULT_START_OFFSET_SEC;
     const baseAllowCollectionClipTiming =
       currentRoom.gameSettings?.allowCollectionClipTiming ?? true;
+    const basePlaybackExtensionMode = normalizePlaybackExtensionMode(
+      currentRoom.gameSettings?.playbackExtensionMode,
+    );
     setSettingsPlayDurationSec(clampPlayDurationSec(basePlayDurationSec));
     setSettingsRevealDurationSec(clampRevealDurationSec(baseRevealDurationSec));
     setSettingsStartOffsetSec(clampStartOffsetSec(baseStartOffsetSec));
     setSettingsAllowCollectionClipTiming(baseAllowCollectionClipTiming);
+    setSettingsPlaybackExtensionMode(basePlaybackExtensionMode);
     setSettingsMaxPlayers(
       currentRoom.maxPlayers && currentRoom.maxPlayers > 0
         ? String(currentRoom.maxPlayers)
@@ -682,6 +702,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       revealDurationSec: nextRevealDurationSec,
       startOffsetSec: nextStartOffsetSec,
       allowCollectionClipTiming: settingsAllowCollectionClipTiming,
+      playbackExtensionMode: settingsPlaybackExtensionMode,
       maxPlayers: nextMaxPlayers,
       ...(settingsPasswordDirty ? { password: settingsPassword } : {}),
     };
@@ -891,9 +912,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 
   useEffect(() => {
     mobileChatUnreadSeededRoomRef.current = null;
-    lastMobileChatMessageCountRef.current = messages.length;
+    lastUnreadMobileChatMessageIdRef.current = null;
     setMobileChatUnread(0);
-  }, [currentRoom?.id, messages.length]);
+  }, [currentRoom?.id]);
 
   const isUnreadMobileChatMessage = React.useCallback(
     (message: ChatMessage) =>
@@ -901,53 +922,71 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     [selfClientId],
   );
 
+  const unreadMobileChatMessages = useMemo(
+    () => messages.filter(isUnreadMobileChatMessage),
+    [isUnreadMobileChatMessage, messages],
+  );
+
   useEffect(() => {
-    const previousCount = lastMobileChatMessageCountRef.current;
-    if (messages.length < previousCount) {
-      setMobileChatUnread(0);
-      mobileChatUnreadSeededRoomRef.current = currentRoom?.id ?? null;
-    }
     const roomId = currentRoom?.id ?? null;
-    const shouldSeedUnread =
-      isMobileTabletLobbyLayout &&
-      !mobileChatDrawerOpen &&
-      roomId !== null &&
-      mobileChatUnreadSeededRoomRef.current !== roomId &&
-      messages.length > 0;
-    if (shouldSeedUnread) {
-      const initialUnreadCount = messages.filter(isUnreadMobileChatMessage).length;
-      if (initialUnreadCount > 0) {
-        setMobileChatUnread(initialUnreadCount);
-      }
+    const latestUnreadMessageId =
+      unreadMobileChatMessages[unreadMobileChatMessages.length - 1]?.id ?? null;
+
+    if (!isMobileTabletLobbyLayout || mobileChatDrawerOpen) {
+      setMobileChatUnread(0);
       mobileChatUnreadSeededRoomRef.current = roomId;
+      lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
+      return;
     }
-    if (
-      isMobileTabletLobbyLayout &&
-      !mobileChatDrawerOpen &&
-      messages.length > previousCount
-    ) {
-      const unreadMessages = messages
-        .slice(previousCount)
-        .filter(isUnreadMobileChatMessage);
-      if (unreadMessages.length > 0) {
-        setMobileChatUnread((current) => current + unreadMessages.length);
+
+    if (!roomId) {
+      setMobileChatUnread(0);
+      lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
+      return;
+    }
+
+    if (mobileChatUnreadSeededRoomRef.current !== roomId) {
+      setMobileChatUnread(unreadMobileChatMessages.length);
+      mobileChatUnreadSeededRoomRef.current = roomId;
+      lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
+      return;
+    }
+
+    if (!latestUnreadMessageId) {
+      lastUnreadMobileChatMessageIdRef.current = null;
+      return;
+    }
+
+    const lastProcessedMessageId = lastUnreadMobileChatMessageIdRef.current;
+    if (lastProcessedMessageId === latestUnreadMessageId) {
+      return;
+    }
+
+    const lastProcessedIndex =
+      lastProcessedMessageId === null
+        ? -1
+        : unreadMobileChatMessages.findIndex(
+            (message) => message.id === lastProcessedMessageId,
+          );
+
+    if (lastProcessedIndex < 0) {
+      setMobileChatUnread(unreadMobileChatMessages.length);
+    } else {
+      const nextUnreadCount =
+        unreadMobileChatMessages.length - (lastProcessedIndex + 1);
+      if (nextUnreadCount > 0) {
+        setMobileChatUnread((current) => current + nextUnreadCount);
       }
     }
-    lastMobileChatMessageCountRef.current = messages.length;
+
+    lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
   }, [
     currentRoom?.id,
     isMobileTabletLobbyLayout,
-    isUnreadMobileChatMessage,
     messages,
-    messages.length,
     mobileChatDrawerOpen,
+    unreadMobileChatMessages,
   ]);
-
-  useEffect(() => {
-    if (!isMobileTabletLobbyLayout || mobileChatDrawerOpen) {
-      setMobileChatUnread(0);
-    }
-  }, [isMobileTabletLobbyLayout, mobileChatDrawerOpen]);
 
   const startActionDisabledReason = !isHost
     ? "只有房主可以開始遊戲"
@@ -1181,6 +1220,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         size="small"
         variant="outlined"
         label={roomAllowCollectionClipTiming ? "收藏庫時間 ON" : "收藏庫時間 OFF"}
+        className="text-slate-200 border-slate-600"
+      />
+      <Chip
+        size="small"
+        variant="outlined"
+        label={roomPlaybackExtensionLabel}
         className="text-slate-200 border-slate-600"
       />
       <Chip
@@ -1703,7 +1748,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         key={`mobile-${action.key}`}
                         variant={action.key === "leave" ? "outlined" : "contained"}
                         color="inherit"
-                        className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action ${
+                        className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action room-lobby-mobile-secondary-action--icon-only ${
                           action.key === "invite"
                             ? action.tone === "success"
                               ? "room-lobby-action-btn--invite-success"
@@ -1714,6 +1759,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                             ? "room-lobby-action-btn--leave-primary"
                             : ""
                         }`}
+                        aria-label={action.compactLabel}
                         disabled={action.disabled}
                         title={action.title}
                         onClick={action.onClick}
@@ -1721,7 +1767,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         <span className="room-lobby-mobile-secondary-action__icon">
                           {action.icon}
                         </span>
-                        <span className="room-lobby-mobile-secondary-action__label">
+                        <span className="sr-only">
                           {action.compactLabel}
                         </span>
                       </Button>
@@ -1734,34 +1780,49 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   type="button"
                   role="tab"
                   aria-selected={mobileLobbyTab === "members"}
+                  aria-label="玩家"
+                  title="玩家"
                   className={`room-lobby-mobile-tab ${
                     mobileLobbyTab === "members" ? "is-active" : ""
                   }`}
                   onClick={() => setMobileLobbyTab("members")}
                 >
-                  玩家
+                  <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
+                    <GroupsRoundedIcon fontSize="inherit" />
+                  </span>
+                  <span className="sr-only">玩家</span>
                 </button>
                 <button
                   type="button"
                   role="tab"
                   aria-selected={mobileLobbyTab === "host"}
+                  aria-label="操作"
+                  title="操作"
                   className={`room-lobby-mobile-tab ${
                     mobileLobbyTab === "host" ? "is-active" : ""
                   }`}
                   onClick={() => setMobileLobbyTab("host")}
                 >
-                  操作
+                  <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
+                    <TuneRoundedIcon fontSize="inherit" />
+                  </span>
+                  <span className="sr-only">操作</span>
                 </button>
                 <button
                   type="button"
                   role="tab"
                   aria-selected={mobileLobbyTab === "playlist"}
+                  aria-label="曲目"
+                  title="曲目"
                   className={`room-lobby-mobile-tab ${
                     mobileLobbyTab === "playlist" ? "is-active" : ""
                   }`}
                   onClick={() => setMobileLobbyTab("playlist")}
                 >
-                  曲目
+                  <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
+                    <QueueMusicRoundedIcon fontSize="inherit" />
+                  </span>
+                  <span className="sr-only">曲目</span>
                 </button>
               </div>
               <div className="room-lobby-mobile-panel">
@@ -1951,6 +2012,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         settingsAllowCollectionClipTiming={settingsAllowCollectionClipTiming}
         onSettingsAllowCollectionClipTimingChange={(value) => {
           setSettingsAllowCollectionClipTiming(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        settingsPlaybackExtensionMode={settingsPlaybackExtensionMode}
+        onSettingsPlaybackExtensionModeChange={(value) => {
+          setSettingsPlaybackExtensionMode(value);
           if (settingsError) {
             setSettingsError(null);
           }

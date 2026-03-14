@@ -1,5 +1,6 @@
 import {
   DEFAULT_CLIP_SEC,
+  DEFAULT_PLAYBACK_EXTENSION_MODE,
   DEFAULT_PLAY_DURATION_SEC,
   DEFAULT_REVEAL_DURATION_SEC,
   DEFAULT_START_OFFSET_SEC,
@@ -129,6 +130,13 @@ export const normalizeQuestionCount = (value: number | undefined, fallback: numb
 
 export type RoomGameSettings = NonNullable<RoomSummary["gameSettings"]>;
 
+export const normalizePlaybackExtensionMode = (
+  value: RoomGameSettings["playbackExtensionMode"] | undefined,
+) =>
+  value === "manual_vote" || value === "auto_once" || value === "disabled"
+    ? value
+    : DEFAULT_PLAYBACK_EXTENSION_MODE;
+
 export const mergeGameSettings = (
   current: RoomSummary["gameSettings"] | undefined,
   incoming: Partial<RoomGameSettings> | undefined,
@@ -161,6 +169,9 @@ export const mergeGameSettings = (
       incoming?.allowCollectionClipTiming ??
       current?.allowCollectionClipTiming ??
       true,
+    playbackExtensionMode: normalizePlaybackExtensionMode(
+      incoming?.playbackExtensionMode ?? current?.playbackExtensionMode,
+    ),
   };
 };
 

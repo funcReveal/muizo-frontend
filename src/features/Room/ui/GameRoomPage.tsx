@@ -32,14 +32,17 @@ import type {
   ChatMessage,
   GameState,
   PlaylistItem,
+  PlaybackExtensionMode,
   RoomState,
   SubmitAnswerResult,
 } from "../model/types";
 import {
   DEFAULT_CLIP_SEC,
+  DEFAULT_PLAYBACK_EXTENSION_MODE,
   DEFAULT_PLAY_DURATION_SEC,
   DEFAULT_START_OFFSET_SEC,
 } from "../model/roomConstants";
+import { normalizePlaybackExtensionMode } from "../model/roomProviderUtils";
 import {
   resolveCorrectResultSfxEvent,
   resolveCountdownSfxEvent,
@@ -126,6 +129,7 @@ const MOBILE_SCOREBOARD_DEFAULT_HEIGHT_VH = 60;
 const MOBILE_CHAT_MIN_HEIGHT_VH = 42;
 const MOBILE_CHAT_MAX_HEIGHT_VH = 68;
 const MOBILE_CHAT_DEFAULT_HEIGHT_VH = 50;
+const GAME_ROOM_CHAT_ALERTS_STORAGE_KEY = "mq_game_room_chat_alerts_enabled";
 
 const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 100;
 
@@ -164,6 +168,14 @@ const normalizeMobileSplitHeights = (
     playbackHeight: Number(nextPlaybackHeight.toFixed(2)),
     scoreboardHeight: Number(nextScoreboardHeight.toFixed(2)),
   };
+};
+
+const readInitialGameRoomChatAlertsEnabled = () => {
+  if (typeof window === "undefined") return true;
+  const stored = window.localStorage.getItem(GAME_ROOM_CHAT_ALERTS_STORAGE_KEY);
+  if (stored === "0") return false;
+  if (stored === "1") return true;
+  return true;
 };
 
 const GameRoomPage: React.FC<GameRoomPageProps> = ({
@@ -225,6 +237,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [mobileAutoOverlayTransition, setMobileAutoOverlayTransition] =
     useState<"idle" | "opening" | "closing">("idle");
   const [mobileChatDragging, setMobileChatDragging] = useState(false);
+  const [mobileChatAlertsEnabled, setMobileChatAlertsEnabled] = useState(
+    readInitialGameRoomChatAlertsEnabled,
+  );
   const [hostManagementOpen, setHostManagementOpen] = useState(false);
   const [hostManagementConfirm, setHostManagementConfirm] =
     useState<HostManagementAction | null>(null);
@@ -246,7 +261,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const lastPlaybackVotePromptKeyRef = useRef<string | null>(null);
   const lastPlaybackVoteActiveKeyRef = useRef<string | null>(null);
   const lastPlaybackVoteResolvedKeyRef = useRef<string | null>(null);
+  const lastAutoPlaybackExtensionNoticeRef = useRef<string | null>(null);
   const answerPanelRef = useRef<HTMLDivElement | null>(null);
+  const lastUnreadGameMessageIdRef = useRef<string | null>(null);
+  const mobileChatUnreadSeededRoomRef = useRef<string | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
     volume: Math.round((sfxVolume * gameVolume) / 100),
@@ -387,26 +405,27 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   );
   const hostManagementConfirmText = useMemo(() => {
     if (!hostManagementConfirm) return null;
-    const target = hostManagementConfirm.targetName || "此玩家";
+    const target = hostManagementConfirm.targetName || "\u9019\u4f4d\u73a9\u5bb6";
     if (hostManagementConfirm.type === "transfer") {
       return {
-        title: `轉移房主給 ${target}？`,
+        title: `\u8981\u5c07\u623f\u4e3b\u8f49\u79fb\u7d66 ${target} \u55ce\uff1f`,
         description:
-          "轉移後你會變成一般玩家。若要重新取得房主權限，需由新房主再轉移回來。",
-        confirmLabel: "確認轉移",
+          "\u8f49\u79fb\u5f8c\u4f60\u5c07\u5931\u53bb\u623f\u4e3b\u7ba1\u7406\u6b0a\u9650\uff0c\u5c0d\u65b9\u6703\u7acb\u523b\u63a5\u624b\u623f\u9593\u8a2d\u5b9a\u8207\u73a9\u5bb6\u7ba1\u7406\u529f\u80fd\u3002",
+        confirmLabel: "\u78ba\u8a8d\u8f49\u79fb\u623f\u4e3b",
       };
     }
     if (hostManagementConfirm.type === "ban") {
       return {
-        title: `踢出並封鎖 ${target}？`,
-        description: "此操作會立刻將玩家移出房間，並套用伺服器預設的封鎖時長。",
-        confirmLabel: "確認踢出並封鎖",
+        title: `\u8981\u8e22\u51fa\u4e26\u5c01\u9396 ${target} \u55ce\uff1f`,
+        description:
+          "\u9019\u4f4d\u73a9\u5bb6\u6703\u7acb\u523b\u96e2\u958b\u623f\u9593\uff0c\u4e26\u5728\u5c01\u9396\u671f\u9593\u7121\u6cd5\u518d\u6b21\u52a0\u5165\u9019\u500b\u623f\u9593\u3002",
+        confirmLabel: "\u78ba\u8a8d\u8e22\u51fa\u4e26\u5c01\u9396",
       };
     }
     return {
-      title: `踢出 ${target}？`,
-      description: "此操作會立刻將玩家移出房間，但不會額外封鎖。",
-      confirmLabel: "確認踢出",
+      title: `\u8981\u8e22\u51fa ${target} \u55ce\uff1f`,
+      description: "\u9019\u4f4d\u73a9\u5bb6\u6703\u7acb\u523b\u96e2\u958b\u623f\u9593\uff0c\u4f46\u4e4b\u5f8c\u4ecd\u53ef\u900f\u904e\u9080\u8acb\u6216\u91cd\u65b0\u52a0\u5165\u56de\u5230\u623f\u9593\u3002",
+      confirmLabel: "\u78ba\u8a8d\u8e22\u51fa\u73a9\u5bb6",
     };
   }, [hostManagementConfirm]);
   const handleConfirmHostManagementAction = useCallback(() => {
@@ -425,6 +444,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     setHostManagementConfirm(null);
   }, [hostManagementConfirm, isHostInGame, onKickPlayer, onTransferHost]);
   const playbackExtensionVote = gameState.playbackExtensionVote ?? null;
+  const playbackExtensionMode: PlaybackExtensionMode =
+    normalizePlaybackExtensionMode(
+      room.gameSettings?.playbackExtensionMode ?? DEFAULT_PLAYBACK_EXTENSION_MODE,
+    );
+  const isManualPlaybackExtensionMode = playbackExtensionMode === "manual_vote";
+  const isAutoPlaybackExtensionMode = playbackExtensionMode === "auto_once";
   const playbackVoteApproveCount =
     playbackExtensionVote?.approveClientIds.length ?? 0;
   const playbackVoteRejectCount =
@@ -454,7 +479,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     return null;
   }, [meClientId, playbackExtensionVote]);
   const playbackVoteRequesterName =
-    playbackExtensionVote?.requestedByUsername?.trim() || "有玩家";
+    playbackExtensionVote?.requestedByUsername?.trim() || "\u67d0\u4f4d\u73a9\u5bb6";
   const playbackVoteProposalSeconds = Math.max(
     0,
     Math.round((playbackExtensionVote?.extendMs ?? 0) / 1000),
@@ -464,18 +489,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     playbackVoteProposalSeconds,
   );
   const playbackVoteButtonLabel = playbackVoteRequestPending
-    ? "發起中..."
+    ? "\u767c\u8d77\u6295\u7968\u4e2d..."
     : playbackExtensionVote?.status === "active"
       ? myPlaybackVote === null
-        ? `延長投票 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
-        : `已投票 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
+        ? `\u5ef6\u9577\u6295\u7968 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
+        : `\u5df2\u6295\u7968 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
       : playbackExtensionVote?.status === "approved" && playbackVoteResolvedSeconds > 0
-        ? `已延長 ${playbackVoteResolvedSeconds} 秒`
+        ? `\u5df2\u5ef6\u9577 ${playbackVoteResolvedSeconds} \u79d2`
         : playbackExtensionVote?.status === "rejected"
-          ? "延長未通過"
+          ? "\u6295\u7968\u672a\u901a\u904e"
           : playbackExtensionSeconds > 0
-            ? `已延長 ${playbackExtensionSeconds} 秒`
-            : "延長播放";
+            ? `\u5df2\u5ef6\u9577 ${playbackExtensionSeconds} \u79d2`
+            : "\u5ef6\u9577\u64ad\u653e";
   const playbackVoteRemainingSeconds = Math.max(
     0,
     Math.ceil(playbackVoteRemainingMs / 1000),
@@ -575,7 +600,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     gameState.answerTitle?.trim() ||
     item?.answerText?.trim() ||
     item?.title?.trim() ||
-    "未命名答案";
+    "\u672a\u77e5\u66f2\u76ee";
 
   const roomPlayDurationSec = Math.max(
     1,
@@ -809,6 +834,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     ? 0
     : phaseRemainingMs;
   const canRequestPlaybackExtensionVote =
+    isManualPlaybackExtensionMode &&
     gameState.status === "playing" &&
     gameState.phase === "guess" &&
     !waitingToStart &&
@@ -816,7 +842,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     !allAnsweredReadyForReveal &&
     !playbackExtensionVote;
   const canOpenPlaybackVotePrompt =
-    playbackExtensionVote?.status === "active" && myPlaybackVote === null;
+    isManualPlaybackExtensionMode &&
+    playbackExtensionVote?.status === "active" &&
+    myPlaybackVote === null;
   const playbackVoteButtonDisabled =
     playbackVoteRequestPending ||
     playbackVoteSubmitPending !== null ||
@@ -896,9 +924,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     lastPlaybackVotePromptKeyRef.current = null;
     lastPlaybackVoteActiveKeyRef.current = null;
     lastPlaybackVoteResolvedKeyRef.current = null;
+    lastAutoPlaybackExtensionNoticeRef.current = null;
   }, [trackSessionKey]);
 
   useEffect(() => {
+    if (!isManualPlaybackExtensionMode) {
+      setPlaybackVoteDialogOpen(false);
+      return;
+    }
     if (!playbackExtensionVote || playbackExtensionVote.status !== "active") {
       setPlaybackVoteDialogOpen(false);
       return;
@@ -911,19 +944,29 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     if (lastPlaybackVotePromptKeyRef.current === promptKey) return;
     lastPlaybackVotePromptKeyRef.current = promptKey;
     setPlaybackVoteDialogOpen(true);
-  }, [meClientId, myPlaybackVote, playbackExtensionVote, trackSessionKey]);
+  }, [
+    isManualPlaybackExtensionMode,
+    meClientId,
+    myPlaybackVote,
+    playbackExtensionVote,
+    trackSessionKey,
+  ]);
 
   useEffect(() => {
     if (!playbackExtensionVote || playbackExtensionVote.status !== "active") {
+      return;
+    }
+    if (!isManualPlaybackExtensionMode) {
       return;
     }
     const activeKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}:active`;
     if (lastPlaybackVoteActiveKeyRef.current === activeKey) return;
     lastPlaybackVoteActiveKeyRef.current = activeKey;
     setStatusText(
-      `${playbackVoteRequesterName} 發起延長播放投票，可延長 ${playbackVoteProposalSeconds} 秒`,
+      `${playbackVoteRequesterName} \u63d0\u8b70\u5c07\u672c\u984c\u591a\u64ad\u653e ${playbackVoteProposalSeconds} \u79d2\uff0c\u8acb\u5118\u5feb\u6295\u7968\u3002`,
     );
   }, [
+    isManualPlaybackExtensionMode,
     playbackExtensionVote,
     playbackVoteProposalSeconds,
     playbackVoteRequesterName,
@@ -946,13 +989,41 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       playbackExtensionVote.status === "approved" &&
       playbackVoteResolvedSeconds > 0
     ) {
-      setStatusText(`延長播放投票通過，本題已延長 ${playbackVoteResolvedSeconds} 秒`);
+      setStatusText(`\u5ef6\u9577\u64ad\u653e\u6295\u7968\u901a\u904e\uff0c\u672c\u984c\u5df2\u5ef6\u9577 ${playbackVoteResolvedSeconds} \u79d2`);
       return;
     }
-    setStatusText("延長播放投票未通過，本題維持原播放長度");
+    setStatusText("\u5ef6\u9577\u64ad\u653e\u6295\u7968\u672a\u901a\u904e\uff0c\u672c\u984c\u7dad\u6301\u539f\u64ad\u653e\u9577\u5ea6");
   }, [
+    isManualPlaybackExtensionMode,
     playbackExtensionVote,
     playbackVoteResolvedSeconds,
+    setStatusText,
+    trackSessionKey,
+  ]);
+
+  useEffect(() => {
+    if (!isAutoPlaybackExtensionMode) {
+      return;
+    }
+    if (gameState.phase !== "guess" || gameState.status !== "playing") {
+      return;
+    }
+    if (playbackExtensionSeconds <= 0) {
+      return;
+    }
+    const autoNoticeKey = `${trackSessionKey}:${playbackExtensionSeconds}`;
+    if (lastAutoPlaybackExtensionNoticeRef.current === autoNoticeKey) {
+      return;
+    }
+    lastAutoPlaybackExtensionNoticeRef.current = autoNoticeKey;
+    setStatusText(
+      `\u4ecd\u6709\u73a9\u5bb6\u672a\u4f5c\u7b54\uff0c\u7cfb\u7d71\u5df2\u81ea\u52d5\u5ef6\u9577 ${playbackExtensionSeconds} \u79d2`,
+    );
+  }, [
+    gameState.phase,
+    gameState.status,
+    isAutoPlaybackExtensionMode,
+    playbackExtensionSeconds,
     setStatusText,
     trackSessionKey,
   ]);
@@ -987,10 +1058,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const shouldShowVideo = showVideo;
 
   const phaseLabel = isEnded
-    ? "已結束"
+    ? "\u5df2\u7d50\u675f"
     : gameState.phase === "guess" && !allAnsweredReadyForReveal
-      ? "猜歌中"
-      : "公布答案";
+      ? "\u731c\u6b4c\u4e2d"
+      : "\u516c\u5e03\u7b54\u6848";
 
   const activePhaseDurationMs =
     gameState.phase === "guess"
@@ -1262,6 +1333,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   );
 
   const recentMessages = messages.slice(-80);
+  const isUnreadGameChatMessage = useCallback(
+    (message: ChatMessage) =>
+      !message.userId.startsWith("system:") && message.userId !== meClientId,
+    [meClientId],
+  );
+  const unreadGameChatMessages = useMemo(
+    () => messages.filter(isUnreadGameChatMessage),
+    [isUnreadGameChatMessage, messages],
+  );
   const { settlementSnapshot } = useSettlementSnapshot({
     room,
     participants,
@@ -1277,7 +1357,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   const desktopChatScrollRef = useRef<HTMLDivElement | null>(null);
   const mobileChatScrollRef = useRef<HTMLDivElement | null>(null);
-  const lastMessageCountRef = useRef(messages.length);
 
   useEffect(() => {
     const targets = [desktopChatScrollRef.current, mobileChatScrollRef.current];
@@ -1288,16 +1367,66 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [messages.length, mobileChatOpen]);
 
   useEffect(() => {
-    const previousCount = lastMessageCountRef.current;
-    if (
-      isMobileGameViewport &&
-      !mobileChatOpen &&
-      messages.length > previousCount
-    ) {
-      setMobileChatUnread((current) => current + (messages.length - previousCount));
+    const roomId = room.id;
+    const latestUnreadMessageId =
+      unreadGameChatMessages[unreadGameChatMessages.length - 1]?.id ?? null;
+
+    if (!isMobileGameViewport || mobileChatOpen) {
+      setMobileChatUnread(0);
+      mobileChatUnreadSeededRoomRef.current = roomId;
+      lastUnreadGameMessageIdRef.current = latestUnreadMessageId;
+      return;
     }
-    lastMessageCountRef.current = messages.length;
-  }, [isMobileGameViewport, messages.length, mobileChatOpen]);
+
+    if (mobileChatUnreadSeededRoomRef.current !== roomId) {
+      setMobileChatUnread(unreadGameChatMessages.length);
+      mobileChatUnreadSeededRoomRef.current = roomId;
+      lastUnreadGameMessageIdRef.current = latestUnreadMessageId;
+      return;
+    }
+
+    if (!latestUnreadMessageId) {
+      lastUnreadGameMessageIdRef.current = null;
+      return;
+    }
+
+    const lastProcessedMessageId = lastUnreadGameMessageIdRef.current;
+    if (lastProcessedMessageId === latestUnreadMessageId) {
+      return;
+    }
+
+    const lastProcessedIndex =
+      lastProcessedMessageId === null
+        ? -1
+        : unreadGameChatMessages.findIndex(
+            (message) => message.id === lastProcessedMessageId,
+          );
+
+    if (lastProcessedIndex < 0) {
+      setMobileChatUnread(unreadGameChatMessages.length);
+    } else {
+      const nextUnreadCount =
+        unreadGameChatMessages.length - (lastProcessedIndex + 1);
+      if (nextUnreadCount > 0) {
+        setMobileChatUnread((current) => current + nextUnreadCount);
+      }
+    }
+
+    lastUnreadGameMessageIdRef.current = latestUnreadMessageId;
+  }, [
+    isMobileGameViewport,
+    mobileChatOpen,
+    room.id,
+    unreadGameChatMessages,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      GAME_ROOM_CHAT_ALERTS_STORAGE_KEY,
+      mobileChatAlertsEnabled ? "1" : "0",
+    );
+  }, [mobileChatAlertsEnabled]);
 
   useEffect(() => {
     if (!isMobileGameViewport) {
@@ -1306,12 +1435,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         setMobileBottomPanel(null);
         setMobileScoreboardSwapArmed(false);
         setMobileChatUnread(0);
+        mobileChatUnreadSeededRoomRef.current = room.id;
+        lastUnreadGameMessageIdRef.current =
+          unreadGameChatMessages[unreadGameChatMessages.length - 1]?.id ?? null;
       }, 0);
       return () => {
         window.clearTimeout(clearId);
       };
     }
-  }, [isMobileGameViewport]);
+  }, [isMobileGameViewport, room.id, unreadGameChatMessages]);
 
   useEffect(() => {
     let desktopResetTimer: number | null = null;
@@ -1407,7 +1539,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     />
   );
   const playbackVoteButton =
-    gameState.status === "playing" ? (
+    gameState.status === "playing" && isManualPlaybackExtensionMode ? (
       <Button
         type="button"
         variant={canOpenPlaybackVotePrompt ? "contained" : "outlined"}
@@ -1446,7 +1578,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             className="game-room-host-manage-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
             onClick={handleOpenHostManagement}
           >
-            房主管理
+            {"\u623f\u4e3b\u7ba1\u7406"}
           </Button>
         )}
         {playbackVoteButton}
@@ -1456,7 +1588,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     <Stack spacing={1.1} className="game-room-host-manage-list">
       {hostManageParticipants.length === 0 ? (
         <Typography variant="body2" className="text-slate-300">
-          目前沒有可管理的玩家。
+          {"\u76ee\u524d\u6c92\u6709\u53ef\u7ba1\u7406\u7684\u73a9\u5bb6\u3002"}
         </Typography>
       ) : (
         hostManageParticipants.map((participant, index) => {
@@ -1464,8 +1596,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             typeof participant.pingMs === "number"
               ? `${Math.max(0, Math.round(participant.pingMs))} ms`
               : participant.isOnline
-                ? "在線"
-                : "離線";
+                ? "\u5728\u7dda"
+                : "\u96e2\u7dda";
           return (
             <Stack
               key={participant.clientId}
@@ -1492,12 +1624,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     {participant.username}
                   </Typography>
                   <Typography variant="caption" className="text-slate-400">
-                    分數 {participant.score.toLocaleString()} · {participantPingText}
+                    {`\u5206\u6578 ${participant.score.toLocaleString()} \u00b7 ${participantPingText}`}
                   </Typography>
                 </div>
                 <Chip
                   size="small"
-                  label={participant.isOnline ? "在線" : "離線"}
+                  label={participant.isOnline ? "\u5728\u7dda" : "\u96e2\u7dda"}
                   color={participant.isOnline ? "success" : "default"}
                   variant="outlined"
                 />
@@ -1518,7 +1650,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     requestHostManagementAction("transfer", participant)
                   }
                 >
-                  轉移
+                  {"\u8f49\u79fb\u623f\u4e3b"}
                 </Button>
                 <Button
                   size="small"
@@ -1527,7 +1659,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   startIcon={<PersonRemoveRoundedIcon />}
                   onClick={() => requestHostManagementAction("kick", participant)}
                 >
-                  踢出
+                  {"\u53ea\u8e22\u51fa"}
                 </Button>
                 <Button
                   size="small"
@@ -1536,7 +1668,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   startIcon={<BlockRoundedIcon />}
                   onClick={() => requestHostManagementAction("ban", participant)}
                 >
-                  封鎖
+                  {"\u8e22\u51fa\u5c01\u9396"}
                 </Button>
               </Stack>
             </Stack>
@@ -1594,7 +1726,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             chatScrollRef={desktopChatScrollRef}
           />
         </div>
-        {/* 右側：播放區 + 答題區 */}
+        {/* ????????????????????????? + ?????? */}
         <section className="game-room-main-section flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
           {!isMobileGameViewport && (
             <GameRoomPlaybackPanel
@@ -1686,9 +1818,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <span className="game-room-mobile-action-icon" aria-hidden>
                   <SmartDisplayRoundedIcon fontSize="inherit" />
                 </span>
-                <span className="game-room-mobile-action-label">影片</span>
+                <span className="game-room-mobile-action-label">\u5f71\u7247</span>
                 <span className="game-room-mobile-action-meta">
-                  {isReveal ? "公布答案" : `第 ${boundedCursor + 1} 題`}
+                  {isReveal ? "\u516c\u5e03\u7b54\u6848" : `\u7b2c ${boundedCursor + 1} \u984c`}
                 </span>
               </button>
               <button
@@ -1699,9 +1831,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <span className="game-room-mobile-action-icon" aria-hidden>
                   <LeaderboardRoundedIcon fontSize="inherit" />
                 </span>
-                <span className="game-room-mobile-action-label">分數榜</span>
+                <span className="game-room-mobile-action-label">\u5206\u6578\u699c</span>
                 <span className="game-room-mobile-action-meta">
-                  已答 {answeredCount}/{participants.length || 0}
+                  \u5df2\u7b54 {answeredCount}/{participants.length || 0}
                 </span>
               </button>
               <button
@@ -1716,11 +1848,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <span className="game-room-mobile-action-icon" aria-hidden>
                   <ForumRoundedIcon fontSize="inherit" />
                 </span>
-                <span className="game-room-mobile-action-label">聊天室</span>
+                <span className="game-room-mobile-action-label">\u804a\u5929\u5ba4</span>
                 <span className="game-room-mobile-action-meta">
                   {mobileChatUnread > 0
-                    ? `未讀 ${mobileChatUnread > 99 ? "99+" : mobileChatUnread}`
-                    : "開啟"}
+                    ? `\u672a\u8b80 ${mobileChatUnread > 99 ? "99+" : mobileChatUnread}`
+                    : "\u958b\u555f"}
                 </span>
               </button>
               <div
@@ -1737,13 +1869,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     <span className="game-room-mobile-action-icon" aria-hidden>
                       <ManageAccountsRoundedIcon fontSize="inherit" />
                     </span>
-                    <span>房主管理</span>
+                    <span>{"\u623f\u4e3b\u7ba1\u7406"}</span>
                     <span className="game-room-mobile-action-meta">
-                      {hostManageParticipants.length} 人
+                      {`${hostManageParticipants.length} \u4eba`}
                     </span>
                   </button>
                 )}
-                {gameState.status === "playing" && (
+                {gameState.status === "playing" && isManualPlaybackExtensionMode && (
                   <button
                     type="button"
                     className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact game-room-mobile-toggle-chip--vote ${
@@ -1760,11 +1892,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     <span>{playbackVoteButtonLabel}</span>
                     <span className="game-room-mobile-action-meta">
                       {playbackExtensionVote?.status === "active"
-                        ? `剩 ${playbackVoteRemainingSeconds} 秒`
+                        ? `\u5269 ${playbackVoteRemainingSeconds} \u79d2`
                         : playbackExtensionVote?.status === "approved" &&
                             playbackVoteResolvedSeconds > 0
-                          ? `+${playbackVoteResolvedSeconds} 秒`
-                          : "發起多數決"}
+                          ? `+${playbackVoteResolvedSeconds} \u79d2`
+                          : "\u7b49\u5f85\u7d50\u679c"}
                     </span>
                   </button>
                 )}
@@ -1783,7 +1915,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <span className="game-room-mobile-action-icon" aria-hidden>
                     <AutoAwesomeRoundedIcon fontSize="inherit" />
                   </span>
-                  <span>公布答案自動彈出影片與分數榜</span>
+                  <span>{"\u81ea\u52d5\u986f\u793a\u56de\u9867"}</span>
                   <span className="game-room-mobile-action-meta">
                     {mobileRevealAutoOverlayEnabled ? "ON" : "OFF"}
                   </span>
@@ -1841,7 +1973,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   type="button"
                   className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close-fab"
                   onClick={handleCloseMobilePlayback}
-                  aria-label="關閉影片視窗"
+                  aria-label="Close playback panel"
                 >
                   <CloseRoundedIcon fontSize="inherit" />
                 </button>
@@ -1877,7 +2009,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               <div
                 className="game-room-mobile-drawer-foot game-room-mobile-drawer-foot--playback"
                 role="presentation"
-                aria-label="由下往上拖曳收合影片視窗"
+                aria-label="Drag up to collapse playback panel"
                 {...mobilePlaybackDragDismiss.dragHandleProps}
               >
                 <div
@@ -1886,9 +2018,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 >
                   <span className="game-room-mobile-drawer-handle-bar" />
                   <span className="game-room-mobile-drawer-handle-direction">
-                    由下往上拖曳收合
+                    \u5411\u4e0a\u62d6\u66f3\u6536\u5408
                   </span>
-                </div>
+                  </div>
               </div>
             </SwipeableDrawer>
             <SwipeableDrawer
@@ -1925,7 +2057,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               <div
                 className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard"
                 role="presentation"
-                aria-label="向下拖曳收合分數榜"
+                aria-label="Drag down to collapse scoreboard"
                 {...mobileScoreboardDragDismiss.dragHandleProps}
               >
                 <div
@@ -1934,25 +2066,33 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 >
                   <span className="game-room-mobile-drawer-handle-bar" />
                   <span className="game-room-mobile-drawer-handle-direction">
-                    向下拖曳收合
+                    \u5411\u4e0b\u62d6\u66f3\u6536\u5408
                   </span>
                 </div>
+                <button
+                  type="button"
+                  className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close--scoreboard-floating"
+                  onClick={handleCloseMobileScoreboard}
+                    aria-label="Close scoreboard"
+                >
+                  <CloseRoundedIcon fontSize="inherit" />
+                </button>
                 <div className="game-room-mobile-scoreboard-headline">
                   <div className="game-room-mobile-scoreboard-title-group">
                     <span className="game-room-mobile-scoreboard-kicker">SCOREBOARD</span>
-                    <span className="game-room-mobile-scoreboard-title">分數榜</span>
+                    <span className="game-room-mobile-scoreboard-title">\u5206\u6578\u699c</span>
                   </div>
                   <div className="game-room-mobile-scoreboard-actions">
                     <button
                       type="button"
                       className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-drawer-close--scoreboard-inline"
                       onClick={handleCloseMobileScoreboard}
-                      aria-label="關閉分數榜"
+                      aria-label="Close scoreboard"
                     >
                       <CloseRoundedIcon fontSize="inherit" />
                     </button>
                     <span className="game-room-mobile-scoreboard-answered-pill">
-                      已答 {answeredCount}/{participants.length || 0}
+                      \u5df2\u7b54 {answeredCount}/{participants.length || 0}
                     </span>
                   </div>
                 </div>
@@ -1996,7 +2136,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               unreadCount={mobileChatUnread}
               onOpen={handleOpenMobileChat}
               onClose={handleCloseMobileChat}
-              showFab={false}
+              showFab={
+                isMobileGameViewport &&
+                mobileChatAlertsEnabled &&
+                !mobileChatOpen &&
+                mobileChatUnread > 0
+              }
+              chatAlertsEnabled={mobileChatAlertsEnabled}
+              onChatAlertsEnabledChange={setMobileChatAlertsEnabled}
               heightVh={clampMobileVh(
                 mobileChatHeight,
                 MOBILE_CHAT_MIN_HEIGHT_VH,
@@ -2029,17 +2176,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             className: "game-room-playback-vote-dialog",
           }}
         >
-          <DialogTitle>要延長這首歌的播放時間嗎？</DialogTitle>
+          <DialogTitle>\u5ef6\u9577\u64ad\u653e\u6295\u7968</DialogTitle>
           <DialogContent dividers>
             <Stack spacing={1.2}>
               <Typography variant="body2" className="text-slate-200">
-                {playbackVoteRequesterName} 發起了延長播放投票。若同意過半，
-                這一題會多播放 {playbackVoteProposalSeconds} 秒。
+                {playbackVoteRequesterName}{" "}
+                {`\u63d0\u8b70\u5c07\u672c\u984c\u591a\u64ad\u653e ${playbackVoteProposalSeconds} \u79d2\uff0c\u8acb\u5728\u6642\u9650\u5167\u8868\u614b\u3002`}
               </Typography>
               <div className="game-room-playback-vote-dialog__stats">
-                <span>同意 {playbackVoteApproveCount}/{playbackVoteMajorityCount}</span>
-                <span>不同意 {playbackVoteRejectCount}</span>
-                <span>剩 {playbackVoteRemainingSeconds} 秒</span>
+                <span>{`\u540c\u610f ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
+                <span>{`\u4e0d\u540c\u610f ${playbackVoteRejectCount}`}</span>
+                <span>{`\u5269 ${playbackVoteRemainingSeconds} \u79d2`}</span>
               </div>
             </Stack>
           </DialogContent>
@@ -2050,7 +2197,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="inherit"
               disabled={playbackVoteSubmitPending !== null}
             >
-              {playbackVoteSubmitPending === "reject" ? "送出中..." : "維持原時長"}
+              {playbackVoteSubmitPending === "reject"
+                ? "\u9001\u51fa\u4e2d..."
+                : "\u7dad\u6301\u539f\u64ad\u653e\u9577\u5ea6"}
             </Button>
             <Button
               onClick={() => handleCastPlaybackVote("approve")}
@@ -2059,8 +2208,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               disabled={playbackVoteSubmitPending !== null}
             >
               {playbackVoteSubmitPending === "approve"
-                ? "送出中..."
-                : `同意延長 ${playbackVoteProposalSeconds} 秒`}
+                ? "\u9001\u51fa\u4e2d..."
+                : `\u5ef6\u9577 ${playbackVoteProposalSeconds} \u79d2`}
             </Button>
           </DialogActions>
         </Dialog>
@@ -2074,11 +2223,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               className: "game-room-host-manage-dialog",
             }}
           >
-            <DialogTitle>房主管理面板</DialogTitle>
+            <DialogTitle>\u73a9\u5bb6\u7ba1\u7406</DialogTitle>
             <DialogContent dividers>{hostManagementPanelContent}</DialogContent>
             <DialogActions>
               <Button onClick={handleCloseHostManagement} variant="outlined" color="inherit">
-                關閉
+                \u95dc\u9589
               </Button>
             </DialogActions>
           </Dialog>
@@ -2107,9 +2256,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           >
             <div className="game-room-mobile-host-manage-head">
               <span className="game-room-mobile-drawer-handle-bar" />
-              <Typography variant="subtitle2">房主管理</Typography>
+              <Typography variant="subtitle2">{"\u623f\u4e3b\u7ba1\u7406"}</Typography>
               <Typography variant="caption" className="text-slate-400">
-                可操作 {hostManageParticipants.length} 位玩家
+                {`\u53ef\u7ba1\u7406 ${hostManageParticipants.length} \u4f4d\u73a9\u5bb6`}
               </Typography>
             </div>
             <div className="game-room-mobile-host-manage-body">
@@ -2122,7 +2271,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 color="inherit"
                 onClick={handleCloseHostManagement}
               >
-                完成
+                {"\u95dc\u9589"}
               </Button>
             </div>
           </SwipeableDrawer>
@@ -2131,8 +2280,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           open={isHostInGame && Boolean(hostManagementConfirm)}
           title={hostManagementConfirmText?.title ?? ""}
           description={hostManagementConfirmText?.description ?? ""}
-          confirmLabel={hostManagementConfirmText?.confirmLabel ?? "確認"}
-          cancelLabel="取消"
+          confirmLabel={hostManagementConfirmText?.confirmLabel ?? "\u78ba\u8a8d"}
+          cancelLabel="\u53d6\u6d88"
           onConfirm={handleConfirmHostManagementAction}
           onCancel={() => setHostManagementConfirm(null)}
         />

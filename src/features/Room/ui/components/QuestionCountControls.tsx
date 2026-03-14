@@ -9,6 +9,7 @@ interface QuestionCountControlsProps {
   disabled?: boolean;
   compact?: boolean;
   showRangeHint?: boolean;
+  showSummaryRow?: boolean;
   onChange: (nextValue: number) => void;
 }
 
@@ -20,6 +21,7 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
   disabled = false,
   compact = false,
   showRangeHint = true,
+  showSummaryRow = true,
   onChange,
 }) => {
   const safeMin = Math.min(min, max);
@@ -109,16 +111,18 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
       spacing={1.2}
       className="room-question-controls room-question-controls--dialog"
     >
-      <div className="room-question-summary-row">
-        {showRangeHint ? (
-          <span className="room-question-summary-chip">題數範圍 {rangeLabel}</span>
-        ) : (
-          <span className="room-question-summary-chip">目前題數 {value}</span>
-        )}
-        <span className="room-question-summary-chip room-question-summary-chip--accent">
-          快速調整 ±{step}
-        </span>
-      </div>
+      {showSummaryRow ? (
+        <div className="room-question-summary-row">
+          {showRangeHint ? (
+            <span className="room-question-summary-chip">題數範圍 {rangeLabel}</span>
+          ) : (
+            <span className="room-question-summary-chip">目前題數 {value}</span>
+          )}
+          <span className="room-question-summary-chip room-question-summary-chip--accent">
+            快速調整 ±{step}
+          </span>
+        </div>
+      ) : null}
 
       <div className="room-question-rail">
         <div className="room-question-action-cluster">

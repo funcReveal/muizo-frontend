@@ -23,6 +23,7 @@ import type {
   Ack,
   ClientSocket,
   PlaylistItem,
+  PlaybackExtensionMode,
   RoomState,
   RoomSummary,
 } from "./types";
@@ -36,6 +37,7 @@ type RoomSettingsPayload = {
   revealDurationSec?: number;
   startOffsetSec?: number;
   allowCollectionClipTiming?: boolean;
+  playbackExtensionMode?: PlaybackExtensionMode;
   maxPlayers?: number | null;
 };
 
@@ -194,6 +196,12 @@ export const useRoomProviderSettingsActions = ({
                 ? {
                     allowCollectionClipTiming:
                       normalizedPayload.allowCollectionClipTiming,
+                  }
+                : {}),
+              ...(normalizedPayload.playbackExtensionMode
+                ? {
+                    playbackExtensionMode:
+                      normalizedPayload.playbackExtensionMode,
                   }
                 : {}),
             } satisfies Partial<RoomGameSettings>;
