@@ -23,7 +23,7 @@ const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
-const HISTORY_PAGE_LIMIT = 10;
+const HISTORY_PAGE_LIMIT = 20;
 const HISTORY_LIST_CACHE_TTL_MS = 90_000;
 const HISTORY_GUARD_WINDOW_MS = 15_000;
 const HISTORY_GUARD_MAX_REQUESTS = 16;
@@ -63,18 +63,6 @@ const formatDateTime = (timestamp: number) => {
   return new Date(timestamp).toLocaleString();
 };
 
-const formatRelative = (timestamp: number) => {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
-  const diffMs = Date.now() - timestamp;
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return "剛剛";
-  if (diffMin < 60) return `${diffMin} 分鐘前`;
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour} 小時前`;
-  const diffDay = Math.floor(diffHour / 24);
-  return `${diffDay} 天前`;
-};
-
 const buildHistoryHeaders = (token: string | null) => ({
   "Content-Type": "application/json",
   ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -85,6 +73,9 @@ const buildHistoryListCacheKey = (clientId: string | null) =>
 
 const buildHistoryGuardKey = (clientId: string | null) =>
   `mq_history_guard_v1:${clientId ?? "guest"}`;
+
+const getHistoryGroupKeyFromSummary = (summary: RoomSettlementHistorySummary) =>
+  summary.roomId || summary.roomName || summary.matchId;
 
 const getMatchDurationMs = (startedAt: number, endedAt: number) => {
   if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) return null;
@@ -784,11 +775,6 @@ const RoomHistoryPage: React.FC = () => {
     }
     return best;
   }, [recentItems]);
-  const recentRoomSpread = useMemo(
-    () => new Set(recentItems.map((item) => item.roomId)).size,
-    [recentItems],
-  );
-  const latestRecentEntry = recentItems[0] ?? null;
   const oldestRecentEntry =
     recentItems.length > 0 ? recentItems[recentItems.length - 1] : null;
 
@@ -802,7 +788,7 @@ const RoomHistoryPage: React.FC = () => {
       }
     >();
     for (const item of items) {
-      const key = item.roomId || item.roomName || item.matchId;
+      const key = getHistoryGroupKeyFromSummary(item);
       const existing = groups.get(key);
       if (existing) {
         existing.items.push(item);
@@ -825,13 +811,24 @@ const RoomHistoryPage: React.FC = () => {
           (b.items[0]?.roundNo ?? 0) - (a.items[0]?.roundNo ?? 0),
       );
   }, [items]);
+  const selectedRelatedSummaries = useMemo(() => {
+    if (!selectedSummary) return [];
+    const targetGroupKey = getHistoryGroupKeyFromSummary(selectedSummary);
+    const matchedGroup = groupedHistoryItems.find((group) => {
+      const groupSeed = group.items[0];
+      return groupSeed && getHistoryGroupKeyFromSummary(groupSeed) === targetGroupKey;
+    });
+    return matchedGroup?.items ?? [selectedSummary];
+  }, [groupedHistoryItems, selectedSummary]);
 
   useEffect(() => {
     setCollapsedRoomGroups((prev) => {
       let changed = false;
       const next = { ...prev };
       for (const group of groupedHistoryItems) {
-        const groupKey = group.roomId || group.roomName || group.items[0]?.matchId;
+        const groupKey = group.items[0]
+          ? getHistoryGroupKeyFromSummary(group.items[0])
+          : null;
         if (!groupKey) continue;
         if (!(groupKey in next)) {
           next[groupKey] = historyDisplayMode !== "expanded";
@@ -847,7 +844,9 @@ const RoomHistoryPage: React.FC = () => {
       let changed = false;
       const next = { ...prev };
       for (const group of groupedHistoryItems) {
-        const groupKey = group.roomId || group.roomName || group.items[0]?.matchId;
+        const groupKey = group.items[0]
+          ? getHistoryGroupKeyFromSummary(group.items[0])
+          : null;
         if (!groupKey) continue;
         const targetCollapsed = historyDisplayMode !== "expanded";
         if ((next[groupKey] ?? true) !== targetCollapsed) {
@@ -995,7 +994,9 @@ const RoomHistoryPage: React.FC = () => {
         <>
           <div className="space-y-4 sm:space-y-[18px]">
             {groupedHistoryItems.map((group, groupIndex) => {
-              const groupKey = group.roomId || group.roomName || group.items[0]?.matchId;
+              const groupKey = group.items[0]
+                ? getHistoryGroupKeyFromSummary(group.items[0])
+                : null;
               if (!groupKey) return null;
               const collapsed =
                 historyDisplayMode === "expanded"
@@ -1068,10 +1069,9 @@ const RoomHistoryPage: React.FC = () => {
                           if (currentlyCollapsed) {
                             const next: Record<string, boolean> = {};
                             for (const candidate of groupedHistoryItems) {
-                              const candidateKey =
-                                candidate.roomId ||
-                                candidate.roomName ||
-                                candidate.items[0]?.matchId;
+                              const candidateKey = candidate.items[0]
+                                ? getHistoryGroupKeyFromSummary(candidate.items[0])
+                                : null;
                               if (!candidateKey) continue;
                               next[candidateKey] = candidateKey !== groupKey;
                             }
@@ -1234,7 +1234,7 @@ const RoomHistoryPage: React.FC = () => {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1320px] min-w-0 px-1 sm:px-0">
+    <div className="mx-auto w-full max-w-[1180px] min-w-0 px-1 sm:px-0">
       <HistoryArchiveHeader
         historyPageLimit={HISTORY_PAGE_LIMIT}
         loadingList={loadingList}
@@ -1245,23 +1245,23 @@ const RoomHistoryPage: React.FC = () => {
         recentBestRankEntry={recentBestRankEntry}
         recentBestComboEntry={recentBestComboEntry}
         recentBestAccuracyEntry={recentBestAccuracyEntry}
-        latestRecentEntry={latestRecentEntry}
-        recentRoomSpread={recentRoomSpread}
         onOpenReplay={(summary) => {
           void openReplayDetail(summary);
         }}
         onBackToRooms={() => navigate("/rooms", { replace: true })}
         formatRankFraction={formatRankFraction}
-        formatRelative={formatRelative}
-        formatDateTime={formatDateTime}
       />
       {listView}
       <HistoryReplayDialog
         open={Boolean(selectedMatchId)}
         onClose={() => setSelectedMatchId(null)}
         selectedSummary={selectedSummary}
+        relatedSummaries={selectedRelatedSummaries}
         selectedReplay={selectedReplay}
         isLoadingSelectedReplay={isLoadingSelectedReplay}
+        onSelectSummary={(summary) => {
+          void openReplayDetail(summary);
+        }}
         meClientId={clientId}
         questionRecaps={normalizedSelectedQuestionRecaps}
         formatDateTime={formatDateTime}

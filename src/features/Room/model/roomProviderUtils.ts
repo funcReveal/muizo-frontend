@@ -1,5 +1,6 @@
 import {
   DEFAULT_CLIP_SEC,
+  DEFAULT_PLAYBACK_EXTENSION_MODE,
   DEFAULT_PLAY_DURATION_SEC,
   DEFAULT_REVEAL_DURATION_SEC,
   DEFAULT_START_OFFSET_SEC,
@@ -105,11 +106,50 @@ export const extractVideoIdFromUrl = (url: string) => {
 };
 
 const GARBLED_TEXT_RE = /[嚙甇蝘撠]/;
+const ESCAPED_UNICODE_RE = /\\u[0-9a-fA-F]{4}/;
+const DOUBLY_ESCAPED_UNICODE_RE = /\\\\u/g;
+
+const looksBrokenText = (value: string) => {
+  if (GARBLED_TEXT_RE.test(value)) return true;
+  const replacementCount = (value.match(/\uFFFD/g) ?? []).length;
+  const questionCount = (value.match(/\?/g) ?? []).length;
+  return (
+    replacementCount > 0 ||
+    (questionCount >= 3 && questionCount / Math.max(1, value.length) > 0.15)
+  );
+};
+
+const decodeEscapedUnicodeText = (value: string) => {
+  let normalized = value;
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    const collapsed = normalized.replace(DOUBLY_ESCAPED_UNICODE_RE, "\\u");
+    if (!ESCAPED_UNICODE_RE.test(collapsed)) {
+      return collapsed;
+    }
+    normalized = collapsed.replace(
+      /\\u([0-9a-fA-F]{4})/g,
+      (_match, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)),
+    );
+  }
+  return normalized.replace(DOUBLY_ESCAPED_UNICODE_RE, "\\u");
+};
+
+export const normalizeRoomDisplayText = (
+  value: string | null | undefined,
+  fallback: string,
+) => {
+  const text = decodeEscapedUnicodeText((value ?? "").trim());
+  if (!text) return fallback;
+  return looksBrokenText(text) ? fallback : text;
+};
 
 export const sanitizePossibleGarbledText = (
   value: string,
   fallback = "系統訊息",
-) => (GARBLED_TEXT_RE.test(value) ? fallback : value);
+) => {
+  const text = decodeEscapedUnicodeText(value);
+  return looksBrokenText(text) ? fallback : text;
+};
 
 export const formatAckError = (prefix: string, error?: string) => {
   const safePrefix = sanitizePossibleGarbledText(prefix, "操作失敗");
@@ -128,6 +168,13 @@ export const normalizeQuestionCount = (value: number | undefined, fallback: numb
 };
 
 export type RoomGameSettings = NonNullable<RoomSummary["gameSettings"]>;
+
+export const normalizePlaybackExtensionMode = (
+  value: RoomGameSettings["playbackExtensionMode"] | undefined,
+) =>
+  value === "manual_vote" || value === "auto_once" || value === "disabled"
+    ? value
+    : DEFAULT_PLAYBACK_EXTENSION_MODE;
 
 export const mergeGameSettings = (
   current: RoomSummary["gameSettings"] | undefined,
@@ -161,6 +208,9 @@ export const mergeGameSettings = (
       incoming?.allowCollectionClipTiming ??
       current?.allowCollectionClipTiming ??
       true,
+    playbackExtensionMode: normalizePlaybackExtensionMode(
+      incoming?.playbackExtensionMode ?? current?.playbackExtensionMode,
+    ),
   };
 };
 

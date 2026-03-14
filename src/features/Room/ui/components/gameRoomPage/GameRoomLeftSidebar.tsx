@@ -3,6 +3,7 @@ import { Badge, Chip } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 
 import type { ChatMessage, RoomParticipant } from "../../../model/types";
+import { normalizeRoomDisplayText } from "../../../model/roomProviderUtils";
 import type { TopTwoSwapState } from "./gameRoomPageTypes";
 import { resolveComboTier } from "../../gameRoomUiUtils";
 import type { ScoreboardRow } from "./gameRoomPageDerivations";
@@ -465,7 +466,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
             const shouldShowComboFlare = rowComboTier > 0 && !mobileOverlayMode;
             const isMeRow = p.clientId === meClientId;
-            const username = isMeRow ? `${p.username}（我）` : p.username;
+            const displayName = normalizeRoomDisplayText(
+              p.username,
+              `玩家 ${idx + 1}`,
+            );
+            const username = isMeRow ? `${displayName}（我）` : displayName;
 
             return (
               <div

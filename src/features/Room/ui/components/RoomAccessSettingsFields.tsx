@@ -61,6 +61,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
+        alignItems={{ xs: "stretch", sm: "center" }}
         className={classes?.visibilityRow}
       >
         <Button
@@ -68,6 +69,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
           onClick={() => onVisibilityChange("public")}
           disabled={disabled}
           className={classes?.visibilityButton}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           公開房
         </Button>
@@ -76,6 +78,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
           onClick={() => onVisibilityChange("private")}
           disabled={disabled}
           className={classes?.visibilityButton}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           私人房
         </Button>
@@ -107,7 +110,11 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
         }}
       />
 
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1}
+        alignItems={{ xs: "stretch", sm: "center" }}
+      >
         {showClearButton && (
           <Button
             size="small"

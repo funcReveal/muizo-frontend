@@ -1,5 +1,5 @@
 import React from "react";
-import { Badge, SwipeableDrawer } from "@mui/material";
+import { Badge, SwipeableDrawer, Switch } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 
 import type { ChatMessage } from "../../../model/types";
@@ -12,6 +12,8 @@ interface GameRoomMobileChatPopoverProps {
   onOpen: () => void;
   onClose: () => void;
   showFab?: boolean;
+  chatAlertsEnabled: boolean;
+  onChatAlertsEnabledChange: (enabled: boolean) => void;
   heightVh: number;
   minHeightVh: number;
   maxHeightVh: number;
@@ -33,6 +35,8 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
   onOpen,
   onClose,
   showFab = true,
+  chatAlertsEnabled,
+  onChatAlertsEnabledChange,
   heightVh,
   minHeightVh,
   maxHeightVh,
@@ -129,9 +133,22 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
               </p>
               <p className="truncate text-sm font-semibold text-slate-100">房間聊天室</p>
             </div>
-            <span className="game-room-mobile-drawer-gesture-hint game-room-mobile-drawer-gesture-hint--minimal">
-              {messagesLength} 則訊息
-            </span>
+            <div className="flex items-center gap-2">
+              <label className="game-room-mobile-chat-alert-toggle">
+                <span>冒泡提醒</span>
+                <Switch
+                  size="small"
+                  color="info"
+                  checked={chatAlertsEnabled}
+                  onChange={(event) =>
+                    onChatAlertsEnabledChange(event.target.checked)
+                  }
+                />
+              </label>
+              <span className="game-room-mobile-drawer-gesture-hint game-room-mobile-drawer-gesture-hint--minimal">
+                {messagesLength} 則訊息
+              </span>
+            </div>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden p-3 pt-2">

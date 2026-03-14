@@ -13,6 +13,7 @@ export const DEFAULT_PLAY_DURATION_SEC = 30;
 export const DEFAULT_REVEAL_DURATION_SEC = 5;
 export const DEFAULT_START_OFFSET_SEC = 0;
 export const DEFAULT_ROOM_MAX_PLAYERS = 4;
+export const DEFAULT_PLAYBACK_EXTENSION_MODE = "manual_vote" as const;
 export const PLAY_DURATION_MIN = 5;
 export const PLAY_DURATION_MAX = 120;
 export const REVEAL_DURATION_MIN = 2;
@@ -36,4 +37,3 @@ export const STORAGE_KEYS = {
   roomPasswordPrefix: "mq_roomPassword:",
   profileConfirmedPrefix: "mq_profileConfirmed:",
 } as const;
-

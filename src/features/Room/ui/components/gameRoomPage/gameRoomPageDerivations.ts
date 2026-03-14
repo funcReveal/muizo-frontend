@@ -2,6 +2,7 @@ import type {
   RoomParticipant,
   RoomSettlementQuestionAnswer,
 } from "../../../model/types";
+import { normalizeRoomDisplayText } from "../../../model/roomProviderUtils";
 import type {
   SettlementQuestionRecap,
   SettlementQuestionResult,
@@ -284,8 +285,8 @@ export const buildSettlementQuestionRecap = ({
     key: trackSessionKey,
     order,
     trackIndex,
-    title,
-    uploader: uploader?.trim() || "Unknown",
+    title: normalizeRoomDisplayText(title, "（未提供名稱）"),
+    uploader: normalizeRoomDisplayText(uploader, "Unknown"),
     duration: duration?.trim() || null,
     thumbnail: thumbnail || null,
     myResult,
@@ -293,11 +294,12 @@ export const buildSettlementQuestionRecap = ({
     correctChoiceIndex,
     choices: choices.map((choice) => ({
       index: choice.index,
-      title:
+      title: normalizeRoomDisplayText(
         choice.title?.trim() ||
-        playlistChoices[choice.index]?.answerText?.trim() ||
-        playlistChoices[choice.index]?.title?.trim() ||
+          playlistChoices[choice.index]?.answerText?.trim() ||
+          playlistChoices[choice.index]?.title?.trim(),
         "（未提供名稱）",
+      ),
       isCorrect: choice.index === correctChoiceIndex,
       isSelectedByMe: choice.index === myChoiceIndex,
     })),

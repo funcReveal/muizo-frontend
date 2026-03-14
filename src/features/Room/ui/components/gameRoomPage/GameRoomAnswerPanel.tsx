@@ -2,6 +2,7 @@ import React from "react";
 import { Button, Chip, LinearProgress } from "@mui/material";
 
 import type { GameState, PlaylistItem } from "../../../model/types";
+import { normalizeRoomDisplayText } from "../../../model/roomProviderUtils";
 import type {
   ChoiceCommitFxState,
   MyFeedbackModel,
@@ -234,11 +235,12 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     const isSelected = selectedChoice === choice.index;
                     const isCorrect = choice.index === correctChoiceIndex;
                     const isLocked = isReveal || isEnded;
-                    const choiceDisplayTitle =
+                    const choiceDisplayTitle = normalizeRoomDisplayText(
                       choice.title?.trim() ||
-                      playlist[choice.index]?.answerText?.trim() ||
-                      playlist[choice.index]?.title?.trim() ||
-                      "（未提供名稱）";
+                        playlist[choice.index]?.answerText?.trim() ||
+                        playlist[choice.index]?.title?.trim(),
+                      "（未提供名稱）",
+                    );
                     const isMyChoice = selectedChoice === choice.index;
                     const showCorrectTag = isReveal && isCorrect;
                     const showMyChoiceTag = isReveal && isMyChoice;
