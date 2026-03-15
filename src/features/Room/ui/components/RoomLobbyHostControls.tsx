@@ -5,12 +5,20 @@ import {
   AccordionSummary,
   Box,
   Button,
-  Chip,
   MenuItem,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
+import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
+import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
+import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import VideoLibraryRoundedIcon from "@mui/icons-material/VideoLibraryRounded";
+import PlaylistAddCheckRoundedIcon from "@mui/icons-material/PlaylistAddCheckRounded";
+import PublishedWithChangesRoundedIcon from "@mui/icons-material/PublishedWithChangesRounded";
+import { useState } from "react";
 
 import type { GameState, PlaylistSuggestion } from "../../model/types";
 import type { YoutubePlaylist } from "../../model/RoomContext";
@@ -90,7 +98,6 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
   selectedSuggestionKey,
   setSelectedSuggestionKey,
   requestApplyHostSuggestion,
-  hostPlaylistPrimaryText,
   playlistUrl,
   onPlaylistUrlChange,
   onPlaylistPaste,
@@ -103,13 +110,11 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
   collectionsLoading,
   collectionItemsLoading,
   isHostCollectionEmptyNotice,
-  hostCollectionPrimaryText,
   visibleCollectionsError,
   collectionItemsError,
   onLoadCollectionItems,
   isHostYoutubeEmptyNotice,
   isHostYoutubeMissingNotice,
-  hostYoutubePrimaryText,
   visibleHostYoutubeError,
   youtubePlaylists,
   youtubePlaylistsLoading,
@@ -124,6 +129,11 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
   onChangePlaylist,
 }) => {
   const hostSourceUsesFlatSelectCard = true;
+  const [applyPending, setApplyPending] = useState(false);
+
+  const markApplyPending = () => {
+    setApplyPending(true);
+  };
 
   const switchSourceType = (
     nextType: "suggestions" | "playlist" | "collection" | "youtube",
@@ -135,32 +145,66 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
     ) {
       markSuggestionsSeen();
     }
+
+    if (nextType !== hostSourceType) {
+      markApplyPending();
+    }
+
     setHostSourceType(nextType);
   };
 
-  const googleAuthStatusMessage =
-    "\u8acb\u5148\u767b\u5165 Google \u624d\u80fd\u8b80\u53d6 YouTube \u64ad\u653e\u6e05\u55ae\u3002";
+  const googleAuthStatusMessage = "\u8acb\u5148\u767b\u5165 Google";
+
+  const sourceSelectionReady =
+    hostSourceType === "suggestions"
+      ? Boolean(selectedSuggestionKey)
+      : hostSourceType === "playlist"
+        ? playlistUrl.trim().length > 0
+        : hostSourceType === "collection"
+          ? Boolean(selectedCollectionId)
+          : Boolean(selectedYoutubePlaylistId);
 
   const hostSourceStatus = (() => {
     if (hostSourceType === "suggestions") {
+      if (hostSuggestionHint) {
+        return {
+          message: hostSuggestionHint,
+          tone: "info",
+          loading: isApplyingHostSuggestion,
+        } as const;
+      }
+
+      if (isApplyingHostSuggestion) {
+        return {
+          message: "\u8b80\u53d6\u5efa\u8b70\u4e2d",
+          tone: "info",
+          loading: true,
+        } as const;
+      }
+
       return {
         message:
-          hostSuggestionHint ||
-          "\u76ee\u524d\u9084\u6c92\u6709\u73a9\u5bb6\u63d0\u4ea4\u6b4c\u55ae\u5efa\u8b70\u3002",
+          playlistSuggestions.length === 0
+            ? "\u5c1a\u7121\u5efa\u8b70"
+            : selectedSuggestionKey
+              ? "\u5efa\u8b70\u5f85\u5957\u7528"
+              : "\u9078\u64c7\u5efa\u8b70",
         tone:
-          playlistSuggestions.length === 0 && !isApplyingHostSuggestion
+          playlistSuggestions.length === 0
             ? "neutral"
-            : "info",
-        loading: isApplyingHostSuggestion,
+            : selectedSuggestionKey
+              ? "warning"
+              : "neutral",
+        loading: false,
       } as const;
     }
 
     if (hostSourceType === "playlist") {
       return {
-        message:
-          hostPlaylistPrimaryText ||
-          "\u8cbc\u4e0a YouTube \u64ad\u653e\u6e05\u55ae\u9023\u7d50\uff0c\u76f4\u63a5\u66ff\u63db\u623f\u9593\u6b4c\u55ae\u3002",
-        tone: "neutral",
+        message: playlistUrl.trim()
+          ? "\u9023\u7d50\u5f85\u5957\u7528"
+          : "\u8cbc\u4e0a YouTube \u9023\u7d50",
+        tone: playlistUrl.trim() ? "warning" : "neutral",
         loading: playlistLoading,
       } as const;
     }
@@ -175,12 +219,23 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
       }
 
       return {
-        message:
-          hostCollectionPrimaryText ||
-          (collectionScope === "public"
-            ? "\u8acb\u9078\u64c7\u8981\u5957\u7528\u7684\u516c\u958b\u6536\u85cf\u5eab\u3002"
-            : "\u8acb\u9078\u64c7\u8981\u5957\u7528\u7684\u79c1\u4eba\u6536\u85cf\u5eab\u3002"),
-        tone: isHostCollectionEmptyNotice ? "warning" : "neutral",
+        message: isHostCollectionEmptyNotice
+          ? collectionScope === "public"
+            ? "\u5c1a\u7121\u516c\u958b\u6536\u85cf\u5eab"
+            : "\u5c1a\u7121\u500b\u4eba\u6536\u85cf\u5eab"
+          : selectedCollectionId
+            ? collectionScope === "public"
+              ? "\u516c\u958b\u6536\u85cf\u5eab\u5f85\u5957\u7528"
+              : "\u500b\u4eba\u6536\u85cf\u5eab\u5f85\u5957\u7528"
+            : collectionScope === "public"
+              ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
+              : "\u9078\u64c7\u500b\u4eba\u6536\u85cf\u5eab",
+        tone:
+          isHostCollectionEmptyNotice
+            ? "warning"
+            : selectedCollectionId
+              ? "warning"
+              : "neutral",
         loading: collectionsLoading || collectionItemsLoading,
       } as const;
     }
@@ -203,12 +258,17 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
 
     return {
       message:
-        hostYoutubePrimaryText ||
-        "\u8acb\u9078\u64c7\u8981\u5957\u7528\u7684 YouTube \u64ad\u653e\u6e05\u55ae\u3002",
+        isHostYoutubeEmptyNotice || isHostYoutubeMissingNotice
+          ? "\u5c1a\u7121 YouTube \u64ad\u653e\u6e05\u55ae"
+          : selectedYoutubePlaylistId
+            ? "YouTube \u5f85\u5957\u7528"
+            : "\u9078\u64c7 YouTube",
       tone:
         isHostYoutubeEmptyNotice || isHostYoutubeMissingNotice
           ? "warning"
-          : "neutral",
+          : selectedYoutubePlaylistId
+            ? "warning"
+            : "neutral",
       loading: youtubePlaylistsLoading,
     } as const;
   })();
@@ -233,8 +293,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
 
     if (gameStatus === "playing") {
       return {
-        message:
-          "\u904a\u6232\u9032\u884c\u4e2d\uff0c\u66ab\u6642\u7121\u6cd5\u5957\u7528\u4f86\u6e90\u3002",
+        message: "\u904a\u6232\u9032\u884c\u4e2d",
         tone: "warning",
         loading: false,
       } as const;
@@ -247,6 +306,35 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
     } as const;
   })();
 
+  const isApplyPendingVisible =
+    applyPending &&
+    sourceSelectionReady &&
+    !playlistLoading &&
+    !collectionItemsLoading &&
+    !collectionsLoading &&
+    !youtubePlaylistsLoading &&
+    !isApplyingHostSuggestion;
+
+  const activeSourceStatus = (() => {
+    if (hostFooterStatus.message || hostFooterStatus.loading) {
+      return hostFooterStatus;
+    }
+
+    if (isApplyPendingVisible && playlistItemsForChangeLength > 0) {
+      return {
+        message: `\u5f85\u5957\u7528 ${playlistItemsForChangeLength} \u9996`,
+        tone: "error",
+        loading: false,
+      } as const;
+    }
+
+    if (hostSourceStatus.message || hostSourceStatus.loading) {
+      return hostSourceStatus;
+    }
+
+    return hostFooterStatus;
+  })();
+
   return (
     <Accordion
       disableGutters
@@ -254,29 +342,22 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
       expanded={isHostPanelExpanded}
     >
       <AccordionSummary>
-        <div className="flex items-center gap-2">
+        <div className="room-lobby-host-heading">
+          <span className="room-lobby-host-heading__icon" aria-hidden="true">
+            <TuneRoundedIcon fontSize="small" />
+          </span>
           <Typography variant="subtitle2" className="text-slate-200">
-            {"\u623f\u4e3b\u63a7\u5236"}
+            {"\u6b4c\u55ae\u4f86\u6e90"}
           </Typography>
           {hasNewSuggestions && (
-            <Chip
-              size="small"
-              color="warning"
-              label={`\u65b0\u5efa\u8b70 ${playlistSuggestions.length}`}
-            />
+            <span className="room-lobby-host-heading__badge">
+              {playlistSuggestions.length}
+            </span>
           )}
         </div>
       </AccordionSummary>
       <AccordionDetails>
         <Stack spacing={1.5}>
-          {gameStatus === "playing" && (
-            <Typography variant="caption" className="hidden text-slate-400">
-              {
-                "\u904a\u6232\u9032\u884c\u4e2d\uff0c\u66ab\u6642\u7121\u6cd5\u5207\u63db\u4f86\u6e90\u6216\u5957\u7528\u65b0\u6b4c\u55ae\u3002"
-              }
-            </Typography>
-          )}
-
           <Box className="room-lobby-host-controls">
             <Stack
               spacing={1.1}
@@ -295,20 +376,11 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                   variant={
                     hostSourceType === "suggestions" ? "contained" : "outlined"
                   }
-                  className="room-lobby-mode-button"
+                  className="room-lobby-mode-button room-lobby-mode-button--suggestions"
+                  startIcon={<TipsAndUpdatesRoundedIcon fontSize="small" />}
                   onClick={() => switchSourceType("suggestions")}
                 >
-                  {"\u73a9\u5bb6\u63a8\u85a6"}
-                </Button>
-                <Button
-                  size="small"
-                  variant={
-                    hostSourceType === "playlist" ? "contained" : "outlined"
-                  }
-                  className="room-lobby-mode-button"
-                  onClick={() => switchSourceType("playlist")}
-                >
-                  {"\u8cbc\u4e0a\u9023\u7d50"}
+                  {"\u63a8\u85a6"}
                 </Button>
                 <Button
                   size="small"
@@ -318,14 +390,21 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       ? "contained"
                       : "outlined"
                   }
-                  className="room-lobby-mode-button"
+                  className="room-lobby-mode-button room-lobby-mode-button--public"
+                  startIcon={<PublicRoundedIcon fontSize="small" />}
                   onClick={() => {
+                    if (
+                      hostSourceType === "collection" &&
+                      collectionScope !== "public"
+                    ) {
+                      markApplyPending();
+                    }
                     switchSourceType("collection");
                     setCollectionScope("public");
                     onSelectCollection(null);
                   }}
                 >
-                  {"\u516c\u958b\u6536\u85cf\u5eab"}
+                  {"\u516c\u958b"}
                 </Button>
                 <Button
                   size="small"
@@ -335,25 +414,44 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       ? "contained"
                       : "outlined"
                   }
-                  className="room-lobby-mode-button"
+                  className="room-lobby-mode-button room-lobby-mode-button--owner"
+                  startIcon={<LockRoundedIcon fontSize="small" />}
                   onClick={() => {
+                    if (
+                      hostSourceType === "collection" &&
+                      collectionScope !== "owner"
+                    ) {
+                      markApplyPending();
+                    }
                     switchSourceType("collection");
                     setCollectionScope("owner");
                     onSelectCollection(null);
                   }}
                   disabled={!isGoogleAuthed}
                 >
-                  {"\u79c1\u4eba\u6536\u85cf\u5eab"}
+                  {"\u500b\u4eba"}
                 </Button>
                 <Button
                   size="small"
                   variant={
                     hostSourceType === "youtube" ? "contained" : "outlined"
                   }
-                  className="room-lobby-mode-button"
+                  className="room-lobby-mode-button room-lobby-mode-button--youtube"
+                  startIcon={<VideoLibraryRoundedIcon fontSize="small" />}
                   onClick={() => switchSourceType("youtube")}
                 >
-                  {"\u6211\u7684\u64ad\u653e\u6e05\u55ae"}
+                  {"YouTube"}
+                </Button>
+                <Button
+                  size="small"
+                  variant={
+                    hostSourceType === "playlist" ? "contained" : "outlined"
+                  }
+                  className="room-lobby-mode-button room-lobby-mode-button--playlist"
+                  startIcon={<LinkRoundedIcon fontSize="small" />}
+                  onClick={() => switchSourceType("playlist")}
+                >
+                  {"\u9023\u7d50"}
                 </Button>
               </Stack>
 
@@ -366,9 +464,10 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
               >
                 <Stack spacing={1} className="room-lobby-source-view">
                   <RoomLobbyStatusStrip
-                    message={hostSourceStatus.message}
-                    tone={hostSourceStatus.tone}
-                    loading={hostSourceStatus.loading}
+                    className="room-lobby-source-status-inline"
+                    message={activeSourceStatus.message}
+                    tone={activeSourceStatus.tone}
+                    loading={activeSourceStatus.loading}
                     reserveSpace
                   />
 
@@ -380,11 +479,15 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       onChange={(event) => {
                         const nextKey = event.target.value;
                         setSelectedSuggestionKey(nextKey);
-                        if (!nextKey) return;
+                        if (!nextKey) {
+                          setApplyPending(false);
+                          return;
+                        }
                         const suggestion = playlistSuggestions.find(
                           (item) => getSuggestionKey(item) === nextKey,
                         );
                         if (!suggestion) return;
+                        markApplyPending();
                         requestApplyHostSuggestion(suggestion);
                       }}
                       disabled={isApplyingHostSuggestion}
@@ -394,7 +497,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                         renderValue: (selected) => {
                           const key = String(selected ?? "");
                           if (!key) {
-                            return "\u8acb\u9078\u64c7\u8981\u5957\u7528\u7684\u5efa\u8b70";
+                            return "\u9078\u64c7\u5efa\u8b70";
                           }
                           const selectedSuggestion = playlistSuggestions.find(
                             (suggestion) => getSuggestionKey(suggestion) === key,
@@ -414,7 +517,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       }}
                     >
                       <MenuItem value="">
-                        {"\u8acb\u9078\u64c7\u8981\u5957\u7528\u7684\u5efa\u8b70"}
+                        {"\u9078\u64c7\u5efa\u8b70"}
                       </MenuItem>
                       {playlistSuggestions.map((suggestion) => {
                         const optionKey = getSuggestionKey(suggestion);
@@ -456,10 +559,12 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       size="small"
                       value={playlistUrl}
                       onChange={(event) => {
-                        onPlaylistUrlChange(event.target.value);
+                        const nextValue = event.target.value;
+                        setApplyPending(Boolean(nextValue.trim()));
+                        onPlaylistUrlChange(nextValue);
                       }}
                       onPaste={onPlaylistPaste}
-                      placeholder={"\u8cbc\u4e0a YouTube \u64ad\u653e\u6e05\u55ae URL"}
+                      placeholder={"\u8cbc\u4e0a YouTube URL"}
                       disabled={playlistLoading || gameStatus === "playing"}
                       fullWidth
                     />
@@ -473,6 +578,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       onChange={(event) => {
                         const nextId = event.target.value || null;
                         if (!nextId) {
+                          setApplyPending(false);
                           onSelectCollection(null);
                           return;
                         }
@@ -489,6 +595,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                           "\u5957\u7528\u9019\u500b\u6536\u85cf\u5eab\uff1f",
                           label,
                           () => {
+                            markApplyPending();
                             onSelectCollection(nextId);
                             void onLoadCollectionItems(nextId);
                           },
@@ -506,8 +613,8 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                           const selectedId = String(selected ?? "");
                           if (!selectedId) {
                             return collectionScope === "public"
-                              ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
-                              : "\u9078\u64c7\u79c1\u4eba\u6536\u85cf\u5eab";
+                              ? "\u9078\u64c7\u516c\u958b"
+                              : "\u9078\u64c7\u79c1\u4eba";
                           }
                           const selectedOption = collections.find(
                             (item) => item.id === selectedId,
@@ -522,8 +629,8 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                     >
                       <MenuItem value="">
                         {collectionScope === "public"
-                          ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
-                          : "\u9078\u64c7\u79c1\u4eba\u6536\u85cf\u5eab"}
+                          ? "\u9078\u64c7\u516c\u958b"
+                          : "\u9078\u64c7\u79c1\u4eba"}
                       </MenuItem>
                       {collections.map((collection) => (
                         <MenuItem key={collection.id} value={collection.id}>
@@ -552,6 +659,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       onChange={(event) => {
                         const nextId = event.target.value || null;
                         if (!nextId) {
+                          setApplyPending(false);
                           setSelectedYoutubePlaylistId(null);
                           return;
                         }
@@ -568,6 +676,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                           "\u532f\u5165\u9019\u4efd YouTube \u64ad\u653e\u6e05\u55ae\uff1f",
                           label,
                           () => {
+                            markApplyPending();
                             setSelectedYoutubePlaylistId(nextId);
                             void onImportYoutubePlaylist(nextId);
                           },
@@ -584,7 +693,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                         renderValue: (selected) => {
                           const selectedId = String(selected ?? "");
                           if (!selectedId) {
-                            return "\u9078\u64c7 YouTube \u64ad\u653e\u6e05\u55ae";
+                            return "\u9078\u64c7 YouTube";
                           }
                           const selectedOption = youtubePlaylists.find(
                             (item) => item.id === selectedId,
@@ -598,7 +707,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       }}
                     >
                       <MenuItem value="">
-                        {"\u9078\u64c7 YouTube \u64ad\u653e\u6e05\u55ae"}
+                        {"\u9078\u64c7 YouTube"}
                       </MenuItem>
                       {youtubePlaylists.map((playlist) => (
                         <MenuItem key={playlist.id} value={playlist.id}>
@@ -616,27 +725,37 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                     size="small"
                     variant="contained"
                     color="success"
-                    className="room-lobby-apply-button room-lobby-apply-button--field-action"
+                    className={`room-lobby-apply-button room-lobby-apply-button--field-action ${
+                      isApplyPendingVisible
+                        ? "room-lobby-apply-button--pending"
+                        : ""
+                    }`}
                     aria-label={"\u5957\u7528\u5230\u623f\u9593"}
-                    onClick={() => void onChangePlaylist()}
+                    startIcon={
+                      isApplyPendingVisible ? (
+                        <PublishedWithChangesRoundedIcon fontSize="small" />
+                      ) : (
+                        <PlaylistAddCheckRoundedIcon fontSize="small" />
+                      )
+                    }
+                    onClick={async () => {
+                      await onChangePlaylist();
+                      setApplyPending(false);
+                    }}
                     disabled={
+                      !sourceSelectionReady ||
                       playlistItemsForChangeLength === 0 ||
                       playlistLoading ||
+                      collectionItemsLoading ||
+                      youtubePlaylistsLoading ||
+                      isApplyingHostSuggestion ||
                       gameStatus === "playing"
                     }
                   >
-                    {"\u5957\u7528\u5230\u623f\u9593"}
+                    {"\u5957\u7528"}
                   </Button>
                 </Stack>
               </div>
-
-              <Stack spacing={0.75} className="room-lobby-source-footer">
-                <RoomLobbyStatusStrip
-                  message={hostFooterStatus.message}
-                  tone={hostFooterStatus.tone}
-                  loading={hostFooterStatus.loading}
-                />
-              </Stack>
             </Stack>
           </Box>
         </Stack>

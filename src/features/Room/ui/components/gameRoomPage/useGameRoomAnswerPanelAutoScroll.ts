@@ -1,33 +1,43 @@
 import { useEffect, useRef } from "react";
 
-import type { GameState } from "../../../model/types";
-
 type UseGameRoomAnswerPanelAutoScrollArgs = {
-  roomId: string;
-  gameStatus: GameState["status"];
-  gameStartedAt: number;
   answerPanelRef: React.RefObject<HTMLDivElement | null>;
+  scrollTargetRef?: React.RefObject<HTMLDivElement | null>;
+  initialScrollKey?: string | null;
+  autoScrollKey?: string | null;
 };
 
 const useGameRoomAnswerPanelAutoScroll = ({
-  roomId,
-  gameStatus,
-  gameStartedAt,
   answerPanelRef,
+  scrollTargetRef,
+  initialScrollKey,
+  autoScrollKey,
 }: UseGameRoomAnswerPanelAutoScrollArgs) => {
+  const lastInitialScrollKeyRef = useRef<string | null>(null);
   const lastAutoScrollKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!window.matchMedia("(max-width: 1023px)").matches) return;
-    if (gameStatus !== "playing") return;
-    const nextKey = `${roomId}:${gameStartedAt}`;
-    if (lastAutoScrollKeyRef.current === nextKey) return;
+    const nextKey =
+      (autoScrollKey && autoScrollKey.trim()) ||
+      (initialScrollKey && initialScrollKey.trim()) ||
+      null;
+    if (!nextKey) return;
+    const isAutoScroll = Boolean(autoScrollKey && autoScrollKey.trim());
+    if (isAutoScroll) {
+      if (lastAutoScrollKeyRef.current === nextKey) return;
+    } else if (lastInitialScrollKeyRef.current === nextKey) {
+      return;
+    }
 
     const isTargetMostlyVisible = (target: HTMLElement) => {
       const rect = target.getBoundingClientRect();
       const viewportHeight =
         window.innerHeight || document.documentElement.clientHeight;
+      if (scrollTargetRef?.current === target) {
+        return rect.top >= -4 && rect.top <= 12;
+      }
       const visibleTop = Math.max(0, rect.top);
       const visibleBottom = Math.min(viewportHeight, rect.bottom);
       const visibleHeight = Math.max(0, visibleBottom - visibleTop);
@@ -47,16 +57,20 @@ const useGameRoomAnswerPanelAutoScroll = ({
       rafId2 = window.requestAnimationFrame(() => {
         timerId = window.setTimeout(() => {
           if (cancelled) return;
-          const target = answerPanelRef.current;
+          const target = scrollTargetRef?.current ?? answerPanelRef.current;
           if (!target) return;
           if (!isTargetMostlyVisible(target)) {
             target.scrollIntoView({
-              behavior: "smooth",
+              behavior: "auto",
               block: "start",
               inline: "nearest",
             });
           }
-          lastAutoScrollKeyRef.current = nextKey;
+          if (isAutoScroll) {
+            lastAutoScrollKeyRef.current = nextKey;
+            return;
+          }
+          lastInitialScrollKeyRef.current = nextKey;
         }, 90);
       });
     });
@@ -73,7 +87,7 @@ const useGameRoomAnswerPanelAutoScroll = ({
         window.cancelAnimationFrame(rafId2);
       }
     };
-  }, [answerPanelRef, gameStartedAt, gameStatus, roomId]);
+  }, [answerPanelRef, autoScrollKey, initialScrollKey, scrollTargetRef]);
 };
 
 export default useGameRoomAnswerPanelAutoScroll;

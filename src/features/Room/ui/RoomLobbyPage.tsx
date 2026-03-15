@@ -1490,6 +1490,9 @@ const RoomLobbyPage: React.FC = () => {
                       size="small"
                       color={isLatest ? "info" : "default"}
                       variant={isLatest ? "filled" : "outlined"}
+                      className={`room-battle-history-item-chip ${
+                        isLatest ? "is-latest" : ""
+                      }`}
                       label={isLatest ? "上一局" : "歷史紀錄"}
                     />
                   </div>
@@ -1526,6 +1529,7 @@ const RoomLobbyPage: React.FC = () => {
                       size="small"
                       variant="outlined"
                       color="info"
+                      className="room-battle-history-action room-battle-history-action--detail"
                       disabled={historyReplayLoadingRoundKey === summary.roundKey}
                       onClick={() => {
                         void openHistoryReplayModal(summary);
@@ -1539,6 +1543,7 @@ const RoomLobbyPage: React.FC = () => {
                       size="small"
                       variant="outlined"
                       color="info"
+                      className="room-battle-history-action room-battle-history-action--replay"
                       disabled={isLoading || !isLatest}
                       onClick={() => {
                         void openSettlementReviewByRoundKey(summary.roundKey);
@@ -1558,6 +1563,7 @@ const RoomLobbyPage: React.FC = () => {
               variant="outlined"
               color="inherit"
               size="small"
+              className="room-battle-history-load-more"
               disabled={historyDrawerLoadingMore}
               onClick={() => {
                 void loadHistoryDrawerPage();

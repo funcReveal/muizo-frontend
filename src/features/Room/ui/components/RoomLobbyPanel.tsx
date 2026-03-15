@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Avatar,
   Badge,
@@ -7,22 +7,20 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   IconButton,
   List as MUIList,
   ListItem,
   Popover,
   Stack,
   SwipeableDrawer,
-  TextField,
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import { useCallback } from "react";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
@@ -33,6 +31,13 @@ import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import QueueMusicRoundedIcon from "@mui/icons-material/QueueMusicRounded";
+import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
+import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import KeyRoundedIcon from "@mui/icons-material/KeyRounded";
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
+import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
+import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type {
   ChatMessage,
@@ -66,6 +71,14 @@ import RoomLobbyHostControls from "./RoomLobbyHostControls";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import useMobileDrawerDragDismiss from "./gameRoomPage/useMobileDrawerDragDismiss";
+import { useGameSfx } from "../hooks/useGameSfx";
+import {
+  DEFAULT_GAME_VOLUME,
+  DEFAULT_SFX_ENABLED,
+  DEFAULT_SFX_PRESET,
+  DEFAULT_SFX_VOLUME,
+  SettingsModelContext,
+} from "../../../Setting/model/settingsContext";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
 import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 
@@ -144,6 +157,29 @@ interface RoomLobbyPanelProps {
   onImportYoutubePlaylist: (playlistId: string) => Promise<void>;
 }
 
+const ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX = "mq_room_chat_last_read_message:";
+
+const readRoomChatLastReadMessageId = (roomId: string | null): string | null => {
+  if (!roomId || typeof window === "undefined") return null;
+  const stored = window.sessionStorage.getItem(
+    `${ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX}${roomId}`,
+  );
+  return stored?.trim() ? stored : null;
+};
+
+const writeRoomChatLastReadMessageId = (
+  roomId: string | null,
+  messageId: string | null,
+) => {
+  if (!roomId || typeof window === "undefined") return;
+  const storageKey = `${ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX}${roomId}`;
+  if (!messageId) {
+    window.sessionStorage.removeItem(storageKey);
+    return;
+  }
+  window.sessionStorage.setItem(storageKey, messageId);
+};
+
 const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   currentRoom,
   participants,
@@ -173,14 +209,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   isHost,
   gameState,
   canStartGame,
-  hasLastSettlement = false,
   onLeave,
   onInputChange,
   onSend,
   onLoadMorePlaylist,
   onStartGame,
   onUpdateRoomSettings,
-  onOpenLastSettlement,
   latestSettlementRoundKey,
   onOpenHistoryDrawer,
   onOpenSettlementByRoundKey,
@@ -199,10 +233,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onFetchYoutubePlaylists,
   onImportYoutubePlaylist,
 }) => {
-  const MOBILE_LOBBY_CHAT_MIN_HEIGHT_VH = 42;
-  const MOBILE_LOBBY_CHAT_MAX_HEIGHT_VH = 78;
-  const MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH = 50;
+  const MOBILE_LOBBY_CHAT_MIN_HEIGHT_VH = 36;
+  const MOBILE_LOBBY_CHAT_MAX_HEIGHT_VH = 72;
+  const MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH = 44;
   type MobileLobbyTab = "members" | "host" | "playlist";
+  const LOBBY_INTERACTIVE_SELECTOR =
+    "button, [role='button'], [role='tab'], .MuiButtonBase-root";
   const rowCount = playlistItems.length + (playlistHasMore ? 1 : 0);
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
@@ -230,6 +266,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const isCompactLobbyLayout = useMediaQuery("(max-width:1180px)");
   const isMobileLobbyLayout = useMediaQuery("(max-width:640px)");
   const isMobileTabletLobbyLayout = useMediaQuery("(max-width:1024px)");
+  const settingsModel = React.useContext(SettingsModelContext);
+  const gameVolume = settingsModel?.gameVolume ?? DEFAULT_GAME_VOLUME;
+  const sfxEnabled = settingsModel?.sfxEnabled ?? DEFAULT_SFX_ENABLED;
+  const sfxVolume = settingsModel?.sfxVolume ?? DEFAULT_SFX_VOLUME;
+  const sfxPreset = settingsModel?.sfxPreset ?? DEFAULT_SFX_PRESET;
+  const { primeSfxAudio, playGameSfx } = useGameSfx({
+    enabled: sfxEnabled,
+    volume: Math.round((sfxVolume * gameVolume) / 100),
+    preset: sfxPreset,
+  });
   const isHostPanelCollapsible = false;
   const isHostPanelExpanded = true;
   const [lastSuggestionSeenAt, setLastSuggestionSeenAt] = useState(0);
@@ -274,6 +320,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     useState<MobileLobbyTab>("members");
   const [mobileChatDrawerOpen, setMobileChatDrawerOpen] = useState(false);
   const [mobileChatUnread, setMobileChatUnread] = useState(0);
+  const lastLobbyHoverAtRef = useRef(0);
+  const lastLobbyHoverTargetRef = useRef<HTMLElement | null>(null);
   const [mobileChatHeight, setMobileChatHeight] = useState(
     MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH,
   );
@@ -282,61 +330,43 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const maskedRoomPassword = roomPassword
     ? "*".repeat(roomPassword.length)
     : "";
-  const playlistListContainerRef = useRef<HTMLDivElement | null>(null);
-  const [playlistListHeight, setPlaylistListHeight] = useState(280);
-
-  useLayoutEffect(() => {
-    const container = playlistListContainerRef.current;
-    if (!container) return;
-
-    const measure = () => {
-      const next = Math.max(180, Math.floor(container.clientHeight));
-      setPlaylistListHeight((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
-    };
-
-    measure();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", measure);
-      return () => {
-        window.removeEventListener("resize", measure);
-      };
-    }
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(container);
-    return () => {
-      observer.disconnect();
-    };
-  }, [playlistItems.length, isCompactLobbyLayout, isMobileLobbyLayout]);
-
-  const playlistListHeightCap = isMobileLobbyLayout
-    ? 220
+  const playlistRowHeight = isMobileLobbyLayout ? 72 : 84;
+  const playlistViewportMinHeight = isMobileLobbyLayout
+    ? 300
     : isCompactLobbyLayout
-      ? 320
-      : null;
-  const playlistListViewportHeight =
-    playlistListHeightCap === null
-      ? playlistListHeight
-      : Math.min(playlistListHeight, playlistListHeightCap);
-  const playlistListShellClassName = isCompactLobbyLayout
-    ? "min-h-0"
-    : "min-h-0 flex-1";
-  const playlistListShellStyle =
-    playlistListHeightCap === null
-      ? undefined
-      : ({ maxHeight: playlistListHeightCap } as React.CSSProperties);
+      ? 248
+      : 360;
+  const playlistViewportMaxHeight = isMobileLobbyLayout
+    ? 460
+    : isCompactLobbyLayout
+      ? 360
+      : 520;
+  const playlistListViewportHeight = Math.min(
+    playlistViewportMaxHeight,
+    Math.max(
+      playlistViewportMinHeight,
+      Math.max(rowCount, isMobileLobbyLayout ? 2 : 4) * playlistRowHeight,
+    ),
+  );
+  const playlistListShellStyle = (
+    isMobileLobbyLayout
+      ? {
+          minHeight: playlistViewportMinHeight,
+          height: "100%",
+        }
+      : {
+          height: playlistListViewportHeight,
+        }
+  ) as React.CSSProperties;
+  const playlistListViewportStyle = {
+    height: isMobileLobbyLayout ? "100%" : playlistListViewportHeight,
+    width: "100%",
+  } as React.CSSProperties;
   const playlistLoadNotice = (() => {
     if (playlistLoading || collectionItemsLoading) {
-      return "正在載入可套用歌單...";
+      return "讀取歌單中";
     }
-    if (playlistError || collectionItemsError) {
-      return `載入失敗：${playlistError ?? collectionItemsError}`;
-    }
-    if (playlistItemsForChange.length === 0) {
-      return null;
-    }
-    return `已載入 ${playlistItemsForChange.length} 首可套用歌曲`;
+    return null;
   })();
   const hostPlaylistPrimaryText =
     "請先選擇來源，再將歌單套用到房間。支援玩家推薦、貼上連結、收藏庫與 YouTube。";
@@ -345,6 +375,54 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     !collectionsLoading &&
     collections.length === 0 &&
     !(collectionScope === "owner" && !isGoogleAuthed);
+  const findInteractiveTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Element)) return null;
+    return target.closest(LOBBY_INTERACTIVE_SELECTOR) as HTMLElement | null;
+  }, []);
+
+  const handleLobbyPointerEnter = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "mouse") return;
+      const target = findInteractiveTarget(event.target);
+      if (!target) return;
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget instanceof Node && target.contains(relatedTarget)) {
+        return;
+      }
+      const now =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      if (
+        target === lastLobbyHoverTargetRef.current &&
+        now - lastLobbyHoverAtRef.current < 220
+      ) {
+        return;
+      }
+      lastLobbyHoverTargetRef.current = target;
+      lastLobbyHoverAtRef.current = now;
+      primeSfxAudio();
+      void playGameSfx("reveal");
+    },
+    [findInteractiveTarget, playGameSfx, primeSfxAudio],
+  );
+
+  const handleLobbyPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const target = findInteractiveTarget(event.target);
+      if (!target) return;
+      primeSfxAudio();
+      if (
+        target.closest(
+          ".room-lobby-action-btn--start, .room-lobby-toolbar-history-btn, .room-lobby-apply-button, .room-lobby-suggestion-submit-btn",
+        )
+      ) {
+        void playGameSfx("go");
+        return;
+      }
+      void playGameSfx("lock");
+    },
+    [findInteractiveTarget, playGameSfx, primeSfxAudio],
+  );
+
   const hostCollectionPrimaryText = (() => {
     const scopeLabel = collectionScope === "public" ? "公開收藏庫" : "私人收藏庫";
     if (collectionScope === "owner" && !isGoogleAuthed) {
@@ -427,23 +505,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const roomPlayDurationSec = clampPlayDurationSec(
     currentRoom?.gameSettings?.playDurationSec ?? DEFAULT_PLAY_DURATION_SEC,
   );
-  const roomRevealDurationSec = clampRevealDurationSec(
-    currentRoom?.gameSettings?.revealDurationSec ?? DEFAULT_REVEAL_DURATION_SEC,
-  );
-  const roomStartOffsetSec = clampStartOffsetSec(
-    currentRoom?.gameSettings?.startOffsetSec ?? DEFAULT_START_OFFSET_SEC,
-  );
   const roomAllowCollectionClipTiming =
     currentRoom?.gameSettings?.allowCollectionClipTiming ?? true;
-  const roomPlaybackExtensionMode = normalizePlaybackExtensionMode(
-    currentRoom?.gameSettings?.playbackExtensionMode,
-  );
-  const roomPlaybackExtensionLabel =
-    roomPlaybackExtensionMode === "manual_vote"
-      ? "\u5ef6\u9577\u6295\u7968"
-      : roomPlaybackExtensionMode === "auto_once"
-        ? "\u81ea\u52d5\u5ef6\u9577"
-        : "\u5ef6\u9577\u95dc\u9589";
 
   const extractPlaylistId = (url: string) => {
     try {
@@ -577,10 +640,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   useEffect(() => {
     if (playlistSuggestions.length === 0) {
       setSelectedSuggestionKey("");
-      setHostSuggestionHint("目前還沒有玩家提交歌單建議。");
+      setHostSuggestionHint("尚無建議");
       return;
     }
-    setHostSuggestionHint("可選擇建議並一鍵套用到目前房間。");
+    setHostSuggestionHint("可直接套用");
     setSelectedSuggestionKey((prev) => {
       if (!prev) return "";
       const stillExists = playlistSuggestions.some(
@@ -759,7 +822,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     const now = Date.now();
     const lastRequest = lastHostSuggestionRequestRef.current;
     if (hostSuggestionApplyingRef.current) {
-      setHostSuggestionHint("正在套用建議，請稍候...");
+      setHostSuggestionHint("套用中");
       return;
     }
     if (
@@ -767,26 +830,26 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       lastRequest.key === suggestionKey &&
       now - lastRequest.at < HOST_SUGGESTION_REQUEST_GAP_MS
     ) {
-      setHostSuggestionHint("同一筆建議短時間內重複操作，請稍後再試。");
+      setHostSuggestionHint("請稍後再試");
       return;
     }
 
     lastHostSuggestionRequestRef.current = { key: suggestionKey, at: now };
     hostSuggestionApplyingRef.current = true;
     setIsApplyingHostSuggestion(true);
-    setHostSuggestionHint("正在套用建議...");
+    setHostSuggestionHint("套用中");
 
     try {
       const isSnapshot = Boolean(suggestion.items?.length);
       if (isSnapshot) {
         await onApplySuggestionSnapshot(suggestion);
-        setHostSuggestionHint("已套用玩家提供的快照歌單。");
+        setHostSuggestionHint("已套用快照");
         return;
       }
 
       if (suggestion.type === "playlist") {
         onFetchPlaylistByUrl(suggestion.value);
-        setHostSuggestionHint("已套用播放清單連結。");
+        setHostSuggestionHint("已套用連結");
         return;
       }
 
@@ -794,10 +857,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       await onLoadCollectionItems(suggestion.value, {
         readToken: suggestion.readToken ?? null,
       });
-      setHostSuggestionHint("已套用收藏庫建議。");
+      setHostSuggestionHint("已套用收藏庫");
     } catch (error) {
       console.error(error);
-      setHostSuggestionHint("套用建議失敗，請稍後重試。");
+      setHostSuggestionHint("套用失敗");
     } finally {
       window.setTimeout(() => {
         hostSuggestionApplyingRef.current = false;
@@ -819,9 +882,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       },
     );
     setHostSuggestionHint(
-      isSnapshot
-        ? "將套用快照歌單，歌單內容會立即更新。"
-        : "確認後會改用該建議來源，並同步更新房間歌單。",
+      isSnapshot ? "即將套用快照" : "即將套用來源",
     );
   };
 
@@ -861,7 +922,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     return (
       <div style={style}>
         <div
-          className={`room-lobby-playlist-row px-3 py-2 flex items-center gap-2 border-b border-slate-800/60 ${
+          className={`room-lobby-playlist-row px-3.5 py-2.5 flex items-center gap-3 border-b border-slate-800/60 ${
             canOpenItem ? "cursor-pointer" : ""
           }`}
           role={canOpenItem ? "button" : undefined}
@@ -880,8 +941,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               src={item.thumbnail}
               sx={{
                 bgcolor: "#1f2937",
-                width: 56,
-                height: 56,
+                width: 60,
+                height: 60,
                 fontSize: 14,
                 border: "1px solid rgba(148,163,184,0.18)",
                 boxShadow:
@@ -920,8 +981,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   }, [isMobileTabletLobbyLayout]);
 
   useEffect(() => {
+    const roomId = currentRoom?.id ?? null;
     mobileChatUnreadSeededRoomRef.current = null;
-    lastUnreadMobileChatMessageIdRef.current = null;
+    lastUnreadMobileChatMessageIdRef.current = readRoomChatLastReadMessageId(roomId);
     setMobileChatUnread(0);
   }, [currentRoom?.id]);
 
@@ -945,6 +1007,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       setMobileChatUnread(0);
       mobileChatUnreadSeededRoomRef.current = roomId;
       lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
+      writeRoomChatLastReadMessageId(roomId, latestUnreadMessageId);
       return;
     }
 
@@ -954,41 +1017,47 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       return;
     }
 
+    const lastSeenMessageId =
+      lastUnreadMobileChatMessageIdRef.current ??
+      readRoomChatLastReadMessageId(roomId);
+
     if (mobileChatUnreadSeededRoomRef.current !== roomId) {
-      setMobileChatUnread(unreadMobileChatMessages.length);
+      setMobileChatUnread(
+        lastSeenMessageId
+          ? Math.max(
+              0,
+              unreadMobileChatMessages.length -
+                (unreadMobileChatMessages.findIndex(
+                  (message) => message.id === lastSeenMessageId,
+                ) + 1),
+            )
+          : unreadMobileChatMessages.length,
+      );
       mobileChatUnreadSeededRoomRef.current = roomId;
-      lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
       return;
     }
 
     if (!latestUnreadMessageId) {
+      setMobileChatUnread(0);
       lastUnreadMobileChatMessageIdRef.current = null;
+      writeRoomChatLastReadMessageId(roomId, null);
       return;
     }
 
-    const lastProcessedMessageId = lastUnreadMobileChatMessageIdRef.current;
-    if (lastProcessedMessageId === latestUnreadMessageId) {
-      return;
-    }
-
-    const lastProcessedIndex =
-      lastProcessedMessageId === null
+    const lastSeenIndex =
+      lastSeenMessageId === null
         ? -1
         : unreadMobileChatMessages.findIndex(
-            (message) => message.id === lastProcessedMessageId,
+            (message) => message.id === lastSeenMessageId,
           );
 
-    if (lastProcessedIndex < 0) {
+    if (lastSeenIndex < 0) {
       setMobileChatUnread(unreadMobileChatMessages.length);
     } else {
-      const nextUnreadCount =
-        unreadMobileChatMessages.length - (lastProcessedIndex + 1);
-      if (nextUnreadCount > 0) {
-        setMobileChatUnread((current) => current + nextUnreadCount);
-      }
+      setMobileChatUnread(
+        Math.max(0, unreadMobileChatMessages.length - (lastSeenIndex + 1)),
+      );
     }
-
-    lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
   }, [
     currentRoom?.id,
     isMobileTabletLobbyLayout,
@@ -1036,29 +1105,34 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     },
     threshold: 36,
   });
+  const latestUnreadLobbyMessageId =
+    unreadMobileChatMessages[unreadMobileChatMessages.length - 1]?.id ?? null;
+  const markLobbyChatRead = React.useCallback(() => {
+    setMobileChatUnread(0);
+    mobileChatUnreadSeededRoomRef.current = currentRoom?.id ?? null;
+    lastUnreadMobileChatMessageIdRef.current = latestUnreadLobbyMessageId;
+    writeRoomChatLastReadMessageId(
+      currentRoom?.id ?? null,
+      latestUnreadLobbyMessageId,
+    );
+  }, [currentRoom?.id, latestUnreadLobbyMessageId]);
 
   const mobileActionButtons = useMemo(
     () => [
-      {
-        key: "settings",
-        label: "房主設定",
-        compactLabel: "設定",
-        icon: <SettingsOutlinedIcon fontSize="small" />,
-        onClick: openSettingsModal,
-        disabled: Boolean(settingsActionDisabledReason),
-        tone: "normal" as const,
-        title: settingsActionDisabledReason ?? "調整房間設定",
-      },
-      {
-        key: "invite",
-        label: inviteSuccess ? "已複製" : "邀請",
-        compactLabel: inviteSuccess ? "已複製" : "邀請",
-        icon: <PersonAddAlt1RoundedIcon fontSize="small" />,
-        onClick: runInvite,
-        disabled: Boolean(inviteActionDisabledReason),
-        tone: inviteSuccess ? ("success" as const) : ("info" as const),
-        title: inviteActionDisabledReason ?? "複製邀請連結",
-      },
+      ...(isHost
+        ? [
+            {
+              key: "settings",
+              label: "設定",
+              compactLabel: "設定",
+              icon: <SettingsOutlinedIcon fontSize="small" />,
+              onClick: openSettingsModal,
+              disabled: Boolean(settingsActionDisabledReason),
+              tone: "normal" as const,
+              title: settingsActionDisabledReason ?? "調整房間設定",
+            },
+          ]
+        : []),
       {
         key: "leave",
         label: "離開",
@@ -1066,18 +1140,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         icon: <LogoutRoundedIcon fontSize="small" />,
         onClick: requestLeaveRoom,
         disabled: false,
-        tone: !isHost ? ("exitPrimary" as const) : ("normal" as const),
+        tone: "normal" as const,
         title: "離開房間",
       },
     ],
     [
-      inviteActionDisabledReason,
-      inviteSuccess,
-      isHost,
       openSettingsModal,
       requestLeaveRoom,
-      runInvite,
       settingsActionDisabledReason,
+      isHost,
     ],
   );
   const mobilePrimaryActions = useMemo(
@@ -1096,13 +1167,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             },
           ]
         : []),
-      ...(hasLastSettlement
+      ...(onOpenHistoryDrawer
         ? [
             {
               key: "history",
-              label: "查看上一局",
+              label: "對戰資訊",
               icon: <HistoryEduRoundedIcon fontSize="small" />,
-              onClick: () => onOpenLastSettlement?.(),
+              onClick: () => onOpenHistoryDrawer?.(),
               disabled: false,
               tone: "history" as const,
             },
@@ -1123,11 +1194,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ],
     [
       gameState?.status,
-      hasLastSettlement,
       isHost,
       isStartBroadcastActive,
       onOpenGame,
-      onOpenLastSettlement,
+      onOpenHistoryDrawer,
       onStartGame,
       startActionDisabledReason,
       startBroadcastRemainingSec,
@@ -1139,23 +1209,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         ? [
             {
               key: "settings",
-              label: "房主設定",
+              label: "設定",
               icon: <SettingsOutlinedIcon fontSize="small" />,
               onClick: openSettingsModal,
               disabled: Boolean(settingsActionDisabledReason),
               tone: "normal" as const,
               title: settingsActionDisabledReason ?? "調整房間設定",
               variant: "outlined" as const,
-            },
-            {
-              key: "invite",
-              label: inviteSuccess ? "已複製" : "邀請",
-              icon: <PersonAddAlt1RoundedIcon fontSize="small" />,
-              onClick: runInvite,
-              disabled: Boolean(inviteActionDisabledReason),
-              tone: inviteSuccess ? ("success" as const) : ("info" as const),
-              title: inviteActionDisabledReason ?? "複製邀請連結",
-              variant: "contained" as const,
             },
           ]
         : []),
@@ -1165,108 +1225,54 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         icon: <LogoutRoundedIcon fontSize="small" />,
         onClick: requestLeaveRoom,
         disabled: false,
-        tone: !isHost ? ("exitPrimary" as const) : ("normal" as const),
+        tone: "normal" as const,
         title: "離開房間",
         variant: "outlined" as const,
       },
     ],
     [
-      inviteActionDisabledReason,
-      inviteSuccess,
       isHost,
       requestLeaveRoom,
       openSettingsModal,
-      runInvite,
       settingsActionDisabledReason,
     ],
   );
   const hasDesktopPrimaryAction =
     gameState?.status === "playing" || (isHost && gameState?.status !== "playing");
-  const hasDesktopHistoryAction = Boolean(hasLastSettlement);
+  const hasDesktopHistoryAction = Boolean(onOpenHistoryDrawer);
   const isSoloLeaveToolbar =
     !hasDesktopPrimaryAction &&
     !hasDesktopHistoryAction &&
     desktopUtilityActions.length === 1 &&
     desktopUtilityActions[0]?.key === "leave";
-
-  const roomSettingChips = (
-    <Stack
-      direction="row"
-      spacing={0.75}
-      alignItems="center"
-      flexWrap="wrap"
-      className="room-lobby-room-meta"
-    >
-      <Chip
-        size="small"
-        variant="outlined"
-        label={`題數 ${currentRoom?.gameSettings?.questionCount ?? "-"}`}
-        className="text-slate-200 border-slate-600"
-      />
-      <Chip
-        size="small"
-        variant="outlined"
-        label={`公布 ${roomRevealDurationSec}s`}
-        className="text-slate-200 border-slate-600"
-      />
-      {!roomAllowCollectionClipTiming && (
-        <Chip
-          size="small"
-          variant="outlined"
-          label={`作答 ${roomPlayDurationSec}s`}
-          className="text-slate-200 border-slate-600"
-        />
-      )}
-      {!roomAllowCollectionClipTiming && (
-        <Chip
-          size="small"
-          variant="outlined"
-          label={`起始 ${roomStartOffsetSec}s`}
-          className="text-slate-200 border-slate-600"
-        />
-      )}
-      <Chip
-        size="small"
-        variant="outlined"
-        label={roomAllowCollectionClipTiming ? "收藏庫時間 ON" : "收藏庫時間 OFF"}
-        className="text-slate-200 border-slate-600"
-      />
-      <Chip
-        size="small"
-        variant="outlined"
-        label={roomPlaybackExtensionLabel}
-        className="text-slate-200 border-slate-600"
-      />
-      <Chip
-        size="small"
-        variant="outlined"
-        label={`曲目 ${currentRoom?.playlist.totalCount ?? "-"} 首`}
-        className="text-slate-200 border-slate-600"
-      />
-      <Chip
-        size="small"
-        variant="outlined"
-        label={playlistProgress.ready ? "同步完成" : "同步中"}
-        className="text-slate-200 border-slate-600"
-      />
-      {(currentRoom?.hasPin ?? currentRoom?.hasPassword) && (
-        <Chip
-          size="small"
-          variant="outlined"
-          label="需 PIN"
-          className="text-slate-200 border-slate-600"
-        />
-      )}
-      {currentRoom?.visibility === "private" && (
-        <Chip
-          size="small"
-          variant="outlined"
-          label="私人房"
-          className="text-slate-200 border-slate-600"
-        />
-      )}
-    </Stack>
-  );
+  const playerCountLabel = currentRoom?.maxPlayers
+    ? `${participants.length}/${currentRoom.maxPlayers}`
+    : String(participants.length);
+  const roomMetricCards = [
+    {
+      key: "questions",
+      label: "題數",
+      value: String(currentRoom?.gameSettings?.questionCount ?? "-"),
+      icon: <QuizRoundedIcon fontSize="small" />,
+      tone: "amber",
+    },
+    {
+      key: "timing",
+      label: "作答時間",
+      value: roomAllowCollectionClipTiming ? "依收藏庫設定" : `${roomPlayDurationSec}s`,
+      icon: <TimerRoundedIcon fontSize="small" />,
+      tone: "cyan",
+    },
+  ] as const;
+  const showRoomAccessStrip =
+    Boolean(formattedRoomCode) ||
+    (isHost && Boolean(currentRoom?.hasPin ?? currentRoom?.hasPassword));
+  const showInlineRoomAccess = showRoomAccessStrip;
+  const visibleRoomPassword = roomPassword
+    ? showRoomPassword
+      ? roomPassword
+      : maskedRoomPassword
+    : "未設定";
 
   const handleCopyRoomCode = async () => {
     if (!currentRoom?.roomCode) return;
@@ -1279,148 +1285,229 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     }
   };
 
+  const roomAccessActions = (
+    <>
+      {formattedRoomCode ? (
+        <button
+          type="button"
+          className={`room-lobby-access-chip room-lobby-access-chip--code ${
+            roomCodeCopied ? "is-copied" : ""
+          }`}
+          title="複製房間代碼"
+          onClick={() => {
+            void handleCopyRoomCode();
+          }}
+        >
+          <ContentCopyRoundedIcon fontSize="small" />
+          <div className="room-lobby-access-copy">
+            <strong>{formattedRoomCode}</strong>
+            {roomCodeCopied ? <small>已複製</small> : null}
+          </div>
+        </button>
+      ) : null}
+      {isHost ? (
+        <Button
+          variant="contained"
+          size="small"
+          color="inherit"
+          className={`room-lobby-access-btn ${
+            inviteSuccess
+              ? "room-lobby-action-btn--invite-success"
+              : "room-lobby-action-btn--invite"
+          }`}
+          disabled={Boolean(inviteActionDisabledReason)}
+          title={inviteActionDisabledReason ?? "複製邀請連結"}
+          startIcon={<PersonAddAlt1RoundedIcon fontSize="small" />}
+          onClick={runInvite}
+        >
+          {inviteSuccess ? "已複製" : "邀請"}
+        </Button>
+      ) : null}
+      {isHost && (currentRoom?.hasPin ?? currentRoom?.hasPassword) ? (
+        <button
+          type="button"
+          className="room-lobby-access-chip room-lobby-access-chip--pin"
+          title={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
+          onClick={() => setShowRoomPassword((prev) => !prev)}
+        >
+          <KeyRoundedIcon fontSize="small" />
+          <div className="room-lobby-access-copy">
+            <strong>{visibleRoomPassword}</strong>
+          </div>
+          {showRoomPassword ? (
+            <VisibilityOffRoundedIcon fontSize="small" />
+          ) : (
+            <VisibilityRoundedIcon fontSize="small" />
+          )}
+        </button>
+      ) : null}
+    </>
+  );
+
   const participantsPanel = (
     <Box className="room-lobby-participants">
-      <Typography variant="subtitle2" className="text-slate-300" gutterBottom>
-        玩家
-      </Typography>
-      {participants.length === 0 ? (
-        <Typography variant="body2" className="text-slate-500">
-          目前尚無玩家
-        </Typography>
-      ) : (
-        <Stack direction="row" spacing={1} flexWrap="wrap">
-          {participants.map((p) => {
-            const isSelf = p.clientId === selfClientId;
-            const host = p.clientId === currentRoom?.hostClientId;
-            const isActionOpen =
-              Boolean(actionAnchorEl) && actionTargetId === p.clientId;
-            const showActions = isHost && !isSelf;
-            const participantPingText =
-              typeof p.pingMs === "number"
-                ? `${Math.max(0, Math.round(p.pingMs))}ms`
-                : p.isOnline
-                  ? "在線"
-                  : "--";
-            return (
-              <Box key={p.clientId} className="flex items-center gap-1">
-                <Chip
-                  label={
-                    <Stack
-                      display={"flex"}
-                      direction="row"
-                      spacing={0.5}
-                      alignItems="center"
+      <div className="room-lobby-panel-head">
+        <div className="room-lobby-panel-title">
+          <GroupsRoundedIcon fontSize="small" />
+          <Typography variant="subtitle2" className="text-slate-100">
+            玩家
+          </Typography>
+        </div>
+        <div className="room-lobby-panel-counter">{playerCountLabel}</div>
+      </div>
+
+      <div className="room-lobby-player-list">
+        {participants.length === 0 ? (
+          <div className="room-lobby-roster-empty">
+            <Typography variant="body2" className="text-slate-400">
+              目前尚無玩家
+            </Typography>
+          </div>
+        ) : (
+          <div className="room-lobby-player-list-inner">
+            {participants.map((p) => {
+              const isSelf = p.clientId === selfClientId;
+              const host = p.clientId === currentRoom?.hostClientId;
+              const isActionOpen =
+                Boolean(actionAnchorEl) && actionTargetId === p.clientId;
+              const showActions = isHost && !isSelf;
+              const participantInitial = normalizeDisplayText(p.username, "玩")
+                .trim()
+                .slice(0, 1)
+                .toUpperCase();
+              return (
+                <Box
+                  key={p.clientId}
+                  className={`room-lobby-player-row ${
+                    isSelf ? "is-self" : ""
+                  } ${p.isOnline ? "is-online" : "is-offline"} ${
+                    showActions ? "has-actions" : ""
+                  }`}
+                >
+                  <div className="room-lobby-player-row-main">
+                    <Badge
+                      variant="dot"
+                      color={p.isOnline ? "success" : "default"}
+                      overlap="circular"
+                      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
                     >
-                      <Badge
-                        variant="dot"
-                        color={p.isOnline ? "success" : "default"}
-                        overlap="circular"
+                      <Avatar className="room-lobby-player-avatar">
+                        {participantInitial || "P"}
+                      </Avatar>
+                    </Badge>
+                    <div className="room-lobby-player-copy">
+                      <div className="room-lobby-player-title-row">
+                        <strong>{normalizeDisplayText(p.username, "玩家")}</strong>
+                      </div>
+                      <div className="room-lobby-player-tags">
+                        {host ? (
+                          <span className="room-lobby-player-tag is-host">
+                            房主
+                          </span>
+                        ) : (
+                          <span className="room-lobby-player-tag is-player">
+                            玩家
+                          </span>
+                        )}
+                        {!p.isOnline && (
+                          <span className="room-lobby-player-tag is-muted">
+                            暫離
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="room-lobby-player-side">
+                    <span
+                      className={`room-lobby-player-status ${
+                        p.isOnline ? "is-online" : "is-offline"
+                      }`}
+                    >
+                      {p.isOnline ? "在線" : "離線"}
+                    </span>
+                    {showActions && (
+                      <IconButton
+                        size="small"
+                        color="inherit"
+                        className="room-lobby-player-action"
+                        sx={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: "999px",
+                          "&:hover": {
+                            backgroundColor: "rgba(148,163,184,0.12)",
+                          },
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setActionAnchorEl(event.currentTarget);
+                          setActionTargetId(p.clientId);
+                        }}
                       >
-                        <Box className="h-1.5 w-1.5 rounded-full" />
-                      </Badge>
-                      <span>{p.username}</span>
-                      {host && (
-                        <span className="text-amber-200 text-[10px]">
-                          房主
-                        </span>
-                      )}
-                      {isSelf && (
-                        <span className="opacity-80 text-[10px]">(我)</span>
-                      )}
-                      <span className="opacity-85 text-[10px]">
-                        {participantPingText}
-                      </span>
-                      {showActions && (
-                        <IconButton
-                          size="small"
-                          color="inherit"
-                          sx={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: "999px",
-                            "&:hover": {
-                              backgroundColor: "rgba(148,163,184,0.25)",
-                            },
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setActionAnchorEl(event.currentTarget);
-                            setActionTargetId(p.clientId);
-                          }}
-                        >
-                          ...
-                        </IconButton>
-                      )}
-                    </Stack>
-                  }
-                  variant="outlined"
-                  color={isSelf ? "info" : "default"}
-                  className={
-                    isSelf
-                      ? "text-sky-100 border-sky-500/60"
-                      : "text-slate-200"
-                  }
-                />
-                {showActions && (
-                  <Popover
-                    open={isActionOpen}
-                    anchorEl={actionAnchorEl}
-                    onClose={closeActionMenu}
-                    anchorOrigin={{
-                      vertical: "bottom",
-                      horizontal: "left",
-                    }}
-                  >
-                    <MUIList dense>
-                      <ListItem>
-                        <Button
-                          size="small"
-                          variant="text"
-                          color="info"
-                          disabled={!p.isOnline}
-                          onClick={() => {
-                            onTransferHost(p.clientId);
-                            closeActionMenu();
-                          }}
-                        >
-                          轉移房主
-                        </Button>
-                      </ListItem>
-                      <ListItem>
-                        <Button
-                          size="small"
-                          variant="text"
-                          color="warning"
-                          onClick={() => {
-                            onKickPlayer(p.clientId);
-                            closeActionMenu();
-                          }}
-                        >
-                          踢出並封鎖
-                        </Button>
-                      </ListItem>
-                      <ListItem>
-                        <Button
-                          size="small"
-                          variant="text"
-                          color="warning"
-                          onClick={() => {
-                            onKickPlayer(p.clientId, null);
-                            closeActionMenu();
-                          }}
-                        >
-                          只踢出玩家
-                        </Button>
-                      </ListItem>
-                    </MUIList>
-                  </Popover>
-                )}
-              </Box>
-            );
-          })}
-        </Stack>
-      )}
+                        <MoreHorizRoundedIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </div>
+                  {showActions && (
+                    <Popover
+                      open={isActionOpen}
+                      anchorEl={actionAnchorEl}
+                      onClose={closeActionMenu}
+                      anchorOrigin={{
+                        vertical: "bottom",
+                        horizontal: "left",
+                      }}
+                    >
+                      <MUIList dense>
+                        <ListItem>
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="info"
+                            disabled={!p.isOnline}
+                            onClick={() => {
+                              onTransferHost(p.clientId);
+                              closeActionMenu();
+                            }}
+                          >
+                            轉移房主
+                          </Button>
+                        </ListItem>
+                        <ListItem>
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="warning"
+                            onClick={() => {
+                              onKickPlayer(p.clientId);
+                              closeActionMenu();
+                            }}
+                          >
+                            踢出並封鎖
+                          </Button>
+                        </ListItem>
+                        <ListItem>
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="warning"
+                            onClick={() => {
+                              onKickPlayer(p.clientId, null);
+                              closeActionMenu();
+                            }}
+                          >
+                            只踢出玩家
+                          </Button>
+                        </ListItem>
+                      </MUIList>
+                    </Popover>
+                  )}
+                </Box>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </Box>
   );
 
@@ -1488,6 +1575,19 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       extractPlaylistId={extractPlaylistId}
     />
   ) : null;
+  const controlPanel = hostPanel ?? (
+    <Box className="room-lobby-control-placeholder">
+      <div className="room-lobby-panel-title">
+        <TuneRoundedIcon fontSize="small" />
+        <Typography variant="subtitle2" className="text-slate-100">
+          操作已鎖定
+        </Typography>
+      </div>
+      <Typography variant="body2" className="text-slate-300">
+        遊戲進行中
+      </Typography>
+    </Box>
+  );
 
   const chatPanel = (
     <RoomLobbyChatPanel
@@ -1495,59 +1595,57 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       messageInput={messageInput}
       onInputChange={onInputChange}
       onSend={onSend}
+      onChatInteraction={markLobbyChatRead}
       latestSettlementRoundKey={latestSettlementRoundKey}
       onOpenHistoryDrawer={onOpenHistoryDrawer}
       onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
     />
   );
-
+  const chatPanelStage = (
+    <Box className="room-lobby-chat-stage">
+      <div className="room-lobby-panel-head">
+        <div className="room-lobby-panel-title">
+          <ChatBubbleRoundedIcon fontSize="small" />
+          <Typography variant="subtitle2" className="text-slate-100">
+            聊天室
+          </Typography>
+        </div>
+      </div>
+      {chatPanel}
+    </Box>
+  );
   const playlistPanel = (
     <Box className="room-lobby-playlist-panel">
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={1}
-      >
-        <Stack direction="row" spacing={1} alignItems="center">
+      <div className="room-lobby-panel-head room-lobby-playlist-head">
+        <div className="room-lobby-panel-title">
+          <QueueMusicRoundedIcon fontSize="small" />
           <Typography variant="subtitle2" className="text-slate-200">
-            房間歌單
+            歌單
           </Typography>
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`${playlistProgress.received}/${playlistProgress.total}${playlistProgress.ready ? " 已同步" : ""}`}
-            className="text-slate-200 border-slate-600"
-          />
-        </Stack>
-      </Stack>
+        </div>
+        <div className="room-lobby-panel-counter">
+          {playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
+        </div>
+      </div>
       {playlistItems.length === 0 ? (
-        <div
-          ref={playlistListContainerRef}
-          className={playlistListShellClassName}
-          style={playlistListShellStyle}
-        >
+        <div className="room-lobby-playlist-shell" style={playlistListShellStyle}>
           <div className="flex h-full min-h-[140px] items-center justify-center rounded border border-slate-800 bg-slate-900/60 px-3">
             <Typography
               variant="body2"
               className="text-slate-500"
               align="center"
             >
-              目前沒有可顯示的歌單內容。請先同步房間歌單或套用新的來源。
+              目前沒有歌曲
             </Typography>
           </div>
         </div>
       ) : (
-        <div
-          ref={playlistListContainerRef}
-          className={playlistListShellClassName}
-          style={playlistListShellStyle}
-        >
+        <div className="room-lobby-playlist-shell" style={playlistListShellStyle}>
           <div className="h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-900/60">
             <VirtualList
-              style={{ height: playlistListViewportHeight, width: "100%" }}
+              style={playlistListViewportStyle}
               rowCount={rowCount}
-              rowHeight={75}
+              rowHeight={playlistRowHeight}
               rowProps={playlistRowProps}
               rowComponent={PlaylistRow}
             />
@@ -1561,86 +1659,46 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     <Card
       variant="outlined"
       className="w-full lg:w-4/5 bg-slate-900/70 border-slate-700 text-slate-50 room-lobby-card"
+      onPointerOverCapture={handleLobbyPointerEnter}
+      onPointerDownCapture={handleLobbyPointerDown}
       sx={{
-        height: isCompactLobbyLayout ? "auto" : "min(820px, calc(100dvh - 132px))",
-        maxHeight: isCompactLobbyLayout ? "none" : 820,
+        minHeight: isCompactLobbyLayout ? "auto" : "min(860px, calc(100dvh - 120px))",
+        height: "auto",
+        maxHeight: "none",
         display: "flex",
         flexDirection: "column",
       }}
     >
       <CardHeader
+        className="room-lobby-card-header"
         title={
-          <Stack spacing={1} className="room-lobby-header-stack">
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-              <Typography variant="subtitle1" className="text-slate-100">
-                {normalizeDisplayText(currentRoom?.name, "未命名房間")}
-              </Typography>
-              <Chip
-                size="small"
-                label={
-                  currentRoom?.maxPlayers
-                    ? `${participants.length}/${currentRoom.maxPlayers} 人`
-                    : `${participants.length} 人`
-                }
-                color="success"
-                variant="outlined"
-              />
-            </Stack>
-            {roomSettingChips}
-            {formattedRoomCode && (
-              <Box>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                  <Typography variant="caption" className="text-slate-300">
-                    房間代碼
-                  </Typography>
-                  <TextField
-                    size="small"
-                    value={formattedRoomCode}
-                    InputProps={{ readOnly: true }}
-                    sx={{ minWidth: 180 }}
-                  />
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      void handleCopyRoomCode();
-                    }}
+          <Stack spacing={1.25} className="room-lobby-header-stack">
+            <div className="room-lobby-header-identity">
+              <div className="room-lobby-header-copy">
+                <Typography variant="h6" className="room-lobby-header-title">
+                  {normalizeDisplayText(currentRoom?.name, "未命名房間")}
+                </Typography>
+                {showInlineRoomAccess ? (
+                  <div className="room-lobby-header-inline-actions">
+                    {roomAccessActions}
+                  </div>
+                ) : null}
+              </div>
+              <div className="room-lobby-metric-grid">
+                {roomMetricCards.map((card) => (
+                  <div
+                    key={card.key}
+                    className={`room-lobby-metric-card room-lobby-metric-card--${card.tone}`}
                   >
-                    {roomCodeCopied ? "已複製" : "複製代碼"}
-                  </Button>
-                </Stack>
-              </Box>
-            )}
-            {isHost && (currentRoom?.hasPin ?? currentRoom?.hasPassword) && (
-              <Box>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                  <Typography variant="caption" className="text-slate-300">
-                    房間 PIN
-                  </Typography>
-                  {roomPassword ? (
-                    <>
-                      <TextField
-                        size="small"
-                        value={showRoomPassword ? roomPassword : maskedRoomPassword}
-                        InputProps={{ readOnly: true }}
-                        sx={{ minWidth: 180 }}
-                      />
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => setShowRoomPassword((prev) => !prev)}
-                      >
-                        {showRoomPassword ? "隱藏" : "顯示"}
-                      </Button>
-                    </>
-                  ) : (
-                    <Typography variant="caption" className="text-slate-500">
-                      此房間目前未設定 PIN
-                    </Typography>
-                  )}
-                </Stack>
-              </Box>
-            )}
+                    <span className="room-lobby-metric-icon">{card.icon}</span>
+                    <div className="room-lobby-metric-copy">
+                      <small>{card.label}</small>
+                      <strong>{card.value}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </Stack>
         }
         action={
@@ -1682,16 +1740,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   )}
                 </div>
                 <div className="room-lobby-toolbar-group room-lobby-toolbar-group--history">
-                  {hasLastSettlement && (
+                  {onOpenHistoryDrawer && (
                     <Button
                       variant="outlined"
                       color="inherit"
                       size="small"
                       startIcon={<HistoryEduRoundedIcon fontSize="small" />}
-                      className="room-lobby-toolbar-secondary-btn"
-                      onClick={() => onOpenLastSettlement?.()}
+                      className="room-lobby-toolbar-secondary-btn room-lobby-toolbar-history-btn"
+                      onClick={() => onOpenHistoryDrawer?.()}
                     >
-                      查看上一局
+                      對戰資訊
                     </Button>
                   )}
                 </div>
@@ -1715,14 +1773,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           ? "room-lobby-toolbar-settings-btn"
                           : ""
                       } ${
+                        action.key === "leave"
+                          ? "room-lobby-toolbar-leave-btn"
+                          : ""
+                      } ${
                         action.key === "invite"
                           ? action.tone === "success"
                             ? "room-lobby-action-btn--invite-success"
                             : "room-lobby-action-btn--invite"
-                          : ""
-                      } ${
-                        action.tone === "exitPrimary"
-                          ? "room-lobby-action-btn--leave-primary"
                           : ""
                       }`}
                       disabled={action.disabled}
@@ -1753,9 +1811,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             <div className="room-lobby-mobile-shell">
               <div className="room-lobby-mobile-top-actions">
                 <div className="room-lobby-mobile-actions-card">
-                  <div className="room-lobby-mobile-actions-head">
-                    <span className="room-lobby-mobile-actions-kicker">Quick Access</span>
-                  </div>
                   {mobilePrimaryActions.length > 0 && (
                     <div
                       className={`room-lobby-mobile-primary-actions ${
@@ -1773,7 +1828,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           startIcon={action.icon}
                           className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-primary-action ${
                             action.tone === "start"
-                              ? "room-lobby-action-btn--start"
+                              ? "room-lobby-action-btn--start room-lobby-mobile-start-btn"
                               : action.tone === "history"
                                 ? "room-lobby-mobile-primary-action--history"
                                 : "room-lobby-mobile-primary-action--resume"
@@ -1786,21 +1841,25 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       ))}
                     </div>
                   )}
-                  <div className="room-lobby-mobile-secondary-actions">
+                  <div
+                    className={`room-lobby-mobile-secondary-actions ${
+                      mobileActionButtons.length === 1
+                        ? "room-lobby-mobile-secondary-actions--single"
+                        : ""
+                    }`}
+                  >
                     {mobileActionButtons.map((action) => (
                       <Button
                         key={`mobile-${action.key}`}
                         variant={action.key === "leave" ? "outlined" : "contained"}
                         color="inherit"
                         className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action room-lobby-mobile-secondary-action--icon-only ${
-                          action.key === "invite"
-                            ? action.tone === "success"
-                              ? "room-lobby-action-btn--invite-success"
-                              : "room-lobby-action-btn--invite"
+                          action.key === "settings"
+                            ? "room-lobby-mobile-secondary-action--settings"
                             : ""
                         } ${
-                          action.tone === "exitPrimary"
-                            ? "room-lobby-action-btn--leave-primary"
+                          action.key === "leave"
+                            ? "room-lobby-mobile-secondary-action--leave"
                             : ""
                         }`}
                         aria-label={action.compactLabel}
@@ -1871,14 +1930,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               </div>
               <div className="room-lobby-mobile-panel">
                 {mobileLobbyTab === "members" && participantsPanel}
-                {mobileLobbyTab === "host" &&
-                  (hostPanel ?? (
-                    <div className="room-lobby-mobile-empty-panel">
-                      <Typography variant="body2" className="text-slate-400">
-                        目前沒有可顯示的主持內容。
-                      </Typography>
-                    </div>
-                  ))}
+                {mobileLobbyTab === "host" && controlPanel}
                 {mobileLobbyTab === "playlist" && playlistPanel}
               </div>
             </div>
@@ -1887,7 +1939,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 variant="outlined"
                 color="info"
                 fullWidth
-                onClick={() => setMobileChatDrawerOpen(true)}
+                onClick={() => {
+                  markLobbyChatRead();
+                  setMobileChatDrawerOpen(true);
+                }}
               >
                 <span className="room-lobby-mobile-chat-trigger-copy">
                   <span>開啟聊天室</span>
@@ -1903,7 +1958,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               className="room-lobby-mobile-chat-drawer-root"
               anchor="bottom"
               open={mobileChatDrawerOpen}
-              onOpen={() => setMobileChatDrawerOpen(true)}
+              onOpen={() => {
+                markLobbyChatRead();
+                setMobileChatDrawerOpen(true);
+              }}
               onClose={() => setMobileChatDrawerOpen(false)}
               disableSwipeToOpen={false}
               allowSwipeInChildren
@@ -1929,13 +1987,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   {...mobileChatDragDismiss.dragHandleProps}
                 >
                   <div
-                    className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
+                    className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${
+                      mobileChatDragDismiss.canDismiss
+                        ? "ready"
+                        : mobileChatDragDismiss.isDismissArmed
+                          ? "armed"
+                          : "idle"
+                    }`}
                     aria-hidden="true"
                   >
                     <span className="game-room-mobile-drawer-handle-bar" />
-                    <span className="game-room-mobile-drawer-handle-direction">
-                      向下拖曳收合
-                    </span>
                   </div>
                   <div className="room-lobby-mobile-chat-drawer-headline">
                     <Typography variant="subtitle2" className="text-slate-100">
@@ -1982,15 +2043,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           </>
         ) : (
           <>
-            <div className="room-lobby-top-grid">
-              {participantsPanel}
-              {hostPanel}
-            </div>
-
-            {chatPanel}
-
-            <Divider className="room-lobby-divider" />
-
+            {participantsPanel}
+            {controlPanel}
+            {chatPanelStage}
             {playlistPanel}
           </>
         )}
@@ -2089,36 +2144,48 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       <Dialog
         open={Boolean(confirmModal)}
         onClose={closeConfirmModal}
+        fullWidth
+        maxWidth="xs"
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            width: "min(92vw, 440px)",
+            borderRadius: 4,
             border: "1px solid rgba(56, 189, 248, 0.32)",
             color: "#f8fafc",
             background:
               "radial-gradient(900px 420px at -8% -18%, rgba(56,189,248,0.20), transparent 62%), linear-gradient(180deg, rgba(2,6,23,0.98), rgba(2,6,23,0.92))",
             boxShadow:
               "0 34px 88px -44px rgba(2,6,23,0.95), 0 0 0 1px rgba(255,255,255,0.03)",
+            overflow: "hidden",
           },
         }}
       >
-        <DialogTitle className="!pb-2 !text-base !font-extrabold !text-slate-50">
+        <DialogTitle className="!px-6 !pt-6 !pb-2 !text-xl !font-extrabold !tracking-[-0.02em] !text-slate-50">
           {confirmModal?.title ?? "確認操作"}
         </DialogTitle>
-        <DialogContent className="!pt-0">
+        <DialogContent className="!px-6 !pt-1 !pb-0">
           {confirmModal?.detail && (
-            <Typography variant="body2" className="text-slate-100">
+            <Typography
+              variant="body1"
+              className="rounded-2xl border border-sky-400/15 bg-slate-950/45 px-4 py-3 text-slate-100"
+            >
               {confirmModal.detail}
             </Typography>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={closeConfirmModal} variant="text">
+        <DialogActions className="!px-6 !pb-5 !pt-4">
+          <Button
+            onClick={closeConfirmModal}
+            variant="text"
+            className="!min-h-[44px] !rounded-2xl !px-4"
+          >
             取消
           </Button>
           <Button
             onClick={handleConfirmSwitch}
             variant="contained"
             color="warning"
+            className="!min-h-[46px] !rounded-2xl !px-5 !font-extrabold"
           >
             確認
           </Button>

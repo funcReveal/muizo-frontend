@@ -21,7 +21,6 @@ interface GameRoomMobileChatPopoverProps {
   onDraggingChange?: (isDragging: boolean) => void;
   danmuEnabled: boolean;
   onDanmuEnabledChange: (enabled: boolean) => void;
-  messagesLength: number;
   recentMessages: ChatMessage[];
   messageInput: string;
   onMessageChange?: (value: string) => void;
@@ -44,7 +43,6 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
   onDraggingChange,
   danmuEnabled,
   onDanmuEnabledChange,
-  messagesLength,
   recentMessages,
   messageInput,
   onMessageChange,
@@ -61,6 +59,11 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
     onHeightChange,
     threshold: 34,
   });
+  const chatDismissState = mobileChatDragDismiss.canDismiss
+    ? "ready"
+    : mobileChatDragDismiss.isDismissArmed
+      ? "armed"
+      : "idle";
 
   React.useEffect(() => {
     onDraggingChange?.(mobileChatDragDismiss.isDragging);
@@ -118,13 +121,10 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
           {...mobileChatDragDismiss.dragHandleProps}
         >
           <div
-            className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
+            className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${chatDismissState}`}
             aria-hidden="true"
           >
             <span className="game-room-mobile-drawer-handle-bar" />
-            <span className="game-room-mobile-drawer-handle-direction">
-              向下拖曳收合
-            </span>
           </div>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
@@ -145,9 +145,13 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
                   }
                 />
               </label>
-              <span className="game-room-mobile-drawer-gesture-hint game-room-mobile-drawer-gesture-hint--minimal">
-                {messagesLength} 則訊息
-              </span>
+              <button
+                type="button"
+                className="game-room-mobile-drawer-close"
+                onClick={onClose}
+              >
+                收合
+              </button>
             </div>
           </div>
         </div>
@@ -156,7 +160,6 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
             variant="sheet"
             danmuEnabled={danmuEnabled}
             onDanmuEnabledChange={onDanmuEnabledChange}
-            messagesLength={messagesLength}
             recentMessages={recentMessages}
             messageInput={messageInput}
             onMessageChange={onMessageChange}

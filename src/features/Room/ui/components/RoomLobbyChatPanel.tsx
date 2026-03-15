@@ -21,6 +21,7 @@ interface RoomLobbyChatPanelProps {
   messageInput: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
+  onChatInteraction?: () => void;
   latestSettlementRoundKey?: string | null;
   onOpenHistoryDrawer?: () => void;
   onOpenSettlementByRoundKey?: (roundKey: string) => void;
@@ -31,6 +32,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
   messageInput,
   onInputChange,
   onSend,
+  onChatInteraction,
   latestSettlementRoundKey,
   onOpenHistoryDrawer,
   onOpenSettlementByRoundKey,
@@ -51,11 +53,10 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
         sx={{
           flex: 1,
           border: "1px solid rgba(245,158,11,0.14)",
-          borderRadius: 2,
+          borderRadius: 2.5,
           background:
-            "radial-gradient(260px 160px at 8% 0%, rgba(245,158,11,0.05), transparent 70%), linear-gradient(180deg, rgba(8,12,19,0.92), rgba(6,10,16,0.9))",
-          p: 1.5,
-          maxHeight: "150px",
+            "radial-gradient(320px 180px at 8% 0%, rgba(245,158,11,0.05), transparent 70%), linear-gradient(180deg, rgba(8,12,19,0.92), rgba(6,10,16,0.9))",
+          p: { xs: 1.5, md: 2 },
           overflowY: "auto",
           overflowX: "hidden",
         }}
@@ -153,7 +154,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                       <Typography variant="caption" fontWeight={600}>
                         {normalizeDisplayText(
                           msg.username,
-                          msg.userId.startsWith("system:") ? "對戰紀錄" : "玩家",
+                          msg.userId.startsWith("system:") ? "系統" : "玩家",
                         )}
                       </Typography>
                       <Typography variant="caption" color="rgba(255,255,255,0.7)">
@@ -177,9 +178,10 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                         variant="outlined"
                         color="inherit"
                         sx={{ mt: 1, borderColor: "rgba(148,163,184,0.6)" }}
-                        onClick={() =>
-                          onOpenSettlementByRoundKey?.(settlementRoundKey)
-                        }
+                        onClick={() => {
+                          onChatInteraction?.();
+                          onOpenSettlementByRoundKey?.(settlementRoundKey);
+                        }}
                       >
                         查看上一局
                       </Button>
@@ -190,9 +192,12 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                         variant="text"
                         color="inherit"
                         sx={{ mt: 1, color: "rgba(191,219,254,0.92)" }}
-                        onClick={() => onOpenHistoryDrawer?.()}
+                        onClick={() => {
+                          onChatInteraction?.();
+                          onOpenHistoryDrawer?.();
+                        }}
                       >
-                        查看歷史
+                        查看對戰資訊
                       </Button>
                     )}
                   </Box>

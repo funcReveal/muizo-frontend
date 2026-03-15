@@ -28,6 +28,21 @@ vi.mock("../gameRoomPage/useMobileDrawerDragDismiss", () => ({
   }),
 }));
 
+const createMatchMedia = (matches = false) =>
+  vi.fn().mockImplementation((query: string) => ({
+    matches:
+      typeof matches === "boolean"
+        ? matches
+        : query.includes("(max-width:1024px)") || query.includes("(max-width:640px)"),
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+
 const currentRoom: RoomState["room"] = {
   id: "room-1",
   name: "測試房間",
@@ -36,6 +51,7 @@ const currentRoom: RoomState["room"] = {
   hasPassword: false,
   playlistCount: 12,
   hostClientId: "host-1",
+  roomCode: "ABCD1234",
   playlist: {
     items: [],
     totalCount: 12,
@@ -63,7 +79,7 @@ const participants: RoomParticipant[] = [
   },
   {
     clientId: "guest-1",
-    username: "玩家",
+    username: "訪客玩家",
     joinedAt: 2,
     isOnline: true,
     lastSeen: 2,
@@ -79,19 +95,63 @@ const playlistSuggestions: PlaylistSuggestion[] = [];
 const collections: CollectionOption[] = [];
 const youtubePlaylists: YoutubePlaylist[] = [];
 
+const baseProps = {
+  currentRoom,
+  participants,
+  messages,
+  roomPassword: null,
+  messageInput: "",
+  playlistItems,
+  playlistHasMore: false,
+  playlistLoadingMore: false,
+  playlistProgress: { received: 12, total: 12, ready: true },
+  playlistSuggestions,
+  playlistUrl: "",
+  playlistItemsForChange: playlistItems,
+  playlistError: null,
+  playlistLoading: false,
+  collections,
+  collectionsLoading: false,
+  collectionsError: null,
+  selectedCollectionId: null,
+  collectionItemsLoading: false,
+  collectionItemsError: null,
+  isGoogleAuthed: true,
+  youtubePlaylists,
+  youtubePlaylistsLoading: false,
+  youtubePlaylistsError: null,
+  canStartGame: true,
+  hasLastSettlement: true,
+  latestSettlementRoundKey: "round-2",
+  onLeave: () => {},
+  onInputChange: () => {},
+  onSend: () => {},
+  onLoadMorePlaylist: () => {},
+  onStartGame: () => {},
+  onUpdateRoomSettings: async () => true,
+  onOpenLastSettlement: () => {},
+  onOpenHistoryDrawer: () => {},
+  onOpenSettlementByRoundKey: () => {},
+  onOpenGame: () => {},
+  onInvite: async () => {},
+  onKickPlayer: () => {},
+  onTransferHost: () => {},
+  onSuggestPlaylist: async () => ({ ok: true }),
+  onApplySuggestionSnapshot: async () => {},
+  onChangePlaylist: async () => {},
+  onPlaylistUrlChange: () => {},
+  onFetchPlaylistByUrl: () => {},
+  onFetchCollections: () => {},
+  onSelectCollection: () => {},
+  onLoadCollectionItems: async () => {},
+  onFetchYoutubePlaylists: () => {},
+  onImportYoutubePlaylist: async () => {},
+};
+
 beforeEach(() => {
   Object.defineProperty(window, "matchMedia", {
     writable: true,
-    value: vi.fn().mockImplementation(() => ({
-      matches: false,
-      media: "",
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+    value: createMatchMedia(false),
   });
 
   class ResizeObserverMock {
@@ -104,75 +164,26 @@ beforeEach(() => {
 });
 
 describe("RoomLobbyPanel", () => {
-  it("keeps start on the left, leave on the right, and removes the room history button", () => {
+  it("keeps primary actions in order and uses battle info instead of previous round button", () => {
     render(
       <RoomLobbyPanel
-        currentRoom={currentRoom}
-        participants={participants}
-        messages={messages}
+        {...baseProps}
         selfClientId="host-1"
-        roomPassword={null}
-        messageInput=""
-        playlistItems={playlistItems}
-        playlistHasMore={false}
-        playlistLoadingMore={false}
-        playlistProgress={{ received: 12, total: 12, ready: true }}
-        playlistSuggestions={playlistSuggestions}
-        playlistUrl=""
-        playlistItemsForChange={playlistItems}
-        playlistError={null}
-        playlistLoading={false}
-        collections={collections}
-        collectionsLoading={false}
-        collectionsError={null}
-        selectedCollectionId={null}
-        collectionItemsLoading={false}
-        collectionItemsError={null}
-        isGoogleAuthed
-        youtubePlaylists={youtubePlaylists}
-        youtubePlaylistsLoading={false}
-        youtubePlaylistsError={null}
         isHost
         gameState={null}
-        canStartGame
-        hasLastSettlement
-        latestSettlementRoundKey="round-2"
-        onLeave={() => {}}
-        onInputChange={() => {}}
-        onSend={() => {}}
-        onLoadMorePlaylist={() => {}}
-        onStartGame={() => {}}
-        onUpdateRoomSettings={async () => true}
-        onOpenLastSettlement={() => {}}
-        onOpenHistoryDrawer={() => {}}
-        onOpenSettlementByRoundKey={() => {}}
-        onOpenGame={() => {}}
-        onInvite={async () => {}}
-        onKickPlayer={() => {}}
-        onTransferHost={() => {}}
-        onSuggestPlaylist={async () => ({ ok: true })}
-        onApplySuggestionSnapshot={async () => {}}
-        onChangePlaylist={async () => {}}
-        onPlaylistUrlChange={() => {}}
-        onFetchPlaylistByUrl={() => {}}
-        onFetchCollections={() => {}}
-        onSelectCollection={() => {}}
-        onLoadCollectionItems={async () => {}}
-        onFetchYoutubePlaylists={() => {}}
-        onImportYoutubePlaylist={async () => {}}
       />,
     );
 
     const toolbar = screen.getAllByRole("toolbar", { name: "房間操作" })[0];
-    const previousButton = screen.getByRole("button", { name: "查看上一局" });
+    const toolbarButtons = within(toolbar).getAllByRole("button");
+    const battleInfoButton = screen.getByRole("button", { name: "對戰資訊" });
     const startButton = screen.getByRole("button", { name: "開始遊戲" });
     const settingsButton = screen.getByRole("button", { name: "開啟房主設定" });
-    const toolbarButtons = within(toolbar).getAllByRole("button");
 
-    expect(screen.queryByRole("button", { name: "對戰歷史" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "查看上一局" })).not.toBeInTheDocument();
     expect(toolbarButtons[0]).toBe(startButton);
     expect(toolbarButtons[toolbarButtons.length - 1]).toHaveTextContent("離開");
-    expect(startButton.compareDocumentPosition(previousButton)).toBe(
+    expect(startButton.compareDocumentPosition(battleInfoButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(settingsButton).toHaveClass("room-lobby-toolbar-settings-btn");
@@ -181,65 +192,46 @@ describe("RoomLobbyPanel", () => {
   it("opens a confirmation dialog before leaving the room", () => {
     render(
       <RoomLobbyPanel
-        currentRoom={currentRoom}
-        participants={participants}
-        messages={messages}
+        {...baseProps}
         selfClientId="host-1"
-        roomPassword={null}
-        messageInput=""
-        playlistItems={playlistItems}
-        playlistHasMore={false}
-        playlistLoadingMore={false}
-        playlistProgress={{ received: 12, total: 12, ready: true }}
-        playlistSuggestions={playlistSuggestions}
-        playlistUrl=""
-        playlistItemsForChange={playlistItems}
-        playlistError={null}
-        playlistLoading={false}
-        collections={collections}
-        collectionsLoading={false}
-        collectionsError={null}
-        selectedCollectionId={null}
-        collectionItemsLoading={false}
-        collectionItemsError={null}
-        isGoogleAuthed
-        youtubePlaylists={youtubePlaylists}
-        youtubePlaylistsLoading={false}
-        youtubePlaylistsError={null}
         isHost
         gameState={null}
-        canStartGame
-        hasLastSettlement
-        latestSettlementRoundKey="round-2"
-        onLeave={() => {}}
-        onInputChange={() => {}}
-        onSend={() => {}}
-        onLoadMorePlaylist={() => {}}
-        onStartGame={() => {}}
-        onUpdateRoomSettings={async () => true}
-        onOpenLastSettlement={() => {}}
-        onOpenHistoryDrawer={() => {}}
-        onOpenSettlementByRoundKey={() => {}}
-        onOpenGame={() => {}}
-        onInvite={async () => {}}
-        onKickPlayer={() => {}}
-        onTransferHost={() => {}}
-        onSuggestPlaylist={async () => ({ ok: true })}
-        onApplySuggestionSnapshot={async () => {}}
-        onChangePlaylist={async () => {}}
-        onPlaylistUrlChange={() => {}}
-        onFetchPlaylistByUrl={() => {}}
-        onFetchCollections={() => {}}
-        onSelectCollection={() => {}}
-        onLoadCollectionItems={async () => {}}
-        onFetchYoutubePlaylists={() => {}}
-        onImportYoutubePlaylist={async () => {}}
       />,
     );
 
     const toolbar = screen.getAllByRole("toolbar", { name: "房間操作" })[0];
-    fireEvent.click(within(toolbar).getAllByRole("button", { name: "離開" })[0]);
+    fireEvent.click(within(toolbar).getByRole("button", { name: "離開" }));
 
     expect(screen.getByText("要離開房間嗎？")).toBeInTheDocument();
+  });
+
+  it("hides host-only settings action on mobile for non-host players", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches:
+          query.includes("(max-width:1024px)") ||
+          query.includes("(max-width:640px)"),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    render(
+      <RoomLobbyPanel
+        {...baseProps}
+        selfClientId="guest-1"
+        isHost={false}
+        gameState={null}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "設定" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "離開" })).toBeInTheDocument();
   });
 });

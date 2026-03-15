@@ -3,6 +3,7 @@ import React from "react";
 import RoomLobbyStatusStrip from "../RoomLobbyStatusStrip";
 
 interface SuggestionStatusMessagesProps {
+  className?: string;
   suggestError: string | null;
   suggestNotice: string | null;
   isCooldownActive: boolean;
@@ -10,17 +11,19 @@ interface SuggestionStatusMessagesProps {
 }
 
 const SuggestionStatusMessages: React.FC<SuggestionStatusMessagesProps> = ({
+  className,
   suggestError,
   suggestNotice,
   isCooldownActive,
   remainingCooldownSeconds,
 }) => (
   <RoomLobbyStatusStrip
+    className={className}
     message={
       suggestError
         ? suggestError
         : isCooldownActive
-          ? `\u51b7\u537b\u4e2d\uff0c${remainingCooldownSeconds}s \u5f8c\u53ef\u518d\u6b21\u63a8\u85a6`
+          ? `\u51b7\u537b\u4e2d ${remainingCooldownSeconds}s`
           : suggestNotice
     }
     tone={

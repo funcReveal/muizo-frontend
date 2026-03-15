@@ -9,6 +9,10 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
+import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
+import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import VideoLibraryRoundedIcon from "@mui/icons-material/VideoLibraryRounded";
 
 import type { YoutubePlaylist } from "../../model/RoomContext";
 import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
@@ -232,14 +236,12 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     }
   };
 
-  const googleAuthStatusMessage =
-    "\u8acb\u5148\u767b\u5165 Google \u624d\u80fd\u8b80\u53d6 YouTube \u64ad\u653e\u6e05\u55ae\u3002";
+  const googleAuthStatusMessage = "\u8acb\u5148\u767b\u5165 Google";
 
   const suggestionSourceStatus = (() => {
     if (suggestType === "playlist") {
       return {
-        message:
-          "\u53ef\u8cbc\u4e0a YouTube \u64ad\u653e\u6e05\u55ae\u9023\u7d50\uff0c\u5c07\u6574\u4efd\u6b4c\u55ae\u63a8\u85a6\u7d66\u623f\u4e3b\u3002",
+        message: "\u8cbc\u4e0a YouTube \u9023\u7d50",
         tone: "neutral",
         loading: false,
       } as const;
@@ -257,8 +259,8 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
       return {
         message:
           collectionScope === "public"
-            ? "\u8acb\u9078\u64c7\u8981\u63a8\u85a6\u7684\u516c\u958b\u6536\u85cf\u5eab\u3002"
-            : "\u8acb\u9078\u64c7\u8981\u63a8\u85a6\u7684\u79c1\u4eba\u6536\u85cf\u5eab\u3002",
+            ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
+            : "\u9078\u64c7\u500b\u4eba\u6536\u85cf\u5eab",
         tone: collections.length === 0 ? "warning" : "neutral",
         loading: collectionsLoading,
       } as const;
@@ -281,8 +283,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     }
 
     return {
-      message:
-        "\u8acb\u9078\u64c7\u8981\u63a8\u85a6\u7684 YouTube \u64ad\u653e\u6e05\u55ae\u3002",
+      message: "\u9078\u64c7 YouTube \u64ad\u653e\u6e05\u55ae",
       tone: youtubePlaylists.length === 0 ? "warning" : "neutral",
       loading: youtubePlaylistsLoading,
     } as const;
@@ -296,7 +297,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     >
       <AccordionSummary>
         <Typography variant="subtitle2" className="text-slate-200">
-          {"\u63a8\u85a6\u6b4c\u55ae\u7d66\u623f\u4e3b"}
+          {"\u63a8\u85a6\u6b4c\u55ae"}
         </Typography>
       </AccordionSummary>
       <AccordionDetails>
@@ -308,14 +309,15 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
             <Button
               size="small"
               variant={suggestType === "playlist" ? "contained" : "outlined"}
-              className="room-lobby-mode-button"
+              className="room-lobby-mode-button room-lobby-mode-button--playlist"
+              startIcon={<LinkRoundedIcon fontSize="small" />}
               onClick={() => {
                 setSuggestType("playlist");
                 clearSuggestError();
               }}
               disabled={isSubmitting}
             >
-              {"\u8cbc\u4e0a\u9023\u7d50"}
+              {"\u9023\u7d50"}
             </Button>
             <Button
               size="small"
@@ -324,7 +326,8 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   ? "contained"
                   : "outlined"
               }
-              className="room-lobby-mode-button"
+              className="room-lobby-mode-button room-lobby-mode-button--public"
+              startIcon={<PublicRoundedIcon fontSize="small" />}
               onClick={() => {
                 setSuggestType("collection");
                 onCollectionScopeChange("public");
@@ -333,7 +336,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               }}
               disabled={isSubmitting}
             >
-              {"\u516c\u958b\u6536\u85cf\u5eab"}
+              {"\u516c\u958b"}
             </Button>
             <Button
               size="small"
@@ -342,7 +345,8 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   ? "contained"
                   : "outlined"
               }
-              className="room-lobby-mode-button"
+              className="room-lobby-mode-button room-lobby-mode-button--owner"
+              startIcon={<LockRoundedIcon fontSize="small" />}
               onClick={() => {
                 setSuggestType("collection");
                 onCollectionScopeChange("owner");
@@ -351,25 +355,27 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               }}
               disabled={isSubmitting || !isGoogleAuthed}
             >
-              {"\u79c1\u4eba\u6536\u85cf\u5eab"}
+              {"\u500b\u4eba"}
             </Button>
             <Button
               size="small"
               variant={suggestType === "youtube" ? "contained" : "outlined"}
-              className="room-lobby-mode-button"
+              className="room-lobby-mode-button room-lobby-mode-button--youtube"
+              startIcon={<VideoLibraryRoundedIcon fontSize="small" />}
               onClick={() => {
                 setSuggestType("youtube");
                 clearSuggestError();
               }}
               disabled={isSubmitting}
             >
-              {"\u6211\u7684\u64ad\u653e\u6e05\u55ae"}
+              {"YouTube"}
             </Button>
           </Stack>
 
           <div className="room-lobby-source-card room-lobby-source-card--suggestion room-lobby-source-card--flat-select">
             <Stack spacing={1} className="room-lobby-source-view">
               <RoomLobbyStatusStrip
+                className="room-lobby-source-status-inline"
                 message={suggestionSourceStatus.message}
                 tone={suggestionSourceStatus.tone}
                 loading={suggestionSourceStatus.loading}
@@ -521,6 +527,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
             className="room-lobby-source-footer room-lobby-source-footer--suggestion"
           >
             <SuggestionStatusMessages
+              className="room-lobby-source-status-inline room-lobby-source-status-inline--footer"
               suggestError={suggestError}
               suggestNotice={suggestNotice}
               isCooldownActive={isCooldownActive}

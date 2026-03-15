@@ -21,7 +21,6 @@ interface GameRoomLeftSidebarProps {
   topTwoSwapState: TopTwoSwapState | null;
   danmuEnabled: boolean;
   onDanmuEnabledChange: (enabled: boolean) => void;
-  messagesLength: number;
   recentMessages: ChatMessage[];
   messageInput: string;
   onMessageChange?: (value: string) => void;
@@ -66,7 +65,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   topTwoSwapState,
   danmuEnabled,
   onDanmuEnabledChange,
-  messagesLength,
   recentMessages,
   messageInput,
   onMessageChange,
@@ -568,7 +566,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           <GameRoomChatPanel
             danmuEnabled={danmuEnabled}
             onDanmuEnabledChange={onDanmuEnabledChange}
-            messagesLength={messagesLength}
             recentMessages={recentMessages}
             messageInput={messageInput}
             onMessageChange={onMessageChange}

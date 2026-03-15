@@ -8,6 +8,7 @@ interface UseMobileDrawerDragDismissOptions {
   direction: DrawerDragDirection;
   onDismiss: () => void;
   threshold?: number;
+  thresholdBuffer?: number;
   velocityThreshold?: number;
   height?: number;
   minHeight?: number;
@@ -34,11 +35,18 @@ const SNAP_BACK_TRANSITION = "transform 220ms cubic-bezier(0.2, 0.82, 0.24, 1)";
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+const applyElasticResistance = (distance: number, ceiling: number) => {
+  if (distance <= 0) return 0;
+  const normalized = distance / Math.max(ceiling, 1);
+  return ceiling * (1 - Math.exp(-normalized * 1.85));
+};
+
 const useMobileDrawerDragDismiss = ({
   open,
   direction,
   onDismiss,
   threshold = DEFAULT_THRESHOLD,
+  thresholdBuffer = 14,
   velocityThreshold = DEFAULT_VELOCITY_THRESHOLD,
   height = 0,
   minHeight,
@@ -58,6 +66,7 @@ const useMobileDrawerDragDismiss = ({
   });
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [dismissStretchPx, setDismissStretchPx] = useState(0);
 
   const canResize =
     typeof onHeightChange === "function" &&
@@ -77,6 +86,7 @@ const useMobileDrawerDragDismiss = ({
     dragStateRef.current.startHeight = height;
     dragStateRef.current.latestHeight = height;
     dragStateRef.current.dismissStretchPx = 0;
+    setDismissStretchPx(0);
     dragStateRef.current.lastY = clientY;
     dragStateRef.current.lastTs = now;
     dragStateRef.current.velocity = 0;
@@ -96,10 +106,15 @@ const useMobileDrawerDragDismiss = ({
         const rawHeightVh = dragStateRef.current.startHeight - directionalDistanceVh;
         const clampedHeightVh = clamp(rawHeightVh, minHeight, maxHeight);
         const dismissStretchVh = Math.max(0, minHeight - rawHeightVh);
-        const dismissStretchPx = (dismissStretchVh / 100) * viewportHeightPx;
+        const dismissStretchPxRaw = (dismissStretchVh / 100) * viewportHeightPx;
+        const dismissStretchPx = applyElasticResistance(
+          dismissStretchPxRaw,
+          threshold + Math.max(24, thresholdBuffer * 2.4),
+        );
         const normalizedHeightVh = Number(clampedHeightVh.toFixed(2));
         dragStateRef.current.latestHeight = normalizedHeightVh;
         dragStateRef.current.dismissStretchPx = dismissStretchPx;
+        setDismissStretchPx(dismissStretchPx);
         onHeightChange(normalizedHeightVh);
       } else {
         const fallbackOffset = direction === "up"
@@ -113,7 +128,16 @@ const useMobileDrawerDragDismiss = ({
       dragStateRef.current.lastY = clientY;
       dragStateRef.current.lastTs = now;
     },
-    [canResize, direction, maxHeight, minHeight, onHeightChange, resolveDirectionalDistance],
+    [
+      canResize,
+      direction,
+      maxHeight,
+      minHeight,
+      onHeightChange,
+      resolveDirectionalDistance,
+      threshold,
+      thresholdBuffer,
+    ],
   );
 
   const endDrag = useCallback(() => {
@@ -121,6 +145,7 @@ const useMobileDrawerDragDismiss = ({
     dragStateRef.current.active = false;
     dragStateRef.current.pointerId = null;
     setIsDragging(false);
+    setDismissStretchPx(0);
 
     const directionalVelocity =
       direction === "up"
@@ -131,10 +156,12 @@ const useMobileDrawerDragDismiss = ({
     if (canResize && typeof minHeight === "number" && typeof maxHeight === "number") {
       const latestHeight = clamp(dragStateRef.current.latestHeight, minHeight, maxHeight);
       const reachedCloseZone = latestHeight <= minHeight + 0.8;
+      const armedDismissDistance = threshold + Math.max(0, thresholdBuffer);
       shouldDismiss =
         reachedCloseZone &&
-        (dragStateRef.current.dismissStretchPx >= threshold ||
-          directionalVelocity >= velocityThreshold);
+        (dragStateRef.current.dismissStretchPx >= armedDismissDistance ||
+          (dragStateRef.current.dismissStretchPx >= threshold &&
+            directionalVelocity >= velocityThreshold));
       onHeightChange(latestHeight);
     } else {
       const directionalDistance = direction === "up" ? -offset : offset;
@@ -155,6 +182,7 @@ const useMobileDrawerDragDismiss = ({
     onDismiss,
     onHeightChange,
     threshold,
+    thresholdBuffer,
     velocityThreshold,
   ]);
 
@@ -162,6 +190,7 @@ const useMobileDrawerDragDismiss = ({
     dragStateRef.current.active = false;
     dragStateRef.current.pointerId = null;
     setIsDragging(false);
+    setDismissStretchPx(0);
     if (canResize && typeof onHeightChange === "function") {
       onHeightChange(height);
       return;
@@ -306,23 +335,46 @@ const useMobileDrawerDragDismiss = ({
   );
 
   const paperStyle = useMemo<CSSProperties>(
-    () => ({
-      ...resizePaperStyle,
-      transform: offset === 0 ? undefined : `translate3d(0, ${offset}px, 0)`,
-      transition:
-        offset === 0
-          ? resizePaperStyle.transition
-          : isDragging
-            ? "none"
-            : SNAP_BACK_TRANSITION,
-    }),
-    [isDragging, offset, resizePaperStyle],
+    () => {
+      const elasticOffset =
+        dismissStretchPx > 0
+          ? direction === "up"
+            ? -dismissStretchPx * 0.34
+            : dismissStretchPx * 0.34
+          : offset;
+      const scaleY =
+        dismissStretchPx > 0
+          ? Number((1 - Math.min(dismissStretchPx, 42) / 720).toFixed(4))
+          : 1;
+
+      return {
+        ...resizePaperStyle,
+        transform:
+          elasticOffset === 0 && scaleY === 1
+            ? undefined
+            : `translate3d(0, ${elasticOffset}px, 0) scaleY(${scaleY})`,
+        transformOrigin: direction === "up" ? "center bottom" : "center top",
+        transition:
+          elasticOffset === 0 && scaleY === 1
+            ? resizePaperStyle.transition
+            : isDragging
+              ? "none"
+              : `${SNAP_BACK_TRANSITION}, transform 280ms cubic-bezier(0.16, 1, 0.3, 1)`,
+      };
+    },
+    [direction, dismissStretchPx, isDragging, offset, resizePaperStyle],
   );
 
   return {
     dragHandleProps,
     paperStyle,
     isDragging,
+    dismissStretchPx,
+    isDismissArmed:
+      dismissStretchPx >= threshold &&
+      dismissStretchPx < threshold + Math.max(0, thresholdBuffer),
+    canDismiss:
+      dismissStretchPx >= threshold + Math.max(0, thresholdBuffer),
   };
 };
 
