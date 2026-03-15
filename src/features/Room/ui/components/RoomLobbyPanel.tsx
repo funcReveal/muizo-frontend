@@ -71,8 +71,14 @@ import RoomLobbyHostControls from "./RoomLobbyHostControls";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import useMobileDrawerDragDismiss from "./gameRoomPage/useMobileDrawerDragDismiss";
-import { useSfxSettings } from "../../../Setting/ui/components/useSfxSettings";
 import { useGameSfx } from "../hooks/useGameSfx";
+import {
+  DEFAULT_GAME_VOLUME,
+  DEFAULT_SFX_ENABLED,
+  DEFAULT_SFX_PRESET,
+  DEFAULT_SFX_VOLUME,
+  SettingsModelContext,
+} from "../../../Setting/model/settingsContext";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
 import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 
@@ -150,6 +156,29 @@ interface RoomLobbyPanelProps {
   onFetchYoutubePlaylists: () => void;
   onImportYoutubePlaylist: (playlistId: string) => Promise<void>;
 }
+
+const ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX = "mq_room_chat_last_read_message:";
+
+const readRoomChatLastReadMessageId = (roomId: string | null): string | null => {
+  if (!roomId || typeof window === "undefined") return null;
+  const stored = window.sessionStorage.getItem(
+    `${ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX}${roomId}`,
+  );
+  return stored?.trim() ? stored : null;
+};
+
+const writeRoomChatLastReadMessageId = (
+  roomId: string | null,
+  messageId: string | null,
+) => {
+  if (!roomId || typeof window === "undefined") return;
+  const storageKey = `${ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX}${roomId}`;
+  if (!messageId) {
+    window.sessionStorage.removeItem(storageKey);
+    return;
+  }
+  window.sessionStorage.setItem(storageKey, messageId);
+};
 
 const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   currentRoom,
@@ -237,7 +266,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const isCompactLobbyLayout = useMediaQuery("(max-width:1180px)");
   const isMobileLobbyLayout = useMediaQuery("(max-width:640px)");
   const isMobileTabletLobbyLayout = useMediaQuery("(max-width:1024px)");
-  const { gameVolume, sfxEnabled, sfxVolume, sfxPreset } = useSfxSettings();
+  const settingsModel = React.useContext(SettingsModelContext);
+  const gameVolume = settingsModel?.gameVolume ?? DEFAULT_GAME_VOLUME;
+  const sfxEnabled = settingsModel?.sfxEnabled ?? DEFAULT_SFX_ENABLED;
+  const sfxVolume = settingsModel?.sfxVolume ?? DEFAULT_SFX_VOLUME;
+  const sfxPreset = settingsModel?.sfxPreset ?? DEFAULT_SFX_PRESET;
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
     volume: Math.round((sfxVolume * gameVolume) / 100),
@@ -948,8 +981,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   }, [isMobileTabletLobbyLayout]);
 
   useEffect(() => {
+    const roomId = currentRoom?.id ?? null;
     mobileChatUnreadSeededRoomRef.current = null;
-    lastUnreadMobileChatMessageIdRef.current = null;
+    lastUnreadMobileChatMessageIdRef.current = readRoomChatLastReadMessageId(roomId);
     setMobileChatUnread(0);
   }, [currentRoom?.id]);
 
@@ -973,6 +1007,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       setMobileChatUnread(0);
       mobileChatUnreadSeededRoomRef.current = roomId;
       lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
+      writeRoomChatLastReadMessageId(roomId, latestUnreadMessageId);
       return;
     }
 
@@ -982,41 +1017,47 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       return;
     }
 
+    const lastSeenMessageId =
+      lastUnreadMobileChatMessageIdRef.current ??
+      readRoomChatLastReadMessageId(roomId);
+
     if (mobileChatUnreadSeededRoomRef.current !== roomId) {
-      setMobileChatUnread(unreadMobileChatMessages.length);
+      setMobileChatUnread(
+        lastSeenMessageId
+          ? Math.max(
+              0,
+              unreadMobileChatMessages.length -
+                (unreadMobileChatMessages.findIndex(
+                  (message) => message.id === lastSeenMessageId,
+                ) + 1),
+            )
+          : unreadMobileChatMessages.length,
+      );
       mobileChatUnreadSeededRoomRef.current = roomId;
-      lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
       return;
     }
 
     if (!latestUnreadMessageId) {
+      setMobileChatUnread(0);
       lastUnreadMobileChatMessageIdRef.current = null;
+      writeRoomChatLastReadMessageId(roomId, null);
       return;
     }
 
-    const lastProcessedMessageId = lastUnreadMobileChatMessageIdRef.current;
-    if (lastProcessedMessageId === latestUnreadMessageId) {
-      return;
-    }
-
-    const lastProcessedIndex =
-      lastProcessedMessageId === null
+    const lastSeenIndex =
+      lastSeenMessageId === null
         ? -1
         : unreadMobileChatMessages.findIndex(
-            (message) => message.id === lastProcessedMessageId,
+            (message) => message.id === lastSeenMessageId,
           );
 
-    if (lastProcessedIndex < 0) {
+    if (lastSeenIndex < 0) {
       setMobileChatUnread(unreadMobileChatMessages.length);
     } else {
-      const nextUnreadCount =
-        unreadMobileChatMessages.length - (lastProcessedIndex + 1);
-      if (nextUnreadCount > 0) {
-        setMobileChatUnread((current) => current + nextUnreadCount);
-      }
+      setMobileChatUnread(
+        Math.max(0, unreadMobileChatMessages.length - (lastSeenIndex + 1)),
+      );
     }
-
-    lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
   }, [
     currentRoom?.id,
     isMobileTabletLobbyLayout,
@@ -1064,6 +1105,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     },
     threshold: 36,
   });
+  const latestUnreadLobbyMessageId =
+    unreadMobileChatMessages[unreadMobileChatMessages.length - 1]?.id ?? null;
+  const markLobbyChatRead = React.useCallback(() => {
+    setMobileChatUnread(0);
+    mobileChatUnreadSeededRoomRef.current = currentRoom?.id ?? null;
+    lastUnreadMobileChatMessageIdRef.current = latestUnreadLobbyMessageId;
+    writeRoomChatLastReadMessageId(
+      currentRoom?.id ?? null,
+      latestUnreadLobbyMessageId,
+    );
+  }, [currentRoom?.id, latestUnreadLobbyMessageId]);
 
   const mobileActionButtons = useMemo(
     () => [
@@ -1543,6 +1595,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       messageInput={messageInput}
       onInputChange={onInputChange}
       onSend={onSend}
+      onChatInteraction={markLobbyChatRead}
       latestSettlementRoundKey={latestSettlementRoundKey}
       onOpenHistoryDrawer={onOpenHistoryDrawer}
       onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
@@ -1886,7 +1939,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 variant="outlined"
                 color="info"
                 fullWidth
-                onClick={() => setMobileChatDrawerOpen(true)}
+                onClick={() => {
+                  markLobbyChatRead();
+                  setMobileChatDrawerOpen(true);
+                }}
               >
                 <span className="room-lobby-mobile-chat-trigger-copy">
                   <span>開啟聊天室</span>
@@ -1902,7 +1958,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               className="room-lobby-mobile-chat-drawer-root"
               anchor="bottom"
               open={mobileChatDrawerOpen}
-              onOpen={() => setMobileChatDrawerOpen(true)}
+              onOpen={() => {
+                markLobbyChatRead();
+                setMobileChatDrawerOpen(true);
+              }}
               onClose={() => setMobileChatDrawerOpen(false)}
               disableSwipeToOpen={false}
               allowSwipeInChildren
@@ -1928,13 +1987,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   {...mobileChatDragDismiss.dragHandleProps}
                 >
                   <div
-                    className="game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable"
+                    className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${
+                      mobileChatDragDismiss.canDismiss
+                        ? "ready"
+                        : mobileChatDragDismiss.isDismissArmed
+                          ? "armed"
+                          : "idle"
+                    }`}
                     aria-hidden="true"
                   >
                     <span className="game-room-mobile-drawer-handle-bar" />
-                    <span className="game-room-mobile-drawer-handle-direction">
-                      向下拖曳收合
-                    </span>
                   </div>
                   <div className="room-lobby-mobile-chat-drawer-headline">
                     <Typography variant="subtitle2" className="text-slate-100">

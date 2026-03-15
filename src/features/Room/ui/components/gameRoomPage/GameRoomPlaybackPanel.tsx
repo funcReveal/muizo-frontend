@@ -5,8 +5,10 @@ import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import type { DanmuItem } from "./gameRoomPageTypes";
 
 interface GameRoomPlaybackPanelProps {
+  rootRef?: React.Ref<HTMLDivElement>;
   isMobileView?: boolean;
   isOverlayMode?: boolean;
+  isCompactMobile?: boolean;
   isRevealPhase?: boolean;
   revealAnswerTitle?: string | null;
   roomName: string;
@@ -34,8 +36,10 @@ interface GameRoomPlaybackPanelProps {
 }
 
 const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
+  rootRef,
   isMobileView = false,
   isOverlayMode = false,
+  isCompactMobile = false,
   isRevealPhase = false,
   revealAnswerTitle = null,
   roomName,
@@ -61,8 +65,12 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   gameVolume,
   onGameVolumeChange,
 }) => {
+  const revealMarqueeWrapRef = React.useRef<HTMLSpanElement | null>(null);
+  const revealMarqueeTrackRef = React.useRef<HTMLSpanElement | null>(null);
+  const [revealMarqueeStyle, setRevealMarqueeStyle] = React.useState<React.CSSProperties>({});
   const isMobileOverlay = isMobileView && isOverlayMode;
-  const shouldShowRoomName = !(isMobileView && isOverlayMode);
+  const shouldUseCompactMobileHeader = isMobileView && isCompactMobile;
+  const shouldShowRoomName = !isMobileOverlay && !shouldUseCompactMobileHeader;
   const revealAnswerLabel = revealAnswerTitle?.trim() ?? "";
   const revealAnswerWrapperClass = isMobileOverlay
     ? "inline-flex min-w-0 w-fit max-w-[min(58vw,15rem)] items-center gap-1.5 overflow-hidden rounded-xl border border-emerald-300/45 bg-emerald-500/14 px-2.5 py-[0.34rem] text-emerald-50 shadow-[0_10px_20px_-16px_rgba(16,185,129,0.72)]"
@@ -74,8 +82,41 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
     isMobileView &&
     isRevealPhase &&
     revealAnswerLabel.length >= (isMobileOverlay ? 14 : 18);
+  React.useEffect(() => {
+    if (!shouldUseRevealMarquee) {
+      setRevealMarqueeStyle({});
+      return;
+    }
+    const wrap = revealMarqueeWrapRef.current;
+    const track = revealMarqueeTrackRef.current;
+    if (!wrap || !track) return;
+    const measure = () => {
+      const overflow = track.scrollWidth - wrap.clientWidth;
+      if (overflow > 10) {
+        const shift = -(overflow + 12);
+        const durationSec = Math.min(6.6, Math.max(2.8, overflow / 82));
+        setRevealMarqueeStyle({
+          ["--game-room-reveal-shift" as const]: `${shift}px`,
+          ["--game-room-reveal-duration" as const]: `${durationSec.toFixed(2)}s`,
+        });
+        return;
+      }
+      setRevealMarqueeStyle({});
+    };
+    measure();
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(measure);
+      observer.observe(wrap);
+      observer.observe(track);
+      return () => observer.disconnect();
+    }
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [revealAnswerLabel, shouldUseRevealMarquee]);
   const mediaFrameHeightClass = isMobileOverlay
     ? "h-full min-h-0 flex-1"
+    : shouldUseCompactMobileHeader
+      ? "game-room-media-frame--mobile-inline"
     : isMobileView
       ? "h-[182px]"
       : "h-[140px] sm:h-[188px] md:h-[214px] xl:h-[236px]";
@@ -89,10 +130,16 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           答案
         </span>
         {shouldUseRevealMarquee ? (
-          <span className="game-room-reveal-title-marquee">
-            <span className="game-room-reveal-title-marquee-track game-room-reveal-title-marquee-track--run">
+          <span
+            ref={revealMarqueeWrapRef}
+            className="game-room-reveal-title-marquee"
+          >
+            <span
+              ref={revealMarqueeTrackRef}
+              className="game-room-reveal-title-marquee-track game-room-reveal-title-marquee-track--run"
+              style={revealMarqueeStyle}
+            >
               <span>{revealAnswerLabel}</span>
-              <span aria-hidden="true">{revealAnswerLabel}</span>
             </span>
           </span>
         ) : (
@@ -103,13 +150,18 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 
   return (
     <div
+      ref={rootRef}
       className={`game-room-panel game-room-panel--accent p-3 text-slate-50 ${
         isMobileOverlay ? "game-room-playback-panel--mobile-overlay-fill flex h-full min-h-0 flex-col" : "flex-none"
       } ${
         isMobileView
           ? isOverlayMode
             ? "game-room-playback-panel--mobile game-room-playback-panel--mobile-overlay"
-            : "game-room-playback-panel--mobile"
+            : `game-room-playback-panel--mobile ${
+                shouldUseCompactMobileHeader
+                  ? "game-room-playback-panel--mobile-inline"
+                  : ""
+              }`
           : ""
       }`}
     >
@@ -139,7 +191,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
             {!isMobileOverlay && revealAnswerNode}
           </div>
         </div>
-        {!isOverlayMode && (
+        {!isOverlayMode && !shouldUseCompactMobileHeader && (
           <div className="flex items-center gap-2 max-[760px]:w-full max-[760px]:flex-col max-[760px]:items-stretch">
             {headerActions}
             <Button
@@ -233,7 +285,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         )}
       </div>
 
-      {!isOverlayMode && (
+      {!isOverlayMode && !isMobileView && (
         <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <Switch

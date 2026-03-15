@@ -29,6 +29,7 @@ interface UseGameRoomPlayerSyncParams {
 
 const PLAYER_ID = "mq-main-player";
 const DRIFT_TOLERANCE_SEC = 1;
+const INITIAL_FAST_SYNC_DRIFT_TOLERANCE_SEC = 0.35;
 const INITIAL_RESYNC_DRIFT_TOLERANCE_SEC = 1;
 const RESUME_DRIFT_TOLERANCE_SEC = 1.2;
 const WATCHDOG_DRIFT_TOLERANCE_SEC = 1.8;
@@ -36,6 +37,7 @@ const WATCHDOG_REQUEST_INTERVAL_MS = 1400;
 const AUTO_RESUME_MIN_INTERVAL_MS = 1800;
 const UI_CLOCK_TICK_MS = 100;
 const MEDIA_SESSION_REFRESH_MS = 250;
+const INITIAL_AUDIO_HOLD_RELEASE_MS = 680;
 
 const useGameRoomPlayerSync = ({
   serverOffsetMs,
@@ -83,6 +85,10 @@ const useGameRoomPlayerSync = ({
   const resyncTimersRef = useRef<number[]>([]);
   const initialResyncTimersRef = useRef<number[]>([]);
   const initialResyncScheduledRef = useRef(false);
+  const initialFastResyncTimersRef = useRef<number[]>([]);
+  const initialFastResyncScheduledRef = useRef(false);
+  const initialAudioHoldReleaseTimerRef = useRef<number | null>(null);
+  const initialAudioSyncPendingRef = useRef(false);
   const lastTimeRequestAtMsRef = useRef<number>(0);
   const lastPlayerStateRef = useRef<number | null>(null);
   const lastPlayerTimeSecRef = useRef<number | null>(null);
@@ -278,6 +284,36 @@ const useGameRoomPlayerSync = ({
     }
   }, []);
 
+  const clearInitialAudioHoldReleaseTimer = useCallback(() => {
+    if (initialAudioHoldReleaseTimerRef.current !== null) {
+      window.clearTimeout(initialAudioHoldReleaseTimerRef.current);
+      initialAudioHoldReleaseTimerRef.current = null;
+    }
+  }, []);
+
+  const releaseInitialAudioHold = useCallback(() => {
+    clearInitialAudioHoldReleaseTimer();
+    if (!initialAudioSyncPendingRef.current) return;
+    initialAudioSyncPendingRef.current = false;
+    postCommand("unMute");
+    applyVolume(gameVolume);
+  }, [applyVolume, clearInitialAudioHoldReleaseTimer, gameVolume, postCommand]);
+
+  const scheduleInitialAudioHoldRelease = useCallback(() => {
+    clearInitialAudioHoldReleaseTimer();
+    initialAudioHoldReleaseTimerRef.current = window.setTimeout(() => {
+      releaseInitialAudioHold();
+    }, INITIAL_AUDIO_HOLD_RELEASE_MS);
+  }, [clearInitialAudioHoldReleaseTimer, releaseInitialAudioHold]);
+
+  const armInitialAudioSync = useCallback(() => {
+    initialFastResyncScheduledRef.current = false;
+    initialFastResyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    initialFastResyncTimersRef.current = [];
+    initialAudioSyncPendingRef.current = true;
+    scheduleInitialAudioHoldRelease();
+  }, [scheduleInitialAudioHoldRelease]);
+
   const loadTrack = useCallback(
     (
       id: string,
@@ -302,7 +338,11 @@ const useGameRoomPlayerSync = ({
   );
 
   const startPlayback = useCallback(
-    (forcedPosition?: number, forceSeek = false) => {
+    (
+      forcedPosition?: number,
+      forceSeek = false,
+      options?: { holdAudio?: boolean },
+    ) => {
       if (requiresAudioGesture && !audioUnlockedRef.current) return;
       const serverNowMs = getServerNowMs();
       if (serverNowMs < startedAt) return;
@@ -310,6 +350,7 @@ const useGameRoomPlayerSync = ({
       const startPos = Math.min(clipEndSec, Math.max(clipStartSec, rawStartPos));
       const estimated = getEstimatedLocalPositionSec();
       const needsSeek = forceSeek || Math.abs(estimated - startPos) > DRIFT_TOLERANCE_SEC;
+      const holdAudio = options?.holdAudio ?? initialAudioSyncPendingRef.current;
       if (Math.abs(playerStartRef.current - startPos) > 0.01) {
         playerStartRef.current = startPos;
       }
@@ -320,8 +361,13 @@ const useGameRoomPlayerSync = ({
       }
       startSilentAudio();
       postCommand("playVideo");
-      postCommand("unMute");
-      applyVolume(gameVolume);
+      if (holdAudio) {
+        postCommand("mute");
+        scheduleInitialAudioHoldRelease();
+      } else {
+        postCommand("unMute");
+        applyVolume(gameVolume);
+      }
     },
     [
       applyVolume,
@@ -333,6 +379,7 @@ const useGameRoomPlayerSync = ({
       getServerNowMs,
       postCommand,
       requiresAudioGesture,
+      scheduleInitialAudioHoldRelease,
       startSilentAudio,
       startedAt,
     ],
@@ -357,9 +404,11 @@ const useGameRoomPlayerSync = ({
       }, 120);
       return true;
     }
-    startPlayback();
+    armInitialAudioSync();
+    startPlayback(undefined, false, { holdAudio: true });
     return true;
   }, [
+    armInitialAudioSync,
     clipStartSec,
     getServerNowMs,
     markAudioUnlocked,
@@ -401,11 +450,16 @@ const useGameRoomPlayerSync = ({
       const drift = Math.abs(estimated - serverPosition);
       const shouldSeek = drift > toleranceSec || (forceSeek && playerTime === null);
       if (shouldSeek) {
-        startPlayback(serverPosition, true);
+        startPlayback(serverPosition, true, {
+          holdAudio: initialAudioSyncPendingRef.current,
+        });
         return true;
       }
       playerStartRef.current = serverPosition;
       lastSyncMsRef.current = getServerNowMs();
+      if (initialAudioSyncPendingRef.current) {
+        releaseInitialAudioHold();
+      }
       if (lastPlayerStateRef.current !== 1) {
         postCommand("playVideo");
         postCommand("unMute");
@@ -422,6 +476,7 @@ const useGameRoomPlayerSync = ({
       getServerNowMs,
       isReveal,
       postCommand,
+      releaseInitialAudioHold,
       startPlayback,
     ],
   );
@@ -478,16 +533,46 @@ const useGameRoomPlayerSync = ({
     });
   }, [getServerNowMs, requestPlayerTime, startedAt, syncToServerPosition]);
 
+  const scheduleInitialFastResync = useCallback(() => {
+    if (initialFastResyncScheduledRef.current) return;
+    initialFastResyncScheduledRef.current = true;
+    initialFastResyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    initialFastResyncTimersRef.current = [];
+    const checkpoints = [90, 220, 420];
+    checkpoints.forEach((delayMs, idx) => {
+      const timerId = window.setTimeout(() => {
+        if (!playerReadyRef.current) return;
+        if (document.visibilityState !== "visible") return;
+        if (getServerNowMs() < startedAt) return;
+        requestPlayerTime(`initial-fast-${idx + 1}`);
+        window.setTimeout(() => {
+          const didSeek = syncToServerPosition(
+            `initial-fast-check-${idx + 1}`,
+            false,
+            INITIAL_FAST_SYNC_DRIFT_TOLERANCE_SEC,
+            true,
+          );
+          if (!didSeek && initialAudioSyncPendingRef.current) {
+            releaseInitialAudioHold();
+          }
+        }, 70);
+      }, delayMs);
+      initialFastResyncTimersRef.current.push(timerId);
+    });
+  }, [getServerNowMs, releaseInitialAudioHold, requestPlayerTime, startedAt, syncToServerPosition]);
+
   useEffect(
     () => () => {
+      clearInitialAudioHoldReleaseTimer();
       if (resumeResyncTimerRef.current !== null) {
         window.clearTimeout(resumeResyncTimerRef.current);
       }
       resyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       initialResyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      initialFastResyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       stopSilentAudio();
     },
-    [stopSilentAudio],
+    [clearInitialAudioHoldReleaseTimer, stopSilentAudio],
   );
 
   useEffect(() => {
@@ -660,7 +745,8 @@ const useGameRoomPlayerSync = ({
         setLoadedTrackKey(trackLoadKey);
         lastTrackLoadKeyRef.current = trackLoadKey;
         if (!waitingToStart) {
-          startPlayback(startSec);
+          armInitialAudioSync();
+          startPlayback(startSec, false, { holdAudio: true });
         }
       }
 
@@ -672,6 +758,7 @@ const useGameRoomPlayerSync = ({
             lastSyncMsRef.current = getServerNowMs();
             setLoadedTrackKey(trackLoadKey);
             requestPlayerTime("state-playing");
+            scheduleInitialFastResync();
             scheduleInitialResync();
             startSilentAudio();
           }
@@ -759,6 +846,7 @@ const useGameRoomPlayerSync = ({
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [
+    armInitialAudioSync,
     applyVolume,
     clipEndSec,
     clipStartSec,
@@ -774,6 +862,7 @@ const useGameRoomPlayerSync = ({
     phase,
     postCommand,
     requestPlayerTime,
+    scheduleInitialFastResync,
     scheduleInitialResync,
     scheduleResumeResync,
     shouldLoopRoomSettingsClip,
@@ -798,6 +887,8 @@ const useGameRoomPlayerSync = ({
     }
 
     revealReplayRef.current = false;
+    initialResyncScheduledRef.current = false;
+    initialFastResyncScheduledRef.current = false;
     const autoplay = !waitingToStart;
     const startSec = autoplay ? computeServerPositionSec() : clipStartSec;
     playerStartRef.current = startSec;
@@ -805,9 +896,11 @@ const useGameRoomPlayerSync = ({
     hasStartedPlaybackRef.current = false;
     lastTrackLoadKeyRef.current = trackLoadKey;
     if (autoplay) {
-      startPlayback(startSec);
+      armInitialAudioSync();
+      startPlayback(startSec, false, { holdAudio: true });
     }
   }, [
+    armInitialAudioSync,
     clipEndSec,
     clipStartSec,
     computeServerPositionSec,
@@ -828,12 +921,9 @@ const useGameRoomPlayerSync = ({
     const revealKey = `${trackSessionKey}:${revealEndsAt}:reveal`;
     if (lastRevealStartKeyRef.current === revealKey) return;
     lastRevealStartKeyRef.current = revealKey;
-    const latestPlayerTime = getFreshPlayerTimeSec();
     const playerEnded = lastPlayerStateRef.current === 0;
-    const playerAtEnd =
-      typeof latestPlayerTime === "number" && latestPlayerTime >= clipEndSec - 0.05;
 
-    if (playerEnded || playerAtEnd) {
+    if (playerEnded) {
       revealReplayRef.current = true;
       startPlayback(computeRevealPositionSec(), true);
       return;
@@ -874,10 +964,12 @@ const useGameRoomPlayerSync = ({
   useEffect(() => {
     if (waitingToStart) {
       hasStartedPlaybackRef.current = false;
+      initialAudioSyncPendingRef.current = false;
+      clearInitialAudioHoldReleaseTimer();
       postCommand("pauseVideo");
       postCommand("seekTo", [clipStartSec, true]);
     }
-  }, [clipStartSec, postCommand, waitingToStart]);
+  }, [clearInitialAudioHoldReleaseTimer, clipStartSec, postCommand, waitingToStart]);
 
   useEffect(() => {
     const handleVisibility = () => {

@@ -6,7 +6,6 @@ import type { ChatMessage } from "../../../model/types";
 interface GameRoomChatPanelProps {
   danmuEnabled: boolean;
   onDanmuEnabledChange: (enabled: boolean) => void;
-  messagesLength: number;
   recentMessages: ChatMessage[];
   messageInput: string;
   onMessageChange?: (value: string) => void;
@@ -18,7 +17,6 @@ interface GameRoomChatPanelProps {
 const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
   danmuEnabled,
   onDanmuEnabledChange,
-  messagesLength,
   recentMessages,
   messageInput,
   onMessageChange,
@@ -47,7 +45,6 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
             onChange={(event) => onDanmuEnabledChange(event.target.checked)}
           />
           <span className="text-[11px] text-slate-500">{danmuEnabled ? "開啟" : "關閉"}</span>
-          <span className="text-xs text-slate-400">{messagesLength} 則訊息</span>
         </div>
       </div>
       <div className="game-room-chat-divider h-px" />

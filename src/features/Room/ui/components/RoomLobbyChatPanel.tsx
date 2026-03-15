@@ -21,6 +21,7 @@ interface RoomLobbyChatPanelProps {
   messageInput: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
+  onChatInteraction?: () => void;
   latestSettlementRoundKey?: string | null;
   onOpenHistoryDrawer?: () => void;
   onOpenSettlementByRoundKey?: (roundKey: string) => void;
@@ -31,6 +32,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
   messageInput,
   onInputChange,
   onSend,
+  onChatInteraction,
   latestSettlementRoundKey,
   onOpenHistoryDrawer,
   onOpenSettlementByRoundKey,
@@ -176,9 +178,10 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                         variant="outlined"
                         color="inherit"
                         sx={{ mt: 1, borderColor: "rgba(148,163,184,0.6)" }}
-                        onClick={() =>
-                          onOpenSettlementByRoundKey?.(settlementRoundKey)
-                        }
+                        onClick={() => {
+                          onChatInteraction?.();
+                          onOpenSettlementByRoundKey?.(settlementRoundKey);
+                        }}
                       >
                         查看上一局
                       </Button>
@@ -189,7 +192,10 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                         variant="text"
                         color="inherit"
                         sx={{ mt: 1, color: "rgba(191,219,254,0.92)" }}
-                        onClick={() => onOpenHistoryDrawer?.()}
+                        onClick={() => {
+                          onChatInteraction?.();
+                          onOpenHistoryDrawer?.();
+                        }}
                       >
                         查看對戰資訊
                       </Button>
