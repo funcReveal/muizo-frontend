@@ -13,6 +13,7 @@ import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import VideoLibraryRoundedIcon from "@mui/icons-material/VideoLibraryRounded";
+import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
 
 import type { YoutubePlaylist } from "../../model/RoomContext";
 import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
@@ -296,29 +297,31 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
       className="border border-slate-800/80 bg-slate-950/40 room-lobby-suggestion-accordion"
     >
       <AccordionSummary>
-        <Typography variant="subtitle2" className="text-slate-200">
-          {"\u63a8\u85a6\u6b4c\u55ae"}
-        </Typography>
+        <div className="room-lobby-host-heading">
+          <span className="room-lobby-host-heading__icon" aria-hidden="true">
+            <TipsAndUpdatesRoundedIcon fontSize="small" />
+          </span>
+          <Typography variant="subtitle2" className="text-slate-200">
+            {"\u63a8\u85a6\u64ad\u653e\u6e05\u55ae"}
+          </Typography>
+        </div>
       </AccordionSummary>
       <AccordionDetails>
         <Stack
           spacing={1.2}
           className="room-lobby-source-panel room-lobby-source-panel--host room-lobby-source-panel-fixed room-lobby-source-panel--suggestion"
         >
+          <div className="room-lobby-mobile-panel-heading" aria-hidden="true">
+            <div className="room-lobby-host-heading">
+              <span className="room-lobby-host-heading__icon">
+                <TipsAndUpdatesRoundedIcon fontSize="small" />
+              </span>
+              <Typography variant="subtitle2" className="text-slate-200">
+                {"\u63a8\u85a6\u64ad\u653e\u6e05\u55ae"}
+              </Typography>
+            </div>
+          </div>
           <Stack direction="row" className="room-lobby-mode-row room-lobby-mode-row--host">
-            <Button
-              size="small"
-              variant={suggestType === "playlist" ? "contained" : "outlined"}
-              className="room-lobby-mode-button room-lobby-mode-button--playlist"
-              startIcon={<LinkRoundedIcon fontSize="small" />}
-              onClick={() => {
-                setSuggestType("playlist");
-                clearSuggestError();
-              }}
-              disabled={isSubmitting}
-            >
-              {"\u9023\u7d50"}
-            </Button>
             <Button
               size="small"
               variant={
@@ -369,6 +372,19 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               disabled={isSubmitting}
             >
               {"YouTube"}
+            </Button>
+            <Button
+              size="small"
+              variant={suggestType === "playlist" ? "contained" : "outlined"}
+              className="room-lobby-mode-button room-lobby-mode-button--playlist"
+              startIcon={<LinkRoundedIcon fontSize="small" />}
+              onClick={() => {
+                setSuggestType("playlist");
+                clearSuggestError();
+              }}
+              disabled={isSubmitting}
+            >
+              {"\u9023\u7d50"}
             </Button>
           </Stack>
 

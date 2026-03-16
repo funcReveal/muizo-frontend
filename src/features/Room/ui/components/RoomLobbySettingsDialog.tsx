@@ -1,8 +1,9 @@
-import React from "react";
+﻿import React from "react";
 import {
   Box,
   Button,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -16,7 +17,9 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import {
   DEFAULT_PLAYBACK_EXTENSION_MODE,
   PLAYER_MAX,
@@ -111,6 +114,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   const isMobileDialog = useMediaQuery("(max-width:900px)");
   const isWideDialog = useMediaQuery("(min-width:1180px)");
   const settingsLocked = settingsDisabled || settingsSaving;
+  const [mobileSummaryExpanded, setMobileSummaryExpanded] = React.useState(false);
 
   const playbackModeCopy: Record<
     PlaybackExtensionMode,
@@ -153,6 +157,15 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
     { label: "答題節奏", value: timingSummary, accent: true },
     { label: "延長模式", value: selectedModeCopy.title },
   ];
+  const mobileSummaryItems = summaryItems;
+  const mobileSummaryPreviewItems = [
+    `${settingsQuestionCount} 題`,
+    settingsVisibility === "public" ? "公開房" : "私人房",
+    useCollectionTimingForSettings
+      ? `揭曉 ${settingsRevealDurationSec}s`
+      : `播放 ${settingsPlayDurationSec}s`,
+    selectedModeCopy.title,
+  ];
   const questionCountPresets = Array.from(
     new Set(
       [questionMinLimit, 10, 20, 30, 50, questionMaxLimit].filter(
@@ -190,6 +203,9 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
     label: string;
     note: string;
   }>;
+  const mobileJumpSections = settingsSections.filter(
+    (section) => section.key === "playback" || section.key === "timing",
+  );
 
   const handleDialogClose = () => {
     if (settingsSaving) return;
@@ -264,21 +280,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
             ) : null}
           </Stack>
 
-          {isMobileDialog ? (
-            <div className="room-lobby-settings-mobile-summary">
-              {summaryItems.map((item) => (
-                <div
-                  key={item.label}
-                  className={`room-lobby-settings-mobile-summary-item ${
-                    item.accent ? "is-accent" : ""
-                  }`}
-                >
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
-            </div>
-          ) : (
+          {!isMobileDialog ? (
             <div className="room-lobby-settings-summary-rail">
               {summaryItems.map((item) => (
                 <div
@@ -292,7 +294,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </Stack>
       </DialogTitle>
 
@@ -318,8 +320,56 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
           ) : null}
 
           {isMobileDialog ? (
+            <div className="room-lobby-settings-mobile-summary-wrap">
+              <button
+                type="button"
+                className={`room-lobby-settings-mobile-summary-toggle ${
+                  mobileSummaryExpanded ? "is-open" : ""
+                }`}
+                onClick={() => setMobileSummaryExpanded((current) => !current)}
+              >
+                <span className="room-lobby-settings-mobile-summary-toggle__icon">
+                  <TuneRoundedIcon sx={{ fontSize: 18 }} />
+                </span>
+                <span className="room-lobby-settings-mobile-summary-toggle__body">
+                  <span className="room-lobby-settings-mobile-summary-toggle__eyebrow">
+                    設定摘要
+                  </span>
+                  <strong>
+                    {mobileSummaryExpanded ? "收起目前設定" : "查看目前設定"}
+                  </strong>
+                  <span className="room-lobby-settings-mobile-summary-toggle__preview">
+                    {mobileSummaryPreviewItems.map((item) => (
+                      <span key={item}>{item}</span>
+                    ))}
+                  </span>
+                </span>
+                <span className="room-lobby-settings-mobile-summary-toggle__arrow">
+                  <KeyboardArrowDownRoundedIcon sx={{ fontSize: 18 }} />
+                </span>
+              </button>
+
+              <Collapse in={mobileSummaryExpanded} timeout={180}>
+                <div className="room-lobby-settings-mobile-summary room-lobby-settings-mobile-summary--secondary">
+                  {mobileSummaryItems.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`room-lobby-settings-mobile-summary-item ${
+                        item.accent ? "is-accent" : ""
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </Collapse>
+            </div>
+          ) : null}
+
+          {isMobileDialog ? (
             <div className="room-lobby-settings-mobile-jump-grid">
-              {settingsSections.map((section, index) => (
+              {mobileJumpSections.map((section, index) => (
                 <button
                   key={section.key}
                   type="button"

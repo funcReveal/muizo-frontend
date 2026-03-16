@@ -347,7 +347,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
             <TuneRoundedIcon fontSize="small" />
           </span>
           <Typography variant="subtitle2" className="text-slate-200">
-            {"\u6b4c\u55ae\u4f86\u6e90"}
+            {"\u64ad\u653e\u6e05\u55ae\u4f86\u6e90"}
           </Typography>
           {hasNewSuggestions && (
             <span className="room-lobby-host-heading__badge">
@@ -358,6 +358,16 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
       </AccordionSummary>
       <AccordionDetails>
         <Stack spacing={1.5}>
+          <div className="room-lobby-mobile-panel-heading" aria-hidden="true">
+            <div className="room-lobby-host-heading">
+              <span className="room-lobby-host-heading__icon">
+                <TuneRoundedIcon fontSize="small" />
+              </span>
+              <Typography variant="subtitle2" className="text-slate-200">
+                {"\u64ad\u653e\u6e05\u55ae\u4f86\u6e90"}
+              </Typography>
+            </div>
+          </div>
           <Box className="room-lobby-host-controls">
             <Stack
               spacing={1.1}
