@@ -459,6 +459,8 @@ export interface ClientToServerEvents {
 // Server -> Client
 export interface ServerToClientEvents {
   roomsUpdated: (rooms: RoomSummary[]) => void;
+  roomCreated: (payload: { room: RoomSummary }) => void;
+  roomRemoved: (payload: { roomId: string }) => void;
   joinedRoom: (state: RoomState) => void;
   sessionProgress: (payload: SessionProgressPayload) => void;
   participantsUpdated: (payload: {

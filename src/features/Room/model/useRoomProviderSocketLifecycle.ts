@@ -181,6 +181,40 @@ export const useRoomProviderSocketLifecycle = ({
     appendPresenceSystemMessage,
     mergeCachedParticipantPing,
   } = handlers;
+  const upsertRoomSummary = useCallback(
+    (room: RoomSummary) => {
+      setRooms((prev) => {
+        const existingIndex = prev.findIndex((item) => item.id === room.id);
+        if (existingIndex === -1) {
+          return [...prev, room];
+        }
+        const next = [...prev];
+        next[existingIndex] = room;
+        return next;
+      });
+    },
+    [setRooms],
+  );
+  const removeRoomSummary = useCallback(
+    (roomId: string) => {
+      setRooms((prev) => prev.filter((room) => room.id !== roomId));
+    },
+    [setRooms],
+  );
+  const applyIncomingRoomSummary = useCallback(
+    (room: RoomSummary) => {
+      if (room.visibility === "public") {
+        upsertRoomSummary(room);
+      } else {
+        removeRoomSummary(room.id);
+      }
+      if (room.id !== currentRoomIdRef.current) return;
+      setCurrentRoom((prev) =>
+        prev ? mergeRoomSummaryIntoCurrentRoom(prev, room) : prev,
+      );
+    },
+    [currentRoomIdRef, removeRoomSummary, setCurrentRoom, upsertRoomSummary],
+  );
 
   useEffect(() => {
     if (!username || authLoading) return;
@@ -314,6 +348,9 @@ export const useRoomProviderSocketLifecycle = ({
             }
           }
         },
+        onRoomCreated: ({ room }) => {
+          applyIncomingRoomSummary(room);
+        },
         onSessionProgress: (payload) => {
           setSessionProgress(payload);
         },
@@ -441,10 +478,26 @@ export const useRoomProviderSocketLifecycle = ({
           }
         },
         onRoomUpdated: ({ room }) => {
-          if (room.id !== currentRoomIdRef.current) return;
-          setCurrentRoom((prev) =>
-            prev ? mergeRoomSummaryIntoCurrentRoom(prev, room) : prev,
-          );
+          applyIncomingRoomSummary(room);
+        },
+        onRoomRemoved: ({ roomId }) => {
+          removeRoomSummary(roomId);
+          if (roomId !== currentRoomIdRef.current) return;
+          setCurrentRoom(null);
+          setParticipants([]);
+          resetPresenceParticipants();
+          setMessages([]);
+          setSettlementHistory([]);
+          setGameState(null);
+          setGamePlaylist([]);
+          setIsGameView(false);
+          setPlaylistViewItems([]);
+          setPlaylistHasMore(false);
+          setPlaylistLoadingMore(false);
+          setPlaylistSuggestions([]);
+          persistRoomId(null);
+          resetSessionClientId();
+          setRouteRoomResolved(true);
         },
         onKicked: ({ roomId, reason, bannedUntil }) => {
           if (roomId !== currentRoomIdRef.current) return;

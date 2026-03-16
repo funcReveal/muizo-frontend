@@ -17,6 +17,8 @@ type RoomSocketHandlers = {
   onConnect?: (socket: ClientSocket) => void;
   onDisconnect?: () => void;
   onRoomsUpdated?: (rooms: RoomSummary[]) => void;
+  onRoomCreated?: (payload: { room: RoomSummary }) => void;
+  onRoomRemoved?: (payload: { roomId: string }) => void;
   onJoinedRoom?: (state: RoomState) => void;
   onSessionProgress?: (payload: SessionProgressPayload) => void;
   onParticipantsUpdated?: (payload: {
@@ -81,6 +83,8 @@ export const connectRoomSocket = (
   socket.on("connect", () => handlers.onConnect?.(socket));
   socket.on("disconnect", () => handlers.onDisconnect?.());
   socket.on("roomsUpdated", (rooms) => handlers.onRoomsUpdated?.(rooms));
+  socket.on("roomCreated", (payload) => handlers.onRoomCreated?.(payload));
+  socket.on("roomRemoved", (payload) => handlers.onRoomRemoved?.(payload));
   socket.on("joinedRoom", (state) => handlers.onJoinedRoom?.(state));
   socket.on("sessionProgress", (payload) =>
     handlers.onSessionProgress?.(payload),

@@ -262,6 +262,7 @@ const VirtualLibraryListRow = ({
 };
 
 const GUIDE_MODE_STORAGE_KEY = "mq_room_guide_mode";
+const JOIN_ENTRY_TAB_STORAGE_KEY = "mq_room_join_entry_tab";
 const CREATE_PLAYER_QUICK_OPTIONS = [4, 8, 12];
 const CREATE_QUESTION_QUICK_OPTIONS = [10, 15, 20, 30];
 
@@ -378,7 +379,7 @@ const RoomListPage: React.FC = () => {
     roomName: string;
   } | null>(null);
   const [joinConfirmDialog, setJoinConfirmDialog] = useState<{
-    roomId: string;
+    roomCode: string;
     roomName: string;
     hasPassword: boolean;
     playlistTitle: string;
@@ -391,7 +392,11 @@ const RoomListPage: React.FC = () => {
   } | null>(null);
   const [passwordDraft, setPasswordDraft] = useState("");
   const [directRoomIdInput, setDirectRoomIdInput] = useState("");
-  const [joinEntryTab, setJoinEntryTab] = useState<"code" | "browser">("code");
+  const [joinEntryTab, setJoinEntryTab] = useState<"code" | "browser">(() => {
+    if (typeof window === "undefined") return "code";
+    const stored = window.sessionStorage.getItem(JOIN_ENTRY_TAB_STORAGE_KEY);
+    return stored === "browser" ? "browser" : "code";
+  });
   const [isDirectRoomCodeFocused, setIsDirectRoomCodeFocused] = useState(false);
   const [directJoinLoading, setDirectJoinLoading] = useState(false);
   const [directJoinPreviewRoom, setDirectJoinPreviewRoom] =
@@ -447,6 +452,11 @@ const RoomListPage: React.FC = () => {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(GUIDE_MODE_STORAGE_KEY, guideMode);
   }, [guideMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(JOIN_ENTRY_TAB_STORAGE_KEY, joinEntryTab);
+  }, [joinEntryTab]);
 
   const normalizedDirectRoomCode = normalizeRoomCodeInput(directRoomIdInput);
   const directRoomCodeSlots = normalizedDirectRoomCode.padEnd(6, "_").split("");
@@ -535,6 +545,14 @@ const RoomListPage: React.FC = () => {
     });
     return next;
   }, [joinPasswordFilter, joinSortMode, rooms]);
+  const filteredJoinPlayerTotal = useMemo(
+    () =>
+      filteredJoinRooms.reduce(
+        (total, room) => total + Math.max(0, room.playerCount ?? 0),
+        0,
+      ),
+    [filteredJoinRooms],
+  );
   const joinPreviewRoom = selectedJoinRoom;
   const playlistPreviewItems = useMemo(
     () =>
@@ -1277,7 +1295,7 @@ const RoomListPage: React.FC = () => {
   };
   const openInProgressJoinDialog = (room: RoomSummary) => {
     setJoinConfirmDialog({
-      roomId: room.id,
+      roomCode: room.roomCode,
       roomName: room.name,
       hasPassword: roomRequiresPin(room),
       playlistTitle: getRoomPlaylistLabel(room),
@@ -1301,7 +1319,7 @@ const RoomListPage: React.FC = () => {
   const handleConfirmJoinInProgress = () => {
     if (!joinConfirmDialog) return;
     proceedJoinRoom(
-      joinConfirmDialog.roomId,
+      joinConfirmDialog.roomCode,
       joinConfirmDialog.roomName,
       joinConfirmDialog.hasPassword,
     );
@@ -3116,57 +3134,71 @@ const RoomListPage: React.FC = () => {
                               </div>
                             </div>
                           ) : createLibraryTab === "link" ? (
-                            <div className="mt-3 space-y-3">
-                              <div className="flex flex-col gap-2">
-                                <TextField
-                                  fullWidth
-                                  size="small"
-                                  label="貼上 YouTube 播放清單連結"
-                                  value={playlistUrlDraft}
-                                  disabled={
-                                    !isLinkSourceActive || linkPreviewLocked
-                                  }
-                                  onChange={(event) => {
-                                    setPlaylistUrlDraft(event.target.value);
-                                    if (playlistPreviewError)
-                                      setPlaylistPreviewError(null);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (
-                                      !isLinkSourceActive ||
-                                      linkPreviewLocked
-                                    )
-                                      return;
-                                    if (event.key === "Enter") {
-                                      event.preventDefault();
-                                      void handlePreviewPlaylistByUrl();
-                                    }
-                                  }}
-                                  InputProps={{
-                                    endAdornment: linkPreviewLocked ? (
-                                      <Tooltip
-                                        title="取消目前預覽，才能更換連結"
-                                        placement="top"
+                            <div className="mt-3 space-y-4">
+                              <div className="rounded-[28px] border border-cyan-300/22 bg-[linear-gradient(180deg,rgba(14,116,144,0.14),rgba(15,23,42,0.18))] p-4 sm:p-5">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                      貼上播放清單連結
+                                    </p>
+                                    {playlistLoading && (
+                                      <span className="rounded-full border border-amber-300/25 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-100/90">
+                                        正在載入預覽
+                                      </span>
+                                    )}
+                                    {linkPreviewLocked && (
+                                      <span className="rounded-full border border-white/12 bg-white/8 px-2.5 py-1 text-[11px] text-[var(--mc-text-muted)]">
+                                        目前連結已鎖定
+                                      </span>
+                                    )}
+                                  </div>
+                                  {linkPreviewLocked ? (
+                                    <Tooltip
+                                      title="取消目前預覽，才能更換連結"
+                                      placement="top"
+                                    >
+                                      <IconButton
+                                        size="small"
+                                        onClick={handleCancelLinkPreview}
+                                        aria-label="取消目前清單預覽"
+                                        className="border border-white/10 bg-slate-950/25 text-[var(--mc-text-muted)]"
                                       >
-                                        <IconButton
-                                          size="small"
-                                          onClick={handleCancelLinkPreview}
-                                          aria-label="取消目前清單預覽"
-                                        >
-                                          <CloseRounded fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
-                                    ) : undefined,
-                                  }}
-                                />
-                                <p className="text-xs text-[var(--mc-text-muted)]">
-                                  {!isLinkSourceActive
-                                    ? "目前使用其他題庫來源。切換到「貼上連結模式」後，才會載入與預覽此區內容。"
-                                    : linkPreviewLocked
-                                      ? "已鎖定目前連結，請點右側取消圖示後再更換。"
-                                      : "連結貼上後會自動預覽完整清單。"}
-                                  {playlistLoading ? " 正在更新中..." : ""}
-                                </p>
+                                        <CloseRounded fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  ) : null}
+                                </div>
+                                <div className="mt-4">
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="YouTube 播放清單連結"
+                                    placeholder="https://www.youtube.com/playlist?list=..."
+                                    value={playlistUrlDraft}
+                                    disabled={linkPreviewLocked}
+                                    onChange={(event) => {
+                                      if (!isLinkSourceActive) {
+                                        handleActivateLinkSource();
+                                      }
+                                      setPlaylistUrlDraft(event.target.value);
+                                      if (playlistPreviewError)
+                                        setPlaylistPreviewError(null);
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (linkPreviewLocked) return;
+                                      if (event.key === "Enter") {
+                                        event.preventDefault();
+                                        void handlePreviewPlaylistByUrl();
+                                      }
+                                    }}
+                                    sx={{
+                                      "& .MuiOutlinedInput-root": {
+                                        borderRadius: "20px",
+                                        backgroundColor: "rgba(2, 6, 23, 0.32)",
+                                      },
+                                    }}
+                                  />
+                                </div>
                               </div>
                               {(playlistPreviewError || playlistError) && (
                                 <p className="text-xs text-rose-300">
@@ -3174,14 +3206,14 @@ const RoomListPage: React.FC = () => {
                                 </p>
                               )}
                               <div className="rounded-xl border border-cyan-300/25 bg-slate-950/25 p-3">
-                                <p className="text-xs text-[var(--mc-text-muted)]">
-                                  {linkPlaylistTitle
-                                    ? `預覽清單：${linkPlaylistTitle}`
-                                    : "貼上連結後可即時看到曲目預覽"}
-                                </p>
+                                {linkPlaylistTitle && (
+                                  <p className="text-xs text-[var(--mc-text-muted)]">
+                                    預覽清單：{linkPlaylistTitle}
+                                  </p>
+                                )}
                                 {linkPlaylistPreviewItems.length > 0 ? (
                                   <>
-                                    <div className="mt-2 rounded-lg border border-[var(--mc-border)]/70 bg-slate-950/20">
+                                    <div className={`${linkPlaylistTitle ? "mt-2" : ""} rounded-lg border border-[var(--mc-border)]/70 bg-slate-950/20`}>
                                       <List<PlaylistPreviewRowProps>
                                         style={{ height: 320, width: "100%" }}
                                         rowCount={
@@ -3283,21 +3315,14 @@ const RoomListPage: React.FC = () => {
                                       )}
                                   </>
                                 ) : (
-                                  <p className="mt-2 text-sm text-[var(--mc-text-muted)]">
-                                    {!isLinkSourceActive
-                                      ? "目前尚未啟用貼上連結模式。"
-                                      : "目前尚無可預覽的清單內容。"}
-                                  </p>
+                                  <div className="mt-3 flex min-h-[160px] flex-col items-center justify-center rounded-2xl border border-dashed border-cyan-300/16 bg-slate-950/15 px-4 text-center">
+                                    <p className="text-sm text-[var(--mc-text-muted)]">
+                                      貼上連結後，這裡會顯示曲目預覽
+                                    </p>
+                                  </div>
                                 )}
                                 <div className="mt-3">
-                                  {!isLinkSourceActive ? (
-                                    <Button
-                                      variant="outlined"
-                                      onClick={handleActivateLinkSource}
-                                    >
-                                      切換到貼上連結模式
-                                    </Button>
-                                  ) : (
+                                  {isLinkSourceActive && (
                                     <Button
                                       variant="contained"
                                       onClick={handlePickLinkSource}
@@ -3912,6 +3937,9 @@ const RoomListPage: React.FC = () => {
                           <p className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
                             從公開房間列表直接加入
                           </p>
+                          <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                            目前共 {filteredJoinRooms.length} 間房，{filteredJoinPlayerTotal} 人在線
+                          </p>
                         </div>
                         <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
                           <button
@@ -3938,10 +3966,6 @@ const RoomListPage: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                      <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
-                        點選房間卡片可同步更新左側確認區，確認後即可加入。
-                      </p>
-
                       {filteredJoinRooms.length === 0 ? (
                         <p className="mt-3 text-sm text-[var(--mc-text-muted)]">
                           目前沒有符合條件的房間。
@@ -3957,10 +3981,10 @@ const RoomListPage: React.FC = () => {
                           {filteredJoinRooms.slice(0, 12).map((room) => (
                             <div
                               key={room.id}
-                              className={`rounded-xl border px-3 py-3 transition ${
+                              className={`rounded-2xl border transition ${
                                 selectedJoinRoomId === room.id
-                                  ? "border-amber-300/55 bg-amber-300/12"
-                                  : "border-[var(--mc-border)] bg-slate-950/25 hover:border-amber-300/35"
+                                  ? "border-amber-300/60 bg-amber-300/14 shadow-[0_12px_30px_rgba(251,191,36,0.08)]"
+                                  : "border-[var(--mc-border)] bg-slate-950/25 hover:border-amber-300/35 hover:bg-slate-900/30"
                               }`}
                             >
                               <button
@@ -3968,100 +3992,98 @@ const RoomListPage: React.FC = () => {
                                 onClick={() => {
                                   setSelectedJoinRoomId(room.id);
                                 }}
-                                className="w-full text-left"
+                                className={`w-full text-left ${
+                                  joinRoomsView === "grid" ? "p-4" : "px-4 py-3"
+                                }`}
                               >
-                                {joinRoomsView === "grid" ? (
-                                  <div className="space-y-3">
-                                    <div className="flex items-start justify-between gap-2">
+                                <div
+                                  className={`${
+                                    joinRoomsView === "grid"
+                                      ? "space-y-3"
+                                      : "flex flex-wrap items-center gap-4"
+                                  }`}
+                                >
+                                  <div
+                                    className={`${
+                                      joinRoomsView === "grid"
+                                        ? "space-y-3"
+                                        : "min-w-0 flex-1 space-y-2"
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
                                       <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                        <p className="truncate text-sm font-semibold text-[var(--mc-text)] sm:text-[15px]">
                                           {room.name}
                                         </p>
-                                        <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                                          {room.playerCount}
-                                          {room.maxPlayers
-                                            ? `/${room.maxPlayers}`
-                                            : ""}{" "}
-                                          人
-                                        </p>
                                       </div>
-                                      <Button
-                                        variant="contained"
-                                        size="small"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          handleJoinRoomEntry(room);
-                                        }}
-                                      >
-                                        加入
-                                      </Button>
+                                      <div className="flex items-center gap-2">
+                                        {selectedJoinRoomId === room.id && (
+                                          <span className="rounded-full border border-amber-300/35 bg-amber-300/14 px-2 py-0.5 text-[11px] font-medium text-amber-100">
+                                            已選擇
+                                          </span>
+                                        )}
+                                        <span
+                                          className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                                            isRoomCurrentlyPlaying(room)
+                                              ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                                              : "border-slate-300/20 bg-slate-400/10 text-slate-200"
+                                          }`}
+                                        >
+                                          {getRoomStatusLabel(room)}
+                                        </span>
+                                      </div>
                                     </div>
+
                                     <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                                      <span
-                                        className={`rounded-full border px-2 py-0.5 ${
-                                          isRoomCurrentlyPlaying(room)
-                                            ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                                            : "border-slate-300/20 bg-slate-400/10 text-slate-200"
-                                        }`}
-                                      >
-                                        {getRoomStatusLabel(room)}
+                                      <span className="rounded-full border border-[var(--mc-border)] px-2.5 py-0.5 text-[var(--mc-text-muted)]">
+                                        {room.playerCount}
+                                        {room.maxPlayers
+                                          ? `/${room.maxPlayers}`
+                                          : ""}{" "}
+                                        人
                                       </span>
-                                      <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[var(--mc-text-muted)]">
+                                      <span className="rounded-full border border-[var(--mc-border)] px-2.5 py-0.5 text-[var(--mc-text-muted)]">
                                         {roomRequiresPin(room) ? "需 PIN" : "免 PIN"}
                                       </span>
                                     </div>
-                                    <p className="truncate text-xs text-[var(--mc-text-muted)]">
-                                      題庫：{getRoomPlaylistLabel(room)}
+
+                                    <div
+                                      className={`${
+                                        joinRoomsView === "grid"
+                                          ? "grid gap-2 text-sm text-[var(--mc-text-muted)]"
+                                          : "flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--mc-text-muted)]"
+                                      }`}
+                                    >
+                                      <p>題數：{room.gameSettings?.questionCount ?? "-"}</p>
+                                      <p className="truncate">
+                                        題庫：{getRoomPlaylistLabel(room)}
+                                      </p>
+                                    </div>
+
+                                    <p className="text-[11px] text-[var(--mc-text-muted)]/80">
+                                      代碼：{formatRoomCodeDisplay(room.roomCode)}
                                     </p>
                                   </div>
-                                ) : (
-                                  <>
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
-                                          {room.name}
-                                        </p>
-                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-                                          <span
-                                            className={`rounded-full border px-2 py-0.5 ${
-                                              isRoomCurrentlyPlaying(room)
-                                                ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                                                : "border-slate-300/20 bg-slate-400/10 text-slate-200"
-                                            }`}
-                                          >
-                                            {getRoomStatusLabel(room)}
-                                          </span>
-                                          <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[var(--mc-text-muted)]">
-                                            {roomRequiresPin(room)
-                                              ? "需 PIN"
-                                              : "免 PIN"}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <Button
-                                        variant="contained"
-                                        size="small"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          handleJoinRoomEntry(room);
-                                        }}
-                                      >
-                                        加入
-                                      </Button>
-                                    </div>
-                                    <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
-                                      {room.playerCount}
-                                      {room.maxPlayers
-                                        ? `/${room.maxPlayers}`
-                                        : ""}{" "}
-                                      人 · 題數{" "}
-                                      {room.gameSettings?.questionCount ?? "-"}
-                                    </p>
-                                    <p className="mt-1 truncate text-xs text-[var(--mc-text-muted)]">
-                                      題庫：{getRoomPlaylistLabel(room)}
-                                    </p>
-                                  </>
-                                )}
+
+                                  <div
+                                    className={`${
+                                      joinRoomsView === "grid"
+                                        ? "pt-1"
+                                        : "ml-auto flex shrink-0 items-center"
+                                    }`}
+                                  >
+                                    <Button
+                                      variant="contained"
+                                      size="small"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleJoinRoomEntry(room);
+                                      }}
+                                    >
+                                      加入
+                                    </Button>
+                                  </div>
+                                </div>
                               </button>
                             </div>
                           ))}
