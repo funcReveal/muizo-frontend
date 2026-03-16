@@ -22,7 +22,7 @@ interface HistoryArchiveHeaderProps {
 }
 
 const metricButtonBase =
-  "min-h-[96px] rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5";
+  "min-h-[78px] rounded-[20px] border p-3 text-left transition hover:-translate-y-0.5 sm:min-h-[96px] sm:rounded-2xl sm:p-3.5";
 
 const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
   historyPageLimit,
@@ -39,21 +39,21 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
   formatRankFraction,
 }) => {
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.96),rgba(8,7,5,0.98))] p-4 shadow-[0_18px_38px_-28px_rgba(0,0,0,0.72)] sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.96),rgba(8,7,5,0.98))] p-3.5 shadow-[0_18px_38px_-28px_rgba(0,0,0,0.72)] sm:rounded-[28px] sm:p-5">
+      <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 max-w-3xl">
-          <div className="inline-flex items-center rounded-2xl border border-amber-300/18 bg-[color-mix(in_srgb,var(--mc-surface-strong)_88%,black_12%)] px-4 py-3 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.08)]">
+          <div className="inline-flex items-center rounded-2xl border border-amber-300/18 bg-[color-mix(in_srgb,var(--mc-surface-strong)_88%,black_12%)] px-3.5 py-2.5 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.08)] sm:px-4 sm:py-3">
             <div>
               <div className="text-[10px] uppercase tracking-[0.28em] text-[var(--mc-text-muted)]">
                 Match Archive
               </div>
-              <h1 className="mt-1 text-lg font-semibold text-[var(--mc-text)] sm:text-xl">
+              <h1 className="mt-1 text-base font-semibold text-[var(--mc-text)] sm:text-xl">
                 對戰歷史
               </h1>
             </div>
           </div>
 
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)] sm:text-[15px]">
+          <p className="mt-4 hidden max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)] sm:block sm:text-[15px]">
             依房間整理最近 {historyPageLimit} 場對戰快照，展開房間後可直接切換局次並打開回放。
           </p>
 
@@ -70,7 +70,7 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3 xl:grid-cols-4">
         <button
           type="button"
           disabled={!recentTopScoreEntry}
@@ -88,10 +88,10 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
             <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
               近期最高分
             </div>
-            <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
+            <div className="mt-1.5 text-[1.95rem] font-semibold leading-none text-[var(--mc-text)] sm:mt-2 sm:text-4xl">
               {loadingList ? "-" : (recentTopScoreEntry?.selfPlayer?.finalScore ?? "-")}
             </div>
-            <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-xs text-[var(--mc-text-muted)]">
+            <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
               <span>{recentTopScoreEntry ? `第 ${recentTopScoreEntry.roundNo} 場` : "尚無資料"}</span>
               {recentTopScoreEntry && (
                 <span className="rounded-full border border-emerald-300/35 bg-emerald-300/12 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-emerald-100">
@@ -119,7 +119,7 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
             <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
               近期最佳名次
             </div>
-            <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
+            <div className="mt-1.5 text-[1.95rem] font-semibold leading-none text-[var(--mc-text)] sm:mt-2 sm:text-4xl">
               {loadingList
                 ? "-"
                 : recentBestRankEntry
@@ -129,7 +129,7 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
                     )
                   : "-"}
             </div>
-            <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-xs text-[var(--mc-text-muted)]">
+            <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
               <span>
                 {recentBestRankEntry ? `第 ${recentBestRankEntry.item.roundNo} 場` : "尚無資料"}
               </span>
@@ -159,14 +159,14 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
             <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
               近期最佳 Combo
             </div>
-            <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
+            <div className="mt-1.5 text-[1.95rem] font-semibold leading-none text-[var(--mc-text)] sm:mt-2 sm:text-4xl">
               {loadingList
                 ? "-"
                 : recentBestComboEntry?.selfPlayer
                   ? `x${recentBestComboEntry.selfPlayer.maxCombo}`
                   : "-"}
             </div>
-            <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-xs text-[var(--mc-text-muted)]">
+            <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
               <span>{recentBestComboEntry ? `第 ${recentBestComboEntry.roundNo} 場` : "尚無資料"}</span>
               {recentBestComboEntry && (
                 <span className="rounded-full border border-fuchsia-300/35 bg-fuchsia-300/12 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-fuchsia-100">
@@ -194,14 +194,14 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
             <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
               近期最佳答對率
             </div>
-            <div className="mt-2 text-4xl font-semibold leading-none text-[var(--mc-text)]">
+            <div className="mt-1.5 text-[1.95rem] font-semibold leading-none text-[var(--mc-text)] sm:mt-2 sm:text-4xl">
               {loadingList
                 ? "-"
                 : recentBestAccuracyEntry
                   ? `${Math.round(recentBestAccuracyEntry.rate * 100)}%`
                   : "-"}
             </div>
-            <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-xs text-[var(--mc-text-muted)]">
+            <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
               <span>
                 {recentBestAccuracyEntry
                   ? `第 ${recentBestAccuracyEntry.item.roundNo} 場`
@@ -217,7 +217,7 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
         </button>
       </div>
 
-      <div className="mt-5 flex flex-col gap-2.5 border-t border-amber-300/12 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-2.5 border-t border-amber-300/12 pt-3.5 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:pt-4">
         <div className="inline-flex items-center self-start rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs text-amber-100/90">
           已載入 {recentItemsLength} / {historyPageLimit} 場
         </div>
