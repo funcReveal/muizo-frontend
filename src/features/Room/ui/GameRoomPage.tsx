@@ -70,6 +70,7 @@ import {
   triggerHapticFeedback,
 } from "./components/gameRoomPage/gameRoomPageUtils";
 import {
+  buildRevealChoicePickMap,
   buildScoreboardRows,
   sortParticipantsByScore,
 } from "./components/gameRoomPage/gameRoomPageDerivations";
@@ -886,6 +887,21 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => sortParticipantsByScore(participants),
     [participants],
   );
+  const revealChoicePickMap = useMemo(
+    () =>
+      buildRevealChoicePickMap({
+        phase: gameState.phase,
+        answersByClientId: gameState.questionStats?.answersByClientId,
+        participants,
+        meClientId,
+      }),
+    [
+      gameState.phase,
+      gameState.questionStats?.answersByClientId,
+      participants,
+      meClientId,
+    ],
+  );
   const { topTwoSwapState, resetTopTwoSwapState } =
     useTopTwoSwapState(sortedParticipants);
   const { questionRecaps, resetQuestionRecaps } = useGameRoomRecaps({
@@ -1563,12 +1579,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         size="small"
         startIcon={<HowToVoteRoundedIcon />}
         className={`game-room-extend-vote-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${playbackExtensionVote?.status === "active"
-            ? "game-room-extend-vote-btn--active"
-            : playbackExtensionVote?.status === "approved"
-              ? "game-room-extend-vote-btn--approved"
-              : playbackExtensionVote?.status === "rejected"
-                ? "game-room-extend-vote-btn--rejected"
-                : ""
+          ? "game-room-extend-vote-btn--active"
+          : playbackExtensionVote?.status === "approved"
+            ? "game-room-extend-vote-btn--approved"
+            : playbackExtensionVote?.status === "rejected"
+              ? "game-room-extend-vote-btn--rejected"
+              : ""
           } ${canOpenPlaybackVotePrompt ? "game-room-extend-vote-btn--prompt" : ""}`}
         disabled={playbackVoteButtonDisabled}
         onClick={handleRequestPlaybackVote}
@@ -1844,12 +1860,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             allAnsweredReadyForReveal={allAnsweredReadyForReveal}
             isRevealPendingServerSync={isRevealPendingServerSync}
             isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
+            revealChoicePickMap={revealChoicePickMap}
           />
           {isMobileGameViewport && (
             <div
               className={`game-room-mobile-action-dock lg:hidden ${mobileAutoOverlayTransition !== "idle"
-                  ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
-                  : ""
+                ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
+                : ""
                 }`}
             >
               <button
@@ -1884,8 +1901,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </button>
               <div
                 className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
-                    ? "game-room-mobile-action-subdock--compact"
-                    : ""
+                  ? "game-room-mobile-action-subdock--compact"
+                  : ""
                   }`}
               >
                 {isHostInGame && (
@@ -1908,8 +1925,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <button
                     type="button"
                     className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--vote ${playbackExtensionVote?.status === "active" || canOpenPlaybackVotePrompt
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
+                      ? "game-room-mobile-toggle-chip--active"
+                      : ""
                       }`}
                     onClick={handleRequestPlaybackVote}
                     disabled={playbackVoteButtonDisabled}
@@ -1931,8 +1948,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <button
                   type="button"
                   className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor game-room-mobile-toggle-chip--anchor ${mobileGuessAnchorEnabled
-                      ? "game-room-mobile-toggle-chip--active"
-                      : ""
+                    ? "game-room-mobile-toggle-chip--active"
+                    : ""
                     }`}
                   onClick={() =>
                     setMobileGuessAnchorEnabled((current) => !current)
@@ -1950,8 +1967,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <button
                   type="button"
                   className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor game-room-mobile-toggle-chip--overlay ${mobileRevealAutoOverlayEnabled
-                      ? "game-room-mobile-toggle-chip--active"
-                      : ""
+                    ? "game-room-mobile-toggle-chip--active"
+                    : ""
                     }`}
                   onClick={() =>
                     setMobileRevealAutoOverlayEnabled((current) => !current)
@@ -1991,8 +2008,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             )}
             <SwipeableDrawer
               className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${mobileAutoOverlayTransition !== "idle"
-                  ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
-                  : ""
+                ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
+                : ""
                 }`}
               anchor="bottom"
               open={mobileScoreboardOpen}

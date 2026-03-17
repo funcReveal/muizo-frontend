@@ -1,11 +1,13 @@
 ﻿import React from "react";
 import { Button, Chip, LinearProgress } from "@mui/material";
 
+import RevealChoiceAvatarRow from "./RevealChoiceAvatarRow";
 import type { GameState, PlaylistItem } from "../../../model/types";
 import { normalizeRoomDisplayText } from "../../../model/roomProviderUtils";
 import type {
   ChoiceCommitFxState,
   MyFeedbackModel,
+  RevealChoicePickMap,
 } from "./gameRoomPageTypes";
 
 interface GameRoomAnswerPanelProps {
@@ -51,6 +53,7 @@ interface GameRoomAnswerPanelProps {
   allAnsweredReadyForReveal: boolean;
   isRevealPendingServerSync: boolean;
   isRevealPendingOptimisticSync: boolean;
+  revealChoicePickMap: RevealChoicePickMap;
 }
 
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
@@ -96,6 +99,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   allAnsweredReadyForReveal,
   isRevealPendingServerSync,
   isRevealPendingOptimisticSync,
+  revealChoicePickMap,
 }) => {
   const showGuessComboAtmosphere =
     !isReveal && hasActiveComboStreak && myComboTier > 0;
@@ -109,9 +113,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   return (
     <div
       ref={answerPanelRef}
-      className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${guessComboPanelClass} ${
-        isMobileView ? "game-room-answer-panel--mobile" : ""
-      } flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
+      className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${guessComboPanelClass} ${isMobileView ? "game-room-answer-panel--mobile" : ""
+        } flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
     >
       {isInitialCountdown ? (
         <div className="flex flex-col items-center py-6 text-center">
@@ -130,17 +133,14 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
         </div>
       ) : (
         <div
-          className={`game-room-answer-layout ${
-            isReveal
-              ? "game-room-answer-layout--reveal"
-              : "game-room-answer-layout--guess"
-          } ${
-            !isReveal && revealTone === "neutral"
+          className={`game-room-answer-layout ${isReveal
+            ? "game-room-answer-layout--reveal"
+            : "game-room-answer-layout--guess"
+            } ${!isReveal && revealTone === "neutral"
               ? "game-room-answer-layout--neutral"
               : ""
-          } ${guessComboLayoutClass} ${
-            isMobileView ? "game-room-answer-layout--mobile" : ""
-          }`}
+            } ${guessComboLayoutClass} ${isMobileView ? "game-room-answer-layout--mobile" : ""
+            }`}
         >
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
@@ -164,14 +164,13 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     ? "info"
                     : allAnsweredReadyForReveal
                       ? "success"
-                    : gamePhase === "guess"
-                      ? "warning"
-                      : "success"
+                      : gamePhase === "guess"
+                        ? "warning"
+                        : "success"
                 }
                 variant={allAnsweredReadyForReveal ? "filled" : "outlined"}
-                className={`game-room-chip ${
-                  isGuessUrgency ? "game-room-chip--urgent" : ""
-                } ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
+                className={`game-room-chip ${isGuessUrgency ? "game-room-chip--urgent" : ""
+                  } ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
               />
             </div>
 
@@ -204,81 +203,91 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               </div>
             )}
             <div
-              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 md:grid-cols-2 ${
-                isMobileView ? "game-room-options-grid--mobile" : ""
-              }`}
+              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 md:grid-cols-2 ${isMobileView ? "game-room-options-grid--mobile" : ""
+                }`}
             >
               {isInterTrackWait
                 ? Array.from(
-                    {
-                      length: Math.max(4, choices.length),
-                    },
-                    (_, idx) => (
-                      <Button
-                        key={`placeholder-${idx}`}
-                        fullWidth
-                        size="large"
-                        disabled
-                        variant="outlined"
-                        className="game-room-choice-button game-room-choice-placeholder justify-start"
-                      >
-                        <div className="game-room-choice-content flex w-full items-start justify-between gap-2">
-                          <span className="game-room-choice-title text-slate-500">下一題準備中</span>
-                          <span className="game-room-choice-key ml-3 inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-800 text-[11px] font-semibold text-slate-500">
-                            --
-                          </span>
-                        </div>
-                      </Button>
-                    ),
-                  )
+                  {
+                    length: Math.max(4, choices.length),
+                  },
+                  (_, idx) => (
+                    <Button
+                      key={`placeholder-${idx}`}
+                      fullWidth
+                      size="large"
+                      disabled
+                      variant="outlined"
+                      className="game-room-choice-button game-room-choice-placeholder justify-start"
+                    >
+                      <div className="game-room-choice-content flex w-full items-start justify-between gap-2">
+                        <span className="game-room-choice-title text-slate-500">下一題準備中</span>
+                        <span className="game-room-choice-key ml-3 inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-800 text-[11px] font-semibold text-slate-500">
+                          --
+                        </span>
+                      </div>
+                    </Button>
+                  ),
+                )
                 : choices.map((choice, idx) => {
-                    const isSelected = selectedChoice === choice.index;
-                    const isCorrect = choice.index === correctChoiceIndex;
-                    const isLocked = isReveal || isEnded;
-                    const choiceDisplayTitle = normalizeRoomDisplayText(
-                      choice.title?.trim() ||
-                        playlist[choice.index]?.answerText?.trim() ||
-                        playlist[choice.index]?.title?.trim(),
-                      "未命名選項",
-                    );
-                    const isMyChoice = selectedChoice === choice.index;
-                    const showCorrectTag = isReveal && isCorrect;
-                    const showMyChoiceTag = isReveal && isMyChoice;
-                    const showMyCorrectTag = isReveal && isMyChoice && isCorrect;
-                    const choiceCommitFxKind =
-                      choiceCommitFxState &&
+                  const isSelected = selectedChoice === choice.index;
+                  const isCorrect = choice.index === correctChoiceIndex;
+                  const isLocked = isReveal || isEnded;
+                  const choiceDisplayTitle = normalizeRoomDisplayText(
+                    choice.title?.trim() ||
+                    playlist[choice.index]?.answerText?.trim() ||
+                    playlist[choice.index]?.title?.trim(),
+                    "未命名選項",
+                  );
+                  const revealPicks = revealChoicePickMap[choice.index] ?? [];
+                  const hasRevealPicks = isReveal && revealPicks.length > 0;
+                  const isMyChoice = selectedChoice === choice.index;
+                  const showCorrectTag = isReveal && isCorrect;
+                  const showMyChoiceTag = isReveal && isMyChoice;
+                  const showMyCorrectTag = isReveal && isMyChoice && isCorrect;
+                  const choiceCommitFxKind =
+                    choiceCommitFxState &&
                       choiceCommitFxState.trackSessionKey === trackSessionKey &&
                       choiceCommitFxState.choiceIndex === choice.index
-                        ? choiceCommitFxState.kind
-                        : null;
-                    const showGuessLockTag = !isReveal && isMyChoice;
-                    const showComboLiveStyle =
-                      !isReveal && isMyChoice && hasActiveComboStreak;
-                    const showComboOverdriveStyle =
-                      showComboLiveStyle && myComboTier >= 10 && myComboNow >= 10;
-                    const showComboBreakStyle =
-                      isReveal && isMyChoice && isComboBreakThisQuestion;
-                    const showComboMilestoneStyle =
-                      isReveal &&
-                      isMyChoice &&
-                      myIsCorrect &&
-                      myComboTier > 0 &&
-                      myComboMilestone;
-                    const comboLiveTierClass =
-                      showComboLiveStyle && myComboTier > 0
-                        ? `game-room-choice-button--combo-live-tier-${myComboTier}`
-                        : "";
-                    const comboBreakTierClass =
-                      showComboBreakStyle && comboBreakTier > 0
-                        ? `game-room-choice-button--combo-break-tier-${comboBreakTier}`
-                        : "";
-                    const comboMilestoneTierClass = showComboMilestoneStyle
-                      ? `game-room-choice-button--combo-milestone-tier-${myComboTier}`
+                      ? choiceCommitFxState.kind
+                      : null;
+                  const showGuessLockTag = !isReveal && isMyChoice;
+                  const showComboLiveStyle =
+                    !isReveal && isMyChoice && hasActiveComboStreak;
+                  const showComboOverdriveStyle =
+                    showComboLiveStyle && myComboTier >= 10 && myComboNow >= 10;
+                  const showComboBreakStyle =
+                    isReveal && isMyChoice && isComboBreakThisQuestion;
+                  const showComboMilestoneStyle =
+                    isReveal &&
+                    isMyChoice &&
+                    myIsCorrect &&
+                    myComboTier > 0 &&
+                    myComboMilestone;
+                  const comboLiveTierClass =
+                    showComboLiveStyle && myComboTier > 0
+                      ? `game-room-choice-button--combo-live-tier-${myComboTier}`
                       : "";
+                  const comboBreakTierClass =
+                    showComboBreakStyle && comboBreakTier > 0
+                      ? `game-room-choice-button--combo-break-tier-${comboBreakTier}`
+                      : "";
+                  const comboMilestoneTierClass = showComboMilestoneStyle
+                    ? `game-room-choice-button--combo-milestone-tier-${myComboTier}`
+                    : "";
 
-                    return (
+                  return (
+                    <div
+                      key={`${choice.index}-${idx}`}
+                      className={`game-room-choice-shell ${hasRevealPicks ? "game-room-choice-shell--with-avatars" : ""
+                        }`}
+                    >
+                      {hasRevealPicks && (
+                        <div className="game-room-choice-avatar-anchor">
+                          <RevealChoiceAvatarRow picks={revealPicks} />
+                        </div>
+                      )}
                       <Button
-                        key={`${choice.index}-${idx}`}
                         fullWidth
                         size="large"
                         disableRipple
@@ -306,45 +315,36 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                               ? "info"
                               : "info"
                         }
-                        className={`game-room-choice-button justify-start ${
-                          choiceCommitFxKind === "lock"
-                            ? "game-room-choice-button--commit-lock"
-                            : choiceCommitFxKind === "reselect"
-                              ? "game-room-choice-button--commit-reselect"
-                              : ""
-                        } ${
-                          choiceCommitFxKind
+                        className={`game-room-choice-button justify-start ${choiceCommitFxKind === "lock"
+                          ? "game-room-choice-button--commit-lock"
+                          : choiceCommitFxKind === "reselect"
+                            ? "game-room-choice-button--commit-reselect"
+                            : ""
+                          } ${choiceCommitFxKind
                             ? "game-room-choice-button--commit-burst"
                             : ""
-                        } ${
-                          choiceCommitFxKind
+                          } ${choiceCommitFxKind
                             ? "game-room-choice-button--press-hit"
                             : ""
-                        } ${
-                          !isReveal && isSelected
+                          } ${!isReveal && isSelected
                             ? "game-room-choice-button--selected-live"
                             : ""
-                        } ${
-                          showComboLiveStyle
+                          } ${showComboLiveStyle
                             ? "game-room-choice-button--combo-live"
                             : ""
-                        } ${comboLiveTierClass} ${
-                          showComboOverdriveStyle
+                          } ${comboLiveTierClass} ${showComboOverdriveStyle
                             ? "game-room-choice-button--combo-overdrive"
                             : ""
-                        } ${
-                          showComboBreakStyle
+                          } ${showComboBreakStyle
                             ? "game-room-choice-button--combo-break"
                             : ""
-                        } ${comboBreakTierClass} ${
-                          showComboMilestoneStyle
+                          } ${comboBreakTierClass} ${showComboMilestoneStyle
                             ? "game-room-choice-button--combo-milestone"
                             : ""
-                        } ${comboMilestoneTierClass} ${
-                          isLocked || waitingToStart || shouldShowGestureOverlay
+                          } ${comboMilestoneTierClass} ${isLocked || waitingToStart || shouldShowGestureOverlay
                             ? "pointer-events-none"
                             : ""
-                        } ${isMobileView ? "game-room-choice-button--mobile" : ""}`}
+                          } ${isMobileView ? "game-room-choice-button--mobile" : ""}`}
                         disabled={false}
                         onClick={() => {
                           if (isLocked || !canAnswerNow) return;
@@ -387,29 +387,31 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                         {showComboLiveStyle && (
                           <span
                             aria-hidden="true"
-                            className={`game-room-choice-combo-aura game-room-choice-combo-aura--tier-${myComboTier} ${
-                              showComboOverdriveStyle
-                                ? "game-room-choice-combo-aura--overdrive"
-                                : ""
-                            }`}
+                            className={`game-room-choice-combo-aura game-room-choice-combo-aura--tier-${myComboTier} ${showComboOverdriveStyle
+                              ? "game-room-choice-combo-aura--overdrive"
+                              : ""
+                              }`}
                           />
                         )}
+
+
                         <div className="game-room-choice-content flex w-full items-start justify-between gap-2">
                           <span className="game-room-choice-title" title={choiceDisplayTitle}>
                             {choiceDisplayTitle}
                           </span>
+
                           <span className="game-room-choice-meta ml-3 inline-flex items-center gap-1">
                             {showGuessLockTag && (
                               <span
-                                className={`game-room-choice-tag ${
-                                  myHasChangedAnswer
-                                    ? "game-room-choice-tag--reselect"
-                                    : "game-room-choice-tag--lock"
-                                }`}
+                                className={`game-room-choice-tag ${myHasChangedAnswer
+                                  ? "game-room-choice-tag--reselect"
+                                  : "game-room-choice-tag--lock"
+                                  }`}
                               >
                                 {myHasChangedAnswer ? "改答已鎖" : "已鎖定"}
                               </span>
                             )}
+
                             {isMyChoice && myComboTier > 0 && (
                               <span
                                 className={`game-room-choice-tag game-room-choice-tag--combo game-room-choice-tag--combo-tier-${myComboTier}`}
@@ -418,47 +420,48 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                                 Combo x{myComboNow}
                               </span>
                             )}
+
                             {showCorrectTag && (
                               <span className="game-room-choice-tag game-room-choice-tag--correct">
                                 正解
                               </span>
                             )}
+
                             {showMyChoiceTag && (
                               <span
-                                className={`game-room-choice-tag ${
-                                  showMyCorrectTag
-                                    ? "game-room-choice-tag--you-correct"
-                                    : "game-room-choice-tag--you"
-                                }`}
+                                className={`game-room-choice-tag ${showMyCorrectTag
+                                  ? "game-room-choice-tag--you-correct"
+                                  : "game-room-choice-tag--you"
+                                  }`}
                               >
                                 {showMyCorrectTag ? "你答對" : "你作答"}
                               </span>
                             )}
+
                             <span className="game-room-choice-key inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-700 bg-slate-800 text-[11px] font-semibold text-slate-200">
                               {(keyBindings[idx] ?? "").toUpperCase()}
                             </span>
                           </span>
                         </div>
+
                       </Button>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
             </div>
           </div>
 
           <div className="game-room-reveal">
             <div
-              className={`game-room-reveal-card rounded-lg border game-room-reveal-card--${revealTone} ${
-                isReveal ? "game-room-reveal-card--result game-room-reveal-card--result-burst" : ""
-              } ${isPendingFeedbackCard ? "game-room-reveal-card--pending" : ""} ${
-                isComboBreakThisQuestion && comboBreakTier > 0
+              className={`game-room-reveal-card rounded-lg border game-room-reveal-card--${revealTone} ${isReveal ? "game-room-reveal-card--result game-room-reveal-card--result-burst" : ""
+                } ${isPendingFeedbackCard ? "game-room-reveal-card--pending" : ""} ${isComboBreakThisQuestion && comboBreakTier > 0
                   ? `game-room-reveal-card--combo-break game-room-reveal-card--combo-break-tier-${comboBreakTier}`
                   : ""
-              }`}
+                }`}
             >
               <div
-                className={`game-room-feedback-head ${
-                  isReveal ? "game-room-feedback-head--reveal" : ""
-                }`}
+                className={`game-room-feedback-head ${isReveal ? "game-room-feedback-head--reveal" : ""
+                  }`}
               >
                 <p className="game-room-feedback-title">{myFeedback.title}</p>
                 {isReveal && myFeedback.inlineMeta && (
@@ -471,11 +474,10 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 )}
                 {isReveal && (
                   <span
-                    className={`game-room-feedback-pill game-room-feedback-pill--${revealTone} ${
-                      myFeedback.pillText ?? myFeedback.detail
-                        ? ""
-                        : "game-room-feedback-pill--placeholder"
-                    }`}
+                    className={`game-room-feedback-pill game-room-feedback-pill--${revealTone} ${myFeedback.pillText ?? myFeedback.detail
+                      ? ""
+                      : "game-room-feedback-pill--placeholder"
+                      }`}
                     title={myFeedback.pillText ?? myFeedback.detail ?? ""}
                   >
                     {(myFeedback.pillText ?? myFeedback.detail) || "等待揭曉"}
@@ -502,17 +504,17 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               {!isReveal &&
                 (!Array.isArray(myFeedback.lines) || myFeedback.lines.length === 0) &&
                 myFeedback.badges.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {myFeedback.badges.map((badge) => (
-                    <span
-                      key={`${trackSessionKey}-${badge}`}
-                      className="inline-flex items-center rounded-full border border-white/10 bg-slate-950/35 px-2 py-0.5 text-[10px] font-semibold text-slate-200"
-                    >
-                      {badge}
-                    </span>
-                  ))}
-                </div>
-              )}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {myFeedback.badges.map((badge) => (
+                      <span
+                        key={`${trackSessionKey}-${badge}`}
+                        className="inline-flex items-center rounded-full border border-white/10 bg-slate-950/35 px-2 py-0.5 text-[10px] font-semibold text-slate-200"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                )}
               {isReveal && (
                 <>
                   <p

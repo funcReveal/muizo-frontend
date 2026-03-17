@@ -2,9 +2,22 @@
   ChatMessage,
   PlaylistItem,
   RoomParticipant,
+  RoomSettlementQuestionAnswer,
   RoomState,
 } from "../../../model/types";
 import type { SettlementQuestionRecap } from "../GameSettlementPanel";
+
+export type RevealAnswerResult = RoomSettlementQuestionAnswer["result"];
+
+export type RevealChoicePickBadge = {
+  clientId: string;
+  username: string;
+  initial: string;
+  result: RevealAnswerResult;
+  isMe: boolean;
+};
+
+export type RevealChoicePickMap = Record<number, RevealChoicePickBadge[]>;
 
 export type DanmuItem = {
   id: string;
