@@ -40,7 +40,6 @@ import {
   formatElapsed,
   formatMs,
   formatPercent,
-  isParticipantGlobalFastestCorrect,
   readStoredBoolean,
   resolveCorrectAnsweredRank,
   resolveParticipantAnswer,
@@ -232,21 +231,20 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const [previewSwitchNotice, setPreviewSwitchNotice] = useState<string | null>(
     null,
   );
-  const [reviewDrawerOpen, setReviewDrawerOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return !window.matchMedia("(max-width: 1023.95px)").matches;
-  });
   const [showRecommendControlsHint, setShowRecommendControlsHint] =
     useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [tabRenderKey, setTabRenderKey] = useState(0);
   const [tickerNowMs, setTickerNowMs] = useState(() => Date.now());
   const isMobileSettlementViewport = useMediaQuery("(max-width: 1023.95px)");
+  const settlementHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const settlementStageRef = useRef<HTMLElement | null>(null);
   const recommendSectionRef = useRef<HTMLElement | null>(null);
   const recommendPreviewStageRef = useRef<HTMLDivElement | null>(null);
   const celebrationKeyRef = useRef<string | null>(null);
   const autoAdvanceTimeoutRef = useRef<number | null>(null);
   const autoCenteredRecommendRoundKeyRef = useRef<string | null>(null);
+  const autoAnchoredSettlementRoundKeyRef = useRef<string | null>(null);
   const recommendControlsHintTimerRef = useRef<number | null>(null);
   const exitConfirmLockedRef = useRef(false);
 
@@ -827,39 +825,52 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     if (autoCenteredRecommendRoundKeyRef.current === roundKey) return;
     autoCenteredRecommendRoundKeyRef.current = roundKey;
     const timer = window.setTimeout(() => {
-      const target =
-        recommendPreviewStageRef.current ?? recommendSectionRef.current;
-      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const target = recommendSectionRef.current ?? recommendPreviewStageRef.current;
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const nextTop = Math.max(0, window.scrollY + rect.top);
+      window.scrollTo({ top: nextTop, behavior: "auto" });
     }, 220);
     return () => window.clearTimeout(timer);
   }, [activeTab, endedAt, room.id, startedAt]);
 
-  const progressPercent = Math.round(
-    ((stepIndex + 1) / TAB_ORDER.length) * 100,
-  );
+  useEffect(() => {
+    if (!isMobileSettlementViewport) return;
+    if (typeof window === "undefined") return;
+    const roundKey = `${room.id}:${startedAt ?? 0}:${endedAt ?? 0}`;
+    if (autoAnchoredSettlementRoundKeyRef.current === roundKey) return;
+    autoAnchoredSettlementRoundKeyRef.current = roundKey;
+    const timer = window.setTimeout(() => {
+      const anchorTarget =
+        settlementHeadingRef.current ?? settlementStageRef.current;
+      if (!anchorTarget) return;
+      const rect = anchorTarget.getBoundingClientRect();
+      const nextTop = Math.max(0, window.scrollY + rect.top - 12);
+      window.scrollTo({ top: nextTop, behavior: "auto" });
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [endedAt, isMobileSettlementViewport, room.id, startedAt]);
 
   return (
     <div className="game-settlement-mobile-shell mx-auto w-full max-w-6xl min-w-0 px-2 pb-28 sm:px-4 lg:pb-4">
-      <section className="game-settlement-mobile-stage relative min-w-0 overflow-hidden rounded-[30px] border border-amber-400/35 bg-slate-950/95 px-4 py-6 shadow-[0_30px_120px_-60px_rgba(245,158,11,0.6)] sm:px-6 sm:py-7">
+      <section ref={settlementStageRef} className="game-settlement-mobile-stage relative min-w-0 overflow-hidden rounded-[30px] border border-amber-400/35 bg-slate-950/95 px-4 py-6 shadow-[0_30px_120px_-60px_rgba(245,158,11,0.6)] sm:px-6 sm:py-7">
         <div className="pointer-events-none absolute -left-20 -top-20 h-52 w-52 rounded-full bg-amber-400/20 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-sky-500/15 blur-3xl" />
 
         <div className="relative space-y-4">
           <SettlementStageHeader
             isMobileView={isMobileSettlementViewport}
+            headingRef={settlementHeadingRef}
             roomName={room.name}
             playlistTitle={room.playlist.title}
             playedQuestionCount={playedQuestionCount}
             participantsLength={participants.length}
             elapsedLabel={elapsedLabel}
             settlementTimeChipLabel={settlementTimeChipLabel}
-            stepIndex={stepIndex}
-            totalSteps={TAB_ORDER.length}
             activeTab={activeTab}
             tabOrder={TAB_ORDER}
             tabLabels={TAB_LABELS}
             tabHints={TAB_HINTS}
-            progressPercent={progressPercent}
             onGoToTab={goToTab}
             onGoPrevStep={goPrevStep}
             onGoNextStep={goNextStep}
@@ -934,8 +945,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 onActivateCategory={activateRecommendationCategory}
                 autoPreviewEnabled={autoPreviewEnabled}
                 onToggleAutoPreview={handleToggleAutoPreview}
-                reviewDrawerOpen={reviewDrawerOpen}
-                onToggleReviewDrawerOpen={() => setReviewDrawerOpen((prev) => !prev)}
                 currentRecommendation={currentRecommendation}
                 hasCurrentRecommendationLink={Boolean(currentRecommendationLink)}
                 recommendationTransitionKey={recommendationTransitionKey}
@@ -1008,10 +1017,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
               />
             )}
 
-            {activeTab === "recommend" && reviewDrawerOpen && (
-              <ReviewRecapSection
-                isMobileView={isMobileSettlementViewport}
-                activeCategoryTheme={activeCategoryTheme}
+            {activeTab === "recommend" && (
+                <ReviewRecapSection
+                  isMobileView={isMobileSettlementViewport}
+                  activeCategoryTheme={activeCategoryTheme}
                 reviewRecapSummary={reviewRecapSummary}
                 sortedParticipants={sortedParticipants}
                 meClientId={meClientId}
@@ -1038,9 +1047,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 performanceRatingByRecapKey={performanceRatingByRecapKey}
                 performanceGradeMeta={PERFORMANCE_GRADE_META}
                 personalFastestCorrectRecapKeys={personalFastestCorrectRecapKeys}
-                isParticipantGlobalFastestCorrect={
-                  isParticipantGlobalFastestCorrect
-                }
                 reviewStatusBadgeBaseClass={REVIEW_STATUS_BADGE_BASE}
                 reviewDetailTransitionKey={reviewDetailTransitionKey}
                 selectedRecapLink={selectedRecapLink}

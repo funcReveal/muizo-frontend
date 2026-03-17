@@ -1,4 +1,8 @@
 ﻿import React from "react";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import { Button } from "@mui/material";
 
 interface SettlementMobileFooterProps {
@@ -31,7 +35,8 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
           size="small"
           onClick={onGoPrevStep}
           disabled={!canGoPrev}
-          className="!min-w-0 !flex-1"
+          className="game-settlement-mobile-footer__btn game-settlement-mobile-footer__btn--ghost !min-w-0 !flex-1"
+          startIcon={<ArrowBackRoundedIcon fontSize="small" />}
         >
           上一步
         </Button>
@@ -41,7 +46,8 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             color="warning"
             size="small"
             onClick={onGoNextStep}
-            className="!min-w-0 !flex-[1.1]"
+            className="game-settlement-mobile-footer__btn game-settlement-mobile-footer__btn--next !min-w-0 !flex-[1.1]"
+            endIcon={<ArrowForwardRoundedIcon fontSize="small" />}
           >
             下一步
           </Button>
@@ -51,7 +57,8 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             color="success"
             size="small"
             onClick={onGoNextStep}
-            className="!min-w-0 !flex-[1.1]"
+            className="game-settlement-mobile-footer__btn game-settlement-mobile-footer__btn--finish !min-w-0 !flex-[1.1]"
+            endIcon={<CheckRoundedIcon fontSize="small" />}
           >
             完成結算
           </Button>
@@ -61,7 +68,8 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             color="error"
             size="small"
             onClick={onOpenExitConfirm}
-            className="!min-w-0 !flex-[1.1]"
+            className="game-settlement-mobile-footer__btn game-settlement-mobile-footer__btn--exit !min-w-0 !flex-[1.1]"
+            startIcon={<LogoutRoundedIcon fontSize="small" />}
           >
             離開房間
           </Button>
@@ -71,9 +79,9 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             color="inherit"
             size="small"
             disabled
-            className="!min-w-0 !flex-[1.1]"
+            className="game-settlement-mobile-footer__btn game-settlement-mobile-footer__btn--disabled !min-w-0 !flex-[1.1]"
           >
-            暫無操作
+            稍後可用
           </Button>
         )}
         {onOpenExitConfirm && hasNextStep && (
@@ -82,7 +90,8 @@ const SettlementMobileFooter: React.FC<SettlementMobileFooterProps> = ({
             color="error"
             size="small"
             onClick={onOpenExitConfirm}
-            className="!min-w-[84px] !shrink-0"
+            className="game-settlement-mobile-footer__btn game-settlement-mobile-footer__btn--exit !min-w-[84px] !shrink-0"
+            startIcon={<LogoutRoundedIcon fontSize="small" />}
           >
             離開
           </Button>

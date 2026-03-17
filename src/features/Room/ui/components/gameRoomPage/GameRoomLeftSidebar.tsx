@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Badge, Chip } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 
@@ -10,8 +10,6 @@ import type { ScoreboardRow } from "./gameRoomPageDerivations";
 import GameRoomChatPanel from "./GameRoomChatPanel";
 
 interface GameRoomLeftSidebarProps {
-  answeredCount: number;
-  participantCount: number;
   scoreboardRows: ScoreboardRow[];
   answeredClientIdSet: Set<string>;
   answeredRankByClientId: Map<string, number>;
@@ -54,8 +52,6 @@ const resolveScoreboardPlayerOrder = (rows: ScoreboardRow[]) =>
   rows.flatMap((row) => (row.type === "player" ? [row.player.clientId] : []));
 
 const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
-  answeredCount,
-  participantCount,
   scoreboardRows,
   answeredClientIdSet,
   answeredRankByClientId,
@@ -79,6 +75,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   swapAnimationEnabled = true,
   swapReplayToken = 0,
 }) => {
+  const playerRowCount = React.useMemo(
+    () => scoreboardRows.filter((row) => row.type === "player").length,
+    [scoreboardRows],
+  );
+  const answeredCount = Math.min(answeredClientIdSet.size, playerRowCount);
   const displayedPlayerOrder = React.useMemo(
     () => resolveScoreboardPlayerOrder(scoreboardRows),
     [scoreboardRows],
@@ -274,11 +275,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         <>
           <div className="flex items-center gap-3">
             <div className="min-w-0">
-              <p className="game-room-kicker">排行榜</p>
-              <p className="game-room-title">分數榜</p>
+              <p className="game-room-kicker">{"\u6392\u884c\u699c"}</p>
+              <p className="game-room-title">{"\u5373\u6642\u6392\u540D"}</p>
             </div>
             {!mobileOverlayMode && (
-              <span className="ml-2 text-[11px] text-slate-400">(前五名 + 自己)</span>
+              <span className="ml-2 text-[11px] text-slate-400">{"（分數 + 連擊）"}</span>
             )}
             <div className="ml-auto flex items-center gap-2">
               {!showChat && onOpenMobileChat && (
@@ -294,11 +295,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   >
                     <ChatBubbleRoundedIcon className="text-[0.9rem]" />
                   </Badge>
-                  聊天
+                  {"\u804a\u5929\u5ba4"}
                 </button>
               )}
               <Chip
-                label={`已答 ${answeredCount}/${participantCount || 0}`}
+                label={`\u5df2\u7b54 ${answeredCount}/${playerRowCount}`}
                 size="small"
                 color="success"
                 variant="outlined"
@@ -308,14 +309,17 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           </div>
 
           {mobileOverlayMode && (
-            <p className="-mt-1 text-[11px] text-slate-400">(前五名 + 自己)</p>
+            <p className="-mt-1 text-[11px] text-slate-400">{"（分數 + 連擊）"}</p>
           )}
         </>
       )}
 
       <div className="game-room-scoreboard-stack space-y-1.5">
-        {scoreboardRows.length === 0 ? (
-          <div className="text-xs text-slate-500">尚無玩家資料</div>
+        {playerRowCount === 0 ? (
+          <>
+            <div className="text-xs text-slate-500">目前正在等待玩家進入排行榜...</div>
+            <div className="text-xs text-slate-500">玩家加入後，這裡會即時顯示分數與排名變化。</div>
+          </>
         ) : (
           scoreboardRows.map((row, idx) => {
             if (row.type === "placeholder") {
@@ -325,9 +329,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   className="game-room-score-row game-room-score-row--placeholder flex items-center justify-between text-sm"
                   aria-hidden="true"
                 >
-                  <span className="truncate flex items-center gap-2">
-                    {idx + 1}. <span>等待加入</span>
-                  </span>
+                  <span className="truncate">{idx + 1}. 等待加入</span>
                   <span className="text-[11px] text-slate-500">--</span>
                 </div>
               );
@@ -340,6 +342,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               base: p.score,
               gain: 0,
             };
+            const isMeRow = p.clientId === meClientId;
             const rowAnswerState = isReveal
               ? hasAnswered
                 ? scoreParts.gain > 0
@@ -359,9 +362,9 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     : "bg-slate-500";
             const answerDotTitle =
               rowAnswerState === "correct"
-                ? "本題答對"
+                ? "答對"
                 : rowAnswerState === "wrong"
-                  ? "本題答錯"
+                  ? "答錯"
                   : rowAnswerState === "answered"
                     ? "已作答"
                     : "尚未作答";
@@ -462,13 +465,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             const rowComboTier = resolveComboTier(p.combo ?? 0);
             const rowComboTierClass =
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
-            const shouldShowComboFlare = rowComboTier > 0 && !mobileOverlayMode;
-            const isMeRow = p.clientId === meClientId;
+            const shouldShowComboFlare = rowComboTier > 0;
             const displayName = normalizeRoomDisplayText(
               p.username,
               `玩家 ${idx + 1}`,
             );
-            const username = isMeRow ? `${displayName}（我）` : displayName;
 
             return (
               <div
@@ -490,7 +491,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       : rowAnswerState === "answered"
                         ? "game-room-score-row--answered"
                         : ""
-                } ${isMeRow ? "game-room-score-row--me game-room-score-row--me-locate" : ""} ${
+                } ${isMeRow ? "game-room-score-row--me" : ""} ${
                   shouldUseCssSwapAnimation && hasTopSwapAnimation
                     ? topSwapRole === "first"
                       ? "game-room-score-row--top-swap-first"
@@ -519,10 +520,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     />
                   )}
                   <span className="truncate">
-                    {idx + 1}. {username}
+                    {idx + 1}. {displayName}
                   </span>
                   {isMeRow && (
-                    <span className="game-room-score-row-you-badge" title="你">
+                    <span className="game-room-score-row-you-badge" title="YOU">
                       YOU
                     </span>
                   )}
@@ -530,13 +531,13 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 <div className="flex items-center gap-2">
                   {typeof answerRank === "number" ? (
                     <Chip
-                      label={`第${answerRank}答`}
+                      label={`第 ${answerRank} 答`}
                       size="small"
                       color={answerChipColor}
                       variant="filled"
                     />
                   ) : (
-                    <Chip label="未答" size="small" variant="outlined" />
+                    <Chip label="待答" size="small" variant="outlined" />
                   )}
                   <span className="font-semibold text-emerald-300 tabular-nums">
                     {p.score.toLocaleString()}

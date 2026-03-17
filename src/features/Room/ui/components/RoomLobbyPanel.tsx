@@ -30,7 +30,7 @@ import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
-import QueueMusicRoundedIcon from "@mui/icons-material/QueueMusicRounded";
+import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
@@ -351,12 +351,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const playlistListShellStyle = (
     isMobileLobbyLayout
       ? {
-          minHeight: playlistViewportMinHeight,
-          height: "100%",
-        }
+        minHeight: playlistViewportMinHeight,
+        height: "100%",
+      }
       : {
-          height: playlistListViewportHeight,
-        }
+        height: playlistListViewportHeight,
+      }
   ) as React.CSSProperties;
   const playlistListViewportStyle = {
     height: isMobileLobbyLayout ? "100%" : playlistListViewportHeight,
@@ -916,15 +916,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 
     const item = playlistItems[index];
     const canOpenItem = Boolean(item.url);
-    const displayTitle = normalizeDisplayText(item.title, `歌曲 ${index + 1}`);
+    const displayTitle = normalizeDisplayText(
+      item.title || item.answerText?.trim(),
+      `歌曲 ${index + 1}`,
+    );
     const displayUploader = normalizeDisplayText(item.uploader ?? "", "Unknown");
 
     return (
       <div style={style}>
         <div
-          className={`room-lobby-playlist-row px-3.5 py-2.5 flex items-center gap-3 border-b border-slate-800/60 ${
-            canOpenItem ? "cursor-pointer" : ""
-          }`}
+          className={`room-lobby-playlist-row px-3.5 py-2.5 flex items-center gap-3 border-b border-slate-800/60 ${canOpenItem ? "cursor-pointer" : ""
+            }`}
           role={canOpenItem ? "button" : undefined}
           tabIndex={canOpenItem ? 0 : -1}
           onClick={() => handleOpenPlaylistItem(item.url)}
@@ -1025,12 +1027,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       setMobileChatUnread(
         lastSeenMessageId
           ? Math.max(
-              0,
-              unreadMobileChatMessages.length -
-                (unreadMobileChatMessages.findIndex(
-                  (message) => message.id === lastSeenMessageId,
-                ) + 1),
-            )
+            0,
+            unreadMobileChatMessages.length -
+            (unreadMobileChatMessages.findIndex(
+              (message) => message.id === lastSeenMessageId,
+            ) + 1),
+          )
           : unreadMobileChatMessages.length,
       );
       mobileChatUnreadSeededRoomRef.current = roomId;
@@ -1048,8 +1050,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       lastSeenMessageId === null
         ? -1
         : unreadMobileChatMessages.findIndex(
-            (message) => message.id === lastSeenMessageId,
-          );
+          (message) => message.id === lastSeenMessageId,
+        );
 
     if (lastSeenIndex < 0) {
       setMobileChatUnread(unreadMobileChatMessages.length);
@@ -1121,17 +1123,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     () => [
       ...(isHost
         ? [
-            {
-              key: "settings",
-              label: "設定",
-              compactLabel: "設定",
-              icon: <SettingsOutlinedIcon fontSize="small" />,
-              onClick: openSettingsModal,
-              disabled: Boolean(settingsActionDisabledReason),
-              tone: "normal" as const,
-              title: settingsActionDisabledReason ?? "調整房間設定",
-            },
-          ]
+          {
+            key: "settings",
+            label: "設定",
+            compactLabel: "設定",
+            icon: <SettingsOutlinedIcon fontSize="small" />,
+            onClick: openSettingsModal,
+            disabled: Boolean(settingsActionDisabledReason),
+            tone: "normal" as const,
+            title: settingsActionDisabledReason ?? "調整房間設定",
+          },
+        ]
         : []),
       {
         key: "leave",
@@ -1155,41 +1157,41 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     () => [
       ...(isHost && gameState?.status !== "playing"
         ? [
-            {
-              key: "start",
-              label: isStartBroadcastActive
-                ? `即將開始 ${startBroadcastRemainingSec}s`
-                : "開始遊戲",
-              icon: <PlayArrowRoundedIcon fontSize="small" />,
-              onClick: onStartGame,
-              disabled: Boolean(startActionDisabledReason),
-              tone: "start" as const,
-            },
-          ]
+          {
+            key: "start",
+            label: isStartBroadcastActive
+              ? `即將開始 ${startBroadcastRemainingSec}s`
+              : "開始遊戲",
+            icon: <PlayArrowRoundedIcon fontSize="small" />,
+            onClick: onStartGame,
+            disabled: Boolean(startActionDisabledReason),
+            tone: "start" as const,
+          },
+        ]
         : []),
       ...(onOpenHistoryDrawer
         ? [
-            {
-              key: "history",
-              label: "對戰資訊",
-              icon: <HistoryEduRoundedIcon fontSize="small" />,
-              onClick: () => onOpenHistoryDrawer?.(),
-              disabled: false,
-              tone: "history" as const,
-            },
-          ]
+          {
+            key: "history",
+            label: "對戰資訊",
+            icon: <HistoryEduRoundedIcon fontSize="small" />,
+            onClick: () => onOpenHistoryDrawer?.(),
+            disabled: false,
+            tone: "history" as const,
+          },
+        ]
         : []),
       ...(gameState?.status === "playing"
         ? [
-            {
-              key: "resume",
-              label: "返回遊戲",
-              icon: <SportsEsportsRoundedIcon fontSize="small" />,
-              onClick: () => onOpenGame?.(),
-              disabled: false,
-              tone: "resume" as const,
-            },
-          ]
+          {
+            key: "resume",
+            label: "返回遊戲",
+            icon: <SportsEsportsRoundedIcon fontSize="small" />,
+            onClick: () => onOpenGame?.(),
+            disabled: false,
+            tone: "resume" as const,
+          },
+        ]
         : []),
     ],
     [
@@ -1207,17 +1209,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     () => [
       ...(isHost
         ? [
-            {
-              key: "settings",
-              label: "設定",
-              icon: <SettingsOutlinedIcon fontSize="small" />,
-              onClick: openSettingsModal,
-              disabled: Boolean(settingsActionDisabledReason),
-              tone: "normal" as const,
-              title: settingsActionDisabledReason ?? "調整房間設定",
-              variant: "outlined" as const,
-            },
-          ]
+          {
+            key: "settings",
+            label: "設定",
+            icon: <SettingsOutlinedIcon fontSize="small" />,
+            onClick: openSettingsModal,
+            disabled: Boolean(settingsActionDisabledReason),
+            tone: "normal" as const,
+            title: settingsActionDisabledReason ?? "調整房間設定",
+            variant: "outlined" as const,
+          },
+        ]
         : []),
       {
         key: "leave",
@@ -1290,18 +1292,19 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       {formattedRoomCode ? (
         <button
           type="button"
-          className={`room-lobby-access-chip room-lobby-access-chip--code ${
-            roomCodeCopied ? "is-copied" : ""
-          }`}
+          className={`room-lobby-access-chip room-lobby-access-chip--code ${roomCodeCopied ? "is-copied" : ""
+            }`}
           title="複製房間代碼"
           onClick={() => {
             void handleCopyRoomCode();
           }}
         >
           <ContentCopyRoundedIcon fontSize="small" />
+          {roomCodeCopied ? (
+            <span className="room-lobby-access-copied-badge">已複製</span>
+          ) : null}
           <div className="room-lobby-access-copy">
             <strong>{formattedRoomCode}</strong>
-            {roomCodeCopied ? <small>已複製</small> : null}
           </div>
         </button>
       ) : null}
@@ -1310,11 +1313,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           variant="contained"
           size="small"
           color="inherit"
-          className={`room-lobby-access-btn ${
-            inviteSuccess
-              ? "room-lobby-action-btn--invite-success"
-              : "room-lobby-action-btn--invite"
-          }`}
+          className={`room-lobby-access-btn ${inviteSuccess
+            ? "room-lobby-action-btn--invite-success"
+            : "room-lobby-action-btn--invite"
+            }`}
           disabled={Boolean(inviteActionDisabledReason)}
           title={inviteActionDisabledReason ?? "複製邀請連結"}
           startIcon={<PersonAddAlt1RoundedIcon fontSize="small" />}
@@ -1378,11 +1380,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               return (
                 <Box
                   key={p.clientId}
-                  className={`room-lobby-player-row ${
-                    isSelf ? "is-self" : ""
-                  } ${p.isOnline ? "is-online" : "is-offline"} ${
-                    showActions ? "has-actions" : ""
-                  }`}
+                  className={`room-lobby-player-row ${isSelf ? "is-self" : ""
+                    } ${p.isOnline ? "is-online" : "is-offline"} ${showActions ? "has-actions" : ""
+                    }`}
                 >
                   <div className="room-lobby-player-row-main">
                     <Badge
@@ -1419,9 +1419,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   </div>
                   <div className="room-lobby-player-side">
                     <span
-                      className={`room-lobby-player-status ${
-                        p.isOnline ? "is-online" : "is-offline"
-                      }`}
+                      className={`room-lobby-player-status ${p.isOnline ? "is-online" : "is-offline"
+                        }`}
                     >
                       {p.isOnline ? "在線" : "離線"}
                     </span>
@@ -1618,9 +1617,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     <Box className="room-lobby-playlist-panel">
       <div className="room-lobby-panel-head room-lobby-playlist-head">
         <div className="room-lobby-panel-title">
-          <QueueMusicRoundedIcon fontSize="small" />
+          <LibraryMusicRoundedIcon fontSize="small" />
           <Typography variant="subtitle2" className="text-slate-200">
-            歌單
+            播放清單
           </Typography>
         </div>
         <div className="room-lobby-panel-counter">
@@ -1705,9 +1704,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           !isMobileTabletLobbyLayout ? (
             <div className="room-lobby-toolbar" role="toolbar" aria-label="房間操作">
               <div
-                className={`room-lobby-toolbar-shell ${
-                  isSoloLeaveToolbar ? "room-lobby-toolbar-shell--solo-leave" : ""
-                }`}
+                className={`room-lobby-toolbar-shell ${isSoloLeaveToolbar ? "room-lobby-toolbar-shell--solo-leave" : ""
+                  }`}
               >
                 <div className="room-lobby-toolbar-group room-lobby-toolbar-group--cta">
                   {gameState?.status === "playing" && (
@@ -1762,27 +1760,24 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         action.key === "invite"
                           ? "inherit"
                           : action.tone === "info"
-                          ? "info"
-                          : action.tone === "success"
-                            ? "success"
-                            : "inherit"
+                            ? "info"
+                            : action.tone === "success"
+                              ? "success"
+                              : "inherit"
                       }
                       size="small"
-                      className={`room-lobby-toolbar-utility-btn ${
-                        action.key === "settings"
-                          ? "room-lobby-toolbar-settings-btn"
-                          : ""
-                      } ${
-                        action.key === "leave"
+                      className={`room-lobby-toolbar-utility-btn ${action.key === "settings"
+                        ? "room-lobby-toolbar-settings-btn"
+                        : ""
+                        } ${action.key === "leave"
                           ? "room-lobby-toolbar-leave-btn"
                           : ""
-                      } ${
-                        action.key === "invite"
+                        } ${action.key === "invite"
                           ? action.tone === "success"
                             ? "room-lobby-action-btn--invite-success"
                             : "room-lobby-action-btn--invite"
                           : ""
-                      }`}
+                        }`}
                       disabled={action.disabled}
                       title={action.title}
                       startIcon={action.icon}
@@ -1801,9 +1796,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         }
       />
       <CardContent
-        className={`room-lobby-content ${
-          isMobileTabletLobbyLayout ? "room-lobby-content--mobile-redesign" : ""
-        }`}
+        className={`room-lobby-content ${isMobileTabletLobbyLayout ? "room-lobby-content--mobile-redesign" : ""
+          }`}
         sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 1.5 }}
       >
         {isMobileTabletLobbyLayout ? (
@@ -1813,11 +1807,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 <div className="room-lobby-mobile-actions-card">
                   {mobilePrimaryActions.length > 0 && (
                     <div
-                      className={`room-lobby-mobile-primary-actions ${
-                        mobilePrimaryActions.length === 1
-                          ? "room-lobby-mobile-primary-actions--single"
-                          : ""
-                      }`}
+                      className={`room-lobby-mobile-primary-actions ${mobilePrimaryActions.length === 1
+                        ? "room-lobby-mobile-primary-actions--single"
+                        : ""
+                        }`}
                     >
                       {mobilePrimaryActions.map((action) => (
                         <Button
@@ -1826,13 +1819,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           color={action.tone === "resume" ? "success" : "inherit"}
                           size="small"
                           startIcon={action.icon}
-                          className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-primary-action ${
-                            action.tone === "start"
-                              ? "room-lobby-action-btn--start room-lobby-mobile-start-btn"
-                              : action.tone === "history"
-                                ? "room-lobby-mobile-primary-action--history"
-                                : "room-lobby-mobile-primary-action--resume"
-                          }`}
+                          className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-primary-action ${action.tone === "start"
+                            ? "room-lobby-action-btn--start room-lobby-mobile-start-btn"
+                            : action.tone === "history"
+                              ? "room-lobby-mobile-primary-action--history"
+                              : "room-lobby-mobile-primary-action--resume"
+                            }`}
                           onClick={action.onClick}
                           disabled={action.disabled}
                         >
@@ -1842,26 +1834,23 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     </div>
                   )}
                   <div
-                    className={`room-lobby-mobile-secondary-actions ${
-                      mobileActionButtons.length === 1
-                        ? "room-lobby-mobile-secondary-actions--single"
-                        : ""
-                    }`}
+                    className={`room-lobby-mobile-secondary-actions ${mobileActionButtons.length === 1
+                      ? "room-lobby-mobile-secondary-actions--single"
+                      : ""
+                      }`}
                   >
                     {mobileActionButtons.map((action) => (
                       <Button
                         key={`mobile-${action.key}`}
                         variant={action.key === "leave" ? "outlined" : "contained"}
                         color="inherit"
-                        className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action room-lobby-mobile-secondary-action--icon-only ${
-                          action.key === "settings"
-                            ? "room-lobby-mobile-secondary-action--settings"
-                            : ""
-                        } ${
-                          action.key === "leave"
+                        className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action room-lobby-mobile-secondary-action--icon-only ${action.key === "settings"
+                          ? "room-lobby-mobile-secondary-action--settings"
+                          : ""
+                          } ${action.key === "leave"
                             ? "room-lobby-mobile-secondary-action--leave"
                             : ""
-                        }`}
+                          }`}
                         aria-label={action.compactLabel}
                         disabled={action.disabled}
                         title={action.title}
@@ -1885,15 +1874,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   aria-selected={mobileLobbyTab === "members"}
                   aria-label="玩家"
                   title="玩家"
-                  className={`room-lobby-mobile-tab ${
-                    mobileLobbyTab === "members" ? "is-active" : ""
-                  }`}
+                  className={`room-lobby-mobile-tab ${mobileLobbyTab === "members" ? "is-active" : ""
+                    }`}
                   onClick={() => setMobileLobbyTab("members")}
                 >
                   <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
                     <GroupsRoundedIcon fontSize="inherit" />
                   </span>
-                  <span className="sr-only">玩家</span>
+                  <span className="room-lobby-mobile-tab__label">玩家</span>
                 </button>
                 <button
                   type="button"
@@ -1901,31 +1889,29 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   aria-selected={mobileLobbyTab === "host"}
                   aria-label="操作"
                   title="操作"
-                  className={`room-lobby-mobile-tab ${
-                    mobileLobbyTab === "host" ? "is-active" : ""
-                  }`}
+                  className={`room-lobby-mobile-tab ${mobileLobbyTab === "host" ? "is-active" : ""
+                    }`}
                   onClick={() => setMobileLobbyTab("host")}
                 >
                   <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
                     <TuneRoundedIcon fontSize="inherit" />
                   </span>
-                  <span className="sr-only">操作</span>
+                  <span className="room-lobby-mobile-tab__label">操作</span>
                 </button>
                 <button
                   type="button"
                   role="tab"
                   aria-selected={mobileLobbyTab === "playlist"}
-                  aria-label="曲目"
-                  title="曲目"
-                  className={`room-lobby-mobile-tab ${
-                    mobileLobbyTab === "playlist" ? "is-active" : ""
-                  }`}
+                  aria-label="播放清單"
+                  title="播放清單"
+                  className={`room-lobby-mobile-tab ${mobileLobbyTab === "playlist" ? "is-active" : ""
+                    }`}
                   onClick={() => setMobileLobbyTab("playlist")}
                 >
                   <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
-                    <QueueMusicRoundedIcon fontSize="inherit" />
+                    <LibraryMusicRoundedIcon fontSize="inherit" />
                   </span>
-                  <span className="sr-only">曲目</span>
+                  <span className="room-lobby-mobile-tab__label">播放清單</span>
                 </button>
               </div>
               <div className="room-lobby-mobile-panel">
@@ -1987,13 +1973,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   {...mobileChatDragDismiss.dragHandleProps}
                 >
                   <div
-                    className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${
-                      mobileChatDragDismiss.canDismiss
-                        ? "ready"
-                        : mobileChatDragDismiss.isDismissArmed
-                          ? "armed"
-                          : "idle"
-                    }`}
+                    className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${mobileChatDragDismiss.canDismiss
+                      ? "ready"
+                      : mobileChatDragDismiss.isDismissArmed
+                        ? "armed"
+                        : "idle"
+                      }`}
                     aria-hidden="true"
                   >
                     <span className="game-room-mobile-drawer-handle-bar" />

@@ -882,8 +882,8 @@ const RoomHistoryPage: React.FC = () => {
         >
           <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-sky-300/40 opacity-70 transition group-hover:opacity-100" />
           <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="min-w-0 pr-2">
-              <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+            <div className="min-w-0 pr-1 sm:pr-2">
+              <div className="flex flex-wrap items-center gap-1.5 pb-1 sm:gap-2">
                 {options?.roomLabel && (
                   <Chip
                     size="small"
@@ -922,20 +922,22 @@ const RoomHistoryPage: React.FC = () => {
                       className="border-sky-300/30 bg-sky-300/10 text-sky-100"
                       variant="outlined"
                     />
-                    <Chip
-                      size="small"
-                      label={`Combo x${item.selfPlayer.maxCombo}`}
-                      className="border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100"
-                      variant="outlined"
-                    />
+                    <span className="hidden sm:inline-flex">
+                      <Chip
+                        size="small"
+                        label={`Combo x${item.selfPlayer.maxCombo}`}
+                        className="border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100"
+                        variant="outlined"
+                      />
+                    </span>
                   </>
                 )}
               </div>
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--mc-text-muted)]">
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)] sm:gap-x-4 sm:text-sm">
                 <div className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
                   <AccessTime sx={{ fontSize: 16 }} />
-                  <span className="truncate">遊玩 {formatDuration(matchDurationMs)}</span>
+                  <span className="truncate">{formatDuration(matchDurationMs)}</span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Quiz sx={{ fontSize: 16 }} />
@@ -1041,18 +1043,18 @@ const RoomHistoryPage: React.FC = () => {
                     {collapsed && (
                       <>
                         <span
-                          className="pointer-events-none absolute inset-x-6 top-0 z-0 h-full rounded-[18px] border border-amber-300/12 bg-[linear-gradient(180deg,rgba(14,11,9,0.88),rgba(7,6,4,0.95))]"
-                          style={{ transform: "translateY(12px)" }}
+                          className="pointer-events-none absolute inset-x-4 top-0 z-0 h-full rounded-[16px] border border-amber-300/10 bg-[linear-gradient(180deg,rgba(14,11,9,0.86),rgba(7,6,4,0.94))] sm:inset-x-6 sm:rounded-[18px]"
+                          style={{ transform: "translateY(9px)" }}
                         />
                         <span
-                          className="pointer-events-none absolute inset-x-3 top-0 z-10 h-full rounded-[18px] border border-amber-300/18 bg-[linear-gradient(180deg,rgba(16,13,10,0.92),rgba(8,7,5,0.98))]"
-                          style={{ transform: "translateY(7px)" }}
+                          className="pointer-events-none absolute inset-x-2 top-0 z-10 h-full rounded-[16px] border border-amber-300/14 bg-[linear-gradient(180deg,rgba(16,13,10,0.9),rgba(8,7,5,0.97))] sm:inset-x-3 sm:rounded-[18px]"
+                          style={{ transform: "translateY(5px)" }}
                         />
                       </>
                     )}
                     <button
                       type="button"
-                      className={`group relative z-20 block w-full min-w-0 overflow-hidden rounded-[18px] border px-4 py-3 text-left transition duration-200 sm:px-5 sm:py-3.5 ${
+                      className={`group relative z-20 block w-full min-w-0 overflow-hidden rounded-[16px] border px-3 py-3 text-left transition duration-200 sm:rounded-[18px] sm:px-5 sm:py-3.5 ${
                         historyDisplayMode === "expanded"
                           ? "cursor-default border-amber-300/45 bg-[linear-gradient(180deg,rgba(24,20,14,0.97),rgba(10,8,6,1))] shadow-[0_12px_24px_-20px_rgba(245,158,11,0.38)]"
                           : collapsed
@@ -1086,8 +1088,8 @@ const RoomHistoryPage: React.FC = () => {
                     >
                       <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-amber-300/45 opacity-85 transition group-hover:opacity-100" />
                       <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                        <div className="min-w-0 pr-2">
-                          <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+                        <div className="min-w-0 pr-1 sm:pr-2">
+                          <div className="flex flex-wrap items-center gap-1.5 pb-1 sm:gap-2">
                             <Chip
                               size="small"
                               label={group.roomName || group.roomId}
@@ -1100,17 +1102,27 @@ const RoomHistoryPage: React.FC = () => {
                               className="border-amber-300/36 bg-amber-300/18 text-amber-50"
                               variant="outlined"
                             />
+                            <span className="sm:hidden">
+                              <Chip
+                                size="small"
+                                label={`${group.items.length} 場`}
+                                className="border-amber-300/36 bg-amber-300/18 text-amber-50"
+                                variant="outlined"
+                              />
+                            </span>
                             {groupBestScore > 0 && (
+                              <span className="hidden sm:inline-flex">
                               <Chip
                                 size="small"
                                 label={`最佳 ${groupBestScore}`}
                                 className="border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
                                 variant="outlined"
                               />
+                              </span>
                             )}
                             <Chip
                               size="small"
-                              label={`最佳名次 ${formatRankFraction(
+                              label={`名次 ${formatRankFraction(
                                 groupBestRank?.rank ?? null,
                                 groupBestRank?.playerCount,
                               )}`}
@@ -1123,8 +1135,8 @@ const RoomHistoryPage: React.FC = () => {
                             />
                           </div>
 
-                          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--mc-text-muted)]">
-                            <div className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)] sm:gap-x-4 sm:text-sm">
+                            <div className="hidden min-w-0 items-center gap-1.5 whitespace-nowrap sm:inline-flex">
                               <AccessTime sx={{ fontSize: 16 }} />
                               <span className="truncate">
                                 首場 {formatMonthDayTime(firstPlayedAt)}
@@ -1132,15 +1144,11 @@ const RoomHistoryPage: React.FC = () => {
                             </div>
                             <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
                               <TimerOutlined sx={{ fontSize: 16 }} />
-                              <span>
-                                總遊玩 {formatDuration(groupTotalDurationMs)}
-                              </span>
+                              <span>{formatDuration(groupTotalDurationMs)}</span>
                             </div>
                             <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
                               <Quiz sx={{ fontSize: 16 }} />
-                              <span>
-                                總題數 {groupTotalQuestionCount} 題
-                              </span>
+                              <span>{groupTotalQuestionCount} 題</span>
                             </div>
                           </div>
                         </div>

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Button, Chip, LinearProgress } from "@mui/material";
 
 import type { GameState, PlaylistItem } from "../../../model/types";
@@ -30,7 +30,7 @@ interface GameRoomAnswerPanelProps {
   choiceCommitFxState: ChoiceCommitFxState | null;
   trackSessionKey: string;
   hasActiveComboStreak: boolean;
-  myComboTier: 0 | 1 | 2 | 3 | 4 | 5;
+  myComboTier: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   myComboNow: number;
   isComboBreakThisQuestion: boolean;
   myIsCorrect: boolean;
@@ -126,7 +126,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               {startCountdownSec}
             </span>
           </div>
-          <p className="mt-3 text-xs text-slate-400">倒數結束後即可開始作答</p>
+          <p className="mt-3 text-xs text-slate-400">請準備，歌曲即將開始。</p>
         </div>
       ) : (
         <div
@@ -147,7 +147,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               <div>
                 <p className="game-room-kicker">階段</p>
                 <p className="game-room-title">
-                  {isInterTrackWait ? "下一首準備中" : phaseLabel}
+                  {isInterTrackWait ? "下一題準備中" : phaseLabel}
                 </p>
               </div>
               <Chip
@@ -195,12 +195,12 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             </div>
             {isRevealPendingServerSync && (
               <div className="mt-2 rounded-lg border border-emerald-300/45 bg-emerald-500/14 px-3 py-1.5 text-xs font-semibold text-emerald-100">
-                全員已作答，正在切換至公布答案...
+                正在等待全員同步，答案即將公布...
               </div>
             )}
             {!isRevealPendingServerSync && isRevealPendingOptimisticSync && (
               <div className="mt-2 rounded-lg border border-sky-300/40 bg-sky-500/14 px-3 py-1.5 text-xs font-semibold text-sky-100">
-                答案已送出，等待伺服器同步...
+                已收到最後作答，正在整理揭曉資訊...
               </div>
             )}
             <div
@@ -223,7 +223,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                         className="game-room-choice-button game-room-choice-placeholder justify-start"
                       >
                         <div className="game-room-choice-content flex w-full items-start justify-between gap-2">
-                          <span className="game-room-choice-title text-slate-500">下一首準備中</span>
+                          <span className="game-room-choice-title text-slate-500">下一題準備中</span>
                           <span className="game-room-choice-key ml-3 inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-800 text-[11px] font-semibold text-slate-500">
                             --
                           </span>
@@ -239,7 +239,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                       choice.title?.trim() ||
                         playlist[choice.index]?.answerText?.trim() ||
                         playlist[choice.index]?.title?.trim(),
-                      "（未提供名稱）",
+                      "未命名選項",
                     );
                     const isMyChoice = selectedChoice === choice.index;
                     const showCorrectTag = isReveal && isCorrect;
@@ -255,7 +255,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     const showComboLiveStyle =
                       !isReveal && isMyChoice && hasActiveComboStreak;
                     const showComboOverdriveStyle =
-                      showComboLiveStyle && myComboTier === 5 && myComboNow > 10;
+                      showComboLiveStyle && myComboTier >= 10 && myComboNow >= 10;
                     const showComboBreakStyle =
                       isReveal && isMyChoice && isComboBreakThisQuestion;
                     const showComboMilestoneStyle =
@@ -407,15 +407,15 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                                     : "game-room-choice-tag--lock"
                                 }`}
                               >
-                                {myHasChangedAnswer ? "已改答" : "已鎖定"}
+                                {myHasChangedAnswer ? "改答已鎖" : "已鎖定"}
                               </span>
                             )}
                             {isMyChoice && myComboTier > 0 && (
                               <span
                                 className={`game-room-choice-tag game-room-choice-tag--combo game-room-choice-tag--combo-tier-${myComboTier}`}
-                                title={`連擊 x${myComboNow}`}
+                                title={`Combo x${myComboNow}`}
                               >
-                                連擊 x{myComboNow}
+                                Combo x{myComboNow}
                               </span>
                             )}
                             {showCorrectTag && (
@@ -431,7 +431,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                                     : "game-room-choice-tag--you"
                                 }`}
                               >
-                                {showMyCorrectTag ? "你答對" : "你的答案"}
+                                {showMyCorrectTag ? "你答對" : "你作答"}
                               </span>
                             )}
                             <span className="game-room-choice-key inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-700 bg-slate-800 text-[11px] font-semibold text-slate-200">
@@ -478,7 +478,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     }`}
                     title={myFeedback.pillText ?? myFeedback.detail ?? ""}
                   >
-                    {(myFeedback.pillText ?? myFeedback.detail) || "—"}
+                    {(myFeedback.pillText ?? myFeedback.detail) || "等待揭曉"}
                   </span>
                 )}
               </div>
@@ -524,18 +524,20 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   </p>
                   {gameStatus === "playing" ? (
                     <p className="mt-1 text-xs text-emerald-200">
-                      {Math.ceil(revealCountdownMs / 1000)} 秒後下一首
+                      {Math.ceil(revealCountdownMs / 1000)} 秒後下一題
                     </p>
                   ) : (
                     <div className="mt-1 flex items-center justify-between">
-                      <p className="text-xs text-emerald-200">已播放完本輪歌曲，請房主挑選新的歌單。</p>
+                      <p className="text-xs text-emerald-200">
+                        對戰已結束，可返回房間或直接離開遊戲。
+                      </p>
                       <Button
                         size="small"
                         variant="outlined"
                         color="inherit"
                         onClick={onOpenExitConfirm}
                       >
-                        退出遊戲
+                        離開遊戲
                       </Button>
                     </div>
                   )}

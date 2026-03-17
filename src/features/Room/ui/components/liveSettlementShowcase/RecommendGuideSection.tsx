@@ -1,13 +1,12 @@
 ﻿import React from "react";
-import { IconButton, Tooltip } from "@mui/material";
+import { IconButton, Popover, Tooltip } from "@mui/material";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
 import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
 import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
-import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import DashboardCustomizeRoundedIcon from "@mui/icons-material/DashboardCustomizeRounded";
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
-import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import SubjectRoundedIcon from "@mui/icons-material/SubjectRounded";
 import KeyboardArrowUpRoundedIcon from "@mui/icons-material/KeyboardArrowUpRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
@@ -51,8 +50,6 @@ interface RecommendGuideSectionProps {
   onActivateCategory: (category: RecommendCategory) => void;
   autoPreviewEnabled: boolean;
   onToggleAutoPreview: () => void;
-  reviewDrawerOpen: boolean;
-  onToggleReviewDrawerOpen: () => void;
   currentRecommendation: RecommendationCardItem | null;
   hasCurrentRecommendationLink: boolean;
   recommendationTransitionKey: string;
@@ -199,8 +196,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   onActivateCategory,
   autoPreviewEnabled,
   onToggleAutoPreview,
-  reviewDrawerOpen,
-  onToggleReviewDrawerOpen,
   currentRecommendation,
   hasCurrentRecommendationLink,
   recommendationTransitionKey,
@@ -257,12 +252,13 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("settlement:mobile:detail-expanded") === "1";
   });
-  const [mobileControlsExpanded, setMobileControlsExpanded] = React.useState(false);
+  const [mobileControlsAnchorEl, setMobileControlsAnchorEl] =
+    React.useState<HTMLButtonElement | null>(null);
   const [mobileListExpanded, setMobileListExpanded] = React.useState(() => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") return true;
     return window.matchMedia("(max-width: 1023.95px)").matches;
   });
-
+  const [mobileHintOpen, setMobileHintOpen] = React.useState(false);
   React.useLayoutEffect(() => {
     const button = recommendationTitleButtonRef.current;
     if (!button) return;
@@ -281,8 +277,8 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
 
   React.useEffect(() => {
     if (!isMobileView) {
-      setMobileControlsExpanded(false);
-      setMobileListExpanded(false);
+      setMobileControlsAnchorEl(null);
+      setMobileHintOpen(false);
     }
   }, [isMobileView]);
 
@@ -310,6 +306,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   const isCurrentRecommendationLegendFastest =
     currentRecommendationFastestBadgeText.includes("全場") &&
     currentRecommendationFastestBadgeText.includes("最快");
+  const mobileControlsPopoverOpen = Boolean(mobileControlsAnchorEl);
 
   const recommendationRowProps = React.useMemo<RecommendationRowProps>(
     () => ({
@@ -337,37 +334,60 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
     >
       <div className="space-y-3">
         <div className="game-settlement-recommend-head flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-semibold text-slate-100">
                 推薦導覽 ・ {recommendCategoryLabels[activeRecommendCategory]}
               </h3>
-              <Tooltip title={recommendControlsTooltip} arrow>
-                <IconButton
-                  size="small"
-                  className="!h-6 !w-6 !border !border-cyan-300/45 !bg-cyan-500/12 !text-cyan-100"
-                  aria-label="推薦導覽說明"
+              {isMobileView ? (
+                <button
+                  type="button"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-cyan-300/45 bg-cyan-500/12 text-cyan-100 transition hover:border-cyan-200/70"
+                  aria-label={mobileHintOpen ? "收合推薦導覽說明" : "展開推薦導覽說明"}
+                  onClick={() => setMobileHintOpen((prev) => !prev)}
                 >
                   <HelpOutlineRoundedIcon fontSize="inherit" />
-                </IconButton>
-              </Tooltip>
+                </button>
+              ) : (
+                <Tooltip title={recommendControlsTooltip} arrow>
+                  <IconButton
+                    size="small"
+                    className="!h-6 !w-6 !border !border-cyan-300/45 !bg-cyan-500/12 !text-cyan-100"
+                    aria-label="推薦導覽說明"
+                  >
+                    <HelpOutlineRoundedIcon fontSize="inherit" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </div>
-            {(!isMobileView || mobileControlsExpanded) && (
-              <p className="mt-1 text-xs text-slate-300">
-                {recommendCategoryShortHints[activeRecommendCategory]}
-              </p>
-            )}
+            <div
+              className={`game-settlement-mobile-meta-panel ${
+                !isMobileView || mobileHintOpen
+                  ? "game-settlement-mobile-meta-panel--open"
+                  : ""
+              }`}
+            >
+              <div className="game-settlement-mobile-meta-panel__content">
+                <p className="mt-1 text-xs text-slate-300">
+                  {recommendCategoryShortHints[activeRecommendCategory]}
+                </p>
+              </div>
+            </div>
           </div>
           {isMobileView && (
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/65 bg-slate-900/68 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300/70"
-              onClick={() => setMobileControlsExpanded((prev) => !prev)}
-              aria-label={mobileControlsExpanded ? "收合操作面板" : "展開操作面板"}
+              className="inline-flex min-w-[84px] items-center justify-center gap-1 self-start rounded-full border border-slate-500/65 bg-slate-900/68 px-2.5 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300/70"
+              onClick={(event) =>
+                setMobileControlsAnchorEl((prev) =>
+                  prev ? null : (event.currentTarget as HTMLButtonElement),
+                )
+              }
+              aria-label={mobileControlsPopoverOpen ? "收合工具面板" : "展開工具面板"}
             >
-              <TuneRoundedIcon className="text-[1rem]" />
-              <span>{mobileControlsExpanded ? "收合" : "操作"}</span>
-              {mobileControlsExpanded ? (
+              <DashboardCustomizeRoundedIcon className="text-[1rem]" />
+              <span>檢視</span>
+              {mobileControlsPopoverOpen ? (
                 <KeyboardArrowUpRoundedIcon className="text-[1rem]" />
               ) : (
                 <KeyboardArrowDownRoundedIcon className="text-[1rem]" />
@@ -376,14 +396,26 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           )}
           {!isMobileView && showRecommendControlsHint && (
             <span className="rounded-full border border-cyan-300/45 bg-cyan-500/12 px-3 py-1 text-[11px] font-semibold text-cyan-100">
-              可切換分類、啟用自動導覽，並在回顧中快速查看玩家回顧
+              可切換分類、啟用自動導覽，並快速瀏覽題目與推薦預覽
             </span>
           )}
         </div>
 
-        {(!isMobileView || mobileControlsExpanded) && (
-          <div className="game-settlement-controls-sticky game-settlement-controls-dock rounded-2xl border border-slate-500/35 bg-slate-950/72 p-2">
-            {isMobileView ? (
+        {isMobileView ? (
+          <Popover
+            open={mobileControlsPopoverOpen}
+            anchorEl={mobileControlsAnchorEl}
+            onClose={() => setMobileControlsAnchorEl(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+            slotProps={{
+              paper: {
+                className:
+                  "mt-2 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-500/35 bg-slate-950/95 shadow-[0_28px_64px_-32px_rgba(8,15,35,0.92)]",
+              },
+            }}
+          >
+            <div className="game-settlement-controls-dock rounded-2xl border-0 bg-transparent p-2">
               <div className="game-settlement-mobile-control-grid">
                 {(
                   [
@@ -419,8 +451,6 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     </button>
                   );
                 })}
-                <div className="game-settlement-mobile-control-divider" aria-hidden />
-
                 <button
                   type="button"
                   className={`game-settlement-mobile-control-tile game-settlement-mobile-control-tile--wide ${
@@ -438,27 +468,12 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     {autoPreviewEnabled ? "ON" : "OFF"}
                   </span>
                 </button>
-
-                <button
-                  type="button"
-                  className={`game-settlement-mobile-control-tile game-settlement-mobile-control-tile--wide ${
-                    reviewDrawerOpen
-                      ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
-                      : "border-slate-600/70 bg-slate-900/72 text-slate-300"
-                  }`}
-                  onClick={onToggleReviewDrawerOpen}
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    <GroupsRoundedIcon fontSize="small" className="text-[1rem]" />
-                    玩家回顧
-                  </span>
-                  <span className="rounded-full border border-current/40 px-2 py-0.5 text-[10px] leading-none">
-                    {reviewDrawerOpen ? "顯示中" : "已收合"}
-                  </span>
-                </button>
               </div>
-            ) : (
-              <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+            </div>
+          </Popover>
+        ) : (
+          <div className="game-settlement-controls-sticky game-settlement-controls-dock rounded-2xl border border-slate-500/35 bg-slate-950/72 p-2">
+            <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
                 <div className="game-settlement-recommend-control-scroll min-w-0 overflow-x-auto pb-1">
                   <div
                     className={`inline-flex min-w-max items-center gap-2 rounded-2xl border p-1.5 ${activeCategoryTheme.controlGroupClass}`}
@@ -547,32 +562,9 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                         </button>
                       </span>
                     </Tooltip>
-                    <Tooltip title="題目回顧清單顯示/收合" placement="top" arrow>
-                      <span className="inline-flex">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                            reviewDrawerOpen
-                              ? "border-sky-300/60 bg-sky-500/18 text-sky-50"
-                              : "border-slate-600/70 bg-slate-900/70 text-slate-300 hover:border-slate-400"
-                          }`}
-                          onClick={onToggleReviewDrawerOpen}
-                        >
-                          <GroupsRoundedIcon
-                            fontSize="small"
-                            className="text-[0.95rem]"
-                          />
-                          玩家回顧
-                          <span className="rounded-full border border-current/40 px-1.5 py-0 text-[10px] leading-5">
-                            {reviewDrawerOpen ? "顯示中" : "已收合"}
-                          </span>
-                        </button>
-                      </span>
-                    </Tooltip>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>
@@ -598,9 +590,11 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           >
             <div className="flex flex-wrap items-start justify-between gap-2 sm:flex-nowrap">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                  Artist Spotlight
-                </p>
+                {!isMobileView && (
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                    Artist Spotlight
+                  </p>
+                )}
                 <button
                   ref={recommendationTitleButtonRef}
                   type="button"
@@ -842,45 +836,63 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
               </div>
             </div>
             {isMobileView && (
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="flex-1 rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
-                    onClick={onGoPrevRecommendation}
-                    disabled={!canNavigateRecommendations}
-                  >
-                    {recommendNavLabels.prev}
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
-                    onClick={onGoNextRecommendation}
-                    disabled={!canNavigateRecommendations}
-                  >
-                    {recommendNavLabels.next}
-                  </button>
-                </div>
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    className="inline-flex min-w-[152px] items-center justify-center gap-1.5 rounded-full border border-cyan-300/50 bg-cyan-500/12 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/70"
-                    onClick={() => setMobileListExpanded((prev) => !prev)}
-                  >
-                  <SubjectRoundedIcon className="text-[1rem]" />
-                  {mobileListExpanded ? "收合題目清單" : "題目清單"}
-                    {mobileListExpanded ? (
-                      <KeyboardArrowDownRoundedIcon className="text-[1rem]" />
-                    ) : (
-                      <KeyboardArrowUpRoundedIcon className="text-[1rem]" />
-                    )}
-                  </button>
-                </div>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
+                  onClick={onGoPrevRecommendation}
+                  disabled={!canNavigateRecommendations}
+                >
+                  {recommendNavLabels.prev}
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-full border border-slate-600/70 bg-slate-900/65 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-400 disabled:opacity-40"
+                  onClick={onGoNextRecommendation}
+                  disabled={!canNavigateRecommendations}
+                >
+                  {recommendNavLabels.next}
+                </button>
               </div>
             )}
           </article>
 
-          {(!isMobileView || mobileListExpanded) && (
+          <div
+            className={`${
+              isMobileView
+                ? ""
+                : ""
+            }`}
+          >
+            {isMobileView && (
+              <button
+                type="button"
+                className="game-settlement-mobile-accordion__trigger flex w-full items-center justify-between gap-3 rounded-2xl border border-cyan-300/40 bg-cyan-500/10 px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/70"
+                onClick={() => setMobileListExpanded((prev) => !prev)}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <SubjectRoundedIcon className="text-[1rem]" />
+                  題目清單
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="rounded-full border border-current/35 px-2 py-0.5 text-[10px] leading-none text-cyan-50/90">
+                    {recommendationCards.length}
+                  </span>
+                  {mobileListExpanded ? (
+                    <KeyboardArrowUpRoundedIcon className="text-[1rem]" />
+                  ) : (
+                    <KeyboardArrowDownRoundedIcon className="text-[1rem]" />
+                  )}
+                </span>
+              </button>
+            )}
+            <div
+              className={`game-settlement-mobile-collapsible ${
+                !isMobileView || mobileListExpanded
+                  ? "game-settlement-mobile-collapsible--open"
+                  : ""
+              }`}
+            >
             <aside
               className={`game-settlement-recommend-list-card flex flex-col rounded-2xl border p-3 transition-colors duration-300 ${
                 isMobileView ? "min-h-[272px]" : "min-h-[420px]"
@@ -959,7 +971,8 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
               </button>
             </div>
             </aside>
-          )}
+            </div>
+          </div>
         </div>
       )}
     </section>

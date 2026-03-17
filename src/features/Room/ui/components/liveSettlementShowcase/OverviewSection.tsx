@@ -43,7 +43,7 @@ const renderName = (
   return (
     <span style={style}>
       {participant.username}
-      {meClientId && participant.clientId === meClientId ? "（你）" : ""}
+      {meClientId && participant.clientId === meClientId ? " (你)" : ""}
     </span>
   );
 };
@@ -69,6 +69,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
 }) => {
   const [mobileStatsExpanded, setMobileStatsExpanded] = React.useState(false);
   const [mobileRankingExpanded, setMobileRankingExpanded] = React.useState(false);
+  const mobileStatsRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (!isMobileView) {
@@ -79,6 +80,20 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
     setMobileStatsExpanded(false);
     setMobileRankingExpanded(false);
   }, [isMobileView]);
+
+  React.useEffect(() => {
+    if (!isMobileView || !mobileStatsExpanded) return;
+    const timer = window.setTimeout(() => {
+      const target = mobileStatsRef.current;
+      if (!target) return;
+      const top = window.scrollY + target.getBoundingClientRect().top - 84;
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: "smooth",
+      });
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [isMobileView, mobileStatsExpanded]);
 
   const visibleParticipants =
     isMobileView && !mobileRankingExpanded
@@ -98,9 +113,11 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
         <div className="pointer-events-none absolute -left-10 bottom-0 h-36 w-36 rounded-full bg-sky-400/15 blur-2xl" />
         <div className="relative">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-[0.24em] text-amber-200/85">
-              Podium
-            </p>
+            {!isMobileView && (
+              <p className="text-xs uppercase tracking-[0.24em] text-amber-200/85">
+                Podium
+              </p>
+            )}
             <span className="rounded-full border border-amber-200/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
               本局結果
             </span>
@@ -109,10 +126,12 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
           {winner ? (
             <>
               <div className="mt-4 grid grid-cols-3 items-end gap-2">
-                <div className="flex min-h-[154px] flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center">
-                  <p className="text-[10px] tracking-[0.15em] text-slate-300">
-                    #2
-                  </p>
+                <div
+                  className={`flex flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center ${
+                    isMobileView ? "min-h-[132px]" : "min-h-[154px]"
+                  }`}
+                >
+                  <p className="text-[10px] tracking-[0.15em] text-slate-300">#2</p>
                   <p
                     className="mt-2 min-h-[2.5rem] w-full px-1 text-xs font-semibold leading-tight text-slate-100"
                     style={multilineEllipsis2Style}
@@ -124,11 +143,9 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                   </div>
                 </div>
                 <div
-                  className={`relative flex min-h-[172px] flex-col items-center rounded-xl border border-amber-300/60 bg-amber-500/12 px-2 pb-2 pt-3 text-center shadow-[0_0_0_1px_rgba(252,211,77,0.25),0_18px_46px_-24px_rgba(251,191,36,0.65)] ${
-                    me && winner.clientId === me.clientId
-                      ? "ring-2 ring-amber-200/70"
-                      : ""
-                  }`}
+                  className={`relative flex flex-col items-center rounded-xl border border-amber-300/60 bg-amber-500/12 px-2 pb-2 pt-3 text-center shadow-[0_0_0_1px_rgba(252,211,77,0.25),0_18px_46px_-24px_rgba(251,191,36,0.65)] ${
+                    isMobileView ? "min-h-[148px]" : "min-h-[172px]"
+                  } ${me && winner.clientId === me.clientId ? "ring-2 ring-amber-200/70" : ""}`}
                   style={{
                     animation: "settlementChampionGlow 2.2s ease-in-out infinite",
                   }}
@@ -168,17 +185,18 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                       style={{
                         left: spark.left,
                         top: spark.top,
-                        animation:
-                          "settlementChampionSpark 1.8s ease-in-out infinite",
+                        animation: "settlementChampionSpark 1.8s ease-in-out infinite",
                         animationDelay: spark.delay,
                       }}
                     />
                   ))}
                 </div>
-                <div className="flex min-h-[142px] flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center">
-                  <p className="text-[10px] tracking-[0.15em] text-slate-300">
-                    #3
-                  </p>
+                <div
+                  className={`flex flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center ${
+                    isMobileView ? "min-h-[122px]" : "min-h-[142px]"
+                  }`}
+                >
+                  <p className="text-[10px] tracking-[0.15em] text-slate-300">#3</p>
                   <p
                     className="mt-2 min-h-[2.5rem] w-full px-1 text-xs font-semibold leading-tight text-slate-100"
                     style={multilineEllipsis2Style}
@@ -194,11 +212,11 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
               <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-center">
                 <p className="text-sm font-bold text-amber-100">
                   冠軍 #1 {winner.username}
-                  {me && winner.clientId === me.clientId ? "（你）" : ""}
+                  {me && winner.clientId === me.clientId ? " (你)" : ""}
                 </p>
                 <p className="mt-1 text-xs text-amber-50/90">
-                  分數 {winner.score} · 答對 {winner.correctCount ?? 0}/
-                  {playedQuestionCount} · Combo x
+                  分數 {winner.score} ・ 答對 {winner.correctCount ?? 0}/
+                  {playedQuestionCount} ・ Combo x
                   {Math.max(winner.maxCombo ?? 0, winner.combo)}
                 </p>
               </div>
@@ -208,13 +226,13 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                     你的排名
                   </p>
                   <p className="mt-1 text-sm font-bold text-sky-50">
-                    第 {myRank}/{Math.max(1, participantsLength)} 名 · 分數 {me.score}
+                    第 {myRank}/{Math.max(1, participantsLength)} 名 ・ 分數 {me.score}
                   </p>
                 </div>
               )}
             </>
           ) : (
-            <p className="mt-4 text-sm text-slate-400">目前尚無可用結果資料</p>
+            <p className="mt-4 text-sm text-slate-400">目前沒有可顯示的頒獎台資訊</p>
           )}
 
           {isMobileView && (
@@ -228,74 +246,63 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
           )}
 
           {(!isMobileView || mobileStatsExpanded) && (
-            <>
-              <div className="mt-4 rounded-xl border border-slate-700/70 bg-slate-950/50 p-2.5">
+            <div ref={mobileStatsRef}>
+              <div className="mt-2 rounded-xl border border-slate-700/70 bg-slate-950/50 p-2.5">
                 <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">
-                  本場觀察
+                  本局亮點
                 </p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
                   <div className="rounded-xl border border-cyan-300/35 bg-cyan-500/10 px-3 py-2">
-                    <p className="text-[11px] text-cyan-100/90" title="本場答對率最高的玩家">
+                    <p className="text-[11px] text-cyan-100/90" title="本局答對率最高的玩家">
                       最高答對率
                     </p>
-                    <div className="mt-1 flex items-end justify-between gap-2">
-                      <p className="text-2xl font-black leading-none text-cyan-50">
-                        {topAccuracyEntry
-                          ? formatPercent(topAccuracyEntry.accuracy)
-                          : "--"}
-                      </p>
-                    </div>
+                    <p className="mt-1 text-2xl font-black leading-none text-cyan-50">
+                      {topAccuracyEntry ? formatPercent(topAccuracyEntry.accuracy) : "--"}
+                    </p>
                     <p className="mt-1 text-xs font-semibold text-cyan-100/95">
                       {topAccuracyEntry
                         ? `${topAccuracyEntry.participant.username}${
                             meClientId &&
                             topAccuracyEntry.participant.clientId === meClientId
-                              ? "（你）"
+                              ? " (你)"
                               : ""
                           }`
                         : "尚無資料"}
                     </p>
                   </div>
                   <div className="rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/10 px-3 py-2">
-                    <p className="text-[11px] text-fuchsia-100/90" title="本場最高連續答對數">
+                    <p className="text-[11px] text-fuchsia-100/90" title="本局最高連續答對 Combo">
                       最高 Combo
                     </p>
-                    <div className="mt-1 flex items-end justify-between gap-2">
-                      <p className="text-2xl font-black leading-none text-fuchsia-50">
-                        {topComboEntry ? `x${topComboEntry.combo}` : "--"}
-                      </p>
-                    </div>
+                    <p className="mt-1 text-2xl font-black leading-none text-fuchsia-50">
+                      {topComboEntry ? `x${topComboEntry.combo}` : "--"}
+                    </p>
                     <p className="mt-1 text-xs font-semibold text-fuchsia-100/95">
                       {topComboEntry
                         ? `${topComboEntry.participant.username}${
                             meClientId &&
                             topComboEntry.participant.clientId === meClientId
-                              ? "（你）"
+                              ? " (你)"
                               : ""
                           }`
                         : "尚無資料"}
                     </p>
                   </div>
                   <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
-                    <p
-                      className="text-[11px] text-amber-100/90"
-                      title="僅計算有答對題目的玩家"
-                    >
-                      最快平均答對時長
+                    <p className="text-[11px] text-amber-100/90" title="本局平均答對速度最快的玩家">
+                      最快平均答對
                     </p>
-                    <div className="mt-1 flex items-end justify-between gap-2">
-                      <p className="text-2xl font-black leading-none text-amber-50">
-                        {fastestAverageAnswerEntry
-                          ? formatMs(fastestAverageAnswerEntry.ms)
-                          : "--"}
-                      </p>
-                    </div>
+                    <p className="mt-1 text-2xl font-black leading-none text-amber-50">
+                      {fastestAverageAnswerEntry
+                        ? formatMs(fastestAverageAnswerEntry.ms)
+                        : "--"}
+                    </p>
                     <p className="mt-1 text-xs font-semibold text-amber-100/95">
                       {fastestAverageAnswerEntry
                         ? `${fastestAverageAnswerEntry.participant.username}${
                             meClientId &&
                             fastestAverageAnswerEntry.participant.clientId === meClientId
-                              ? "（你）"
+                              ? " (你)"
                               : ""
                           }`
                         : "尚無資料"}
@@ -315,20 +322,18 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                   <div className="rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2">
                     <p className="text-[11px] text-sky-100/90">你的名次</p>
                     <p className="mt-1 text-xl font-bold text-sky-50">
-                      {myRank > 0
-                        ? `${myRank}/${Math.max(1, participantsLength)}`
-                        : "--"}
+                      {myRank > 0 ? `${myRank}/${Math.max(1, participantsLength)}` : "--"}
                     </p>
                   </div>
                   <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
-                    <p className="text-[11px] text-amber-100/90">你的答對題數</p>
+                    <p className="text-[11px] text-amber-100/90">你的答對</p>
                     <p className="mt-1 text-xl font-bold text-amber-50">
                       {me?.correctCount ?? 0}/{playedQuestionCount}
                     </p>
                   </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </article>
@@ -341,9 +346,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
         }`}
       >
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-            排行榜
-          </p>
+          <p className="text-xs uppercase tracking-[0.24em] text-slate-400">排行榜</p>
           {isMobileView && sortedParticipants.length > 3 && (
             <button
               type="button"
@@ -357,21 +360,19 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
         <div className="game-settlement-overview-ranking-list mt-3 max-h-[520px] space-y-2 overflow-y-auto pr-1">
           {visibleParticipants.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/55 px-3 py-4 text-sm text-slate-400">
-              目前尚無玩家資料
+              目前沒有可顯示的排行榜資料
             </div>
           ) : (
             visibleParticipants.map((participant) => {
-              const rank = sortedParticipants.findIndex(
-                (entry) => entry.clientId === participant.clientId,
-              ) + 1;
+              const rank =
+                sortedParticipants.findIndex((entry) => entry.clientId === participant.clientId) +
+                1;
               const isMe = meClientId && participant.clientId === meClientId;
               const metrics =
                 participantScoreMeta.metricsByClientId[participant.clientId];
-              const title =
-                participantScoreMeta.byClientId[participant.clientId] ?? "競技者";
+              const title = participantScoreMeta.byClientId[participant.clientId] ?? "參與者";
               const titleTooltip =
-                participantScoreMeta.tooltipByClientId[participant.clientId] ??
-                "本場綜合表現";
+                participantScoreMeta.tooltipByClientId[participant.clientId] ?? "本局表現";
               return (
                 <div
                   key={participant.clientId}
@@ -397,7 +398,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                         style={multilineEllipsis2Style}
                       >
                         {participant.username}
-                        {isMe ? "（你）" : ""}
+                        {isMe ? " (你)" : ""}
                       </p>
                     </div>
                     <div className="flex min-w-[98px] shrink-0 self-center flex-col items-center justify-center gap-2 py-1 text-center">
@@ -415,23 +416,22 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                   <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-300">
                     <span
                       className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2 py-0.5"
-                      title="此玩家在本場所有題目的答對率"
+                      title="答對率"
                     >
                       答對率 {formatPercent(metrics?.accuracy ?? 0)}
                     </span>
                     <span
                       className="rounded-full border border-sky-300/35 bg-sky-500/12 px-2 py-0.5"
-                      title="此玩家答對題目的平均作答時間"
+                      title="平均答對時間"
                     >
-                      平均答對時長 {formatMs(metrics?.avgSpeedMs)}
+                      平均答對 {formatMs(metrics?.avgSpeedMs)}
                     </span>
                     <span
                       className="rounded-full border border-fuchsia-300/35 bg-fuchsia-500/12 px-2 py-0.5"
-                      title="此玩家在本場的最高連續答對數"
+                      title="最高連續答對"
                     >
                       Combo x
-                      {metrics?.combo ??
-                        Math.max(participant.maxCombo ?? 0, participant.combo)}
+                      {metrics?.combo ?? Math.max(participant.maxCombo ?? 0, participant.combo)}
                     </span>
                   </div>
                 </div>
@@ -441,7 +441,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
         </div>
         {isMobileView && !mobileRankingExpanded && sortedParticipants.length > 3 && (
           <p className="mt-2 text-[11px] text-slate-400">
-            目前僅顯示前 3 名，點擊「展開全部」可查看完整榜單。
+            目前先顯示前 3 名，展開後可查看完整排行榜。
           </p>
         )}
       </article>
@@ -450,4 +450,3 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
 };
 
 export default OverviewSection;
-

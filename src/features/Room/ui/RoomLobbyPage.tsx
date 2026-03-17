@@ -5,8 +5,6 @@ import {
   Button,
   CircularProgress,
   Chip,
-  Dialog,
-  DialogContent,
   Drawer,
   IconButton,
   Stack,
@@ -18,6 +16,7 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 import GameRoomPage from "./GameRoomPage";
 import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
+import HistoryReplayModal from "./components/HistoryReplayModal";
 import LiveSettlementShowcase from "./components/LiveSettlementShowcase";
 import HistoryReplayCompactView from "./components/HistoryReplayCompactView";
 import RoomLobbyPanel from "./components/RoomLobbyPanel";
@@ -1578,96 +1577,52 @@ const RoomLobbyPage: React.FC = () => {
   );
 
   const battleHistoryReplayDialog = (
-    <Dialog
+    <HistoryReplayModal
       open={Boolean(historyReplaySummary)}
       onClose={closeHistoryReplayModal}
-      maxWidth="xl"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: { xs: 0, sm: 2.5 },
-          background:
-            "linear-gradient(180deg, rgba(2,6,23,0.98), rgba(2,6,23,0.94))",
-          border: "1px solid rgba(56, 189, 248, 0.28)",
-        },
+      selectedSummary={historyReplaySummary}
+      relatedSummaries={historyDrawerSummaries}
+      onSelectSummary={(summary) => {
+        void openHistoryReplay(summary);
       }}
+      formatDateTime={formatHistoryDateTime}
+      getMatchDurationMs={(startedAt, endedAt) => Math.max(0, endedAt - startedAt)}
+      formatDuration={(durationMs) =>
+        durationMs && durationMs > 0 ? formatHistoryDuration(0, durationMs) : "-"
+      }
     >
-      <DialogContent
-        sx={{
-          p: { xs: 1.25, sm: 2 },
-          minHeight: { xs: "72dvh", sm: "66dvh" },
-          display: "flex",
-          flexDirection: "column",
-          gap: 1.5,
-        }}
-      >
-        {historyReplaySummary && (
-          <div className="rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                  Match Replay
-                </p>
-                <p className="mt-1 truncate text-base font-semibold text-[var(--mc-text)]">
-                  {historyReplaySummary.roomName || historyReplaySummary.roomId}
-                </p>
-                <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                  第 {historyReplaySummary.roundNo} 局 · {historyReplaySummary.playerCount} 人 ·{" "}
-                  {historyReplaySummary.questionCount} 題 ·{" "}
-                  {formatHistoryDateTime(historyReplaySummary.startedAt)} ~{" "}
-                  {formatHistoryDateTime(historyReplaySummary.endedAt)} ·{" "}
-                  {formatHistoryDuration(
-                    historyReplaySummary.startedAt,
-                    historyReplaySummary.endedAt,
-                  )}
-                </p>
-              </div>
-              <Button
-                variant="outlined"
-                size="small"
-                color="inherit"
-                onClick={closeHistoryReplayModal}
-              >
-                關閉
-              </Button>
-            </div>
+      {historyReplaySummary &&
+      historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
+      !historyReplaySnapshot ? (
+        <div className="flex h-full min-h-[240px] items-center justify-center rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55">
+          <div className="inline-flex items-center gap-3 text-sm text-[var(--mc-text-muted)]">
+            <CircularProgress size={18} thickness={4.8} sx={{ color: "#38bdf8" }} />
+            正在載入回放內容...
           </div>
-        )}
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {historyReplaySummary &&
-          historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
-          !historyReplaySnapshot ? (
-            <div className="flex h-full min-h-[240px] items-center justify-center rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55">
-              <div className="inline-flex items-center gap-3 text-sm text-[var(--mc-text-muted)]">
-                <CircularProgress size={18} thickness={4.8} sx={{ color: "#38bdf8" }} />
-                正在載入回放內容...
-              </div>
-            </div>
-          ) : historyReplaySnapshot ? (
-            <HistoryReplayCompactView
-              room={historyReplaySnapshot.room}
-              participants={historyReplaySnapshot.participants}
-              messages={historyReplaySnapshot.messages}
-              playlistItems={historyReplaySnapshot.playlistItems ?? []}
-              trackOrder={historyReplaySnapshot.trackOrder}
-              playedQuestionCount={historyReplaySnapshot.playedQuestionCount}
-              startedAt={historyReplaySnapshot.startedAt}
-              endedAt={historyReplaySnapshot.endedAt}
-              meClientId={clientId}
-              questionRecaps={
-                settlementRecapsByRoundKey[historyReplaySnapshot.roundKey] ??
-                historyReplaySnapshot.questionRecaps ??
-                []
-              }
-            />
-          ) : (
-            <div className="rounded-xl border border-amber-300/20 bg-amber-400/6 px-4 py-5 text-sm text-amber-100/90">
-              找不到可顯示的回放資料。
-            </div>
-          )}
         </div>
-      </DialogContent>
-    </Dialog>
+      ) : historyReplaySnapshot ? (
+        <HistoryReplayCompactView
+          room={historyReplaySnapshot.room}
+          participants={historyReplaySnapshot.participants}
+          messages={historyReplaySnapshot.messages}
+          playlistItems={historyReplaySnapshot.playlistItems ?? []}
+          trackOrder={historyReplaySnapshot.trackOrder}
+          playedQuestionCount={historyReplaySnapshot.playedQuestionCount}
+          startedAt={historyReplaySnapshot.startedAt}
+          endedAt={historyReplaySnapshot.endedAt}
+          meClientId={clientId}
+          questionRecaps={
+            settlementRecapsByRoundKey[historyReplaySnapshot.roundKey] ??
+            historyReplaySnapshot.questionRecaps ??
+            []
+          }
+        />
+      ) : (
+        <div className="rounded-xl border border-amber-300/20 bg-amber-400/6 px-4 py-5 text-sm text-amber-100/90">
+          找不到可顯示的回放資料。
+        </div>
+      )}
+    </HistoryReplayModal>
   );
   const settlementReviewLoadingBanner = isSettlementReviewLoading ? (
     <div className="room-lobby-floating-progress" role="status" aria-live="polite">

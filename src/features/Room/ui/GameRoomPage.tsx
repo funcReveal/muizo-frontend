@@ -414,7 +414,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     if (!hostManagementConfirm) return null;
     const target = normalizeRoomDisplayText(
       hostManagementConfirm.targetName,
-      "???拙振",
+      "玩家",
     );
     if (hostManagementConfirm.type === "transfer") {
       return {
@@ -489,7 +489,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     return null;
   }, [meClientId, playbackExtensionVote]);
   const playbackVoteRequesterName =
-    normalizeRoomDisplayText(playbackExtensionVote?.requestedByUsername, "???拙振");
+    normalizeRoomDisplayText(playbackExtensionVote?.requestedByUsername, "玩家");
   const playbackVoteProposalSeconds = Math.max(
     0,
     Math.round((playbackExtensionVote?.extendMs ?? 0) / 1000),
@@ -556,15 +556,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     scrollTargetRef: mobilePlaybackPanelRef,
     initialScrollKey:
       isMobileGameViewport &&
-      gameState.status === "playing" &&
-      (gameState.trackCursor ?? 0) === 0
+        gameState.status === "playing" &&
+        (gameState.trackCursor ?? 0) === 0
         ? `${room.id}:${gameState.startedAt}:initial`
         : null,
     autoScrollKey:
       isMobileGameViewport &&
-      mobileGuessAnchorEnabled &&
-      gameState.status === "playing" &&
-      gameState.phase === "guess"
+        mobileGuessAnchorEnabled &&
+        gameState.status === "playing" &&
+        gameState.phase === "guess"
         ? `${room.id}:${gameState.startedAt}:${gameState.trackCursor ?? 0}:guess`
         : null,
   });
@@ -606,8 +606,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [playlist, currentTrackIndex]);
   const resolvedAnswerTitle = normalizeRoomDisplayText(
     gameState.answerTitle?.trim() ||
-      item?.answerText?.trim() ||
-      item?.title?.trim(),
+    item?.answerText?.trim() ||
+    item?.title?.trim(),
     "未提供歌名",
   );
   const resolvedRoomName = normalizeRoomDisplayText(room.name, "未命名房間");
@@ -632,21 +632,21 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   );
   const hasExplicitEndSec = Boolean(
     item &&
-      (typeof item.hasExplicitEndSec === "boolean"
-        ? item.hasExplicitEndSec
-        : (typeof item.endSec === "number" &&
-            Math.abs(
-              item.endSec -
-                ((typeof item.startSec === "number" ? item.startSec : 0) +
-                  DEFAULT_CLIP_SEC),
-            ) > 0.001)),
+    (typeof item.hasExplicitEndSec === "boolean"
+      ? item.hasExplicitEndSec
+      : (typeof item.endSec === "number" &&
+        Math.abs(
+          item.endSec -
+          ((typeof item.startSec === "number" ? item.startSec : 0) +
+            DEFAULT_CLIP_SEC),
+        ) > 0.001)),
   );
   const hasExplicitStartSec = Boolean(
     item &&
-      (typeof item.hasExplicitStartSec === "boolean"
-        ? item.hasExplicitStartSec
-        : (typeof item.startSec === "number" && item.startSec > 0) ||
-          hasExplicitEndSec),
+    (typeof item.hasExplicitStartSec === "boolean"
+      ? item.hasExplicitStartSec
+      : (typeof item.startSec === "number" && item.startSec > 0) ||
+      hasExplicitEndSec),
   );
   const itemTimingSource =
     item?.timingSource === "room_settings" || item?.timingSource === "track_clip"
@@ -742,7 +742,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   );
   const questionParticipantCount =
     typeof gameState.questionStats?.participantCount === "number" &&
-    Number.isFinite(gameState.questionStats.participantCount)
+      Number.isFinite(gameState.questionStats.participantCount)
       ? Math.max(0, Math.floor(gameState.questionStats.participantCount))
       : participantCount;
   const requiredAnswerCount =
@@ -751,7 +751,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       : Math.max(participantCount, questionParticipantCount);
   const serverAnsweredCount =
     typeof gameState.questionStats?.answeredCount === "number" &&
-    Number.isFinite(gameState.questionStats.answeredCount)
+      Number.isFinite(gameState.questionStats.answeredCount)
       ? Math.max(0, Math.floor(gameState.questionStats.answeredCount))
       : Array.isArray(gameState.questionStats?.answerOrderLatest)
         ? gameState.questionStats.answerOrderLatest.length
@@ -1074,8 +1074,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ? 0
       : allAnsweredReadyForReveal
         ? 100
-      : ((activePhaseDurationMs - phaseRemainingMs) / activePhaseDurationMs) *
-      100;
+        : ((activePhaseDurationMs - phaseRemainingMs) / activePhaseDurationMs) *
+        100;
   const isGuessUrgency =
     gameState.phase === "guess" &&
     !allAnsweredReadyForReveal &&
@@ -1085,10 +1085,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     phaseRemainingMs <= 3000;
   const phaseCountdownSec =
     !isInterTrackWait &&
-    !isEnded &&
-    !allAnsweredReadyForReveal &&
-    phaseRemainingMs > 0 &&
-    phaseRemainingMs <= 3999
+      !isEnded &&
+      !allAnsweredReadyForReveal &&
+      phaseRemainingMs > 0 &&
+      phaseRemainingMs <= 3999
       ? Math.min(3, Math.ceil(phaseRemainingMs / 1000))
       : null;
   const preStartCountdownSfxSec = startCountdownSec;
@@ -1391,12 +1391,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       setMobileChatUnread(
         lastSeenMessageId
           ? Math.max(
-              0,
-              unreadGameChatMessages.length -
-                (unreadGameChatMessages.findIndex(
-                  (message) => message.id === lastSeenMessageId,
-                ) + 1),
-            )
+            0,
+            unreadGameChatMessages.length -
+            (unreadGameChatMessages.findIndex(
+              (message) => message.id === lastSeenMessageId,
+            ) + 1),
+          )
           : unreadGameChatMessages.length,
       );
       mobileChatUnreadSeededRoomRef.current = roomId;
@@ -1414,8 +1414,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       lastSeenMessageId === null
         ? -1
         : unreadGameChatMessages.findIndex(
-            (message) => message.id === lastSeenMessageId,
-          );
+          (message) => message.id === lastSeenMessageId,
+        );
 
     if (lastSeenIndex < 0) {
       setMobileChatUnread(unreadGameChatMessages.length);
@@ -1562,15 +1562,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         color={canOpenPlaybackVotePrompt ? "warning" : "info"}
         size="small"
         startIcon={<HowToVoteRoundedIcon />}
-        className={`game-room-extend-vote-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${
-          playbackExtensionVote?.status === "active"
+        className={`game-room-extend-vote-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${playbackExtensionVote?.status === "active"
             ? "game-room-extend-vote-btn--active"
             : playbackExtensionVote?.status === "approved"
               ? "game-room-extend-vote-btn--approved"
               : playbackExtensionVote?.status === "rejected"
                 ? "game-room-extend-vote-btn--rejected"
                 : ""
-        } ${canOpenPlaybackVotePrompt ? "game-room-extend-vote-btn--prompt" : ""}`}
+          } ${canOpenPlaybackVotePrompt ? "game-room-extend-vote-btn--prompt" : ""}`}
         disabled={playbackVoteButtonDisabled}
         onClick={handleRequestPlaybackVote}
       >
@@ -1639,7 +1638,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <Typography variant="body2" className="truncate text-slate-100">
                     {normalizeRoomDisplayText(
                       participant.username,
-                      `?? ${index + 1}`,
+                      `玩家 ${index + 1}`,
                     )}
                   </Typography>
                   <Typography variant="caption" className="text-slate-400">
@@ -1726,8 +1725,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       <div className="game-room-grid grid w-full grid-cols-1 gap-3 pb-20 lg:grid-cols-[400px_1fr] lg:pb-0 xl:grid-cols-[440px_1fr] lg:h-[calc(100vh-140px)] lg:items-stretch">
         <div className="hidden lg:block lg:h-full">
           <GameRoomLeftSidebar
-            answeredCount={answeredCount}
-            participantCount={participants.length}
             scoreboardRows={scoreboardRows}
             answeredClientIdSet={answeredClientIdSet}
             answeredRankByClientId={answeredRankByClientId}
@@ -1850,11 +1847,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           />
           {isMobileGameViewport && (
             <div
-              className={`game-room-mobile-action-dock lg:hidden ${
-                mobileAutoOverlayTransition !== "idle"
+              className={`game-room-mobile-action-dock lg:hidden ${mobileAutoOverlayTransition !== "idle"
                   ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
                   : ""
-              }`}
+                }`}
             >
               <button
                 type="button"
@@ -1871,11 +1867,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </button>
               <button
                 type="button"
-                className={`game-room-mobile-action-btn game-room-mobile-action-btn--icon ${
-                  mobileChatOpen ? "game-room-mobile-action-btn--active" : ""
-                } ${
-                  mobileChatUnread > 0 ? "game-room-mobile-action-btn--unread" : ""
-                }`}
+                className={`game-room-mobile-action-btn game-room-mobile-action-btn--icon ${mobileChatOpen ? "game-room-mobile-action-btn--active" : ""
+                  } ${mobileChatUnread > 0 ? "game-room-mobile-action-btn--unread" : ""
+                  }`}
                 onClick={handleToggleMobileChat}
               >
                 <span className="game-room-mobile-action-icon" aria-hidden>
@@ -1889,18 +1883,16 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </span>
               </button>
               <div
-                className={`game-room-mobile-action-subdock col-span-2 ${
-                  mobileSubdockActionCount <= 1
+                className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
                     ? "game-room-mobile-action-subdock--compact"
                     : ""
-                }`}
+                  }`}
               >
                 {isHostInGame && (
                   <button
                     type="button"
-                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--host ${
-                      hostManagementOpen ? "game-room-mobile-toggle-chip--active" : ""
-                    }`}
+                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--host ${hostManagementOpen ? "game-room-mobile-toggle-chip--active" : ""
+                      }`}
                     onClick={handleOpenHostManagement}
                   >
                     <span className="game-room-mobile-action-icon" aria-hidden>
@@ -1915,11 +1907,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 {gameState.status === "playing" && isManualPlaybackExtensionMode && (
                   <button
                     type="button"
-                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--vote ${
-                      playbackExtensionVote?.status === "active" || canOpenPlaybackVotePrompt
+                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--compact game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--vote ${playbackExtensionVote?.status === "active" || canOpenPlaybackVotePrompt
                         ? "game-room-mobile-toggle-chip--active"
                         : ""
-                    }`}
+                      }`}
                     onClick={handleRequestPlaybackVote}
                     disabled={playbackVoteButtonDisabled}
                   >
@@ -1931,7 +1922,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       {playbackExtensionVote?.status === "active"
                         ? `\u5269 ${playbackVoteRemainingSeconds} \u79d2`
                         : playbackExtensionVote?.status === "approved" &&
-                            playbackVoteResolvedSeconds > 0
+                          playbackVoteResolvedSeconds > 0
                           ? `+${playbackVoteResolvedSeconds} \u79d2`
                           : "\u7b49\u5f85\u7d50\u679c"}
                     </span>
@@ -1939,11 +1930,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 )}
                 <button
                   type="button"
-                  className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor game-room-mobile-toggle-chip--anchor ${
-                    mobileGuessAnchorEnabled
+                  className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor game-room-mobile-toggle-chip--anchor ${mobileGuessAnchorEnabled
                       ? "game-room-mobile-toggle-chip--active"
                       : ""
-                  }`}
+                    }`}
                   onClick={() =>
                     setMobileGuessAnchorEnabled((current) => !current)
                   }
@@ -1959,11 +1949,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </button>
                 <button
                   type="button"
-                  className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor game-room-mobile-toggle-chip--overlay ${
-                    mobileRevealAutoOverlayEnabled
+                  className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor game-room-mobile-toggle-chip--overlay ${mobileRevealAutoOverlayEnabled
                       ? "game-room-mobile-toggle-chip--active"
                       : ""
-                  }`}
+                    }`}
                   onClick={() =>
                     setMobileRevealAutoOverlayEnabled((current) => !current)
                   }
@@ -2001,11 +1990,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               />
             )}
             <SwipeableDrawer
-              className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${
-                mobileAutoOverlayTransition !== "idle"
+              className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${mobileAutoOverlayTransition !== "idle"
                   ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
                   : ""
-              }`}
+                }`}
               anchor="bottom"
               open={mobileScoreboardOpen}
               onOpen={handleOpenMobileScoreboard}
@@ -2041,7 +2029,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </div>
                 <div className="game-room-mobile-scoreboard-headline">
                   <div className="game-room-mobile-scoreboard-title-group">
-                    <span className="game-room-mobile-scoreboard-kicker">SCOREBOARD</span>
+                    <span className="game-room-mobile-scoreboard-kicker">排行榜</span>
                     <span className="game-room-mobile-scoreboard-title">分數榜</span>
                   </div>
                   <div className="game-room-mobile-scoreboard-actions">
@@ -2061,8 +2049,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </div>
               <div className="relative min-h-0 flex-1 overflow-hidden p-2">
                 <GameRoomLeftSidebar
-                  answeredCount={answeredCount}
-                  participantCount={participants.length}
                   scoreboardRows={mobileScoreboardRows}
                   answeredClientIdSet={answeredClientIdSet}
                   answeredRankByClientId={answeredRankByClientId}
