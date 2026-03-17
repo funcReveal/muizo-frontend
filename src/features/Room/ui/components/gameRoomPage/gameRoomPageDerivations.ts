@@ -7,7 +7,12 @@ import type {
   SettlementQuestionRecap,
   SettlementQuestionResult,
 } from "../GameSettlementPanel";
-import type { MyFeedbackModel } from "./gameRoomPageTypes";
+
+import type {
+  MyFeedbackModel,
+  RevealChoicePickBadge,
+  RevealChoicePickMap,
+} from "./gameRoomPageTypes";
 
 export type ScoreboardRow =
   | { type: "player"; player: RoomParticipant }
@@ -22,9 +27,12 @@ export const buildScoreboardRows = (
   slots = 6,
 ): ScoreboardRow[] => {
   const topPlayers = sortedParticipants.slice(0, 5);
-  const self = sortedParticipants.find((participant) => participant.clientId === meClientId);
+  const self = sortedParticipants.find(
+    (participant) => participant.clientId === meClientId,
+  );
   const scoreboardPlayers =
-    self && !topPlayers.some((participant) => participant.clientId === self.clientId)
+    self &&
+    !topPlayers.some((participant) => participant.clientId === self.clientId)
       ? [...topPlayers, self]
       : topPlayers;
   const scoreboardEntries = scoreboardPlayers.slice(0, slots);
@@ -36,6 +44,56 @@ export const buildScoreboardRows = (
       key: `placeholder-${idx}`,
     })),
   ];
+};
+
+type BuildRevealChoicePickMapParams = {
+  phase: "guess" | "reveal";
+  answersByClientId?: Record<string, RoomSettlementQuestionAnswer>;
+  participants: RoomParticipant[];
+  meClientId?: string;
+};
+
+export const buildRevealChoicePickMap = ({
+  phase,
+  answersByClientId,
+  participants,
+  meClientId,
+}: BuildRevealChoicePickMapParams): RevealChoicePickMap => {
+  if (phase !== "reveal" || !answersByClientId) {
+    return {};
+  }
+
+  return participants.reduce<RevealChoicePickMap>((acc, participant) => {
+    const answer = answersByClientId[participant.clientId];
+
+    if (
+      !answer ||
+      typeof answer.choiceIndex !== "number" ||
+      !Number.isFinite(answer.choiceIndex)
+    ) {
+      return acc;
+    }
+
+    const username = normalizeRoomDisplayText(
+      participant.username?.trim(),
+      "玩家",
+    );
+
+    const badge: RevealChoicePickBadge = {
+      clientId: participant.clientId,
+      username,
+      initial: Array.from(username)[0] || "?",
+      result: answer.result,
+      isMe: participant.clientId === meClientId,
+    };
+
+    if (!acc[answer.choiceIndex]) {
+      acc[answer.choiceIndex] = [];
+    }
+
+    acc[answer.choiceIndex].push(badge);
+    return acc;
+  }, {});
 };
 
 type BuildMyFeedbackModelParams = {
@@ -107,7 +165,9 @@ export const buildMyFeedbackModel = ({
       return {
         tone: "neutral",
         title: "尚未作答",
-        detail: isGuessUrgency ? "最後幾秒了，快決定答案。" : "請在倒數結束前選擇答案。",
+        detail: isGuessUrgency
+          ? "最後幾秒了，快決定答案。"
+          : "請在倒數結束前選擇答案。",
         badges,
         pillText: isGuessUrgency ? "快作答" : "待命中",
         lines: [
@@ -207,7 +267,9 @@ export const buildMyFeedbackModel = ({
     [
       signedWrongGain,
       myAnswerRank !== null ? `第${myAnswerRank}答` : "順位載入中",
-      liveAccuracyPct !== null ? `全場答對率 ${liveAccuracyPct}%` : "全場答對率載入中",
+      liveAccuracyPct !== null
+        ? `全場答對率 ${liveAccuracyPct}%`
+        : "全場答對率載入中",
     ].join(" · "),
   ];
   return {
