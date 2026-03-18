@@ -368,6 +368,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     }
     return null;
   })();
+  const displayRoomName = normalizeDisplayText(currentRoom?.name, "未命名房間");
   const hostPlaylistPrimaryText =
     "請先選擇來源，再將歌單套用到房間。支援玩家推薦、貼上連結、收藏庫與 YouTube。";
   const isHostCollectionEmptyNotice =
@@ -1674,15 +1675,21 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           <Stack spacing={1.25} className="room-lobby-header-stack">
             <div className="room-lobby-header-identity">
               <div className="room-lobby-header-copy">
-                <Typography variant="h6" className="room-lobby-header-title">
-                  {normalizeDisplayText(currentRoom?.name, "未命名房間")}
+                <Typography
+                  variant="h6"
+                  className="room-lobby-header-title"
+                  title={displayRoomName}
+                >
+                  {displayRoomName}
                 </Typography>
+
                 {showInlineRoomAccess ? (
                   <div className="room-lobby-header-inline-actions">
                     {roomAccessActions}
                   </div>
                 ) : null}
               </div>
+
               <div className="room-lobby-metric-grid">
                 {roomMetricCards.map((card) => (
                   <div
@@ -1844,12 +1851,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         key={`mobile-${action.key}`}
                         variant={action.key === "leave" ? "outlined" : "contained"}
                         color="inherit"
-                        className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action room-lobby-mobile-secondary-action--icon-only ${action.key === "settings"
-                          ? "room-lobby-mobile-secondary-action--settings"
-                          : ""
-                          } ${action.key === "leave"
-                            ? "room-lobby-mobile-secondary-action--leave"
-                            : ""
+                        className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action ${action.key === "settings" ? "room-lobby-mobile-secondary-action--settings" : ""
+                          } ${action.key === "leave" ? "room-lobby-mobile-secondary-action--leave" : ""
                           }`}
                         aria-label={action.compactLabel}
                         disabled={action.disabled}
@@ -1859,7 +1862,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         <span className="room-lobby-mobile-secondary-action__icon">
                           {action.icon}
                         </span>
-                        <span className="sr-only">
+                        <span className="room-lobby-mobile-secondary-action__label">
                           {action.compactLabel}
                         </span>
                       </Button>
