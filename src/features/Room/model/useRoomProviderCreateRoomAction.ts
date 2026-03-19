@@ -156,6 +156,25 @@ export const useRoomProviderCreateRoomAction = ({
   const getDefaultRoomName = (nextUsername: string | null) =>
     nextUsername ? `${nextUsername}'s room` : "新房間";
 
+  const runWithTimeout = useCallback(
+    async <T,>(task: Promise<T>, timeoutMs: number, fallback: T) => {
+      let timer: number | null = null;
+      try {
+        return await Promise.race<T>([
+          task,
+          new Promise<T>((resolve) => {
+            timer = window.setTimeout(() => resolve(fallback), timeoutMs);
+          }),
+        ]);
+      } finally {
+        if (timer !== null) {
+          window.clearTimeout(timer);
+        }
+      }
+    },
+    [],
+  );
+
   const handleCreateRoom = useCallback(async () => {
     const socket = getSocket();
     if (!socket || !username) {
@@ -176,10 +195,14 @@ export const useRoomProviderCreateRoomAction = ({
     };
     releaseCreateRoomLockRef.current = releaseCreateRoomLock;
     if (authToken) {
-      const token = await ensureFreshAuthToken({
-        token: authToken,
-        refreshAuthToken,
-      });
+      const token = await runWithTimeout(
+        ensureFreshAuthToken({
+          token: authToken,
+          refreshAuthToken,
+        }),
+        5_000,
+        null,
+      );
       if (!token) {
         setStatusText("嚙緯嚙皚嚙緩嚙盤嚙踝蕭嚙璀嚙請哨蕭嚙編嚙緯嚙皚");
         releaseCreateRoomLock();
@@ -377,7 +400,13 @@ export const useRoomProviderCreateRoomAction = ({
       }
       if (!apiUrl) return false;
       try {
-        const { ok, payload } = await apiFetchRooms(apiUrl);
+        const roomsResult = await runWithTimeout(
+          apiFetchRooms(apiUrl),
+          4_000,
+          null,
+        );
+        if (!roomsResult) return false;
+        const { ok, payload } = roomsResult;
         if (!ok) return false;
         const nextRooms = ((payload?.rooms ?? payload) as RoomSummary[]) ?? [];
         if (Array.isArray(nextRooms)) {
@@ -683,6 +712,7 @@ export const useRoomProviderCreateRoomAction = ({
     syncServerOffset,
     username,
     apiUrl,
+    runWithTimeout,
   ]);
 
   return { handleCreateRoom };

@@ -2,6 +2,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import MoreHorizRounded from "@mui/icons-material/MoreHorizRounded";
+import ShareRounded from "@mui/icons-material/ShareRounded";
 import {
   Button,
   Dialog,
@@ -138,6 +139,7 @@ const EditPage = () => {
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [playlistPanelOpen, setPlaylistPanelOpen] = useState(false);
   const [aiBatchModalOpen, setAiBatchModalOpen] = useState(false);
   const [aiProvider, setAiProvider] = useState<AiAssistantProvider>("grok");
@@ -796,6 +798,32 @@ const EditPage = () => {
       setCollections,
     ],
   );
+
+  const handleShareCollection = useCallback(async () => {
+    if (!authToken || !activeCollectionId) {
+      setSaveError("請先登入並選擇收藏庫後再分享");
+      return;
+    }
+    if (collectionVisibility !== "public") {
+      setSaveError("請先將收藏庫設為公開後再分享");
+      return;
+    }
+    try {
+        setShareNotice(null);
+        const shareUrl = new URL("/rooms", window.location.origin);
+        shareUrl.searchParams.set("sharedCollection", activeCollectionId);
+        await navigator.clipboard.writeText(shareUrl.toString());
+      setShareNotice("公開收藏庫分享連結已複製，可直接預覽題庫並開房。");
+      setSaveError(null);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "建立分享連結失敗");
+    }
+  }, [
+    activeCollectionId,
+    authToken,
+    collectionTitle,
+    collectionVisibility,
+  ]);
 
   const appendItems = useCallback(
     (
@@ -1807,6 +1835,24 @@ const EditPage = () => {
         collectionMenuOpen={collectionMenuOpen}
         playlistMenuOpen={playlistPanelOpen}
       />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {shareNotice && (
+          <p className="text-sm text-cyan-200">{shareNotice}</p>
+        )}
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<ShareRounded fontSize="small" />}
+          onClick={() => {
+            void handleShareCollection();
+          }}
+          disabled={
+            !activeCollectionId || isReadOnly || collectionVisibility !== "public"
+          }
+        >
+          複製分享連結
+        </Button>
+      </div>
       <CollectionPopover
         open={collectionMenuOpen}
         anchorEl={collectionAnchor}

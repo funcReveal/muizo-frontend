@@ -90,8 +90,10 @@ interface RoomCreationSectionProps {
   collectionsLoading?: boolean;
   collectionsError?: string | null;
   collectionScope?: "owner" | "public" | null;
-  publicCollectionsSort?: "popular" | "favorites_first";
-  onPublicCollectionsSortChange?: (next: "popular" | "favorites_first") => void;
+  publicCollectionsSort?: "updated" | "popular" | "favorites_first";
+  onPublicCollectionsSortChange?: (
+    next: "updated" | "popular" | "favorites_first",
+  ) => void;
   collectionFavoriteUpdatingId?: string | null;
   collectionsLastFetchedAt?: number | null;
   selectedCollectionId?: string | null;

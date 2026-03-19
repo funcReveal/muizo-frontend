@@ -55,8 +55,10 @@ export type UseRoomCollectionsResult = {
   collectionsHasMore: boolean;
   collectionsError: string | null;
   collectionScope: "owner" | "public" | null;
-  publicCollectionsSort: "popular" | "favorites_first";
-  setPublicCollectionsSort: (next: "popular" | "favorites_first") => void;
+  publicCollectionsSort: "updated" | "popular" | "favorites_first";
+  setPublicCollectionsSort: (
+    next: "updated" | "popular" | "favorites_first",
+  ) => void;
   collectionFavoriteUpdatingId: string | null;
   collectionsLastFetchedAt: number | null;
   selectedCollectionId: string | null;
@@ -115,8 +117,9 @@ export const useRoomCollections = ({
   const [collectionScope, setCollectionScope] = useState<"owner" | "public" | null>(
     null,
   );
-  const [publicCollectionsSort, setPublicCollectionsSort] =
-    useState<"popular" | "favorites_first">("popular");
+  const [publicCollectionsSort, setPublicCollectionsSort] = useState<
+    "updated" | "popular" | "favorites_first"
+  >("favorites_first");
   const [collectionFavoriteUpdatingId, setCollectionFavoriteUpdatingId] =
     useState<string | null>(null);
   const [collectionsLastFetchedAt, setCollectionsLastFetchedAt] = useState<number | null>(
@@ -125,6 +128,7 @@ export const useRoomCollections = ({
   const collectionPageRef = useRef(1);
   const collectionRequestScopeRef = useRef<"owner" | "public" | null>(null);
   const publicCollectionsQueryRef = useRef("");
+  const latestCollectionsRequestIdRef = useRef(0);
   const collectionCacheRef = useRef<Record<string, PlaylistItem[]>>({});
   const inFlightCollectionIdRef = useRef<string | null>(null);
   const latestLoadRequestIdRef = useRef(0);
@@ -142,7 +146,10 @@ export const useRoomCollections = ({
         setCollectionsError("尚未設定收藏庫 API 位置 (API_URL)");
         return;
       }
+      const requestId = latestCollectionsRequestIdRef.current + 1;
+      latestCollectionsRequestIdRef.current = requestId;
       const resolvedScope = scope ?? (authToken && ownerId ? "owner" : "public");
+      const previousScope = collectionRequestScopeRef.current;
       const normalizedQuery =
         resolvedScope === "public" ? (options?.query ?? publicCollectionsQueryRef.current).trim() : "";
       collectionRequestScopeRef.current = resolvedScope;
@@ -165,7 +172,7 @@ export const useRoomCollections = ({
       setCollectionsLoadingMore(false);
       setCollectionsHasMore(false);
       setCollectionsError(null);
-      if (resolvedScope === "public") {
+      if (resolvedScope === "public" && previousScope !== "public") {
         setCollections([]);
       }
       try {
@@ -188,6 +195,9 @@ export const useRoomCollections = ({
           }>,
           emptyMessage: string,
         ) => {
+          if (requestId !== latestCollectionsRequestIdRef.current) {
+            return;
+          }
           collectionPageRef.current = 1;
           setCollections(
             items.map((item) => ({
@@ -251,9 +261,14 @@ export const useRoomCollections = ({
 
         await run(token, true);
       } catch (error) {
+        if (requestId !== latestCollectionsRequestIdRef.current) {
+          return;
+        }
         setCollectionsError(error instanceof Error ? error.message : "載入收藏庫失敗");
       } finally {
-        setCollectionsLoading(false);
+        if (requestId === latestCollectionsRequestIdRef.current) {
+          setCollectionsLoading(false);
+        }
       }
     },
     [authToken, ownerId, publicCollectionsSort, refreshAuthToken, apiUrl],
@@ -656,12 +671,13 @@ export const useRoomCollections = ({
     setCollectionsHasMore(false);
     setCollectionsError(null);
     setCollectionScope(null);
-    setPublicCollectionsSort("popular");
+    setPublicCollectionsSort("favorites_first");
     setCollectionFavoriteUpdatingId(null);
     setCollectionsLastFetchedAt(null);
     collectionPageRef.current = 1;
     collectionRequestScopeRef.current = null;
     publicCollectionsQueryRef.current = "";
+    latestCollectionsRequestIdRef.current = 0;
     setSelectedCollectionId(null);
     setCollectionItemsLoading(false);
     setCollectionItemsError(null);

@@ -5,7 +5,6 @@ import GoogleLoginCard from "./components/GoogleLoginCard";
 import GuestEntryCard from "./components/GuestEntryCard";
 import HowItWorksSection from "./components/HowItWorksSection";
 import AuthComparisonSection from "./components/AuthComparisonSection";
-import RecentUpdatesSection from "./components/RecentUpdatesSection";
 import CommunityCallout from "./components/CommunityCallout";
 import type { LandingPageProps } from "./types";
 import "./LandingPage.css";
@@ -134,12 +133,11 @@ const LandingPage: React.FC<LandingPageProps> = ({
       >
         <div className="landing-stage-head">
           <p className="landing-stage-kicker">快速導覽</p>
-          <h2 className="landing-stage-title">開始前，先看這 3 件重點</h2>
+          <h2 className="landing-stage-title">開始前，先看這 2 件重點</h2>
         </div>
-        <div className="landing-stage-content landing-info-grid mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="landing-stage-content landing-info-grid landing-info-grid-mobile-scroll mt-8 grid gap-4 lg:grid-cols-2">
           <HowItWorksSection />
           <AuthComparisonSection />
-          <RecentUpdatesSection />
         </div>
       </section>
 
@@ -148,7 +146,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
         data-landing-stage
       >
         <div className="landing-stage-head">
-          <p className="landing-stage-kicker">Build Together</p>
+          <p className="landing-stage-kicker">參與開發</p>
           <h2 className="landing-stage-title">一起定義下一版 Muizo</h2>
         </div>
         <div className="landing-stage-content mt-4">

@@ -50,6 +50,20 @@ export const collectionsApi = {
     if (Array.isArray(data?.items)) return data.items;
     return [];
   },
+  async createCollectionReadToken(token: string, collectionId: string) {
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
+    }
+    const res = await fetch(`${API_URL}/api/collections/${collectionId}/read-token`, {
+      method: "POST",
+      headers: buildJsonHeaders(token),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(json?.error ?? "Failed to create collection read token");
+    }
+    return json?.data ?? null;
+  },
   async createCollection(
     token: string,
     payload: {

@@ -14,6 +14,7 @@ import {
 import DeleteOutline from "@mui/icons-material/DeleteOutline";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
+import ShareRounded from "@mui/icons-material/ShareRounded";
 import { useRoom } from "../../Room/model/useRoom";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { collectionsApi } from "../model/collectionsApi";
@@ -108,6 +109,7 @@ const CollectionsPage = () => {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [authResolved, setAuthResolved] = useState(() => !authLoading);
   const ownerId = authUser?.id ?? null;
   const showSkeleton = loading && collections.length === 0;
@@ -254,6 +256,23 @@ const CollectionsPage = () => {
     }
   };
 
+  const handleShareCollection = async (collection: DbCollection) => {
+    if (collection.visibility !== "public") {
+      setError("請先將收藏庫設為公開後再分享");
+      return;
+    }
+    try {
+        setShareNotice(null);
+        const shareUrl = new URL("/rooms", window.location.origin);
+        shareUrl.searchParams.set("sharedCollection", collection.id);
+        await navigator.clipboard.writeText(shareUrl.toString());
+      setShareNotice("公開收藏庫分享連結已複製，可直接預覽題庫並開房。");
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "建立分享連結失敗");
+    }
+  };
+
   if (!authResolved) {
     return (
       <Box className="w-full md:w-full lg:w-3/5 mx-auto space-y-4">
@@ -298,6 +317,11 @@ const CollectionsPage = () => {
           {error && (
             <Typography variant="body2" className="text-rose-300">
               {error}
+            </Typography>
+          )}
+          {shareNotice && (
+            <Typography variant="body2" className="text-cyan-200">
+              {shareNotice}
             </Typography>
           )}
 
@@ -421,6 +445,28 @@ const CollectionsPage = () => {
                               }}
                             />
                           </div>
+                          <Tooltip
+                            title={
+                              collection.visibility === "public"
+                                ? "分享公開收藏庫"
+                                : "請先設為公開才能分享"
+                            }
+                          >
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={collection.visibility !== "public"}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleShareCollection(collection);
+                                }}
+                                className="text-white/70 hover:text-white"
+                                aria-label="share"
+                              >
+                                <ShareRounded fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                           <IconButton
                             size="small"
                             disabled={deletingId === collection.id}

@@ -6,9 +6,10 @@
   type ReactNode,
   type UIEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -50,6 +51,7 @@ import {
   PublicOutlined,
   QuizRounded,
   MeetingRoomRounded,
+  YouTube,
 } from "@mui/icons-material";
 
 import type { RoomSummary } from "../model/types";
@@ -116,6 +118,12 @@ type PlaylistPreviewRowProps = {
   }>;
 };
 
+type PlaylistIssueListItem = {
+  title: string;
+  reason: string;
+  thumbnail?: string;
+};
+
 const PlaylistPreviewRow = ({
   index,
   style,
@@ -140,6 +148,40 @@ const PlaylistPreviewRow = ({
           <p className="truncate text-xs text-[var(--mc-text-muted)]">
             {item.uploader || "未知作者"}
             {item.duration ? ` · ${item.duration}` : ""}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+type PlaylistIssueRowProps = {
+  items: PlaylistIssueListItem[];
+};
+
+const PlaylistIssueRow = ({
+  index,
+  style,
+  items,
+}: RowComponentProps<PlaylistIssueRowProps>) => {
+  const item = items[index];
+  return (
+    <div style={style} className="px-2 py-1">
+      <div className="flex items-center gap-3 rounded-lg border border-[var(--mc-border)]/70 bg-slate-950/25 px-2 py-2">
+        <img
+          src={
+            item.thumbnail || "https://img.youtube.com/vi/default/hqdefault.jpg"
+          }
+          alt={item.title}
+          className="h-10 w-16 rounded object-cover"
+          loading="lazy"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-[var(--mc-text)]">
+            {item.title}
+          </p>
+          <p className="truncate text-xs text-[var(--mc-text-muted)]">
+            {item.reason}
           </p>
         </div>
       </div>
@@ -355,6 +397,7 @@ const formatRoomCodeDisplay = (value: string) => {
 
 const RoomListPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     username,
     usernameInput,
@@ -369,6 +412,7 @@ const RoomListPage: React.FC = () => {
     collectionsLoadingMore,
     collectionsHasMore,
     collectionsError,
+    collectionScope,
     publicCollectionsSort,
     fetchCollections,
     loadMoreCollections,
@@ -450,6 +494,11 @@ const RoomListPage: React.FC = () => {
   const [createLibraryTab, setCreateLibraryTab] = useState<
     "public" | "personal" | "youtube" | "link"
   >("public");
+  const [sharedCollectionMeta, setSharedCollectionMeta] = useState<{
+    id: string;
+    title: string;
+    scope: "public" | "private";
+  } | null>(null);
   const [createLibraryView, setCreateLibraryView] = useState<"grid" | "list">(
     "grid",
   );
@@ -467,7 +516,10 @@ const RoomListPage: React.FC = () => {
   >(null);
   const [isPlaylistUrlFieldFocused, setIsPlaylistUrlFieldFocused] =
     useState(false);
+  const [isPublicLibrarySearchExpanded, setIsPublicLibrarySearchExpanded] =
+    useState(false);
   const previousCreateLibraryTabRef = useRef(createLibraryTab);
+  const handledSharedCollectionRef = useRef<string | null>(null);
   const [joinPasswordFilter, setJoinPasswordFilter] = useState<
     "all" | "no_password" | "password_required"
   >("all");
@@ -484,6 +536,7 @@ const RoomListPage: React.FC = () => {
   const hasRequestedYoutubePlaylistsRef = useRef(false);
   const createLibraryScrollRef = useRef<HTMLDivElement | null>(null);
   const directRoomCodeInputRef = useRef<HTMLInputElement | null>(null);
+  const publicLibrarySearchPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (currentRoom?.id) {
@@ -615,30 +668,82 @@ const RoomListPage: React.FC = () => {
   );
   const playlistIssueSummary = useMemo(() => {
     if (playlistPreviewMeta?.skippedItems?.length) {
-      const removed: string[] = [];
-      const privateRestricted: string[] = [];
-      const embedBlocked: string[] = [];
-      const unavailable: string[] = [];
-      const unknown: string[] = [];
+      const removed: PlaylistIssueListItem[] = [];
+      const privateRestricted: PlaylistIssueListItem[] = [];
+      const embedBlocked: PlaylistIssueListItem[] = [];
+      const unavailable: PlaylistIssueListItem[] = [];
+      const unknown: PlaylistIssueListItem[] = [];
+      const normalizeBlockedReason = (reason?: string | null) => {
+        const normalized = reason?.trim() ?? "";
+        const lower = normalized.toLowerCase();
+        if (
+          lower.includes("age") ||
+          lower.includes("mature") ||
+          lower.includes("adult") ||
+          normalized.includes("年齡") ||
+          normalized.includes("限制級")
+        ) {
+          return "因年齡限制，不允許嵌入播放";
+        }
+        if (
+          lower.includes("copyright") ||
+          lower.includes("rights") ||
+          lower.includes("owner") ||
+          normalized.includes("版權") ||
+          normalized.includes("權利") ||
+          normalized.includes("擁有者")
+        ) {
+          return "因版權或權利設定，不允許嵌入播放";
+        }
+        if (
+          lower.includes("embedding disabled") ||
+          lower.includes("embed") ||
+          normalized.includes("嵌入")
+        ) {
+          return "此影片不允許嵌入播放";
+        }
+        return "此影片不允許嵌入播放";
+      };
       playlistPreviewMeta.skippedItems.forEach((item) => {
-        const label = item.title?.trim() || item.videoId || "未知項目";
+        const title = item.title?.trim() || item.videoId || "未知項目";
+        const thumbnail = item.videoId
+          ? `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`
+          : undefined;
+        const fallbackReason =
+          item.status === "removed"
+            ? "影片已移除"
+            : item.status === "private"
+              ? "私人或受限制，無法匯入"
+              : item.status === "blocked"
+                ? normalizeBlockedReason(item.reason)
+                : item.status === "unavailable"
+                  ? "影片目前不可用"
+                  : "無法判斷匯入原因";
+        const issueItem = {
+          title,
+          thumbnail,
+          reason:
+            item.status === "blocked"
+              ? normalizeBlockedReason(item.reason)
+              : item.reason?.trim() || fallbackReason,
+        };
         if (item.status === "removed") {
-          removed.push(label);
+          removed.push(issueItem);
           return;
         }
         if (item.status === "private") {
-          privateRestricted.push(label);
+          privateRestricted.push(issueItem);
           return;
         }
         if (item.status === "blocked") {
-          embedBlocked.push(label);
+          embedBlocked.push(issueItem);
           return;
         }
         if (item.status === "unavailable") {
-          unavailable.push(label);
+          unavailable.push(issueItem);
           return;
         }
-        unknown.push(label);
+        unknown.push(issueItem);
       });
       return {
         removed,
@@ -671,10 +776,26 @@ const RoomListPage: React.FC = () => {
       exact: false,
     };
   }, [playlistPreviewMeta]);
+  const canAttemptPlaylistPreview = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    try {
+      const parsed = new URL(trimmed);
+      return Boolean(parsed.searchParams.get("list"));
+    } catch {
+      return false;
+    }
+  };
   const isLinkSourceActive = roomCreateSourceMode === "link";
+  const trimmedPlaylistUrlDraft = playlistUrlDraft.trim();
+  const playlistUrlLooksValid = canAttemptPlaylistPreview(
+    trimmedPlaylistUrlDraft,
+  );
   const linkPreviewLocked =
     isLinkSourceActive &&
-    (Boolean(lastFetchedPlaylistTitle) || playlistItems.length > 0);
+    ((playlistLoading && playlistUrlLooksValid) ||
+      Boolean(lastFetchedPlaylistTitle) ||
+      playlistItems.length > 0);
   const linkPlaylistTitle = isLinkSourceActive
     ? lastFetchedPlaylistTitle
     : null;
@@ -692,6 +813,8 @@ const RoomListPage: React.FC = () => {
         unknownCount: 0,
         exact: false,
       };
+  const publicLibrarySearchActive =
+    createLibraryTab === "public" && isPublicLibrarySearchExpanded;
   const normalizedMaxPlayersInput = roomMaxPlayersInput.trim();
   const parsedMaxPlayers = normalizedMaxPlayersInput
     ? Number(normalizedMaxPlayersInput)
@@ -823,10 +946,15 @@ const RoomListPage: React.FC = () => {
     () =>
       selectedCreateCollectionId
         ? (collections.find((item) => item.id === selectedCreateCollectionId) ??
-          null)
+            null)
         : null,
     [collections, selectedCreateCollectionId],
   );
+  const selectedSharedCollection =
+    selectedCreateCollectionId &&
+    sharedCollectionMeta?.id === selectedCreateCollectionId
+      ? sharedCollectionMeta
+      : null;
   const normalizedCreateLibrarySearch = createLibrarySearch
     .trim()
     .toLowerCase();
@@ -853,12 +981,20 @@ const RoomListPage: React.FC = () => {
       );
     });
   }, [collections, createLibraryTab, normalizedCreateLibrarySearch]);
+  const shouldShowCollectionSkeleton =
+    collectionsLoading &&
+    !(
+      createLibraryTab === "public" &&
+      collectionScope === "public" &&
+      filteredCreateCollections.length > 0
+    );
   const selectedCollectionThumb =
     selectedCollection?.cover_thumbnail_url ||
     (selectedCollection?.cover_provider === "youtube" &&
     selectedCollection?.cover_source_id
       ? `https://i.ytimg.com/vi/${selectedCollection.cover_source_id}/hqdefault.jpg`
-      : "");
+      : "") ||
+    (selectedSharedCollection ? playlistItems[0]?.thumbnail || "" : "");
   const selectedSourceSummary = useMemo(() => {
     if (!isCreateSourceReady) return null;
     if (roomCreateSourceMode === "link") {
@@ -883,7 +1019,10 @@ const RoomListPage: React.FC = () => {
     if (roomCreateSourceMode === "publicCollection") {
       return {
         label: "公開收藏庫",
-        title: selectedCollection?.title || "已選擇公開收藏",
+        title:
+          selectedCollection?.title ||
+          selectedSharedCollection?.title ||
+          "已選擇公開收藏",
         detail: `已載入 ${playlistItems.length} 首`,
         thumbnail: selectedCollectionThumb,
       };
@@ -891,7 +1030,10 @@ const RoomListPage: React.FC = () => {
     if (roomCreateSourceMode === "privateCollection") {
       return {
         label: "個人收藏庫",
-        title: selectedCollection?.title || "已選擇個人收藏",
+        title:
+          selectedCollection?.title ||
+          selectedSharedCollection?.title ||
+          "已選擇個人收藏",
         detail: `已載入 ${playlistItems.length} 首`,
         thumbnail: selectedCollectionThumb,
       };
@@ -904,6 +1046,7 @@ const RoomListPage: React.FC = () => {
     playlistPreviewItems,
     roomCreateSourceMode,
     selectedCollection?.title,
+    selectedSharedCollection?.title,
     selectedCollectionThumb,
     selectedYoutubePlaylist?.thumbnail,
     selectedYoutubePlaylist?.title,
@@ -1018,6 +1161,10 @@ const RoomListPage: React.FC = () => {
       updateStartOffsetSec,
     ],
   );
+  const activeCreatePreset = useMemo(
+    () => createPresetCards.find((preset) => preset.active) ?? null,
+    [createPresetCards],
+  );
   const selectedCreateSourceSummary = useMemo(() => {
     if (!isCreateSourceReady) return null;
     if (roomCreateSourceMode === "link") {
@@ -1094,6 +1241,65 @@ const RoomListPage: React.FC = () => {
     view: "grid" | "list",
   ) => {
     const playlist = playlistValue as (typeof youtubePlaylists)[number];
+    const itemCountLabel = `${playlist.itemCount} 首`;
+
+    if (view === "grid") {
+      return (
+        <button
+          key={playlist.id}
+          type="button"
+          onClick={() => {
+            void handlePickYoutubeSource(playlist.id);
+          }}
+          className={`group h-full overflow-hidden rounded-[22px] border text-left transition ${
+            selectedCreateYoutubeId === playlist.id
+              ? "border-rose-300/50 bg-slate-950/70 shadow-[0_24px_44px_-28px_rgba(251,113,133,0.4)]"
+              : "border-rose-300/16 bg-slate-950/55 hover:border-rose-300/34 hover:bg-slate-950/72 hover:shadow-[0_22px_42px_-30px_rgba(251,113,133,0.28)]"
+          }`}
+        >
+          <div className="relative h-36 w-full overflow-hidden bg-slate-900/60">
+            {playlist.thumbnail ? (
+              <img
+                src={playlist.thumbnail}
+                alt={playlist.title}
+                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[11px] text-[var(--mc-text-muted)]">
+                無縮圖
+              </div>
+            )}
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_46%,rgba(2,6,23,0.82)_100%)]" />
+            <div className="absolute left-3 top-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-rose-100 backdrop-blur-sm">
+                <YouTube sx={{ fontSize: 13 }} />
+                YouTube
+              </span>
+            </div>
+          </div>
+          <div className="space-y-3 px-4 py-3.5">
+            <div className="space-y-1.5">
+              <p className="line-clamp-1 text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
+                {playlist.title}
+              </p>
+              <p className="line-clamp-2 min-h-[2.5rem] text-[12px] leading-5 text-slate-300/88">
+                YouTube 播放清單匯入來源
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold leading-none text-slate-200/92">
+                <PlayCircleOutlineRounded
+                  sx={{ fontSize: 18, color: "rgba(251, 113, 133, 0.92)" }}
+                />
+                <span>{itemCountLabel}</span>
+              </span>
+            </div>
+          </div>
+        </button>
+      );
+    }
+
     return (
       <button
         key={playlist.id}
@@ -1103,19 +1309,11 @@ const RoomListPage: React.FC = () => {
         }}
         className={`rounded-xl border text-left transition ${
           selectedCreateYoutubeId === playlist.id
-            ? "border-cyan-300/55 bg-cyan-500/10"
-            : "border-cyan-300/25 bg-slate-950/25 hover:border-cyan-300/45"
-        } ${
-          view === "grid"
-            ? "h-full p-3"
-            : "flex w-full items-center gap-3 px-3 py-2"
-        }`}
+            ? "border-rose-300/50 bg-rose-500/10"
+            : "border-rose-300/18 bg-slate-950/25 hover:border-rose-300/34"
+        } flex w-full items-center gap-3 px-3 py-2`}
       >
-        <div
-          className={`overflow-hidden rounded-md border border-cyan-300/20 bg-slate-900/40 ${
-            view === "grid" ? "mb-3 h-28 w-full" : "h-10 w-16 shrink-0"
-          }`}
-        >
+        <div className="h-11 w-16 shrink-0 overflow-hidden rounded-md bg-slate-900/40">
           {playlist.thumbnail ? (
             <img
               src={playlist.thumbnail}
@@ -1129,16 +1327,27 @@ const RoomListPage: React.FC = () => {
             </div>
           )}
         </div>
-        <div className={`min-w-0 ${view === "grid" ? "space-y-1" : "flex-1"}`}>
-          <span className="block truncate text-sm font-semibold text-[var(--mc-text)]">
-            {playlist.title}
-          </span>
-          <span className="mt-1 block text-xs text-[var(--mc-text-muted)]">
-            YouTube 播放清單
-          </span>
-          <span className="block text-xs text-[var(--mc-text-muted)]">
-            {playlist.itemCount} 首
-          </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <span className="truncate text-sm font-semibold text-[var(--mc-text)]">
+              {playlist.title}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] leading-none text-rose-100/90">
+              <YouTube sx={{ fontSize: 12, marginRight: "4px" }} />
+              YouTube
+            </span>
+          </div>
+          <p className="mt-1 truncate text-xs text-[var(--mc-text-muted)]">
+            YouTube 播放清單匯入來源
+          </p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-none text-slate-200/90">
+              <PlayCircleOutlineRounded
+                sx={{ fontSize: 17, color: "rgba(251, 113, 133, 0.92)" }}
+              />
+              <span>{itemCountLabel}</span>
+            </span>
+          </div>
         </div>
       </button>
     );
@@ -1242,7 +1451,12 @@ const RoomListPage: React.FC = () => {
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_46%,rgba(2,6,23,0.82)_100%)]" />
             {!isPublicLibraryTab ? (
               <div className="absolute left-3 top-3">
-                <span className="rounded-full border border-white/12 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-slate-100 backdrop-blur-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-slate-100 backdrop-blur-sm">
+                  {(collection.visibility ?? "private") === "public" ? (
+                    <PublicOutlined sx={{ fontSize: 13 }} />
+                  ) : (
+                    <LockOutlined sx={{ fontSize: 13 }} />
+                  )}
                   {visibilityLabel}
                 </span>
               </div>
@@ -1294,9 +1508,7 @@ const RoomListPage: React.FC = () => {
         } w-full`}
       >
         <div className="flex items-center gap-3">
-          <div
-            className="h-11 w-16 shrink-0 overflow-hidden rounded-md bg-slate-900/40"
-          >
+          <div className="h-11 w-16 shrink-0 overflow-hidden rounded-md bg-slate-900/40">
             {previewThumbnail ? (
               <img
                 src={previewThumbnail}
@@ -1316,7 +1528,12 @@ const RoomListPage: React.FC = () => {
                 {collection.title}
               </p>
               {!isPublicLibraryTab ? (
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] leading-none text-slate-200/88">
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] leading-none text-slate-200/88">
+                  {(collection.visibility ?? "private") === "public" ? (
+                    <PublicOutlined sx={{ fontSize: 12 }} />
+                  ) : (
+                    <LockOutlined sx={{ fontSize: 12 }} />
+                  )}
                   {visibilityLabel}
                 </span>
               ) : null}
@@ -1411,17 +1628,48 @@ const RoomListPage: React.FC = () => {
   ]);
   useEffect(() => {
     setCreateLibrarySearch("");
-  }, [createLibraryTab]);
-  const canAttemptPlaylistPreview = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return false;
-    try {
-      const parsed = new URL(trimmed);
-      return Boolean(parsed.searchParams.get("list"));
-    } catch {
-      return false;
+    if (createLibraryTab !== "public") {
+      setIsPublicLibrarySearchExpanded(false);
     }
-  };
+  }, [createLibraryTab]);
+  useEffect(() => {
+    if (!publicLibrarySearchActive) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (publicLibrarySearchPanelRef.current?.contains(target)) return;
+      setIsPublicLibrarySearchExpanded(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [publicLibrarySearchActive]);
+  useEffect(() => {
+    const sharedCollectionId = searchParams.get("sharedCollection");
+    if (!sharedCollectionId) return;
+
+    const signature = sharedCollectionId;
+
+    if (handledSharedCollectionRef.current === signature) return;
+    handledSharedCollectionRef.current = signature;
+
+    setGuideMode("create");
+    setCreateLibraryTab("public");
+    setCreateLeftTab("settings");
+    setRoomCreateSourceMode("publicCollection");
+    setSelectedCreateYoutubeId(null);
+    setSelectedCreateCollectionId(sharedCollectionId);
+    setSharedCollectionMeta({
+      id: sharedCollectionId,
+      title: "分享收藏庫",
+      scope: "public",
+    });
+    handleResetPlaylist();
+    void loadCollectionItems(sharedCollectionId, { force: true });
+  }, [
+    handleResetPlaylist,
+    loadCollectionItems,
+    searchParams,
+    setRoomCreateSourceMode,
+  ]);
   const handlePreviewPlaylistByUrl = async () => {
     const trimmed = playlistUrlDraft.trim();
     if (!canAttemptPlaylistPreview(trimmed)) {
@@ -1437,6 +1685,15 @@ const RoomListPage: React.FC = () => {
   };
   const handleCancelLinkPreview = () => {
     handleResetPlaylist();
+    setPlaylistUrlDraft("");
+    setPlaylistPreviewError(null);
+    lastAutoPreviewUrlRef.current = "";
+  };
+  const handleClearPlaylistUrlInput = () => {
+    if (linkPreviewLocked) {
+      handleCancelLinkPreview();
+      return;
+    }
     setPlaylistUrlDraft("");
     setPlaylistPreviewError(null);
     lastAutoPreviewUrlRef.current = "";
@@ -1463,10 +1720,29 @@ const RoomListPage: React.FC = () => {
     isLinkSourceActive,
     playlistUrlDraft,
   ]);
+  const playlistUrlFormatWarning =
+    trimmedPlaylistUrlDraft &&
+    !canAttemptPlaylistPreview(trimmedPlaylistUrlDraft)
+      ? "請輸入有效的 YouTube 播放清單連結"
+      : null;
+  const playlistUrlErrorMessage = playlistPreviewError || playlistError || null;
+  const showPlaylistUrlError =
+    Boolean(trimmedPlaylistUrlDraft) && Boolean(playlistUrlErrorMessage);
+  const showPlaylistUrlWarning =
+    Boolean(trimmedPlaylistUrlDraft) &&
+    !showPlaylistUrlError &&
+    Boolean(playlistUrlFormatWarning);
+  const playlistUrlTooltipMessage = showPlaylistUrlError
+    ? playlistUrlErrorMessage
+    : showPlaylistUrlWarning
+      ? playlistUrlFormatWarning
+      : "";
+  const linkPlaylistCount = linkPlaylistPreviewItems.length;
   const handleActivateLinkSource = () => {
     setRoomCreateSourceMode("link");
     setSelectedCreateCollectionId(null);
     setSelectedCreateYoutubeId(null);
+    setSharedCollectionMeta(null);
     handleResetPlaylist();
     setPlaylistPreviewError(null);
     lastAutoPreviewUrlRef.current = "";
@@ -1475,12 +1751,14 @@ const RoomListPage: React.FC = () => {
     setRoomCreateSourceMode("link");
     setSelectedCreateCollectionId(null);
     setSelectedCreateYoutubeId(null);
+    setSharedCollectionMeta(null);
     setCreateLeftTab("settings");
   };
   const handlePickYoutubeSource = async (playlistId: string) => {
     setRoomCreateSourceMode("youtube");
     setSelectedCreateYoutubeId(playlistId);
     setSelectedCreateCollectionId(null);
+    setSharedCollectionMeta(null);
     setCreateLeftTab("settings");
     await importYoutubePlaylist(playlistId);
   };
@@ -1493,6 +1771,7 @@ const RoomListPage: React.FC = () => {
     );
     setSelectedCreateCollectionId(collectionId);
     setSelectedCreateYoutubeId(null);
+    setSharedCollectionMeta(null);
     setCreateLeftTab("settings");
     await loadCollectionItems(collectionId, { force: true });
   };
@@ -1710,23 +1989,59 @@ const RoomListPage: React.FC = () => {
 
       {!currentRoom?.id && username && (
         <section className="w-full">
-          <div className="mb-5 rounded-3xl bg-[var(--mc-surface)]/70 p-4 sm:p-5">
-            <div className="inline-flex w-full gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-1">
+          <div className="sm:p-5">
+            <div className="relative grid w-full grid-cols-2 gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-1">
+              <div
+                aria-hidden="true"
+                className={`pointer-events-none absolute bottom-1 top-1 overflow-hidden rounded-xl border transition-[transform,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  guideMode === "create"
+                    ? "border-cyan-300/55 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(14,165,233,0.09))] shadow-[0_22px_42px_-30px_rgba(34,211,238,0.72)]"
+                    : "border-amber-300/55 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(245,158,11,0.1))] shadow-[0_22px_42px_-30px_rgba(251,191,36,0.68)]"
+                }`}
+                style={{
+                  left: "0.25rem",
+                  width: "calc(50% - 0.375rem)",
+                  transform:
+                    guideMode === "create"
+                      ? "translateX(0)"
+                      : "translateX(calc(100% + 0.25rem))",
+                }}
+              >
+                <div
+                  className={`absolute inset-x-[10%] top-0 h-[58%] rounded-full blur-2xl transition-opacity duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    guideMode === "create"
+                      ? "bg-cyan-200/22 opacity-100"
+                      : "bg-amber-100/22 opacity-100"
+                  }`}
+                />
+                <div
+                  className={`absolute inset-y-0 w-20 -skew-x-12 bg-gradient-to-r from-transparent via-white/12 to-transparent transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    guideMode === "create"
+                      ? "translate-x-[-20%] opacity-90"
+                      : "translate-x-[180%] opacity-90"
+                  }`}
+                />
+              </div>
               <button
                 type="button"
-                style={{ flexGrow: guideMode === "create" ? 7 : 3 }}
-                className={`cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[flex-grow,background-color,border-color,color] duration-220 ease-out ${
+                className={`relative z-10 cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   guideMode === "create"
-                    ? "border-cyan-300/55 bg-cyan-500/12 text-cyan-50"
+                    ? "border-transparent bg-transparent text-cyan-50"
                     : "border-transparent text-[var(--mc-text-muted)] hover:border-cyan-300/45 hover:bg-cyan-500/12 hover:text-cyan-100"
                 }`}
                 onClick={() => setGuideMode("create")}
               >
-                <div className="flex items-center gap-3">
+                <div
+                  className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    guideMode === "create"
+                      ? "translate-y-[-1px] scale-[1.01]"
+                      : "translate-y-0 scale-100"
+                  }`}
+                >
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                       guideMode === "create"
-                        ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-100"
+                        ? "border-cyan-300/45 bg-cyan-400/14 text-cyan-100 shadow-[0_10px_24px_-18px_rgba(34,211,238,0.85)]"
                         : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
                     }`}
                   >
@@ -1739,19 +2054,24 @@ const RoomListPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                style={{ flexGrow: guideMode === "join" ? 7 : 3 }}
-                className={`cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[flex-grow,background-color,border-color,color] duration-220 ease-out ${
+                className={`relative z-10 cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   guideMode === "join"
-                    ? "border-amber-300/55 bg-amber-400/12 text-amber-50"
+                    ? "border-transparent bg-transparent text-amber-50"
                     : "border-transparent text-[var(--mc-text-muted)] hover:border-amber-300/45 hover:bg-amber-400/12 hover:text-amber-100"
                 }`}
                 onClick={() => setGuideMode("join")}
               >
-                <div className="flex items-center gap-3">
+                <div
+                  className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    guideMode === "join"
+                      ? "translate-y-[-1px] scale-[1.01]"
+                      : "translate-y-0 scale-100"
+                  }`}
+                >
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                       guideMode === "join"
-                        ? "border-amber-300/45 bg-amber-400/12 text-amber-100"
+                        ? "border-amber-300/45 bg-amber-400/14 text-amber-100 shadow-[0_10px_24px_-18px_rgba(251,191,36,0.9)]"
                         : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
                     }`}
                   >
@@ -1765,41 +2085,19 @@ const RoomListPage: React.FC = () => {
             </div>
 
             <div
-              key={guideMode}
-              className="mt-4 animate-[guide-panel-enter_280ms_ease-out]"
+              key={`guide-panel-${guideMode}`}
+              className="mt-4 animate-[guide-panel-enter_220ms_ease-out]"
             >
               {guideMode === "create" ? (
-                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3 sm:p-4">
+                <div className="rounded-2xl border border-[var(--mc-border)] p-3 sm:p-4">
                   <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-                    <aside className="p-2 sm:p-3">
-                      <div className="inline-flex w-full gap-1 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/50 p-1">
-                        <button
-                          type="button"
-                          onClick={() => setCreateLeftTab("library")}
-                          className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition ${
-                            createLeftTab === "library"
-                              ? "bg-cyan-500/20 text-cyan-100"
-                              : "text-[var(--mc-text-muted)] hover:bg-cyan-500/10 hover:text-cyan-100"
-                          }`}
-                        >
-                          題庫來源
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!isCreateSourceReady) return;
-                            setCreateLeftTab("settings");
-                          }}
-                          className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition ${
-                            createLeftTab === "settings"
-                              ? "bg-cyan-500/20 text-cyan-100"
-                              : isCreateSourceReady
-                                ? "text-[var(--mc-text-muted)] hover:bg-cyan-500/10 hover:text-cyan-100"
-                                : "cursor-not-allowed text-slate-500"
-                          }`}
-                        >
-                          房間設置
-                        </button>
+                    <aside className="p-2 sm:p-2">
+                      <div className=" flex items-center gap-3">
+                        <p className="text-lg font-semibold tracking-wider text-[var(--mc-text)]">
+                          {createLeftTab === "library"
+                            ? "題庫來源"
+                            : "房間設置"}
+                        </p>
                       </div>
 
                       {createLeftTab === "library" ? (
@@ -1818,9 +2116,7 @@ const RoomListPage: React.FC = () => {
                             {
                               key: "youtube",
                               label: "從 YouTube 匯入",
-                              icon: (
-                                <PlayCircleOutlineRounded fontSize="small" />
-                              ),
+                              icon: <YouTube fontSize="small" />,
                             },
                             {
                               key: "link",
@@ -1877,6 +2173,14 @@ const RoomListPage: React.FC = () => {
                         </div>
                       ) : (
                         <div className="mt-2 space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setCreateLeftTab("library")}
+                            className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-500/8 px-3 py-1.5 text-xs text-cyan-100 transition hover:border-cyan-300/35 hover:bg-cyan-500/12"
+                          >
+                            <ChevronLeftRounded sx={{ fontSize: 16 }} />
+                            更換題庫來源
+                          </button>
                           {selectedSourceSummary ? (
                             <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/8 p-3">
                               <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/90">
@@ -1916,9 +2220,9 @@ const RoomListPage: React.FC = () => {
                                     </p>
                                     <p className="mt-1 line-clamp-2 text-[11px] text-amber-100/90">
                                       {playlistIssueSummary.removed.length > 0
-                                        ? playlistIssueSummary.removed.join(
-                                            "、",
-                                          )
+                                        ? playlistIssueSummary.removed
+                                            .map((item) => item.title)
+                                            .join("、")
                                         : "無"}
                                     </p>
                                   </div>
@@ -1934,9 +2238,9 @@ const RoomListPage: React.FC = () => {
                                     <p className="mt-1 line-clamp-2 text-[11px] text-fuchsia-100/90">
                                       {playlistIssueSummary.privateRestricted
                                         .length > 0
-                                        ? playlistIssueSummary.privateRestricted.join(
-                                            "、",
-                                          )
+                                        ? playlistIssueSummary.privateRestricted
+                                            .map((item) => item.title)
+                                            .join("、")
                                         : "無"}
                                     </p>
                                   </div>
@@ -1951,9 +2255,9 @@ const RoomListPage: React.FC = () => {
                                     <p className="mt-1 line-clamp-2 text-[11px] text-rose-100/90">
                                       {playlistIssueSummary.embedBlocked
                                         .length > 0
-                                        ? playlistIssueSummary.embedBlocked.join(
-                                            "、",
-                                          )
+                                        ? playlistIssueSummary.embedBlocked
+                                            .map((item) => item.title)
+                                            .join("、")
                                         : "無"}
                                     </p>
                                   </div>
@@ -1970,8 +2274,12 @@ const RoomListPage: React.FC = () => {
                                         0 ||
                                       playlistIssueSummary.unknown.length > 0
                                         ? [
-                                            ...playlistIssueSummary.unavailable,
-                                            ...playlistIssueSummary.unknown,
+                                            ...playlistIssueSummary.unavailable.map(
+                                              (item) => item.title,
+                                            ),
+                                            ...playlistIssueSummary.unknown.map(
+                                              (item) => item.title,
+                                            ),
                                           ].join("、")
                                         : playlistIssueSummary.unknownCount > 0
                                           ? `共 ${playlistIssueSummary.unknownCount} 首（後端未提供明細）`
@@ -2017,7 +2325,7 @@ const RoomListPage: React.FC = () => {
                           </div>
 
                           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_320px]">
-                            <div className="space-y-4">
+                            <div className="order-2 space-y-4 xl:order-none">
                               <section className="hidden">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                   <div>
@@ -2331,6 +2639,54 @@ const RoomListPage: React.FC = () => {
                                   </p>
                                 </div>
                                 <div className="mt-4 space-y-4">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateAllowCollectionClipTiming(
+                                        !allowCollectionClipTiming,
+                                      )
+                                    }
+                                    className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+                                      allowCollectionClipTiming
+                                        ? "border-emerald-300/45 bg-emerald-400/10 shadow-[0_16px_34px_-26px_rgba(16,185,129,0.55)]"
+                                        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 hover:border-emerald-300/30"
+                                    }`}
+                                  >
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                      <div className="flex items-start gap-3">
+                                        <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-300/18 bg-slate-950/35">
+                                          <TuneRounded
+                                            sx={{
+                                              fontSize: 18,
+                                              color: allowCollectionClipTiming
+                                                ? "#6ee7b7"
+                                                : "#94a3b8",
+                                            }}
+                                          />
+                                        </span>
+                                        <div>
+                                          <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                            沿用收藏庫片段時間
+                                          </p>
+                                          <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                            啟用後會直接使用題庫中每首歌已設定的播放與起始秒數。
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <span
+                                        className={`rounded-full px-3 py-1 text-[11px] ${
+                                          allowCollectionClipTiming
+                                            ? "border border-emerald-300/35 bg-emerald-300/12 text-emerald-100"
+                                            : "border border-[var(--mc-border)] text-[var(--mc-text-muted)]"
+                                        }`}
+                                      >
+                                        {allowCollectionClipTiming
+                                          ? "已啟用"
+                                          : "目前關閉"}
+                                      </span>
+                                    </div>
+                                  </button>
+
                                   <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                       <div>
@@ -2480,43 +2836,89 @@ const RoomListPage: React.FC = () => {
                                     </div>
                                   </div>
 
-                                  <div className="grid gap-3 lg:grid-cols-3">
-                                    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
-                                      <div className="flex items-center gap-2">
-                                        <PlayCircleOutlineRounded
-                                          sx={{
-                                            fontSize: 18,
-                                            color: "#7dd3fc",
-                                          }}
-                                        />
-                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
-                                          作答時間
+                                  <div
+                                    className={`grid gap-3 ${
+                                      allowCollectionClipTiming
+                                        ? "lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]"
+                                        : "lg:grid-cols-3"
+                                    }`}
+                                  >
+                                    {!allowCollectionClipTiming ? (
+                                      <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                        <div className="flex items-center gap-2">
+                                          <PlayCircleOutlineRounded
+                                            sx={{
+                                              fontSize: 18,
+                                              color: "#7dd3fc",
+                                            }}
+                                          />
+                                          <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                            作答時間
+                                          </p>
+                                        </div>
+                                        <p className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                          玩家在這題可以作答的時間長度。
                                         </p>
+                                        <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
+                                          {playDurationSec}s
+                                        </div>
+                                        <div className="mt-3 px-1">
+                                          <Slider
+                                            value={playDurationSec}
+                                            min={PLAY_DURATION_MIN}
+                                            max={PLAY_DURATION_MAX}
+                                            step={1}
+                                            onChange={(_event, value) =>
+                                              updatePlayDurationSec(
+                                                Array.isArray(value)
+                                                  ? value[0]
+                                                  : value,
+                                              )
+                                            }
+                                            valueLabelDisplay="auto"
+                                          />
+                                        </div>
                                       </div>
-                                      <p className="mt-3 text-xs text-[var(--mc-text-muted)]">
-                                        玩家在這題可以作答的時間長度。
-                                      </p>
-                                      <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
-                                        {playDurationSec}s
+                                    ) : (
+                                      <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/8 p-4">
+                                        <div className="flex items-start gap-3">
+                                          <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-300/20 bg-slate-950/35">
+                                            <TuneRounded
+                                              sx={{
+                                                fontSize: 18,
+                                                color: "#6ee7b7",
+                                              }}
+                                            />
+                                          </span>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                              題庫片段時間已接管播放設定
+                                            </p>
+                                            <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                              作答時間與起始時間會依每首題目在收藏庫中設定的片段時間自動決定。
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                          <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                              作答時間
+                                            </p>
+                                            <p className="mt-1 text-sm font-semibold text-emerald-100">
+                                              依題庫設定
+                                            </p>
+                                          </div>
+                                          <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                              起始時間
+                                            </p>
+                                            <p className="mt-1 text-sm font-semibold text-emerald-100">
+                                              依題庫設定
+                                            </p>
+                                          </div>
+                                        </div>
                                       </div>
-                                      <div className="mt-3 px-1">
-                                        <Slider
-                                          value={playDurationSec}
-                                          min={PLAY_DURATION_MIN}
-                                          max={PLAY_DURATION_MAX}
-                                          step={1}
-                                          onChange={(_event, value) =>
-                                            updatePlayDurationSec(
-                                              Array.isArray(value)
-                                                ? value[0]
-                                                : value,
-                                            )
-                                          }
-                                          valueLabelDisplay="auto"
-                                        />
-                                      </div>
-                                    </div>
-
+                                    )}
                                     <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
                                       <div className="flex items-center gap-2">
                                         <AccessTimeRounded
@@ -2553,138 +2955,144 @@ const RoomListPage: React.FC = () => {
                                       </div>
                                     </div>
 
-                                    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
-                                      <div className="flex items-center gap-2">
-                                        <ScheduleRounded
-                                          sx={{
-                                            fontSize: 18,
-                                            color: "#c084fc",
-                                          }}
-                                        />
-                                        <p className="text-sm font-semibold text-[var(--mc-text)]">
-                                          起始時間
+                                    {!allowCollectionClipTiming ? (
+                                      <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+                                        <div className="flex items-center gap-2">
+                                          <ScheduleRounded
+                                            sx={{
+                                              fontSize: 18,
+                                              color: "#c084fc",
+                                            }}
+                                          />
+                                          <p className="text-sm font-semibold text-[var(--mc-text)]">
+                                            起始時間
+                                          </p>
+                                        </div>
+                                        <p className="mt-3 text-xs text-[var(--mc-text-muted)]">
+                                          從歌曲的第幾秒開始播放題目。
                                         </p>
+                                        <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
+                                          {startOffsetSec}s
+                                        </div>
+                                        <div className="mt-3 px-1">
+                                          <Slider
+                                            value={startOffsetSec}
+                                            min={START_OFFSET_MIN}
+                                            max={START_OFFSET_MAX}
+                                            step={1}
+                                            onChange={(_event, value) =>
+                                              updateStartOffsetSec(
+                                                Array.isArray(value)
+                                                  ? value[0]
+                                                  : value,
+                                              )
+                                            }
+                                            valueLabelDisplay="auto"
+                                          />
+                                        </div>
                                       </div>
-                                      <p className="mt-3 text-xs text-[var(--mc-text-muted)]">
-                                        從歌曲的第幾秒開始播放題目。
-                                      </p>
-                                      <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
-                                        {startOffsetSec}s
-                                      </div>
-                                      <div className="mt-3 px-1">
-                                        <Slider
-                                          value={startOffsetSec}
-                                          min={START_OFFSET_MIN}
-                                          max={START_OFFSET_MAX}
-                                          step={1}
-                                          onChange={(_event, value) =>
-                                            updateStartOffsetSec(
-                                              Array.isArray(value)
-                                                ? value[0]
-                                                : value,
-                                            )
-                                          }
-                                          valueLabelDisplay="auto"
-                                        />
-                                      </div>
-                                    </div>
+                                    ) : null}
                                   </div>
                                 </div>
-                              </section>
-
-                              <section className="rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/35 p-5">
-                                <div className="flex items-center gap-2">
-                                  <TuneRounded
-                                    sx={{ fontSize: 18, color: "#6ee7b7" }}
-                                  />
-                                  <p className="text-sm font-semibold text-[var(--mc-text)]">
-                                    題庫規則
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateAllowCollectionClipTiming(
-                                      !allowCollectionClipTiming,
-                                    )
-                                  }
-                                  className={`mt-4 w-full rounded-2xl border px-4 py-4 text-left transition ${
-                                    allowCollectionClipTiming
-                                      ? "border-emerald-300/45 bg-emerald-400/10"
-                                      : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 hover:border-emerald-300/30"
-                                  }`}
-                                >
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span className="text-sm font-semibold text-[var(--mc-text)]">
-                                      沿用收藏庫片段時間
-                                    </span>
-                                    <span
-                                      className={`rounded-full px-3 py-1 text-[11px] ${
-                                        allowCollectionClipTiming
-                                          ? "border border-emerald-300/35 bg-emerald-300/12 text-emerald-100"
-                                          : "border border-[var(--mc-border)] text-[var(--mc-text-muted)]"
-                                      }`}
-                                    >
-                                      {allowCollectionClipTiming
-                                        ? "已啟用"
-                                        : "目前關閉"}
-                                    </span>
-                                  </div>
-                                  <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
-                                    {allowCollectionClipTiming
-                                      ? "建立房間時直接沿用收藏庫原本設定的片段時間。"
-                                      : "建立房間時使用目前這裡調整的播放與起始秒數。"}
-                                  </p>
-                                </button>
                               </section>
                             </div>
-                            <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+                            <aside className="order-1 space-y-4 xl:order-none xl:sticky xl:top-6 xl:self-start">
                               <section className="rounded-3xl border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(8,15,28,0.96),rgba(15,23,42,0.82))] p-5 shadow-[0_24px_60px_-36px_rgba(14,165,233,0.5)]">
-                                <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--mc-text-muted)]">
-                                  Ready Check
-                                </p>
-                                <h4 className="mt-2 text-base font-semibold text-[var(--mc-text)]">
-                                  這場房間目前會長這樣
-                                </h4>
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--mc-text-muted)]">
+                                      Create Snapshot
+                                    </p>
+                                    <h4 className="mt-2 text-base font-semibold text-[var(--mc-text)]">
+                                      建立前確認
+                                    </h4>
+                                  </div>
+                                  <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <span className="rounded-full border border-cyan-300/18 bg-cyan-500/8 px-3 py-1 text-[11px] text-cyan-100/90">
+                                      {playlistItems.length > 0
+                                        ? `已載入 ${playlistItems.length} 首`
+                                        : "等待題庫"}
+                                    </span>
+                                    <span className="rounded-full border border-amber-300/18 bg-amber-300/10 px-3 py-1 text-[11px] text-amber-100">
+                                      {activeCreatePreset?.label ?? "自訂配置"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="mt-4 rounded-2xl border border-white/8 bg-white/5 p-4">
+                                  <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                    房間名稱
+                                  </p>
+                                  <p className="mt-2 text-lg font-semibold text-[var(--mc-text)]">
+                                    {roomNameInput.trim() || "未命名房間"}
+                                  </p>
+                                  <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                                    {activeCreatePreset
+                                      ? activeCreatePreset.hint
+                                      : "先確認房間型態、規模與節奏，再建立這場房間。"}
+                                  </p>
+                                </div>
                                 <div className="mt-4 space-y-3">
                                   {selectedCreateSourceSummary ? (
-                                    <div className="rounded-2xl border border-cyan-300/18 bg-cyan-500/6 p-3">
-                                      <div className="flex items-start gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/18 bg-slate-950/45">
-                                          {roomCreateSourceMode === "link" ? (
-                                            <LinkRounded
-                                              sx={{
-                                                fontSize: 18,
-                                                color: "#7dd3fc",
-                                              }}
-                                            />
-                                          ) : roomCreateSourceMode ===
-                                            "youtube" ? (
-                                            <PlayCircleOutlineRounded
-                                              sx={{
-                                                fontSize: 18,
-                                                color: "#7dd3fc",
-                                              }}
-                                            />
-                                          ) : (
-                                            <BookmarkBorderRounded
-                                              sx={{
-                                                fontSize: 18,
-                                                color: "#7dd3fc",
-                                              }}
-                                            />
-                                          )}
+                                    <div className="overflow-hidden rounded-2xl border border-cyan-300/18 bg-cyan-500/6">
+                                      {selectedCreateSourceSummary.thumbnail ? (
+                                        <div className="relative h-28 w-full overflow-hidden bg-slate-950/40">
+                                          <img
+                                            src={
+                                              selectedCreateSourceSummary.thumbnail
+                                            }
+                                            alt={
+                                              selectedCreateSourceSummary.title
+                                            }
+                                            className="h-full w-full object-cover"
+                                            loading="lazy"
+                                          />
+                                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                          <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
-                                            {selectedCreateSourceSummary.label}
-                                          </p>
-                                          <p className="mt-1 line-clamp-2 text-sm font-semibold text-[var(--mc-text)]">
-                                            {selectedCreateSourceSummary.title}
-                                          </p>
-                                          <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                                            {selectedCreateSourceSummary.detail}
-                                          </p>
+                                      ) : null}
+                                      <div className="p-3">
+                                        <div className="flex items-start gap-3">
+                                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/18 bg-slate-950/45">
+                                            {roomCreateSourceMode === "link" ? (
+                                              <LinkRounded
+                                                sx={{
+                                                  fontSize: 18,
+                                                  color: "#7dd3fc",
+                                                }}
+                                              />
+                                            ) : roomCreateSourceMode ===
+                                              "youtube" ? (
+                                              <YouTube
+                                                sx={{
+                                                  fontSize: 18,
+                                                  color: "#7dd3fc",
+                                                }}
+                                              />
+                                            ) : (
+                                              <BookmarkBorderRounded
+                                                sx={{
+                                                  fontSize: 18,
+                                                  color: "#7dd3fc",
+                                                }}
+                                              />
+                                            )}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
+                                              {
+                                                selectedCreateSourceSummary.label
+                                              }
+                                            </p>
+                                            <p className="mt-1 line-clamp-2 text-sm font-semibold text-[var(--mc-text)]">
+                                              {
+                                                selectedCreateSourceSummary.title
+                                              }
+                                            </p>
+                                            <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                                              {
+                                                selectedCreateSourceSummary.detail
+                                              }
+                                            </p>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
@@ -2694,18 +3102,63 @@ const RoomListPage: React.FC = () => {
                                     </div>
                                   )}
 
-                                  <div className="grid gap-2">
+                                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
                                     {createSettingsCards.map((item) => (
                                       <div
                                         key={`sidebar-${item.label}`}
-                                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/5 px-3 py-2"
+                                        className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3"
                                       >
-                                        <span className="text-xs text-[var(--mc-text-muted)]">
-                                          {item.label}
-                                        </span>
-                                        <span className="text-sm font-semibold text-[var(--mc-text)]">
-                                          {item.value}
-                                        </span>
+                                        <div className="flex items-start gap-3">
+                                          <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35">
+                                            {item.label === "房間型態" ? (
+                                              roomVisibilityInput ===
+                                              "private" ? (
+                                                <LockRounded
+                                                  sx={{
+                                                    fontSize: 16,
+                                                    color: "#fbbf24",
+                                                  }}
+                                                />
+                                              ) : (
+                                                <PublicOutlined
+                                                  sx={{
+                                                    fontSize: 16,
+                                                    color: "#7dd3fc",
+                                                  }}
+                                                />
+                                              )
+                                            ) : item.label === "玩家上限" ? (
+                                              <GroupsRounded
+                                                sx={{
+                                                  fontSize: 16,
+                                                  color: "#7dd3fc",
+                                                }}
+                                              />
+                                            ) : item.label === "題數" ? (
+                                              <QuizRounded
+                                                sx={{
+                                                  fontSize: 16,
+                                                  color: "#fbbf24",
+                                                }}
+                                              />
+                                            ) : (
+                                              <TimerRounded
+                                                sx={{
+                                                  fontSize: 16,
+                                                  color: "#c084fc",
+                                                }}
+                                              />
+                                            )}
+                                          </span>
+                                          <div className="min-w-0 flex-1">
+                                            <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                                              {item.label}
+                                            </span>
+                                            <p className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                                              {item.value}
+                                            </p>
+                                          </div>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -2730,6 +3183,15 @@ const RoomListPage: React.FC = () => {
                                 >
                                   {isCreatingRoom ? "建立中..." : "建立房間"}
                                 </Button>
+                                <p className="mt-3 text-center text-xs text-[var(--mc-text-muted)]">
+                                  將建立
+                                  {roomVisibilityInput === "private"
+                                    ? "私人房"
+                                    : "公開房"}
+                                  {" · "}
+                                  {parsedMaxPlayers ?? PLAYER_MIN} 人{" · "}
+                                  {questionCount} 題
+                                </p>
                               </section>
                             </aside>
                           </div>
@@ -3339,77 +3801,257 @@ const RoomListPage: React.FC = () => {
                         </div>
                       ) : (
                         <>
-                          {createLibraryTab !== "link" && (
-                            <div className="flex flex-col gap-3 rounded-2xl border border-[var(--mc-border)]/80 bg-slate-950/18 p-3 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="min-w-0 flex-1">
-                                <TextField
-                                  fullWidth
-                                  size="small"
-                                  value={createLibrarySearch}
-                                  onChange={(event) =>
-                                    setCreateLibrarySearch(event.target.value)
-                                  }
-                                  placeholder={
-                                    createLibraryTab === "youtube"
-                                      ? "搜尋 YouTube 播放清單"
-                                      : "搜尋題庫名稱、封面曲名或描述"
-                                  }
-                                  slotProps={{
-                                    input: {
-                                      startAdornment: (
-                                        <InputAdornment position="start">
-                                          <SearchRounded
-                                            sx={{
-                                              fontSize: 18,
-                                              color:
-                                                "rgba(148, 163, 184, 0.85)",
-                                            }}
-                                          />
-                                        </InputAdornment>
-                                      ),
-                                    },
-                                  }}
-                                  sx={{
-                                    "& .MuiOutlinedInput-root": {
-                                      borderRadius: "18px",
-                                      backgroundColor: "rgba(2, 6, 23, 0.3)",
-                                    },
-                                  }}
-                                />
-                              </div>
-                              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                                <span className="rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] text-cyan-100/90">
-                                  {createLibraryTab === "youtube"
-                                    ? `共 ${filteredCreateYoutubePlaylists.length} 份清單`
-                                    : `共 ${filteredCreateCollections.length} 份題庫`}
-                                </span>
-                                <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
-                                  <button
-                                    type="button"
-                                    className={`rounded-full px-3 py-1 text-xs ${
-                                      createLibraryView === "grid"
-                                        ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
-                                        : "cursor-pointer text-[var(--mc-text-muted)]"
-                                    }`}
-                                    onClick={() => setCreateLibraryView("grid")}
-                                  >
-                                    圖示
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`rounded-full px-3 py-1 text-xs ${
-                                      createLibraryView === "list"
-                                        ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
-                                        : "cursor-pointer text-[var(--mc-text-muted)]"
-                                    }`}
-                                    onClick={() => setCreateLibraryView("list")}
-                                  >
-                                    清單
-                                  </button>
+                          {createLibraryTab !== "link" &&
+                            (createLibraryTab === "public" ? (
+                              <div
+                                ref={publicLibrarySearchPanelRef}
+                                className={`relative ${publicLibrarySearchActive ? "z-30" : "z-10"}`}
+                              >
+                                <div
+                                  className={`relative flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between ${
+                                    publicLibrarySearchActive
+                                      ? "border-cyan-300/30 bg-slate-950/20 shadow-[0_12px_30px_rgba(8,47,73,0.14)]"
+                                      : "border-[var(--mc-border)]/80 bg-slate-950/18"
+                                  }`}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <TextField
+                                      fullWidth
+                                      size="small"
+                                      value={createLibrarySearch}
+                                      onChange={(event) =>
+                                        setCreateLibrarySearch(
+                                          event.target.value,
+                                        )
+                                      }
+                                      placeholder="搜尋題庫名稱、封面曲名或描述"
+                                      slotProps={{
+                                        input: {
+                                          startAdornment: (
+                                            <InputAdornment position="start">
+                                              <SearchRounded
+                                                sx={{
+                                                  fontSize: 18,
+                                                  color:
+                                                    "rgba(148, 163, 184, 0.85)",
+                                                }}
+                                              />
+                                            </InputAdornment>
+                                          ),
+                                        },
+                                      }}
+                                      sx={{
+                                        "& .MuiOutlinedInput-root": {
+                                          borderRadius: "18px",
+                                          backgroundColor:
+                                            "rgba(2, 6, 23, 0.3)",
+                                          boxShadow: "none",
+                                          "& fieldset": {
+                                            borderColor:
+                                              "rgba(148,163,184,0.18)",
+                                          },
+                                          "&:hover fieldset": {
+                                            borderColor:
+                                              "rgba(34,211,238,0.32)",
+                                          },
+                                          "&.Mui-focused fieldset": {
+                                            borderColor:
+                                              "rgba(34,211,238,0.48)",
+                                          },
+                                        },
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                                    <div className="flex items-center gap-2">
+                                      {collectionScope === "public" &&
+                                      collectionsLoading &&
+                                      filteredCreateCollections.length > 0 ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/18 bg-cyan-400/8 px-2.5 py-1 text-[11px] text-cyan-100/88">
+                                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" />
+                                          搜尋中
+                                        </span>
+                                      ) : null}
+                                      <span className="rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] text-cyan-100/90">
+                                        共 {filteredCreateCollections.length}{" "}
+                                        份題庫
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
+                                        <button
+                                          type="button"
+                                          className={`rounded-full px-3 py-1 text-xs ${
+                                            createLibraryView === "grid"
+                                              ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
+                                              : "cursor-pointer text-[var(--mc-text-muted)]"
+                                          }`}
+                                          onClick={() =>
+                                            setCreateLibraryView("grid")
+                                          }
+                                        >
+                                          圖示
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={`rounded-full px-3 py-1 text-xs ${
+                                            createLibraryView === "list"
+                                              ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
+                                              : "cursor-pointer text-[var(--mc-text-muted)]"
+                                          }`}
+                                          onClick={() =>
+                                            setCreateLibraryView("list")
+                                          }
+                                        >
+                                          清單
+                                        </button>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        aria-label="展開公開題庫排序選項"
+                                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border ${
+                                          publicLibrarySearchActive
+                                            ? "border-cyan-300/32 bg-cyan-500/14 text-cyan-100"
+                                            : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 text-[var(--mc-text-muted)] hover:text-slate-100"
+                                        }`}
+                                        onClick={() =>
+                                          setIsPublicLibrarySearchExpanded(
+                                            (prev) => !prev,
+                                          )
+                                        }
+                                      >
+                                        <TuneRounded sx={{ fontSize: 18 }} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {publicLibrarySearchActive && (
+                                    <div className="absolute left-3 right-3 top-full z-30 -mt-3 sm:left-4 sm:right-4">
+                                      <div className="rounded-[0_0_22px_22px] border border-cyan-300/24 border-t-0 bg-slate-950 px-3 pb-3 pt-6 shadow-[0_24px_48px_rgba(2,6,23,0.48)] sm:px-4">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          {[
+                                            {
+                                              key: "favorites_first" as const,
+                                              label: "推薦",
+                                            },
+                                            {
+                                              key: "popular" as const,
+                                              label: "人氣遊玩",
+                                            },
+                                            {
+                                              key: "updated" as const,
+                                              label: "最新題庫",
+                                            },
+                                          ].map((option) => (
+                                            <button
+                                              key={option.key}
+                                              type="button"
+                                              aria-pressed={
+                                                publicCollectionsSort ===
+                                                option.key
+                                              }
+                                              onMouseDown={(event) => {
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                              }}
+                                              className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.08em] ${
+                                                publicCollectionsSort ===
+                                                option.key
+                                                  ? "bg-cyan-500/20 text-cyan-100 ring-1 ring-cyan-300/32"
+                                                  : "bg-slate-900 text-[var(--mc-text-muted)] ring-1 ring-white/10 hover:bg-slate-800 hover:text-slate-100"
+                                              }`}
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                setPublicCollectionsSort(
+                                                  option.key,
+                                                );
+                                              }}
+                                            >
+                                              {option.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="flex flex-col gap-3 rounded-2xl border border-[var(--mc-border)]/80 bg-slate-950/18 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    value={createLibrarySearch}
+                                    onChange={(event) =>
+                                      setCreateLibrarySearch(event.target.value)
+                                    }
+                                    placeholder={
+                                      createLibraryTab === "youtube"
+                                        ? "搜尋 YouTube 播放清單"
+                                        : "搜尋題庫名稱、封面曲名或描述"
+                                    }
+                                    slotProps={{
+                                      input: {
+                                        startAdornment: (
+                                          <InputAdornment position="start">
+                                            <SearchRounded
+                                              sx={{
+                                                fontSize: 18,
+                                                color:
+                                                  "rgba(148, 163, 184, 0.85)",
+                                              }}
+                                            />
+                                          </InputAdornment>
+                                        ),
+                                      },
+                                    }}
+                                    sx={{
+                                      "& .MuiOutlinedInput-root": {
+                                        borderRadius: "18px",
+                                        backgroundColor: "rgba(2, 6, 23, 0.3)",
+                                      },
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                                  <div className="flex items-center gap-2">
+                                    <span className="rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] text-cyan-100/90">
+                                      {createLibraryTab === "youtube"
+                                        ? `共 ${filteredCreateYoutubePlaylists.length} 份清單`
+                                        : `共 ${filteredCreateCollections.length} 份題庫`}
+                                    </span>
+                                  </div>
+                                  <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
+                                    <button
+                                      type="button"
+                                      className={`rounded-full px-3 py-1 text-xs ${
+                                        createLibraryView === "grid"
+                                          ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
+                                          : "cursor-pointer text-[var(--mc-text-muted)]"
+                                      }`}
+                                      onClick={() =>
+                                        setCreateLibraryView("grid")
+                                      }
+                                    >
+                                      圖示
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`rounded-full px-3 py-1 text-xs ${
+                                        createLibraryView === "list"
+                                          ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
+                                          : "cursor-pointer text-[var(--mc-text-muted)]"
+                                      }`}
+                                      onClick={() =>
+                                        setCreateLibraryView("list")
+                                      }
+                                    >
+                                      清單
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
 
                           {!canUseGoogleLibraries &&
                           createLibraryTab !== "link" ? (
@@ -3428,51 +4070,17 @@ const RoomListPage: React.FC = () => {
                             </div>
                           ) : createLibraryTab === "link" ? (
                             <div className="mt-3 space-y-4">
-                              <div className="rounded-[28px] p-4 sm:p-5">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <div className="flex items-center gap-2">
-                                    {playlistLoading && (
-                                      <span className="rounded-full border border-amber-300/25 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-100/90">
-                                        正在載入預覽
-                                      </span>
-                                    )}
-                                    {linkPreviewLocked && (
-                                      <span className="rounded-full border border-white/12 bg-white/8 px-2.5 py-1 text-[11px] text-[var(--mc-text-muted)]">
-                                        目前連結已鎖定
-                                      </span>
-                                    )}
-                                  </div>
-                                  {linkPreviewLocked ? (
-                                    <Tooltip
-                                      title="取消目前預覽，才能更換連結"
-                                      placement="top"
-                                    >
-                                      <IconButton
-                                        size="small"
-                                        onClick={handleCancelLinkPreview}
-                                        aria-label="取消目前清單預覽"
-                                        className="border border-white/10 bg-slate-950/25 text-[var(--mc-text-muted)]"
-                                      >
-                                        <CloseRounded fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
-                                  ) : null}
-                                </div>
+                              <div className="mx-auto max-w-4xl rounded-[26px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(2,6,23,0.34),rgba(15,23,42,0.22))] p-4 sm:p-5">
                                 <div>
                                   <Tooltip
-                                    title={
-                                      playlistUrlDraft.trim()
-                                        ? playlistPreviewError ||
-                                          playlistError ||
-                                          ""
-                                        : ""
-                                    }
+                                    title={playlistUrlTooltipMessage}
                                     placement="top"
                                     arrow
                                     open={Boolean(
                                       isPlaylistUrlFieldFocused &&
-                                      playlistUrlDraft.trim() &&
-                                      (playlistPreviewError || playlistError),
+                                      trimmedPlaylistUrlDraft &&
+                                      (showPlaylistUrlError ||
+                                        showPlaylistUrlWarning),
                                     )}
                                     disableFocusListener
                                     disableHoverListener
@@ -3485,6 +4093,19 @@ const RoomListPage: React.FC = () => {
                                           px: 1.4,
                                           py: 1,
                                           maxWidth: 360,
+                                          bgcolor: showPlaylistUrlWarning
+                                            ? "rgba(120, 53, 15, 0.96)"
+                                            : undefined,
+                                          color: showPlaylistUrlWarning
+                                            ? "#fef3c7"
+                                            : undefined,
+                                          "& .MuiTooltip-arrow":
+                                            showPlaylistUrlWarning
+                                              ? {
+                                                  color:
+                                                    "rgba(120, 53, 15, 0.96)",
+                                                }
+                                              : undefined,
                                         },
                                       },
                                     }}
@@ -3496,12 +4117,7 @@ const RoomListPage: React.FC = () => {
                                       placeholder="https://www.youtube.com/playlist?list=..."
                                       value={playlistUrlDraft}
                                       autoComplete="off"
-                                      error={Boolean(
-                                        playlistUrlDraft.trim() &&
-                                        (playlistPreviewError || playlistError),
-                                      )}
-                                      helperText=" "
-                                      disabled={linkPreviewLocked}
+                                      error={showPlaylistUrlError}
                                       onFocus={() =>
                                         setIsPlaylistUrlFieldFocused(true)
                                       }
@@ -3525,9 +4141,51 @@ const RoomListPage: React.FC = () => {
                                       }}
                                       slotProps={{
                                         inputLabel: { shrink: true },
+                                        input: {
+                                          endAdornment:
+                                            trimmedPlaylistUrlDraft ? (
+                                              <InputAdornment position="end">
+                                                <Tooltip
+                                                  title={
+                                                    linkPreviewLocked
+                                                      ? playlistLoading &&
+                                                        playlistUrlLooksValid
+                                                        ? "取消目前讀取的清單"
+                                                        : "取消目前清單，重新貼上連結"
+                                                      : "清除目前輸入"
+                                                  }
+                                                  placement="top"
+                                                >
+                                                  <IconButton
+                                                    size="small"
+                                                    onClick={
+                                                      handleClearPlaylistUrlInput
+                                                    }
+                                                    edge="end"
+                                                    aria-label={
+                                                      linkPreviewLocked
+                                                        ? playlistLoading &&
+                                                          playlistUrlLooksValid
+                                                          ? "取消目前播放清單讀取"
+                                                          : "取消目前清單預覽"
+                                                        : "清除播放清單連結"
+                                                    }
+                                                    sx={{
+                                                      color: linkPreviewLocked
+                                                        ? "#fbbf24"
+                                                        : "rgba(148,163,184,0.92)",
+                                                    }}
+                                                  >
+                                                    <CloseRounded fontSize="small" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              </InputAdornment>
+                                            ) : undefined,
+                                        },
                                         htmlInput: {
                                           autoComplete: "off",
                                           spellCheck: "false",
+                                          readOnly: linkPreviewLocked,
                                         },
                                       }}
                                       sx={{
@@ -3545,70 +4203,130 @@ const RoomListPage: React.FC = () => {
                                             "rgba(2, 6, 23, 0.32)",
                                           boxShadow:
                                             "0 0 0 1px rgba(148, 163, 184, 0.12), 0 10px 28px rgba(2, 6, 23, 0.18)",
-                                          transform: "translateY(0)",
                                           transition:
-                                            "background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease",
+                                            "background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
                                           "& fieldset": {
-                                            borderColor:
-                                              "rgba(148, 163, 184, 0.2)",
+                                            borderColor: showPlaylistUrlWarning
+                                              ? "rgba(251, 191, 36, 0.4)"
+                                              : showPlaylistUrlError
+                                                ? "rgba(248, 113, 113, 0.5)"
+                                                : "rgba(148, 163, 184, 0.2)",
                                           },
                                           "&:hover": {
                                             backgroundColor:
                                               "rgba(15, 23, 42, 0.52)",
-                                            boxShadow:
-                                              "0 0 0 1px rgba(34, 211, 238, 0.16), 0 16px 34px rgba(8, 47, 73, 0.2)",
-                                            transform: "translateY(-1px)",
+                                            boxShadow: showPlaylistUrlWarning
+                                              ? "0 0 0 1px rgba(251, 191, 36, 0.24), 0 16px 34px rgba(120, 53, 15, 0.18)"
+                                              : showPlaylistUrlError
+                                                ? "0 0 0 1px rgba(248, 113, 113, 0.26), 0 18px 38px rgba(127, 29, 29, 0.18)"
+                                                : "0 0 0 1px rgba(34, 211, 238, 0.16), 0 16px 34px rgba(8, 47, 73, 0.2)",
                                           },
                                           "&:hover fieldset": {
-                                            borderColor:
-                                              "rgba(34, 211, 238, 0.34)",
+                                            borderColor: showPlaylistUrlWarning
+                                              ? "rgba(251, 191, 36, 0.58)"
+                                              : showPlaylistUrlError
+                                                ? "rgba(248, 113, 113, 0.66)"
+                                                : "rgba(34, 211, 238, 0.34)",
                                           },
                                           "&.Mui-focused": {
                                             backgroundColor:
                                               "rgba(15, 23, 42, 0.62)",
-                                            boxShadow:
-                                              "0 0 0 1px rgba(251, 191, 36, 0.28), 0 18px 38px rgba(120, 53, 15, 0.18)",
-                                            transform: "translateY(-1px)",
+                                            boxShadow: showPlaylistUrlWarning
+                                              ? "0 0 0 1px rgba(251, 191, 36, 0.34), 0 18px 38px rgba(120, 53, 15, 0.2)"
+                                              : showPlaylistUrlError
+                                                ? "0 0 0 1px rgba(248, 113, 113, 0.28), 0 18px 38px rgba(127, 29, 29, 0.18)"
+                                                : "0 0 0 1px rgba(251, 191, 36, 0.28), 0 18px 38px rgba(120, 53, 15, 0.18)",
                                           },
                                           "&.Mui-focused fieldset": {
-                                            borderColor:
-                                              "rgba(251, 191, 36, 0.72)",
+                                            borderColor: showPlaylistUrlWarning
+                                              ? "rgba(251, 191, 36, 0.82)"
+                                              : showPlaylistUrlError
+                                                ? "rgba(248, 113, 113, 0.72)"
+                                                : "rgba(251, 191, 36, 0.72)",
                                           },
                                           "&.Mui-error": {
                                             boxShadow:
                                               "0 0 0 1px rgba(248, 113, 113, 0.18), 0 16px 34px rgba(127, 29, 29, 0.16)",
                                           },
-                                          "&.Mui-error:hover": {
-                                            boxShadow:
-                                              "0 0 0 1px rgba(248, 113, 113, 0.26), 0 18px 38px rgba(127, 29, 29, 0.18)",
-                                          },
                                         },
                                         "& .MuiOutlinedInput-input": {
                                           transition: "color 180ms ease",
+                                          cursor: linkPreviewLocked
+                                            ? "default"
+                                            : "text",
                                         },
                                         "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-input":
                                           {
                                             color: "rgba(255, 255, 255, 0.98)",
                                           },
-                                        "& .MuiFormHelperText-root": {
-                                          marginLeft: 0,
-                                          marginRight: 0,
-                                        },
                                       }}
                                     />
                                   </Tooltip>
                                 </div>
                               </div>
-                              <div className="rounded-xl border border-cyan-300/25 bg-slate-950/25 p-3">
-                                {linkPlaylistTitle && (
-                                  <p className="text-xs text-[var(--mc-text-muted)]">
-                                    預覽清單：{linkPlaylistTitle}
-                                  </p>
+                              <div className="mx-auto max-w-4xl rounded-[26px] border border-cyan-300/25 bg-slate-950/25 p-4 sm:p-5">
+                                {(linkPlaylistTitle ||
+                                  linkPlaylistPreviewItems.length > 0) && (
+                                  <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/25 px-4 py-3">
+                                    <div className="min-w-0">
+                                      {linkPlaylistTitle ? (
+                                        <h3 className="truncate text-lg font-semibold tracking-[0.01em] text-[var(--mc-text)] sm:text-[1.25rem]">
+                                          {linkPlaylistTitle}
+                                        </h3>
+                                      ) : (
+                                        <h3 className="text-lg font-semibold tracking-[0.01em] text-[var(--mc-text)] sm:text-[1.25rem]">
+                                          播放清單預覽
+                                        </h3>
+                                      )}
+                                    </div>
+                                    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                                      <span className="inline-flex items-center rounded-full border border-cyan-300/28 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-cyan-100/90">
+                                        {linkPlaylistCount} 首曲目
+                                      </span>
+                                      {isLinkSourceActive && (
+                                        <Button
+                                          variant="contained"
+                                          onClick={handlePickLinkSource}
+                                          disabled={playlistItems.length === 0}
+                                          sx={{
+                                            borderRadius: "999px",
+                                            px: 2.25,
+                                            py: 0.85,
+                                            minHeight: 0,
+                                            fontWeight: 700,
+                                            letterSpacing: "0.04em",
+                                            boxShadow:
+                                              "0 10px 24px rgba(245, 158, 11, 0.18)",
+                                          }}
+                                        >
+                                          套用這份清單
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
                                 )}
-                                {linkPlaylistPreviewItems.length > 0 ? (
+                                {playlistLoading &&
+                                canAttemptPlaylistPreview(
+                                  trimmedPlaylistUrlDraft,
+                                ) &&
+                                linkPlaylistPreviewItems.length === 0 ? (
+                                  <div className="mt-3 flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-cyan-300/16 bg-slate-950/15 px-4 text-center">
+                                    <CircularProgress
+                                      size={34}
+                                      thickness={4}
+                                      sx={{ color: "#38bdf8" }}
+                                    />
+                                    <p className="mt-4 text-sm font-semibold text-[var(--mc-text)]">
+                                      正在讀取播放清單
+                                    </p>
+                                    <p className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                                      正在驗證連結並整理可匯入的曲目，請稍候。
+                                    </p>
+                                  </div>
+                                ) : linkPlaylistPreviewItems.length > 0 ? (
                                   <>
                                     <div
-                                      className={`${linkPlaylistTitle ? "mt-2" : ""} rounded-lg border border-[var(--mc-border)]/70 bg-slate-950/20`}
+                                      className={`${linkPlaylistTitle || linkPlaylistPreviewItems.length > 0 ? "mt-3" : ""} rounded-[22px] border border-[var(--mc-border)]/70 bg-slate-950/20`}
                                     >
                                       <List<PlaylistPreviewRowProps>
                                         style={{ height: 320, width: "100%" }}
@@ -3622,112 +4340,85 @@ const RoomListPage: React.FC = () => {
                                         rowComponent={PlaylistPreviewRow}
                                       />
                                     </div>
-                                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                      <div className="rounded-lg border border-amber-300/30 bg-amber-300/10 p-2">
-                                        <p className="text-xs font-semibold text-amber-100">
-                                          已移除歌曲：
-                                          {
-                                            linkPlaylistIssueSummary.removed
-                                              .length
-                                          }
-                                        </p>
-                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-amber-100/90">
-                                          {linkPlaylistIssueSummary.removed
-                                            .length === 0
-                                            ? "無"
-                                            : linkPlaylistIssueSummary.removed.join(
-                                                "、",
-                                              )}
-                                        </div>
-                                      </div>
-                                      <div className="rounded-lg border border-fuchsia-300/30 bg-fuchsia-300/10 p-2">
-                                        <p className="text-xs font-semibold text-fuchsia-100">
-                                          隱私限制：
-                                          {
-                                            linkPlaylistIssueSummary
-                                              .privateRestricted.length
-                                          }
-                                        </p>
-                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-fuchsia-100/90">
-                                          {linkPlaylistIssueSummary
-                                            .privateRestricted.length === 0
-                                            ? "無"
-                                            : linkPlaylistIssueSummary.privateRestricted.join(
-                                                "、",
-                                              )}
-                                        </div>
-                                      </div>
-                                      <div className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-2">
-                                        <p className="text-xs font-semibold text-rose-100">
-                                          嵌入限制：
-                                          {
-                                            linkPlaylistIssueSummary
-                                              .embedBlocked.length
-                                          }
-                                        </p>
-                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-rose-100/90">
-                                          {linkPlaylistIssueSummary.embedBlocked
-                                            .length === 0
-                                            ? "無"
-                                            : linkPlaylistIssueSummary.embedBlocked.join(
-                                                "、",
-                                              )}
-                                        </div>
-                                      </div>
-                                      <div className="rounded-lg border border-red-300/30 bg-red-300/10 p-2">
-                                        <p className="text-xs font-semibold text-red-100">
-                                          其他不可用：
-                                          {linkPlaylistIssueSummary.unavailable
-                                            .length +
-                                            linkPlaylistIssueSummary.unknown
-                                              .length +
-                                            linkPlaylistIssueSummary.unknownCount}
-                                        </p>
-                                        <div className="mt-1 max-h-20 overflow-auto text-[11px] text-red-100/90">
-                                          {linkPlaylistIssueSummary.unavailable
-                                            .length === 0 &&
-                                          linkPlaylistIssueSummary.unknown
-                                            .length === 0
-                                            ? linkPlaylistIssueSummary.unknownCount >
-                                              0
-                                              ? `共 ${linkPlaylistIssueSummary.unknownCount} 首（後端未提供明細）`
-                                              : "無"
-                                            : [
-                                                ...linkPlaylistIssueSummary.unavailable,
-                                                ...linkPlaylistIssueSummary.unknown,
-                                              ].join("、")}
-                                        </div>
-                                      </div>
+                                    <div className="mt-4 space-y-3">
+                                      {[
+                                        {
+                                          title: "已移除歌曲",
+                                          tone: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+                                          items:
+                                            linkPlaylistIssueSummary.removed,
+                                        },
+                                        {
+                                          title: "隱私限制",
+                                          tone: "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100",
+                                          items:
+                                            linkPlaylistIssueSummary.privateRestricted,
+                                        },
+                                        {
+                                          title: "嵌入限制",
+                                          tone: "border-rose-300/30 bg-rose-300/10 text-rose-100",
+                                          items:
+                                            linkPlaylistIssueSummary.embedBlocked,
+                                        },
+                                        {
+                                          title: "其他不可用",
+                                          tone: "border-red-300/30 bg-red-300/10 text-red-100",
+                                          items: [
+                                            ...linkPlaylistIssueSummary.unavailable,
+                                            ...linkPlaylistIssueSummary.unknown,
+                                          ],
+                                        },
+                                      ]
+                                        .filter(
+                                          (group) => group.items.length > 0,
+                                        )
+                                        .map((group) => (
+                                          <div
+                                            key={group.title}
+                                            className={`rounded-2xl border p-3 ${group.tone}`}
+                                          >
+                                            <p className="text-xs font-semibold">
+                                              {group.title}：
+                                              {group.items.length} 首
+                                            </p>
+                                            <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/15">
+                                              <List<PlaylistIssueRowProps>
+                                                style={{
+                                                  height: Math.min(
+                                                    group.items.length * 64,
+                                                    256,
+                                                  ),
+                                                  width: "100%",
+                                                }}
+                                                rowCount={group.items.length}
+                                                rowHeight={64}
+                                                rowProps={{
+                                                  items: group.items,
+                                                }}
+                                                rowComponent={PlaylistIssueRow}
+                                              />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      {isLinkSourceActive &&
+                                        playlistPreviewMeta &&
+                                        playlistPreviewMeta.skippedCount > 0 &&
+                                        !linkPlaylistIssueSummary.exact && (
+                                          <p className="text-[11px] text-amber-200/90">
+                                            後端目前只回傳略過數量，尚未提供逐首明細；待
+                                            `skippedItems` 上線後將顯示 100%
+                                            精準名單。
+                                          </p>
+                                        )}
                                     </div>
-                                    {isLinkSourceActive &&
-                                      playlistPreviewMeta &&
-                                      playlistPreviewMeta.skippedCount > 0 &&
-                                      !linkPlaylistIssueSummary.exact && (
-                                        <p className="mt-2 text-[11px] text-amber-200/90">
-                                          後端目前只回傳略過數量，尚未提供逐首明細；待
-                                          `skippedItems` 上線後將顯示 100%
-                                          精準名單。
-                                        </p>
-                                      )}
                                   </>
                                 ) : (
-                                  <div className="mt-3 flex min-h-[160px] flex-col items-center justify-center rounded-2xl border border-dashed border-cyan-300/16 bg-slate-950/15 px-4 text-center">
+                                  <div className="mt-3 flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-cyan-300/16 bg-slate-950/15 px-4 text-center">
                                     <p className="text-sm text-[var(--mc-text-muted)]">
-                                      貼上連結後，這裡會顯示曲目預覽
+                                      貼上連結後，顯示曲目預覽
                                     </p>
                                   </div>
                                 )}
-                                <div className="mt-3">
-                                  {isLinkSourceActive && (
-                                    <Button
-                                      variant="contained"
-                                      onClick={handlePickLinkSource}
-                                      disabled={playlistItems.length === 0}
-                                    >
-                                      使用這份清單做為創房題庫
-                                    </Button>
-                                  )}
-                                </div>
                               </div>
                             </div>
                           ) : createLibraryTab === "youtube" ? (
@@ -3837,7 +4528,7 @@ const RoomListPage: React.FC = () => {
                             </div>
                           ) : (
                             <div className="mt-3">
-                              {collectionsLoading ? (
+                              {shouldShowCollectionSkeleton ? (
                                 <div
                                   className={
                                     createLibraryView === "grid"
@@ -3873,38 +4564,15 @@ const RoomListPage: React.FC = () => {
                                   title={
                                     normalizedCreateLibrarySearch
                                       ? "找不到符合的題庫"
-                                      : createLibraryTab === "public"
-                                        ? "目前還沒有公開題庫"
-                                        : "你目前還沒有個人題庫"
+                                      : "你目前還沒有個人題庫"
                                   }
                                   description={
                                     normalizedCreateLibrarySearch
                                       ? "試試不同關鍵字，或清除搜尋後重新瀏覽題庫列表。"
-                                      : createLibraryTab === "public"
-                                        ? "稍後再來看看，或先改用個人題庫與貼上連結建立房間。"
-                                        : "你可以先切換到公開題庫，或直接貼上 YouTube 播放清單連結。"
+                                      : "你可以先切換到公開題庫，或直接貼上 YouTube 播放清單連結。"
                                   }
                                   actions={
-                                    normalizedCreateLibrarySearch ? undefined : createLibraryTab === "public" ? (
-                                      <>
-                                        <Button
-                                          size="small"
-                                          variant="outlined"
-                                          onClick={() =>
-                                            setCreateLibraryTab("personal")
-                                          }
-                                        >
-                                          切換到個人題庫
-                                        </Button>
-                                        <Button
-                                          size="small"
-                                          variant="text"
-                                          onClick={handleActivateLinkSource}
-                                        >
-                                          改用貼上連結
-                                        </Button>
-                                      </>
-                                    ) : (
+                                    normalizedCreateLibrarySearch ? undefined : (
                                       <>
                                         <Button
                                           size="small"

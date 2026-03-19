@@ -9,6 +9,7 @@ const LandingHomePage: React.FC = () => {
   const navigate = useNavigate();
   const {
     authUser,
+    username,
     usernameInput,
     setUsernameInput,
     handleSetUsername,
@@ -17,10 +18,10 @@ const LandingHomePage: React.FC = () => {
   } = useRoom();
 
   useEffect(() => {
-    if (authUser) {
+    if (authUser || username) {
       navigate("/rooms", { replace: true });
     }
-  }, [authUser, navigate]);
+  }, [authUser, navigate, username]);
 
   const handleGuestContinue = () => {
     const trimmed = usernameInput.trim();
