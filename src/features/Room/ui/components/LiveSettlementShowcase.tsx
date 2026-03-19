@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -90,26 +90,26 @@ const TAB_LABELS: Record<LiveSettlementTab, string> = {
 };
 
 const TAB_HINTS: Record<LiveSettlementTab, string> = {
-  overview: "查看頒獎台、排行榜與本場關鍵表現",
-  recommend: "依分類快速導覽，並結合題目回顧做重播分析",
+  overview: "查看 podium、排行榜與本場關鍵表現",
+  recommend: "查看推薦導覽、題目清單與回顧詳情",
 };
 
 const RECOMMEND_CATEGORY_LABELS: Record<RecommendCategory, string> = {
   quick: "全員速解",
   confuse: "易混淆",
   hard: "高難挑戰",
-  other: "其餘歌單",
+  other: "其餘歌曲",
 };
 
 const RECOMMEND_CATEGORY_SHORT_HINT: Record<RecommendCategory, string> = {
   quick: "全員答對且速度快的題目",
-  confuse: "最常改答與最容易猶豫的題目",
-  hard: "答錯與未作答比例較高的題目",
-  other: "不屬於前三類的完整題目",
+  confuse: "玩家常改答案、容易混淆的題目",
+  hard: "答錯或未作答比例較高的題目",
+  other: "其餘值得回顧的歌曲",
 };
 
 const RECOMMEND_CONTROLS_TOOLTIP =
-  "分類可切換推薦來源；自動導覽會依倒數切歌；雙擊播放可在題目回顧區控制。";
+  "切換不同推薦分類、調整自動導覽，並快速檢視推薦題目的亮點。";
 
 const RESULT_META: Record<
   "correct" | "wrong" | "unanswered",
@@ -136,8 +136,8 @@ const buildFallbackRecaps = (
   trackOrder.map((trackIndex, index) => {
     const item = playlistItems[trackIndex];
     const title =
-      item?.answerText?.trim() || item?.title?.trim() || `第${index + 1} 題`;
-    const uploader = item?.uploader?.trim() || "Unknown";
+      item?.answerText?.trim() || item?.title?.trim() || `歌曲 ${index + 1}`;
+    const uploader = item?.uploader?.trim() || "未知作者";
     const choices = trackOrder
       .slice(0, 4)
       .map((choiceTrackIndex, choiceIndex) => {
@@ -212,8 +212,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const [autoPreviewEnabled, setAutoPreviewEnabled] = useState(() =>
     readStoredBoolean(AUTO_PREVIEW_STORAGE_KEY, true),
   );
-  const [reviewDoubleClickPlayEnabled, setReviewDoubleClickPlayEnabled] =
-    useState(() => readStoredBoolean(REVIEW_DOUBLE_PLAY_STORAGE_KEY, true));
+  const [reviewDoubleClickPlayEnabled] = useState(() =>
+    readStoredBoolean(REVIEW_DOUBLE_PLAY_STORAGE_KEY, true),
+  );
   const [previewCountdownSec, setPreviewCountdownSec] = useState(
     RECOMMEND_PREVIEW_SECONDS,
   );
@@ -287,14 +288,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       autoPreviewEnabled ? "1" : "0",
     );
   }, [autoPreviewEnabled]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      REVIEW_DOUBLE_PLAY_STORAGE_KEY,
-      reviewDoubleClickPlayEnabled ? "1" : "0",
-    );
-  }, [reviewDoubleClickPlayEnabled]);
 
   const effectivePreviewVolume = settlementPreviewSyncGameVolume
     ? gameVolume
@@ -551,18 +544,18 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     return messages[messages.length - 1]?.timestamp;
   }, [endedAt, messages]);
   const settlementTimeChipLabel = useMemo(() => {
-    if (
-      typeof startedAt === "number" &&
-      Number.isFinite(startedAt) &&
-      startedAt > 0
-    ) {
-      return `起始於 ${new Date(startedAt).toLocaleString()}`;
-    }
-    if (gameEndTime) {
-      return `結束於 ${new Date(gameEndTime).toLocaleString()}`;
-    }
-    return null;
-  }, [gameEndTime, startedAt]);
+  if (
+    typeof startedAt === "number" &&
+    Number.isFinite(startedAt) &&
+    startedAt > 0
+  ) {
+    return `開始於 ${new Date(startedAt).toLocaleString()}`;
+  }
+  if (gameEndTime) {
+    return `結束於 ${new Date(gameEndTime).toLocaleString()}`;
+  }
+  return null;
+}, [gameEndTime, startedAt]);
 
   const settlementStartGuard = useMemo(() => {
     if (!upcomingGameStartAt || !Number.isFinite(upcomingGameStartAt)) {
@@ -635,6 +628,34 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     pausedCountdownRemainingMs,
     previewPlaybackMode,
     postYouTubeCommand,
+  ]);
+
+  const handlePreviewSurfaceClick = useCallback(() => {
+    if (!currentRecommendationPreviewUrl || !currentRecommendation) return;
+
+    if (!isCurrentRecommendationPreviewOpen || previewPlayerState === "idle") {
+      handleQuickPlayStart();
+      return;
+    }
+
+    if (previewPlayerState === "playing") {
+      postYouTubeCommand("pauseVideo");
+      setPreviewPlaybackMode("manual");
+      setPreviewPlayerState("paused");
+      setAutoAdvanceAtMs(null);
+      setPausedCountdownRemainingMs(RECOMMEND_PREVIEW_SECONDS * 1000);
+      setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
+      return;
+    }
+
+    handleQuickPlayStart();
+  }, [
+    currentRecommendation,
+    currentRecommendationPreviewUrl,
+    handleQuickPlayStart,
+    isCurrentRecommendationPreviewOpen,
+    postYouTubeCommand,
+    previewPlayerState,
   ]);
 
   const handleToggleAutoPreview = useCallback(() => {
@@ -895,8 +916,8 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold">
                     {isMobileSettlementViewport
-                      ? "新一局即將開始，請先完成結算"
-                      : "新的一局即將開始，請先完成本場結算與回顧"}
+                      ? "新一局即將開始，結算畫面暫時鎖定"
+                      : "新一局即將開始，請等待倒數結束後進入下一場遊戲"}
                   </p>
                   <span className="rounded-full border border-current/50 px-2 py-0.5 text-xs font-bold">
                     {settlementStartGuard.remainingSec}s
@@ -904,7 +925,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 </div>
                 {!isMobileSettlementViewport && (
                   <p className="mt-1 text-xs opacity-90">
-                    將在 {settlementStartGuard.remainingSec} 秒後回到房間準備階段
+                    還有 {settlementStartGuard.remainingSec} 秒，畫面會自動切換到下一局
                   </p>
                 )}
               </div>
@@ -989,15 +1010,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 previewIframeRef={previewIframeRef}
                 onPreviewIframeLoad={handleRecommendPreviewIframeLoad}
                 shouldShowPreviewOverlay={shouldShowPreviewOverlay}
-                previewPlayerState={previewPlayerState}
-                onQuickPlayStart={handleQuickPlayStart}
+                onPreviewSurfaceClick={handlePreviewSurfaceClick}
                 recommendationCards={recommendationCards}
                 selectedReviewParticipantLabel={
                   selectedReviewParticipant
                     ? `#${selectedReviewParticipantRank} ${selectedReviewParticipant.username}${
                         meClientId &&
                         selectedReviewParticipant.clientId === meClientId
-                          ? " (你)"
+                          ? "（你）"
                           : ""
                       }`
                     : "未選擇玩家"
@@ -1020,14 +1040,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
             {activeTab === "recommend" && (
                 <ReviewRecapSection
                   isMobileView={isMobileSettlementViewport}
-                  activeCategoryTheme={activeCategoryTheme}
+                activeCategoryTheme={activeCategoryTheme}
                 reviewRecapSummary={reviewRecapSummary}
                 sortedParticipants={sortedParticipants}
                 meClientId={meClientId}
-                reviewDoubleClickPlayEnabled={reviewDoubleClickPlayEnabled}
-                onToggleReviewDoubleClickPlay={() =>
-                  setReviewDoubleClickPlayEnabled((prev) => !prev)
-                }
                 effectiveSelectedReviewParticipantClientId={
                   effectiveSelectedReviewParticipantClientId
                 }
@@ -1086,3 +1102,4 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 };
 
 export default LiveSettlementShowcase;
+

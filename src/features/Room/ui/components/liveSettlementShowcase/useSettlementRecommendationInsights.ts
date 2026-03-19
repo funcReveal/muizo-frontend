@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+﻿import { useCallback, useMemo } from "react";
 
 import type { RoomParticipant } from "../../../model/types";
 import type { SettlementQuestionRecap } from "../GameSettlementPanel";
@@ -345,29 +345,29 @@ const useSettlementRecommendationInsights = <
         quick: quickRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
-            `全員答對 · 平均 ${formatMs(entry.averageCorrectMs)}`,
-            `最快答題 ${formatMs(entry.fastestCorrectMs)}`,
+            `全員答對，平均作答 ${formatMs(entry.averageCorrectMs)}`,
+            `最快正解 ${formatMs(entry.fastestCorrectMs)}`,
           ),
         ),
         confuse: confuseRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
-            `改答玩家 ${entry.changedUsers} 位 · 改答次數 ${entry.changedTimes}`,
-            "容易混淆",
+            `${entry.changedUsers} 位玩家改過答案，共改答 ${entry.changedTimes} 次`,
+            "容易讓人猶豫",
           ),
         ),
         hard: hardRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
-            `答錯 ${entry.recap.wrongCount ?? 0} · 未作答 ${entry.recap.unansweredCount ?? 0}`,
-            "高難挑戰",
+            `答錯 ${entry.recap.wrongCount ?? 0} 人，未作答 ${entry.recap.unansweredCount ?? 0} 人`,
+            "高難度挑戰",
           ),
         ),
         other: otherRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
-            `全員答對率 ${formatPercent(entry.correctRate)}`,
-            "其餘歌單",
+            `全場答對率 ${formatPercent(entry.correctRate)}`,
+            "值得回顧",
           ),
         ),
       }),
@@ -555,7 +555,7 @@ const useSettlementRecommendationInsights = <
     );
   const selectedRecapFastestBadgeText = isSelectedRecapGlobalFastest
     ? "全場最速王"
-    : "個人最快";
+    : "最快答對";
   const selectedRecapFastestCorrectMeta = selectedRecap
     ? fastestCorrectMetaByRecapKey.get(selectedRecap.key) ?? null
     : null;
@@ -564,16 +564,16 @@ const useSettlementRecommendationInsights = <
     const parts: string[] = [];
     if (selectedRecapRating.result === "correct") {
       if (typeof selectedRecapCorrectRank === "number") {
-        parts.push(`第${selectedRecapCorrectRank}答`);
+        parts.push(`第 ${selectedRecapCorrectRank} 答`);
       }
     } else if (typeof selectedRecapRating.answeredRank === "number") {
-      parts.push(`第${selectedRecapRating.answeredRank}答`);
+      parts.push(`第 ${selectedRecapRating.answeredRank} 答`);
     }
     if (typeof selectedRecapRating.answeredAtMs === "number") {
       parts.push(`作答 ${formatMs(selectedRecapRating.answeredAtMs)}`);
     }
     parts.push(`全場答對率 ${formatPercent(selectedRecapRating.correctRate)}`);
-    return parts.join(" · ");
+    return parts.join(" ・ ");
   })();
 
   const availableRecommendCategories = useMemo(
@@ -632,48 +632,48 @@ const useSettlementRecommendationInsights = <
       : null;
 
   const currentRecommendationSpeedInsight = (() => {
-    if (!currentRecommendation || !currentRecommendationRating) {
-      return {
-        label: "你比大家快多少" as const,
-        value: "--",
-        valueClass: "text-slate-300",
-        note: "尚無作答時間資料",
-        deltaMs: null,
-        answeredMs: null,
-        averageMs: null,
-      };
-    }
-    const speedInsight = resolveSpeedComparisonInsight(
-      {
-        averageCorrectMs: currentRecommendationAverageCorrectMs,
-        answeredAtMs: currentRecommendationRating.answeredAtMs,
-      },
-      (ms) => formatMs(ms),
-    );
-    if (speedInsight.answeredMs === null) {
-      return {
-        ...speedInsight,
-        valueClass: "text-slate-300",
-        note: "尚無作答時間資料",
-      };
-    }
-    if (speedInsight.deltaMs !== null) {
-      const isAhead = speedInsight.deltaMs >= 0;
-      const averageMsText = formatMs(
-        speedInsight.averageMs ?? speedInsight.answeredMs,
-      );
-      return {
-        ...speedInsight,
-        valueClass: isAhead ? "text-emerald-100" : "text-rose-100",
-        note: `你的作答 ${formatMs(speedInsight.answeredMs)} · 平均答對時長 ${averageMsText}`,
-      };
-    }
+  if (!currentRecommendation || !currentRecommendationRating) {
+    return {
+      label: "速度差" as const,
+      value: "--",
+      valueClass: "text-slate-300",
+      note: "目前沒有可比較的速度資料",
+      deltaMs: null,
+      answeredMs: null,
+      averageMs: null,
+    };
+  }
+  const speedInsight = resolveSpeedComparisonInsight(
+    {
+      averageCorrectMs: currentRecommendationAverageCorrectMs,
+      answeredAtMs: currentRecommendationRating.answeredAtMs,
+    },
+    (ms) => formatMs(ms),
+  );
+  if (speedInsight.answeredMs === null) {
     return {
       ...speedInsight,
       valueClass: "text-slate-300",
-      note: `你的作答 ${formatMs(speedInsight.answeredMs)}`,
+      note: "目前沒有可比較的速度資料",
     };
-  })();
+  }
+  if (speedInsight.deltaMs !== null) {
+    const isAhead = speedInsight.deltaMs >= 0;
+    const averageMsText = formatMs(
+      speedInsight.averageMs ?? speedInsight.answeredMs,
+    );
+    return {
+      ...speedInsight,
+      valueClass: isAhead ? "text-emerald-100" : "text-rose-100",
+      note: `作答 ${formatMs(speedInsight.answeredMs)} ・ 平均答對 ${averageMsText}`,
+    };
+  }
+  return {
+    ...speedInsight,
+    valueClass: "text-slate-300",
+    note: `作答 ${formatMs(speedInsight.answeredMs)}`,
+  };
+})();
 
   const currentRecommendationResultKey: RecapAnswerResult =
     currentRecommendationRating?.result ?? "unanswered";
@@ -698,7 +698,7 @@ const useSettlementRecommendationInsights = <
           Math.floor(currentRecommendation.recap.fastestCorrectMs),
     );
   const currentRecommendationFastestBadgeText =
-    isCurrentRecommendationGlobalFastest ? "全場最速王" : "個人最快";
+    isCurrentRecommendationGlobalFastest ? "全場最速王" : "最快答對";
   const hasCurrentRecommendationSpeedDelta =
     currentRecommendationSpeedInsight.value !== "--";
   const isPreviewFrozen =
@@ -757,6 +757,7 @@ const useSettlementRecommendationInsights = <
 };
 
 export default useSettlementRecommendationInsights;
+
 
 
 

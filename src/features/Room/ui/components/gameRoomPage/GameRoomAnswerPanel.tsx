@@ -145,7 +145,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
               <div>
-                <p className="game-room-kicker">階段</p>
                 <p className="game-room-title">
                   {isInterTrackWait ? "下一題準備中" : phaseLabel}
                 </p>

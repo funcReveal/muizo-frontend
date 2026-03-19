@@ -1738,7 +1738,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   return (
     <div className="game-room-shell">
-      <div className="game-room-grid grid w-full grid-cols-1 gap-3 pb-20 lg:grid-cols-[400px_1fr] lg:pb-0 xl:grid-cols-[440px_1fr] lg:h-[calc(100vh-140px)] lg:items-stretch">
+      <div className="game-room-grid grid w-full grid-cols-1 gap-3 pb-20 lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:pb-0 xl:grid-cols-[minmax(360px,400px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(400px,440px)_minmax(0,1fr)] lg:h-[calc(100vh-140px)] lg:items-stretch">
         <div className="hidden lg:block lg:h-full">
           <GameRoomLeftSidebar
             scoreboardRows={scoreboardRows}
@@ -2046,8 +2046,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </div>
                 <div className="game-room-mobile-scoreboard-headline">
                   <div className="game-room-mobile-scoreboard-title-group">
-                    <span className="game-room-mobile-scoreboard-kicker">排行榜</span>
-                    <span className="game-room-mobile-scoreboard-title">分數榜</span>
+                    <span className="game-room-mobile-scoreboard-title">排行榜</span>
                   </div>
                   <div className="game-room-mobile-scoreboard-actions">
                     <span className="game-room-mobile-scoreboard-answered-pill">

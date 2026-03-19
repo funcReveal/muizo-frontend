@@ -465,7 +465,7 @@ const GameSettlementPanel: React.FC<GameSettlementPanelProps> = ({
             order: idx + 1,
             trackIndex,
             title: resolveTrackTitle(item),
-            uploader: item?.uploader?.trim() || "Unknown",
+            uploader: item?.uploader?.trim() || "未知作者",
             duration: item?.duration?.trim() || null,
             thumbnail: item?.thumbnail || null,
             myResult: "unanswered",

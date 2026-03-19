@@ -22,10 +22,7 @@ export const formatLobbySettlementSummary = (
   >,
   stats?: LobbySettlementStats | null,
 ) => {
-  const playerCount = Math.max(
-    0,
-    stats?.playerCount ?? summary.playerCount ?? 0,
-  );
+  const playerCount = Math.max(0, stats?.playerCount ?? summary.playerCount ?? 0);
   const questionCount = Math.max(0, summary.questionCount ?? 0);
   const hasCompleteStats =
     Boolean(stats && stats.rank && stats.rank > 0) &&
@@ -33,13 +30,12 @@ export const formatLobbySettlementSummary = (
     typeof stats?.correctCount === "number";
 
   if (!hasCompleteStats || !stats) {
-    return `第 ${summary.roundNo} 局 · ${playerCount} 人 · ${questionCount} 題 · 資料同步中`;
+    return `第 ${summary.roundNo} 局 · ${playerCount} 人 · ${questionCount} 題`;
   }
 
-  return `第 ${summary.roundNo} 局 · 第 ${stats.rank}/${playerCount} 名 · ${stats.score.toLocaleString()} 分 · ${Math.max(
-    0,
-    Math.round(stats.correctCount),
-  )}/${questionCount} 題`;
+  const score = Math.max(0, Math.round(stats.score ?? 0));
+  const correctCount = Math.max(0, Math.round(stats.correctCount ?? 0));
+  return `第 ${summary.roundNo} 局 · 第 ${stats.rank}/${playerCount} 名 · ${score.toLocaleString()} 分 · ${correctCount}/${questionCount} 題`;
 };
 
 export const normalizeDisplayText = (

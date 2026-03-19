@@ -1240,8 +1240,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       settingsActionDisabledReason,
     ],
   );
+  const gameStatus = gameState?.status as string | undefined;
   const hasDesktopPrimaryAction =
-    gameState?.status === "playing" || (isHost && gameState?.status !== "playing");
+    gameStatus === "playing" || (isHost && gameStatus !== "playing");
   const hasDesktopHistoryAction = Boolean(onOpenHistoryDrawer);
   const isSoloLeaveToolbar =
     !hasDesktopPrimaryAction &&
@@ -1763,26 +1764,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     <Button
                       key={action.key}
                       variant={action.variant}
-                      color={
-                        action.key === "invite"
-                          ? "inherit"
-                          : action.tone === "info"
-                            ? "info"
-                            : action.tone === "success"
-                              ? "success"
-                              : "inherit"
-                      }
+                      color="inherit"
                       size="small"
                       className={`room-lobby-toolbar-utility-btn ${action.key === "settings"
                         ? "room-lobby-toolbar-settings-btn"
                         : ""
                         } ${action.key === "leave"
                           ? "room-lobby-toolbar-leave-btn"
-                          : ""
-                        } ${action.key === "invite"
-                          ? action.tone === "success"
-                            ? "room-lobby-action-btn--invite-success"
-                            : "room-lobby-action-btn--invite"
                           : ""
                         }`}
                       disabled={action.disabled}

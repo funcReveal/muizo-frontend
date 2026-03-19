@@ -17,7 +17,10 @@ import type {
   RoomState,
 } from "../../model/types";
 import type { SettlementQuestionRecap } from "./GameSettlementPanel";
-import { resolvePreviewEmbedUrl } from "./liveSettlementShowcase/showcasePrimitives";
+import {
+  resolvePreviewEmbedUrl,
+  resolveRecapTrack,
+} from "./liveSettlementShowcase/showcasePrimitives";
 
 type ExtendedRecap = SettlementQuestionRecap & {
   provider?: string;
@@ -95,11 +98,18 @@ const formatMs = (value: number | null | undefined) => {
   return `${Math.round(value)}ms`;
 };
 
+const normalizeParticipantResult = (value: unknown): ParticipantResult => {
+  if (value === "correct" || value === "wrong" || value === "unanswered") {
+    return value;
+  }
+  return "unanswered";
+};
+
 const getParticipantAnswer = (
   recap: SettlementQuestionRecap,
   participantClientId: string | null,
   meClientId?: string,
-) => {
+): { choiceIndex: number | null; result: ParticipantResult } => {
   if (!participantClientId) {
     return { choiceIndex: null as number | null, result: "unanswered" as ParticipantResult };
   }
@@ -107,7 +117,7 @@ const getParticipantAnswer = (
   if (answer) {
     return {
       choiceIndex: typeof answer.choiceIndex === "number" ? answer.choiceIndex : null,
-      result: answer.result ?? "unanswered",
+      result: normalizeParticipantResult(answer.result),
     };
   }
   if (meClientId && participantClientId === meClientId) {
@@ -152,7 +162,7 @@ const HoverMarqueeText: React.FC<{
             11.5,
             Math.max(4.2, overflow / 48),
           ).toFixed(2)}s`,
-        });
+        } as React.CSSProperties);
       } else {
         setCanMarquee(false);
         setStyle({});
@@ -241,6 +251,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const [previewPlayerState, setPreviewPlayerState] = useState<"idle" | "playing" | "paused">(
     "idle",
   );
+  const [previewPlaybackSource, setPreviewPlaybackSource] = useState<string | null>(null);
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const recaps = useMemo<ExtendedRecap[]>(() => {
     if (questionRecaps.length > 0) {
@@ -262,7 +273,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
         order: index + 1,
         trackIndex,
         title: item?.answerText?.trim() || item?.title?.trim() || `第 ${index + 1} 題`,
-        uploader: item?.uploader?.trim() || "Unknown",
+        uploader: item?.uploader?.trim() || "未知作者",
         duration: item?.duration ?? null,
         thumbnail: item?.thumbnail ?? null,
         correctChoiceIndex: 0,
@@ -296,6 +307,10 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const selectedRecap = resolvedSelectedRecapKey
     ? recaps.find((recap) => recap.key === resolvedSelectedRecapKey) ?? recaps[0] ?? null
     : null;
+  const selectedRecapTrack = useMemo(
+    () => (selectedRecap ? resolveRecapTrack(selectedRecap, playlistItems) : null),
+    [playlistItems, selectedRecap],
+  );
   const resolvedParticipantId =
     selectedParticipantId && participantMap[selectedParticipantId]
       ? selectedParticipantId
@@ -355,19 +370,23 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
 
   const selectedRecapLink = selectedRecap
     ? resolveSettlementTrackLink({
-        provider: selectedRecap.provider,
-        sourceId: selectedRecap.sourceId,
-        videoId: selectedRecap.videoId,
-        url: selectedRecap.url ?? "",
+        provider: selectedRecap.provider ?? selectedRecapTrack?.provider,
+        sourceId: selectedRecap.sourceId ?? selectedRecapTrack?.sourceId ?? null,
+        videoId: selectedRecap.videoId ?? selectedRecapTrack?.videoId,
+        url: selectedRecap.url ?? selectedRecapTrack?.url ?? "",
         title: selectedRecap.title ?? "",
         answerText: selectedRecap.title ?? "",
-        uploader: selectedRecap.uploader,
+        uploader: selectedRecap.uploader ?? selectedRecapTrack?.uploader ?? "未知作者",
       })
     : null;
   const selectedRecapPreviewUrl = useMemo(() => {
     if (!selectedRecap || !selectedRecapLink) return null;
     return resolvePreviewEmbedUrl(selectedRecap, selectedRecapLink);
   }, [selectedRecap, selectedRecapLink]);
+  const selectedRecapProviderLabel =
+    selectedRecapLink?.provider && selectedRecapLink.provider !== "unknown"
+      ? selectedRecapLink.providerLabel || null
+      : null;
 
   const openLink = useCallback(
     (link: SettlementTrackLink, recap: ExtendedRecap) => {
@@ -404,8 +423,9 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const handlePreviewStart = useCallback(() => {
     postYouTubeCommand("playVideo");
     syncPreviewVolume();
+    setPreviewPlaybackSource(selectedRecapPreviewUrl ?? null);
     setPreviewPlayerState("playing");
-  }, [postYouTubeCommand, syncPreviewVolume]);
+  }, [postYouTubeCommand, selectedRecapPreviewUrl, syncPreviewVolume]);
 
   const handlePreviewFrameLoad = useCallback(() => {
     window.setTimeout(() => {
@@ -434,11 +454,20 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
     meParticipant && meParticipant.clientId
       ? rankedParticipants.findIndex((item) => item.clientId === meParticipant.clientId) + 1
       : 0;
-  const supportCtaLabel = selectedRecapLink
-    ? selectedRecapLink.provider === "youtube"
-      ? "前往 YouTube"
-      : `前往 ${selectedRecapLink.providerLabel}`
-    : null;
+  const supportCtaLabel =
+    selectedRecapLink?.href && selectedRecapProviderLabel
+      ? `前往 ${selectedRecapProviderLabel}`
+      : selectedRecapLink?.href
+        ? "前往來源"
+        : null;
+  const previewIsPlaying =
+    Boolean(selectedRecapPreviewUrl) &&
+    previewPlaybackSource === selectedRecapPreviewUrl &&
+    previewPlayerState === "playing";
+  React.useEffect(() => {
+    setPreviewPlaybackSource(null);
+    setPreviewPlayerState("idle");
+  }, [selectedRecap?.key, selectedRecapPreviewUrl]);
   const primaryParticipants = playersExpanded
     ? rankedParticipants
     : rankedParticipants.filter((participant) => participant.clientId === resolvedParticipantId);
@@ -615,7 +644,9 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                           className="mt-2 w-full text-base font-semibold leading-tight text-slate-100 sm:text-lg"
                         />
                       )}
-                      <p className="mt-1 text-sm text-slate-400">{selectedRecap.uploader}</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {selectedRecap.uploader || "未知作者"}
+                      </p>
                     </div>
                     <span
                       className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
@@ -760,9 +791,9 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
                             歌曲預覽
                           </p>
-                          {selectedRecapLink?.providerLabel ? (
+                          {selectedRecapProviderLabel ? (
                             <span className="rounded-full border border-slate-600/70 bg-slate-900/65 px-2.5 py-1 text-[10px] font-semibold text-slate-200">
-                              {selectedRecapLink.providerLabel}
+                              {selectedRecapProviderLabel}
                             </span>
                           ) : null}
                         </div>
@@ -772,9 +803,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                             className="inline-flex cursor-pointer items-center justify-center rounded-full border border-sky-300/35 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-200/55 hover:bg-sky-500/20 hover:text-white"
                             onClick={() => openLink(selectedRecapLink, selectedRecap)}
                           >
-                            {selectedRecapLink.provider === "youtube"
-                              ? "前往 YouTube 支持作者"
-                              : `前往 ${selectedRecapLink.providerLabel} 聆聽完整歌曲`}
+                            {supportCtaLabel}
                           </button>
                         ) : null}
                       </div>
@@ -784,6 +813,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                           {selectedRecapPreviewUrl ? (
                             <>
                               <iframe
+                                key={`${selectedRecap.key}:${selectedRecapPreviewUrl}`}
                                 ref={previewIframeRef}
                                 src={selectedRecapPreviewUrl}
                                 className="absolute inset-0 h-full w-full"
@@ -792,7 +822,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                                 title={`history-preview-${selectedRecap.key}`}
                                 onLoad={handlePreviewFrameLoad}
                               />
-                              {previewPlayerState !== "playing" ? (
+                              {!previewIsPlaying ? (
                                 <button
                                   type="button"
                                   className="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-gradient-to-b from-slate-950/28 via-slate-950/58 to-slate-950/84 px-4 text-center transition hover:from-slate-950/18 hover:via-slate-950/50 hover:to-slate-950/80"
@@ -800,7 +830,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                                 >
                                   <span className="max-w-[30rem]">
                                     <span className="block text-sm font-semibold text-slate-100">
-                                      如果喜歡這首音樂，別忘了到 YouTube 支持創作者喲！
+                                      點一下開始預覽片段
                                     </span>
                                   </span>
                                 </button>
@@ -1067,7 +1097,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                   autoRunOnTouch
                 />
               )}
-              <p className="text-sm text-slate-400">{selectedRecap.uploader}</p>
+              <p className="text-sm text-slate-400">{selectedRecap.uploader || "未知作者"}</p>
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-2">
@@ -1138,7 +1168,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">歌曲預覽</p>
-                  {selectedRecapLink?.providerLabel ? <span className="mt-1 inline-flex rounded-full border border-slate-600/70 bg-slate-900/65 px-2.5 py-1 text-[10px] font-semibold text-slate-200">{selectedRecapLink.providerLabel}</span> : null}
+                  {selectedRecapProviderLabel ? <span className="mt-1 inline-flex rounded-full border border-slate-600/70 bg-slate-900/65 px-2.5 py-1 text-[10px] font-semibold text-slate-200">{selectedRecapProviderLabel}</span> : null}
                 </div>
                 {selectedRecapLink?.href && supportCtaLabel ? (
                   <button
@@ -1156,6 +1186,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                   {selectedRecapPreviewUrl ? (
                     <>
                       <iframe
+                        key={`${selectedRecap.key}:${selectedRecapPreviewUrl}`}
                         ref={previewIframeRef}
                         src={selectedRecapPreviewUrl}
                         className="absolute inset-0 h-full w-full"
@@ -1164,10 +1195,10 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                         title={`history-preview-${selectedRecap.key}`}
                         onLoad={handlePreviewFrameLoad}
                       />
-                      {previewPlayerState !== "playing" ? (
+                      {!previewIsPlaying ? (
                         <button
                           type="button"
-                        className="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-gradient-to-b from-slate-950/18 via-slate-950/48 to-slate-950/78 px-4 text-center transition hover:from-slate-950/10 hover:via-slate-950/42 hover:to-slate-950/72"
+                          className="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-gradient-to-b from-slate-950/18 via-slate-950/48 to-slate-950/78 px-4 text-center transition hover:from-slate-950/10 hover:via-slate-950/42 hover:to-slate-950/72"
                           onClick={handlePreviewStart}
                         >
                           <span className="inline-flex items-center gap-2 rounded-full border border-sky-300/35 bg-slate-950/78 px-4 py-2 text-sm font-semibold text-slate-100 shadow-[0_18px_28px_-24px_rgba(34,211,238,0.45)]">

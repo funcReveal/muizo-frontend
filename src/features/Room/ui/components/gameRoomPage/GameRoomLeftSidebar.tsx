@@ -84,6 +84,34 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     () => resolveScoreboardPlayerOrder(scoreboardRows),
     [scoreboardRows],
   );
+  const comboLeaderClientId = React.useMemo(() => {
+    let bestClientId: string | null = null;
+    let bestCombo = 0;
+    let bestRank = Number.MAX_SAFE_INTEGER;
+
+    scoreboardRows.forEach((row, idx) => {
+      if (row.type !== "player") return;
+
+      const combo = row.player.combo ?? 0;
+      const rank = idx + 1;
+
+      if (combo <= 0) return;
+
+      if (combo > bestCombo) {
+        bestClientId = row.player.clientId;
+        bestCombo = combo;
+        bestRank = rank;
+        return;
+      }
+
+      if (combo === bestCombo && rank < bestRank) {
+        bestClientId = row.player.clientId;
+        bestRank = rank;
+      }
+    });
+
+    return bestClientId;
+  }, [scoreboardRows]);
   const [rankSwapState, setRankSwapState] = React.useState<RankSwapState | null>(
     null,
   );
@@ -265,22 +293,16 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
 
   return (
     <aside
-      className={`game-room-panel game-room-panel--left game-room-panel--blaze flex h-full w-full flex-col gap-3 overflow-hidden p-3 text-slate-50 ${
-        mobileOverlayMode ? "game-room-left-sidebar--mobile-overlay" : ""
-      } ${mobileMinimalHeader ? "game-room-left-sidebar--mobile-minimal-header" : ""} ${
-        className ?? ""
-      }`}
+      className={`game-room-panel game-room-panel--left game-room-panel--blaze flex h-full w-full flex-col gap-3 overflow-hidden p-3 text-slate-50 ${mobileOverlayMode ? "game-room-left-sidebar--mobile-overlay" : ""
+        } ${mobileMinimalHeader ? "game-room-left-sidebar--mobile-minimal-header" : ""} ${className ?? ""
+        }`}
     >
       {!mobileMinimalHeader && (
         <>
           <div className="flex items-center gap-3">
             <div className="min-w-0">
-              <p className="game-room-kicker">{"\u6392\u884c\u699c"}</p>
-              <p className="game-room-title">{"\u5373\u6642\u6392\u540D"}</p>
+              <p className="game-room-title">排行榜</p>
             </div>
-            {!mobileOverlayMode && (
-              <span className="ml-2 text-[11px] text-slate-400">{"（分數 + 連擊）"}</span>
-            )}
             <div className="ml-auto flex items-center gap-2">
               {!showChat && onOpenMobileChat && (
                 <button
@@ -295,7 +317,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   >
                     <ChatBubbleRoundedIcon className="text-[0.9rem]" />
                   </Badge>
-                  {"\u804a\u5929\u5ba4"}
+                  聊天室
                 </button>
               )}
               <Chip
@@ -307,10 +329,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               />
             </div>
           </div>
-
-          {mobileOverlayMode && (
-            <p className="-mt-1 text-[11px] text-slate-400">{"（分數 + 連擊）"}</p>
-          )}
         </>
       )}
 
@@ -381,12 +399,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               rankSwapState?.offsetByClientId[p.clientId] ?? 0;
             const topSwapRole =
               topTwoSwapState &&
-              idx === 0 &&
-              p.clientId === topTwoSwapState.firstClientId
+                idx === 0 &&
+                p.clientId === topTwoSwapState.firstClientId
                 ? "first"
                 : topTwoSwapState &&
-                    idx === 1 &&
-                    p.clientId === topTwoSwapState.secondClientId
+                  idx === 1 &&
+                  p.clientId === topTwoSwapState.secondClientId
                   ? "second"
                   : null;
             const shouldUseCssSwapAnimation = mobileOverlayMode;
@@ -402,8 +420,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             const hasRowSwapAnimation = rowSwapOffsetRows !== 0;
             const isTopSwapParticipant = Boolean(
               topTwoSwapState &&
-                (p.clientId === topTwoSwapState.firstClientId ||
-                  p.clientId === topTwoSwapState.secondClientId),
+              (p.clientId === topTwoSwapState.firstClientId ||
+                p.clientId === topTwoSwapState.secondClientId),
             );
             const rowSwapDistanceRows = Math.abs(rowSwapOffsetRows);
             const swapRowHeightPx = mobileOverlayMode ? 58 : 60;
@@ -416,14 +434,14 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             const rowSwapDurationMs = Math.min(
               1680,
               RANK_SWAP_DURATION_MS +
-                Math.max(0, rowSwapDistanceRows - 1) * 128,
+              Math.max(0, rowSwapDistanceRows - 1) * 128,
             );
             const rowSwapDelayMs =
               rowSwapOffsetRows < 0
                 ? Math.min(
-                    260,
-                    90 + Math.max(0, rowSwapDistanceRows - 1) * 40,
-                  )
+                  260,
+                  90 + Math.max(0, rowSwapDistanceRows - 1) * 40,
+                )
                 : 0;
             const topSwapDistanceRows = Math.max(1, Math.abs(topSwapOffsetRows));
             const topSwapStartPx = topSwapOffsetRows * swapRowHeightPx;
@@ -441,31 +459,32 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               rankSwapState !== null ? (rankSwapState.key % 17) * 0.07 : 0;
             const rowSwapStyle = shouldUseCssSwapAnimation && hasRowSwapAnimation
               ? ({
-                  "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
-                  "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
-                  "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
-                  "--game-room-rank-swap-duration": `${rowSwapDurationMs + swapReplayNudgeMs}ms`,
-                  "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
-                  ...(hasTopSwapAnimation
-                    ? {
-                        "--game-room-swap-start": `${topSwapStartPx}px`,
-                        "--game-room-swap-mid": `${topSwapMidPx}px`,
-                        "--game-room-swap-overshoot": `${topSwapOvershootPx}px`,
-                        "--game-room-swap-duration": `${topSwapDurationMs}ms`,
-                        "--game-room-swap-second-delay": `${topSwapDelayMs}ms`,
-                        "--game-room-swap-tilt-start":
-                          topSwapRole === "first" ? "-2.2deg" : "1.6deg",
-                        "--game-room-swap-tilt-end":
-                          topSwapRole === "first" ? "1.1deg" : "-1deg",
-                      }
-                    : {}),
-                } as React.CSSProperties)
+                "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
+                "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
+                "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
+                "--game-room-rank-swap-duration": `${rowSwapDurationMs + swapReplayNudgeMs}ms`,
+                "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
+                ...(hasTopSwapAnimation
+                  ? {
+                    "--game-room-swap-start": `${topSwapStartPx}px`,
+                    "--game-room-swap-mid": `${topSwapMidPx}px`,
+                    "--game-room-swap-overshoot": `${topSwapOvershootPx}px`,
+                    "--game-room-swap-duration": `${topSwapDurationMs}ms`,
+                    "--game-room-swap-second-delay": `${topSwapDelayMs}ms`,
+                    "--game-room-swap-tilt-start":
+                      topSwapRole === "first" ? "-2.2deg" : "1.6deg",
+                    "--game-room-swap-tilt-end":
+                      topSwapRole === "first" ? "1.1deg" : "-1deg",
+                  }
+                  : {}),
+              } as React.CSSProperties)
               : undefined;
 
-            const rowComboTier = resolveComboTier(p.combo ?? 0);
+            const isComboLeader = p.clientId === comboLeaderClientId;
+            const rowComboTier = isComboLeader ? resolveComboTier(p.combo ?? 0) : 0;
             const rowComboTierClass =
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
-            const shouldShowComboFlare = rowComboTier > 0;
+            const shouldShowComboFlare = isComboLeader && rowComboTier > 0;
             const displayName = normalizeRoomDisplayText(
               p.username,
               `玩家 ${idx + 1}`,
@@ -481,35 +500,29 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   }
                   rowElementByClientIdRef.current.delete(p.clientId);
                 }}
-                className={`game-room-score-row flex items-center justify-between text-sm ${
-                  isReveal ? "game-room-score-row--revealed" : ""
-                } ${
-                  rowAnswerState === "correct"
+                className={`game-room-score-row flex items-center justify-between text-sm ${isReveal ? "game-room-score-row--revealed" : ""
+                  } ${rowAnswerState === "correct"
                     ? "game-room-score-row--correct"
                     : rowAnswerState === "wrong"
                       ? "game-room-score-row--wrong"
                       : rowAnswerState === "answered"
                         ? "game-room-score-row--answered"
                         : ""
-                } ${isMeRow ? "game-room-score-row--me" : ""} ${
-                  shouldUseCssSwapAnimation && hasTopSwapAnimation
+                  } ${isMeRow ? "game-room-score-row--me" : ""} ${shouldUseCssSwapAnimation && hasTopSwapAnimation
                     ? topSwapRole === "first"
                       ? "game-room-score-row--top-swap-first"
                       : "game-room-score-row--top-swap-second"
                     : ""
-                } ${
-                  shouldUseCssSwapAnimation && hasRowSwapAnimation
+                  } ${shouldUseCssSwapAnimation && hasRowSwapAnimation
                     ? rowSwapOffsetRows > 0
                       ? "game-room-score-row--rank-swap-up"
                       : "game-room-score-row--rank-swap-down"
                     : ""
-                } ${
-                  hasRowSwapAnimation && isTopSwapParticipant
+                  } ${hasRowSwapAnimation && isTopSwapParticipant
                     ? "game-room-score-row--rank-swap-focus"
                     : ""
-                } ${rowComboTierClass} ${
-                  shouldShowComboFlare ? "game-room-score-row--combo-flare" : ""
-                }`}
+                  } ${rowComboTierClass} ${shouldShowComboFlare ? "game-room-score-row--combo-flare" : ""
+                  }`}
                 style={rowSwapStyle}
               >
                 <span className="truncate flex items-center gap-2">
@@ -543,11 +556,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     {p.score.toLocaleString()}
                     {isReveal && scoreParts.gain !== 0 && (
                       <span
-                        className={`ml-1 ${
-                          scoreParts.gain > 0
-                            ? "text-sky-300 game-room-score-gain-pop"
-                            : "text-rose-300 game-room-score-loss-pop"
-                        }`}
+                        className={`ml-1 ${scoreParts.gain > 0
+                          ? "text-sky-300 game-room-score-gain-pop"
+                          : "text-rose-300 game-room-score-loss-pop"
+                          }`}
                       >
                         {scoreParts.gain > 0 ? `+${scoreParts.gain}` : scoreParts.gain}
                       </span>

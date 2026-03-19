@@ -1,4 +1,6 @@
 import React from "react";
+import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
+import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 
 import type { RoomParticipant } from "../../../model/types";
 
@@ -34,22 +36,62 @@ interface OverviewSectionProps {
   multilineEllipsis2Style: React.CSSProperties;
 }
 
-const renderName = (
+const comboTierClass = (combo: number) => {
+  if (combo >= 10) {
+    return "border-amber-200/55 bg-amber-400/14 text-amber-50 shadow-[0_0_0_1px_rgba(251,191,36,0.36),0_0_42px_rgba(250,204,21,0.22)]";
+  }
+  if (combo >= 7) {
+    return "border-cyan-300/45 bg-cyan-400/14 text-cyan-50 shadow-[0_0_0_1px_rgba(56,189,248,0.3),0_0_30px_rgba(56,189,248,0.18)]";
+  }
+  if (combo >= 4) {
+    return "border-violet-300/40 bg-violet-500/14 text-violet-50";
+  }
+  if (combo >= 1) {
+    return "border-slate-400/45 bg-slate-700/55 text-slate-100";
+  }
+  return "border-slate-600/65 bg-slate-900/68 text-slate-300";
+};
+
+const renderParticipantName = (
   participant: RoomParticipant | null,
   meClientId?: string,
-  style?: React.CSSProperties,
+  multilineEllipsis2Style?: React.CSSProperties,
+  useYouBadge = false,
 ) => {
-  if (!participant) return "--";
+  if (!participant) return <span>--</span>;
+  const isMe = Boolean(meClientId && participant.clientId === meClientId);
+
   return (
-    <span style={style}>
-      {participant.username}
-      {meClientId && participant.clientId === meClientId ? " (你)" : ""}
+    <span className="inline-flex min-w-0 items-center gap-2">
+      <span className="min-w-0" style={multilineEllipsis2Style}>
+        {participant.username}
+      </span>
+      {isMe && useYouBadge && (
+        <span className="shrink-0 rounded-full border border-cyan-300/45 bg-cyan-400/16 px-2 py-0.5 text-[10px] font-black tracking-[0.08em] text-cyan-50">
+          YOU
+        </span>
+      )}
     </span>
   );
 };
 
+const rankSurfaceClass = (rank: number) => {
+  if (rank === 1) {
+    return "border-amber-300/65 bg-[linear-gradient(180deg,rgba(251,191,36,0.42),rgba(88,52,9,0.26)_42%,rgba(28,23,33,0.92)_100%)] shadow-[0_0_0_1px_rgba(251,191,36,0.26),0_34px_72px_-40px_rgba(250,204,21,0.76)]";
+  }
+  if (rank === 2) {
+    return "border-slate-200/34 bg-[linear-gradient(180deg,rgba(203,213,225,0.32),rgba(71,85,105,0.18)_44%,rgba(23,27,38,0.95)_100%)] shadow-[0_26px_60px_-48px_rgba(226,232,240,0.48)]";
+  }
+  return "border-orange-300/34 bg-[linear-gradient(180deg,rgba(180,83,9,0.34),rgba(120,53,15,0.18)_44%,rgba(30,20,18,0.95)_100%)] shadow-[0_26px_60px_-48px_rgba(180,83,9,0.46)]";
+};
+
+const podiumLabel = (rank: number) => {
+  if (rank === 1) return "冠軍";
+  if (rank === 2) return "亞軍";
+  return "季軍";
+};
+
 const OverviewSection: React.FC<OverviewSectionProps> = ({
-  isMobileView = false,
   winner,
   runnerUp,
   thirdPlace,
@@ -67,383 +109,268 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
   formatMs,
   multilineEllipsis2Style,
 }) => {
-  const [mobileStatsExpanded, setMobileStatsExpanded] = React.useState(false);
-  const [mobileRankingExpanded, setMobileRankingExpanded] = React.useState(false);
-  const mobileStatsRef = React.useRef<HTMLDivElement | null>(null);
-
-  React.useEffect(() => {
-    if (!isMobileView) {
-      setMobileStatsExpanded(true);
-      setMobileRankingExpanded(true);
-      return;
-    }
-    setMobileStatsExpanded(false);
-    setMobileRankingExpanded(false);
-  }, [isMobileView]);
-
-  React.useEffect(() => {
-    if (!isMobileView || !mobileStatsExpanded) return;
-    const timer = window.setTimeout(() => {
-      const target = mobileStatsRef.current;
-      if (!target) return;
-      const top = window.scrollY + target.getBoundingClientRect().top - 84;
-      window.scrollTo({
-        top: Math.max(0, top),
-        behavior: "smooth",
-      });
-    }, 260);
-    return () => window.clearTimeout(timer);
-  }, [isMobileView, mobileStatsExpanded]);
-
-  const visibleParticipants =
-    isMobileView && !mobileRankingExpanded
-      ? sortedParticipants.slice(0, 3)
-      : sortedParticipants;
+  const podium = [
+    { participant: runnerUp, rank: 2, orderClass: "order-1", heightClass: "min-h-[250px]" },
+    { participant: winner, rank: 1, orderClass: "order-2", heightClass: "min-h-[302px]" },
+    { participant: thirdPlace, rank: 3, orderClass: "order-3", heightClass: "min-h-[232px]" },
+  ];
 
   return (
-    <section className="game-settlement-overview-shell grid gap-4 xl:grid-cols-[1.15fr_1.15fr]">
-      <article
-        className={`game-settlement-overview-podium relative isolate overflow-hidden rounded-2xl border p-4 ${
-          isMobileView
-            ? "border-amber-300/28 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.95))]"
-            : "border-amber-300/45 bg-[radial-gradient(circle_at_50%_-5%,rgba(250,204,21,0.24),transparent_45%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.96))]"
-        }`}
-      >
-        <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-72 -translate-x-1/2 bg-[radial-gradient(circle,rgba(251,191,36,0.3)_0%,rgba(251,191,36,0.08)_35%,transparent_75%)] blur-2xl" />
-        <div className="pointer-events-none absolute -left-10 bottom-0 h-36 w-36 rounded-full bg-sky-400/15 blur-2xl" />
-        <div className="relative">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {!isMobileView && (
-              <p className="text-xs uppercase tracking-[0.24em] text-amber-200/85">
-                Podium
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+      <article className="relative overflow-hidden rounded-[28px] border border-amber-300/42 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.26),transparent_34%),linear-gradient(180deg,rgba(39,26,10,0.96),rgba(18,14,22,0.98))] p-5 shadow-[0_0_0_1px_rgba(251,191,36,0.14),0_28px_80px_-48px_rgba(245,158,11,0.7)]">
+        <div className="pointer-events-none absolute inset-x-[18%] top-7 h-44 rounded-full bg-amber-200/14 blur-[64px]" />
+
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-3xl font-black tracking-tight text-white">本場冠軍榜</h3>
+            <p className="mt-2 text-sm font-semibold text-amber-100/78">
+              以頒獎台呈現本局前三名
+            </p>
+          </div>
+          <span className="rounded-full border border-amber-200/30 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-100">
+            前 3 名玩家
+          </span>
+        </div>
+
+        <div className="mt-6 grid grid-cols-3 items-end gap-3 px-1">
+          {podium.map(({ participant, rank, orderClass, heightClass }) => {
+            const combo = participant
+              ? Math.max(participant.maxCombo ?? 0, participant.combo)
+              : 0;
+            const correctCount = participant?.correctCount ?? 0;
+            const isChampion = rank === 1;
+            const isMe = Boolean(meClientId && participant?.clientId === meClientId);
+
+            return (
+              <div
+                key={`podium-${rank}`}
+                className={`relative ${orderClass} ${heightClass} rounded-[28px] border px-4 pb-4 pt-5 text-center ${rankSurfaceClass(rank)} ${
+                  isMe ? "ring-2 ring-white/24" : ""
+                }`}
+              >
+                {isChampion && (
+                  <>
+                    <div className="pointer-events-none absolute inset-x-[16%] top-0 h-24 rounded-b-[44px] bg-[linear-gradient(180deg,rgba(255,243,170,0.42),rgba(255,243,170,0))]" />
+                    <div className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded-full bg-amber-200/18 p-2 shadow-[0_0_34px_rgba(250,204,21,0.42)]">
+                      <WorkspacePremiumRoundedIcon className="text-[1.15rem] text-amber-50" />
+                    </div>
+                  </>
+                )}
+
+                <div
+                  className={`mx-auto inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-black tracking-[0.18em] ${
+                    rank === 1
+                      ? "mt-7 border-amber-100/35 bg-amber-100/10 text-amber-50"
+                      : rank === 2
+                        ? "mt-3 border-slate-200/28 bg-slate-100/10 text-slate-100"
+                        : "mt-1.5 border-orange-200/28 bg-orange-200/8 text-orange-100"
+                  }`}
+                >
+                  {podiumLabel(rank)}
+                </div>
+
+                <div className="mt-4 min-h-[3.6rem] px-1 text-[1.75rem] font-black leading-tight text-white">
+                  {renderParticipantName(participant, meClientId, multilineEllipsis2Style)}
+                </div>
+
+                <div
+                  className={`mx-auto mt-5 flex w-full max-w-[168px] flex-col items-center justify-center rounded-[24px] border px-4 py-5 ${
+                    rank === 1
+                      ? "border-amber-200/35 bg-black/26"
+                      : rank === 2
+                        ? "border-slate-200/20 bg-black/20"
+                        : "border-orange-200/18 bg-black/18"
+                  }`}
+                >
+                  <p className="text-[3.1rem] font-black leading-none text-white">
+                    {participant?.score ?? "--"}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold text-white/80">
+                    {correctCount}/{playedQuestionCount} 題答對
+                  </p>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${comboTierClass(combo)}`}
+                  >
+                    Combo x{combo}
+                  </span>
+                  <span className="rounded-full border border-white/12 bg-black/24 px-3 py-1 text-[11px] font-semibold text-white/82">
+                    第 {rank} 名
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 rounded-[24px] border border-amber-300/25 bg-[linear-gradient(180deg,rgba(251,191,36,0.1),rgba(15,23,42,0.5))] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-100/72">
+                個人結算
               </p>
-            )}
-            <span className="rounded-full border border-amber-200/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-              本局結果
-            </span>
+              <p
+                className="mt-2 text-[1.6rem] font-black leading-tight text-white"
+                style={multilineEllipsis2Style}
+              >
+                {me ? `${myRank > 0 ? `第 ${myRank} 名` : "本局完成"}・${me.username}` : "等待結果"}
+              </p>
+            </div>
+            <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold text-white/76">
+              {me ? `${me.correctCount ?? 0}/${playedQuestionCount} 題答對` : "尚無資料"}
+            </div>
           </div>
 
-          {winner ? (
-            <>
-              <div className="mt-4 grid grid-cols-3 items-end gap-2">
-                <div
-                  className={`flex flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center ${
-                    isMobileView ? "min-h-[132px]" : "min-h-[154px]"
-                  }`}
-                >
-                  <p className="text-[10px] tracking-[0.15em] text-slate-300">#2</p>
-                  <p
-                    className="mt-2 min-h-[2.5rem] w-full px-1 text-xs font-semibold leading-tight text-slate-100"
-                    style={multilineEllipsis2Style}
-                  >
-                    {renderName(runnerUp, meClientId, multilineEllipsis2Style)}
-                  </p>
-                  <div className="mt-auto flex h-14 w-full items-center justify-center rounded-lg bg-slate-800/80 text-2xl font-black leading-none text-slate-100">
-                    {runnerUp?.score ?? "--"}
-                  </div>
-                </div>
-                <div
-                  className={`relative flex flex-col items-center rounded-xl border border-amber-300/60 bg-amber-500/12 px-2 pb-2 pt-3 text-center shadow-[0_0_0_1px_rgba(252,211,77,0.25),0_18px_46px_-24px_rgba(251,191,36,0.65)] ${
-                    isMobileView ? "min-h-[148px]" : "min-h-[172px]"
-                  } ${me && winner.clientId === me.clientId ? "ring-2 ring-amber-200/70" : ""}`}
-                  style={{
-                    animation: "settlementChampionGlow 2.2s ease-in-out infinite",
-                  }}
-                >
-                  <span
-                    className="pointer-events-none absolute inset-x-0 -top-4 flex justify-center text-[1.35rem]"
-                    aria-hidden
-                  >
-                    <span
-                      className="drop-shadow-[0_0_8px_rgba(251,191,36,0.65)]"
-                      style={{
-                        animation: "settlementCrownFloat 1.8s ease-in-out infinite",
-                      }}
-                    >
-                      👑
-                    </span>
-                  </span>
-                  <p className="text-[10px] tracking-[0.18em] text-amber-200">#1</p>
-                  <p
-                    className="mt-1 min-h-[2.5rem] w-full px-1 text-center text-sm font-black leading-tight text-amber-100"
-                    style={multilineEllipsis2Style}
-                  >
-                    {renderName(winner, meClientId, multilineEllipsis2Style)}
-                  </p>
-                  <div className="mt-auto flex h-20 w-full items-center justify-center rounded-lg bg-amber-300/20 text-[2rem] font-black leading-none text-amber-50">
-                    <span>{winner.score}</span>
-                  </div>
-                  {[
-                    { left: "16%", top: "16%", delay: "0ms" },
-                    { left: "82%", top: "20%", delay: "220ms" },
-                    { left: "74%", top: "72%", delay: "420ms" },
-                    { left: "24%", top: "74%", delay: "640ms" },
-                  ].map((spark) => (
-                    <span
-                      key={`${spark.left}-${spark.top}`}
-                      className="pointer-events-none absolute inline-block h-1.5 w-1.5 rounded-full bg-amber-200/95"
-                      style={{
-                        left: spark.left,
-                        top: spark.top,
-                        animation: "settlementChampionSpark 1.8s ease-in-out infinite",
-                        animationDelay: spark.delay,
-                      }}
-                    />
-                  ))}
-                </div>
-                <div
-                  className={`flex flex-col items-center rounded-xl border border-slate-600/70 bg-slate-900/70 p-2 text-center ${
-                    isMobileView ? "min-h-[122px]" : "min-h-[142px]"
-                  }`}
-                >
-                  <p className="text-[10px] tracking-[0.15em] text-slate-300">#3</p>
-                  <p
-                    className="mt-2 min-h-[2.5rem] w-full px-1 text-xs font-semibold leading-tight text-slate-100"
-                    style={multilineEllipsis2Style}
-                  >
-                    {renderName(thirdPlace, meClientId, multilineEllipsis2Style)}
-                  </p>
-                  <div className="mt-auto flex h-12 w-full items-center justify-center rounded-lg bg-slate-800/80 text-xl font-black leading-none text-slate-100">
-                    {thirdPlace?.score ?? "--"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-center">
-                <p className="text-sm font-bold text-amber-100">
-                  冠軍 #1 {winner.username}
-                  {me && winner.clientId === me.clientId ? " (你)" : ""}
-                </p>
-                <p className="mt-1 text-xs text-amber-50/90">
-                  分數 {winner.score} ・ 答對 {winner.correctCount ?? 0}/
-                  {playedQuestionCount} ・ Combo x
-                  {Math.max(winner.maxCombo ?? 0, winner.combo)}
-                </p>
-              </div>
-              {me && (
-                <div className="mt-2 rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-100">
-                    你的排名
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-sky-50">
-                    第 {myRank}/{Math.max(1, participantsLength)} 名 ・ 分數 {me.score}
-                  </p>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="mt-4 text-sm text-slate-400">目前沒有可顯示的頒獎台資訊</p>
-          )}
-
-          {isMobileView && (
-            <button
-              type="button"
-              className="mt-3 inline-flex items-center rounded-full border border-slate-500/70 bg-slate-900/65 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300/70"
-              onClick={() => setMobileStatsExpanded((prev) => !prev)}
-            >
-              {mobileStatsExpanded ? "收合統計資訊" : "展開統計資訊"}
-            </button>
-          )}
-
-          {(!isMobileView || mobileStatsExpanded) && (
-            <div ref={mobileStatsRef}>
-              <div className="mt-2 rounded-xl border border-slate-700/70 bg-slate-950/50 p-2.5">
-                <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">
-                  本局亮點
-                </p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-xl border border-cyan-300/35 bg-cyan-500/10 px-3 py-2">
-                    <p className="text-[11px] text-cyan-100/90" title="本局答對率最高的玩家">
-                      最高答對率
-                    </p>
-                    <p className="mt-1 text-2xl font-black leading-none text-cyan-50">
-                      {topAccuracyEntry ? formatPercent(topAccuracyEntry.accuracy) : "--"}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-cyan-100/95">
-                      {topAccuracyEntry
-                        ? `${topAccuracyEntry.participant.username}${
-                            meClientId &&
-                            topAccuracyEntry.participant.clientId === meClientId
-                              ? " (你)"
-                              : ""
-                          }`
-                        : "尚無資料"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/10 px-3 py-2">
-                    <p className="text-[11px] text-fuchsia-100/90" title="本局最高連續答對 Combo">
-                      最高 Combo
-                    </p>
-                    <p className="mt-1 text-2xl font-black leading-none text-fuchsia-50">
-                      {topComboEntry ? `x${topComboEntry.combo}` : "--"}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-fuchsia-100/95">
-                      {topComboEntry
-                        ? `${topComboEntry.participant.username}${
-                            meClientId &&
-                            topComboEntry.participant.clientId === meClientId
-                              ? " (你)"
-                              : ""
-                          }`
-                        : "尚無資料"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
-                    <p className="text-[11px] text-amber-100/90" title="本局平均答對速度最快的玩家">
-                      最快平均答對
-                    </p>
-                    <p className="mt-1 text-2xl font-black leading-none text-amber-50">
-                      {fastestAverageAnswerEntry
-                        ? formatMs(fastestAverageAnswerEntry.ms)
-                        : "--"}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-amber-100/95">
-                      {fastestAverageAnswerEntry
-                        ? `${fastestAverageAnswerEntry.participant.username}${
-                            meClientId &&
-                            fastestAverageAnswerEntry.participant.clientId === meClientId
-                              ? " (你)"
-                              : ""
-                          }`
-                        : "尚無資料"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 border-t border-slate-700/80 pt-3">
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-xl border border-emerald-300/35 bg-emerald-500/10 px-3 py-2">
-                    <p className="text-[11px] text-emerald-100/90">你的分數</p>
-                    <p className="mt-1 text-xl font-bold text-emerald-50">
-                      {me ? me.score : "--"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2">
-                    <p className="text-[11px] text-sky-100/90">你的名次</p>
-                    <p className="mt-1 text-xl font-bold text-sky-50">
-                      {myRank > 0 ? `${myRank}/${Math.max(1, participantsLength)}` : "--"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2">
-                    <p className="text-[11px] text-amber-100/90">你的答對</p>
-                    <p className="mt-1 text-xl font-bold text-amber-50">
-                      {me?.correctCount ?? 0}/{playedQuestionCount}
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
+              <p className="text-[11px] tracking-[0.18em] text-white/58">排名</p>
+              <p className="mt-3 text-4xl font-black text-white">
+                {myRank > 0 ? `${myRank}/${Math.max(1, participantsLength)}` : "--"}
+              </p>
             </div>
-          )}
+            <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
+              <p className="text-[11px] tracking-[0.18em] text-white/58">分數</p>
+              <p className="mt-3 text-4xl font-black text-white">{me?.score ?? 0}</p>
+            </div>
+            <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3">
+              <p className="text-[11px] tracking-[0.18em] text-white/58">COMBO</p>
+              <p className="mt-3 text-4xl font-black text-white">
+                x{me ? Math.max(me.maxCombo ?? 0, me.combo) : 0}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-[22px] border border-cyan-300/28 bg-cyan-500/10 px-4 py-3">
+            <p className="text-[11px] font-semibold text-cyan-100/88">最高準度</p>
+            <p className="mt-3 text-4xl font-black text-cyan-50">
+              {topAccuracyEntry ? formatPercent(topAccuracyEntry.accuracy) : "--"}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-cyan-50/90">
+              {topAccuracyEntry ? topAccuracyEntry.participant.username : "尚無資料"}
+            </p>
+          </div>
+          <div className="rounded-[22px] border border-fuchsia-300/28 bg-fuchsia-500/10 px-4 py-3">
+            <p className="text-[11px] font-semibold text-fuchsia-100/88">最長連擊</p>
+            <p className="mt-3 text-4xl font-black text-fuchsia-50">
+              {topComboEntry ? `x${topComboEntry.combo}` : "--"}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-fuchsia-50/90">
+              {topComboEntry ? topComboEntry.participant.username : "尚無資料"}
+            </p>
+          </div>
+          <div className="rounded-[22px] border border-amber-300/28 bg-amber-500/10 px-4 py-3">
+            <p className="text-[11px] font-semibold text-amber-100/88">最快平均作答</p>
+            <p className="mt-3 text-4xl font-black text-amber-50">
+              {fastestAverageAnswerEntry ? formatMs(fastestAverageAnswerEntry.ms) : "--"}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-amber-50/90">
+              {fastestAverageAnswerEntry
+                ? fastestAverageAnswerEntry.participant.username
+                : "尚無資料"}
+            </p>
+          </div>
         </div>
       </article>
 
-      <article
-        className={`game-settlement-overview-ranking rounded-2xl border p-4 ${
-          isMobileView
-            ? "border-cyan-300/20 bg-[linear-gradient(175deg,rgba(3,10,28,0.92),rgba(4,16,34,0.86))]"
-            : "border-cyan-300/30 bg-[radial-gradient(circle_at_92%_8%,rgba(56,189,248,0.16),transparent_38%),linear-gradient(175deg,rgba(3,10,28,0.96),rgba(4,16,34,0.9))] shadow-[0_24px_52px_-40px_rgba(56,189,248,0.65)]"
-        }`}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-slate-400">排行榜</p>
-          {isMobileView && sortedParticipants.length > 3 && (
-            <button
-              type="button"
-              className="rounded-full border border-slate-500/70 bg-slate-900/65 px-2.5 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300/70"
-              onClick={() => setMobileRankingExpanded((prev) => !prev)}
-            >
-              {mobileRankingExpanded ? "收合" : "展開全部"}
-            </button>
-          )}
+      <article className="rounded-[28px] border border-cyan-300/22 bg-[radial-gradient(circle_at_16%_8%,rgba(34,211,238,0.12),transparent_18%),linear-gradient(180deg,rgba(11,18,31,0.98),rgba(9,13,24,0.94))] p-5 shadow-[0_24px_70px_-52px_rgba(34,211,238,0.55)]">
+        <div className="flex items-start gap-3">
+          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/35 bg-cyan-400/12 text-cyan-100">
+            <EmojiEventsRoundedIcon />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-3xl font-black tracking-tight text-cyan-50">排行榜</h3>
+          </div>
         </div>
-        <div className="game-settlement-overview-ranking-list mt-3 max-h-[520px] space-y-2 overflow-y-auto pr-1">
-          {visibleParticipants.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/55 px-3 py-4 text-sm text-slate-400">
-              目前沒有可顯示的排行榜資料
+
+        <div className="mt-4 max-h-[680px] space-y-2 overflow-y-auto pr-1">
+          {sortedParticipants.length === 0 ? (
+            <div className="rounded-[22px] border border-dashed border-slate-700 bg-slate-950/55 px-4 py-5 text-sm text-slate-400">
+              目前沒有可顯示的排行榜資料。
             </div>
           ) : (
-            visibleParticipants.map((participant) => {
-              const rank =
-                sortedParticipants.findIndex((entry) => entry.clientId === participant.clientId) +
-                1;
-              const isMe = meClientId && participant.clientId === meClientId;
-              const metrics =
-                participantScoreMeta.metricsByClientId[participant.clientId];
+            sortedParticipants.map((participant, index) => {
+              const rank = index + 1;
+              const isMe = Boolean(meClientId && participant.clientId === meClientId);
+              const metrics = participantScoreMeta.metricsByClientId[participant.clientId];
               const title = participantScoreMeta.byClientId[participant.clientId] ?? "參與者";
               const titleTooltip =
                 participantScoreMeta.tooltipByClientId[participant.clientId] ?? "本局表現";
+              const combo =
+                metrics?.combo ?? Math.max(participant.maxCombo ?? 0, participant.combo);
+
               return (
                 <div
                   key={participant.clientId}
-                  className={`rounded-xl border px-3 py-2 transition-colors ${
-                    isMe
-                      ? "border-sky-300/60 bg-sky-500/14 shadow-[0_0_0_1px_rgba(56,189,248,0.28)]"
-                      : "border-slate-700/80 bg-slate-950/55"
+                  className={`rounded-[24px] border px-4 py-3 ${
+                    rank === 1
+                      ? "border-amber-300/55 bg-[radial-gradient(circle_at_55%_50%,rgba(250,204,21,0.24),rgba(120,53,15,0.18)_52%,rgba(15,23,42,0.94)_100%)] shadow-[0_0_0_1px_rgba(251,191,36,0.24),0_20px_50px_-36px_rgba(250,204,21,0.56)]"
+                      : isMe
+                        ? "border-sky-300/55 bg-sky-500/14 shadow-[0_0_0_1px_rgba(56,189,248,0.18)]"
+                        : "border-slate-700/80 bg-slate-950/58"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span
-                        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black ${
-                          isMe
-                            ? "border-sky-200/70 bg-sky-400/20 text-sky-50"
-                            : "border-slate-500/70 bg-slate-800/70 text-slate-200"
-                        }`}
-                      >
-                        {rank}
-                      </span>
-                      <p
-                        className="text-sm font-semibold text-slate-100"
-                        style={multilineEllipsis2Style}
-                      >
-                        {participant.username}
-                        {isMe ? " (你)" : ""}
-                      </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-black ${
+                            rank === 1
+                              ? "border-amber-200/60 bg-black/30 text-amber-50"
+                              : "border-slate-500/70 bg-slate-900/72 text-slate-100"
+                          }`}
+                        >
+                          {rank}
+                        </span>
+                        <div className="min-w-0">
+                          <p
+                            className="min-w-0 text-[1.05rem] font-black text-white"
+                            style={multilineEllipsis2Style}
+                          >
+                            {renderParticipantName(
+                              participant,
+                              meClientId,
+                              multilineEllipsis2Style,
+                              true,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-100">
+                        <span className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2.5 py-1">
+                          準度 {formatPercent(metrics?.accuracy ?? 0)}
+                        </span>
+                        <span className="rounded-full border border-sky-300/35 bg-sky-500/12 px-2.5 py-1">
+                          平均 {formatMs(metrics?.avgSpeedMs)}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 ${comboTierClass(combo)}`}
+                        >
+                          Combo x{combo}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex min-w-[98px] shrink-0 self-center flex-col items-center justify-center gap-2 py-1 text-center">
+
+                    <div className="flex shrink-0 flex-col items-end justify-between gap-3 text-right">
                       <span
-                        className="rounded-full border border-slate-500/70 bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold leading-none text-slate-200"
+                        className="rounded-full border border-white/12 bg-black/26 px-2.5 py-1 text-[10px] font-semibold text-white/84"
                         title={titleTooltip}
                       >
                         {title}
                       </span>
-                      <p className="text-2xl font-black leading-none text-slate-100 sm:text-[1.7rem]">
+                      <p className="text-[3.2rem] font-black leading-none text-white">
                         {participant.score}
                       </p>
                     </div>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-300">
-                    <span
-                      className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2 py-0.5"
-                      title="答對率"
-                    >
-                      答對率 {formatPercent(metrics?.accuracy ?? 0)}
-                    </span>
-                    <span
-                      className="rounded-full border border-sky-300/35 bg-sky-500/12 px-2 py-0.5"
-                      title="平均答對時間"
-                    >
-                      平均答對 {formatMs(metrics?.avgSpeedMs)}
-                    </span>
-                    <span
-                      className="rounded-full border border-fuchsia-300/35 bg-fuchsia-500/12 px-2 py-0.5"
-                      title="最高連續答對"
-                    >
-                      Combo x
-                      {metrics?.combo ?? Math.max(participant.maxCombo ?? 0, participant.combo)}
-                    </span>
                   </div>
                 </div>
               );
             })
           )}
         </div>
-        {isMobileView && !mobileRankingExpanded && sortedParticipants.length > 3 && (
-          <p className="mt-2 text-[11px] text-slate-400">
-            目前先顯示前 3 名，展開後可查看完整排行榜。
-          </p>
-        )}
       </article>
     </section>
   );

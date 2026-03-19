@@ -320,7 +320,7 @@ export const resolvePreviewEmbedUrl = (
   link: SettlementTrackLink,
 ): string | null => {
   const provider = (recap.provider || link.provider || "").toLowerCase();
-  if (provider === "youtube") {
+  if (provider === "youtube" || provider === "youtube_music") {
     const id = extractYouTubeId(
       recap.sourceId,
       recap.videoId,
@@ -358,7 +358,7 @@ export const buildRecommendationCard = (
     link.providerLabel ||
     ((recap.provider ?? "").trim()
       ? (recap.provider ?? "").trim().toUpperCase()
-      : "Unknown");
+      : "");
   return {
     recap,
     hint,

@@ -16,9 +16,10 @@ const PROVIDER_LABELS: Record<string, string> = {
   spotify: "Spotify",
   soundcloud: "SoundCloud",
   bilibili: "Bilibili",
-  niconico: "niconico",
-  manual: "手動題庫",
+  niconico: "Niconico",
+  manual: "手動連結",
   collection: "收藏庫",
+  unknown: "",
 };
 
 const SEARCH_BY_PROVIDER: Record<string, (query: string) => string> = {
@@ -43,6 +44,7 @@ const inferProviderFromUrl = (value: string | null | undefined): string | null =
   if (!value || !isHttpUrl(value)) return null;
   try {
     const host = new URL(value).hostname.toLowerCase();
+    if (host.includes("music.youtube.com")) return "youtube_music";
     if (host.includes("youtube.com") || host.includes("youtu.be")) return "youtube";
     if (host.includes("spotify.com")) return "spotify";
     if (host.includes("soundcloud.com")) return "soundcloud";
@@ -81,17 +83,16 @@ const extractYoutubeVideoId = (
   const normalizedVideoId = (videoId ?? "").trim();
   if (normalizedVideoId) return normalizedVideoId;
   if (sourceId && !isHttpUrl(sourceId)) return sourceId;
-  if (url) {
-    try {
-      const parsed = new URL(url);
-      const fromQuery = parsed.searchParams.get("v");
-      if (fromQuery) return fromQuery;
-      const pathSegments = parsed.pathname.split("/").filter(Boolean);
-      const tail = pathSegments[pathSegments.length - 1] ?? "";
-      if (tail && tail !== "watch") return tail;
-    } catch {
-      return null;
-    }
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const fromQuery = parsed.searchParams.get("v");
+    if (fromQuery) return fromQuery;
+    const pathSegments = parsed.pathname.split("/").filter(Boolean);
+    const tail = pathSegments[pathSegments.length - 1] ?? "";
+    if (tail && tail !== "watch") return tail;
+  } catch {
+    return null;
   }
   return null;
 };
@@ -110,28 +111,18 @@ const resolveDirectUrl = (
     const trackId = sourceId.replace(/^spotify:track:/i, "");
     if (trackId) return `https://open.spotify.com/track/${encodeURIComponent(trackId)}`;
   }
-  if (provider === "soundcloud" && sourceId && isHttpUrl(sourceId)) {
-    return sourceId;
-  }
+  if (provider === "soundcloud" && sourceId && isHttpUrl(sourceId)) return sourceId;
   if (provider === "bilibili" && sourceId) {
     if (isHttpUrl(sourceId)) return sourceId;
-    if (/^bv/i.test(sourceId)) {
-      return `https://www.bilibili.com/video/${sourceId}`;
-    }
-    if (/^\d+$/.test(sourceId)) {
-      return `https://www.bilibili.com/video/av${sourceId}`;
-    }
+    if (/^bv/i.test(sourceId)) return `https://www.bilibili.com/video/${sourceId}`;
+    if (/^\d+$/.test(sourceId)) return `https://www.bilibili.com/video/av${sourceId}`;
   }
   if (provider === "niconico" && sourceId) {
     if (isHttpUrl(sourceId)) return sourceId;
     return `https://www.nicovideo.jp/watch/${sourceId}`;
   }
-  if (sourceId && isHttpUrl(sourceId)) {
-    return sourceId;
-  }
-  if (item.url && isHttpUrl(item.url)) {
-    return item.url;
-  }
+  if (sourceId && isHttpUrl(sourceId)) return sourceId;
+  if (item.url && isHttpUrl(item.url)) return item.url;
   return null;
 };
 
@@ -156,7 +147,9 @@ export const resolveSettlementTrackLink = (
 ): SettlementTrackLink => {
   const provider = normalizeProvider(item.provider, item.url, item.sourceId);
   const sourceId = normalizeSourceId(item.sourceId);
-  const providerLabel = PROVIDER_LABELS[provider] ?? provider.toUpperCase();
+  const providerLabel =
+    PROVIDER_LABELS[provider] ??
+    (provider && provider !== "unknown" ? provider.toUpperCase() : "");
 
   const directUrl = resolveDirectUrl(provider, sourceId, item);
   if (directUrl) {
@@ -222,30 +215,16 @@ export const summarizePlaylistSourceReadiness = (
 
     const resolved = resolveSettlementTrackLink(item);
     if (resolved.linkType === "direct") directLinkable += 1;
-    else if (resolved.linkType === "search") searchable += 1;
-    else unavailable += 1;
+    if (resolved.linkType === "search") searchable += 1;
+    if (resolved.linkType === "none") unavailable += 1;
 
-    const existing = providerCounter.get(resolved.provider);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      providerCounter.set(resolved.provider, {
-        label: resolved.providerLabel,
-        count: 1,
-      });
-    }
+    const entry = providerCounter.get(resolved.provider) ?? {
+      label: resolved.providerLabel || "未知來源",
+      count: 0,
+    };
+    entry.count += 1;
+    providerCounter.set(resolved.provider, entry);
   }
-
-  const byProvider = Array.from(providerCounter.entries())
-    .map(([provider, data]) => ({
-      provider,
-      label: data.label,
-      count: data.count,
-    }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-
-  const status =
-    total > 0 && withProvider === total && withSourceId === total ? "ready" : "partial";
 
   return {
     total,
@@ -254,7 +233,13 @@ export const summarizePlaylistSourceReadiness = (
     directLinkable,
     searchable,
     unavailable,
-    status,
-    byProvider,
+    status: unavailable === 0 ? "ready" : "partial",
+    byProvider: Array.from(providerCounter.entries())
+      .map(([provider, meta]) => ({
+        provider,
+        label: meta.label,
+        count: meta.count,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "zh-Hant")),
   };
 };

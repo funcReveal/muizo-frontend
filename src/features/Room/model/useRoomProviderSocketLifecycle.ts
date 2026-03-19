@@ -601,6 +601,8 @@ export const useRoomProviderSocketLifecycle = ({
     syncServerOffset,
     setIsConnected,
     socketRef,
+    applyIncomingRoomSummary,
+    removeRoomSummary,
   ]);
 
   const requestLatencyProbe = useCallback(

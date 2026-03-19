@@ -84,40 +84,32 @@ const useSettlementReviewState = ({
   const thirdPlace = sortedParticipants[2] ?? null;
 
   const me = meClientId
-    ? (sortedParticipants.find(
-        (participant) => participant.clientId === meClientId,
-      ) ?? null)
+    ? (sortedParticipants.find((participant) => participant.clientId === meClientId) ??
+      null)
     : null;
   const myRank = meClientId
-    ? sortedParticipants.findIndex(
-        (participant) => participant.clientId === meClientId,
-      ) + 1
+    ? sortedParticipants.findIndex((participant) => participant.clientId === meClientId) + 1
     : 0;
 
-  const [
-    selectedReviewParticipantClientId,
-    setSelectedReviewParticipantClientId,
-  ] = useState<string | null>(() => {
-    if (meClientId) return meClientId;
-    return sortedParticipants[0]?.clientId ?? null;
-  });
+  const [selectedReviewParticipantClientId, setSelectedReviewParticipantClientId] =
+    useState<string | null>(() => {
+      if (meClientId) return meClientId;
+      return sortedParticipants[0]?.clientId ?? null;
+    });
 
   const effectiveSelectedReviewParticipantClientId = useMemo(() => {
     if (!sortedParticipants.length) return null;
     if (
       selectedReviewParticipantClientId &&
       sortedParticipants.some(
-        (participant) =>
-          participant.clientId === selectedReviewParticipantClientId,
+        (participant) => participant.clientId === selectedReviewParticipantClientId,
       )
     ) {
       return selectedReviewParticipantClientId;
     }
     if (
       meClientId &&
-      sortedParticipants.some(
-        (participant) => participant.clientId === meClientId,
-      )
+      sortedParticipants.some((participant) => participant.clientId === meClientId)
     ) {
       return meClientId;
     }
@@ -126,22 +118,19 @@ const useSettlementReviewState = ({
 
   const selectedReviewParticipant = effectiveSelectedReviewParticipantClientId
     ? (sortedParticipants.find(
-        (participant) =>
-          participant.clientId === effectiveSelectedReviewParticipantClientId,
+        (participant) => participant.clientId === effectiveSelectedReviewParticipantClientId,
       ) ?? null)
     : null;
 
   const selectedReviewParticipantRank = effectiveSelectedReviewParticipantClientId
     ? sortedParticipants.findIndex(
-        (participant) =>
-          participant.clientId === effectiveSelectedReviewParticipantClientId,
+        (participant) => participant.clientId === effectiveSelectedReviewParticipantClientId,
       ) + 1
     : 0;
 
   const selectedReviewParticipantIndex = effectiveSelectedReviewParticipantClientId
     ? sortedParticipants.findIndex(
-        (participant) =>
-          participant.clientId === effectiveSelectedReviewParticipantClientId,
+        (participant) => participant.clientId === effectiveSelectedReviewParticipantClientId,
       )
     : -1;
 
@@ -151,28 +140,21 @@ const useSettlementReviewState = ({
           ? "（你）"
           : ""
       }`
-    : "尚無玩家";
+    : "未選擇玩家";
 
   const goPrevReviewParticipant = useCallback(() => {
     if (sortedParticipants.length <= 1) return;
-    const currentIndex =
-      selectedReviewParticipantIndex >= 0 ? selectedReviewParticipantIndex : 0;
+    const currentIndex = selectedReviewParticipantIndex >= 0 ? selectedReviewParticipantIndex : 0;
     const nextIndex =
-      (currentIndex - 1 + sortedParticipants.length) %
-      sortedParticipants.length;
-    setSelectedReviewParticipantClientId(
-      sortedParticipants[nextIndex]?.clientId ?? null,
-    );
+      (currentIndex - 1 + sortedParticipants.length) % sortedParticipants.length;
+    setSelectedReviewParticipantClientId(sortedParticipants[nextIndex]?.clientId ?? null);
   }, [selectedReviewParticipantIndex, sortedParticipants]);
 
   const goNextReviewParticipant = useCallback(() => {
     if (sortedParticipants.length <= 1) return;
-    const currentIndex =
-      selectedReviewParticipantIndex >= 0 ? selectedReviewParticipantIndex : 0;
+    const currentIndex = selectedReviewParticipantIndex >= 0 ? selectedReviewParticipantIndex : 0;
     const nextIndex = (currentIndex + 1) % sortedParticipants.length;
-    setSelectedReviewParticipantClientId(
-      sortedParticipants[nextIndex]?.clientId ?? null,
-    );
+    setSelectedReviewParticipantClientId(sortedParticipants[nextIndex]?.clientId ?? null);
   }, [selectedReviewParticipantIndex, sortedParticipants]);
 
   const topAccuracyEntry = useMemo(() => {
@@ -188,8 +170,7 @@ const useSettlementReviewState = ({
       })
       .sort((a, b) => {
         if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-        if (b.correctCount !== a.correctCount)
-          return b.correctCount - a.correctCount;
+        if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
         return b.participant.score - a.participant.score;
       });
     return ranked[0] ?? null;
@@ -223,8 +204,7 @@ const useSettlementReviewState = ({
       })
       .sort((a, b) => {
         if (a.ms !== b.ms) return a.ms - b.ms;
-        if (b.correctCount !== a.correctCount)
-          return b.correctCount - a.correctCount;
+        if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
         return b.participant.score - a.participant.score;
       });
     return ranked[0] ?? null;
@@ -233,8 +213,7 @@ const useSettlementReviewState = ({
   const participantScoreMeta = useMemo(() => {
     const rows = sortedParticipants.map((participant) => {
       const correct = Math.max(0, participant.correctCount ?? 0);
-      const accuracy =
-        playedQuestionCount > 0 ? correct / playedQuestionCount : 0;
+      const accuracy = playedQuestionCount > 0 ? correct / playedQuestionCount : 0;
       const avgSpeedMs =
         typeof participant.avgCorrectMs === "number" &&
         Number.isFinite(participant.avgCorrectMs) &&
@@ -242,18 +221,10 @@ const useSettlementReviewState = ({
           ? participant.avgCorrectMs
           : null;
       const combo = Math.max(participant.maxCombo ?? 0, participant.combo);
-      return {
-        participant,
-        accuracy,
-        avgSpeedMs,
-        combo,
-      };
+      return { participant, accuracy, avgSpeedMs, combo };
     });
 
-    const maxAccuracy = rows.reduce(
-      (max, row) => Math.max(max, row.accuracy),
-      0,
-    );
+    const maxAccuracy = rows.reduce((max, row) => Math.max(max, row.accuracy), 0);
     const maxCombo = rows.reduce((max, row) => Math.max(max, row.combo), 0);
     const fastestAvgSpeedMs = rows.reduce<number | null>((min, row) => {
       if (row.avgSpeedMs === null) return min;
@@ -263,20 +234,21 @@ const useSettlementReviewState = ({
 
     const titleByClientId: Record<string, string> = {};
     const tooltipByClientId: Record<string, string> = {};
+
     rows.forEach((row, idx) => {
       if (idx === 0) {
         titleByClientId[row.participant.clientId] = "冠軍";
-        tooltipByClientId[row.participant.clientId] = "本場總分第一";
+        tooltipByClientId[row.participant.clientId] = "本局排名第一";
         return;
       }
       if (maxAccuracy > 0 && Math.abs(row.accuracy - maxAccuracy) < 0.00001) {
         titleByClientId[row.participant.clientId] = "神準狙擊";
-        tooltipByClientId[row.participant.clientId] = "本場答對率最高";
+        tooltipByClientId[row.participant.clientId] = "本局答對率最高";
         return;
       }
       if (maxCombo > 0 && row.combo === maxCombo) {
-        titleByClientId[row.participant.clientId] = "連擊壓制";
-        tooltipByClientId[row.participant.clientId] = "本場連擊最高";
+        titleByClientId[row.participant.clientId] = "最高連擊";
+        tooltipByClientId[row.participant.clientId] = "本局最高連擊數";
         return;
       }
       if (
@@ -284,28 +256,25 @@ const useSettlementReviewState = ({
         row.avgSpeedMs !== null &&
         row.avgSpeedMs === fastestAvgSpeedMs
       ) {
-        titleByClientId[row.participant.clientId] = "速攻王";
-        tooltipByClientId[row.participant.clientId] = "本場平均答對時長最快";
+        titleByClientId[row.participant.clientId] = "最快節奏";
+        tooltipByClientId[row.participant.clientId] = "本局平均答對最快";
         return;
       }
-      titleByClientId[row.participant.clientId] = "競技者";
-      tooltipByClientId[row.participant.clientId] = "本場穩定作答";
+      titleByClientId[row.participant.clientId] = "穩定表現";
+      tooltipByClientId[row.participant.clientId] = "本局整體表現穩定";
     });
 
     return {
       byClientId: titleByClientId,
       tooltipByClientId,
-      metricsByClientId: rows.reduce<Record<string, ScoreMetrics>>(
-        (acc, row) => {
-          acc[row.participant.clientId] = {
-            accuracy: row.accuracy,
-            avgSpeedMs: row.avgSpeedMs,
-            combo: row.combo,
-          };
-          return acc;
-        },
-        {},
-      ),
+      metricsByClientId: rows.reduce<Record<string, ScoreMetrics>>((acc, row) => {
+        acc[row.participant.clientId] = {
+          accuracy: row.accuracy,
+          avgSpeedMs: row.avgSpeedMs,
+          combo: row.combo,
+        };
+        return acc;
+      }, {}),
     };
   }, [playedQuestionCount, sortedParticipants]);
 
@@ -333,4 +302,3 @@ const useSettlementReviewState = ({
 };
 
 export default useSettlementReviewState;
-

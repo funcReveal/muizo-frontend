@@ -24,7 +24,7 @@ interface HistoryReplayDialogProps {
 }
 
 const HistoryReplaySkeleton: React.FC = () => (
-  <div className="space-y-4 animate-pulse">
+  <div className="animate-pulse space-y-4">
     <section className="rounded-[24px] border border-slate-700/70 bg-[linear-gradient(180deg,rgba(8,14,24,0.9),rgba(4,8,16,0.96))] p-4 sm:p-5">
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-start">
         <div className="min-w-0">
@@ -152,9 +152,9 @@ const HistoryReplayDialog: React.FC<HistoryReplayDialogProps> = ({
       {isLoadingSelectedReplay && !selectedReplay ? (
         <HistoryReplaySkeleton />
       ) : selectedReplay ? (
-        <HistoryReplayCompactView
-          key={selectedSummary?.matchId}
-          room={selectedReplay.room}
+          <HistoryReplayCompactView
+            key={selectedSummary?.roundKey ?? selectedSummary?.matchId}
+            room={selectedReplay.room}
           participants={selectedReplay.participants}
           messages={selectedReplay.messages}
           playlistItems={selectedReplay.playlistItems ?? []}
@@ -167,7 +167,7 @@ const HistoryReplayDialog: React.FC<HistoryReplayDialogProps> = ({
         />
       ) : (
         <div className="rounded-[24px] border border-amber-300/16 bg-amber-300/5 px-4 py-5 text-sm text-amber-100/90">
-          目前沒有可用的回放資料，請返回對戰歷史列表後重新開啟。
+          找不到可顯示的回放資料，請稍後再試。
         </div>
       )}
     </HistoryReplayModal>

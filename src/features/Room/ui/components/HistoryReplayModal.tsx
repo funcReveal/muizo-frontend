@@ -29,7 +29,10 @@ const HistoryReplayModal: React.FC<HistoryReplayModalProps> = ({
   formatDuration,
   children,
 }) => {
-  const playlistTitle = selectedSummary?.playlistTitle?.trim();
+  const playlistTitle = React.useMemo(() => {
+    const raw = selectedSummary?.summaryJson?.playlistTitle;
+    return typeof raw === "string" ? raw.trim() : "";
+  }, [selectedSummary?.summaryJson]);
   const isWide = useMediaQuery("(min-width: 640px)");
   const visibleRoundCount = Math.min(relatedSummaries.length, isWide ? 5 : 3);
   const selectedRelatedIndex = React.useMemo(

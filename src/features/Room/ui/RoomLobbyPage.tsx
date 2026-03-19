@@ -4,7 +4,6 @@ import { createPortal } from "react-dom";
 import {
   Button,
   CircularProgress,
-  Chip,
   Drawer,
   IconButton,
   Stack,
@@ -1109,8 +1108,6 @@ const RoomLobbyPage: React.FC = () => {
   );
   const showHistoryDrawerInitialLoading =
     historyDrawerLoading && historyDrawerSummaries.length === 0;
-  const showHistoryDrawerRefreshing =
-    historyDrawerLoading && historyDrawerSummaries.length > 0;
   const isSettlementReviewLoading = Boolean(
     resolvedActiveSettlementRoundKey &&
       loadingSettlementRoundKey === resolvedActiveSettlementRoundKey &&
@@ -1406,11 +1403,7 @@ const RoomLobbyPage: React.FC = () => {
       <div className="room-battle-history-shell">
         <div className="room-battle-history-head">
           <div className="room-battle-history-title-wrap">
-            <span className="room-battle-history-kicker">BATTLE ARCHIVE</span>
             <h2 className="room-battle-history-title">對戰歷史</h2>
-            <p className="room-battle-history-subtitle">
-              可從右上 MENU 開啟，這裡可回看完整局數與結算。
-            </p>
           </div>
           <IconButton
             size="small"
@@ -1422,20 +1415,10 @@ const RoomLobbyPage: React.FC = () => {
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
         </div>
-        {showHistoryDrawerRefreshing ? (
-          <div className="room-battle-history-sync-strip" role="status" aria-live="polite">
-            <span className="room-battle-history-sync-strip__dot" aria-hidden="true" />
-            <span>同步房間歷史中...</span>
-          </div>
-        ) : null}
-
         <div className="room-battle-history-list">
           {showHistoryDrawerInitialLoading ? (
             <div className="room-battle-history-empty room-battle-history-empty--loading">
               <div className="room-battle-history-loader" role="status" aria-live="polite">
-                <span className="room-battle-history-loader__kicker">
-                  ARCHIVE SYNC
-                </span>
                 <div className="room-battle-history-loader__headline">
                   <span
                     className="room-battle-history-sync-strip__dot"
@@ -1477,7 +1460,7 @@ const RoomLobbyPage: React.FC = () => {
                   <div className="room-battle-history-item-head">
                     <div>
                       <Typography variant="subtitle2" className="room-battle-history-round">
-                        Round {summary.roundNo}
+                        第 {summary.roundNo} 局
                       </Typography>
                       <Typography variant="caption" className="room-battle-history-time">
                         {new Date(summary.endedAt).toLocaleString("zh-TW", {
@@ -1485,24 +1468,15 @@ const RoomLobbyPage: React.FC = () => {
                         })}
                       </Typography>
                     </div>
-                    <Chip
-                      size="small"
-                      color={isLatest ? "info" : "default"}
-                      variant={isLatest ? "filled" : "outlined"}
-                      className={`room-battle-history-item-chip ${
-                        isLatest ? "is-latest" : ""
-                      }`}
-                      label={isLatest ? "上一局" : "歷史紀錄"}
-                    />
                   </div>
 
                   <div className="room-battle-history-metrics">
                     <span>
-                      Rank
+                      名次
                       <strong>{stats?.rank ?? "-"}</strong>
                     </span>
                     <span>
-                      Score
+                      分數
                       <strong>
                         {typeof stats?.score === "number"
                           ? stats.score.toLocaleString()
@@ -1510,7 +1484,7 @@ const RoomLobbyPage: React.FC = () => {
                       </strong>
                     </span>
                     <span>
-                      Max Combo
+                      最高連擊
                       <strong>
                         {typeof stats?.maxCombo === "number"
                           ? `x${Math.max(0, Math.round(stats.maxCombo))}`
@@ -1518,10 +1492,6 @@ const RoomLobbyPage: React.FC = () => {
                       </strong>
                     </span>
                   </div>
-
-                  <Typography variant="caption" className="room-battle-history-copy">
-                    {formatLobbySettlementSummary(summary, stats)}
-                  </Typography>
 
                   <Stack direction="row" spacing={1} sx={{ mt: 1.2 }}>
                     <Button
@@ -1538,18 +1508,20 @@ const RoomLobbyPage: React.FC = () => {
                         ? "載入詳情..."
                         : "查看詳情"}
                     </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="info"
-                      className="room-battle-history-action room-battle-history-action--replay"
-                      disabled={isLoading || !isLatest}
-                      onClick={() => {
-                        void openSettlementReviewByRoundKey(summary.roundKey);
-                      }}
-                    >
-                      {isLoading ? "載入中..." : "上一局快速回放"}
-                    </Button>
+                    {isLatest ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="info"
+                        className="room-battle-history-action room-battle-history-action--replay"
+                        disabled={isLoading}
+                        onClick={() => {
+                          void openSettlementReviewByRoundKey(summary.roundKey);
+                        }}
+                      >
+                        {isLoading ? "載入中..." : "結算頁面"}
+                      </Button>
+                    ) : null}
                   </Stack>
                 </div>
               );
@@ -1583,7 +1555,7 @@ const RoomLobbyPage: React.FC = () => {
       selectedSummary={historyReplaySummary}
       relatedSummaries={historyDrawerSummaries}
       onSelectSummary={(summary) => {
-        void openHistoryReplay(summary);
+        void openHistoryReplayModal(summary);
       }}
       formatDateTime={formatHistoryDateTime}
       getMatchDurationMs={(startedAt, endedAt) => Math.max(0, endedAt - startedAt)}
@@ -1602,6 +1574,7 @@ const RoomLobbyPage: React.FC = () => {
         </div>
       ) : historyReplaySnapshot ? (
         <HistoryReplayCompactView
+          key={historyReplaySummary?.roundKey ?? historyReplaySummary?.matchId}
           room={historyReplaySnapshot.room}
           participants={historyReplaySnapshot.participants}
           messages={historyReplaySnapshot.messages}
