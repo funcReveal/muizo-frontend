@@ -31,6 +31,12 @@ export type AuthPayload = {
   detail?: AuthErrorDetail;
 };
 
+export type UserProfilePayload = {
+  ok?: boolean;
+  data?: AuthUser | null;
+  error?: string;
+};
+
 export type RoomListPayload = {
   rooms?: RoomSummary[];
   error?: string;
@@ -150,6 +156,24 @@ export const apiRefreshAuthToken = (apiUrl: string) =>
   fetchJson<AuthPayload>(`${apiUrl}/api/auth/refresh`, {
     method: "POST",
     credentials: "include",
+  });
+
+export const apiUpsertCurrentUser = (
+  apiUrl: string,
+  token: string,
+  payload: {
+    display_name: string;
+    email?: string | null;
+    avatar_url?: string | null;
+  },
+) =>
+  fetchJson<UserProfilePayload>(`${apiUrl}/api/users`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
   });
 
 export const apiFetchRooms = (apiUrl: string) =>

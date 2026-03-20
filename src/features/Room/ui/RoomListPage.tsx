@@ -412,6 +412,7 @@ const RoomListPage: React.FC = () => {
     collectionsLoadingMore,
     collectionsHasMore,
     collectionsError,
+    collectionItemsError,
     collectionScope,
     publicCollectionsSort,
     fetchCollections,
@@ -1189,7 +1190,10 @@ const RoomListPage: React.FC = () => {
     if (roomCreateSourceMode === "publicCollection") {
       return {
         label: "公開收藏庫",
-        title: selectedCollection?.title || "尚未選擇公開收藏庫",
+        title:
+          selectedCollection?.title ||
+          selectedSharedCollection?.title ||
+          "尚未選擇公開收藏庫",
         detail: `共 ${playlistItems.length} 首歌曲`,
         thumbnail: selectedCollectionThumb,
       };
@@ -1197,7 +1201,10 @@ const RoomListPage: React.FC = () => {
     if (roomCreateSourceMode === "privateCollection") {
       return {
         label: "個人收藏庫",
-        title: selectedCollection?.title || "尚未選擇個人收藏庫",
+        title:
+          selectedCollection?.title ||
+          selectedSharedCollection?.title ||
+          "尚未選擇個人收藏庫",
         detail: `共 ${playlistItems.length} 首歌曲`,
         thumbnail: selectedCollectionThumb,
       };
@@ -1210,6 +1217,7 @@ const RoomListPage: React.FC = () => {
     playlistPreviewItems,
     roomCreateSourceMode,
     selectedCollection?.title,
+    selectedSharedCollection?.title,
     selectedCollectionThumb,
     selectedYoutubePlaylist?.thumbnail,
     selectedYoutubePlaylist?.title,
@@ -1559,7 +1567,6 @@ const RoomListPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!canUseGoogleLibraries) return;
     if (createLibraryTab === "public") {
       const switchedIntoPublic =
         previousCreateLibraryTabRef.current !== "public";
@@ -1574,6 +1581,7 @@ const RoomListPage: React.FC = () => {
       return () => window.clearTimeout(handle);
     }
     previousCreateLibraryTabRef.current = createLibraryTab;
+    if (!canUseGoogleLibraries) return;
     if (createLibraryTab === "personal") {
       void fetchCollections("owner");
       return;
@@ -1669,6 +1677,24 @@ const RoomListPage: React.FC = () => {
     loadCollectionItems,
     searchParams,
     setRoomCreateSourceMode,
+  ]);
+  useEffect(() => {
+    const sharedCollectionId = searchParams.get("sharedCollection");
+    if (!sharedCollectionId) return;
+    if (roomCreateSourceMode !== "publicCollection") return;
+    if (selectedCreateCollectionId !== sharedCollectionId) return;
+    if (playlistItems.length > 0 || playlistLoading) return;
+    if (collectionItemsError) return;
+
+    void loadCollectionItems(sharedCollectionId, { force: true });
+  }, [
+    collectionItemsError,
+    loadCollectionItems,
+    playlistItems.length,
+    playlistLoading,
+    roomCreateSourceMode,
+    searchParams,
+    selectedCreateCollectionId,
   ]);
   const handlePreviewPlaylistByUrl = async () => {
     const trimmed = playlistUrlDraft.trim();
@@ -1774,6 +1800,27 @@ const RoomListPage: React.FC = () => {
     setSharedCollectionMeta(null);
     setCreateLeftTab("settings");
     await loadCollectionItems(collectionId, { force: true });
+  };
+  const handleBackToCreateLibrary = () => {
+    setCreateLeftTab("library");
+    setSelectedCreateCollectionId(null);
+    setSelectedCreateYoutubeId(null);
+    setSharedCollectionMeta(null);
+    handledSharedCollectionRef.current = null;
+    handleResetPlaylist();
+    setPlaylistPreviewError(null);
+    lastAutoPreviewUrlRef.current = "";
+
+    if (searchParams.get("sharedCollection")) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("sharedCollection");
+      navigate(
+        {
+          search: nextParams.toString() ? `?${nextParams.toString()}` : "",
+        },
+        { replace: true },
+      );
+    }
   };
   const closePasswordDialog = () => {
     setPasswordDialog(null);
@@ -2129,9 +2176,11 @@ const RoomListPage: React.FC = () => {
                               | "personal"
                               | "youtube"
                               | "link";
-                            const isActive = createLibraryTab === key;
-                            const disabled =
-                              !canUseGoogleLibraries && key !== "link";
+                              const isActive = createLibraryTab === key;
+                              const disabled =
+                                !canUseGoogleLibraries &&
+                                key !== "public" &&
+                                key !== "link";
                             return (
                               <button
                                 key={item.key}
@@ -2175,7 +2224,7 @@ const RoomListPage: React.FC = () => {
                         <div className="mt-2 space-y-2">
                           <button
                             type="button"
-                            onClick={() => setCreateLeftTab("library")}
+                            onClick={handleBackToCreateLibrary}
                             className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-500/8 px-3 py-1.5 text-xs text-cyan-100 transition hover:border-cyan-300/35 hover:bg-cyan-500/12"
                           >
                             <ChevronLeftRounded sx={{ fontSize: 16 }} />
@@ -4054,7 +4103,8 @@ const RoomListPage: React.FC = () => {
                             ))}
 
                           {!canUseGoogleLibraries &&
-                          createLibraryTab !== "link" ? (
+                          (createLibraryTab === "personal" ||
+                            createLibraryTab === "youtube") ? (
                             <div className="mt-3 rounded-xl border border-dashed border-slate-600/60 bg-slate-900/40 p-4 text-sm text-slate-300">
                               <div className="mt-1">
                                 <Button

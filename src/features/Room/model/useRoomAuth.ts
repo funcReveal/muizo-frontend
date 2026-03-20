@@ -5,6 +5,7 @@ import {
   apiAuthGoogle,
   apiLogout,
   apiRefreshAuthToken,
+  apiUpsertCurrentUser,
 } from "./roomApi";
 import { USERNAME_MAX } from "./roomConstants";
 import { isProfileConfirmed, setProfileConfirmed } from "./roomStorage";
@@ -29,7 +30,7 @@ export type UseRoomAuthResult = {
   isProfileEditorOpen: boolean;
   setNicknameDraft: (value: string) => void;
   refreshAuthToken: () => Promise<string | null>;
-  confirmNickname: () => Promise<void>;
+  confirmNickname: () => Promise<boolean>;
   openProfileEditor: () => void;
   closeProfileEditor: () => void;
   loginWithGoogle: () => void;
@@ -128,14 +129,52 @@ export const useRoomAuth = ({
     const trimmed = nicknameDraft.trim();
     if (!trimmed) {
       setStatusText("請先輸入暱稱");
-      return;
+      return false;
     }
     if (trimmed.length > USERNAME_MAX) {
       setStatusText(`暱稱最多 ${USERNAME_MAX} 個字`);
-      return;
+      return false;
     }
 
-    setAuthUser((prev) => (prev ? { ...prev, display_name: trimmed } : prev));
+    if (apiUrl && authToken && authUser?.id) {
+      const run = async (token: string, allowRetry: boolean) => {
+        const { ok, status, payload } = await apiUpsertCurrentUser(apiUrl, token, {
+          display_name: trimmed,
+          email: authUser.email ?? null,
+          avatar_url: authUser.avatar_url ?? null,
+        });
+        if (ok) {
+          return payload?.data ?? null;
+        }
+        if (status === 401 && allowRetry) {
+          const refreshed = await refreshAuthToken();
+          if (refreshed) {
+            return run(refreshed, false);
+          }
+        }
+        throw new Error(payload?.error ?? "更新暱稱失敗");
+      };
+
+      try {
+        const nextUser = await run(authToken, true);
+        setAuthUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...(nextUser ?? {}),
+                display_name: trimmed,
+              }
+            : prev,
+        );
+      } catch (error) {
+        setStatusText(
+          error instanceof Error ? error.message : "更新暱稱失敗",
+        );
+        return false;
+      }
+    } else {
+      setAuthUser((prev) => (prev ? { ...prev, display_name: trimmed } : prev));
+    }
 
     persistUsername(trimmed);
     if (authUser?.id) {
@@ -144,10 +183,14 @@ export const useRoomAuth = ({
     setNeedsNicknameConfirm(false);
     setIsProfileEditorOpen(false);
     setStatusText("暱稱已設定");
+    return true;
   }, [
+    apiUrl,
+    authToken,
     authUser,
     nicknameDraft,
     persistUsername,
+    refreshAuthToken,
     setStatusText,
   ]);
 
