@@ -12,6 +12,8 @@ import { isProfileConfirmed, setProfileConfirmed } from "./roomStorage";
 import { clearTokenExpiry, persistTokenExpiry } from "../../../shared/auth/token";
 import { trackEvent } from "../../../shared/analytics/track";
 
+const AUTH_SESSION_HINT_KEY = "mq_hasAuthSession";
+
 type UseRoomAuthOptions = {
   apiUrl: string;
   username: string | null;
@@ -64,6 +66,11 @@ export const useRoomAuth = ({
     localStorage.removeItem("mq_authUser");
   }, []);
 
+  const hasStoredAuthSessionHint = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(AUTH_SESSION_HINT_KEY) === "1";
+  }, []);
+
   const clearAuth = useCallback(() => {
     setAuthToken(null);
     setAuthUser(null);
@@ -72,6 +79,9 @@ export const useRoomAuth = ({
     setNicknameDraft("");
     setIsProfileEditorOpen(false);
     clearTokenExpiry();
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(AUTH_SESSION_HINT_KEY);
+    }
     onClearAuth();
   }, [onClearAuth]);
 
@@ -81,6 +91,9 @@ export const useRoomAuth = ({
       setAuthUser(user);
       setAuthExpired(false);
       persistTokenExpiry(token);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(AUTH_SESSION_HINT_KEY, "1");
+      }
       const confirmed = isProfileConfirmed(user.id);
       if (!confirmed) {
         setNicknameDraft((user.display_name ?? "").slice(0, USERNAME_MAX));
@@ -323,9 +336,13 @@ export const useRoomAuth = ({
   useEffect(() => {
     if (!apiUrl || initialRefreshRef.current) return;
     initialRefreshRef.current = true;
+    if (!hasStoredAuthSessionHint()) {
+      setAuthLoading(false);
+      return;
+    }
     setAuthLoading(true);
     refreshAuthToken().finally(() => setAuthLoading(false));
-  }, [apiUrl, refreshAuthToken]);
+  }, [apiUrl, hasStoredAuthSessionHint, refreshAuthToken]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
