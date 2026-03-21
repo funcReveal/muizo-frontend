@@ -10,6 +10,9 @@ import {
   type SfxPresetId,
 } from "../../Room/model/sfx/gameSfxEngine";
 import {
+  DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID,
+  DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID,
+  DEFAULT_SCOREBOARD_BORDER_THEME_ID,
   DEFAULT_GAME_VOLUME,
   DEFAULT_SETTLEMENT_PREVIEW_SYNC,
   DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
@@ -26,6 +29,16 @@ import {
   type KeyBindings,
   type SettingsModelValue,
 } from "./settingsContext";
+import {
+  migrateLegacyScoreboardBorderEffect,
+  parseStoredScoreboardBorderAnimation,
+  parseStoredScoreboardBorderLineStyle,
+  parseStoredScoreboardBorderTheme,
+  SCOREBOARD_BORDER_STORAGE_KEYS,
+  type ScoreboardBorderAnimationId,
+  type ScoreboardBorderLineStyleId,
+  type ScoreboardBorderThemeId,
+} from "./scoreboardBorderEffects";
 
 const clampVolume = (value: number) => {
   if (!Number.isFinite(value)) return DEFAULT_SFX_VOLUME;
@@ -123,6 +136,51 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
       ),
     );
+  const [scoreboardBorderAnimation, setScoreboardBorderAnimationState] =
+    useState<ScoreboardBorderAnimationId>(() => {
+      if (typeof window === "undefined") {
+        return DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID;
+      }
+      const storedAnimation = window.localStorage.getItem(
+        SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+      );
+      if (storedAnimation) {
+        return parseStoredScoreboardBorderAnimation(storedAnimation);
+      }
+      return migrateLegacyScoreboardBorderEffect(
+        window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect),
+      ).animation;
+    });
+  const [scoreboardBorderLineStyle, setScoreboardBorderLineStyleState] =
+    useState<ScoreboardBorderLineStyleId>(() => {
+      if (typeof window === "undefined") {
+        return DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID;
+      }
+      const storedLineStyle = window.localStorage.getItem(
+        SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
+      );
+      if (storedLineStyle) {
+        return parseStoredScoreboardBorderLineStyle(storedLineStyle);
+      }
+      return migrateLegacyScoreboardBorderEffect(
+        window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect),
+      ).lineStyle;
+    });
+  const [scoreboardBorderTheme, setScoreboardBorderThemeState] =
+    useState<ScoreboardBorderThemeId>(() => {
+      if (typeof window === "undefined") {
+        return DEFAULT_SCOREBOARD_BORDER_THEME_ID;
+      }
+      const storedTheme = window.localStorage.getItem(
+        SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+      );
+      if (storedTheme) {
+        return parseStoredScoreboardBorderTheme(storedTheme);
+      }
+      return migrateLegacyScoreboardBorderEffect(
+        window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect),
+      ).theme;
+    });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -174,6 +232,30 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+      scoreboardBorderAnimation,
+    );
+  }, [scoreboardBorderAnimation]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
+      scoreboardBorderLineStyle,
+    );
+  }, [scoreboardBorderLineStyle]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+      scoreboardBorderTheme,
+    );
+  }, [scoreboardBorderTheme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     const onStorage = (event: StorageEvent) => {
       if (event.storageArea !== window.localStorage) return;
       if (event.key === KEY_BINDINGS_STORAGE_KEY && event.newValue) {
@@ -222,6 +304,30 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
             DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
           ),
         );
+        return;
+      }
+      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.animation) {
+        setScoreboardBorderAnimationState(
+          parseStoredScoreboardBorderAnimation(
+            window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.animation),
+          ),
+        );
+        return;
+      }
+      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle) {
+        setScoreboardBorderLineStyleState(
+          parseStoredScoreboardBorderLineStyle(
+            window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle),
+          ),
+        );
+        return;
+      }
+      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.theme) {
+        setScoreboardBorderThemeState(
+          parseStoredScoreboardBorderTheme(
+            window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.theme),
+          ),
+        );
       }
     };
 
@@ -260,6 +366,27 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     setSettlementPreviewVolumeState(clampVolume(next));
   }, []);
 
+  const setScoreboardBorderAnimation = useCallback(
+    (next: ScoreboardBorderAnimationId) => {
+      setScoreboardBorderAnimationState(parseStoredScoreboardBorderAnimation(next));
+    },
+    [],
+  );
+
+  const setScoreboardBorderLineStyle = useCallback(
+    (next: ScoreboardBorderLineStyleId) => {
+      setScoreboardBorderLineStyleState(parseStoredScoreboardBorderLineStyle(next));
+    },
+    [],
+  );
+
+  const setScoreboardBorderTheme = useCallback(
+    (next: ScoreboardBorderThemeId) => {
+      setScoreboardBorderThemeState(parseStoredScoreboardBorderTheme(next));
+    },
+    [],
+  );
+
   const resetSfxSettings = useCallback(() => {
     setGameVolumeState(DEFAULT_GAME_VOLUME);
     setSfxEnabledState(DEFAULT_SFX_ENABLED);
@@ -283,6 +410,12 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setSettlementPreviewSyncGameVolume,
       settlementPreviewVolume,
       setSettlementPreviewVolume,
+      scoreboardBorderAnimation,
+      setScoreboardBorderAnimation,
+      scoreboardBorderLineStyle,
+      setScoreboardBorderLineStyle,
+      scoreboardBorderTheme,
+      setScoreboardBorderTheme,
       resetSfxSettings,
     }),
     [
@@ -300,6 +433,12 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setSettlementPreviewSyncGameVolume,
       settlementPreviewVolume,
       setSettlementPreviewVolume,
+      scoreboardBorderAnimation,
+      setScoreboardBorderAnimation,
+      scoreboardBorderLineStyle,
+      setScoreboardBorderLineStyle,
+      scoreboardBorderTheme,
+      setScoreboardBorderTheme,
       resetSfxSettings,
     ],
   );

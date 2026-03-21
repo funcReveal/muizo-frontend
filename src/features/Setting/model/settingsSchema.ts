@@ -56,6 +56,13 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
     status: "ready",
   },
   {
+    id: "scoreboard-effects",
+    categoryId: "display",
+    title: "排行榜邊框特效",
+    description: "選擇排行榜高光玩家的邊框風格，並可直接預覽動畫效果。",
+    status: "ready",
+  },
+  {
     id: "display-presets",
     categoryId: "display",
     title: "顯示預設（規劃中）",

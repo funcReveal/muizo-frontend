@@ -2,6 +2,14 @@
 import { Badge, Chip } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 
+import {
+  DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID,
+  DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID,
+  DEFAULT_SCOREBOARD_BORDER_THEME_ID,
+  SettingsModelContext,
+} from "../../../../Setting/model/settingsContext";
+import { getScoreboardBorderThemeClassName } from "../../../../Setting/model/scoreboardBorderEffects";
+import AnimatedScoreboardBorder from "../../../../../shared/ui/AnimatedScoreboardBorder";
 import type { ChatMessage, RoomParticipant } from "../../../model/types";
 import { normalizeRoomDisplayText } from "../../../model/roomProviderUtils";
 import type { TopTwoSwapState } from "./gameRoomPageTypes";
@@ -75,6 +83,15 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   swapAnimationEnabled = true,
   swapReplayToken = 0,
 }) => {
+  const settingsModel = React.useContext(SettingsModelContext);
+  const scoreboardBorderAnimation =
+    settingsModel?.scoreboardBorderAnimation ??
+    DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID;
+  const scoreboardBorderLineStyle =
+    settingsModel?.scoreboardBorderLineStyle ??
+    DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID;
+  const scoreboardBorderTheme =
+    settingsModel?.scoreboardBorderTheme ?? DEFAULT_SCOREBOARD_BORDER_THEME_ID;
   const playerRowCount = React.useMemo(
     () => scoreboardRows.filter((row) => row.type === "player").length,
     [scoreboardRows],
@@ -486,6 +503,9 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
             const shouldShowComboFlare = isComboLeader && rowComboTier > 0;
             const shouldShowComboChampion = shouldShowComboFlare && idx === 0;
+            const rowComboThemeClass = shouldShowComboFlare
+              ? getScoreboardBorderThemeClassName(scoreboardBorderTheme)
+              : "";
             const displayName = normalizeRoomDisplayText(
               p.username,
               `玩家 ${idx + 1}`,
@@ -524,9 +544,18 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     : ""
                   } ${rowComboTierClass} ${shouldShowComboFlare ? "game-room-score-row--combo-flare" : ""
                   } ${shouldShowComboChampion ? "game-room-score-row--combo-champion" : ""
-                  }`}
+                  } ${rowComboThemeClass}`}
                 style={rowSwapStyle}
               >
+                {shouldShowComboChampion ? (
+                  <AnimatedScoreboardBorder
+                    animationId={scoreboardBorderAnimation}
+                    lineStyleId={scoreboardBorderLineStyle}
+                    themeId={scoreboardBorderTheme}
+                    variant="attached"
+                    className="scoreboard-border-effect"
+                  />
+                ) : null}
                 <span className="truncate flex items-center gap-2">
                   {hasAnswered && (
                     <span

@@ -1,6 +1,16 @@
 import { createContext, useContext } from "react";
 
 import type { SfxPresetId } from "../../Room/model/sfx/gameSfxEngine";
+import type {
+  ScoreboardBorderAnimationId,
+  ScoreboardBorderLineStyleId,
+  ScoreboardBorderThemeId,
+} from "./scoreboardBorderEffects";
+import {
+  DEFAULT_SCOREBOARD_BORDER_ANIMATION,
+  DEFAULT_SCOREBOARD_BORDER_LINE_STYLE,
+  DEFAULT_SCOREBOARD_BORDER_THEME,
+} from "./scoreboardBorderEffects";
 
 export type KeyBindings = Record<number, string>;
 
@@ -30,6 +40,11 @@ export const DEFAULT_SFX_PRESET: SfxPresetId = "arcade";
 export const DEFAULT_GAME_VOLUME = 50;
 export const DEFAULT_SETTLEMENT_PREVIEW_SYNC = true;
 export const DEFAULT_SETTLEMENT_PREVIEW_VOLUME = 50;
+export const DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID =
+  DEFAULT_SCOREBOARD_BORDER_ANIMATION;
+export const DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID =
+  DEFAULT_SCOREBOARD_BORDER_LINE_STYLE;
+export const DEFAULT_SCOREBOARD_BORDER_THEME_ID = DEFAULT_SCOREBOARD_BORDER_THEME;
 
 export type KeyBindingSetter = (
   next: KeyBindings | ((prev: KeyBindings) => KeyBindings),
@@ -50,6 +65,12 @@ export type SettingsModelValue = {
   setSettlementPreviewSyncGameVolume: (next: boolean) => void;
   settlementPreviewVolume: number;
   setSettlementPreviewVolume: (next: number) => void;
+  scoreboardBorderAnimation: ScoreboardBorderAnimationId;
+  setScoreboardBorderAnimation: (next: ScoreboardBorderAnimationId) => void;
+  scoreboardBorderLineStyle: ScoreboardBorderLineStyleId;
+  setScoreboardBorderLineStyle: (next: ScoreboardBorderLineStyleId) => void;
+  scoreboardBorderTheme: ScoreboardBorderThemeId;
+  setScoreboardBorderTheme: (next: ScoreboardBorderThemeId) => void;
   resetSfxSettings: () => void;
 };
 

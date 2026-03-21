@@ -17,6 +17,7 @@ import {
   Popover,
   Stack,
   SwipeableDrawer,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from "@mui/material";
@@ -29,8 +30,8 @@ import HistoryEduRoundedIcon from "@mui/icons-material/HistoryEduRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
+import PlaylistPlayRoundedIcon from "@mui/icons-material/PlaylistPlayRounded";
 import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
@@ -1579,7 +1580,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const controlPanel = hostPanel ?? (
     <Box className="room-lobby-control-placeholder">
       <div className="room-lobby-panel-title">
-        <TuneRoundedIcon fontSize="small" />
+        <PlaylistPlayRoundedIcon fontSize="small" />
         <Typography variant="subtitle2" className="text-slate-100">
           操作已鎖定
         </Typography>
@@ -1747,16 +1748,19 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 </div>
                 <div className="room-lobby-toolbar-group room-lobby-toolbar-group--history">
                   {onOpenHistoryDrawer && (
-                    <Button
-                      variant="outlined"
-                      color="inherit"
-                      size="small"
-                      startIcon={<HistoryEduRoundedIcon fontSize="small" />}
-                      className="room-lobby-toolbar-secondary-btn room-lobby-toolbar-history-btn"
-                      onClick={() => onOpenHistoryDrawer?.()}
-                    >
-                      對戰資訊
-                    </Button>
+                    <Tooltip title="對戰資訊" arrow>
+                      <Button
+                        variant="outlined"
+                        color="inherit"
+                        size="small"
+                        startIcon={<HistoryEduRoundedIcon fontSize="small" />}
+                        aria-label="對戰資訊"
+                        className="room-lobby-toolbar-history-btn"
+                        onClick={() => onOpenHistoryDrawer?.()}
+                      >
+                        對戰資訊
+                      </Button>
+                    </Tooltip>
                   )}
                 </div>
                 <div className="room-lobby-toolbar-group room-lobby-toolbar-group--utility">
@@ -1885,7 +1889,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   onClick={() => setMobileLobbyTab("host")}
                 >
                   <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
-                    <TuneRoundedIcon fontSize="inherit" />
+                    <PlaylistPlayRoundedIcon fontSize="inherit" />
                   </span>
                   <span className="room-lobby-mobile-tab__label">操作</span>
                 </button>
