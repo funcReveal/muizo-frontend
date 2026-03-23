@@ -228,6 +228,15 @@ export interface RoomContextValue {
   ) => Promise<{ ok: boolean; error?: string }>;
   handleApplySuggestionSnapshot: (suggestion: PlaylistSuggestion) => Promise<void>;
   handleChangePlaylist: () => Promise<void>;
+  handleApplyPlaylistUrlDirect: (url: string) => Promise<boolean>;
+  handleApplyCollectionDirect: (
+    collectionId: string,
+    title?: string | null,
+  ) => Promise<boolean>;
+  handleApplyYoutubePlaylistDirect: (
+    playlistId: string,
+    title?: string | null,
+  ) => Promise<boolean>;
   handleFetchPlaylistByUrl: (url: string) => Promise<void>;
   handleFetchPlaylist: (options?: {
     url?: string;

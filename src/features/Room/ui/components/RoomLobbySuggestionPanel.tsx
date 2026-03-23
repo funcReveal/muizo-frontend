@@ -1,4 +1,3 @@
-import React, { useEffect, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -14,6 +13,7 @@ import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
+import { useEffect, useRef, useState } from "react";
 
 import type { YoutubePlaylist } from "../../model/RoomContext";
 import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
@@ -44,6 +44,11 @@ export interface SuggestionPanelProps {
     },
   ) => Promise<{ ok: boolean; error?: string }>;
   extractPlaylistId: (url: string) => string | null;
+  openConfirmModal: (
+    title: string,
+    detail: string | undefined,
+    action: () => void,
+  ) => void;
 }
 
 const SUGGESTION_COOLDOWN_MS = 5000;
@@ -61,15 +66,12 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
   requestYoutubePlaylists,
   onSuggestPlaylist,
   extractPlaylistId,
+  openConfirmModal,
 }) => {
   const [suggestType, setSuggestType] = useState<SuggestType>("playlist");
   const [suggestPlaylistUrl, setSuggestPlaylistUrl] = useState("");
-  const [suggestCollectionId, setSuggestCollectionId] = useState<string | null>(
-    null,
-  );
-  const [suggestYoutubePlaylistId, setSuggestYoutubePlaylistId] = useState<
-    string | null
-  >(null);
+  const [suggestCollectionId, setSuggestCollectionId] = useState<string | null>(null);
+  const [suggestYoutubePlaylistId, setSuggestYoutubePlaylistId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownNow, setCooldownNow] = useState(() => Date.now());
@@ -81,11 +83,6 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
   const cooldownTimerRef = useRef<number | null>(null);
   const cooldownIntervalRef = useRef<number | null>(null);
 
-  const selectedSuggestCollection = collections.find(
-    (item) => item.id === suggestCollectionId,
-  );
-  const isSuggestCollectionPrivate =
-    selectedSuggestCollection?.visibility === "private";
   const isCooldownActive =
     typeof cooldownUntil === "number" && cooldownUntil > Date.now();
   const remainingCooldownSeconds = cooldownUntil
@@ -159,9 +156,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
   }, [cooldownUntil]);
 
   const clearSuggestError = () => {
-    if (suggestError) {
-      setSuggestError(null);
-    }
+    if (suggestError) setSuggestError(null);
   };
 
   const clearSuggestNoticeIfAllowed = () => {
@@ -170,13 +165,21 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     }
   };
 
-  const handleSubmitSuggestion = async () => {
+  const submitSuggestion = async (
+    type: "collection" | "playlist",
+    value: string,
+    options?: {
+      useSnapshot?: boolean;
+      sourceId?: string | null;
+      title?: string | null;
+    },
+  ) => {
     if (isCooldownActive) {
       const remaining = Math.max(
         1,
         Math.ceil(((cooldownUntil ?? Date.now()) - Date.now()) / 1000),
       );
-      setSuggestNotice(`\u8acb\u7b49\u5f85 ${remaining}s \u5f8c\u518d\u9001\u51fa\u4e0b\u4e00\u6b21\u63a8\u85a6\u3002`);
+      setSuggestNotice(`請等待 ${remaining}s 後再送出下一次推薦。`);
       return;
     }
 
@@ -185,65 +188,27 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     setSuggestNotice(null);
 
     try {
-      let result: { ok: boolean; error?: string } | null = null;
-
-      if (suggestType === "playlist") {
-        const trimmed = suggestPlaylistUrl.trim();
-        const playlistId = extractPlaylistId(trimmed);
-        if (!playlistId) {
-          setSuggestError(
-            "\u8acb\u8f38\u5165\u6709\u6548\u7684 YouTube \u64ad\u653e\u6e05\u55ae URL\u3002",
-          );
-          return;
-        }
-
-        result = await onSuggestPlaylist("playlist", trimmed, {
-          useSnapshot: false,
-          sourceId: playlistId,
-        });
-      } else if (suggestType === "youtube") {
-        if (!suggestYoutubePlaylistId) {
-          setSuggestError(
-            "\u8acb\u5148\u9078\u64c7 YouTube \u64ad\u653e\u6e05\u55ae\u3002",
-          );
-          return;
-        }
-
-        const selected = youtubePlaylists.find(
-          (playlist) => playlist.id === suggestYoutubePlaylistId,
-        );
-        result = await onSuggestPlaylist("playlist", suggestYoutubePlaylistId, {
-          useSnapshot: true,
-          sourceId: suggestYoutubePlaylistId,
-          title: selected?.title ?? null,
-        });
-      } else if (suggestCollectionId) {
-        result = await onSuggestPlaylist("collection", suggestCollectionId, {
-          useSnapshot: isSuggestCollectionPrivate,
-          sourceId: suggestCollectionId,
-          title: selectedSuggestCollection?.title ?? null,
-        });
-      }
-
+      const result = await onSuggestPlaylist(type, value, options);
       if (!result?.ok) {
-        setSuggestError(result?.error ?? "\u63d0\u4ea4\u63a8\u85a6\u5931\u6557\u3002");
+        setSuggestError(result?.error ?? "提交推薦失敗。");
         return;
       }
-
       setCooldownUntil(Date.now() + SUGGESTION_COOLDOWN_MS);
-      setSuggestNotice("\u63a8\u85a6\u5df2\u9001\u51fa\u3002");
+      setSuggestNotice("推薦已送出。");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const googleAuthStatusMessage = "\u8acb\u5148\u767b\u5165 Google";
+  const googleAuthStatusMessage = "請先登入 Google";
 
   const suggestionSourceStatus = (() => {
     if (suggestType === "playlist") {
       return {
-        message: "\u8cbc\u4e0a YouTube \u9023\u7d50",
-        tone: "neutral",
+        message: suggestPlaylistUrl.trim()
+          ? "按 Enter 後確認，會直接推薦給房主"
+          : "貼上 YouTube 連結",
+        tone: suggestPlaylistUrl.trim() ? "info" : "neutral",
         loading: false,
       } as const;
     }
@@ -259,10 +224,12 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
 
       return {
         message:
-          collectionScope === "public"
-            ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
-            : "\u9078\u64c7\u500b\u4eba\u6536\u85cf\u5eab",
-        tone: collections.length === 0 ? "warning" : "neutral",
+          suggestCollectionId
+            ? "確認後會直接推薦給房主"
+            : collectionScope === "public"
+              ? "選擇公開收藏庫"
+              : "選擇個人收藏庫",
+        tone: collections.length === 0 ? "warning" : suggestCollectionId ? "info" : "neutral",
         loading: collectionsLoading,
       } as const;
     }
@@ -284,8 +251,10 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     }
 
     return {
-      message: "\u9078\u64c7 YouTube \u64ad\u653e\u6e05\u55ae",
-      tone: youtubePlaylists.length === 0 ? "warning" : "neutral",
+      message: suggestYoutubePlaylistId
+        ? "確認後會直接推薦給房主"
+        : "選擇 YouTube 播放清單",
+      tone: youtubePlaylists.length === 0 ? "warning" : suggestYoutubePlaylistId ? "info" : "neutral",
       loading: youtubePlaylistsLoading,
     } as const;
   })();
@@ -302,7 +271,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
             <TipsAndUpdatesRoundedIcon fontSize="small" />
           </span>
           <Typography variant="subtitle2" className="text-slate-200">
-            {"\u63a8\u85a6\u64ad\u653e\u6e05\u55ae"}
+            推薦播放清單
           </Typography>
         </div>
       </AccordionSummary>
@@ -317,10 +286,11 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                 <TipsAndUpdatesRoundedIcon fontSize="small" />
               </span>
               <Typography variant="subtitle2" className="text-slate-200">
-                {"\u63a8\u85a6\u64ad\u653e\u6e05\u55ae"}
+                推薦播放清單
               </Typography>
             </div>
           </div>
+
           <Stack direction="row" className="room-lobby-mode-row room-lobby-mode-row--host">
             <Button
               size="small"
@@ -339,7 +309,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               }}
               disabled={isSubmitting}
             >
-              {"\u516c\u958b"}
+              公開
             </Button>
             <Button
               size="small"
@@ -358,7 +328,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               }}
               disabled={isSubmitting || !isGoogleAuthed}
             >
-              {"\u500b\u4eba"}
+              個人
             </Button>
             <Button
               size="small"
@@ -371,7 +341,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               }}
               disabled={isSubmitting}
             >
-              {"YouTube"}
+              YouTube
             </Button>
             <Button
               size="small"
@@ -384,7 +354,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               }}
               disabled={isSubmitting}
             >
-              {"\u9023\u7d50"}
+              連結
             </Button>
           </Stack>
 
@@ -407,7 +377,23 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                     clearSuggestError();
                     clearSuggestNoticeIfAllowed();
                   }}
-                  placeholder={"\u8cbc\u4e0a YouTube \u64ad\u653e\u6e05\u55ae URL"}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    const trimmed = suggestPlaylistUrl.trim();
+                    const playlistId = extractPlaylistId(trimmed);
+                    if (!playlistId) {
+                      setSuggestError("請輸入有效的 YouTube 播放清單 URL。");
+                      return;
+                    }
+                    openConfirmModal("要推薦這個播放清單給房主嗎？", trimmed, () => {
+                      void submitSuggestion("playlist", trimmed, {
+                        useSnapshot: false,
+                        sourceId: playlistId,
+                      });
+                    });
+                  }}
+                  placeholder="貼上 YouTube 播放清單 URL"
                   disabled={isSubmitting}
                   fullWidth
                 />
@@ -419,9 +405,22 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   size="small"
                   value={suggestCollectionId ?? ""}
                   onChange={(event) => {
-                    setSuggestCollectionId(event.target.value || null);
+                    const nextId = event.target.value || null;
+                    setSuggestCollectionId(nextId);
                     clearSuggestError();
                     clearSuggestNoticeIfAllowed();
+                    if (!nextId) return;
+                    const selected = collections.find((item) => item.id === nextId);
+                    const label = selected
+                      ? normalizeDisplayText(selected.title, "未命名收藏庫")
+                      : nextId;
+                    openConfirmModal("要推薦這個收藏庫給房主嗎？", label, () => {
+                      void submitSuggestion("collection", nextId, {
+                        useSnapshot: selected?.visibility === "private",
+                        sourceId: nextId,
+                        title: selected?.title ?? null,
+                      });
+                    });
                   }}
                   disabled={
                     isSubmitting ||
@@ -435,8 +434,8 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                       const selectedId = String(selected ?? "");
                       if (!selectedId) {
                         return collectionScope === "public"
-                          ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
-                          : "\u9078\u64c7\u79c1\u4eba\u6536\u85cf\u5eab";
+                          ? "選擇公開收藏庫"
+                          : "選擇私人收藏庫";
                       }
                       const selectedOption = collections.find(
                         (item) => item.id === selectedId,
@@ -444,28 +443,22 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                       if (!selectedOption) return selectedId;
                       return normalizeDisplayText(
                         selectedOption.title,
-                        "\u672a\u547d\u540d\u6536\u85cf\u5eab",
+                        "未命名收藏庫",
                       );
                     },
                   }}
                 >
                   <MenuItem value="">
-                    {collectionScope === "public"
-                      ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
-                      : "\u9078\u64c7\u79c1\u4eba\u6536\u85cf\u5eab"}
+                    {collectionScope === "public" ? "選擇公開收藏庫" : "選擇私人收藏庫"}
                   </MenuItem>
                   {collections.map((collection) => (
                     <MenuItem key={collection.id} value={collection.id}>
                       <div className="flex min-w-0 flex-col">
                         <span className="truncate">
-                          {normalizeDisplayText(
-                            collection.title,
-                            "\u672a\u547d\u540d\u6536\u85cf\u5eab",
-                          )}
+                          {normalizeDisplayText(collection.title, "未命名收藏庫")}
                         </span>
                         <span className="text-xs text-slate-400">
-                          {"\u4f7f\u7528\u6b21\u6578 "}
-                          {Math.max(0, Number(collection.use_count ?? 0))}
+                          使用次數 {Math.max(0, Number(collection.use_count ?? 0))}
                         </span>
                       </div>
                     </MenuItem>
@@ -479,9 +472,27 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   size="small"
                   value={suggestYoutubePlaylistId ?? ""}
                   onChange={(event) => {
-                    setSuggestYoutubePlaylistId(event.target.value || null);
+                    const nextId = event.target.value || null;
+                    setSuggestYoutubePlaylistId(nextId);
                     clearSuggestError();
                     clearSuggestNoticeIfAllowed();
+                    if (!nextId) return;
+                    const selected = youtubePlaylists.find(
+                      (item) => item.id === nextId,
+                    );
+                    const label = selected
+                      ? `${normalizeDisplayText(
+                          selected.title,
+                          "未命名 YouTube 播放清單",
+                        )} (${selected.itemCount})`
+                      : nextId;
+                    openConfirmModal("要推薦這份 YouTube 播放清單給房主嗎？", label, () => {
+                      void submitSuggestion("playlist", nextId, {
+                        useSnapshot: true,
+                        sourceId: nextId,
+                        title: selected?.title ?? null,
+                      });
+                    });
                   }}
                   disabled={isSubmitting || !isGoogleAuthed || youtubePlaylistsLoading}
                   fullWidth
@@ -490,7 +501,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                     renderValue: (selected) => {
                       const selectedId = String(selected ?? "");
                       if (!selectedId) {
-                        return "\u9078\u64c7 YouTube \u64ad\u653e\u6e05\u55ae";
+                        return "選擇 YouTube 播放清單";
                       }
                       const selectedOption = youtubePlaylists.find(
                         (item) => item.id === selectedId,
@@ -498,43 +509,23 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                       if (!selectedOption) return selectedId;
                       return `${normalizeDisplayText(
                         selectedOption.title,
-                        "\u672a\u547d\u540d YouTube \u64ad\u653e\u6e05\u55ae",
+                        "未命名 YouTube 播放清單",
                       )} (${selectedOption.itemCount})`;
                     },
                   }}
                 >
-                  <MenuItem value="">
-                    {"\u9078\u64c7 YouTube \u64ad\u653e\u6e05\u55ae"}
-                  </MenuItem>
+                  <MenuItem value="">選擇 YouTube 播放清單</MenuItem>
                   {youtubePlaylists.map((playlist) => (
                     <MenuItem key={playlist.id} value={playlist.id}>
                       {normalizeDisplayText(
                         playlist.title,
-                        "\u672a\u547d\u540d YouTube \u64ad\u653e\u6e05\u55ae",
+                        "未命名 YouTube 播放清單",
                       )}{" "}
                       ({playlist.itemCount})
                     </MenuItem>
                   ))}
                 </TextField>
               )}
-
-              <Button
-                size="small"
-                variant="contained"
-                color="warning"
-                className="room-lobby-apply-button room-lobby-apply-button--suggestion"
-                aria-label={"\u63a8\u85a6\u7d66\u623f\u4e3b"}
-                disabled={
-                  isSubmitting ||
-                  isCooldownActive ||
-                  (suggestType === "playlist" && !suggestPlaylistUrl.trim()) ||
-                  (suggestType === "collection" && !suggestCollectionId) ||
-                  (suggestType === "youtube" && !suggestYoutubePlaylistId)
-                }
-                onClick={() => void handleSubmitSuggestion()}
-              >
-                {"\u63a8\u85a6\u7d66\u623f\u4e3b"}
-              </Button>
             </Stack>
           </div>
 
