@@ -281,7 +281,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     isProfileEditorOpen,
     setNicknameDraft,
     refreshAuthToken,
-    confirmNickname,
+    confirmNickname: confirmNicknameInternal,
     openProfileEditor,
     closeProfileEditor,
     loginWithGoogle,
@@ -561,6 +561,50 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     setCurrentRoom,
     setStatusText,
   });
+
+  const confirmNickname = useCallback(async () => {
+    const previousUsername = username;
+    const previousDefaultRoomName = getDefaultRoomName(previousUsername);
+    const nextUsername = nicknameDraft.trim();
+    const nextDefaultRoomName = getDefaultRoomName(nextUsername || null);
+
+    const confirmed = await confirmNicknameInternal();
+    if (!confirmed || !nextUsername) {
+      return false;
+    }
+
+    setParticipants((previous) =>
+      previous.map((participant) =>
+        participant.clientId === clientId
+          ? { ...participant, name: nextUsername }
+          : participant,
+      ),
+    );
+
+    const shouldRenameCurrentRoom =
+      currentRoom?.hostClientId === clientId &&
+      currentRoom.name.trim() === previousDefaultRoomName &&
+      previousDefaultRoomName !== nextDefaultRoomName;
+
+    if (shouldRenameCurrentRoom) {
+      setRoomNameInput(nextDefaultRoomName);
+      setCurrentRoom((previous) =>
+        previous ? { ...previous, name: nextDefaultRoomName } : previous,
+      );
+      void handleUpdateRoomSettings({ name: nextDefaultRoomName });
+    }
+
+    return true;
+  }, [
+    clientId,
+    confirmNicknameInternal,
+    currentRoom,
+    getDefaultRoomName,
+    handleUpdateRoomSettings,
+    nicknameDraft,
+    setCurrentRoom,
+    username,
+  ]);
 
   useRoomProviderSocketLifecycle({
     username,

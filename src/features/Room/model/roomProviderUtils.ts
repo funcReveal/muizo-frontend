@@ -314,6 +314,25 @@ export const mergeRoomSummaryIntoCurrentRoom = (
 ): RoomState["room"] => ({
   ...current,
   ...summary,
+  playlist: {
+    ...current.playlist,
+    ...(summary.playlistId !== undefined ? { id: summary.playlistId ?? undefined } : {}),
+    ...(summary.playlistTitle !== undefined
+      ? { title: summary.playlistTitle ?? undefined }
+      : {}),
+    ...(summary.playlistSourceType !== undefined
+      ? { sourceType: summary.playlistSourceType ?? null }
+      : {}),
+    ...(typeof summary.playlistCount === "number"
+      ? {
+          totalCount: summary.playlistCount,
+          receivedCount: Math.min(
+            current.playlist.receivedCount,
+            summary.playlistCount,
+          ),
+        }
+      : {}),
+  },
   gameSettings: mergeGameSettings(current.gameSettings, summary.gameSettings),
 });
 

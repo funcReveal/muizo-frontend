@@ -3,7 +3,7 @@
 import RequireAuthRoute from "./guards/RequireAuthRoute";
 import LandingHomePage from "../features/Landing/ui/LandingHomePage";
 import RoomsLayoutShell from "../features/Room/ui/RoomsLayoutShell";
-import RoomListPage from "../features/Room/ui/RoomListPage";
+import RoomsHubPage from "../features/Room/ui/roomsHub/RoomsHubPage";
 import RoomLobbyPage from "../features/Room/ui/RoomLobbyPage";
 import RoomHistoryPage from "../features/Room/ui/RoomHistoryPage";
 import CollectionsPage from "../features/Collections/ui/CollectionsPage";
@@ -19,7 +19,7 @@ export function AppRouter() {
     <Routes>
       <Route element={<RoomsLayoutShell />}>
         <Route path="/" element={<LandingHomePage />} />
-        <Route path="/rooms" element={<RoomListPage />} />
+        <Route path="/rooms" element={<RoomsHubPage />} />
         <Route path="/rooms/:roomId" element={<RoomLobbyPage />} />
         <Route
           path="/history"

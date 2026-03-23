@@ -24,7 +24,7 @@ const GuestEntryCard: React.FC<GuestEntryCardProps> = ({
       <div className="space-y-3">
         <label
           htmlFor="nickname"
-          className="text-[11px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]"
+          className="text-[15px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]"
         >
           暱稱
         </label>
@@ -34,9 +34,10 @@ const GuestEntryCard: React.FC<GuestEntryCardProps> = ({
           onChange={(e) =>
             onInputChange(e.target.value.slice(0, nicknameMaxLength))
           }
-          placeholder="例如：Night DJ"
+          autoComplete="off"
+          placeholder="上限 16 字..."
           maxLength={nicknameMaxLength}
-          className="landing-input w-full rounded-2xl px-4 py-3 text-sm"
+          className="landing-input w-full rounded-2xl px-4 py-3 text-sm mt-1"
         />
         <button
           type="button"

@@ -12,7 +12,9 @@ const GoogleLoginCard: React.FC<GoogleLoginCardProps> = ({
   return (
     <article className="landing-card landing-card-google">
       <header className="space-y-3">
-        <span className="landing-badge landing-badge-recommended">推薦登入</span>
+        <span className="landing-badge landing-badge-recommended">
+          推薦登入
+        </span>
         <h3 className="landing-card-title">Google 登入</h3>
         <p className="landing-card-desc">
           你的進度與資料會穩定保存，避免重整後狀態遺失，也能跨裝置無縫延續。
@@ -20,10 +22,12 @@ const GoogleLoginCard: React.FC<GoogleLoginCardProps> = ({
       </header>
 
       <ul className="landing-feature-list">
-        <li className="landing-feature-item">同步 YouTube 播放清單，快速建立題庫</li>
+        <li className="landing-feature-item">
+          同步 YouTube 播放清單，快速建立題庫
+        </li>
         <li className="landing-feature-item">保留個人收藏與編輯紀錄</li>
         <li className="landing-feature-item">跨裝置延續登入狀態</li>
-        <li className="landing-feature-item">新功能優先支援帳號用戶</li>
+        <li className="landing-feature-item">新功能優先支援登入用戶</li>
       </ul>
 
       <div className="flex h-full flex-col justify-end">

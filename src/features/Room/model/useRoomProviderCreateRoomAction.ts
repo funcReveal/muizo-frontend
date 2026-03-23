@@ -38,6 +38,7 @@ import type {
   ClientSocket,
   GameState,
   PlaylistItem,
+  PlaylistSourceType,
   RoomParticipant,
   RoomState,
   RoomSummary,
@@ -153,6 +154,22 @@ export const useRoomProviderCreateRoomAction = ({
   setRoomNameInput,
   setRoomMaxPlayersInput,
 }: UseRoomProviderCreateRoomActionParams) => {
+  const resolvePlaylistSourceType = (
+    sourceMode: RoomCreateSourceMode,
+  ): PlaylistSourceType => {
+    switch (sourceMode) {
+      case "publicCollection":
+        return "public_collection";
+      case "privateCollection":
+        return "private_collection";
+      case "youtube":
+        return "youtube_google_import";
+      case "link":
+      default:
+        return "youtube_pasted_link";
+    }
+  };
+
   const getDefaultRoomName = (nextUsername: string | null) =>
     nextUsername ? `${nextUsername}'s room` : "新房間";
 
@@ -297,6 +314,7 @@ export const useRoomProviderCreateRoomAction = ({
         uploadId,
         id: lastFetchedPlaylistId,
         title: lastFetchedPlaylistTitle ?? undefined,
+        sourceType: resolvePlaylistSourceType(roomCreateSourceMode),
         totalCount: uploadItems.length,
         items: firstChunk,
         isLast,

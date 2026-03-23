@@ -23,9 +23,16 @@ export interface PlaylistItem {
   provider?: string;
 }
 
+export type PlaylistSourceType =
+  | "public_collection"
+  | "private_collection"
+  | "youtube_google_import"
+  | "youtube_pasted_link";
+
 export interface PlaylistState {
   id?: string;
   title?: string;
+  sourceType?: PlaylistSourceType | null;
   uploadId?: string;
   items: PlaylistItem[];
   totalCount: number;
@@ -265,7 +272,7 @@ export interface RoomSummary {
   playlistCount: number;
   playlistId?: string | null;
   playlistTitle?: string | null;
-  playlistSourceType?: string | null;
+  playlistSourceType?: PlaylistSourceType | null;
   gameSettings?: {
     questionCount: number;
     playDurationSec?: number;
@@ -318,6 +325,7 @@ export interface ClientToServerEvents {
         uploadId: string;
         id?: string;
         title?: string;
+        sourceType?: PlaylistSourceType | null;
         totalCount: number;
         items?: PlaylistItem[];
         isLast?: boolean;
@@ -438,6 +446,7 @@ export interface ClientToServerEvents {
         uploadId: string;
         id?: string;
         title?: string;
+        sourceType?: PlaylistSourceType | null;
         totalCount: number;
         items?: PlaylistItem[];
         isLast?: boolean;

@@ -218,7 +218,8 @@ const readSettlementSessionCache = (
             )
           : {},
       updatedAt:
-        typeof parsed.updatedAt === "number" && Number.isFinite(parsed.updatedAt)
+        typeof parsed.updatedAt === "number" &&
+        Number.isFinite(parsed.updatedAt)
           ? parsed.updatedAt
           : undefined,
     };
@@ -443,9 +444,9 @@ const RoomLobbyPage: React.FC = () => {
   const settlementSummaryListRequestRef = useRef<Promise<
     RoomSettlementHistorySummary[]
   > | null>(null);
-  const historyDrawerRequestRef = useRef<
-    Promise<RoomSettlementHistorySummary[]> | null
-  >(null);
+  const historyDrawerRequestRef = useRef<Promise<
+    RoomSettlementHistorySummary[]
+  > | null>(null);
   const waitingChecklist = useMemo(() => {
     const backendOrder = [
       "server_validating",
@@ -520,6 +521,17 @@ const RoomLobbyPage: React.FC = () => {
       hour12: false,
     });
   }, [kickedNotice?.bannedUntil]);
+  const kickedReasonLabel = useMemo(() => {
+    const reason = kickedNotice?.reason?.trim();
+    if (!reason) return "你已被房主移出房間。";
+    if (
+      reason ===
+      "This room was closed automatically after 30 minutes of inactivity."
+    ) {
+      return "此房間因閒置超過 30 分鐘，已自動關閉並將你移出。";
+    }
+    return reason;
+  }, [kickedNotice?.reason]);
 
   const settlementSessionCacheKey =
     currentRoom?.id && clientId
@@ -667,7 +679,10 @@ const RoomLobbyPage: React.FC = () => {
         if (!changed) return prev;
         return pruneSettlementReplayByRoundKey(next, {
           roomId: currentRoom.id,
-          pinnedRoundKeys: [activeSettlementRoundKey, roomScopedSettlementHistory[0]?.roundKey],
+          pinnedRoundKeys: [
+            activeSettlementRoundKey,
+            roomScopedSettlementHistory[0]?.roundKey,
+          ],
         });
       });
       setSettlementHistorySummaries((prev) => {
@@ -849,9 +864,7 @@ const RoomLobbyPage: React.FC = () => {
           setActiveSettlementRoundKey(snapshot.roundKey);
         }
       } catch (error) {
-        setStatusText(
-          error instanceof Error ? error.message : "載入回放失敗",
-        );
+        setStatusText(error instanceof Error ? error.message : "載入回放失敗");
         setActiveSettlementRoundKey(null);
       } finally {
         setLoadingSettlementRoundKey((prev) =>
@@ -1095,8 +1108,10 @@ const RoomLobbyPage: React.FC = () => {
 
   const latestSettlementRoundKey = useMemo(() => {
     if (mergedSettlementSummaries.length === 0) return null;
-    return mergedSettlementSummaries[mergedSettlementSummaries.length - 1]
-      ?.roundKey ?? null;
+    return (
+      mergedSettlementSummaries[mergedSettlementSummaries.length - 1]
+        ?.roundKey ?? null
+    );
   }, [mergedSettlementSummaries]);
 
   const historyDrawerSummaries = useMemo(
@@ -1110,8 +1125,8 @@ const RoomLobbyPage: React.FC = () => {
     historyDrawerLoading && historyDrawerSummaries.length === 0;
   const isSettlementReviewLoading = Boolean(
     resolvedActiveSettlementRoundKey &&
-      loadingSettlementRoundKey === resolvedActiveSettlementRoundKey &&
-      !activeSettlementSnapshot,
+    loadingSettlementRoundKey === resolvedActiveSettlementRoundKey &&
+    !activeSettlementSnapshot,
   );
 
   const roomSnapshotByRoundKey = useMemo(() => {
@@ -1181,7 +1196,11 @@ const RoomLobbyPage: React.FC = () => {
       ) ??
       null
     );
-  }, [historyReplaySummary, roomScopedSettlementHistory, roomSnapshotByRoundKey]);
+  }, [
+    historyReplaySummary,
+    roomScopedSettlementHistory,
+    roomSnapshotByRoundKey,
+  ]);
 
   const openHistoryReplayModal = useCallback(
     async (summary: RoomSettlementHistorySummary) => {
@@ -1369,7 +1388,8 @@ const RoomLobbyPage: React.FC = () => {
               Match Settlement
             </div>
             <p className="mt-3 text-sm text-slate-200">
-              對戰即將開始結算，{settlementStartBroadcastRemainingSec} 秒後自動切換。
+              對戰即將開始結算，{settlementStartBroadcastRemainingSec}{" "}
+              秒後自動切換。
             </p>
             <div className="mt-4 flex items-center justify-center">
               <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
@@ -1418,7 +1438,11 @@ const RoomLobbyPage: React.FC = () => {
         <div className="room-battle-history-list">
           {showHistoryDrawerInitialLoading ? (
             <div className="room-battle-history-empty room-battle-history-empty--loading">
-              <div className="room-battle-history-loader" role="status" aria-live="polite">
+              <div
+                className="room-battle-history-loader"
+                role="status"
+                aria-live="polite"
+              >
                 <div className="room-battle-history-loader__headline">
                   <span
                     className="room-battle-history-sync-strip__dot"
@@ -1426,15 +1450,24 @@ const RoomLobbyPage: React.FC = () => {
                   />
                   <span>讀取房間歷史中...</span>
                 </div>
-                <span className="room-battle-history-loader__rail" aria-hidden="true">
+                <span
+                  className="room-battle-history-loader__rail"
+                  aria-hidden="true"
+                >
                   <span className="room-battle-history-loader__rail-fill" />
                 </span>
-                <div className="room-battle-history-loader__chips" aria-hidden="true">
+                <div
+                  className="room-battle-history-loader__chips"
+                  aria-hidden="true"
+                >
                   <span />
                   <span />
                   <span />
                 </div>
-                <div className="room-battle-history-loader__ghosts" aria-hidden="true">
+                <div
+                  className="room-battle-history-loader__ghosts"
+                  aria-hidden="true"
+                >
                   <span />
                   <span />
                 </div>
@@ -1459,10 +1492,16 @@ const RoomLobbyPage: React.FC = () => {
                 >
                   <div className="room-battle-history-item-head">
                     <div>
-                      <Typography variant="subtitle2" className="room-battle-history-round">
+                      <Typography
+                        variant="subtitle2"
+                        className="room-battle-history-round"
+                      >
                         第 {summary.roundNo} 局
                       </Typography>
-                      <Typography variant="caption" className="room-battle-history-time">
+                      <Typography
+                        variant="caption"
+                        className="room-battle-history-time"
+                      >
                         {new Date(summary.endedAt).toLocaleString("zh-TW", {
                           hour12: false,
                         })}
@@ -1499,7 +1538,9 @@ const RoomLobbyPage: React.FC = () => {
                       variant="outlined"
                       color="info"
                       className="room-battle-history-action room-battle-history-action--detail"
-                      disabled={historyReplayLoadingRoundKey === summary.roundKey}
+                      disabled={
+                        historyReplayLoadingRoundKey === summary.roundKey
+                      }
                       onClick={() => {
                         void openHistoryReplayModal(summary);
                       }}
@@ -1558,9 +1599,13 @@ const RoomLobbyPage: React.FC = () => {
         void openHistoryReplayModal(summary);
       }}
       formatDateTime={formatHistoryDateTime}
-      getMatchDurationMs={(startedAt, endedAt) => Math.max(0, endedAt - startedAt)}
+      getMatchDurationMs={(startedAt, endedAt) =>
+        Math.max(0, endedAt - startedAt)
+      }
       formatDuration={(durationMs) =>
-        durationMs && durationMs > 0 ? formatHistoryDuration(0, durationMs) : "-"
+        durationMs && durationMs > 0
+          ? formatHistoryDuration(0, durationMs)
+          : "-"
       }
     >
       {historyReplaySummary &&
@@ -1568,7 +1613,11 @@ const RoomLobbyPage: React.FC = () => {
       !historyReplaySnapshot ? (
         <div className="flex h-full min-h-[240px] items-center justify-center rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55">
           <div className="inline-flex items-center gap-3 text-sm text-[var(--mc-text-muted)]">
-            <CircularProgress size={18} thickness={4.8} sx={{ color: "#38bdf8" }} />
+            <CircularProgress
+              size={18}
+              thickness={4.8}
+              sx={{ color: "#38bdf8" }}
+            />
             正在載入回放內容...
           </div>
         </div>
@@ -1598,9 +1647,15 @@ const RoomLobbyPage: React.FC = () => {
     </HistoryReplayModal>
   );
   const settlementReviewLoadingBanner = isSettlementReviewLoading ? (
-    <div className="room-lobby-floating-progress" role="status" aria-live="polite">
+    <div
+      className="room-lobby-floating-progress"
+      role="status"
+      aria-live="polite"
+    >
       <div className="room-lobby-floating-progress__label">
-        <span className="room-lobby-floating-progress__kicker">Replay Sync</span>
+        <span className="room-lobby-floating-progress__kicker">
+          Replay Sync
+        </span>
         <span>正在準備對戰回放...</span>
       </div>
       <span className="room-lobby-floating-progress__rail" aria-hidden="true">
@@ -1627,25 +1682,11 @@ const RoomLobbyPage: React.FC = () => {
           <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(244,63,94,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(244,63,94,0.05)_1px,transparent_1px)] [background-size:20px_20px]" />
           <div className="relative grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-3 rounded-2xl border border-rose-300/35 bg-rose-300/10 px-4 py-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-200/45 bg-rose-400/10 text-lg text-rose-100">
-                  !
-                </span>
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.28em] text-rose-100/80">
-                    Room Access
-                  </div>
-                  <div className="text-sm font-semibold text-rose-50 sm:text-base">
-                    Access Updated
-                  </div>
-                </div>
-              </div>
-
               <h1 className="mt-5 text-2xl font-semibold tracking-tight text-[var(--mc-text)] sm:text-3xl">
                 你已離開這個房間
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)] sm:text-[15px]">
-                {kickedNotice?.reason ?? "你已被房主移出房間。"}
+                {kickedReasonLabel}
               </p>
               {kickedBannedUntilLabel ? (
                 <p className="mt-2 text-xs leading-5 text-amber-100/85">
@@ -1654,12 +1695,6 @@ const RoomLobbyPage: React.FC = () => {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex max-w-full items-center rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/75 px-3 py-1 text-xs text-[var(--mc-text-muted)]">
-                  房間
-                  <span className="ml-1 truncate text-[var(--mc-text)]">
-                    {roomId}
-                  </span>
-                </span>
                 <span className="inline-flex max-w-full items-center rounded-full border border-rose-300/22 bg-rose-400/10 px-3 py-1 text-xs text-rose-100/90">
                   玩家
                   <span className="ml-1 truncate text-rose-50">{username}</span>
@@ -1720,32 +1755,14 @@ const RoomLobbyPage: React.FC = () => {
             <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(245,158,11,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.03)_1px,transparent_1px)] [background-size:18px_18px]" />
             <div className="relative grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
               <div className="min-w-0 rounded-2xl border border-amber-200/12 bg-[color-mix(in_srgb,var(--mc-surface-strong)_80%,black_20%)] p-5">
-                <div className="flex items-center gap-3">
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-amber-300/35 bg-amber-300/10 shadow-[0_0_24px_-10px_rgba(245,158,11,0.9)]">
-                    <span className="absolute inset-1 rounded-[10px] border border-amber-200/20" />
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-200/85 border-t-transparent" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-[0.28em] text-[var(--mc-text-muted)]">
-                      Room Connect
-                    </div>
-                    <div className="truncate text-base font-semibold text-[var(--mc-text)] sm:text-lg">
-                      正在進入房間，請稍候
-                    </div>
-                  </div>
+                <div className="truncate text-base font-semibold text-[var(--mc-text)] sm:text-lg">
+                  正在進入房間，請稍候
                 </div>
-
                 <p className="mt-4 text-sm leading-6 text-[var(--mc-text-muted)]">
                   目前正在同步房間狀態、聊天室與歌單資料，完成後會自動切換到房間畫面。
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <span className="inline-flex min-w-0 max-w-full items-center rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/75 px-3 py-1 text-xs text-[var(--mc-text-muted)]">
-                    房號
-                    <span className="ml-1 truncate text-[var(--mc-text)]">
-                      {roomId}
-                    </span>
-                  </span>
                   <span className="inline-flex min-w-0 max-w-full items-center rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100/90">
                     玩家
                     <span className="ml-1 truncate text-amber-50">
@@ -1856,22 +1873,6 @@ const RoomLobbyPage: React.FC = () => {
             <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(245,158,11,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.03)_1px,transparent_1px)] [background-size:20px_20px]" />
             <div className="relative grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-3 rounded-2xl border border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface-strong)_88%,black_12%)] px-4 py-3">
-                  <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/28 bg-amber-300/10">
-                    <span className="absolute h-5 w-5 rounded-full border border-amber-200/55" />
-                    <span className="absolute h-[2px] w-4 rotate-45 rounded-full bg-amber-200/70" />
-                    <span className="absolute h-1.5 w-1.5 rounded-full bg-amber-200" />
-                  </span>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.28em] text-[var(--mc-text-muted)]">
-                      Room Check
-                    </div>
-                    <div className="text-sm font-semibold text-[var(--mc-text)] sm:text-base">
-                      Room Check
-                    </div>
-                  </div>
-                </div>
-
                 <h1 className="mt-5 text-2xl font-semibold tracking-tight text-[var(--mc-text)] sm:text-3xl">
                   找不到這個房間
                 </h1>
@@ -1880,12 +1881,6 @@ const RoomLobbyPage: React.FC = () => {
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="inline-flex max-w-full items-center rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 px-3 py-1 text-xs text-[var(--mc-text-muted)]">
-                    房間 ID
-                    <span className="ml-1 truncate text-[var(--mc-text)]">
-                      {roomId}
-                    </span>
-                  </span>
                   <span className="inline-flex items-center rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100/90">
                     請確認房號與邀請狀態
                   </span>
@@ -1906,26 +1901,6 @@ const RoomLobbyPage: React.FC = () => {
                   >
                     建立新房間
                   </button>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[var(--mc-border)] bg-[color-mix(in_srgb,var(--mc-surface)_86%,black_14%)] p-4 sm:p-5">
-                <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
-                  Helpful Hints
-                </div>
-                <ul className="mt-3 space-y-3 text-sm leading-6 text-[var(--mc-text-muted)]">
-                  <li className="rounded-xl border border-[var(--mc-border)]/70 bg-black/15 px-3 py-2">
-                    確認邀請連結是否仍有效。
-                  </li>
-                  <li className="rounded-xl border border-[var(--mc-border)]/70 bg-black/15 px-3 py-2">
-                    若房主重新建立房間，請索取新的邀請連結。
-                  </li>
-                  <li className="rounded-xl border border-[var(--mc-border)]/70 bg-black/15 px-3 py-2">
-                    若仍無法加入，可嘗試重新整理後再試。
-                  </li>
-                </ul>
-                <div className="mt-4 rounded-xl border border-amber-300/18 bg-amber-300/8 px-3 py-2 text-xs leading-5 text-amber-100/85">
-                  如果你是房主，請確認房間尚未被關閉，且目前仍允許新的玩家加入。
                 </div>
               </div>
             </div>
@@ -2111,4 +2086,3 @@ const RoomLobbyPage: React.FC = () => {
 };
 
 export default RoomLobbyPage;
-

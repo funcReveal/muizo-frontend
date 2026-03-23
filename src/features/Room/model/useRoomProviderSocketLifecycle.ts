@@ -410,6 +410,16 @@ export const useRoomProviderSocketLifecycle = ({
           setRouteRoomResolved(true);
         },
         onParticipantsUpdated: ({ roomId, participants, hostClientId }) => {
+          setRooms((prev) =>
+            prev.map((room) =>
+              room.id === roomId
+                ? {
+                    ...room,
+                    playerCount: participants.length,
+                  }
+                : room,
+            ),
+          );
           if (roomId !== currentRoomIdRef.current) return;
           if (
             presenceSeededRoomIdRef.current !== roomId ||
@@ -428,7 +438,15 @@ export const useRoomProviderSocketLifecycle = ({
           setParticipants((prev) =>
             mergeCachedParticipantPing(participants, prev),
           );
-          setCurrentRoom((prev) => (prev ? { ...prev, hostClientId } : prev));
+          setCurrentRoom((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  hostClientId,
+                  playerCount: participants.length,
+                }
+              : prev,
+          );
         },
         onRoomPingUpdated: ({ roomId, pings }) => {
           if (roomId !== currentRoomIdRef.current) return;

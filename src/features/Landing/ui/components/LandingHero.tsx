@@ -65,7 +65,7 @@ const LandingHero: React.FC = () => {
             <span className="landing-word-caret" />
           </span>
           <span className="block landing-title-accent">
-            秒進房間，直接開始挑戰
+            創建房間，邀請好友開始挑戰！
           </span>
         </h2>
         <p className="landing-hero-vision">

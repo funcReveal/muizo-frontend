@@ -5,11 +5,14 @@ import {
   apiAuthGoogle,
   apiLogout,
   apiRefreshAuthToken,
+  apiUpsertCurrentUser,
 } from "./roomApi";
 import { USERNAME_MAX } from "./roomConstants";
 import { isProfileConfirmed, setProfileConfirmed } from "./roomStorage";
 import { clearTokenExpiry, persistTokenExpiry } from "../../../shared/auth/token";
 import { trackEvent } from "../../../shared/analytics/track";
+
+const AUTH_SESSION_HINT_KEY = "mq_hasAuthSession";
 
 type UseRoomAuthOptions = {
   apiUrl: string;
@@ -29,7 +32,7 @@ export type UseRoomAuthResult = {
   isProfileEditorOpen: boolean;
   setNicknameDraft: (value: string) => void;
   refreshAuthToken: () => Promise<string | null>;
-  confirmNickname: () => Promise<void>;
+  confirmNickname: () => Promise<boolean>;
   openProfileEditor: () => void;
   closeProfileEditor: () => void;
   loginWithGoogle: () => void;
@@ -63,6 +66,11 @@ export const useRoomAuth = ({
     localStorage.removeItem("mq_authUser");
   }, []);
 
+  const hasStoredAuthSessionHint = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(AUTH_SESSION_HINT_KEY) === "1";
+  }, []);
+
   const clearAuth = useCallback(() => {
     setAuthToken(null);
     setAuthUser(null);
@@ -71,6 +79,9 @@ export const useRoomAuth = ({
     setNicknameDraft("");
     setIsProfileEditorOpen(false);
     clearTokenExpiry();
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(AUTH_SESSION_HINT_KEY);
+    }
     onClearAuth();
   }, [onClearAuth]);
 
@@ -80,6 +91,9 @@ export const useRoomAuth = ({
       setAuthUser(user);
       setAuthExpired(false);
       persistTokenExpiry(token);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(AUTH_SESSION_HINT_KEY, "1");
+      }
       const confirmed = isProfileConfirmed(user.id);
       if (!confirmed) {
         setNicknameDraft((user.display_name ?? "").slice(0, USERNAME_MAX));
@@ -128,14 +142,52 @@ export const useRoomAuth = ({
     const trimmed = nicknameDraft.trim();
     if (!trimmed) {
       setStatusText("請先輸入暱稱");
-      return;
+      return false;
     }
     if (trimmed.length > USERNAME_MAX) {
       setStatusText(`暱稱最多 ${USERNAME_MAX} 個字`);
-      return;
+      return false;
     }
 
-    setAuthUser((prev) => (prev ? { ...prev, display_name: trimmed } : prev));
+    if (apiUrl && authToken && authUser?.id) {
+      const run = async (token: string, allowRetry: boolean) => {
+        const { ok, status, payload } = await apiUpsertCurrentUser(apiUrl, token, {
+          display_name: trimmed,
+          email: authUser.email ?? null,
+          avatar_url: authUser.avatar_url ?? null,
+        });
+        if (ok) {
+          return payload?.data ?? null;
+        }
+        if (status === 401 && allowRetry) {
+          const refreshed = await refreshAuthToken();
+          if (refreshed) {
+            return run(refreshed, false);
+          }
+        }
+        throw new Error(payload?.error ?? "更新暱稱失敗");
+      };
+
+      try {
+        const nextUser = await run(authToken, true);
+        setAuthUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...(nextUser ?? {}),
+                display_name: trimmed,
+              }
+            : prev,
+        );
+      } catch (error) {
+        setStatusText(
+          error instanceof Error ? error.message : "更新暱稱失敗",
+        );
+        return false;
+      }
+    } else {
+      setAuthUser((prev) => (prev ? { ...prev, display_name: trimmed } : prev));
+    }
 
     persistUsername(trimmed);
     if (authUser?.id) {
@@ -144,10 +196,14 @@ export const useRoomAuth = ({
     setNeedsNicknameConfirm(false);
     setIsProfileEditorOpen(false);
     setStatusText("暱稱已設定");
+    return true;
   }, [
+    apiUrl,
+    authToken,
     authUser,
     nicknameDraft,
     persistUsername,
+    refreshAuthToken,
     setStatusText,
   ]);
 
@@ -280,9 +336,13 @@ export const useRoomAuth = ({
   useEffect(() => {
     if (!apiUrl || initialRefreshRef.current) return;
     initialRefreshRef.current = true;
+    if (!hasStoredAuthSessionHint()) {
+      setAuthLoading(false);
+      return;
+    }
     setAuthLoading(true);
     refreshAuthToken().finally(() => setAuthLoading(false));
-  }, [apiUrl, refreshAuthToken]);
+  }, [apiUrl, hasStoredAuthSessionHint, refreshAuthToken]);
 
   useEffect(() => {
     const url = new URL(window.location.href);

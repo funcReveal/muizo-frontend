@@ -13,6 +13,7 @@ import type {
   ClientSocket,
   GameState,
   PlaylistItem,
+  PlaylistSourceType,
   PlaylistSuggestion,
   RoomState,
 } from "./types";
@@ -110,6 +111,22 @@ export const useRoomProviderPlaylistActions = ({
   handleResetPlaylist,
   setPlaylistUrl,
 }: UseRoomProviderPlaylistActionsParams) => {
+  const resolveCollectionSourceType = (collectionId: string) => {
+    const selectedCollection = collections.find((item) => item.id === collectionId);
+    return selectedCollection?.visibility === "private"
+      ? "private_collection"
+      : "public_collection";
+  };
+
+  const resolvePlaylistSourceType = (
+    sourceId: string | null | undefined,
+  ): PlaylistSourceType => {
+    if (sourceId && collections.some((item) => item.id === sourceId)) {
+      return resolveCollectionSourceType(sourceId);
+    }
+    return authToken ? "youtube_google_import" : "youtube_pasted_link";
+  };
+
   const handleSuggestPlaylist = useCallback(
     async (
       type: "collection" | "playlist",
@@ -190,6 +207,12 @@ export const useRoomProviderPlaylistActions = ({
             sourceId: snapshot?.sourceId ?? options?.sourceId ?? undefined,
             items: snapshot?.items,
             readToken: readToken ?? undefined,
+            sourceType:
+              type === "collection"
+                ? resolveCollectionSourceType(snapshot?.sourceId ?? options?.sourceId ?? value)
+                : authToken
+                  ? "youtube_google_import"
+                  : "youtube_pasted_link",
           },
           (ack: Ack<null>) => {
             if (!ack) {
@@ -272,6 +295,7 @@ export const useRoomProviderPlaylistActions = ({
           uploadId,
           id: lastFetchedPlaylistId,
           title: lastFetchedPlaylistTitle ?? undefined,
+          sourceType: resolvePlaylistSourceType(lastFetchedPlaylistId),
           totalCount: uploadItems.length,
           items: firstChunk,
           isLast,
@@ -352,6 +376,12 @@ export const useRoomProviderPlaylistActions = ({
             uploadId,
             id: sourceId ?? undefined,
             title,
+            sourceType:
+              suggestion.type === "collection"
+                ? resolveCollectionSourceType(sourceId ?? suggestion.value)
+                : authToken
+                  ? "youtube_google_import"
+                  : "youtube_pasted_link",
             totalCount: uploadItems.length,
             items: firstChunk,
             isLast,

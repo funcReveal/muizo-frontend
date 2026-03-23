@@ -55,7 +55,7 @@ export interface RoomContextValue {
   needsNicknameConfirm: boolean;
   nicknameDraft: string;
   setNicknameDraft: (value: string) => void;
-  confirmNickname: () => void;
+  confirmNickname: () => Promise<boolean>;
   isProfileEditorOpen: boolean;
   openProfileEditor: () => void;
   closeProfileEditor: () => void;
