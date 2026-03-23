@@ -13,7 +13,7 @@ const messages: ChatMessage[] = [
     roomId: "room-1",
     userId: "system:presence",
     username: "系統",
-    content: "A 已加入房間",
+    content: "A 加入了房間",
     timestamp: 1000,
   },
   {
@@ -21,7 +21,7 @@ const messages: ChatMessage[] = [
     roomId: "room-1",
     userId: "system:settlement-review",
     username: "系統",
-    content: "第 1 局結束，房主排名 2/4，得分 620，答對 3/5 題。",
+    content: "第 1 局結算：答對 2/4，得分 620，最高連擊 3/5。",
     timestamp: 2000,
   },
   {
@@ -29,7 +29,7 @@ const messages: ChatMessage[] = [
     roomId: "room-1",
     userId: "system:settlement-review",
     username: "系統",
-    content: "第 2 局結束，房主排名 1/4，得分 980，答對 5/5 題。",
+    content: "第 2 局結算：答對 1/4，得分 980，最高連擊 5/5。",
     timestamp: 3000,
   },
 ];
@@ -51,16 +51,16 @@ describe("RoomLobbyChatPanel", () => {
       />,
     );
 
-    expect(screen.getByText("A 已加入房間")).toBeInTheDocument();
+    expect(screen.getByText("A 加入了房間")).toBeInTheDocument();
     expect(
-      screen.getByText("第 1 局結束，房主排名 2/4，得分 620，答對 3/5 題。"),
+      screen.getByText("第 1 局結算：答對 2/4，得分 620，最高連擊 3/5。"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("第 2 局結束，房主排名 1/4，得分 980，答對 5/5 題。"),
+      screen.getByText("第 2 局結算：答對 1/4，得分 980，最高連擊 5/5。"),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "查看上一局" }));
-    fireEvent.click(screen.getByRole("button", { name: "查看對戰資訊" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看結算" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看歷史" }));
 
     expect(onOpenSettlementByRoundKey).toHaveBeenCalledWith("round-latest");
     expect(onOpenHistoryDrawer).toHaveBeenCalledTimes(1);

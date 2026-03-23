@@ -29,11 +29,12 @@ import HistoryEduRoundedIcon from "@mui/icons-material/HistoryEduRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
+import PlaylistPlayRoundedIcon from "@mui/icons-material/PlaylistPlayRounded";
 import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import KeyRoundedIcon from "@mui/icons-material/KeyRounded";
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
@@ -331,16 +332,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ? "*".repeat(roomPassword.length)
     : "";
   const playlistRowHeight = isMobileLobbyLayout ? 72 : 84;
+  const desktopPlaylistVisibleRows = 4;
   const playlistViewportMinHeight = isMobileLobbyLayout
     ? 300
     : isCompactLobbyLayout
       ? 248
-      : 360;
+      : desktopPlaylistVisibleRows * playlistRowHeight;
   const playlistViewportMaxHeight = isMobileLobbyLayout
     ? 460
     : isCompactLobbyLayout
       ? 360
-      : 520;
+      : desktopPlaylistVisibleRows * playlistRowHeight;
   const playlistListViewportHeight = Math.min(
     playlistViewportMaxHeight,
     Math.max(
@@ -370,7 +372,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   })();
   const displayRoomName = normalizeDisplayText(currentRoom?.name, "未命名房間");
   const hostPlaylistPrimaryText =
-    "請先選擇來源，再將歌單套用到房間。支援玩家推薦、貼上連結、收藏庫與 YouTube。";
+    "推薦播放清單會優先作為預設焦點；你也可以切換成公開、個人、YouTube 或連結來源後再套用到房間。";
   const isHostCollectionEmptyNotice =
     hostSourceType === "collection" &&
     !collectionsLoading &&
@@ -926,17 +928,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     return (
       <div style={style}>
         <div
-          className={`room-lobby-playlist-row px-3.5 py-2.5 flex items-center gap-3 border-b border-slate-800/60 ${canOpenItem ? "cursor-pointer" : ""
-            }`}
-          role={canOpenItem ? "button" : undefined}
-          tabIndex={canOpenItem ? 0 : -1}
-          onClick={() => handleOpenPlaylistItem(item.url)}
-          onKeyDown={(event) => {
-            if (!canOpenItem) return;
-            if (event.key !== "Enter" && event.key !== " ") return;
-            event.preventDefault();
-            handleOpenPlaylistItem(item.url);
-          }}
+          className="room-lobby-playlist-row px-3.5 py-2.5 flex items-center gap-3 border-b border-slate-800/60"
         >
           <div className="flex flex-1 min-w-0 items-center gap-2 overflow-x-hidden">
             <Avatar
@@ -959,11 +951,21 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 variant="body2"
                 className="max-w-99/100 truncate text-slate-400 "
               >
-                <span
-                  className="room-lobby-playlist-row-link block w-full truncate text-left text-slate-100 hover:text-sky-300 transition-colors duration-300"
-                >
-                  {displayTitle}
-                </span>
+                {canOpenItem ? (
+                  <button
+                    type="button"
+                    className="room-lobby-playlist-row-link room-lobby-playlist-row-link--button"
+                    onClick={() => handleOpenPlaylistItem(item.url)}
+                    aria-label={`開啟歌曲：${displayTitle}`}
+                    title={displayTitle}
+                  >
+                    {displayTitle}
+                  </button>
+                ) : (
+                  <span className="room-lobby-playlist-row-link">
+                    {displayTitle}
+                  </span>
+                )}
               </Typography>
 
               <p className="text-[11px] text-slate-400">
@@ -1089,7 +1091,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       try {
         await onInvite();
         setInviteSuccess(true);
-        setTimeout(() => setInviteSuccess(false), 1000);
+        setTimeout(() => setInviteSuccess(false), 1500);
       } catch (e) {
         console.log(e);
       }
@@ -1213,6 +1215,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           {
             key: "settings",
             label: "設定",
+            ariaLabel: "開啟房主設定",
             icon: <SettingsOutlinedIcon fontSize="small" />,
             onClick: openSettingsModal,
             disabled: Boolean(settingsActionDisabledReason),
@@ -1225,6 +1228,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       {
         key: "leave",
         label: "離開",
+        ariaLabel: "離開房間",
         icon: <LogoutRoundedIcon fontSize="small" />,
         onClick: requestLeaveRoom,
         disabled: false,
@@ -1296,6 +1300,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           type="button"
           className={`room-lobby-access-chip room-lobby-access-chip--code ${roomCodeCopied ? "is-copied" : ""
             }`}
+          aria-label="複製房間代碼"
           title="複製房間代碼"
           onClick={() => {
             void handleCopyRoomCode();
@@ -1318,13 +1323,30 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           className={`room-lobby-access-btn ${inviteSuccess
             ? "room-lobby-action-btn--invite-success"
             : "room-lobby-action-btn--invite"
-            }`}
+            } room-lobby-access-btn--icon-only`}
           disabled={Boolean(inviteActionDisabledReason)}
-          title={inviteActionDisabledReason ?? "複製邀請連結"}
-          startIcon={<PersonAddAlt1RoundedIcon fontSize="small" />}
+          title={inviteSuccess ? "邀請連結已複製" : inviteActionDisabledReason ?? "複製邀請連結"}
+          aria-label={inviteSuccess ? "邀請連結已複製" : "複製邀請連結"}
           onClick={runInvite}
         >
-          {inviteSuccess ? "已複製" : "邀請"}
+          <span className="room-lobby-access-btn__icon" aria-hidden="true">
+            {inviteSuccess ? (
+              <CheckRoundedIcon fontSize="small" />
+            ) : (
+              <PersonAddAlt1RoundedIcon fontSize="small" />
+            )}
+          </span>
+          <span className="room-lobby-sr-only">
+            {inviteSuccess ? "邀請連結已複製" : "複製邀請連結"}
+          </span>
+          {inviteSuccess ? (
+            <span className="room-lobby-access-success-badge" aria-hidden="true">
+              已複製
+            </span>
+          ) : null}
+          <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+            {inviteSuccess ? "邀請連結已複製" : "邀請"}
+          </span>
         </Button>
       ) : null}
       {isHost && (currentRoom?.hasPin ?? currentRoom?.hasPassword) ? (
@@ -1431,6 +1453,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         size="small"
                         color="inherit"
                         className="room-lobby-player-action"
+                        aria-label="玩家操作"
+                        title="玩家操作"
                         sx={{
                           width: 30,
                           height: 30,
@@ -1444,10 +1468,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           setActionAnchorEl(event.currentTarget);
                           setActionTargetId(p.clientId);
                         }}
-                      >
-                        <MoreHorizRoundedIcon fontSize="small" />
-                      </IconButton>
-                    )}
+                        >
+                          <MoreHorizRoundedIcon fontSize="small" />
+                          <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+                            玩家操作
+                          </span>
+                        </IconButton>
+                      )}
                   </div>
                   {showActions && (
                     <Popover
@@ -1579,7 +1606,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const controlPanel = hostPanel ?? (
     <Box className="room-lobby-control-placeholder">
       <div className="room-lobby-panel-title">
-        <TuneRoundedIcon fontSize="small" />
+        <PlaylistPlayRoundedIcon fontSize="small" />
         <Typography variant="subtitle2" className="text-slate-100">
           操作已鎖定
         </Typography>
@@ -1683,27 +1710,28 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 >
                   {displayRoomName}
                 </Typography>
-
                 {showInlineRoomAccess ? (
-                  <div className="room-lobby-header-inline-actions">
+                  <div className="room-lobby-header-inline-actions room-lobby-header-inline-actions--title">
                     {roomAccessActions}
                   </div>
                 ) : null}
               </div>
 
-              <div className="room-lobby-metric-grid">
-                {roomMetricCards.map((card) => (
-                  <div
-                    key={card.key}
-                    className={`room-lobby-metric-card room-lobby-metric-card--${card.tone}`}
-                  >
-                    <span className="room-lobby-metric-icon">{card.icon}</span>
-                    <div className="room-lobby-metric-copy">
-                      <small>{card.label}</small>
-                      <strong>{card.value}</strong>
+              <div className="room-lobby-header-info-band">
+                <div className="room-lobby-metric-grid">
+                  {roomMetricCards.map((card) => (
+                    <div
+                      key={card.key}
+                      className={`room-lobby-metric-card room-lobby-metric-card--${card.tone}`}
+                    >
+                      <span className="room-lobby-metric-icon">{card.icon}</span>
+                      <div className="room-lobby-metric-copy">
+                        <small>{card.label}</small>
+                        <strong>{card.value}</strong>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </Stack>
@@ -1721,11 +1749,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       variant="contained"
                       color="success"
                       size="small"
-                      startIcon={<SportsEsportsRoundedIcon fontSize="small" />}
-                      className="room-lobby-action-btn room-lobby-action-btn--desktop-main"
+                      aria-label="返回遊戲"
+                      className="room-lobby-action-btn room-lobby-action-btn--desktop-main room-lobby-toolbar-icon-btn room-lobby-toolbar-icon-btn--resume"
                       onClick={() => onOpenGame?.()}
                     >
-                      返回遊戲
+                      <span className="room-lobby-toolbar-icon-btn__icon" aria-hidden="true">
+                        <SportsEsportsRoundedIcon fontSize="small" />
+                      </span>
+                      <span className="room-lobby-sr-only">返回遊戲</span>
+                      <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+                        返回遊戲
+                      </span>
                     </Button>
                   )}
                   {isHost && gameState?.status !== "playing" && (
@@ -1733,15 +1767,28 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       variant="contained"
                       color="inherit"
                       size="small"
-                      startIcon={<PlayArrowRoundedIcon fontSize="small" />}
-                      className="room-lobby-action-btn room-lobby-action-btn--desktop-main room-lobby-action-btn--start"
+                      aria-label={
+                        isStartBroadcastActive
+                          ? `即將開始 ${startBroadcastRemainingSec} 秒`
+                          : "開始遊戲"
+                      }
+                      className="room-lobby-action-btn room-lobby-action-btn--desktop-main room-lobby-action-btn--start room-lobby-toolbar-icon-btn room-lobby-toolbar-icon-btn--start"
                       disabled={Boolean(startActionDisabledReason)}
-                      title={startActionDisabledReason ?? "開始遊戲"}
                       onClick={onStartGame}
                     >
-                      {isStartBroadcastActive
-                        ? `即將開始 ${startBroadcastRemainingSec}s`
-                        : "開始遊戲"}
+                      <span className="room-lobby-toolbar-icon-btn__icon" aria-hidden="true">
+                        <PlayArrowRoundedIcon fontSize="small" />
+                      </span>
+                      <span className="room-lobby-sr-only">
+                        {isStartBroadcastActive
+                          ? `即將開始 ${startBroadcastRemainingSec} 秒`
+                          : "開始遊戲"}
+                      </span>
+                      <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+                        {isStartBroadcastActive
+                          ? `即將開始 ${startBroadcastRemainingSec}s`
+                          : "開始遊戲"}
+                      </span>
                     </Button>
                   )}
                 </div>
@@ -1751,11 +1798,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       variant="outlined"
                       color="inherit"
                       size="small"
-                      startIcon={<HistoryEduRoundedIcon fontSize="small" />}
-                      className="room-lobby-toolbar-secondary-btn room-lobby-toolbar-history-btn"
+                      aria-label="對戰資訊"
+                      className="room-lobby-toolbar-history-btn room-lobby-toolbar-icon-btn"
                       onClick={() => onOpenHistoryDrawer?.()}
                     >
-                      對戰資訊
+                      <span className="room-lobby-toolbar-icon-btn__icon" aria-hidden="true">
+                        <HistoryEduRoundedIcon fontSize="small" />
+                      </span>
+                      <span className="room-lobby-sr-only">對戰資訊</span>
+                      <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+                        對戰資訊
+                      </span>
                     </Button>
                   )}
                 </div>
@@ -1766,7 +1819,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       variant={action.variant}
                       color="inherit"
                       size="small"
-                      className={`room-lobby-toolbar-utility-btn ${action.key === "settings"
+                      className={`room-lobby-toolbar-utility-btn room-lobby-toolbar-icon-btn ${action.key === "settings"
                         ? "room-lobby-toolbar-settings-btn"
                         : ""
                         } ${action.key === "leave"
@@ -1774,14 +1827,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           : ""
                         }`}
                       disabled={action.disabled}
-                      title={action.title}
-                      startIcon={action.icon}
-                      aria-label={
-                        action.key === "settings" ? "開啟房主設定" : undefined
-                      }
+                      aria-label={action.ariaLabel}
                       onClick={action.onClick}
                     >
-                      {action.label}
+                      <span className="room-lobby-toolbar-icon-btn__icon" aria-hidden="true">
+                        {action.icon}
+                      </span>
+                      <span className="room-lobby-sr-only">{action.ariaLabel}</span>
+                      <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+                        {action.label}
+                      </span>
                     </Button>
                   ))}
                 </div>
@@ -1813,7 +1868,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           variant={action.tone === "history" ? "outlined" : "contained"}
                           color={action.tone === "resume" ? "success" : "inherit"}
                           size="small"
-                          startIcon={action.icon}
                           className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-primary-action ${action.tone === "start"
                             ? "room-lobby-action-btn--start room-lobby-mobile-start-btn"
                             : action.tone === "history"
@@ -1822,8 +1876,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                             }`}
                           onClick={action.onClick}
                           disabled={action.disabled}
+                          aria-label={action.label}
+                          title={action.label}
                         >
-                          {action.label}
+                          <span className="room-lobby-mobile-action-icon" aria-hidden="true">
+                            {action.icon}
+                          </span>
+                          <span className="room-lobby-sr-only">{action.label}</span>
                         </Button>
                       ))}
                     </div>
@@ -1842,17 +1901,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action ${action.key === "settings" ? "room-lobby-mobile-secondary-action--settings" : ""
                           } ${action.key === "leave" ? "room-lobby-mobile-secondary-action--leave" : ""
                           }`}
-                        aria-label={action.compactLabel}
+                        aria-label={action.label}
                         disabled={action.disabled}
-                        title={action.title}
+                        title={action.label}
                         onClick={action.onClick}
                       >
                         <span className="room-lobby-mobile-secondary-action__icon">
                           {action.icon}
                         </span>
-                        <span className="room-lobby-mobile-secondary-action__label">
-                          {action.compactLabel}
-                        </span>
+                        <span className="room-lobby-sr-only">{action.label}</span>
                       </Button>
                     ))}
                   </div>
@@ -1885,7 +1942,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   onClick={() => setMobileLobbyTab("host")}
                 >
                   <span className="room-lobby-mobile-tab__icon" aria-hidden="true">
-                    <TuneRoundedIcon fontSize="inherit" />
+                    <PlaylistPlayRoundedIcon fontSize="inherit" />
                   </span>
                   <span className="room-lobby-mobile-tab__label">操作</span>
                 </button>
@@ -2019,10 +2076,24 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           </>
         ) : (
           <>
-            {participantsPanel}
-            {controlPanel}
-            {chatPanelStage}
-            {playlistPanel}
+            <div className="room-lobby-column room-lobby-column--social">
+              <div className="room-lobby-column-section room-lobby-column-section--participants">
+                {participantsPanel}
+              </div>
+              <div className="room-lobby-column-divider" aria-hidden="true" />
+              <div className="room-lobby-column-section room-lobby-column-section--chat">
+                {chatPanelStage}
+              </div>
+            </div>
+            <div className="room-lobby-column room-lobby-column--music">
+              <div className="room-lobby-column-section room-lobby-column-section--control">
+                {controlPanel}
+              </div>
+              <div className="room-lobby-column-divider" aria-hidden="true" />
+              <div className="room-lobby-column-section room-lobby-column-section--playlist">
+                {playlistPanel}
+              </div>
+            </div>
           </>
         )}
       </CardContent>

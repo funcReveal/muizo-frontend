@@ -12,7 +12,7 @@ import {
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
-import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
+import YouTubeIcon from "@mui/icons-material/YouTube";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
 
 import type { YoutubePlaylist } from "../../model/RoomContext";
@@ -364,7 +364,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               size="small"
               variant={suggestType === "youtube" ? "contained" : "outlined"}
               className="room-lobby-mode-button room-lobby-mode-button--youtube"
-              startIcon={<LibraryMusicRoundedIcon fontSize="small" />}
+              startIcon={<YouTubeIcon fontSize="small" />}
               onClick={() => {
                 setSuggestType("youtube");
                 clearSuggestError();

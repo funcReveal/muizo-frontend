@@ -66,10 +66,10 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
             <div className="room-chat-empty-note room-chat-empty-note--lobby">
               <span className="room-chat-empty-meta">
                 <span className="room-chat-empty-dot" aria-hidden="true" />
-                聊天室
+                尚未有訊息
               </span>
               <Typography component="p" variant="body2" className="room-chat-empty-copy">
-                目前還沒有新訊息，先和房間成員打聲招呼吧。
+                在這裡和房間成員打招呼，系統通知與結算提示也會出現在聊天室。
               </Typography>
             </div>
           </div>
@@ -183,7 +183,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                           onOpenSettlementByRoundKey?.(settlementRoundKey);
                         }}
                       >
-                        查看上一局
+                        查看結算
                       </Button>
                     )}
                     {canOpenHistoryDrawer && (
@@ -197,7 +197,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                           onOpenHistoryDrawer?.();
                         }}
                       >
-                        查看對戰資訊
+                        查看歷史
                       </Button>
                     )}
                   </Box>

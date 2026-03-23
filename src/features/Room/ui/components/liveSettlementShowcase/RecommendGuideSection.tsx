@@ -8,6 +8,7 @@ import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
 import SmartDisplayRoundedIcon from "@mui/icons-material/SmartDisplayRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
+import YouTubeIcon from "@mui/icons-material/YouTube";
 
 import type { RecommendCategory } from "../liveSettlementUtils";
 
@@ -78,6 +79,7 @@ interface RecommendGuideSectionProps {
   previewSwitchNotice: string | null;
   effectivePreviewVolume: number;
   settlementPreviewSyncGameVolume: boolean;
+  onPreviewVolumeChange: (next: number) => void;
   recommendPreviewStageRef: React.RefObject<HTMLDivElement | null>;
   isCurrentRecommendationPreviewOpen: boolean;
   previewPlayerState: "idle" | "playing" | "paused";
@@ -106,13 +108,6 @@ const CATEGORY_META: Array<{ key: RecommendCategory; icon: React.ElementType }> 
   { key: "hard", icon: LocalFireDepartmentRoundedIcon },
   { key: "other", icon: LibraryMusicRoundedIcon },
 ];
-
-const YouTubeBadge: React.FC = () => (
-  <svg viewBox="0 0 36 24" aria-hidden="true" className="h-7 w-10">
-    <rect x="1" y="1" width="34" height="22" rx="7" fill="#FF0033" />
-    <path d="M15 8.3L23.2 12L15 15.7V8.3Z" fill="#FFFFFF" />
-  </svg>
-);
 
 const AutoMarqueeTitle: React.FC<{
   text: string;
@@ -205,6 +200,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   previewSwitchNotice,
   effectivePreviewVolume,
   settlementPreviewSyncGameVolume,
+  onPreviewVolumeChange,
   recommendPreviewStageRef,
   isCurrentRecommendationPreviewOpen,
   previewPlayerState,
@@ -341,7 +337,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
               </div>
 
               <div className="shrink-0">
-                <YouTubeBadge />
+                <YouTubeIcon className="text-[2rem] text-[#ff0033]" />
               </div>
             </div>
 
@@ -503,8 +499,30 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-              <span>試聽音量 {effectivePreviewVolume}%</span>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+              <span className="inline-flex items-center gap-1.5">
+                <GraphicEqRoundedIcon className="text-[0.95rem]" />
+                試聽音量
+              </span>
+              <div className="relative h-2 min-w-[180px] flex-1 overflow-hidden rounded-full bg-slate-800/80">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(90deg,rgba(34,211,238,0.95),rgba(96,165,250,0.95))]"
+                  style={{ width: `${Math.max(0, Math.min(100, effectivePreviewVolume))}%` }}
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={effectivePreviewVolume}
+                  onChange={(event) => onPreviewVolumeChange(Number(event.target.value))}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  aria-label="調整試聽音量"
+                />
+              </div>
+              <span className="rounded-full border border-cyan-300/25 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-100">
+                {effectivePreviewVolume}%
+              </span>
               <span>{settlementPreviewSyncGameVolume ? "同步遊戲音量" : "獨立試聽音量"}</span>
             </div>
           </article>

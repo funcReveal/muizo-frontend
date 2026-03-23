@@ -697,32 +697,32 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                         }`}
                       >
                         <div className="space-y-3.5">
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="min-w-0 flex-1 text-left">
+                          <div className="min-w-0 text-left">
+                            <div className="min-w-0">
                               <HoverMarqueeText
                                 text={choice.title}
                                 className="max-w-full text-[1.02rem] font-semibold leading-relaxed text-white"
                               />
                             </div>
-                            <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 lg:max-w-[46%] lg:justify-end">
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
                               {isCorrect && (
                                 <span
-                                  className={`${reviewStatusBadgeBaseClass} border-emerald-300/45 bg-emerald-400/15 text-emerald-100`}
+                                  className={`${reviewStatusBadgeBaseClass} h-6 border-emerald-300/45 bg-emerald-400/15 px-2.5 text-[10px] text-emerald-100`}
                                 >
                                   正確答案
                                 </span>
                               )}
                               {isMine && (
                                 <span
-                                  className={`${reviewStatusBadgeBaseClass} border-sky-300/45 bg-sky-400/15 text-sky-100`}
+                                  className={`${reviewStatusBadgeBaseClass} h-6 border-sky-300/45 bg-sky-400/15 px-2.5 text-[10px] text-sky-100`}
                                 >
                                   玩家選擇
                                 </span>
                               )}
-                              <span className="inline-flex h-7 items-center justify-center rounded-full border border-slate-500/65 bg-slate-900/75 px-3 text-xs font-semibold text-slate-200">
+                              <span className="inline-flex h-6 items-center justify-center rounded-full border border-slate-500/65 bg-slate-900/75 px-2.5 text-[10px] font-semibold text-slate-200">
                                 {pickedCount} 人作答
                               </span>
-                              <span className="inline-flex h-7 items-center justify-center rounded-full border border-white/10 bg-black/20 px-3 text-xs font-semibold text-slate-200">
+                              <span className="inline-flex h-6 items-center justify-center rounded-full border border-white/10 bg-black/20 px-2.5 text-[10px] font-semibold text-slate-200">
                                 {Math.round(pickedPercent)}%
                               </span>
                             </div>

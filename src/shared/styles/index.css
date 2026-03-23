@@ -19,6 +19,12 @@
   --mc-glow: rgba(245, 158, 11, 0.25);
 }
 
+@property --gr-row-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
 html {
   /* Keep viewport scrollbar behavior default so pages without overflow do not show an empty gutter. */
 }
@@ -1017,7 +1023,7 @@ body {
 }
 
 .room-lobby-card-header {
-  padding: 20px 22px 18px !important;
+  padding: 34px 22px 20px !important;
 }
 
 .room-lobby-card-header .MuiCardHeader-content {
@@ -1038,6 +1044,15 @@ body {
   min-width: 0;
 }
 
+.room-lobby-header-stack {
+  padding-top: 4px;
+}
+
+.room-lobby-header-identity {
+  display: grid;
+  gap: 16px;
+}
+
 .room-lobby-header-copy {
   display: inline-flex;
   max-width: 100%;
@@ -1046,7 +1061,7 @@ body {
   align-items: center;
   justify-content: flex-start;
   flex-wrap: nowrap;
-  gap: 10px;
+  gap: 14px;
 }
 
 .room-lobby-header-title {
@@ -1067,28 +1082,27 @@ body {
 .room-lobby-header-inline-actions {
   flex: 0 0 auto;
   display: inline-flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
   min-width: 0;
-  white-space: nowrap;
 }
 
 .room-lobby-header-inline-actions .room-lobby-access-chip--code {
-  flex: 0 0 auto;
-  min-width: auto;
-}
-
-.room-lobby-header-inline-actions .room-lobby-access-chip--code {
-  flex: 0 0 auto;
-  min-width: 146px;
+  flex: 0 1 auto;
+  min-width: max-content;
+  padding-inline: 14px 18px;
 }
 
 .room-lobby-header-inline-actions .room-lobby-access-copy > strong {
-  font-size: 14px;
-  letter-spacing: 0.12em;
+  font-size: 13px;
+  letter-spacing: 0.1em;
   white-space: nowrap;
+}
+
+.room-lobby-header-inline-actions .room-lobby-access-copy {
+  overflow: visible;
 }
 
 .room-lobby-header-inline-actions
@@ -1105,8 +1119,9 @@ body {
 
 .room-lobby-header-inline-actions .room-lobby-access-copied-badge {
   left: 50%;
-  top: -11px;
+  top: -12px;
   transform: translateX(-50%);
+  min-width: 46px;
 }
 
 .room-lobby-header-inline-actions .room-lobby-access-btn.MuiButton-root {
@@ -1283,7 +1298,7 @@ body {
 .room-lobby-access-copied-badge {
   position: absolute;
   left: 50%;
-  top: -12px;
+  top: -14px;
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
@@ -1309,13 +1324,17 @@ body {
   display: grid;
   gap: 2px;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .room-lobby-access-copy > strong {
+  display: block;
   font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
   font-size: 20px;
   letter-spacing: 0.14em;
   line-height: 1.05;
+  white-space: nowrap;
 }
 
 .room-lobby-access-chip--pin .room-lobby-access-copy > strong {
@@ -1688,7 +1707,15 @@ body {
 
 .room-lobby-panel-title > svg {
   color: rgba(125, 211, 252, 0.9);
-  font-size: 1.2rem;
+}
+
+.room-lobby-panel-title > svg,
+.room-lobby-host-heading__icon > svg,
+.room-lobby-mobile-tab__icon > svg,
+.room-lobby-mobile-chat-fab__icon > svg {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
 }
 
 .room-lobby-panel-counter {
@@ -1995,11 +2022,18 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: auto;
-  height: auto;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
   border: 0;
   background: transparent;
   color: rgba(125, 211, 252, 0.9);
+}
+
+.room-lobby-host-heading__icon > svg {
+  width: 22px;
+  height: 22px;
+  font-size: 22px;
 }
 
 .room-lobby-host-heading__badge {
@@ -2314,28 +2348,42 @@ body {
 }
 
 .room-lobby-toolbar-history-btn.MuiButton-root {
-  border-color: rgba(245, 158, 11, 0.24);
+  min-height: 40px;
+  border-radius: 999px;
+  padding-inline: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.18);
   background: linear-gradient(
     180deg,
-    rgba(28, 20, 7, 0.72),
-    rgba(13, 11, 8, 0.88)
+    rgba(9, 17, 26, 0.78),
+    rgba(8, 13, 20, 0.9)
   );
-  color: rgba(254, 243, 199, 0.96);
+  color: rgba(224, 242, 254, 0.94);
+  white-space: nowrap;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.room-lobby-toolbar-history-btn.MuiButton-root .MuiButton-startIcon {
+  margin-right: 6px;
 }
 
 .room-lobby-toolbar-history-btn.MuiButton-root:hover {
   transform: translateY(-1px);
-  border-color: rgba(251, 191, 36, 0.42);
+  border-color: rgba(34, 211, 238, 0.32);
   background:
     radial-gradient(
       120px 80px at 18% 0%,
-      rgba(251, 191, 36, 0.18),
+      rgba(34, 211, 238, 0.12),
       transparent 72%
     ),
-    linear-gradient(180deg, rgba(52, 36, 10, 0.9), rgba(18, 13, 8, 0.96));
+    linear-gradient(180deg, rgba(11, 20, 31, 0.9), rgba(8, 14, 22, 0.96));
+  color: rgba(224, 242, 254, 0.98);
   box-shadow:
-    0 18px 28px -24px rgba(245, 158, 11, 0.72),
-    inset 0 1px 0 rgba(255, 248, 220, 0.08);
+    0 16px 28px -24px rgba(8, 145, 178, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .room-lobby-toolbar-settings-btn.MuiButton-root {
@@ -2366,6 +2414,14 @@ body {
   min-height: 44px;
   border-radius: 999px;
   padding-inline: 20px;
+}
+
+.room-lobby-action-btn--start.MuiButton-root .MuiButton-startIcon {
+  margin-right: 8px;
+}
+
+.room-lobby-action-btn--start.MuiButton-root .MuiButton-startIcon svg {
+  font-size: 1.18rem;
 }
 
 @keyframes room-lobby-panel-rise {
@@ -7498,7 +7554,7 @@ body {
 .room-lobby-card-header {
   position: relative;
   overflow: visible;
-  border-bottom: 1px solid rgba(245, 158, 11, 0.08);
+  border-bottom: 0;
   background:
     radial-gradient(
       640px 240px at 0% 0%,
@@ -7536,6 +7592,13 @@ body {
   );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 22px 44px -36px rgba(2, 6, 23, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+}
+
+.room-lobby-participants,
+.room-lobby-playlist-panel {
+  box-shadow:
     0 22px 44px -36px rgba(2, 6, 23, 0.92),
     inset 0 0 0 1px rgba(255, 255, 255, 0.015);
 }
@@ -12227,6 +12290,35 @@ body {
   --gr-row-hot: rgba(45, 212, 191, 0.52);
   --gr-row-hot-soft: rgba(45, 212, 191, 0.18);
   --gr-row-duration: 2.24s;
+  --gr-row-angle: 0deg;
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      220px 78px at 0% 0%,
+      rgba(249, 115, 22, 0.38),
+      transparent 58%
+    ),
+    radial-gradient(
+      220px 82px at 100% 100%,
+      rgba(56, 189, 248, 0.32),
+      transparent 60%
+    );
+  --gr-row-champion-border-bg: conic-gradient(
+    from 0deg,
+    rgba(249, 115, 22, 0.86) 0deg,
+    rgba(251, 191, 36, 0.96) 36deg,
+    rgba(255, 248, 220, 0.54) 78deg,
+    rgba(255, 251, 235, 0.28) 116deg,
+    rgba(255, 251, 235, 0.18) 152deg,
+    rgba(186, 230, 253, 0.3) 196deg,
+    rgba(56, 189, 248, 0.8) 236deg,
+    rgba(125, 211, 252, 0.96) 274deg,
+    rgba(224, 242, 254, 0.62) 312deg,
+    rgba(255, 248, 220, 0.42) 338deg,
+    rgba(249, 115, 22, 0.86) 360deg
+  );
+  --gr-row-champion-border-filter: saturate(1.12);
+  --gr-row-champion-border-animation: game-room-score-row-combo-ring-spin 2.35s
+    linear infinite;
   border-color: transparent;
   background:
     radial-gradient(
@@ -12247,11 +12339,19 @@ body {
 
 .game-room-score-row--combo-champion {
   isolation: isolate;
-  overflow: hidden;
+  overflow: visible;
   border-color: transparent !important;
   box-shadow:
     0 0 0 0 transparent,
     0 0 22px -16px color-mix(in srgb, var(--gr-row-hot) 42%, transparent);
+}
+
+.game-room-score-row--combo-champion .scoreboard-border-effect {
+  z-index: 1;
+}
+
+.game-room-score-row--combo-champion > *:not(.scoreboard-border-effect) {
+  z-index: 2;
 }
 
 .game-room-score-row--combo-champion:hover {
@@ -12263,50 +12363,362 @@ body {
 
 .game-room-score-row--combo-champion::before {
   opacity: 0.34;
-  background:
-    radial-gradient(
-      220px 78px at 0% 0%,
-      rgba(249, 115, 22, 0.38),
-      transparent 58%
-    ),
-    radial-gradient(
-      220px 82px at 100% 100%,
-      rgba(56, 189, 248, 0.32),
-      transparent 60%
-    );
+  background: var(--gr-row-champion-before-bg);
   animation: game-room-score-row-combo-flame-soft var(--gr-row-duration) ease-in-out
     infinite;
 }
 
 .game-room-score-row--combo-champion::after {
-  content: "";
+  display: none;
+}
+
+.game-room-score-row--combo-effect-waterfire,
+.game-room-score-row--combo-theme-waterfire,
+.game-room-score-row--combo-theme-dual-water-fire {
+  --gr-row-hot: rgba(255, 64, 64, 0.92);
+  --gr-row-hot-soft: rgba(74, 172, 255, 0.24);
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      220px 84px at 16% 26%,
+      rgba(255, 72, 72, 0.4),
+      rgba(255, 72, 72, 0.18) 42%,
+      transparent 66%
+    ),
+    radial-gradient(
+      220px 84px at 84% 74%,
+      rgba(61, 176, 255, 0.38),
+      rgba(61, 176, 255, 0.16) 42%,
+      transparent 66%
+    ),
+    linear-gradient(
+      130deg,
+      rgba(255, 40, 40, 0.06),
+      rgba(13, 19, 33, 0.02) 44%,
+      rgba(56, 189, 248, 0.08)
+    );
+  --gr-row-champion-border-bg: conic-gradient(
+    from var(--gr-row-angle),
+    rgba(255, 245, 245, 0) 0deg,
+    rgba(255, 245, 245, 0) 10deg,
+    rgba(255, 52, 52, 1) 18deg,
+    rgba(255, 112, 112, 0.98) 44deg,
+    rgba(255, 242, 242, 0.94) 72deg,
+    rgba(255, 176, 176, 0.56) 110deg,
+    rgba(255, 112, 112, 0.24) 142deg,
+    rgba(255, 72, 72, 0) 150deg,
+    rgba(255, 255, 255, 0) 180deg,
+    rgba(232, 247, 255, 0) 190deg,
+    rgba(28, 168, 255, 1) 198deg,
+    rgba(96, 208, 255, 0.98) 224deg,
+    rgba(236, 249, 255, 0.94) 252deg,
+    rgba(150, 226, 255, 0.56) 290deg,
+    rgba(86, 194, 255, 0.24) 322deg,
+    rgba(28, 160, 255, 0) 330deg,
+    rgba(255, 255, 255, 0) 360deg
+  );
+  --gr-row-champion-border-filter: saturate(1.42) brightness(1.14);
+  --gr-row-champion-border-animation: game-room-score-row-combo-duel-chase 1.9s
+    linear infinite;
+}
+
+.game-room-score-row--combo-theme-fire,
+.game-room-score-row--combo-theme-simple-fire {
+  --gr-row-hot: rgba(255, 170, 58, 0.94);
+  --gr-row-hot-soft: rgba(255, 124, 44, 0.22);
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      220px 84px at 18% 30%,
+      rgba(255, 184, 77, 0.34),
+      rgba(255, 184, 77, 0.14) 42%,
+      transparent 66%
+    ),
+    radial-gradient(
+      220px 84px at 82% 70%,
+      rgba(255, 113, 34, 0.28),
+      rgba(255, 113, 34, 0.12) 42%,
+      transparent 66%
+    );
+  --gr-row-champion-border-bg: conic-gradient(
+    from var(--gr-row-angle),
+    rgba(255, 214, 154, 0) 0deg,
+    rgba(255, 214, 154, 0) 10deg,
+    rgba(255, 163, 61, 1) 22deg,
+    rgba(255, 195, 83, 0.96) 64deg,
+    rgba(255, 240, 190, 0.9) 108deg,
+    rgba(255, 175, 66, 0.42) 148deg,
+    rgba(255, 140, 48, 0) 174deg,
+    rgba(255, 214, 154, 0) 360deg
+  );
+  --gr-row-champion-border-filter: saturate(1.18) brightness(1.08);
+  --gr-row-champion-border-animation: game-room-score-row-combo-prism-shift 2.05s
+    linear infinite;
+}
+
+.game-room-score-row--combo-theme-inferno,
+.game-room-score-row--combo-theme-real-fire {
+  --gr-row-hot: rgba(255, 116, 44, 0.96);
+  --gr-row-hot-soft: rgba(255, 186, 56, 0.24);
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      240px 96px at 12% 22%,
+      rgba(255, 92, 36, 0.42),
+      rgba(255, 92, 36, 0.18) 42%,
+      transparent 68%
+    ),
+    radial-gradient(
+      240px 96px at 84% 78%,
+      rgba(255, 184, 58, 0.28),
+      rgba(255, 184, 58, 0.12) 42%,
+      transparent 68%
+    ),
+    linear-gradient(
+      130deg,
+      rgba(255, 92, 36, 0.08),
+      rgba(13, 19, 33, 0.02) 42%,
+      rgba(255, 184, 58, 0.08)
+    );
+  --gr-row-champion-border-bg: linear-gradient(
+    90deg,
+    rgba(255, 245, 214, 0.96),
+    rgba(255, 197, 90, 0.98) 20%,
+    rgba(255, 126, 54, 0.98) 58%,
+    rgba(255, 86, 36, 0.96) 100%
+  );
+  --gr-row-champion-border-filter: saturate(1.24) brightness(1.14);
+  --gr-row-champion-border-animation: game-room-score-row-combo-flame-soft 1.24s
+    ease-in-out infinite;
+}
+
+.game-room-score-row--combo-theme-burning-fire {
+  --gr-row-hot: rgba(255, 92, 36, 0.98);
+  --gr-row-hot-soft: rgba(255, 184, 58, 0.28);
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      260px 112px at 10% 18%,
+      rgba(255, 82, 32, 0.46),
+      rgba(255, 82, 32, 0.18) 38%,
+      transparent 68%
+    ),
+    radial-gradient(
+      240px 104px at 86% 78%,
+      rgba(255, 196, 76, 0.32),
+      rgba(255, 196, 76, 0.12) 40%,
+      transparent 70%
+    ),
+    linear-gradient(
+      130deg,
+      rgba(255, 76, 28, 0.1),
+      rgba(13, 19, 33, 0.02) 42%,
+      rgba(255, 196, 76, 0.08)
+    );
+}
+
+.game-room-score-row--combo-theme-electric-arc {
+  --gr-row-hot: rgba(96, 165, 250, 0.94);
+  --gr-row-hot-soft: rgba(167, 243, 255, 0.24);
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      240px 90px at 14% 22%,
+      rgba(125, 211, 252, 0.3),
+      rgba(125, 211, 252, 0.12) 40%,
+      transparent 68%
+    ),
+    radial-gradient(
+      220px 84px at 86% 78%,
+      rgba(124, 58, 237, 0.22),
+      rgba(124, 58, 237, 0.08) 42%,
+      transparent 70%
+    ),
+    linear-gradient(
+      120deg,
+      rgba(96, 165, 250, 0.08),
+      rgba(13, 19, 33, 0.02) 44%,
+      rgba(167, 243, 255, 0.08)
+    );
+}
+
+.game-room-score-row--combo-effect-prism,
+.game-room-score-row--combo-theme-prism,
+.game-room-score-row--combo-theme-rainbow-energy {
+  --gr-row-hot: rgba(255, 214, 10, 0.9);
+  --gr-row-hot-soft: rgba(236, 72, 153, 0.28);
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      190px 76px at 8% 20%,
+      rgba(251, 191, 36, 0.36),
+      transparent 56%
+    ),
+    radial-gradient(
+      200px 82px at 82% 74%,
+      rgba(34, 211, 238, 0.34),
+      transparent 56%
+    ),
+    radial-gradient(
+      150px 76px at 50% 12%,
+      rgba(192, 132, 252, 0.22),
+      transparent 64%
+    );
+  --gr-row-champion-border-bg: conic-gradient(
+    from var(--gr-row-angle),
+    rgba(255, 0, 102, 0.98) 0deg,
+    rgba(255, 136, 0, 0.98) 42deg,
+    rgba(255, 230, 0, 0.98) 82deg,
+    rgba(34, 197, 94, 0.96) 126deg,
+    rgba(56, 189, 248, 0.98) 182deg,
+    rgba(99, 102, 241, 0.98) 234deg,
+    rgba(236, 72, 153, 0.98) 292deg,
+    rgba(255, 0, 102, 0.98) 360deg
+  );
+  --gr-row-champion-border-filter: saturate(1.24) brightness(1.08);
+  --gr-row-champion-border-animation: game-room-score-row-combo-prism-shift 2.2s
+    linear infinite;
+}
+
+.game-room-score-row--combo-theme-monoCyan {
+  --gr-row-hot: rgba(103, 232, 249, 0.92);
+  --gr-row-hot-soft: rgba(34, 211, 238, 0.2);
+  --gr-row-champion-before-bg:
+    radial-gradient(
+      220px 84px at 18% 30%,
+      rgba(56, 189, 248, 0.34),
+      rgba(56, 189, 248, 0.14) 42%,
+      transparent 66%
+    ),
+    radial-gradient(
+      220px 84px at 82% 70%,
+      rgba(34, 211, 238, 0.28),
+      rgba(34, 211, 238, 0.12) 42%,
+      transparent 66%
+    );
+}
+
+.scoreboard-border-effect {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
   z-index: 0;
-  --gr-row-angle: 0deg;
-  background: conic-gradient(
-    from var(--gr-row-angle),
-    rgba(255, 249, 235, 0.04) 0deg,
-    rgba(249, 115, 22, 0.98) 18deg,
-    rgba(251, 191, 36, 1) 42deg,
-    rgba(255, 251, 235, 0.92) 58deg,
-    rgba(255, 251, 235, 0.12) 82deg,
-    rgba(255, 251, 235, 0.03) 154deg,
-    rgba(255, 251, 235, 0.03) 198deg,
-    rgba(56, 189, 248, 0.94) 226deg,
-    rgba(125, 211, 252, 1) 252deg,
-    rgba(224, 242, 254, 0.9) 270deg,
-    rgba(255, 251, 235, 0.1) 294deg,
-    rgba(255, 249, 235, 0.04) 360deg
-  );
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  padding: 3.5px;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.scoreboard-border-effect__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.scoreboard-border-effect__fire-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.scoreboard-border-effect--attached {
+  inset: 0;
+}
+
+.scoreboard-border-effect--preview {
+  inset: 0;
+}
+
+.scoreboard-effect-preview-stage {
+  overflow: visible;
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 18px 28px -32px rgba(8, 145, 178, 0.42);
+}
+
+.scoreboard-effect-preview-row {
+  overflow: visible;
+  border-color: rgba(71, 85, 105, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.18);
+}
+
+.scoreboard-effect-preview-row::before {
+  opacity: 0.12;
+}
+
+.scoreboard-effect-preview-row--active {
+  border-color: transparent !important;
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 0 transparent,
+    0 22px 34px -30px color-mix(in srgb, var(--gr-row-hot) 44%, transparent);
+}
+
+.scoreboard-effect-preview-row--active .scoreboard-border-effect {
+  inset: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  z-index: 1;
+}
+
+.scoreboard-effect-preview-row--active > *:not(.scoreboard-border-effect) {
+  z-index: 2;
+}
+
+.scoreboard-border-effect__track,
+.scoreboard-border-effect__beam {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.scoreboard-border-effect__track--glow {
+  opacity: 0.44;
+}
+
+.scoreboard-border-effect__track--line {
+  opacity: 0.22;
+}
+
+.scoreboard-border-effect--attached .scoreboard-border-effect__track {
+  opacity: 0;
+}
+
+.scoreboard-border-effect__beam {
+  will-change: opacity, filter;
+}
+
+.scoreboard-border-effect--theme-fire .scoreboard-border-effect__beam,
+.scoreboard-border-effect--theme-inferno .scoreboard-border-effect__beam,
+.scoreboard-border-effect--theme-simple-fire .scoreboard-border-effect__beam,
+.scoreboard-border-effect--theme-real-fire .scoreboard-border-effect__beam {
+  animation: scoreboard-border-effect-fire-flicker 1.02s ease-in-out infinite;
+}
+
+.scoreboard-border-effect--theme-burning-fire .scoreboard-border-effect__beam {
+  animation: scoreboard-border-effect-fire-flicker 2.4s ease-in-out infinite;
+}
+
+.scoreboard-border-effect--theme-waterfire .scoreboard-border-effect__beam,
+.scoreboard-border-effect--theme-prism .scoreboard-border-effect__beam,
+.scoreboard-border-effect--theme-dual-water-fire .scoreboard-border-effect__beam,
+.scoreboard-border-effect--theme-rainbow-energy .scoreboard-border-effect__beam,
+.scoreboard-border-effect--theme-electric-arc .scoreboard-border-effect__beam {
+  animation: scoreboard-border-effect-fire-flicker 1.28s ease-in-out infinite;
+}
+
+.scoreboard-border-effect__ember {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.scoreboard-border-effect__fire-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: plus-lighter;
   opacity: 1;
-  filter: saturate(1.22);
-  animation: game-room-score-row-combo-ring-spin 2.35s linear infinite;
 }
 
 .game-room-score-row--combo-flare::before {
@@ -13190,6 +13602,119 @@ body {
   100% {
     --gr-row-angle: 360deg;
     filter: saturate(1.1) brightness(1);
+  }
+}
+
+@keyframes scoreboard-border-effect-chase {
+  0% {
+    stroke-dashoffset: 0;
+  }
+
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes scoreboard-border-effect-fire-flicker {
+  0%,
+  100% {
+    opacity: 0.88;
+    filter: saturate(1) brightness(0.98);
+  }
+
+  35% {
+    opacity: 1;
+    filter: saturate(1.14) brightness(1.06);
+  }
+
+  68% {
+    opacity: 0.92;
+    filter: saturate(1.08) brightness(1.02);
+  }
+}
+
+@keyframes scoreboard-border-effect-fire-lick {
+  0%,
+  100% {
+    opacity: 0.62;
+    filter: saturate(1) brightness(0.96);
+  }
+
+  40% {
+    opacity: 0.92;
+    filter: saturate(1.18) brightness(1.08);
+  }
+
+  72% {
+    opacity: 0.76;
+    filter: saturate(1.08) brightness(1.02);
+  }
+}
+
+@keyframes scoreboard-border-effect-fire-drift {
+  0% {
+    stroke-dashoffset: 0;
+  }
+
+  100% {
+    stroke-dashoffset: -200;
+  }
+}
+
+@keyframes scoreboard-border-effect-ember-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.7);
+  }
+
+  18% {
+    opacity: 0.95;
+    transform: translate(
+        calc(var(--scoreboard-ember-drift-x, 0px) * 0.25),
+        calc(var(--scoreboard-ember-drift-y, -4px) * 0.2)
+      )
+      scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(
+        var(--scoreboard-ember-drift-x, 0px),
+        var(--scoreboard-ember-drift-y, -8px)
+      )
+      scale(0.55);
+  }
+}
+
+@keyframes game-room-score-row-combo-duel-chase {
+  0% {
+    --gr-row-angle: 0deg;
+    filter: saturate(1.26) brightness(1.02);
+  }
+
+  50% {
+    filter: saturate(1.46) brightness(1.16);
+  }
+
+  100% {
+    --gr-row-angle: 360deg;
+    filter: saturate(1.26) brightness(1.02);
+  }
+}
+
+@keyframes game-room-score-row-combo-prism-shift {
+  0% {
+    --gr-row-angle: 0deg;
+    filter: saturate(1.14) brightness(1.02) hue-rotate(0deg);
+  }
+
+  50% {
+    filter: saturate(1.34) brightness(1.08) hue-rotate(10deg);
+  }
+
+  100% {
+    --gr-row-angle: 360deg;
+    filter: saturate(1.14) brightness(1.02) hue-rotate(0deg);
   }
 }
 
@@ -14388,6 +14913,10 @@ body {
     opacity: 0.88;
     animation: game-room-score-row-combo-stream var(--gr-row-duration)
       ease-in-out infinite;
+  }
+
+  .game-room-mobile-scoreboard-shell .game-room-score-row--combo-champion::after {
+    display: none;
   }
 
   .game-room-mobile-scoreboard-shell
@@ -16025,5 +16554,2027 @@ body {
   to {
     opacity: 0.78;
     transform: translateY(8px);
+  }
+}
+
+/* Room lobby refresh: keep neon/premium tone while replacing heavy frames
+   with depth, spacing, contrast, and local highlights. */
+.room-lobby-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.room-lobby-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.1) !important;
+  border-radius: 30px !important;
+  background:
+    radial-gradient(
+      680px 260px at 0% 0%,
+      rgba(245, 158, 11, 0.08),
+      transparent 66%
+    ),
+    radial-gradient(
+      620px 320px at 100% 0%,
+      rgba(34, 211, 238, 0.1),
+      transparent 68%
+    ),
+    linear-gradient(180deg, rgba(3, 7, 18, 0.96), rgba(2, 6, 23, 0.92)) !important;
+  box-shadow:
+    0 40px 88px -54px rgba(2, 6, 23, 0.96),
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.room-lobby-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18%),
+    radial-gradient(
+      320px 140px at 50% -4%,
+      rgba(255, 255, 255, 0.05),
+      transparent 72%
+    );
+  pointer-events: none;
+}
+
+.room-lobby-card-header {
+  position: relative;
+  padding: 36px 26px 18px !important;
+}
+
+.room-lobby-card-header::after {
+  content: "";
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(245, 158, 11, 0),
+    rgba(245, 158, 11, 0.14) 18%,
+    rgba(148, 163, 184, 0.1) 50%,
+    rgba(34, 211, 238, 0.14) 82%,
+    rgba(34, 211, 238, 0)
+  );
+  opacity: 0.9;
+}
+
+.room-lobby-content {
+  gap: 22px;
+  padding: 22px !important;
+}
+
+.room-lobby-toolbar-shell {
+  gap: 10px;
+  padding: 8px;
+  border-color: rgba(148, 163, 184, 0.08);
+  background:
+    radial-gradient(
+      220px 120px at 0% 50%,
+      rgba(245, 158, 11, 0.05),
+      transparent 72%
+    ),
+    radial-gradient(
+      180px 100px at 100% 50%,
+      rgba(34, 211, 238, 0.06),
+      transparent 74%
+    ),
+    rgba(6, 10, 18, 0.64);
+  box-shadow:
+    0 22px 40px -34px rgba(2, 6, 23, 0.94),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+}
+
+.room-lobby-toolbar-group--history:not(:empty),
+.room-lobby-toolbar-group--cta:not(:empty) {
+  margin-right: 0;
+  padding-right: 0;
+  border-right: 0;
+}
+
+.room-lobby-toolbar-icon-btn.MuiButton-root,
+.room-lobby-access-btn--icon-only.MuiButton-root {
+  position: relative;
+  min-width: 46px;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 18px;
+}
+
+.room-lobby-toolbar-icon-btn__icon,
+.room-lobby-access-btn__icon,
+.room-lobby-mobile-action-icon,
+.room-lobby-mobile-secondary-action__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.room-lobby-toolbar-icon-btn__icon > svg,
+.room-lobby-access-btn__icon > svg {
+  font-size: 1.15rem;
+}
+
+.room-lobby-toolbar-history-btn.MuiButton-root,
+.room-lobby-toolbar-utility-btn.MuiButton-root,
+.room-lobby-access-btn--icon-only.MuiButton-root {
+  border-color: rgba(148, 163, 184, 0.14);
+  background:
+    linear-gradient(180deg, rgba(10, 16, 27, 0.74), rgba(7, 11, 19, 0.9));
+}
+
+.room-lobby-action-btn--desktop-main.MuiButton-root {
+  min-width: 52px;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 20px;
+}
+
+.room-lobby-toolbar-icon-btn--start.MuiButton-root {
+  box-shadow:
+    0 18px 32px -22px rgba(180, 111, 17, 0.76),
+    0 0 0 1px rgba(245, 158, 11, 0.08),
+    inset 0 1px 0 rgba(255, 243, 214, 0.12);
+}
+
+.room-lobby-toolbar-icon-btn--resume.MuiButton-root {
+  box-shadow:
+    0 18px 30px -22px rgba(22, 163, 74, 0.56),
+    inset 0 1px 0 rgba(220, 252, 231, 0.08);
+}
+
+.room-lobby-toolbar-floating-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  transform: translateX(-50%) translateY(8px) scale(0.96);
+  border-radius: 999px;
+  padding: 6px 11px;
+  background: rgba(2, 6, 23, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow:
+    0 18px 32px -26px rgba(2, 6, 23, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: rgba(248, 250, 252, 0.98);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  z-index: 4;
+}
+
+@media (hover: hover) {
+  .room-lobby-toolbar-icon-btn.MuiButton-root:hover .room-lobby-toolbar-floating-label,
+  .room-lobby-toolbar-icon-btn.MuiButton-root:focus-visible
+    .room-lobby-toolbar-floating-label,
+  .room-lobby-access-btn--icon-only.MuiButton-root:hover
+    .room-lobby-toolbar-floating-label,
+  .room-lobby-access-btn--icon-only.MuiButton-root:focus-visible
+    .room-lobby-toolbar-floating-label {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.room-lobby-participants,
+.room-lobby-chat-stage,
+.room-lobby-playlist-panel,
+.room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-control-placeholder {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  background:
+    linear-gradient(180deg, rgba(7, 12, 22, 0.52), rgba(4, 8, 15, 0.34)),
+    linear-gradient(160deg, rgba(6, 12, 27, 0.46), rgba(2, 6, 23, 0.22));
+  box-shadow:
+    0 28px 48px -40px rgba(2, 6, 23, 0.94),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+.room-lobby-participants::before,
+.room-lobby-chat-stage::before,
+.room-lobby-playlist-panel::before,
+.room-lobby-host-accordion.MuiAccordion-root::after,
+.room-lobby-suggestion-accordion.MuiAccordion-root::after,
+.room-lobby-control-placeholder::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      240px 120px at 0% 0%,
+      rgba(255, 255, 255, 0.035),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 20%);
+  pointer-events: none;
+}
+
+.room-lobby-participants,
+.room-lobby-chat-stage,
+.room-lobby-playlist-panel {
+  padding: 22px;
+}
+
+.room-lobby-host-accordion .MuiAccordionSummary-root,
+.room-lobby-suggestion-accordion .MuiAccordionSummary-root {
+  min-height: 58px !important;
+  padding-inline: 22px !important;
+}
+
+.room-lobby-host-accordion .MuiAccordionDetails-root,
+.room-lobby-suggestion-accordion .MuiAccordionDetails-root {
+  padding: 8px 22px 22px !important;
+}
+
+.room-lobby-chat-log,
+.room-lobby-source-card,
+.room-lobby-roster-empty,
+.room-lobby-playlist-shell > div {
+  border-color: transparent !important;
+  background:
+    linear-gradient(180deg, rgba(7, 12, 19, 0.58), rgba(4, 8, 15, 0.46)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px -30px rgba(2, 6, 23, 0.86) !important;
+}
+
+.room-lobby-chat-log {
+  padding: 18px 16px !important;
+}
+
+.room-lobby-source-card {
+  border-radius: 22px;
+  padding: 16px;
+}
+
+.room-lobby-source-panel {
+  gap: 16px;
+}
+
+.room-lobby-mode-row--host {
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.room-lobby-mode-row--host .room-lobby-mode-button.MuiButton-root {
+  min-height: 36px;
+  padding-inline: 13px;
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(8, 14, 25, 0.48);
+}
+
+.room-lobby-mode-row--host .room-lobby-mode-button.MuiButton-contained {
+  border-color: rgba(34, 211, 238, 0.18);
+  background:
+    radial-gradient(
+      110px 60px at 50% 0%,
+      rgba(34, 211, 238, 0.14),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(11, 22, 32, 0.86), rgba(8, 14, 22, 0.94));
+  box-shadow:
+    0 16px 28px -24px rgba(8, 47, 73, 0.78),
+    inset 0 1px 0 rgba(186, 230, 253, 0.08);
+}
+
+.room-lobby-status-strip {
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: rgba(8, 14, 25, 0.42);
+}
+
+.room-lobby-status-strip.is-empty {
+  min-height: 26px;
+}
+
+.room-lobby-status-strip__rail {
+  width: 100%;
+}
+
+.room-lobby-player-list-inner {
+  gap: 12px;
+}
+
+.room-lobby-player-row {
+  border-color: transparent;
+  background:
+    radial-gradient(
+      180px 100px at 0% 50%,
+      rgba(255, 255, 255, 0.03),
+      transparent 76%
+    ),
+    linear-gradient(180deg, rgba(9, 15, 24, 0.48), rgba(7, 11, 18, 0.68));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 18px 28px -28px rgba(2, 6, 23, 0.92);
+}
+
+.room-lobby-player-row:hover {
+  border-color: transparent;
+  background:
+    radial-gradient(
+      220px 110px at 0% 50%,
+      rgba(56, 189, 248, 0.08),
+      transparent 74%
+    ),
+    linear-gradient(180deg, rgba(10, 17, 27, 0.58), rgba(8, 13, 20, 0.78));
+  box-shadow:
+    0 24px 34px -28px rgba(8, 47, 73, 0.76),
+    inset 0 1px 0 rgba(186, 230, 253, 0.05);
+}
+
+.room-lobby-player-row.is-self {
+  border-color: rgba(56, 189, 248, 0.12);
+  box-shadow:
+    0 22px 34px -28px rgba(8, 47, 73, 0.7),
+    inset 0 0 0 1px rgba(56, 189, 248, 0.12),
+    inset 0 1px 0 rgba(186, 230, 253, 0.05);
+}
+
+.room-lobby-playlist-panel .react-window {
+  background: transparent;
+}
+
+.room-lobby-playlist-row {
+  border-bottom-color: rgba(148, 163, 184, 0.08) !important;
+  background: transparent;
+}
+
+.room-lobby-playlist-row:hover {
+  border-bottom-color: rgba(245, 158, 11, 0.12) !important;
+  background:
+    radial-gradient(
+      240px 110px at 0% 50%,
+      rgba(245, 158, 11, 0.06),
+      transparent 76%
+    ),
+    linear-gradient(180deg, rgba(12, 17, 26, 0.38), rgba(8, 12, 19, 0.3));
+}
+
+@media (max-width: 1024px) {
+  .room-lobby-card {
+    border-radius: 26px !important;
+  }
+
+  .room-lobby-card-header {
+    padding: 30px 18px 16px !important;
+  }
+
+  .room-lobby-card-header::after {
+    left: 18px;
+    right: 18px;
+  }
+
+  .room-lobby-content {
+    gap: 18px;
+    padding: 18px !important;
+  }
+
+  .room-lobby-mobile-primary-action.MuiButton-root,
+  .room-lobby-mobile-secondary-action.MuiButton-root {
+    min-height: 62px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 20px;
+  }
+
+  .room-lobby-mobile-action-icon,
+  .room-lobby-mobile-secondary-action__icon {
+    font-size: 1.28rem;
+  }
+
+  .room-lobby-mobile-primary-action.MuiButton-root .MuiButton-startIcon,
+  .room-lobby-mobile-secondary-action__label {
+    display: none;
+  }
+}
+
+/* Room lobby third pass: reduce shell presence and merge desktop into two shared columns. */
+.room-lobby-card {
+  border-color: rgba(148, 163, 184, 0.035) !important;
+  background:
+    radial-gradient(
+      820px 320px at 0% 0%,
+      rgba(245, 158, 11, 0.055),
+      transparent 66%
+    ),
+    radial-gradient(
+      780px 360px at 100% 0%,
+      rgba(34, 211, 238, 0.07),
+      transparent 68%
+    ),
+    linear-gradient(180deg, rgba(4, 8, 18, 0.84), rgba(2, 6, 23, 0.76)) !important;
+  box-shadow:
+    0 24px 64px -56px rgba(2, 6, 23, 0.82),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.room-lobby-card::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 18%),
+    radial-gradient(
+      360px 160px at 50% -4%,
+      rgba(255, 255, 255, 0.04),
+      transparent 72%
+    );
+}
+
+.room-lobby-card-header::after {
+  opacity: 0.56;
+}
+
+.room-lobby-header-info-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 10px 12px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(8, 13, 22, 0.3), rgba(5, 9, 16, 0.18));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 16px 32px -36px rgba(2, 6, 23, 0.78);
+}
+
+.room-lobby-metric-grid {
+  display: flex;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.room-lobby-metric-card {
+  min-height: 54px;
+  flex: 1 1 172px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border-color: transparent;
+  background:
+    linear-gradient(180deg, rgba(10, 15, 24, 0.28), rgba(7, 11, 18, 0.16));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 12px 24px -30px rgba(2, 6, 23, 0.7);
+}
+
+.room-lobby-metric-card::after {
+  opacity: 0.08;
+}
+
+.room-lobby-metric-card:hover {
+  transform: none;
+}
+
+.room-lobby-metric-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.room-lobby-metric-copy {
+  gap: 2px;
+}
+
+.room-lobby-metric-copy > strong {
+  font-size: 18px;
+}
+
+.room-lobby-header-inline-actions--band {
+  display: flex;
+  flex: 1 1 280px;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.room-lobby-header-inline-actions--band .room-lobby-access-chip,
+.room-lobby-header-inline-actions--band .room-lobby-access-btn.MuiButton-root {
+  border-radius: 16px;
+  border-color: rgba(148, 163, 184, 0.08);
+  background:
+    linear-gradient(180deg, rgba(10, 15, 24, 0.3), rgba(7, 11, 18, 0.2));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 12px 22px -28px rgba(2, 6, 23, 0.7);
+}
+
+.room-lobby-toolbar-shell {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.room-lobby-toolbar-icon-btn.MuiButton-root,
+.room-lobby-access-btn--icon-only.MuiButton-root {
+  backdrop-filter: blur(14px);
+}
+
+.room-lobby-toolbar-history-btn.MuiButton-root,
+.room-lobby-toolbar-utility-btn.MuiButton-root,
+.room-lobby-access-btn--icon-only.MuiButton-root {
+  border-color: rgba(148, 163, 184, 0.08);
+  background:
+    linear-gradient(180deg, rgba(10, 16, 27, 0.44), rgba(7, 11, 19, 0.62));
+  box-shadow:
+    0 14px 24px -24px rgba(2, 6, 23, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.room-lobby-content {
+  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-areas: "social music";
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.room-lobby-column {
+  position: relative;
+  display: grid;
+  gap: 0;
+  min-height: 0;
+  border-radius: 28px;
+  padding: 14px 18px 18px;
+  background:
+    radial-gradient(
+      260px 140px at 0% 0%,
+      rgba(255, 255, 255, 0.026),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(7, 12, 22, 0.38), rgba(4, 8, 15, 0.2));
+  box-shadow:
+    0 24px 46px -42px rgba(2, 6, 23, 0.84),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(14px);
+}
+
+.room-lobby-column::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.024);
+  pointer-events: none;
+}
+
+.room-lobby-column--social {
+  grid-area: social;
+  grid-template-rows: minmax(240px, auto) 1px minmax(0, 1fr);
+}
+
+.room-lobby-column--music {
+  grid-area: music;
+  grid-template-rows: minmax(250px, auto) 1px minmax(0, 1fr);
+}
+
+.room-lobby-column-section {
+  min-height: 0;
+}
+
+.room-lobby-column-divider {
+  margin: 6px 8px 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(245, 158, 11, 0),
+    rgba(148, 163, 184, 0.085) 24%,
+    rgba(148, 163, 184, 0.07) 76%,
+    rgba(34, 211, 238, 0)
+  );
+}
+
+.room-lobby-participants,
+.room-lobby-chat-stage,
+.room-lobby-playlist-panel,
+.room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-control-placeholder {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.room-lobby-participants::before,
+.room-lobby-chat-stage::before,
+.room-lobby-playlist-panel::before,
+.room-lobby-host-accordion.MuiAccordion-root::after,
+.room-lobby-suggestion-accordion.MuiAccordion-root::after,
+.room-lobby-control-placeholder::before {
+  display: none;
+}
+
+.room-lobby-column-section > .room-lobby-participants,
+.room-lobby-column-section > .room-lobby-chat-stage,
+.room-lobby-column-section > .room-lobby-playlist-panel,
+.room-lobby-column-section > .room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-column-section > .room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-column-section > .room-lobby-control-placeholder {
+  height: 100%;
+  padding: 8px 2px 2px;
+}
+
+.room-lobby-host-accordion .MuiAccordionSummary-root,
+.room-lobby-suggestion-accordion .MuiAccordionSummary-root {
+  min-height: 52px !important;
+  padding-inline: 2px !important;
+}
+
+.room-lobby-host-accordion .MuiAccordionDetails-root,
+.room-lobby-suggestion-accordion .MuiAccordionDetails-root {
+  padding: 6px 2px 2px !important;
+}
+
+.room-lobby-chat-log,
+.room-lobby-source-card,
+.room-lobby-roster-empty {
+  background:
+    linear-gradient(180deg, rgba(7, 12, 19, 0.24), rgba(4, 8, 15, 0.16)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 10px 22px -28px rgba(2, 6, 23, 0.7) !important;
+}
+
+.room-lobby-chat-log {
+  padding: 12px 10px !important;
+}
+
+.room-lobby-roster-empty {
+  border-style: solid;
+  border-color: rgba(148, 163, 184, 0.06);
+}
+
+.room-lobby-source-card {
+  border-radius: 18px;
+  padding: 6px 0 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.room-lobby-status-strip {
+  background: rgba(8, 14, 25, 0.22);
+}
+
+.room-lobby-player-row {
+  border-color: transparent;
+  background:
+    radial-gradient(
+      180px 100px at 0% 50%,
+      rgba(255, 255, 255, 0.018),
+      transparent 76%
+    ),
+    linear-gradient(180deg, rgba(9, 15, 24, 0.2), rgba(7, 11, 18, 0.3));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.018),
+    0 8px 20px -30px rgba(2, 6, 23, 0.8);
+}
+
+.room-lobby-player-row:hover {
+  border-color: transparent;
+  background:
+    radial-gradient(
+      220px 110px at 0% 50%,
+      rgba(56, 189, 248, 0.07),
+      transparent 74%
+    ),
+    linear-gradient(180deg, rgba(10, 17, 27, 0.36), rgba(8, 13, 20, 0.44));
+}
+
+.room-lobby-player-row.is-self {
+  box-shadow:
+    0 14px 26px -30px rgba(8, 47, 73, 0.6),
+    inset 0 0 0 1px rgba(56, 189, 248, 0.07),
+    inset 0 1px 0 rgba(186, 230, 253, 0.045);
+}
+
+.room-lobby-playlist-shell > div {
+  border-color: rgba(148, 163, 184, 0.045) !important;
+  background:
+    linear-gradient(180deg, rgba(7, 12, 19, 0.36), rgba(4, 8, 15, 0.32)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 16px 30px -30px rgba(2, 6, 23, 0.74) !important;
+}
+
+@media (max-width: 1024px) {
+  .room-lobby-card {
+    border-color: rgba(148, 163, 184, 0.05) !important;
+    background:
+      radial-gradient(
+        520px 220px at 0% 0%,
+        rgba(245, 158, 11, 0.055),
+        transparent 66%
+      ),
+      radial-gradient(
+        460px 240px at 100% 0%,
+        rgba(34, 211, 238, 0.07),
+        transparent 68%
+      ),
+      linear-gradient(180deg, rgba(4, 8, 18, 0.94), rgba(2, 6, 23, 0.9)) !important;
+  }
+
+  .room-lobby-header-info-band {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .room-lobby-metric-card {
+    flex-basis: calc(50% - 5px);
+  }
+
+  .room-lobby-mobile-actions-card,
+  .room-lobby-mobile-panel > .room-lobby-participants,
+  .room-lobby-mobile-panel > .room-lobby-playlist-panel,
+  .room-lobby-mobile-panel > .room-lobby-host-accordion,
+  .room-lobby-mobile-panel > .room-lobby-suggestion-accordion {
+    border-color: rgba(148, 163, 184, 0.055) !important;
+    background:
+      linear-gradient(180deg, rgba(8, 13, 22, 0.52), rgba(5, 9, 16, 0.4)) !important;
+    box-shadow:
+      0 20px 38px -38px rgba(2, 6, 23, 0.9),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  }
+
+  .room-lobby-mobile-panel .room-lobby-chat-log,
+  .room-lobby-mobile-panel .room-lobby-playlist-shell > div,
+  .room-lobby-mobile-panel .room-lobby-roster-empty,
+  .room-lobby-mobile-panel .room-lobby-source-card {
+    background:
+      linear-gradient(180deg, rgba(7, 12, 19, 0.22), rgba(4, 8, 15, 0.15)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.02),
+      0 12px 24px -30px rgba(2, 6, 23, 0.72) !important;
+  }
+}
+
+/* Room lobby refinement pass: metadata placement, rhythm, frame cleanup, unified hover. */
+.room-lobby-header-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  position: relative;
+  overflow: visible;
+  padding-top: 10px;
+}
+
+.room-lobby-header-title {
+  flex: 0 1 auto;
+  min-width: min(100%, 420px);
+}
+
+.room-lobby-header-inline-actions--title {
+  display: flex;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  overflow: visible;
+}
+
+.room-lobby-header-inline-actions--title .room-lobby-access-chip,
+.room-lobby-header-inline-actions--title .room-lobby-access-btn.MuiButton-root {
+  min-height: 38px;
+  border-radius: 15px;
+  border-color: rgba(148, 163, 184, 0.06);
+  background:
+    linear-gradient(180deg, rgba(10, 15, 24, 0.22), rgba(7, 11, 18, 0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.018),
+    0 10px 20px -28px rgba(2, 6, 23, 0.64);
+}
+
+.room-lobby-header-inline-actions--title .room-lobby-access-chip--code {
+  padding: 9px 12px 9px 11px;
+}
+
+.room-lobby-header-inline-actions--title .room-lobby-access-copy > strong {
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+
+.room-lobby-header-info-band {
+  gap: 8px 10px;
+  padding: 8px 0 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.room-lobby-metric-card {
+  min-height: 50px;
+  padding: 9px 11px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(10, 15, 24, 0.2), rgba(7, 11, 18, 0.1));
+}
+
+.room-lobby-column--social {
+  grid-template-rows: auto 1px minmax(320px, 1fr);
+}
+
+.room-lobby-column--music {
+  grid-template-rows: 248px 1px minmax(0, 1fr);
+}
+
+.room-lobby-column--social .room-lobby-player-list {
+  max-height: calc(4 * 82px + 3 * 12px + 8px);
+}
+
+.room-lobby-column-section--chat {
+  min-height: 320px;
+}
+
+.room-lobby-column--social .room-lobby-chat-log {
+  min-height: 280px;
+}
+
+.room-lobby-column-section--control {
+  min-height: 248px;
+  max-height: 248px;
+}
+
+.room-lobby-column-section--control
+  > .room-lobby-host-accordion.MuiAccordion-root
+  .MuiAccordionDetails-root,
+.room-lobby-column-section--control
+  > .room-lobby-suggestion-accordion.MuiAccordion-root
+  .MuiAccordionDetails-root {
+  overflow: auto;
+}
+
+.room-lobby-column--social .room-lobby-panel-title,
+.room-lobby-column--social .room-lobby-panel-counter {
+  color: rgba(186, 230, 253, 0.96);
+}
+
+.room-lobby-column--music .room-lobby-panel-title,
+.room-lobby-column--music .room-lobby-panel-counter {
+  color: rgba(253, 230, 138, 0.96);
+}
+
+.room-lobby-column--social .room-lobby-panel-title > svg {
+  color: rgba(56, 189, 248, 0.88);
+}
+
+.room-lobby-column--music .room-lobby-panel-title > svg,
+.room-lobby-column--music .room-lobby-host-heading__icon {
+  color: rgba(245, 158, 11, 0.88);
+}
+
+.room-lobby-player-row {
+  border-color: transparent;
+  background:
+    linear-gradient(180deg, rgba(9, 15, 24, 0.16), rgba(7, 11, 18, 0.24));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.014),
+    0 6px 18px -30px rgba(2, 6, 23, 0.74);
+}
+
+.room-lobby-player-row:hover {
+  background:
+    radial-gradient(
+      220px 110px at 0% 50%,
+      rgba(56, 189, 248, 0.06),
+      transparent 74%
+    ),
+    linear-gradient(180deg, rgba(10, 17, 27, 0.28), rgba(8, 13, 20, 0.36));
+}
+
+.room-lobby-chat-log {
+  background:
+    linear-gradient(180deg, rgba(7, 12, 19, 0.18), rgba(4, 8, 15, 0.12)) !important;
+}
+
+.room-lobby-chat-message {
+  border-left-width: 1px !important;
+  border-left-color: rgba(56, 189, 248, 0.12) !important;
+  background:
+    linear-gradient(180deg, rgba(10, 15, 24, 0.22), rgba(7, 11, 18, 0.1)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.016) !important;
+}
+
+.room-lobby-roster-empty {
+  border-color: rgba(148, 163, 184, 0.045);
+  background:
+    linear-gradient(180deg, rgba(7, 12, 19, 0.14), rgba(4, 8, 15, 0.08)) !important;
+}
+
+.room-lobby-source-card,
+.room-lobby-mode-row--host .room-lobby-mode-button.MuiButton-root:not(.MuiButton-contained) {
+  box-shadow: none !important;
+}
+
+.room-lobby-mode-row--host .room-lobby-mode-button.MuiButton-root {
+  border-color: rgba(148, 163, 184, 0.08);
+  background: rgba(8, 14, 25, 0.28);
+}
+
+.room-lobby-mobile-tab {
+  border-color: rgba(148, 163, 184, 0.08);
+}
+
+.room-lobby-toolbar-floating-label {
+  background: rgba(2, 6, 23, 0.96);
+  border-color: rgba(148, 163, 184, 0.12);
+  transition:
+    opacity 160ms ease 70ms,
+    transform 160ms ease 70ms;
+}
+
+.room-lobby-player-action.MuiIconButton-root {
+  position: relative;
+  overflow: visible;
+  border: 1px solid rgba(148, 163, 184, 0.04);
+  background: rgba(8, 14, 25, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 8px 16px -20px rgba(2, 6, 23, 0.74);
+}
+
+@media (hover: hover) {
+  .room-lobby-player-action.MuiIconButton-root:hover
+    .room-lobby-toolbar-floating-label,
+  .room-lobby-player-action.MuiIconButton-root:focus-visible
+    .room-lobby-toolbar-floating-label {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 1024px) {
+  .room-lobby-header-copy {
+    align-items: flex-start;
+  }
+
+  .room-lobby-header-inline-actions--title {
+    width: 100%;
+  }
+
+  .room-lobby-header-inline-actions--title .room-lobby-access-chip,
+  .room-lobby-header-inline-actions--title .room-lobby-access-btn.MuiButton-root {
+    min-height: 36px;
+  }
+}
+
+/* Room lobby shared-surface refinement: unify desktop main content and recover source controls. */
+.room-lobby-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.room-lobby-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 32px;
+  background:
+    radial-gradient(
+      420px 220px at 0% 18%,
+      rgba(56, 189, 248, 0.04),
+      transparent 72%
+    ),
+    radial-gradient(
+      460px 260px at 100% 12%,
+      rgba(245, 158, 11, 0.045),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(6, 11, 20, 0.34), rgba(4, 8, 15, 0.18));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 26px 52px -46px rgba(2, 6, 23, 0.78);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.room-lobby-content > * {
+  position: relative;
+  z-index: 6;
+}
+
+.room-lobby-column {
+  padding: 12px 16px 16px;
+  background:
+    radial-gradient(
+      220px 120px at 0% 0%,
+      rgba(255, 255, 255, 0.018),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(7, 12, 22, 0.12), rgba(4, 8, 15, 0.04));
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.room-lobby-column::before {
+  border-color: rgba(255, 255, 255, 0.014);
+}
+
+.room-lobby-column-divider {
+  margin: 8px 8px 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0),
+    rgba(148, 163, 184, 0.075) 22%,
+    rgba(148, 163, 184, 0.06) 78%,
+    rgba(148, 163, 184, 0)
+  );
+}
+
+.room-lobby-column--music {
+  grid-template-rows: 286px 1px minmax(0, 1fr);
+}
+
+.room-lobby-column-section--control {
+  min-height: 286px;
+  max-height: 286px;
+}
+
+.room-lobby-column-section--control > .room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-column-section--control > .room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-column-section--control > .room-lobby-control-placeholder {
+  padding-top: 2px;
+}
+
+.room-lobby-column-section--control
+  > .room-lobby-host-accordion.MuiAccordion-root
+  .MuiAccordionSummary-root,
+.room-lobby-column-section--control
+  > .room-lobby-suggestion-accordion.MuiAccordion-root
+  .MuiAccordionSummary-root {
+  min-height: 48px !important;
+}
+
+.room-lobby-column-section--control
+  > .room-lobby-host-accordion.MuiAccordion-root
+  .MuiAccordionDetails-root,
+.room-lobby-column-section--control
+  > .room-lobby-suggestion-accordion.MuiAccordion-root
+  .MuiAccordionDetails-root {
+  overflow: visible;
+  padding-bottom: 8px !important;
+}
+
+.room-lobby-column-section--control .room-lobby-host-controls {
+  gap: 10px;
+}
+
+.room-lobby-column-section--control .room-lobby-source-panel {
+  min-height: 0;
+  gap: 12px;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-row--host {
+  gap: 9px;
+  row-gap: 9px;
+  margin-bottom: 2px;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-row--host .room-lobby-mode-button.MuiButton-root {
+  min-height: 38px;
+  padding-inline: 13px;
+}
+
+.room-lobby-column-section--control .room-lobby-source-view {
+  overflow: visible;
+  padding-right: 0;
+}
+
+.room-lobby-column-section--control .room-lobby-source-view > * + * {
+  margin-top: 10px !important;
+}
+
+.room-lobby-column-section--control .room-lobby-select-slot .MuiInputBase-root,
+.room-lobby-column-section--control .MuiTextField-root .MuiInputBase-root {
+  min-height: 48px;
+}
+
+.room-lobby-column-section--control .room-lobby-apply-button.MuiButton-root {
+  align-self: flex-end;
+  min-width: 168px;
+  min-height: 42px;
+  margin-top: 12px !important;
+}
+
+.room-lobby-column-section--control .room-lobby-source-card {
+  padding-top: 2px;
+}
+
+.room-lobby-column-section--control .room-lobby-status-strip {
+  background: rgba(8, 14, 25, 0.18);
+}
+
+.room-lobby-playlist-panel {
+  padding-top: 10px;
+}
+
+.room-lobby-playlist-shell > div {
+  border-color: rgba(148, 163, 184, 0.035) !important;
+}
+
+.room-lobby-header-info-band {
+  gap: 12px;
+  padding-top: 10px;
+}
+
+.room-lobby-metric-grid {
+  gap: 14px;
+}
+
+.room-lobby-metric-card {
+  min-height: auto;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  align-items: center;
+}
+
+.room-lobby-metric-card::after {
+  display: none;
+}
+
+.room-lobby-metric-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.room-lobby-metric-copy > small {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.room-lobby-metric-copy > strong {
+  font-size: 17px;
+}
+
+@media (max-width: 1024px) {
+  .room-lobby-content::before {
+    display: none;
+  }
+}
+
+/* Room lobby merge pass: fully merged desktop plane, corner restoration, unified top-right hover. */
+.room-lobby-content {
+  border-radius: 34px;
+  overflow: hidden;
+}
+
+.room-lobby-content::before {
+  border-radius: 34px;
+}
+
+.room-lobby-column {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.room-lobby-column::before {
+  display: none;
+}
+
+.room-lobby-column--social,
+.room-lobby-column--music {
+  padding-top: 16px;
+}
+
+.room-lobby-column-divider {
+  margin-inline: 10px;
+}
+
+.room-lobby-column--social .room-lobby-panel-head,
+.room-lobby-column--music .room-lobby-panel-head,
+.room-lobby-column--music .room-lobby-host-heading {
+  padding-inline: 2px;
+}
+
+.room-lobby-toolbar-group--history .room-lobby-toolbar-icon-btn.MuiButton-root,
+.room-lobby-toolbar-group--utility .room-lobby-toolbar-icon-btn.MuiButton-root {
+  border-color: rgba(148, 163, 184, 0.075);
+  background:
+    linear-gradient(180deg, rgba(10, 16, 27, 0.38), rgba(7, 11, 19, 0.52));
+  box-shadow:
+    0 12px 22px -24px rgba(2, 6, 23, 0.58),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.room-lobby-toolbar-group--history .room-lobby-toolbar-icon-btn.MuiButton-root:hover,
+.room-lobby-toolbar-group--history
+  .room-lobby-toolbar-icon-btn.MuiButton-root:focus-visible,
+.room-lobby-toolbar-group--utility .room-lobby-toolbar-icon-btn.MuiButton-root:hover,
+.room-lobby-toolbar-group--utility
+  .room-lobby-toolbar-icon-btn.MuiButton-root:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(125, 211, 252, 0.16);
+  background:
+    radial-gradient(
+      120px 80px at 50% 0%,
+      rgba(125, 211, 252, 0.08),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(12, 19, 30, 0.62), rgba(8, 13, 22, 0.74));
+  box-shadow:
+    0 16px 26px -22px rgba(8, 47, 73, 0.44),
+    inset 0 1px 0 rgba(224, 242, 254, 0.06);
+}
+
+.room-lobby-toolbar-group--utility .room-lobby-toolbar-leave-btn.MuiButton-root,
+.room-lobby-toolbar-group--utility .room-lobby-toolbar-leave-btn.MuiButton-root svg,
+.room-lobby-toolbar-group--utility
+  .room-lobby-toolbar-leave-btn.MuiButton-root
+  .MuiButton-startIcon {
+  color: rgba(252, 165, 165, 0.94);
+}
+
+.room-lobby-toolbar-group--utility .room-lobby-toolbar-leave-btn.MuiButton-root:hover,
+.room-lobby-toolbar-group--utility
+  .room-lobby-toolbar-leave-btn.MuiButton-root:focus-visible {
+  border-color: rgba(248, 113, 113, 0.18);
+  background:
+    radial-gradient(
+      120px 80px at 50% 0%,
+      rgba(248, 113, 113, 0.08),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(18, 20, 30, 0.62), rgba(11, 13, 22, 0.74));
+  box-shadow:
+    0 16px 26px -22px rgba(127, 29, 29, 0.34),
+    inset 0 1px 0 rgba(254, 226, 226, 0.05);
+}
+
+.room-lobby-toolbar-floating-label {
+  bottom: calc(100% + 10px);
+}
+
+@media (max-width: 1024px) {
+  .room-lobby-content {
+    border-radius: 0;
+    overflow: visible;
+  }
+}
+
+/* Room lobby micro-refinement: 3 player rows, 4 playlist rows, compressed metadata, lighter inner framing. */
+.room-lobby-header-info-band {
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.room-lobby-metric-grid {
+  gap: 8px 12px;
+}
+
+.room-lobby-metric-card {
+  gap: 7px;
+  padding-block: 1px;
+}
+
+.room-lobby-metric-icon {
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.room-lobby-metric-copy > small {
+  margin-bottom: 0;
+  line-height: 1.05;
+}
+
+.room-lobby-metric-copy > strong {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.room-lobby-column--social .room-lobby-player-list {
+  max-height: calc(3 * 82px + 2 * 12px + 4px);
+}
+
+.room-lobby-column-section--chat {
+  min-height: 336px;
+}
+
+.room-lobby-column--social .room-lobby-chat-log {
+  min-height: 296px;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading__badge {
+  background: rgba(245, 158, 11, 0.12);
+  color: rgba(254, 240, 138, 0.96);
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading {
+  gap: 12px;
+  align-items: center;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading__copy .MuiTypography-root {
+  line-height: 1.1;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading__meta {
+  color: rgba(253, 230, 138, 0.72);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading::after {
+  content: "預設焦點";
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.1);
+  color: rgba(253, 230, 138, 0.9);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.room-lobby-column-section--control .room-lobby-host-controls {
+  gap: 8px;
+}
+
+.room-lobby-column-section--control .room-lobby-source-panel {
+  gap: 10px;
+}
+
+.room-lobby-column-section--control .room-lobby-source-card {
+  padding-top: 0;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-row--host {
+  gap: 8px;
+  row-gap: 8px;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-row--host .room-lobby-mode-button.MuiButton-root {
+  border-color: rgba(148, 163, 184, 0.06);
+  background: rgba(8, 14, 25, 0.2);
+}
+
+.room-lobby-column-section--control .room-lobby-source-view > * + * {
+  margin-top: 8px !important;
+}
+
+.room-lobby-playlist-shell > div {
+  border-color: rgba(148, 163, 184, 0.028) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.018),
+    0 12px 22px -30px rgba(2, 6, 23, 0.62) !important;
+}
+
+.room-lobby-player-row {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.012),
+    0 4px 12px -28px rgba(2, 6, 23, 0.62);
+}
+
+.room-lobby-chat-message {
+  border-left-color: rgba(56, 189, 248, 0.08) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.012) !important;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading::after {
+  content: "預設焦點";
+}
+
+.room-lobby-column-section--control .room-lobby-source-panel {
+  padding: 0;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.room-lobby-playlist-shell > div {
+  border-color: rgba(148, 163, 184, 0.022) !important;
+  background:
+    linear-gradient(180deg, rgba(7, 12, 19, 0.32), rgba(4, 8, 15, 0.28)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.014),
+    0 10px 20px -30px rgba(2, 6, 23, 0.56) !important;
+}
+
+.room-lobby-column--social .room-lobby-chat-log,
+.room-lobby-column--social .room-lobby-roster-empty {
+  border-color: rgba(148, 163, 184, 0.03) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.016),
+    0 8px 18px -28px rgba(2, 6, 23, 0.5) !important;
+}
+
+/* Room lobby consistency / polish refinement: shared button family, clearer state hierarchy, less decorative splitting. */
+.room-lobby-card-header::after {
+  opacity: 0.12 !important;
+}
+
+.room-lobby-content {
+  margin-top: -6px;
+  padding-top: 14px !important;
+}
+
+.room-lobby-column--social,
+.room-lobby-column--music {
+  padding-top: 10px;
+}
+
+.room-lobby-column-section > .room-lobby-participants,
+.room-lobby-column-section > .room-lobby-chat-stage,
+.room-lobby-column-section > .room-lobby-playlist-panel,
+.room-lobby-column-section > .room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-column-section > .room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-column-section > .room-lobby-control-placeholder {
+  padding-top: 4px;
+}
+
+.room-lobby-toolbar-group--history .room-lobby-toolbar-history-btn.MuiButton-root {
+  min-width: 46px;
+  min-height: 46px;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 18px;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading::after,
+.room-lobby-column-section--control .room-lobby-host-heading__meta {
+  display: none !important;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading {
+  gap: 10px;
+}
+
+.room-lobby-column-section--control .room-lobby-host-heading__badge {
+  margin-left: 2px;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-button--suggestions.MuiButton-root {
+  --room-lobby-mode-rgb: 245, 158, 11;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-button--public.MuiButton-root {
+  --room-lobby-mode-rgb: 34, 211, 238;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-button--owner.MuiButton-root {
+  --room-lobby-mode-rgb: 167, 139, 250;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-button--youtube.MuiButton-root {
+  --room-lobby-mode-rgb: 251, 113, 133;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-button--playlist.MuiButton-root {
+  --room-lobby-mode-rgb: 96, 165, 250;
+}
+
+.room-lobby-column-section--control .room-lobby-mode-row--host .room-lobby-mode-button.MuiButton-root {
+  border-color: rgba(var(--room-lobby-mode-rgb), 0.16);
+  background:
+    linear-gradient(180deg, rgba(13, 18, 29, 0.64), rgba(8, 12, 21, 0.76));
+  color: rgba(241, 245, 249, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.024),
+    0 8px 18px -24px rgba(2, 6, 23, 0.54);
+}
+
+.room-lobby-column-section--control
+  .room-lobby-mode-row--host
+  .room-lobby-mode-button.MuiButton-root:hover:not(.MuiButton-contained),
+.room-lobby-column-section--control
+  .room-lobby-mode-row--host
+  .room-lobby-mode-button.MuiButton-root:focus-visible:not(.MuiButton-contained) {
+  transform: translateY(-1px);
+  border-color: rgba(var(--room-lobby-mode-rgb), 0.32);
+  background:
+    radial-gradient(
+      120px 72px at 50% 0%,
+      rgba(var(--room-lobby-mode-rgb), 0.12),
+      transparent 74%
+    ),
+    linear-gradient(180deg, rgba(16, 22, 34, 0.82), rgba(10, 15, 24, 0.9));
+  color: rgba(248, 250, 252, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 12px 22px -22px rgba(var(--room-lobby-mode-rgb), 0.16);
+}
+
+.room-lobby-column-section--control
+  .room-lobby-mode-row--host
+  .room-lobby-mode-button.MuiButton-root.MuiButton-contained {
+  border-color: rgba(var(--room-lobby-mode-rgb), 0.42);
+  background:
+    radial-gradient(
+      132px 88px at 50% 0%,
+      rgba(var(--room-lobby-mode-rgb), 0.2),
+      transparent 74%
+    ),
+    linear-gradient(180deg, rgba(20, 28, 42, 0.92), rgba(12, 17, 28, 0.98));
+  color: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 14px 26px -22px rgba(var(--room-lobby-mode-rgb), 0.26);
+}
+
+.room-lobby-playlist-row::before {
+  display: none !important;
+}
+
+.room-lobby-playlist-row {
+  border-bottom-color: rgba(148, 163, 184, 0.07) !important;
+  background:
+    linear-gradient(180deg, rgba(10, 14, 22, 0.18), rgba(7, 11, 18, 0.08));
+}
+
+.room-lobby-playlist-row:hover {
+  border-bottom-color: rgba(148, 163, 184, 0.12) !important;
+  background:
+    radial-gradient(
+      220px 96px at 10% 50%,
+      rgba(125, 211, 252, 0.055),
+      transparent 76%
+    ),
+    linear-gradient(180deg, rgba(13, 18, 28, 0.52), rgba(8, 12, 20, 0.44));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.014);
+}
+
+.room-lobby-playlist-row-link:hover {
+  color: rgb(224 242 254);
+}
+
+/* Room lobby role-consistency / stability refinement: shared control shell, stable chat row, unified hover feedback. */
+.room-lobby-column--social {
+  grid-template-rows: 304px 1px minmax(0, 1fr);
+}
+
+.room-lobby-column-section--participants {
+  min-height: 0;
+  max-height: 304px;
+}
+
+.room-lobby-column--social .room-lobby-player-list {
+  max-height: calc(3 * 80px + 2 * 8px + 2px);
+}
+
+.room-lobby-column--social .room-lobby-player-list-inner {
+  gap: 8px;
+}
+
+.room-lobby-column--social .room-lobby-player-row {
+  min-height: 80px;
+  padding: 12px;
+  gap: 12px;
+}
+
+.room-lobby-column-section--chat {
+  min-height: 0;
+}
+
+.room-lobby-column--social .room-lobby-chat-stage,
+.room-lobby-column--music .room-lobby-playlist-panel {
+  height: 100%;
+}
+
+.room-lobby-column--social .room-lobby-chat-log {
+  min-height: 0;
+  height: 100%;
+}
+
+.room-lobby-column-section--control
+  > .room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-column-section--control
+  > .room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-column-section--control
+  > .room-lobby-control-placeholder {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.room-lobby-column-section--control
+  > .room-lobby-host-accordion.MuiAccordion-root
+  .MuiAccordionSummary-root,
+.room-lobby-column-section--control
+  > .room-lobby-suggestion-accordion.MuiAccordion-root
+  .MuiAccordionSummary-root,
+.room-lobby-column-section--control
+  > .room-lobby-host-accordion.MuiAccordion-root
+  .MuiAccordionDetails-root,
+.room-lobby-column-section--control
+  > .room-lobby-suggestion-accordion.MuiAccordion-root
+  .MuiAccordionDetails-root {
+  padding-inline: 0 !important;
+  background: transparent !important;
+}
+
+.room-lobby-column-section--control .room-lobby-source-panel--suggestion,
+.room-lobby-column-section--control .room-lobby-source-panel--host {
+  min-height: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.room-lobby-header-info-band {
+  padding-top: 0;
+  margin-bottom: -2px;
+}
+
+.room-lobby-playlist-row:hover .room-lobby-playlist-row-link,
+.room-lobby-playlist-row:focus-within .room-lobby-playlist-row-link {
+  color: rgb(125 211 252);
+  text-shadow: 0 0 16px rgba(56, 189, 248, 0.22);
+}
+
+.room-lobby-playlist-row:hover p,
+.room-lobby-playlist-row:focus-within p {
+  color: rgb(148 163 184);
+}
+
+.room-lobby-playlist-row-link {
+  display: inline-block;
+  max-width: min(100%, 28rem);
+  overflow: hidden;
+  color: rgba(241, 245, 249, 0.92);
+  line-height: 1.35;
+  text-align: left;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  white-space: nowrap;
+  transition:
+    color 160ms ease,
+    text-shadow 160ms ease;
+}
+
+.room-lobby-playlist-row-link--button {
+  appearance: none;
+  display: inline-block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.room-lobby-playlist-row-link:hover,
+.room-lobby-playlist-row-link:focus-visible {
+  color: rgb(147 224 255);
+  text-shadow: 0 0 16px rgba(56, 189, 248, 0.28);
+  outline: none;
+}
+
+.room-lobby-playlist-row:hover {
+  border-bottom-color: rgba(148, 163, 184, 0.08) !important;
+  background: transparent;
+}
+
+.room-lobby-playlist-row:hover,
+.room-lobby-playlist-row:focus-within {
+  cursor: default;
+}
+
+.room-lobby-playlist-row:hover .room-lobby-playlist-row-link:not(:hover):not(:focus-visible),
+.room-lobby-playlist-row:focus-within .room-lobby-playlist-row-link:not(:focus-visible),
+.room-lobby-playlist-row:hover p,
+.room-lobby-playlist-row:focus-within p {
+  color: rgb(148 163 184);
+  text-shadow: none;
+}
+
+/* Room lobby final polish: single hover-label system and rounded shared header/content transition. */
+.room-lobby-card {
+  border-radius: 34px !important;
+  overflow: visible;
+}
+
+.room-lobby-card::before {
+  border-radius: 34px;
+}
+
+.room-lobby-card-header {
+  z-index: 2;
+  overflow: visible;
+  border-top-left-radius: 34px;
+  border-top-right-radius: 34px;
+  padding: 30px 26px 8px !important;
+}
+
+.room-lobby-access-copied-badge {
+  top: -16px;
+  z-index: 8;
+}
+
+.room-lobby-access-success-badge {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: rgba(5, 46, 37, 0.94);
+  box-shadow:
+    0 14px 28px -20px rgba(6, 78, 59, 0.8),
+    0 0 0 1px rgba(209, 250, 229, 0.04);
+  color: rgba(209, 250, 229, 0.98);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 9;
+  animation: room-lobby-copy-success-badge-in 180ms ease;
+}
+
+.room-lobby-header-stack {
+  gap: 6px !important;
+}
+
+.room-lobby-card-header::after {
+  display: none;
+}
+
+.room-lobby-content {
+  margin-top: -12px;
+  padding-top: 10px !important;
+  border-top-left-radius: 34px;
+  border-top-right-radius: 34px;
+}
+
+.room-lobby-content::before {
+  inset: -3px 0 0;
+  border-radius: 34px 34px 30px 30px;
+  box-shadow: 0 12px 28px -34px rgba(2, 6, 23, 0.36);
+}
+
+.room-lobby-header-info-band {
+  gap: 8px 10px;
+  margin-top: 0;
+  margin-bottom: -4px;
+  padding-top: 4px;
+  padding-bottom: 2px;
+  align-items: stretch;
+}
+
+.room-lobby-metric-grid {
+  align-items: stretch;
+  gap: 8px 12px;
+}
+
+.room-lobby-metric-card {
+  min-height: 56px;
+  padding: 10px 12px 9px;
+  align-items: center;
+}
+
+.room-lobby-metric-icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+}
+
+.room-lobby-metric-copy {
+  align-content: center;
+}
+
+.room-lobby-metric-copy > small {
+  line-height: 1.1;
+}
+
+.room-lobby-metric-copy > strong {
+  line-height: 1.05;
+}
+
+.room-lobby-column--social,
+.room-lobby-column--music {
+  padding-top: 3px;
+}
+
+.room-lobby-column-section > .room-lobby-participants,
+.room-lobby-column-section > .room-lobby-chat-stage,
+.room-lobby-column-section > .room-lobby-playlist-panel,
+.room-lobby-column-section > .room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-column-section > .room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-column-section > .room-lobby-control-placeholder {
+  padding-top: 2px;
+}
+
+.room-lobby-column-divider {
+  margin: 4px 10px 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0),
+    rgba(148, 163, 184, 0.04) 24%,
+    rgba(148, 163, 184, 0.03) 76%,
+    rgba(148, 163, 184, 0)
+  );
+}
+
+.room-lobby-column-section--control,
+.room-lobby-column-section--playlist,
+.room-lobby-column-section--participants,
+.room-lobby-column-section--chat {
+  position: relative;
+}
+
+.room-lobby-column-section--control::before,
+.room-lobby-column-section--playlist::before,
+.room-lobby-column-section--participants::before,
+.room-lobby-column-section--chat::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.012),
+    rgba(255, 255, 255, 0)
+  );
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.room-lobby-column-section--control > .room-lobby-host-accordion.MuiAccordion-root,
+.room-lobby-column-section--control > .room-lobby-suggestion-accordion.MuiAccordion-root,
+.room-lobby-column-section--playlist > .room-lobby-playlist-panel,
+.room-lobby-column-section--participants > .room-lobby-participants,
+.room-lobby-column-section--chat > .room-lobby-chat-stage {
+  position: relative;
+  z-index: 1;
+}
+
+.room-lobby-column--social .room-lobby-chat-log,
+.room-lobby-column--social .room-lobby-roster-empty,
+.room-lobby-playlist-shell > div,
+.room-lobby-column-section--control .room-lobby-source-panel,
+.room-lobby-column-section--control .room-lobby-source-card,
+.room-lobby-column-section--control .room-lobby-status-strip {
+  border-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.room-lobby-playlist-panel .react-window {
+  background: linear-gradient(
+    180deg,
+    rgba(7, 11, 18, 0.18),
+    rgba(5, 8, 14, 0.2)
+  );
+}
+
+.room-lobby-player-row,
+.room-lobby-chat-message,
+.room-lobby-playlist-row {
+  box-shadow: none !important;
+}
+
+.room-lobby-player-row {
+  background:
+    radial-gradient(
+      180px 100px at 0% 50%,
+      rgba(255, 255, 255, 0.012),
+      transparent 76%
+    ),
+    linear-gradient(180deg, rgba(9, 15, 24, 0.12), rgba(7, 11, 18, 0.18));
+}
+
+.room-lobby-chat-message {
+  background:
+    linear-gradient(180deg, rgba(10, 15, 24, 0.14), rgba(7, 11, 18, 0.08)) !important;
+  border-left-color: rgba(56, 189, 248, 0.06) !important;
+}
+
+.room-lobby-playlist-row {
+  border-bottom-color: rgba(148, 163, 184, 0.05) !important;
+  background:
+    linear-gradient(180deg, rgba(10, 14, 22, 0.1), rgba(7, 11, 18, 0.04));
+}
+
+.room-lobby-playlist-row:hover {
+  border-bottom-color: rgba(148, 163, 184, 0.08) !important;
+  background:
+    linear-gradient(180deg, rgba(12, 17, 26, 0.18), rgba(8, 12, 19, 0.12));
+}
+
+.room-lobby-content {
+  margin-top: -10px;
+  padding-top: 9px !important;
+}
+
+.room-lobby-content::before {
+  inset: -1px 0 0;
+  box-shadow: 0 8px 22px -32px rgba(2, 6, 23, 0.24);
+}
+
+.room-lobby-header-info-band {
+  margin-bottom: -2px;
+}
+
+.room-lobby-toolbar .room-lobby-toolbar-icon-btn.MuiButton-root {
+  overflow: visible;
+}
+
+@keyframes room-lobby-copy-success-badge-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.room-lobby-toolbar .room-lobby-toolbar-floating-label {
+  top: auto;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%) translateY(8px) scale(0.96);
+  min-height: 30px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(2, 6, 23, 0.96);
+  box-shadow:
+    0 18px 32px -26px rgba(2, 6, 23, 0.94),
+    inset 0 1px 0 rgba(255, 255, 255, 0.038);
+  color: rgba(248, 250, 252, 0.98);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition:
+    opacity 160ms ease 70ms,
+    transform 160ms ease 70ms;
+}
+
+@media (hover: hover) {
+  .room-lobby-toolbar .room-lobby-toolbar-icon-btn.MuiButton-root:hover
+    .room-lobby-toolbar-floating-label,
+  .room-lobby-toolbar .room-lobby-toolbar-icon-btn.MuiButton-root:focus-visible
+    .room-lobby-toolbar-floating-label {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
   }
 }

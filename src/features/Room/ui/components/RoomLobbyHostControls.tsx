@@ -10,14 +10,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import PlaylistPlayRoundedIcon from "@mui/icons-material/PlaylistPlayRounded";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
-import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import PlaylistAddCheckRoundedIcon from "@mui/icons-material/PlaylistAddCheckRounded";
 import PublishedWithChangesRoundedIcon from "@mui/icons-material/PublishedWithChangesRounded";
+import YouTubeIcon from "@mui/icons-material/YouTube";
 import { useState } from "react";
 
 import type { GameState, PlaylistSuggestion } from "../../model/types";
@@ -344,7 +344,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
       <AccordionSummary>
         <div className="room-lobby-host-heading">
           <span className="room-lobby-host-heading__icon" aria-hidden="true">
-            <TuneRoundedIcon fontSize="small" />
+            <PlaylistPlayRoundedIcon fontSize="small" />
           </span>
           <Typography variant="subtitle2" className="text-slate-200">
             {"\u64ad\u653e\u6e05\u55ae\u4f86\u6e90"}
@@ -361,7 +361,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
           <div className="room-lobby-mobile-panel-heading" aria-hidden="true">
             <div className="room-lobby-host-heading">
               <span className="room-lobby-host-heading__icon">
-                <TuneRoundedIcon fontSize="small" />
+                <PlaylistPlayRoundedIcon fontSize="small" />
               </span>
               <Typography variant="subtitle2" className="text-slate-200">
                 {"\u64ad\u653e\u6e05\u55ae\u4f86\u6e90"}
@@ -447,7 +447,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                     hostSourceType === "youtube" ? "contained" : "outlined"
                   }
                   className="room-lobby-mode-button room-lobby-mode-button--youtube"
-                  startIcon={<LibraryMusicRoundedIcon fontSize="small" />}
+                  startIcon={<YouTubeIcon fontSize="small" />}
                   onClick={() => switchSourceType("youtube")}
                 >
                   {"YouTube"}

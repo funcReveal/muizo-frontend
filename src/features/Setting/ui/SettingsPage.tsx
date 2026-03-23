@@ -20,6 +20,7 @@ import SettingsLayoutShell from "./components/SettingsLayoutShell";
 import SettingsSectionCard from "./components/SettingsSectionCard";
 import SettingsSidebarNav from "./components/SettingsSidebarNav";
 import SfxSettingsPanel from "./components/SfxSettingsPanel";
+import ScoreboardEffectSettingsPanel from "./components/ScoreboardEffectSettingsPanel";
 import {
   DEFAULT_KEY_BINDINGS,
   useKeyBindings,
@@ -177,6 +178,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
       case "sfx":
         return <SfxSettingsPanel key={sectionId} sectionId={sectionId} />;
+
+      case "scoreboard-effects":
+        return (
+          <ScoreboardEffectSettingsPanel
+            key={sectionId}
+            sectionId={sectionId}
+          />
+        );
 
       case "display-presets":
         return (

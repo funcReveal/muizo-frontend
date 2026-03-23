@@ -203,7 +203,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     sfxEnabled,
     sfxVolume,
     settlementPreviewSyncGameVolume,
+    setSettlementPreviewSyncGameVolume,
     settlementPreviewVolume,
+    setSettlementPreviewVolume,
   } = useSettingsModel();
   const [activeTab, setActiveTab] = useState<LiveSettlementTab>("overview");
   const [recommendCategory, setRecommendCategory] =
@@ -1007,6 +1009,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 previewSwitchNotice={previewSwitchNotice}
                 effectivePreviewVolume={effectivePreviewVolume}
                 settlementPreviewSyncGameVolume={settlementPreviewSyncGameVolume}
+                onPreviewVolumeChange={(next) => {
+                  if (settlementPreviewSyncGameVolume) {
+                    setSettlementPreviewSyncGameVolume(false);
+                  }
+                  setSettlementPreviewVolume(next);
+                }}
                 recommendPreviewStageRef={recommendPreviewStageRef}
                 isCurrentRecommendationPreviewOpen={isCurrentRecommendationPreviewOpen}
                 previewPlayerState={previewPlayerState}

@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import {
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -45,7 +40,7 @@ const createMatchMedia = (matches = false) =>
 
 const currentRoom: RoomState["room"] = {
   id: "room-1",
-  name: "測試房間",
+  name: "\u6e2c\u8a66\u623f\u9593",
   playerCount: 2,
   createdAt: 1,
   hasPassword: false,
@@ -69,7 +64,7 @@ const currentRoom: RoomState["room"] = {
 const participants: RoomParticipant[] = [
   {
     clientId: "host-1",
-    username: "房主",
+    username: "\u623f\u4e3b",
     joinedAt: 1,
     isOnline: true,
     lastSeen: 1,
@@ -79,7 +74,7 @@ const participants: RoomParticipant[] = [
   },
   {
     clientId: "guest-1",
-    username: "訪客玩家",
+    username: "\u73a9\u5bb6\u4e00",
     joinedAt: 2,
     isOnline: true,
     lastSeen: 2,
@@ -174,15 +169,18 @@ describe("RoomLobbyPanel", () => {
       />,
     );
 
-    const toolbar = screen.getAllByRole("toolbar", { name: "房間操作" })[0];
+    const toolbar = screen.getAllByRole("toolbar", { name: "\u623f\u9593\u64cd\u4f5c" })[0];
     const toolbarButtons = within(toolbar).getAllByRole("button");
-    const battleInfoButton = screen.getByRole("button", { name: "對戰資訊" });
-    const startButton = screen.getByRole("button", { name: "開始遊戲" });
-    const settingsButton = screen.getByRole("button", { name: "開啟房主設定" });
+    const battleInfoButton = screen.getByRole("button", { name: "\u5c0d\u6230\u8cc7\u8a0a" });
+    const startButton = screen.getByRole("button", { name: "\u958b\u59cb\u904a\u6232" });
+    const settingsButton = screen.getByRole("button", { name: "\u958b\u555f\u623f\u4e3b\u8a2d\u5b9a" });
+    const leaveButton = screen.getByRole("button", { name: "\u96e2\u958b\u623f\u9593" });
 
-    expect(screen.queryByRole("button", { name: "查看上一局" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "\u4e0a\u4e00\u5c40" }),
+    ).not.toBeInTheDocument();
     expect(toolbarButtons[0]).toBe(startButton);
-    expect(toolbarButtons[toolbarButtons.length - 1]).toHaveTextContent("離開");
+    expect(toolbarButtons[toolbarButtons.length - 1]).toBe(leaveButton);
     expect(startButton.compareDocumentPosition(battleInfoButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -199,10 +197,10 @@ describe("RoomLobbyPanel", () => {
       />,
     );
 
-    const toolbar = screen.getAllByRole("toolbar", { name: "房間操作" })[0];
-    fireEvent.click(within(toolbar).getByRole("button", { name: "離開" }));
+    const toolbar = screen.getAllByRole("toolbar", { name: "\u623f\u9593\u64cd\u4f5c" })[0];
+    fireEvent.click(within(toolbar).getByRole("button", { name: "\u96e2\u958b\u623f\u9593" }));
 
-    expect(screen.getByText("要離開房間嗎？")).toBeInTheDocument();
+    expect(screen.getByText("\u8981\u96e2\u958b\u623f\u9593\u55ce\uff1f")).toBeInTheDocument();
   });
 
   it("hides host-only settings action on mobile for non-host players", () => {
@@ -231,7 +229,9 @@ describe("RoomLobbyPanel", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "設定" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "離開" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "\u8a2d\u5b9a" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "\u96e2\u958b" })).toBeInTheDocument();
   });
 });
