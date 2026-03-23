@@ -41,6 +41,15 @@ const applyElasticResistance = (distance: number, ceiling: number) => {
   return ceiling * (1 - Math.exp(-normalized * 1.85));
 };
 
+const swallowGestureEvent = (
+  event: TouchEvent<HTMLElement> | PointerEvent<HTMLElement>,
+) => {
+  if ("cancelable" in event && event.cancelable) {
+    event.preventDefault();
+  }
+  event.stopPropagation();
+};
+
 const useMobileDrawerDragDismiss = ({
   open,
   direction,
@@ -203,8 +212,7 @@ const useMobileDrawerDragDismiss = ({
       if (!open || event.touches.length !== 1) return;
       const touch = event.touches[0];
       if (!touch) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       beginDrag(touch.clientY);
     },
     [beginDrag, open],
@@ -215,8 +223,7 @@ const useMobileDrawerDragDismiss = ({
       if (!dragStateRef.current.active || event.touches.length !== 1) return;
       const touch = event.touches[0];
       if (!touch) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       updateDrag(touch.clientY);
     },
     [updateDrag],
@@ -225,8 +232,7 @@ const useMobileDrawerDragDismiss = ({
   const onTouchEnd = useCallback(
     (event: TouchEvent<HTMLElement>) => {
       if (!dragStateRef.current.active) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       endDrag();
     },
     [endDrag],
@@ -235,8 +241,7 @@ const useMobileDrawerDragDismiss = ({
   const onTouchCancel = useCallback(
     (event: TouchEvent<HTMLElement>) => {
       if (!dragStateRef.current.active) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       cancelDrag();
     },
     [cancelDrag],
@@ -246,8 +251,7 @@ const useMobileDrawerDragDismiss = ({
     (event: PointerEvent<HTMLElement>) => {
       if (!open) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       dragStateRef.current.pointerId = event.pointerId;
       event.currentTarget.setPointerCapture(event.pointerId);
       beginDrag(event.clientY);
@@ -259,8 +263,7 @@ const useMobileDrawerDragDismiss = ({
     (event: PointerEvent<HTMLElement>) => {
       if (!dragStateRef.current.active) return;
       if (dragStateRef.current.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       updateDrag(event.clientY);
     },
     [updateDrag],
@@ -270,8 +273,7 @@ const useMobileDrawerDragDismiss = ({
     (event: PointerEvent<HTMLElement>) => {
       if (!dragStateRef.current.active) return;
       if (dragStateRef.current.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
@@ -284,8 +286,7 @@ const useMobileDrawerDragDismiss = ({
     (event: PointerEvent<HTMLElement>) => {
       if (!dragStateRef.current.active) return;
       if (dragStateRef.current.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      event.stopPropagation();
+      swallowGestureEvent(event);
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }

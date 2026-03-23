@@ -24,6 +24,8 @@ import type {
   SessionProgressPayload,
 } from "./types";
 
+const SYNC_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
+
 type PlaylistProgressState = {
   received: number;
   total: number;
@@ -146,6 +148,25 @@ export const useRoomProviderSocketLifecycle = ({
     presenceParticipantNamesRef,
     presenceSeededRoomIdRef,
   } = refs;
+  const isSyncDebugEnabled = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.localStorage.getItem(SYNC_DEBUG_STORAGE_KEY) === "1" ||
+      window.location.search.includes("debugSync=1")
+    );
+  }, []);
+  const debugSync = useCallback(
+    (label: string, payload?: Record<string, unknown>) => {
+      if (!isSyncDebugEnabled()) return;
+      const clientNow = Date.now();
+      console.debug(`[mq-sync] ${label}`, {
+        clientNow,
+        serverOffsetMs: serverOffsetRef.current,
+        ...payload,
+      });
+    },
+    [isSyncDebugEnabled, serverOffsetRef],
+  );
   const {
     setIsConnected,
     setRouteRoomResolved,
@@ -477,6 +498,12 @@ export const useRoomProviderSocketLifecycle = ({
         onGameStarted: ({ roomId, gameState, serverNow }) => {
           if (roomId !== currentRoomIdRef.current) return;
           syncServerOffset(serverNow);
+          debugSync("gameStarted", {
+            roomId,
+            serverNow,
+            startedAt: gameState.startedAt,
+            nextServerOffsetMs: serverNow - Date.now(),
+          });
           setGameState(gameState);
           const preStartRemainingSec = Math.max(
             0,
@@ -488,8 +515,17 @@ export const useRoomProviderSocketLifecycle = ({
           setIsGameView(true);
           void fetchCompletePlaylist(roomId).then(setGamePlaylist);
         },
-        onGameUpdated: ({ roomId, gameState }) => {
+        onGameUpdated: ({ roomId, gameState, serverNow }) => {
           if (roomId !== currentRoomIdRef.current) return;
+          syncServerOffset(serverNow);
+          debugSync("gameUpdated", {
+            roomId,
+            serverNow,
+            startedAt: gameState.startedAt,
+            nextServerOffsetMs: serverNow - Date.now(),
+            phase: gameState.phase,
+            status: gameState.status,
+          });
           setGameState(gameState);
           if (gameState?.status === "playing") {
             setIsGameView(true);
@@ -578,6 +614,7 @@ export const useRoomProviderSocketLifecycle = ({
     clientId,
     socketUrl,
     fetchRooms,
+    debugSync,
     inviteRoomId,
     isInviteMode,
     currentRoomIdRef,

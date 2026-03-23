@@ -92,14 +92,15 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
         </button>
       )}
       <SwipeableDrawer
-        className="game-room-mobile-drawer-root lg:!hidden"
+        className="game-room-mobile-drawer-root game-room-mobile-drawer-root--chat lg:!hidden"
         anchor="bottom"
         open={open}
         onOpen={onOpen}
         onClose={onClose}
-        disableSwipeToOpen={false}
+        disableSwipeToOpen
+        disableDiscovery
         allowSwipeInChildren
-        swipeAreaWidth={26}
+        swipeAreaWidth={0}
         keepMounted
         ModalProps={{
           keepMounted: true,
@@ -110,19 +111,25 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
           disableScrollLock: true,
         }}
         PaperProps={{
-          className: "game-room-mobile-chat-sheet",
-          style: mobileChatDragDismiss.paperStyle,
+          className: `game-room-mobile-chat-sheet ${
+            open ? "game-room-mobile-chat-sheet--open" : "game-room-mobile-chat-sheet--closed"
+          }`,
+          style: {
+            ...mobileChatDragDismiss.paperStyle,
+            pointerEvents: open ? "auto" : "none",
+            visibility: open ? "visible" : "hidden",
+          },
         }}
       >
         <div
           className="game-room-mobile-chat-sheet-head"
           role="presentation"
           aria-label="向下拖曳收合聊天室"
-          {...mobileChatDragDismiss.dragHandleProps}
         >
           <div
             className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${chatDismissState}`}
             aria-hidden="true"
+            {...mobileChatDragDismiss.dragHandleProps}
           >
             <span className="game-room-mobile-drawer-handle-bar" />
           </div>
@@ -153,16 +160,18 @@ const GameRoomMobileChatPopover: React.FC<GameRoomMobileChatPopoverProps> = ({
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden p-3 pt-2">
-          <GameRoomChatPanel
-            variant="sheet"
-            danmuEnabled={danmuEnabled}
-            onDanmuEnabledChange={onDanmuEnabledChange}
-            recentMessages={recentMessages}
-            messageInput={messageInput}
-            onMessageChange={onMessageChange}
-            onSendMessage={onSendMessage}
-            chatScrollRef={chatScrollRef}
-          />
+          {open ? (
+            <GameRoomChatPanel
+              variant="sheet"
+              danmuEnabled={danmuEnabled}
+              onDanmuEnabledChange={onDanmuEnabledChange}
+              recentMessages={recentMessages}
+              messageInput={messageInput}
+              onMessageChange={onMessageChange}
+              onSendMessage={onSendMessage}
+              chatScrollRef={chatScrollRef}
+            />
+          ) : null}
         </div>
       </SwipeableDrawer>
     </>

@@ -19,7 +19,16 @@ export type ScoreboardRow =
   | { type: "placeholder"; key: string };
 
 export const sortParticipantsByScore = (participants: RoomParticipant[]) =>
-  participants.slice().sort((a, b) => b.score - a.score);
+  participants.slice().sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    const joinedAtDelta = (a.joinedAt ?? Number.MAX_SAFE_INTEGER) - (b.joinedAt ?? Number.MAX_SAFE_INTEGER);
+    if (joinedAtDelta !== 0) {
+      return joinedAtDelta;
+    }
+    return a.clientId.localeCompare(b.clientId);
+  });
 
 export const buildScoreboardRows = (
   sortedParticipants: RoomParticipant[],

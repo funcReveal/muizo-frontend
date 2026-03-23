@@ -15,15 +15,14 @@ interface GameRoomAnswerPanelProps {
   answerPanelRef: React.RefObject<HTMLDivElement | null>;
   isInitialCountdown: boolean;
   countdownTone: string;
-  startCountdownSec: number;
   isReveal: boolean;
   revealTone: "neutral" | "locked" | "correct" | "wrong";
   isInterTrackWait: boolean;
   phaseLabel: string;
-  phaseRemainingMs: number;
+  activePhaseDurationMs: number;
+  phaseEndsAt: number;
   gamePhase: GameState["phase"];
-  isGuessUrgency: boolean;
-  progressPct: number;
+  startedAt: number;
   choices: GameState["choices"];
   selectedChoice: number | null;
   correctChoiceIndex: number;
@@ -46,7 +45,7 @@ interface GameRoomAnswerPanelProps {
   myHasChangedAnswer: boolean;
   myFeedback: MyFeedbackModel;
   gameStatus: GameState["status"];
-  revealCountdownMs: number;
+  revealEndsAt: number;
   resolvedAnswerTitle: string;
   onOpenExitConfirm: () => void;
   isPendingFeedbackCard: boolean;
@@ -54,6 +53,7 @@ interface GameRoomAnswerPanelProps {
   isRevealPendingServerSync: boolean;
   isRevealPendingOptimisticSync: boolean;
   revealChoicePickMap: RevealChoicePickMap;
+  serverOffsetMs: number;
 }
 
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
@@ -61,15 +61,14 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   answerPanelRef,
   isInitialCountdown,
   countdownTone,
-  startCountdownSec,
   isReveal,
   revealTone,
   isInterTrackWait,
   phaseLabel,
-  phaseRemainingMs,
+  activePhaseDurationMs,
+  phaseEndsAt,
   gamePhase,
-  isGuessUrgency,
-  progressPct,
+  startedAt,
   choices,
   selectedChoice,
   correctChoiceIndex,
@@ -92,7 +91,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   myHasChangedAnswer,
   myFeedback,
   gameStatus,
-  revealCountdownMs,
+  revealEndsAt,
   resolvedAnswerTitle,
   onOpenExitConfirm,
   isPendingFeedbackCard,
@@ -100,7 +99,133 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   isRevealPendingServerSync,
   isRevealPendingOptimisticSync,
   revealChoicePickMap,
+  serverOffsetMs,
 }) => {
+  const getLocalNowMs = React.useCallback(
+    () => Date.now() + serverOffsetMs,
+    [serverOffsetMs],
+  );
+  const [localNowMs, setLocalNowMs] = React.useState(getLocalNowMs);
+  const [urgentChipPingActive, setUrgentChipPingActive] = React.useState(false);
+  const [panelComboFxActive, setPanelComboFxActive] = React.useState(false);
+  const [selectedChoiceFxState, setSelectedChoiceFxState] = React.useState<{
+    trackSessionKey: string;
+    choiceIndex: number;
+  } | null>(null);
+  const [comboChoiceFxState, setComboChoiceFxState] = React.useState<{
+    trackSessionKey: string;
+    choiceIndex: number;
+  } | null>(null);
+  const uiTickMs = React.useMemo(() => {
+    if (
+      gamePhase === "guess" &&
+      !isInterTrackWait &&
+      !isReveal &&
+      !isEnded &&
+      !allAnsweredReadyForReveal
+    ) {
+      return 125;
+    }
+    if (isReveal || isInterTrackWait) {
+      return 250;
+    }
+    return 250;
+  }, [allAnsweredReadyForReveal, gamePhase, isEnded, isInterTrackWait, isReveal]);
+
+  React.useEffect(() => {
+    setLocalNowMs(getLocalNowMs());
+    const timer = window.setInterval(() => {
+      setLocalNowMs(getLocalNowMs());
+    }, uiTickMs);
+    return () => window.clearInterval(timer);
+  }, [getLocalNowMs, phaseEndsAt, revealEndsAt, startedAt, uiTickMs]);
+
+  const startCountdownSec = Math.max(
+    1,
+    Math.ceil(Math.max(0, startedAt - localNowMs) / 1000),
+  );
+  const phaseRemainingMs = Math.max(0, phaseEndsAt - localNowMs);
+  const progressPct =
+    activePhaseDurationMs <= 0
+      ? 0
+      : allAnsweredReadyForReveal
+        ? 100
+        : ((activePhaseDurationMs - phaseRemainingMs) / activePhaseDurationMs) * 100;
+  const isGuessUrgency =
+    gamePhase === "guess" &&
+    !allAnsweredReadyForReveal &&
+    !isInterTrackWait &&
+    !isEnded &&
+    phaseRemainingMs > 0 &&
+    phaseRemainingMs <= 3000;
+  const revealCountdownSec = Math.max(
+    0,
+    Math.ceil(Math.max(0, revealEndsAt - localNowMs) / 1000),
+  );
+
+  React.useEffect(() => {
+    if (!isGuessUrgency) {
+      setUrgentChipPingActive(false);
+      return;
+    }
+    setUrgentChipPingActive(true);
+    const timer = window.setTimeout(() => {
+      setUrgentChipPingActive(false);
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [isGuessUrgency, trackSessionKey]);
+
+  React.useEffect(() => {
+    if (selectedChoice === null || isReveal || waitingToStart) {
+      setSelectedChoiceFxState(null);
+      return;
+    }
+    setSelectedChoiceFxState({
+      trackSessionKey,
+      choiceIndex: selectedChoice,
+    });
+    const timer = window.setTimeout(() => {
+      setSelectedChoiceFxState((current) =>
+        current?.trackSessionKey === trackSessionKey &&
+        current.choiceIndex === selectedChoice
+          ? null
+          : current,
+      );
+    }, 1400);
+    return () => window.clearTimeout(timer);
+  }, [isReveal, selectedChoice, trackSessionKey, waitingToStart]);
+
+  React.useEffect(() => {
+    const shouldTrigger =
+      !isReveal && hasActiveComboStreak && myComboTier > 0 && selectedChoice !== null;
+    if (!shouldTrigger) {
+      setPanelComboFxActive(false);
+      setComboChoiceFxState(null);
+      return;
+    }
+    setPanelComboFxActive(true);
+    setComboChoiceFxState({
+      trackSessionKey,
+      choiceIndex: selectedChoice,
+    });
+    const timer = window.setTimeout(() => {
+      setPanelComboFxActive(false);
+      setComboChoiceFxState((current) =>
+        current?.trackSessionKey === trackSessionKey &&
+        current.choiceIndex === selectedChoice
+          ? null
+          : current,
+      );
+    }, 1600);
+    return () => window.clearTimeout(timer);
+  }, [
+    hasActiveComboStreak,
+    isReveal,
+    myComboTier,
+    selectedChoice,
+    trackSessionKey,
+  ]);
+
   const showGuessComboAtmosphere =
     !isReveal && hasActiveComboStreak && myComboTier > 0;
   const guessComboPanelClass = showGuessComboAtmosphere
@@ -113,7 +238,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   return (
     <div
       ref={answerPanelRef}
-      className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${guessComboPanelClass} ${isMobileView ? "game-room-answer-panel--mobile" : ""
+      className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${guessComboPanelClass} ${panelComboFxActive ? "game-room-panel--combo-live-active" : ""} ${isMobileView ? "game-room-answer-panel--mobile" : ""
         } flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
     >
       {isInitialCountdown ? (
@@ -169,7 +294,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 }
                 variant={allAnsweredReadyForReveal ? "filled" : "outlined"}
                 className={`game-room-chip ${isGuessUrgency ? "game-room-chip--urgent" : ""
-                  } ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
+                  } ${urgentChipPingActive ? "game-room-chip--urgent-ping" : ""} ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
               />
             </div>
 
@@ -255,6 +380,12 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     !isReveal && isMyChoice && hasActiveComboStreak;
                   const showComboOverdriveStyle =
                     showComboLiveStyle && myComboTier >= 10 && myComboNow >= 10;
+                  const isSelectedFxActive =
+                    selectedChoiceFxState?.trackSessionKey === trackSessionKey &&
+                    selectedChoiceFxState.choiceIndex === choice.index;
+                  const isComboFxActive =
+                    comboChoiceFxState?.trackSessionKey === trackSessionKey &&
+                    comboChoiceFxState.choiceIndex === choice.index;
                   const showComboBreakStyle =
                     isReveal && isMyChoice && isComboBreakThisQuestion;
                   const showComboMilestoneStyle =
@@ -328,11 +459,20 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                           } ${!isReveal && isSelected
                             ? "game-room-choice-button--selected-live"
                             : ""
+                          } ${isSelectedFxActive
+                            ? "game-room-choice-button--selected-live-active"
+                            : ""
                           } ${showComboLiveStyle
                             ? "game-room-choice-button--combo-live"
                             : ""
+                          } ${isComboFxActive
+                            ? "game-room-choice-button--combo-live-active"
+                            : ""
                           } ${comboLiveTierClass} ${showComboOverdriveStyle
                             ? "game-room-choice-button--combo-overdrive"
+                            : ""
+                          } ${showComboOverdriveStyle && isComboFxActive
+                            ? "game-room-choice-button--combo-overdrive-active"
                             : ""
                           } ${showComboBreakStyle
                             ? "game-room-choice-button--combo-break"
@@ -383,7 +523,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                             className={`game-room-choice-particle-burst game-room-choice-particle-burst--combo-break game-room-choice-particle-burst--combo-break-tier-${comboBreakTier}`}
                           />
                         )}
-                        {showComboLiveStyle && (
+                        {showComboLiveStyle && isComboFxActive && (
                           <span
                             aria-hidden="true"
                             className={`game-room-choice-combo-aura game-room-choice-combo-aura--tier-${myComboTier} ${showComboOverdriveStyle
@@ -525,7 +665,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   </p>
                   {gameStatus === "playing" ? (
                     <p className="mt-1 text-xs text-emerald-200">
-                      {Math.ceil(revealCountdownMs / 1000)} 秒後下一題
+                      {revealCountdownSec} 秒後下一題
                     </p>
                   ) : (
                     <div className="mt-1 flex items-center justify-between">
@@ -552,4 +692,4 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   );
 };
 
-export default GameRoomAnswerPanel;
+export default React.memo(GameRoomAnswerPanel);

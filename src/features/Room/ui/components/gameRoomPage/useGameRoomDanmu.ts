@@ -6,14 +6,23 @@ import {
   DANMU_LANE_COUNT,
   deferStateUpdate,
   isDanmuCandidateMessage,
+  isMobileDevice,
   toDanmuText,
 } from "./gameRoomPageUtils";
 
 const DANMU_ENABLED_STORAGE_KEY = "mq_danmu_enabled";
 const DANMU_MAX_VISIBLE_ITEMS = 24;
+const DANMU_MOBILE_MAX_VISIBLE_ITEMS = 12;
 const DANMU_BATCH_SIZE = 4;
 const DANMU_MAX_SEEN_MESSAGE_IDS = 1200;
 const DANMU_MAX_TIMER_COUNT = 160;
+const DANMU_MOBILE_MAX_TIMER_COUNT = 80;
+const DANMU_BASE_DURATION_MS = 15600;
+const DANMU_MOBILE_BASE_DURATION_MS = 7800;
+const DANMU_LANE_DURATION_STEP_MS = 1200;
+const DANMU_MOBILE_LANE_DURATION_STEP_MS = 600;
+const DANMU_ORDER_DURATION_STEP_MS = 260;
+const DANMU_MOBILE_ORDER_DURATION_STEP_MS = 130;
 
 type UseGameRoomDanmuArgs = {
   roomId: string;
@@ -34,6 +43,22 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
   const danmuSeenMessageIdsRef = useRef<Set<string>>(new Set());
   const danmuLaneCursorRef = useRef(0);
   const danmuTimersRef = useRef<number[]>([]);
+  const isMobileDanmu = isMobileDevice();
+  const maxVisibleItems = isMobileDanmu
+    ? DANMU_MOBILE_MAX_VISIBLE_ITEMS
+    : DANMU_MAX_VISIBLE_ITEMS;
+  const maxTimerCount = isMobileDanmu
+    ? DANMU_MOBILE_MAX_TIMER_COUNT
+    : DANMU_MAX_TIMER_COUNT;
+  const baseDurationMs = isMobileDanmu
+    ? DANMU_MOBILE_BASE_DURATION_MS
+    : DANMU_BASE_DURATION_MS;
+  const laneDurationStepMs = isMobileDanmu
+    ? DANMU_MOBILE_LANE_DURATION_STEP_MS
+    : DANMU_LANE_DURATION_STEP_MS;
+  const orderDurationStepMs = isMobileDanmu
+    ? DANMU_MOBILE_ORDER_DURATION_STEP_MS
+    : DANMU_ORDER_DURATION_STEP_MS;
 
   const clearDanmuTimers = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -98,7 +123,8 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
     unseenMessages.reverse().forEach((message, orderIdx) => {
       const lane = danmuLaneCursorRef.current % DANMU_LANE_COUNT;
       danmuLaneCursorRef.current += 1;
-      const durationMs = 15600 + (lane % 3) * 1200 + orderIdx * 260;
+      const durationMs =
+        baseDurationMs + (lane % 3) * laneDurationStepMs + orderIdx * orderDurationStepMs;
       const itemId = `${message.id}-${Date.now()}-${orderIdx}`;
       const nextItem: DanmuItem = {
         id: itemId,
@@ -106,14 +132,14 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
         lane,
         durationMs,
       };
-      setDanmuItems((prev) => [...prev.slice(-DANMU_MAX_VISIBLE_ITEMS), nextItem]);
+      setDanmuItems((prev) => [...prev.slice(-maxVisibleItems), nextItem]);
       const timerId = window.setTimeout(() => {
         setDanmuItems((prev) => prev.filter((item) => item.id !== itemId));
         danmuTimersRef.current = danmuTimersRef.current.filter(
           (registeredTimerId) => registeredTimerId !== timerId,
         );
       }, durationMs + 320);
-      if (danmuTimersRef.current.length >= DANMU_MAX_TIMER_COUNT) {
+      if (danmuTimersRef.current.length >= maxTimerCount) {
         const staleTimerId = danmuTimersRef.current.shift();
         if (typeof staleTimerId === "number") {
           window.clearTimeout(staleTimerId);
@@ -121,7 +147,15 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
       }
       danmuTimersRef.current.push(timerId);
     });
-  }, [danmuEnabled, messages]);
+  }, [
+    baseDurationMs,
+    danmuEnabled,
+    laneDurationStepMs,
+    maxTimerCount,
+    maxVisibleItems,
+    messages,
+    orderDurationStepMs,
+  ]);
 
   useEffect(
     () => () => {

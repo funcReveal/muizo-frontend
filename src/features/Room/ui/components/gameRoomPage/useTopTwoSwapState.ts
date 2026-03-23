@@ -10,12 +10,27 @@ const MAX_SWAP_OFFSET_ROWS = 6;
 const clampSwapOffsetRows = (value: number) =>
   Math.max(-MAX_SWAP_OFFSET_ROWS, Math.min(MAX_SWAP_OFFSET_ROWS, value));
 
+const SCOREBOARD_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
+
 const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
   const [topTwoSwapState, setTopTwoSwapState] = useState<TopTwoSwapState | null>(
     null,
   );
   const lastParticipantOrderRef = useRef<string[]>([]);
+  const lastScoreByClientIdRef = useRef<Map<string, number>>(new Map());
   const topTwoSwapTimerRef = useRef<number | null>(null);
+
+  const debugScoreboard = useCallback(
+    (label: string, payload: Record<string, unknown>) => {
+      if (typeof window === "undefined") return;
+      const enabled =
+        window.localStorage.getItem(SCOREBOARD_DEBUG_STORAGE_KEY) === "1" ||
+        window.location.search.includes("debugSync=1");
+      if (!enabled) return;
+      console.debug(`[mq-scoreboard] ${label}`, payload);
+    },
+    [],
+  );
 
   const resetTopTwoSwapState = useCallback(() => {
     lastParticipantOrderRef.current = [];
@@ -28,7 +43,11 @@ const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
 
   useLayoutEffect(() => {
     const nextParticipantOrder = sortedParticipants.map((participant) => participant.clientId);
+    const nextScoreByClientId = new Map(
+      sortedParticipants.map((participant) => [participant.clientId, participant.score]),
+    );
     const prevParticipantOrder = lastParticipantOrderRef.current;
+    const prevScoreByClientId = lastScoreByClientIdRef.current;
     const [prevFirst, prevSecond] = [
       prevParticipantOrder[0] ?? null,
       prevParticipantOrder[1] ?? null,
@@ -50,8 +69,16 @@ const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
       !!nextFirst &&
       !!nextSecond &&
       (prevFirst !== nextFirst || prevSecond !== nextSecond);
+    const movedClientIds = [nextFirst, nextSecond]
+      .filter((clientId): clientId is string => Boolean(clientId))
+      .filter((clientId) => prevParticipantOrder.includes(clientId));
+    const didScoreChangeForMovedClients = movedClientIds.some((clientId) => {
+      const prevScore = prevScoreByClientId.get(clientId);
+      const nextScore = nextScoreByClientId.get(clientId);
+      return typeof prevScore === "number" && typeof nextScore === "number" && prevScore !== nextScore;
+    });
 
-    if (didTopTwoChange) {
+    if (didTopTwoChange && didScoreChangeForMovedClients) {
       const prevIndexOfNextFirst = prevParticipantOrder.indexOf(nextFirst);
       const prevIndexOfNextSecond = prevParticipantOrder.indexOf(nextSecond);
       const firstOffsetRows = clampSwapOffsetRows(
@@ -87,10 +114,36 @@ const useTopTwoSwapState = (sortedParticipants: RoomParticipant[]) => {
         });
         topTwoSwapTimerRef.current = null;
       }, TOP_TWO_SWAP_DURATION_MS);
+      debugScoreboard("top-two-swap", {
+        trigger: "top-two-swap",
+        prevOrder: prevParticipantOrder.slice(0, 2),
+        nextOrder: nextParticipantOrder.slice(0, 2),
+        movedClientIds,
+        prevScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, prevScoreByClientId.get(clientId) ?? null]),
+        ),
+        nextScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, nextScoreByClientId.get(clientId) ?? null]),
+        ),
+      });
+    } else if (didTopTwoChange) {
+      debugScoreboard("top-two-swap-skipped", {
+        trigger: "top-two-swap",
+        prevOrder: prevParticipantOrder.slice(0, 2),
+        nextOrder: nextParticipantOrder.slice(0, 2),
+        movedClientIds,
+        prevScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, prevScoreByClientId.get(clientId) ?? null]),
+        ),
+        nextScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, nextScoreByClientId.get(clientId) ?? null]),
+        ),
+      });
     }
 
     lastParticipantOrderRef.current = nextParticipantOrder;
-  }, [sortedParticipants]);
+    lastScoreByClientIdRef.current = nextScoreByClientId;
+  }, [debugScoreboard, sortedParticipants]);
 
   useEffect(
     () => () => {

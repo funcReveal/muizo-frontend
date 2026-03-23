@@ -25,6 +25,18 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
   variant = "sidebar",
 }) => {
   const isSheet = variant === "sheet";
+  const renderedMessages = React.useMemo(
+    () =>
+      recentMessages.map((msg) => ({
+        ...msg,
+        shortTime: new Date(msg.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        fullTime: new Date(msg.timestamp).toLocaleTimeString(),
+      })),
+    [recentMessages],
+  );
 
   return (
     <div
@@ -54,7 +66,7 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
           isSheet ? "" : "md:max-h-80"
         }`}
       >
-        {recentMessages.length === 0 ? (
+        {renderedMessages.length === 0 ? (
           <div className="game-room-chat-empty-state">
             <div className="room-chat-empty-note room-chat-empty-note--game">
               <span className="room-chat-empty-meta">
@@ -67,7 +79,7 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
             </div>
           </div>
         ) : (
-          recentMessages.map((msg) => {
+          renderedMessages.map((msg) => {
             const isPresenceSystemMessage = msg.userId === "system:presence";
             if (isPresenceSystemMessage) {
               return (
@@ -75,10 +87,7 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
                   <div className="max-w-full rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1 text-[11px] text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                     <span className="font-medium text-slate-200">{msg.content}</span>
                     <span className="ml-2 text-slate-500">
-                      {new Date(msg.timestamp).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {msg.shortTime}
                     </span>
                   </div>
                 </div>
@@ -89,9 +98,7 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
                 <div className="game-room-chat-bubble game-room-chat-message max-w-full px-2.5 py-1.5 text-xs">
                   <div className="flex items-center gap-4 text-[11px] text-slate-300">
                     <span className="font-semibold">{msg.username}</span>
-                    <span className="text-slate-500">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
+                    <span className="text-slate-500">{msg.fullTime}</span>
                   </div>
                   <p className="mt-1 whitespace-pre-wrap wrap-anywhere leading-relaxed">
                     {msg.content}
@@ -129,4 +136,4 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
   );
 };
 
-export default GameRoomChatPanel;
+export default React.memo(GameRoomChatPanel);

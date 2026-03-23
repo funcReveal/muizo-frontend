@@ -47,6 +47,7 @@ const MAX_RANK_SWAP_OFFSET_ROWS = 6;
 const DESKTOP_FLIP_BASE_DURATION_MS = 860;
 const DESKTOP_FLIP_MAX_DURATION_MS = 1680;
 const DESKTOP_FLIP_ROW_HEIGHT_PX = 60;
+const SCOREBOARD_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
 
 type RankSwapState = {
   key: number;
@@ -58,6 +59,13 @@ const clampRankSwapOffsetRows = (value: number) =>
 
 const resolveScoreboardPlayerOrder = (rows: ScoreboardRow[]) =>
   rows.flatMap((row) => (row.type === "player" ? [row.player.clientId] : []));
+
+const resolveScoreboardScores = (rows: ScoreboardRow[]) =>
+  new Map(
+    rows.flatMap((row) =>
+      row.type === "player" ? [[row.player.clientId, row.player.score] as const] : [],
+    ),
+  );
 
 const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   scoreboardRows,
@@ -101,6 +109,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     () => resolveScoreboardPlayerOrder(scoreboardRows),
     [scoreboardRows],
   );
+  const scoreByClientId = React.useMemo(
+    () => resolveScoreboardScores(scoreboardRows),
+    [scoreboardRows],
+  );
   const comboLeaderClientId = React.useMemo(() => {
     let bestClientId: string | null = null;
     let bestCombo = 0;
@@ -132,12 +144,29 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   const [rankSwapState, setRankSwapState] = React.useState<RankSwapState | null>(
     null,
   );
+  const [comboLeaderFxClientId, setComboLeaderFxClientId] = React.useState<string | null>(
+    null,
+  );
   const lastDisplayedPlayerOrderRef = React.useRef<string[]>([]);
+  const lastScoreByClientIdRef = React.useRef<Map<string, number>>(new Map());
   const rankSwapTimerRef = React.useRef<number | null>(null);
+  const comboLeaderFxTimerRef = React.useRef<number | null>(null);
   const rankSwapKeyRef = React.useRef(0);
   const rowElementByClientIdRef = React.useRef(new Map<string, HTMLDivElement>());
   const previousDesktopTopByClientIdRef = React.useRef(new Map<string, number>());
   const desktopFlipAnimationsRef = React.useRef<Animation[]>([]);
+
+  const debugScoreboard = React.useCallback(
+    (label: string, payload: Record<string, unknown>) => {
+      if (typeof window === "undefined") return;
+      const enabled =
+        window.localStorage.getItem(SCOREBOARD_DEBUG_STORAGE_KEY) === "1" ||
+        window.location.search.includes("debugSync=1");
+      if (!enabled) return;
+      console.debug(`[mq-scoreboard] ${label}`, payload);
+    },
+    [],
+  );
 
   React.useLayoutEffect(() => {
     if (displayedPlayerOrder.length === 0) {
@@ -151,8 +180,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     }
 
     const previousOrder = lastDisplayedPlayerOrderRef.current;
+    const previousScoreByClientId = lastScoreByClientIdRef.current;
     if (previousOrder.length === 0) {
       lastDisplayedPlayerOrderRef.current = displayedPlayerOrder;
+      lastScoreByClientIdRef.current = scoreByClientId;
       return;
     }
 
@@ -169,18 +200,41 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       previousOrder.map((clientId, index) => [clientId, index]),
     );
     const offsetByClientId: Record<string, number> = {};
+    const movedClientIds: string[] = [];
     displayedPlayerOrder.forEach((clientId, nextIndex) => {
       const previousIndex = previousOrderIndexByClientId.get(clientId);
       if (typeof previousIndex !== "number" || previousIndex === nextIndex) return;
       const offsetRows = clampRankSwapOffsetRows(previousIndex - nextIndex);
       if (offsetRows !== 0) {
         offsetByClientId[clientId] = offsetRows;
+        movedClientIds.push(clientId);
       }
     });
 
     lastDisplayedPlayerOrderRef.current = displayedPlayerOrder;
+    lastScoreByClientIdRef.current = scoreByClientId;
     const movedOffsets = Object.values(offsetByClientId);
     if (movedOffsets.length === 0) return;
+    const didScoreChangeForMovedClients = movedClientIds.some((clientId) => {
+      const prevScore = previousScoreByClientId.get(clientId);
+      const nextScore = scoreByClientId.get(clientId);
+      return typeof prevScore === "number" && typeof nextScore === "number" && prevScore !== nextScore;
+    });
+    if (!didScoreChangeForMovedClients) {
+      debugScoreboard("rank-swap-skipped", {
+        trigger: "rank-swap",
+        prevOrder: previousOrder,
+        nextOrder: displayedPlayerOrder,
+        movedClientIds,
+        prevScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, previousScoreByClientId.get(clientId) ?? null]),
+        ),
+        nextScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, scoreByClientId.get(clientId) ?? null]),
+        ),
+      });
+      return;
+    }
 
     if (rankSwapTimerRef.current !== null) {
       window.clearTimeout(rankSwapTimerRef.current);
@@ -206,7 +260,19 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       );
       rankSwapTimerRef.current = null;
     }, RANK_SWAP_DURATION_MS + releaseDelayMs + 160);
-  }, [displayedPlayerOrder, swapAnimationEnabled, swapReplayToken]);
+    debugScoreboard("rank-swap", {
+      trigger: "rank-swap",
+      prevOrder: previousOrder,
+      nextOrder: displayedPlayerOrder,
+      movedClientIds,
+      prevScores: Object.fromEntries(
+        movedClientIds.map((clientId) => [clientId, previousScoreByClientId.get(clientId) ?? null]),
+      ),
+      nextScores: Object.fromEntries(
+        movedClientIds.map((clientId) => [clientId, scoreByClientId.get(clientId) ?? null]),
+      ),
+    });
+  }, [debugScoreboard, displayedPlayerOrder, scoreByClientId, swapAnimationEnabled, swapReplayToken]);
 
   React.useLayoutEffect(() => {
     if (mobileOverlayMode) {
@@ -217,6 +283,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     }
 
     const nextTopByClientId = new Map<string, number>();
+    const previousScoreByClientId = lastScoreByClientIdRef.current;
     displayedPlayerOrder.forEach((clientId) => {
       const rowElement = rowElementByClientIdRef.current.get(clientId);
       if (!rowElement) return;
@@ -242,6 +309,35 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       if (!rowElement) return;
       movedRows.push({ element: rowElement, deltaY });
     });
+    const movedClientIds = movedRows.flatMap(({ element }) => {
+      const found = Array.from(rowElementByClientIdRef.current.entries()).find(
+        ([, candidate]) => candidate === element,
+      );
+      return found ? [found[0]] : [];
+    });
+    const didScoreChangeForMovedClients = movedClientIds.some((clientId) => {
+      const prevScore = previousScoreByClientId.get(clientId);
+      const nextScore = scoreByClientId.get(clientId);
+      return typeof prevScore === "number" && typeof nextScore === "number" && prevScore !== nextScore;
+    });
+    if (!didScoreChangeForMovedClients) {
+      previousDesktopTopByClientIdRef.current = nextTopByClientId;
+      if (movedClientIds.length > 0) {
+        debugScoreboard("flip-skipped", {
+          trigger: "flip",
+          prevOrder: lastDisplayedPlayerOrderRef.current,
+          nextOrder: displayedPlayerOrder,
+          movedClientIds,
+          prevScores: Object.fromEntries(
+            movedClientIds.map((clientId) => [clientId, previousScoreByClientId.get(clientId) ?? null]),
+          ),
+          nextScores: Object.fromEntries(
+            movedClientIds.map((clientId) => [clientId, scoreByClientId.get(clientId) ?? null]),
+          ),
+        });
+      }
+      return;
+    }
 
     desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
     desktopFlipAnimationsRef.current = [];
@@ -294,7 +390,21 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     });
 
     previousDesktopTopByClientIdRef.current = nextTopByClientId;
-  }, [displayedPlayerOrder, mobileOverlayMode, swapAnimationEnabled, swapReplayToken]);
+    if (movedClientIds.length > 0) {
+      debugScoreboard("flip", {
+        trigger: "flip",
+        prevOrder: lastDisplayedPlayerOrderRef.current,
+        nextOrder: displayedPlayerOrder,
+        movedClientIds,
+        prevScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, previousScoreByClientId.get(clientId) ?? null]),
+        ),
+        nextScores: Object.fromEntries(
+          movedClientIds.map((clientId) => [clientId, scoreByClientId.get(clientId) ?? null]),
+        ),
+      });
+    }
+  }, [debugScoreboard, displayedPlayerOrder, mobileOverlayMode, scoreByClientId, swapAnimationEnabled, swapReplayToken]);
 
   React.useEffect(
     () => () => {
@@ -302,11 +412,38 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         window.clearTimeout(rankSwapTimerRef.current);
         rankSwapTimerRef.current = null;
       }
+      if (comboLeaderFxTimerRef.current !== null) {
+        window.clearTimeout(comboLeaderFxTimerRef.current);
+        comboLeaderFxTimerRef.current = null;
+      }
       desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
       desktopFlipAnimationsRef.current = [];
     },
     [],
   );
+
+  React.useEffect(() => {
+    if (!comboLeaderClientId) {
+      setComboLeaderFxClientId(null);
+      return;
+    }
+    setComboLeaderFxClientId(comboLeaderClientId);
+    if (comboLeaderFxTimerRef.current !== null) {
+      window.clearTimeout(comboLeaderFxTimerRef.current);
+    }
+    comboLeaderFxTimerRef.current = window.setTimeout(() => {
+      setComboLeaderFxClientId((current) =>
+        current === comboLeaderClientId ? null : current,
+      );
+      comboLeaderFxTimerRef.current = null;
+    }, 1800);
+    return () => {
+      if (comboLeaderFxTimerRef.current !== null) {
+        window.clearTimeout(comboLeaderFxTimerRef.current);
+        comboLeaderFxTimerRef.current = null;
+      }
+    };
+  }, [comboLeaderClientId]);
 
   return (
     <aside
@@ -503,6 +640,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
             const shouldShowComboFlare = isComboLeader && rowComboTier > 0;
             const shouldShowComboChampion = shouldShowComboFlare && idx === 0;
+            const isComboFxActive = comboLeaderFxClientId === p.clientId;
             const rowComboThemeClass = shouldShowComboFlare
               ? getScoreboardBorderThemeClassName(scoreboardBorderTheme)
               : "";
@@ -543,11 +681,17 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     ? "game-room-score-row--rank-swap-focus"
                     : ""
                   } ${rowComboTierClass} ${shouldShowComboFlare ? "game-room-score-row--combo-flare" : ""
+                  } ${shouldShowComboFlare && isComboFxActive
+                    ? "game-room-score-row--combo-flare-active"
+                    : ""
                   } ${shouldShowComboChampion ? "game-room-score-row--combo-champion" : ""
+                  } ${shouldShowComboChampion && isComboFxActive
+                    ? "game-room-score-row--combo-champion-active"
+                    : ""
                   } ${rowComboThemeClass}`}
                 style={rowSwapStyle}
               >
-                {shouldShowComboChampion ? (
+                {shouldShowComboChampion && isComboFxActive ? (
                   <AnimatedScoreboardBorder
                     animationId={scoreboardBorderAnimation}
                     lineStyleId={scoreboardBorderLineStyle}
@@ -623,4 +767,4 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   );
 };
 
-export default GameRoomLeftSidebar;
+export default React.memo(GameRoomLeftSidebar);
