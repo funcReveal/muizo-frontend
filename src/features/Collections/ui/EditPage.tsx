@@ -1,8 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import MoreHorizRounded from "@mui/icons-material/MoreHorizRounded";
-import ShareRounded from "@mui/icons-material/ShareRounded";
 import {
   Button,
   Dialog,
@@ -207,6 +205,7 @@ const EditPage = () => {
   const hasResetPlaylistRef = useRef(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const isPlayingRef = useRef<boolean>(false);
   const [volume, setVolume] = useState(() => {
     if (typeof window === "undefined") return 50;
     const stored =
@@ -220,6 +219,8 @@ const EditPage = () => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(EDIT_MUTE_STORAGE_KEY) === "1";
   });
+  const volumeRef = useRef<number>(volume);
+  const isMutedRef = useRef<boolean>(isMuted);
   const lastVolumeRef = useRef<number>(volume);
   const [autoPlayOnSwitch, setAutoPlayOnSwitch] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -239,6 +240,15 @@ const EditPage = () => {
   useEffect(() => {
     autoPlayRef.current = autoPlayOnSwitch;
   }, [autoPlayOnSwitch]);
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
   const [ytReady, setYtReady] = useState(false);
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
 
@@ -856,7 +866,6 @@ const EditPage = () => {
   }, [
     activeCollectionId,
     authToken,
-    collectionTitle,
     collectionVisibility,
   ]);
 
@@ -1091,7 +1100,9 @@ const EditPage = () => {
       events: {
         onReady: (event: YTPlayerEvent) => {
           setIsPlayerReady(true);
-          event.target.setVolume?.(volume);
+          event.target.setVolume?.(
+            isMutedRef.current ? 0 : volumeRef.current,
+          );
           const initialStart = Math.floor(selectedStartRef.current);
           if (autoPlayRef.current) {
             playRequestedRef.current = true;
@@ -1133,11 +1144,7 @@ const EditPage = () => {
           const state = window.YT?.PlayerState;
           if (!state) return;
           if (event.data === state.PLAYING) {
-            if (!playRequestedRef.current) {
-              event.target.pauseVideo?.();
-              setIsPlaying(false);
-              return;
-            }
+            playRequestedRef.current = true;
             if (autoPlayRef.current && !autoPlaySeekedRef.current) {
               const targetStart = selectedStartRef.current;
               const current = event.target.getCurrentTime?.();
@@ -1155,6 +1162,7 @@ const EditPage = () => {
             event.data === state.PAUSED ||
             event.data === state.ENDED
           ) {
+            playRequestedRef.current = false;
             setIsPlaying(false);
           }
         },
@@ -1175,16 +1183,15 @@ const EditPage = () => {
     itemsLoading,
     collectionsLoading,
     selectedVideoId,
-    volume,
     syncDurationFromPlayer,
   ]);
 
   useEffect(() => {
     if (!isPlayerReady || !playerRef.current) return;
-    if (autoPlayOnSwitch) return;
+    if (autoPlayRef.current) return;
     playerRef.current.seekTo?.(startSec, true);
     setCurrentTimeSec(startSec);
-  }, [startSec, isPlayerReady, selectedVideoId, autoPlayOnSwitch]);
+  }, [startSec, isPlayerReady, selectedVideoId]);
 
   useEffect(() => {
     if (!isPlayerReady || !playerRef.current) return;
@@ -1192,8 +1199,56 @@ const EditPage = () => {
   }, [volume, isMuted, isPlayerReady]);
 
   useEffect(() => {
-    if (!autoPlayOnSwitch) return;
     if (!isPlayerReady || !playerRef.current) return;
+
+    const syncPlayerVolumeState = () => {
+      const player = playerRef.current;
+      if (!player) return;
+
+      const nextMuted = player.isMuted?.() ?? false;
+      const rawVolume = player.getVolume?.();
+      const nextVolume = Number.isFinite(rawVolume)
+        ? Math.min(100, Math.max(0, Math.round(rawVolume)))
+        : null;
+
+      if (typeof nextVolume === "number" && nextVolume !== volumeRef.current) {
+        volumeRef.current = nextVolume;
+        setVolume(nextVolume);
+        if (nextVolume > 0) {
+          lastVolumeRef.current = nextVolume;
+        }
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            EDIT_VOLUME_STORAGE_KEY,
+            String(nextVolume),
+          );
+        }
+      }
+
+      if (nextMuted !== isMutedRef.current) {
+        isMutedRef.current = nextMuted;
+        setIsMuted(nextMuted);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            EDIT_MUTE_STORAGE_KEY,
+            nextMuted ? "1" : "0",
+          );
+        }
+      }
+    };
+
+    syncPlayerVolumeState();
+    const intervalId = window.setInterval(syncPlayerVolumeState, 250);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isPlayerReady, selectedVideoId]);
+
+  useEffect(() => {
+    if (!autoPlayRef.current) return;
+    if (!isPlayerReady || !playerRef.current) return;
+    if (!selectedItemId) return;
     playRequestedRef.current = true;
     if (shouldSeekToStartRef.current) {
       shouldSeekToStartRef.current = false;
@@ -1206,10 +1261,10 @@ const EditPage = () => {
       playerRef.current.seekTo?.(pendingStart, true);
       setCurrentTimeSec(pendingStart);
     }
-    if (!isPlaying) {
+    if (!isPlayingRef.current) {
       playerRef.current.playVideo?.();
     }
-  }, [autoPlayOnSwitch, isPlayerReady, selectedVideoId, isPlaying]);
+  }, [isPlayerReady, selectedItemId]);
 
   useEffect(() => {
     if (!isPlayerReady || !playerRef.current) return;
@@ -1696,10 +1751,14 @@ const EditPage = () => {
 
   const handleVolumeChange = (value: number) => {
     const clamped = Math.min(100, Math.max(0, value));
+    volumeRef.current = clamped;
     setVolume(clamped);
     if (clamped > 0) {
       lastVolumeRef.current = clamped;
-      if (isMuted) setIsMuted(false);
+      if (isMuted) {
+        isMutedRef.current = false;
+        setIsMuted(false);
+      }
     }
     if (typeof window !== "undefined") {
       window.localStorage.setItem(EDIT_VOLUME_STORAGE_KEY, String(clamped));
@@ -1709,8 +1768,10 @@ const EditPage = () => {
   const handleToggleMute = () => {
     setIsMuted((prev) => {
       const next = !prev;
+      isMutedRef.current = next;
       if (!next && volume === 0) {
         const restored = Math.max(10, lastVolumeRef.current || 10);
+        volumeRef.current = restored;
         setVolume(restored);
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
@@ -1861,6 +1922,13 @@ const EditPage = () => {
           void applyVisibilityChange(value);
         }}
         collectionCount={collectionCount}
+        onShare={() => {
+          void handleShareCollection();
+        }}
+        shareCopied={shareCopied}
+        shareDisabled={
+          !activeCollectionId || isReadOnly || collectionVisibility !== "public"
+        }
         onCollectionButtonClick={(event) => {
           setCollectionAnchor(event.currentTarget);
           setCollectionMenuOpen((prev) => !prev);
@@ -1878,36 +1946,6 @@ const EditPage = () => {
         collectionMenuOpen={collectionMenuOpen}
         playlistMenuOpen={playlistPanelOpen}
       />
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={
-            <span className="relative inline-flex h-[18px] w-[18px] items-center justify-center overflow-hidden">
-              <ShareRounded
-                fontSize="small"
-                className={`absolute transition-all duration-200 ${
-                  shareCopied ? "scale-75 opacity-0" : "scale-100 opacity-100"
-                }`}
-              />
-              <CheckCircleOutlineRounded
-                fontSize="small"
-                className={`absolute text-cyan-300 transition-all duration-200 ${
-                  shareCopied ? "scale-100 opacity-100" : "scale-75 opacity-0"
-                }`}
-              />
-            </span>
-          }
-          onClick={() => {
-            void handleShareCollection();
-          }}
-          disabled={
-            !activeCollectionId || isReadOnly || collectionVisibility !== "public"
-          }
-        >
-          複製分享連結
-        </Button>
-      </div>
       <CollectionPopover
         open={collectionMenuOpen}
         anchorEl={collectionAnchor}
@@ -2143,9 +2181,6 @@ const EditPage = () => {
         <DialogTitle className="!px-6 !pt-6 !pb-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.28em] text-[var(--mc-text-muted)]">
-                AI Answer Assistant
-              </div>
               <div className="mt-1 text-lg font-semibold text-[var(--mc-text)]">
                 AI 批次修正答案
               </div>

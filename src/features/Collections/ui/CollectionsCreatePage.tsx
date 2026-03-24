@@ -403,8 +403,15 @@ const CollectionsCreatePage = () => {
         }
       };
 
-      for (let index = 0; index < insertItems.length; index += COLLECTION_ITEMS_CHUNK_SIZE) {
-        const chunk = insertItems.slice(index, index + COLLECTION_ITEMS_CHUNK_SIZE);
+      for (
+        let index = 0;
+        index < insertItems.length;
+        index += COLLECTION_ITEMS_CHUNK_SIZE
+      ) {
+        const chunk = insertItems.slice(
+          index,
+          index + COLLECTION_ITEMS_CHUNK_SIZE,
+        );
         await insertChunk(token, chunk, true);
       }
       trackEvent("collection_create_success", {
@@ -429,9 +436,6 @@ const CollectionsCreatePage = () => {
         </div>
 
         <div className="relative">
-          <div className="text-[11px] uppercase tracking-[0.35em] text-[var(--mc-text-muted)]">
-            Collection Studio
-          </div>
           <div className="mt-1.5 text-2xl font-semibold text-[var(--mc-text)]">
             建立收藏庫
           </div>
@@ -453,20 +457,22 @@ const CollectionsCreatePage = () => {
                     <button
                       type="button"
                       onClick={() => setPlaylistSource("url")}
-                      className={`rounded-full px-3 py-1 transition ${playlistSource === "url"
-                        ? "bg-[var(--mc-accent)]/15 text-[var(--mc-text)]"
-                        : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-                        }`}
+                      className={`rounded-full px-3 py-1 transition ${
+                        playlistSource === "url"
+                          ? "bg-[var(--mc-accent)]/15 text-[var(--mc-text)]"
+                          : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
+                      }`}
                     >
                       連結
                     </button>
                     <button
                       type="button"
                       onClick={() => setPlaylistSource("youtube")}
-                      className={`rounded-full px-3 py-1 transition ${playlistSource === "youtube"
-                        ? "bg-[var(--mc-accent-2)]/15 text-[var(--mc-text)]"
-                        : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-                        }`}
+                      className={`rounded-full px-3 py-1 transition ${
+                        playlistSource === "youtube"
+                          ? "bg-[var(--mc-accent-2)]/15 text-[var(--mc-text)]"
+                          : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
+                      }`}
                     >
                       YouTube 清單
                     </button>
@@ -475,10 +481,11 @@ const CollectionsCreatePage = () => {
 
                 <div className="relative mt-3 min-h-[120px]">
                   <div
-                    className={`space-y-3 transition-all duration-200 ${playlistSource === "url"
-                      ? "opacity-100 translate-x-0"
-                      : "pointer-events-none opacity-0 -translate-x-2"
-                      }`}
+                    className={`space-y-3 transition-all duration-200 ${
+                      playlistSource === "url"
+                        ? "opacity-100 translate-x-0"
+                        : "pointer-events-none opacity-0 -translate-x-2"
+                    }`}
                     hidden={playlistSource !== "url"}
                   >
                     <div className="text-[11px] text-[var(--mc-text-muted)]">
@@ -507,10 +514,11 @@ const CollectionsCreatePage = () => {
                   </div>
 
                   <div
-                    className={`space-y-3 transition-all duration-200 ${playlistSource === "youtube"
-                      ? "opacity-100 translate-x-0"
-                      : "pointer-events-none opacity-0 translate-x-2"
-                      }`}
+                    className={`space-y-3 transition-all duration-200 ${
+                      playlistSource === "youtube"
+                        ? "opacity-100 translate-x-0"
+                        : "pointer-events-none opacity-0 translate-x-2"
+                    }`}
                     hidden={playlistSource !== "youtube"}
                   >
                     <div className="text-[11px] text-[var(--mc-text-muted)]">
@@ -592,7 +600,8 @@ const CollectionsCreatePage = () => {
                 </div>
                 {!isAdmin && (
                   <div className="mt-2 text-[11px] text-[var(--mc-text-muted)]">
-                    一般使用者每個收藏庫最多可收錄 {MAX_COLLECTION_ITEMS_PER_COLLECTION} 題。
+                    一般使用者每個收藏庫最多可收錄{" "}
+                    {MAX_COLLECTION_ITEMS_PER_COLLECTION} 題。
                   </div>
                 )}
               </div>
@@ -605,20 +614,22 @@ const CollectionsCreatePage = () => {
                   <button
                     type="button"
                     onClick={() => setVisibility("private")}
-                    className={`rounded-full border px-3 py-1 text-xs ${visibility === "private"
-                      ? "border-amber-400/60 bg-amber-400/10 text-amber-100"
-                      : "border-[var(--mc-border)] text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/60"
-                      }`}
+                    className={`rounded-full border px-3 py-1 text-xs ${
+                      visibility === "private"
+                        ? "border-amber-400/60 bg-amber-400/10 text-amber-100"
+                        : "border-[var(--mc-border)] text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/60"
+                    }`}
                   >
                     私人
                   </button>
                   <button
                     type="button"
                     onClick={() => setVisibility("public")}
-                    className={`rounded-full border px-3 py-1 text-xs ${visibility === "public"
-                      ? "border-emerald-400/60 bg-emerald-400/10 text-emerald-100"
-                      : "border-[var(--mc-border)] text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/60"
-                      }`}
+                    className={`rounded-full border px-3 py-1 text-xs ${
+                      visibility === "public"
+                        ? "border-emerald-400/60 bg-emerald-400/10 text-emerald-100"
+                        : "border-[var(--mc-border)] text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/60"
+                    }`}
                   >
                     公開
                   </button>
@@ -628,7 +639,8 @@ const CollectionsCreatePage = () => {
                 </div>
                 {!isAdmin && (
                   <div className="mt-2 text-[11px] text-[var(--mc-text-muted)]">
-                    一般使用者最多可建立 {MAX_PRIVATE_COLLECTIONS_PER_USER} 個私人收藏庫。
+                    一般使用者最多可建立 {MAX_PRIVATE_COLLECTIONS_PER_USER}{" "}
+                    個私人收藏庫。
                   </div>
                 )}
               </div>
@@ -679,7 +691,8 @@ const CollectionsCreatePage = () => {
                     </div>
                     <div className="rounded-lg border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-1.5">
                       <p className="text-xs font-semibold text-fuchsia-100">
-                        隱私限制：{playlistIssueSummary.privateRestricted.length} 首
+                        隱私限制：
+                        {playlistIssueSummary.privateRestricted.length} 首
                       </p>
                       <p className="mt-1 line-clamp-2 text-[11px] text-fuchsia-100/90">
                         {playlistIssueSummary.privateRestricted.length > 0
@@ -702,15 +715,16 @@ const CollectionsCreatePage = () => {
                         其他不可用：
                         {playlistIssueSummary.unavailable.length +
                           playlistIssueSummary.unknown.length +
-                          playlistIssueSummary.unknownCount} 首
+                          playlistIssueSummary.unknownCount}{" "}
+                        首
                       </p>
                       <p className="mt-1 line-clamp-2 text-[11px] text-red-100/90">
                         {playlistIssueSummary.unavailable.length > 0 ||
-                          playlistIssueSummary.unknown.length > 0
+                        playlistIssueSummary.unknown.length > 0
                           ? [
-                            ...playlistIssueSummary.unavailable,
-                            ...playlistIssueSummary.unknown,
-                          ].join("、")
+                              ...playlistIssueSummary.unavailable,
+                              ...playlistIssueSummary.unknown,
+                            ].join("、")
                           : playlistIssueSummary.unknownCount > 0
                             ? `共 ${playlistIssueSummary.unknownCount} 首（後端未提供明細）`
                             : "無"}
@@ -745,4 +759,3 @@ const CollectionsCreatePage = () => {
 };
 
 export default CollectionsCreatePage;
-

@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import { Button, Switch, TextField, Tooltip } from "@mui/material";
 import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
+import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import CloudDoneOutlined from "@mui/icons-material/CloudDoneOutlined";
 import CloudUploadOutlined from "@mui/icons-material/CloudUploadOutlined";
 import CloudOffOutlined from "@mui/icons-material/CloudOffOutlined";
@@ -8,6 +10,7 @@ import LockOutlined from "@mui/icons-material/LockOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import FolderOpenOutlined from "@mui/icons-material/FolderOpenOutlined";
 import AutoFixHighOutlined from "@mui/icons-material/AutoFixHighOutlined";
+import ShareRounded from "@mui/icons-material/ShareRounded";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 
@@ -35,6 +38,9 @@ type EditHeaderProps = {
   visibility: "private" | "public";
   onVisibilityChange: (value: "private" | "public") => void;
   collectionCount: number;
+  onShare: () => void;
+  shareCopied: boolean;
+  shareDisabled: boolean;
   onCollectionButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPlaylistButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onAiBatchEditClick: () => void;
@@ -67,6 +73,9 @@ const EditHeader = ({
   visibility,
   onVisibilityChange,
   collectionCount,
+  onShare,
+  shareCopied,
+  shareDisabled,
   onCollectionButtonClick,
   onPlaylistButtonClick,
   onAiBatchEditClick,
@@ -74,6 +83,7 @@ const EditHeader = ({
   collectionMenuOpen,
   playlistMenuOpen,
 }: EditHeaderProps) => {
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const showSaved =
     !hasUnsavedChanges && !isSaving && saveStatus !== "error" && !saveError;
   const isAutoSaving = isSaving && autoSaveNotice?.type === "success";
@@ -98,12 +108,18 @@ const EditHeader = ({
   ) : (
     <SaveOutlined fontSize="small" />
   );
+
+  useEffect(() => {
+    if (!isTitleEditing) return;
+    window.requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
+  }, [isTitleEditing]);
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--mc-text-muted)]">
-          Collection Studio
-        </div>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           {isTitleEditing ? (
             <>
@@ -111,6 +127,7 @@ const EditHeader = ({
                 variant="standard"
                 value={titleDraft}
                 onChange={(e) => onTitleDraftChange(e.target.value)}
+                inputRef={titleInputRef}
                 placeholder="請輸入收藏庫名稱"
                 className="min-w-[200px] rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)] px-3 py-1.5 text-base font-semibold text-[var(--mc-text)]"
               />
@@ -191,6 +208,31 @@ const EditHeader = ({
             <ExpandMore fontSize="inherit" />
           )}
         </button>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={
+            <span className="relative inline-flex h-[18px] w-[18px] items-center justify-center overflow-hidden">
+              <ShareRounded
+                fontSize="small"
+                className={`absolute transition-all duration-200 ${
+                  shareCopied ? "scale-75 opacity-0" : "scale-100 opacity-100"
+                }`}
+              />
+              <CheckCircleOutlineRounded
+                fontSize="small"
+                className={`absolute text-cyan-300 transition-all duration-200 ${
+                  shareCopied ? "scale-100 opacity-100" : "scale-75 opacity-0"
+                }`}
+              />
+            </span>
+          }
+          onClick={onShare}
+          disabled={shareDisabled}
+          className="shrink-0 !border-[var(--mc-border)] !bg-[var(--mc-surface-strong)]/70 !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60 disabled:!border-[var(--mc-border)]/40 disabled:!bg-[var(--mc-surface)]/40 disabled:!text-[var(--mc-text-muted)] disabled:opacity-70"
+        >
+          複製分享連結
+        </Button>
         <button
           type="button"
           onClick={onAiBatchEditClick}

@@ -371,7 +371,6 @@ const PlayerPanel = ({
         {selectedVideoId ? (
           <>
             <div ref={playerContainerRef} className="h-full w-full" />
-            <div className="absolute inset-0 z-10" aria-hidden="true" />
           </>
         ) : thumbnail ? (
           <img
