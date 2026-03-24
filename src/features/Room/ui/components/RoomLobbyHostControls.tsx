@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -15,10 +14,8 @@ import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
-import PlaylistAddCheckRoundedIcon from "@mui/icons-material/PlaylistAddCheckRounded";
-import PublishedWithChangesRoundedIcon from "@mui/icons-material/PublishedWithChangesRounded";
 import YouTubeIcon from "@mui/icons-material/YouTube";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { GameState, PlaylistSuggestion } from "../../model/types";
 import type { YoutubePlaylist } from "../../model/RoomContext";
@@ -44,7 +41,6 @@ interface RoomLobbyHostControlsProps {
   hostPlaylistPrimaryText: string;
   playlistUrl: string;
   onPlaylistUrlChange: (value: string) => void;
-  onPlaylistPaste: (event: React.ClipboardEvent<HTMLInputElement>) => void;
   isGoogleAuthed: boolean;
   collectionScope: "public" | "owner";
   setCollectionScope: (scope: "public" | "owner") => void;
@@ -57,10 +53,6 @@ interface RoomLobbyHostControlsProps {
   hostCollectionPrimaryText: string;
   visibleCollectionsError: string | null;
   collectionItemsError: string | null;
-  onLoadCollectionItems: (
-    collectionId: string,
-    options?: { readToken?: string | null },
-  ) => Promise<void>;
   isHostYoutubeEmptyNotice: boolean;
   isHostYoutubeMissingNotice: boolean;
   hostYoutubePrimaryText: string;
@@ -69,7 +61,6 @@ interface RoomLobbyHostControlsProps {
   youtubePlaylistsLoading: boolean;
   selectedYoutubePlaylistId: string | null;
   setSelectedYoutubePlaylistId: (playlistId: string | null) => void;
-  onImportYoutubePlaylist: (playlistId: string) => Promise<void>;
   openConfirmModal: (
     title: string,
     detail: string | undefined,
@@ -77,9 +68,16 @@ interface RoomLobbyHostControlsProps {
   ) => void;
   playlistLoadNotice: string | null;
   playlistError?: string | null;
-  playlistItemsForChangeLength: number;
   playlistLoading: boolean;
-  onChangePlaylist: () => Promise<void>;
+  onApplyPlaylistUrlDirect: (url: string) => Promise<boolean>;
+  onApplyCollectionDirect: (
+    collectionId: string,
+    title?: string | null,
+  ) => Promise<boolean>;
+  onApplyYoutubePlaylistDirect: (
+    playlistId: string,
+    title?: string | null,
+  ) => Promise<boolean>;
 }
 
 const getSuggestionKey = (suggestion: PlaylistSuggestion) =>
@@ -98,9 +96,9 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
   selectedSuggestionKey,
   setSelectedSuggestionKey,
   requestApplyHostSuggestion,
+  hostPlaylistPrimaryText,
   playlistUrl,
   onPlaylistUrlChange,
-  onPlaylistPaste,
   isGoogleAuthed,
   collectionScope,
   setCollectionScope,
@@ -110,30 +108,30 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
   collectionsLoading,
   collectionItemsLoading,
   isHostCollectionEmptyNotice,
+  hostCollectionPrimaryText,
   visibleCollectionsError,
   collectionItemsError,
-  onLoadCollectionItems,
   isHostYoutubeEmptyNotice,
   isHostYoutubeMissingNotice,
+  hostYoutubePrimaryText,
   visibleHostYoutubeError,
   youtubePlaylists,
   youtubePlaylistsLoading,
   selectedYoutubePlaylistId,
   setSelectedYoutubePlaylistId,
-  onImportYoutubePlaylist,
   openConfirmModal,
   playlistLoadNotice,
   playlistError,
-  playlistItemsForChangeLength,
   playlistLoading,
-  onChangePlaylist,
+  onApplyPlaylistUrlDirect,
+  onApplyCollectionDirect,
+  onApplyYoutubePlaylistDirect,
 }) => {
-  const hostSourceUsesFlatSelectCard = true;
-  const [applyPending, setApplyPending] = useState(false);
+  const [playlistDraftUrl, setPlaylistDraftUrl] = useState(playlistUrl);
 
-  const markApplyPending = () => {
-    setApplyPending(true);
-  };
+  useEffect(() => {
+    setPlaylistDraftUrl(playlistUrl);
+  }, [playlistUrl]);
 
   const switchSourceType = (
     nextType: "suggestions" | "playlist" | "collection" | "youtube",
@@ -145,24 +143,10 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
     ) {
       markSuggestionsSeen();
     }
-
-    if (nextType !== hostSourceType) {
-      markApplyPending();
-    }
-
     setHostSourceType(nextType);
   };
 
-  const googleAuthStatusMessage = "\u8acb\u5148\u767b\u5165 Google";
-
-  const sourceSelectionReady =
-    hostSourceType === "suggestions"
-      ? Boolean(selectedSuggestionKey)
-      : hostSourceType === "playlist"
-        ? playlistUrl.trim().length > 0
-        : hostSourceType === "collection"
-          ? Boolean(selectedCollectionId)
-          : Boolean(selectedYoutubePlaylistId);
+  const googleAuthStatusMessage = "請先登入 Google";
 
   const hostSourceStatus = (() => {
     if (hostSourceType === "suggestions") {
@@ -173,38 +157,22 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
           loading: isApplyingHostSuggestion,
         } as const;
       }
-
-      if (isApplyingHostSuggestion) {
-        return {
-          message: "\u8b80\u53d6\u5efa\u8b70\u4e2d",
-          tone: "info",
-          loading: true,
-        } as const;
-      }
-
       return {
         message:
           playlistSuggestions.length === 0
-            ? "\u5c1a\u7121\u5efa\u8b70"
-            : selectedSuggestionKey
-              ? "\u5efa\u8b70\u5f85\u5957\u7528"
-              : "\u9078\u64c7\u5efa\u8b70",
-        tone:
-          playlistSuggestions.length === 0
-            ? "neutral"
-            : selectedSuggestionKey
-              ? "warning"
-              : "neutral",
+            ? "尚無建議"
+            : "選擇建議後會直接詢問並套用",
+        tone: playlistSuggestions.length === 0 ? "neutral" : "info",
         loading: false,
       } as const;
     }
 
     if (hostSourceType === "playlist") {
       return {
-        message: playlistUrl.trim()
-          ? "\u9023\u7d50\u5f85\u5957\u7528"
-          : "\u8cbc\u4e0a YouTube \u9023\u7d50",
-        tone: playlistUrl.trim() ? "warning" : "neutral",
+        message: playlistDraftUrl.trim()
+          ? "貼上後按 Enter，確認後直接套用"
+          : hostPlaylistPrimaryText,
+        tone: playlistDraftUrl.trim() ? "info" : "neutral",
         loading: playlistLoading,
       } as const;
     }
@@ -217,25 +185,19 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
           loading: false,
         } as const;
       }
-
       return {
         message: isHostCollectionEmptyNotice
           ? collectionScope === "public"
-            ? "\u5c1a\u7121\u516c\u958b\u6536\u85cf\u5eab"
-            : "\u5c1a\u7121\u500b\u4eba\u6536\u85cf\u5eab"
+            ? "尚無公開收藏庫"
+            : "尚無個人收藏庫"
           : selectedCollectionId
-            ? collectionScope === "public"
-              ? "\u516c\u958b\u6536\u85cf\u5eab\u5f85\u5957\u7528"
-              : "\u500b\u4eba\u6536\u85cf\u5eab\u5f85\u5957\u7528"
-            : collectionScope === "public"
-              ? "\u9078\u64c7\u516c\u958b\u6536\u85cf\u5eab"
-              : "\u9078\u64c7\u500b\u4eba\u6536\u85cf\u5eab",
-        tone:
-          isHostCollectionEmptyNotice
-            ? "warning"
-            : selectedCollectionId
-              ? "warning"
-              : "neutral",
+            ? "確認後直接套用收藏庫"
+            : hostCollectionPrimaryText,
+        tone: isHostCollectionEmptyNotice
+          ? "warning"
+          : selectedCollectionId
+            ? "info"
+            : "neutral",
         loading: collectionsLoading || collectionItemsLoading,
       } as const;
     }
@@ -259,80 +221,31 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
     return {
       message:
         isHostYoutubeEmptyNotice || isHostYoutubeMissingNotice
-          ? "\u5c1a\u7121 YouTube \u64ad\u653e\u6e05\u55ae"
+          ? "尚無 YouTube 播放清單"
           : selectedYoutubePlaylistId
-            ? "YouTube \u5f85\u5957\u7528"
-            : "\u9078\u64c7 YouTube",
+            ? "確認後直接匯入並套用"
+            : hostYoutubePrimaryText,
       tone:
         isHostYoutubeEmptyNotice || isHostYoutubeMissingNotice
           ? "warning"
           : selectedYoutubePlaylistId
-            ? "warning"
+            ? "info"
             : "neutral",
       loading: youtubePlaylistsLoading,
     } as const;
   })();
 
-  const hostFooterStatus = (() => {
+  const footerStatus = (() => {
     if (playlistError) {
-      return {
-        message: playlistError,
-        tone: "error",
-        loading: false,
-      } as const;
+      return { message: playlistError, tone: "error", loading: false } as const;
     }
-
     if (playlistLoadNotice) {
-      return {
-        message: playlistLoadNotice,
-        tone: "info",
-        loading:
-          playlistLoading || collectionItemsLoading || youtubePlaylistsLoading,
-      } as const;
+      return { message: playlistLoadNotice, tone: "info", loading: true } as const;
     }
-
     if (gameStatus === "playing") {
-      return {
-        message: "\u904a\u6232\u9032\u884c\u4e2d",
-        tone: "warning",
-        loading: false,
-      } as const;
+      return { message: "遊戲進行中", tone: "warning", loading: false } as const;
     }
-
-    return {
-      message: null,
-      tone: "neutral",
-      loading: false,
-    } as const;
-  })();
-
-  const isApplyPendingVisible =
-    applyPending &&
-    sourceSelectionReady &&
-    !playlistLoading &&
-    !collectionItemsLoading &&
-    !collectionsLoading &&
-    !youtubePlaylistsLoading &&
-    !isApplyingHostSuggestion;
-
-  const activeSourceStatus = (() => {
-    if (hostFooterStatus.message || hostFooterStatus.loading) {
-      return hostFooterStatus;
-    }
-
-    if (isApplyPendingVisible && playlistItemsForChangeLength > 0) {
-      return {
-        message: `\u5f85\u5957\u7528 ${playlistItemsForChangeLength} \u9996`,
-        tone: "error",
-        loading: false,
-      } as const;
-    }
-
-    if (hostSourceStatus.message || hostSourceStatus.loading) {
-      return hostSourceStatus;
-    }
-
-    return hostFooterStatus;
+    return hostSourceStatus;
   })();
 
   return (
@@ -347,7 +260,7 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
             <PlaylistPlayRoundedIcon fontSize="small" />
           </span>
           <Typography variant="subtitle2" className="text-slate-200">
-            {"\u64ad\u653e\u6e05\u55ae\u4f86\u6e90"}
+            播放清單來源
           </Typography>
           {hasNewSuggestions && (
             <span className="room-lobby-host-heading__badge">
@@ -364,10 +277,11 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                 <PlaylistPlayRoundedIcon fontSize="small" />
               </span>
               <Typography variant="subtitle2" className="text-slate-200">
-                {"\u64ad\u653e\u6e05\u55ae\u4f86\u6e90"}
+                播放清單來源
               </Typography>
             </div>
           </div>
+
           <Box className="room-lobby-host-controls">
             <Stack
               spacing={1.1}
@@ -377,107 +291,78 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                   : "room-lobby-source-panel-fixed"
               }`}
             >
-              <Stack
-                direction="row"
-                className="room-lobby-mode-row room-lobby-mode-row--host"
-              >
+              <Stack direction="row" className="room-lobby-mode-row room-lobby-mode-row--host">
                 <Button
                   size="small"
-                  variant={
-                    hostSourceType === "suggestions" ? "contained" : "outlined"
-                  }
+                  variant={hostSourceType === "suggestions" ? "contained" : "outlined"}
                   className="room-lobby-mode-button room-lobby-mode-button--suggestions"
                   startIcon={<TipsAndUpdatesRoundedIcon fontSize="small" />}
                   onClick={() => switchSourceType("suggestions")}
                 >
-                  {"\u63a8\u85a6"}
+                  推薦
                 </Button>
                 <Button
                   size="small"
                   variant={
-                    hostSourceType === "collection" &&
-                    collectionScope === "public"
+                    hostSourceType === "collection" && collectionScope === "public"
                       ? "contained"
                       : "outlined"
                   }
                   className="room-lobby-mode-button room-lobby-mode-button--public"
                   startIcon={<PublicRoundedIcon fontSize="small" />}
                   onClick={() => {
-                    if (
-                      hostSourceType === "collection" &&
-                      collectionScope !== "public"
-                    ) {
-                      markApplyPending();
-                    }
                     switchSourceType("collection");
                     setCollectionScope("public");
                     onSelectCollection(null);
                   }}
                 >
-                  {"\u516c\u958b"}
+                  公開
                 </Button>
                 <Button
                   size="small"
                   variant={
-                    hostSourceType === "collection" &&
-                    collectionScope === "owner"
+                    hostSourceType === "collection" && collectionScope === "owner"
                       ? "contained"
                       : "outlined"
                   }
                   className="room-lobby-mode-button room-lobby-mode-button--owner"
                   startIcon={<LockRoundedIcon fontSize="small" />}
                   onClick={() => {
-                    if (
-                      hostSourceType === "collection" &&
-                      collectionScope !== "owner"
-                    ) {
-                      markApplyPending();
-                    }
                     switchSourceType("collection");
                     setCollectionScope("owner");
                     onSelectCollection(null);
                   }}
                   disabled={!isGoogleAuthed}
                 >
-                  {"\u500b\u4eba"}
+                  個人
                 </Button>
                 <Button
                   size="small"
-                  variant={
-                    hostSourceType === "youtube" ? "contained" : "outlined"
-                  }
+                  variant={hostSourceType === "youtube" ? "contained" : "outlined"}
                   className="room-lobby-mode-button room-lobby-mode-button--youtube"
                   startIcon={<YouTubeIcon fontSize="small" />}
                   onClick={() => switchSourceType("youtube")}
                 >
-                  {"YouTube"}
+                  YouTube
                 </Button>
                 <Button
                   size="small"
-                  variant={
-                    hostSourceType === "playlist" ? "contained" : "outlined"
-                  }
+                  variant={hostSourceType === "playlist" ? "contained" : "outlined"}
                   className="room-lobby-mode-button room-lobby-mode-button--playlist"
                   startIcon={<LinkRoundedIcon fontSize="small" />}
                   onClick={() => switchSourceType("playlist")}
                 >
-                  {"\u9023\u7d50"}
+                  連結
                 </Button>
               </Stack>
 
-              <div
-                className={`room-lobby-source-card ${
-                  hostSourceUsesFlatSelectCard
-                    ? "room-lobby-source-card--flat-select"
-                    : ""
-                }`}
-              >
+              <div className="room-lobby-source-card room-lobby-source-card--flat-select">
                 <Stack spacing={1} className="room-lobby-source-view">
                   <RoomLobbyStatusStrip
                     className="room-lobby-source-status-inline"
-                    message={activeSourceStatus.message}
-                    tone={activeSourceStatus.tone}
-                    loading={activeSourceStatus.loading}
+                    message={footerStatus.message}
+                    tone={footerStatus.tone}
+                    loading={footerStatus.loading}
                     reserveSpace
                   />
 
@@ -488,16 +373,14 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       value={selectedSuggestionKey}
                       onChange={(event) => {
                         const nextKey = event.target.value;
-                        setSelectedSuggestionKey(nextKey);
                         if (!nextKey) {
-                          setApplyPending(false);
+                          setSelectedSuggestionKey("");
                           return;
                         }
                         const suggestion = playlistSuggestions.find(
                           (item) => getSuggestionKey(item) === nextKey,
                         );
                         if (!suggestion) return;
-                        markApplyPending();
                         requestApplyHostSuggestion(suggestion);
                       }}
                       disabled={isApplyingHostSuggestion}
@@ -506,56 +389,44 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                         displayEmpty: true,
                         renderValue: (selected) => {
                           const key = String(selected ?? "");
-                          if (!key) {
-                            return "\u9078\u64c7\u5efa\u8b70";
-                          }
+                          if (!key) return "選擇建議";
                           const selectedSuggestion = playlistSuggestions.find(
                             (suggestion) => getSuggestionKey(suggestion) === key,
                           );
-                          if (!selectedSuggestion) {
-                            return "\u8a72\u5efa\u8b70\u5df2\u4e0d\u5b58\u5728";
-                          }
+                          if (!selectedSuggestion) return "該建議已不存在";
                           const label =
                             selectedSuggestion.title ?? selectedSuggestion.value;
                           const count =
                             selectedSuggestion.totalCount ??
                             selectedSuggestion.items?.length;
-                          return `${selectedSuggestion.username} \u00b7 ${label}${
+                          return `${selectedSuggestion.username} · ${label}${
                             count ? ` (${count})` : ""
                           }`;
                         },
                       }}
                     >
-                      <MenuItem value="">
-                        {"\u9078\u64c7\u5efa\u8b70"}
-                      </MenuItem>
+                      <MenuItem value="">選擇建議</MenuItem>
                       {playlistSuggestions.map((suggestion) => {
                         const optionKey = getSuggestionKey(suggestion);
                         const displayLabel = suggestion.title ?? suggestion.value;
                         const displayCount =
                           suggestion.totalCount ?? suggestion.items?.length;
                         const sourceLabel =
-                          suggestion.type === "playlist"
-                            ? "\u64ad\u653e\u6e05\u55ae"
-                            : "\u6536\u85cf\u5eab";
-                        const snapshotLabel = suggestion.items?.length
-                          ? " \u00b7 \u5feb\u7167"
-                          : "";
+                          suggestion.type === "playlist" ? "播放清單" : "收藏庫";
+                        const snapshotLabel = suggestion.items?.length ? " · 快照" : "";
 
                         return (
                           <MenuItem key={optionKey} value={optionKey}>
                             <Stack spacing={0.25} sx={{ width: "100%", minWidth: 0 }}>
                               <Typography variant="body2" noWrap>
-                                {`${suggestion.username} \u00b7 ${sourceLabel}${snapshotLabel}`}
+                                {`${suggestion.username} · ${sourceLabel}${snapshotLabel}`}
                               </Typography>
                               <Typography
                                 variant="caption"
                                 className="text-slate-400"
                                 noWrap
                               >
-                                {`${displayLabel}${
-                                  displayCount ? ` (${displayCount})` : ""
-                                }`}
+                                {`${displayLabel}${displayCount ? ` (${displayCount})` : ""}`}
                               </Typography>
                             </Stack>
                           </MenuItem>
@@ -567,14 +438,19 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                   {hostSourceType === "playlist" && (
                     <TextField
                       size="small"
-                      value={playlistUrl}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setApplyPending(Boolean(nextValue.trim()));
-                        onPlaylistUrlChange(nextValue);
+                      value={playlistDraftUrl}
+                      onChange={(event) => setPlaylistDraftUrl(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        event.preventDefault();
+                        const trimmed = playlistDraftUrl.trim();
+                        if (!trimmed) return;
+                        openConfirmModal("要套用這個歌單連結嗎？", trimmed, () => {
+                          onPlaylistUrlChange(trimmed);
+                          void onApplyPlaylistUrlDirect(trimmed);
+                        });
                       }}
-                      onPaste={onPlaylistPaste}
-                      placeholder={"\u8cbc\u4e0a YouTube URL"}
+                      placeholder="貼上 YouTube URL"
                       disabled={playlistLoading || gameStatus === "playing"}
                       fullWidth
                     />
@@ -588,28 +464,20 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       onChange={(event) => {
                         const nextId = event.target.value || null;
                         if (!nextId) {
-                          setApplyPending(false);
                           onSelectCollection(null);
                           return;
                         }
-                        const selected = collections.find(
-                          (item) => item.id === nextId,
-                        );
+                        const selected = collections.find((item) => item.id === nextId);
                         const label = selected
                           ? normalizeDisplayText(
                               selected.title,
-                              "\u672a\u547d\u540d\u6536\u85cf\u5eab",
+                              "未命名收藏庫",
                             )
                           : nextId;
-                        openConfirmModal(
-                          "\u5957\u7528\u9019\u500b\u6536\u85cf\u5eab\uff1f",
-                          label,
-                          () => {
-                            markApplyPending();
-                            onSelectCollection(nextId);
-                            void onLoadCollectionItems(nextId);
-                          },
-                        );
+                        openConfirmModal("套用這個收藏庫？", label, () => {
+                          onSelectCollection(nextId);
+                          void onApplyCollectionDirect(nextId, selected?.title ?? null);
+                        });
                       }}
                       disabled={
                         collectionsLoading ||
@@ -623,8 +491,8 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                           const selectedId = String(selected ?? "");
                           if (!selectedId) {
                             return collectionScope === "public"
-                              ? "\u9078\u64c7\u516c\u958b"
-                              : "\u9078\u64c7\u79c1\u4eba";
+                              ? "選擇公開"
+                              : "選擇私人";
                           }
                           const selectedOption = collections.find(
                             (item) => item.id === selectedId,
@@ -632,15 +500,13 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                           if (!selectedOption) return selectedId;
                           return normalizeDisplayText(
                             selectedOption.title,
-                            "\u672a\u547d\u540d\u6536\u85cf\u5eab",
+                            "未命名收藏庫",
                           );
                         },
                       }}
                     >
                       <MenuItem value="">
-                        {collectionScope === "public"
-                          ? "\u9078\u64c7\u516c\u958b"
-                          : "\u9078\u64c7\u79c1\u4eba"}
+                        {collectionScope === "public" ? "選擇公開" : "選擇私人"}
                       </MenuItem>
                       {collections.map((collection) => (
                         <MenuItem key={collection.id} value={collection.id}>
@@ -648,12 +514,11 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                             <span className="truncate">
                               {normalizeDisplayText(
                                 collection.title,
-                                "\u672a\u547d\u540d\u6536\u85cf\u5eab",
+                                "未命名收藏庫",
                               )}
                             </span>
                             <span className="text-xs text-slate-400">
-                              {"\u4f7f\u7528\u6b21\u6578 "}
-                              {Math.max(0, Number(collection.use_count ?? 0))}
+                              使用次數 {Math.max(0, Number(collection.use_count ?? 0))}
                             </span>
                           </div>
                         </MenuItem>
@@ -669,7 +534,6 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       onChange={(event) => {
                         const nextId = event.target.value || null;
                         if (!nextId) {
-                          setApplyPending(false);
                           setSelectedYoutubePlaylistId(null);
                           return;
                         }
@@ -679,18 +543,16 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                         const label = selected
                           ? `${normalizeDisplayText(
                               selected.title,
-                              "\u672a\u547d\u540d YouTube \u64ad\u653e\u6e05\u55ae",
+                              "未命名 YouTube 播放清單",
                             )} (${selected.itemCount})`
                           : nextId;
-                        openConfirmModal(
-                          "\u532f\u5165\u9019\u4efd YouTube \u64ad\u653e\u6e05\u55ae\uff1f",
-                          label,
-                          () => {
-                            markApplyPending();
-                            setSelectedYoutubePlaylistId(nextId);
-                            void onImportYoutubePlaylist(nextId);
-                          },
-                        );
+                        openConfirmModal("匯入這份 YouTube 播放清單？", label, () => {
+                          setSelectedYoutubePlaylistId(nextId);
+                          void onApplyYoutubePlaylistDirect(
+                            nextId,
+                            selected?.title ?? null,
+                          );
+                        });
                       }}
                       disabled={
                         youtubePlaylistsLoading ||
@@ -702,68 +564,30 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                         displayEmpty: true,
                         renderValue: (selected) => {
                           const selectedId = String(selected ?? "");
-                          if (!selectedId) {
-                            return "\u9078\u64c7 YouTube";
-                          }
+                          if (!selectedId) return "選擇 YouTube";
                           const selectedOption = youtubePlaylists.find(
                             (item) => item.id === selectedId,
                           );
                           if (!selectedOption) return selectedId;
                           return `${normalizeDisplayText(
                             selectedOption.title,
-                            "\u672a\u547d\u540d YouTube \u64ad\u653e\u6e05\u55ae",
+                            "未命名 YouTube 播放清單",
                           )} (${selectedOption.itemCount})`;
                         },
                       }}
                     >
-                      <MenuItem value="">
-                        {"\u9078\u64c7 YouTube"}
-                      </MenuItem>
+                      <MenuItem value="">選擇 YouTube</MenuItem>
                       {youtubePlaylists.map((playlist) => (
                         <MenuItem key={playlist.id} value={playlist.id}>
                           {normalizeDisplayText(
                             playlist.title,
-                            "\u672a\u547d\u540d YouTube \u64ad\u653e\u6e05\u55ae",
+                            "未命名 YouTube 播放清單",
                           )}{" "}
                           ({playlist.itemCount})
                         </MenuItem>
                       ))}
                     </TextField>
                   )}
-
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="success"
-                    className={`room-lobby-apply-button room-lobby-apply-button--field-action ${
-                      isApplyPendingVisible
-                        ? "room-lobby-apply-button--pending"
-                        : ""
-                    }`}
-                    aria-label={"\u5957\u7528\u5230\u623f\u9593"}
-                    startIcon={
-                      isApplyPendingVisible ? (
-                        <PublishedWithChangesRoundedIcon fontSize="small" />
-                      ) : (
-                        <PlaylistAddCheckRoundedIcon fontSize="small" />
-                      )
-                    }
-                    onClick={async () => {
-                      await onChangePlaylist();
-                      setApplyPending(false);
-                    }}
-                    disabled={
-                      !sourceSelectionReady ||
-                      playlistItemsForChangeLength === 0 ||
-                      playlistLoading ||
-                      collectionItemsLoading ||
-                      youtubePlaylistsLoading ||
-                      isApplyingHostSuggestion ||
-                      gameStatus === "playing"
-                    }
-                  >
-                    {"\u5957\u7528"}
-                  </Button>
                 </Stack>
               </div>
             </Stack>

@@ -364,7 +364,6 @@ const RoomLobbyPage: React.FC = () => {
     youtubePlaylistsLoading,
     youtubePlaylistsError,
     fetchYoutubePlaylists,
-    importYoutubePlaylist,
     gameState,
     isGameView,
     setIsGameView,
@@ -391,7 +390,9 @@ const RoomLobbyPage: React.FC = () => {
     handleTransferHost,
     handleSuggestPlaylist,
     handleApplySuggestionSnapshot,
-    handleChangePlaylist,
+    handleApplyPlaylistUrlDirect,
+    handleApplyCollectionDirect,
+    handleApplyYoutubePlaylistDirect,
     handleFetchPlaylistByUrl,
     fetchCollections,
     selectCollection,
@@ -2051,14 +2052,15 @@ const RoomLobbyPage: React.FC = () => {
             onTransferHost={handleTransferHost}
             onSuggestPlaylist={handleSuggestPlaylist}
             onApplySuggestionSnapshot={handleApplySuggestionSnapshot}
-            onChangePlaylist={handleChangePlaylist}
+            onApplyPlaylistUrlDirect={handleApplyPlaylistUrlDirect}
+            onApplyCollectionDirect={handleApplyCollectionDirect}
+            onApplyYoutubePlaylistDirect={handleApplyYoutubePlaylistDirect}
             onPlaylistUrlChange={setPlaylistUrl}
             onFetchPlaylistByUrl={handleFetchPlaylistByUrl}
             onFetchCollections={fetchCollections}
             onSelectCollection={selectCollection}
             onLoadCollectionItems={loadCollectionItems}
             onFetchYoutubePlaylists={fetchYoutubePlaylists}
-            onImportYoutubePlaylist={importYoutubePlaylist}
             onInvite={async () => {
               const url = new URL(window.location.href);
               url.pathname = `/invited/${currentRoom.id}`;

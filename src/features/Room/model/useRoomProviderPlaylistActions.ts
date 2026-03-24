@@ -111,21 +111,127 @@ export const useRoomProviderPlaylistActions = ({
   handleResetPlaylist,
   setPlaylistUrl,
 }: UseRoomProviderPlaylistActionsParams) => {
-  const resolveCollectionSourceType = (collectionId: string) => {
-    const selectedCollection = collections.find((item) => item.id === collectionId);
-    return selectedCollection?.visibility === "private"
-      ? "private_collection"
-      : "public_collection";
+  const extractPlaylistIdFromUrl = (url: string) => {
+    try {
+      const parsed = new URL(url.trim());
+      const listId = parsed.searchParams.get("list");
+      if (listId) return listId;
+      const segments = parsed.pathname.split("/");
+      const last = segments[segments.length - 1];
+      return last || null;
+    } catch {
+      return null;
+    }
   };
 
-  const resolvePlaylistSourceType = (
-    sourceId: string | null | undefined,
-  ): PlaylistSourceType => {
-    if (sourceId && collections.some((item) => item.id === sourceId)) {
-      return resolveCollectionSourceType(sourceId);
-    }
-    return authToken ? "youtube_google_import" : "youtube_pasted_link";
-  };
+  const resolveCollectionSourceType = useCallback(
+    (collectionId: string) => {
+      const selectedCollection = collections.find((item) => item.id === collectionId);
+      return selectedCollection?.visibility === "private"
+        ? "private_collection"
+        : "public_collection";
+    },
+    [collections],
+  );
+
+  const resolvePlaylistSourceType = useCallback(
+    (sourceId: string | null | undefined): PlaylistSourceType => {
+      if (sourceId && collections.some((item) => item.id === sourceId)) {
+        return resolveCollectionSourceType(sourceId);
+      }
+      return authToken ? "youtube_google_import" : "youtube_pasted_link";
+    },
+    [authToken, collections, resolveCollectionSourceType],
+  );
+
+  const uploadPlaylistSelection = useCallback(
+    async ({
+      items,
+      sourceId,
+      title,
+      sourceType,
+      playlistUrl,
+    }: {
+      items: PlaylistItem[];
+      sourceId: string;
+      title?: string | null;
+      sourceType: PlaylistSourceType;
+      playlistUrl?: string | null;
+    }) => {
+      const socket = getSocket();
+      if (!socket || !currentRoom) return false;
+      if (gameStateStatus === "playing") {
+        setStatusText("遊戲進行中，暫時無法切換播放來源");
+        return false;
+      }
+      if (!items.length || !sourceId) {
+        setStatusText("找不到可套用的播放清單內容");
+        return false;
+      }
+
+      const uploadId =
+        crypto.randomUUID?.() ??
+        `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
+      const roomPlayDurationSec = clampPlayDurationSec(
+        currentRoom.gameSettings?.playDurationSec ?? DEFAULT_PLAY_DURATION_SEC,
+      );
+      const roomStartOffsetSec = clampStartOffsetSec(
+        currentRoom.gameSettings?.startOffsetSec ?? DEFAULT_START_OFFSET_SEC,
+      );
+      const roomAllowCollectionClipTiming =
+        currentRoom.gameSettings?.allowCollectionClipTiming ?? true;
+      const uploadItems = buildUploadPlaylistItems(items, {
+        playDurationSec: roomPlayDurationSec,
+        startOffsetSec: roomStartOffsetSec,
+        allowCollectionClipTiming: roomAllowCollectionClipTiming,
+      });
+      const firstChunk = uploadItems.slice(0, CHUNK_SIZE);
+      const remaining = uploadItems.slice(CHUNK_SIZE);
+      const isLast = remaining.length === 0;
+
+      return await new Promise<boolean>((resolve) => {
+        socket.emit(
+          "changePlaylist",
+          {
+            roomId: currentRoom.id,
+            playlist: {
+              uploadId,
+              id: sourceId,
+              title: title ?? undefined,
+              sourceType,
+              totalCount: uploadItems.length,
+              items: firstChunk,
+              isLast,
+              pageSize: DEFAULT_PAGE_SIZE,
+            },
+          },
+          async (
+            ack: Ack<{ receivedCount: number; totalCount: number; ready: boolean }>,
+          ) => {
+            if (!ack) {
+              resolve(false);
+              return;
+            }
+            if (!ack.ok) {
+              setStatusText(formatAckError("套用播放來源失敗", ack.error));
+              resolve(false);
+              return;
+            }
+            applyPlaylistSource(items, sourceId, title ?? null);
+            if (typeof playlistUrl === "string") {
+              setPlaylistUrl(playlistUrl);
+            }
+            if (remaining.length > 0) {
+              await uploadPlaylistChunks(socket, currentRoom.id, uploadId, remaining);
+            }
+            setStatusText("已更新房間播放來源");
+            resolve(true);
+          },
+        );
+      });
+    },
+    [applyPlaylistSource, currentRoom, gameStateStatus, getSocket, setPlaylistUrl, setStatusText],
+  );
 
   const handleSuggestPlaylist = useCallback(
     async (
@@ -139,12 +245,12 @@ export const useRoomProviderPlaylistActions = ({
     ) => {
       const socket = getSocket();
       if (!socket || !currentRoom) {
-        const error = "尚未加入房間";
+        const error = "目前無法送出推薦";
         setStatusText(error);
         return { ok: false, error };
       }
       if (gameStateStatus === "playing") {
-        const error = "遊戲進行中，無法建議播放清單";
+        const error = "遊戲進行中，暫時無法推薦播放清單";
         setStatusText(error);
         return { ok: false, error };
       }
@@ -154,14 +260,11 @@ export const useRoomProviderPlaylistActions = ({
       if (options?.useSnapshot) {
         try {
           if (type === "collection") {
-            const selectedCollection = collections.find(
-              (item) => item.id === value,
-            );
-            const isPrivateCollection =
-              selectedCollection?.visibility === "private";
+            const selectedCollection = collections.find((item) => item.id === value);
+            const isPrivateCollection = selectedCollection?.visibility === "private";
             if (isPrivateCollection) {
               if (!authUserId) {
-                throw new Error("私人收藏庫需要先登入");
+                throw new Error("需要登入後才能讀取私人收藏庫");
               }
               readToken = await createCollectionReadToken(value);
             }
@@ -175,7 +278,7 @@ export const useRoomProviderPlaylistActions = ({
           } else {
             const playlistId = options?.sourceId;
             if (!playlistId) {
-              throw new Error("缺少播放清單來源 ID，請重新取得歌單");
+              throw new Error("缺少播放清單 ID");
             }
             const result = authToken
               ? await fetchYoutubeSnapshot(playlistId)
@@ -189,7 +292,7 @@ export const useRoomProviderPlaylistActions = ({
           }
         } catch (error) {
           const message =
-            error instanceof Error ? error.message : "建議播放清單失敗";
+            error instanceof Error ? error.message : "整理推薦內容失敗";
           setStatusText(message);
           return { ok: false, error: message };
         }
@@ -216,16 +319,16 @@ export const useRoomProviderPlaylistActions = ({
           },
           (ack: Ack<null>) => {
             if (!ack) {
-              resolve({ ok: false, error: "建議播放清單失敗，請稍後再試" });
+              resolve({ ok: false, error: "推薦送出失敗" });
               return;
             }
             if (!ack.ok) {
-              const message = formatAckError("建議播放清單失敗", ack.error);
+              const message = formatAckError("推薦送出失敗", ack.error);
               setStatusText(message);
               resolve({ ok: false, error: message });
               return;
             }
-            setStatusText("已送出播放清單建議");
+            setStatusText("已送出推薦");
             resolve({ ok: true });
           },
         );
@@ -242,6 +345,7 @@ export const useRoomProviderPlaylistActions = ({
       fetchYoutubeSnapshot,
       gameStateStatus,
       getSocket,
+      resolveCollectionSourceType,
       setStatusText,
     ],
   );
@@ -256,169 +360,118 @@ export const useRoomProviderPlaylistActions = ({
   );
 
   const handleChangePlaylist = useCallback(async () => {
-    const socket = getSocket();
-    if (!socket || !currentRoom) return;
-    if (gameStateStatus === "playing") {
-      setStatusText("遊戲進行中，無法更換播放清單");
+    if (!playlistItems.length || !lastFetchedPlaylistId) {
+      setStatusText("請先準備好要套用的播放清單");
       return;
     }
-    if (playlistItems.length === 0 || !lastFetchedPlaylistId) {
-      setStatusText("請先載入播放清單");
-      return;
-    }
-
-    const uploadId =
-      crypto.randomUUID?.() ??
-      `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-    const roomPlayDurationSec = clampPlayDurationSec(
-      currentRoom.gameSettings?.playDurationSec ?? DEFAULT_PLAY_DURATION_SEC,
-    );
-    const roomStartOffsetSec = clampStartOffsetSec(
-      currentRoom.gameSettings?.startOffsetSec ?? DEFAULT_START_OFFSET_SEC,
-    );
-    const roomAllowCollectionClipTiming =
-      currentRoom.gameSettings?.allowCollectionClipTiming ?? true;
-    const uploadItems = buildUploadPlaylistItems(playlistItems, {
-      playDurationSec: roomPlayDurationSec,
-      startOffsetSec: roomStartOffsetSec,
-      allowCollectionClipTiming: roomAllowCollectionClipTiming,
+    await uploadPlaylistSelection({
+      items: playlistItems,
+      sourceId: lastFetchedPlaylistId,
+      title: lastFetchedPlaylistTitle ?? null,
+      sourceType: resolvePlaylistSourceType(lastFetchedPlaylistId),
+      playlistUrl: lastFetchedPlaylistId.includes("http") ? lastFetchedPlaylistId : undefined,
     });
-    const firstChunk = uploadItems.slice(0, CHUNK_SIZE);
-    const remaining = uploadItems.slice(CHUNK_SIZE);
-    const isLast = remaining.length === 0;
-
-    socket.emit(
-      "changePlaylist",
-      {
-        roomId: currentRoom.id,
-        playlist: {
-          uploadId,
-          id: lastFetchedPlaylistId,
-          title: lastFetchedPlaylistTitle ?? undefined,
-          sourceType: resolvePlaylistSourceType(lastFetchedPlaylistId),
-          totalCount: uploadItems.length,
-          items: firstChunk,
-          isLast,
-          pageSize: DEFAULT_PAGE_SIZE,
-        },
-      },
-      async (
-        ack: Ack<{ receivedCount: number; totalCount: number; ready: boolean }>,
-      ) => {
-        if (!ack) return;
-        if (!ack.ok) {
-          setStatusText(formatAckError("變更播放清單失敗", ack.error));
-          return;
-        }
-        if (remaining.length > 0) {
-          await uploadPlaylistChunks(
-            socket,
-            currentRoom.id,
-            uploadId,
-            remaining,
-          );
-        }
-        setStatusText("播放清單已更新，等待房主開始遊戲");
-      },
-    );
   }, [
-    currentRoom,
-    gameStateStatus,
-    getSocket,
     lastFetchedPlaylistId,
     lastFetchedPlaylistTitle,
     playlistItems,
+    resolvePlaylistSourceType,
     setStatusText,
+    uploadPlaylistSelection,
   ]);
+
+  const handleApplyPlaylistUrlDirect = useCallback(
+    async (url: string) => {
+      const trimmed = url.trim();
+      const playlistId = extractPlaylistIdFromUrl(trimmed);
+      if (!playlistId) {
+        setStatusText("請輸入有效的 YouTube 播放清單連結");
+        return false;
+      }
+      try {
+        const result = await fetchPublicPlaylistSnapshot(trimmed, playlistId);
+        return await uploadPlaylistSelection({
+          items: result.items,
+          sourceId: result.sourceId ?? playlistId,
+          title: result.title ?? null,
+          sourceType: resolvePlaylistSourceType(result.sourceId ?? playlistId),
+          playlistUrl: trimmed,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "讀取播放清單失敗";
+        setStatusText(message);
+        return false;
+      }
+    },
+    [fetchPublicPlaylistSnapshot, resolvePlaylistSourceType, setStatusText, uploadPlaylistSelection],
+  );
+
+  const handleApplyCollectionDirect = useCallback(
+    async (collectionId: string, title?: string | null) => {
+      try {
+        const items = await fetchCollectionSnapshot(collectionId);
+        return await uploadPlaylistSelection({
+          items,
+          sourceId: collectionId,
+          title: title ?? null,
+          sourceType: resolveCollectionSourceType(collectionId),
+          playlistUrl: "",
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "載入收藏庫失敗";
+        setStatusText(message);
+        return false;
+      }
+    },
+    [fetchCollectionSnapshot, resolveCollectionSourceType, setStatusText, uploadPlaylistSelection],
+  );
+
+  const handleApplyYoutubePlaylistDirect = useCallback(
+    async (playlistId: string, title?: string | null) => {
+      try {
+        const result = await fetchYoutubeSnapshot(playlistId);
+        return await uploadPlaylistSelection({
+          items: result.items,
+          sourceId: result.sourceId ?? playlistId,
+          title: result.title ?? title ?? null,
+          sourceType: "youtube_google_import",
+          playlistUrl: "",
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "載入 YouTube 播放清單失敗";
+        setStatusText(message);
+        return false;
+      }
+    },
+    [fetchYoutubeSnapshot, setStatusText, uploadPlaylistSelection],
+  );
 
   const handleApplySuggestionSnapshot = useCallback(
     async (suggestion: PlaylistSuggestion) => {
-      const socket = getSocket();
-      if (!socket || !currentRoom) return;
-      if (gameStateStatus === "playing") {
-        setStatusText("這份建議沒有可用歌曲");
-        return;
-      }
       const items = suggestion.items ?? [];
-      if (items.length === 0) {
-        setStatusText("建議中沒有可用歌曲");
+      if (!items.length) {
+        setStatusText("推薦內容沒有可套用的歌曲");
         return;
       }
-      const roomPlayDurationSec = clampPlayDurationSec(
-        currentRoom.gameSettings?.playDurationSec ?? DEFAULT_PLAY_DURATION_SEC,
-      );
-      const roomStartOffsetSec = clampStartOffsetSec(
-        currentRoom.gameSettings?.startOffsetSec ?? DEFAULT_START_OFFSET_SEC,
-      );
-      const roomAllowCollectionClipTiming =
-        currentRoom.gameSettings?.allowCollectionClipTiming ?? true;
-      const uploadItems = buildUploadPlaylistItems(items, {
-        playDurationSec: roomPlayDurationSec,
-        startOffsetSec: roomStartOffsetSec,
-        allowCollectionClipTiming: roomAllowCollectionClipTiming,
+      const sourceId = suggestion.sourceId ?? suggestion.value;
+      await uploadPlaylistSelection({
+        items,
+        sourceId,
+        title: suggestion.title ?? null,
+        sourceType:
+          suggestion.type === "collection"
+            ? resolveCollectionSourceType(sourceId)
+            : resolvePlaylistSourceType(sourceId),
       });
-      const uploadId =
-        crypto.randomUUID?.() ??
-        `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-      const firstChunk = uploadItems.slice(0, CHUNK_SIZE);
-      const remaining = uploadItems.slice(CHUNK_SIZE);
-      const isLast = remaining.length === 0;
-      const sourceId =
-        suggestion.sourceId ??
-        (suggestion.type === "collection" ? suggestion.value : undefined);
-      const title = suggestion.title ?? undefined;
-
-      socket.emit(
-        "changePlaylist",
-        {
-          roomId: currentRoom.id,
-          playlist: {
-            uploadId,
-            id: sourceId ?? undefined,
-            title,
-            sourceType:
-              suggestion.type === "collection"
-                ? resolveCollectionSourceType(sourceId ?? suggestion.value)
-                : authToken
-                  ? "youtube_google_import"
-                  : "youtube_pasted_link",
-            totalCount: uploadItems.length,
-            items: firstChunk,
-            isLast,
-            pageSize: DEFAULT_PAGE_SIZE,
-          },
-        },
-        async (
-          ack: Ack<{
-            receivedCount: number;
-            totalCount: number;
-            ready: boolean;
-          }>,
-        ) => {
-          if (!ack) return;
-          if (!ack.ok) {
-            setStatusText(formatAckError("應用播放清單建議失敗", ack.error));
-            return;
-          }
-          applyPlaylistSource(uploadItems, sourceId ?? uploadId, title ?? null);
-          if (remaining.length > 0) {
-            await uploadPlaylistChunks(
-              socket,
-              currentRoom.id,
-              uploadId,
-              remaining,
-            );
-          }
-          setStatusText("已應用播放清單建議");
-        },
-      );
     },
     [
-      applyPlaylistSource,
-      currentRoom,
-      gameStateStatus,
-      getSocket,
+      resolveCollectionSourceType,
+      resolvePlaylistSourceType,
       setStatusText,
+      uploadPlaylistSelection,
     ],
   );
 
@@ -426,6 +479,9 @@ export const useRoomProviderPlaylistActions = ({
     handleSuggestPlaylist,
     handleFetchPlaylistByUrl,
     handleChangePlaylist,
+    handleApplyPlaylistUrlDirect,
+    handleApplyCollectionDirect,
+    handleApplyYoutubePlaylistDirect,
     handleApplySuggestionSnapshot,
   };
 };

@@ -4,9 +4,6 @@ import {
   Badge,
   Box,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
   Dialog,
   DialogActions,
   DialogContent,
@@ -145,7 +142,15 @@ interface RoomLobbyPanelProps {
     options?: { useSnapshot?: boolean; sourceId?: string | null; title?: string | null },
   ) => Promise<{ ok: boolean; error?: string }>;
   onApplySuggestionSnapshot: (suggestion: PlaylistSuggestion) => Promise<void>;
-  onChangePlaylist: () => Promise<void>;
+  onApplyPlaylistUrlDirect: (url: string) => Promise<boolean>;
+  onApplyCollectionDirect: (
+    collectionId: string,
+    title?: string | null,
+  ) => Promise<boolean>;
+  onApplyYoutubePlaylistDirect: (
+    playlistId: string,
+    title?: string | null,
+  ) => Promise<boolean>;
   onPlaylistUrlChange: (value: string) => void;
   onFetchPlaylistByUrl: (url: string) => void;
   onFetchCollections: (scope?: "owner" | "public") => void;
@@ -155,7 +160,6 @@ interface RoomLobbyPanelProps {
     options?: { readToken?: string | null },
   ) => Promise<void>;
   onFetchYoutubePlaylists: () => void;
-  onImportYoutubePlaylist: (playlistId: string) => Promise<void>;
 }
 
 const ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX = "mq_room_chat_last_read_message:";
@@ -225,14 +229,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onTransferHost,
   onSuggestPlaylist,
   onApplySuggestionSnapshot,
-  onChangePlaylist,
+  onApplyPlaylistUrlDirect,
+  onApplyCollectionDirect,
+  onApplyYoutubePlaylistDirect,
   onPlaylistUrlChange,
   onFetchPlaylistByUrl,
   onFetchCollections,
   onSelectCollection,
   onLoadCollectionItems,
   onFetchYoutubePlaylists,
-  onImportYoutubePlaylist,
 }) => {
   const MOBILE_LOBBY_CHAT_MIN_HEIGHT_VH = 36;
   const MOBILE_LOBBY_CHAT_MAX_HEIGHT_VH = 72;
@@ -332,7 +337,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ? "*".repeat(roomPassword.length)
     : "";
   const playlistRowHeight = isMobileLobbyLayout ? 72 : 84;
-  const desktopPlaylistVisibleRows = 4;
+  const desktopPlaylistVisibleRows = 4.5;
   const playlistViewportMinHeight = isMobileLobbyLayout
     ? 300
     : isCompactLobbyLayout
@@ -347,7 +352,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     playlistViewportMaxHeight,
     Math.max(
       playlistViewportMinHeight,
-      Math.max(rowCount, isMobileLobbyLayout ? 2 : 4) * playlistRowHeight,
+      Math.max(rowCount, isMobileLobbyLayout ? 2 : 4.5) * playlistRowHeight,
     ),
   );
   const playlistListShellStyle = (
@@ -522,17 +527,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     } catch {
       return null;
     }
-  };
-  const handlePlaylistPaste = (
-    event: React.ClipboardEvent<HTMLInputElement>,
-  ) => {
-    const pasted = event.clipboardData.getData("text");
-    if (!pasted) return;
-    const trimmed = pasted.trim();
-    if (!trimmed) return;
-    openConfirmModal("要套用這個歌單連結嗎？", trimmed, () => {
-      onFetchPlaylistByUrl(trimmed);
-    });
   };
   const isCollectionsEmptyNotice = Boolean(
     collectionsError &&
@@ -1256,6 +1250,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const playerCountLabel = currentRoom?.maxPlayers
     ? `${participants.length}/${currentRoom.maxPlayers}`
     : String(participants.length);
+  const emptySeatCount = Math.max(
+    0,
+    (currentRoom?.maxPlayers ?? participants.length) - participants.length,
+  );
   const roomMetricCards = [
     {
       key: "questions",
@@ -1372,8 +1370,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 
   const participantsPanel = (
     <Box className="room-lobby-participants">
-      <div className="room-lobby-panel-head">
-        <div className="room-lobby-panel-title">
+      <div className="room-lobby-panel-head room-lobby-panel-head--players">
+        <div className="room-lobby-panel-title room-lobby-panel-title--players">
           <GroupsRoundedIcon fontSize="small" />
           <Typography variant="subtitle2" className="text-slate-100">
             玩家
@@ -1384,10 +1382,32 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 
       <div className="room-lobby-player-list">
         {participants.length === 0 ? (
-          <div className="room-lobby-roster-empty">
-            <Typography variant="body2" className="text-slate-400">
-              目前尚無玩家
-            </Typography>
+          <div className="room-lobby-player-list-inner room-lobby-player-list-inner--vacant">
+            <div className="room-lobby-roster-empty room-lobby-roster-empty--dashed">
+              <Typography variant="body2" className="text-slate-400">
+                目前尚無玩家
+              </Typography>
+            </div>
+            {Array.from({ length: Math.max(1, emptySeatCount) }).map((_, index) => (
+              <div
+                key={`vacant-seat-${index}`}
+                className="room-lobby-player-row room-lobby-player-row--vacant"
+              >
+                <div className="room-lobby-player-row-main">
+                  <span className="room-lobby-player-avatar room-lobby-player-avatar--vacant">
+                    +
+                  </span>
+                  <div className="room-lobby-player-copy">
+                    <div className="room-lobby-player-title-row">
+                      <strong>可加入空位</strong>
+                    </div>
+                    <div className="room-lobby-player-tags">
+                      <span className="room-lobby-player-tag is-muted">等待玩家加入</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="room-lobby-player-list-inner">
@@ -1533,6 +1553,26 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 </Box>
               );
             })}
+            {Array.from({ length: emptySeatCount }).map((_, index) => (
+              <div
+                key={`vacant-seat-${index}`}
+                className="room-lobby-player-row room-lobby-player-row--vacant"
+              >
+                <div className="room-lobby-player-row-main">
+                  <span className="room-lobby-player-avatar room-lobby-player-avatar--vacant">
+                    +
+                  </span>
+                  <div className="room-lobby-player-copy">
+                    <div className="room-lobby-player-title-row">
+                      <strong>可加入空位</strong>
+                    </div>
+                    <div className="room-lobby-player-tags">
+                      <span className="room-lobby-player-tag is-muted">等待玩家加入</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1556,7 +1596,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       hostPlaylistPrimaryText={hostPlaylistPrimaryText}
       playlistUrl={playlistUrl}
       onPlaylistUrlChange={onPlaylistUrlChange}
-      onPlaylistPaste={handlePlaylistPaste}
       isGoogleAuthed={isGoogleAuthed}
       collectionScope={collectionScope}
       setCollectionScope={setCollectionScope}
@@ -1569,7 +1608,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       hostCollectionPrimaryText={hostCollectionPrimaryText}
       visibleCollectionsError={visibleCollectionsError}
       collectionItemsError={collectionItemsError}
-      onLoadCollectionItems={onLoadCollectionItems}
       isHostYoutubeEmptyNotice={isHostYoutubeEmptyNotice}
       isHostYoutubeMissingNotice={isHostYoutubeMissingNotice}
       hostYoutubePrimaryText={hostYoutubePrimaryText}
@@ -1578,13 +1616,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       youtubePlaylistsLoading={youtubePlaylistsLoading}
       selectedYoutubePlaylistId={selectedYoutubePlaylistId}
       setSelectedYoutubePlaylistId={setSelectedYoutubePlaylistId}
-      onImportYoutubePlaylist={onImportYoutubePlaylist}
       openConfirmModal={openConfirmModal}
       playlistLoadNotice={playlistLoadNotice}
       playlistError={playlistError}
-      playlistItemsForChangeLength={playlistItemsForChange.length}
       playlistLoading={playlistLoading}
-      onChangePlaylist={onChangePlaylist}
+      onApplyPlaylistUrlDirect={onApplyPlaylistUrlDirect}
+      onApplyCollectionDirect={onApplyCollectionDirect}
+      onApplyYoutubePlaylistDirect={onApplyYoutubePlaylistDirect}
     />
   ) : gameState?.status !== "playing" ? (
     <RoomLobbySuggestionPanel
@@ -1601,6 +1639,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       requestYoutubePlaylists={requestYoutubePlaylists}
       onSuggestPlaylist={onSuggestPlaylist}
       extractPlaylistId={extractPlaylistId}
+      openConfirmModal={openConfirmModal}
     />
   ) : null;
   const controlPanel = hostPanel ?? (
@@ -1631,8 +1670,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
   const chatPanelStage = (
     <Box className="room-lobby-chat-stage">
-      <div className="room-lobby-panel-head">
-        <div className="room-lobby-panel-title">
+      <div className="room-lobby-panel-head room-lobby-panel-head--chat">
+        <div className="room-lobby-panel-title room-lobby-panel-title--chat">
           <ChatBubbleRoundedIcon fontSize="small" />
           <Typography variant="subtitle2" className="text-slate-100">
             聊天室
@@ -1644,8 +1683,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
   const playlistPanel = (
     <Box className="room-lobby-playlist-panel">
-      <div className="room-lobby-panel-head room-lobby-playlist-head">
-        <div className="room-lobby-panel-title">
+      <div className="room-lobby-panel-head room-lobby-panel-head--playlist room-lobby-playlist-head">
+        <div className="room-lobby-panel-title room-lobby-panel-title--playlist">
           <LibraryMusicRoundedIcon fontSize="small" />
           <Typography variant="subtitle2" className="text-slate-200">
             播放清單
@@ -1684,9 +1723,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
 
   return (
-    <Card
-      variant="outlined"
-      className="w-full lg:w-4/5 bg-slate-900/70 border-slate-700 text-slate-50 room-lobby-card"
+    <Box
+      className="w-full lg:w-4/5 text-slate-50 room-lobby-shell"
       onPointerOverCapture={handleLobbyPointerEnter}
       onPointerDownCapture={handleLobbyPointerDown}
       sx={{
@@ -1695,11 +1733,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         maxHeight: "none",
         display: "flex",
         flexDirection: "column",
+        width: "100%",
+        maxWidth: "1460px",
+        marginInline: "auto",
       }}
     >
-      <CardHeader
-        className="room-lobby-card-header"
-        title={
+      <div className="room-lobby-card-header room-lobby-page-header">
+        <div className="MuiCardHeader-content">
           <Stack spacing={1.25} className="room-lobby-header-stack">
             <div className="room-lobby-header-identity">
               <div className="room-lobby-header-copy">
@@ -1723,6 +1763,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     <div
                       key={card.key}
                       className={`room-lobby-metric-card room-lobby-metric-card--${card.tone}`}
+                      role="presentation"
                     >
                       <span className="room-lobby-metric-icon">{card.icon}</span>
                       <div className="room-lobby-metric-copy">
@@ -1735,9 +1776,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               </div>
             </div>
           </Stack>
-        }
-        action={
-          !isMobileTabletLobbyLayout ? (
+        </div>
+        {!isMobileTabletLobbyLayout ? (
+          <div className="MuiCardHeader-action">
             <div className="room-lobby-toolbar" role="toolbar" aria-label="房間操作">
               <div
                 className={`room-lobby-toolbar-shell ${isSoloLeaveToolbar ? "room-lobby-toolbar-shell--solo-leave" : ""
@@ -1842,11 +1883,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 </div>
               </div>
             </div>
-          ) : null
-        }
-      />
-      <CardContent
-        className={`room-lobby-content ${isMobileTabletLobbyLayout ? "room-lobby-content--mobile-redesign" : ""
+          </div>
+        ) : null}
+      </div>
+      <Box
+        className={`room-lobby-content room-lobby-content--shell-less ${isMobileTabletLobbyLayout ? "room-lobby-content--mobile-redesign" : ""
           }`}
         sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 1.5 }}
       >
@@ -2096,7 +2137,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             </div>
           </>
         )}
-      </CardContent>
+      </Box>
       <RoomLobbySettingsDialog
         open={settingsOpen}
         settingsDisabled={settingsDisabled}
@@ -2238,7 +2279,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-    </Card>
+    </Box>
   );
 };
 
