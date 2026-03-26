@@ -16,7 +16,8 @@ import type {
 
 export type ScoreboardRow =
   | { type: "player"; player: RoomParticipant }
-  | { type: "placeholder"; key: string };
+  | { type: "placeholder"; key: string }
+  | { type: "locked"; key: string };
 
 export const sortParticipantsByScore = (participants: RoomParticipant[]) =>
   participants.slice().sort((a, b) => {
@@ -33,9 +34,10 @@ export const sortParticipantsByScore = (participants: RoomParticipant[]) =>
 export const buildScoreboardRows = (
   sortedParticipants: RoomParticipant[],
   meClientId: string | undefined,
-  slots = 6,
+  slots = 12,
+  maxPlayers?: number | null,
 ): ScoreboardRow[] => {
-  const topPlayers = sortedParticipants.slice(0, 5);
+  const topPlayers = sortedParticipants.slice(0, slots - 1);
   const self = sortedParticipants.find(
     (participant) => participant.clientId === meClientId,
   );
@@ -45,14 +47,23 @@ export const buildScoreboardRows = (
       ? [...topPlayers, self]
       : topPlayers;
   const scoreboardEntries = scoreboardPlayers.slice(0, slots);
-  const fillerCount = Math.max(0, slots - scoreboardEntries.length);
-  return [
-    ...scoreboardEntries.map((player) => ({ type: "player" as const, player })),
-    ...Array.from({ length: fillerCount }, (_, idx) => ({
-      type: "placeholder" as const,
-      key: `placeholder-${idx}`,
-    })),
-  ];
+  // Effective limit: how many slots are "open" (players + available seats)
+  const effectiveMax =
+    maxPlayers && maxPlayers > 0
+      ? Math.min(maxPlayers, slots)
+      : slots;
+  const rows: ScoreboardRow[] = scoreboardEntries.map((player) => ({
+    type: "player" as const,
+    player,
+  }));
+  for (let i = rows.length; i < slots; i++) {
+    if (i < effectiveMax) {
+      rows.push({ type: "placeholder" as const, key: `placeholder-${i}` });
+    } else {
+      rows.push({ type: "locked" as const, key: `locked-${i}` });
+    }
+  }
+  return rows;
 };
 
 type BuildRevealChoicePickMapParams = {

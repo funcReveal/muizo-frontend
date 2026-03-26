@@ -1,6 +1,7 @@
 ﻿import React from "react";
 import { Badge, Chip } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
+import LockRoundedIcon from "@mui/icons-material/LockRounded";
 
 import {
   DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID,
@@ -494,6 +495,21 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           </>
         ) : (
           scoreboardRows.map((row, idx) => {
+            if (row.type === "locked") {
+              return (
+                <div
+                  key={row.key}
+                  className="game-room-score-row game-room-score-row--locked flex items-center justify-between text-sm"
+                  aria-hidden="true"
+                >
+                  <span className="truncate flex items-center gap-1.5 opacity-35">
+                    <LockRoundedIcon sx={{ fontSize: 12 }} />
+                    {idx + 1}. 已鎖定
+                  </span>
+                  <span className="text-[11px] text-slate-600">--</span>
+                </div>
+              );
+            }
             if (row.type === "placeholder") {
               return (
                 <div

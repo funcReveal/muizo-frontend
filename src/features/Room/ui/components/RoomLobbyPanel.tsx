@@ -13,18 +13,16 @@ import {
   ListItem,
   Popover,
   Stack,
-  SwipeableDrawer,
+  Switch,
   Typography,
   useMediaQuery,
 } from "@mui/material";
 import { useCallback } from "react";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
-import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import HistoryEduRoundedIcon from "@mui/icons-material/HistoryEduRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
-import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import PlaylistPlayRoundedIcon from "@mui/icons-material/PlaylistPlayRounded";
@@ -33,12 +31,13 @@ import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import KeyRoundedIcon from "@mui/icons-material/KeyRounded";
+import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
+import ShareRoundedIcon from "@mui/icons-material/ShareRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type {
-  ChatMessage,
   GameState,
   PlaylistItem,
   PlaybackExtensionMode,
@@ -64,11 +63,10 @@ import {
   PLAYER_MIN,
   QUESTION_MIN,
 } from "../../model/roomConstants";
-import RoomLobbyChatPanel from "./RoomLobbyChatPanel";
 import RoomLobbyHostControls from "./RoomLobbyHostControls";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
-import useMobileDrawerDragDismiss from "./gameRoomPage/useMobileDrawerDragDismiss";
+
 import { useGameSfx } from "../hooks/useGameSfx";
 import {
   DEFAULT_GAME_VOLUME,
@@ -83,10 +81,8 @@ import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 interface RoomLobbyPanelProps {
   currentRoom: RoomState["room"] | null;
   participants: RoomParticipant[];
-  messages: ChatMessage[];
   selfClientId: string;
   roomPassword?: string | null;
-  messageInput: string;
   playlistItems: PlaylistItem[];
   playlistHasMore: boolean;
   playlistLoadingMore: boolean;
@@ -111,8 +107,6 @@ interface RoomLobbyPanelProps {
   canStartGame: boolean;
   hasLastSettlement?: boolean;
   onLeave: () => void;
-  onInputChange: (value: string) => void;
-  onSend: () => void;
   onLoadMorePlaylist: () => void;
   onStartGame: () => void;
   onUpdateRoomSettings: (payload: {
@@ -124,16 +118,13 @@ interface RoomLobbyPanelProps {
     revealDurationSec?: number;
     startOffsetSec?: number;
     allowCollectionClipTiming?: boolean;
+    allowParticipantInvite?: boolean;
     playbackExtensionMode?: PlaybackExtensionMode;
     maxPlayers?: number | null;
   }) => Promise<boolean>;
   onOpenLastSettlement?: () => void;
-  latestSettlementRoundKey?: string | null;
   onOpenHistoryDrawer?: () => void;
-  onOpenSettlementByRoundKey?: (roundKey: string) => void;
   onOpenGame?: () => void;
-  /** Invite handler that returns Promise<void>; surface errors via throw or status text */
-  onInvite: () => Promise<void>;
   onKickPlayer: (clientId: string, durationMs?: number | null) => void;
   onTransferHost: (clientId: string) => void;
   onSuggestPlaylist: (
@@ -162,36 +153,12 @@ interface RoomLobbyPanelProps {
   onFetchYoutubePlaylists: () => void;
 }
 
-const ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX = "mq_room_chat_last_read_message:";
-
-const readRoomChatLastReadMessageId = (roomId: string | null): string | null => {
-  if (!roomId || typeof window === "undefined") return null;
-  const stored = window.sessionStorage.getItem(
-    `${ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX}${roomId}`,
-  );
-  return stored?.trim() ? stored : null;
-};
-
-const writeRoomChatLastReadMessageId = (
-  roomId: string | null,
-  messageId: string | null,
-) => {
-  if (!roomId || typeof window === "undefined") return;
-  const storageKey = `${ROOM_CHAT_LAST_READ_MESSAGE_KEY_PREFIX}${roomId}`;
-  if (!messageId) {
-    window.sessionStorage.removeItem(storageKey);
-    return;
-  }
-  window.sessionStorage.setItem(storageKey, messageId);
-};
 
 const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   currentRoom,
   participants,
-  messages,
   selfClientId,
   roomPassword,
-  messageInput,
   playlistItems,
   playlistHasMore,
   playlistLoadingMore,
@@ -215,16 +182,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   gameState,
   canStartGame,
   onLeave,
-  onInputChange,
-  onSend,
   onLoadMorePlaylist,
   onStartGame,
   onUpdateRoomSettings,
-  latestSettlementRoundKey,
   onOpenHistoryDrawer,
-  onOpenSettlementByRoundKey,
   onOpenGame,
-  onInvite,
   onKickPlayer,
   onTransferHost,
   onSuggestPlaylist,
@@ -239,15 +201,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onLoadCollectionItems,
   onFetchYoutubePlaylists,
 }) => {
-  const MOBILE_LOBBY_CHAT_MIN_HEIGHT_VH = 36;
-  const MOBILE_LOBBY_CHAT_MAX_HEIGHT_VH = 72;
-  const MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH = 44;
   type MobileLobbyTab = "members" | "host" | "playlist";
   const LOBBY_INTERACTIVE_SELECTOR =
     "button, [role='button'], [role='tab'], .MuiButtonBase-root";
   const rowCount = playlistItems.length + (playlistHasMore ? 1 : 0);
-  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [shareBlockedNotice, setShareBlockedNotice] = useState(false);
+  const [sharePermissionSaving, setSharePermissionSaving] = useState(false);
   const [showRoomPassword, setShowRoomPassword] = useState(false);
   const [hostSourceType, setHostSourceType] = useState<
     "suggestions" | "playlist" | "collection" | "youtube"
@@ -324,15 +286,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     : null;
   const [mobileLobbyTab, setMobileLobbyTab] =
     useState<MobileLobbyTab>("members");
-  const [mobileChatDrawerOpen, setMobileChatDrawerOpen] = useState(false);
-  const [mobileChatUnread, setMobileChatUnread] = useState(0);
   const lastLobbyHoverAtRef = useRef(0);
   const lastLobbyHoverTargetRef = useRef<HTMLElement | null>(null);
-  const [mobileChatHeight, setMobileChatHeight] = useState(
-    MOBILE_LOBBY_CHAT_DEFAULT_HEIGHT_VH,
-  );
-  const lastUnreadMobileChatMessageIdRef = useRef<string | null>(null);
-  const mobileChatUnreadSeededRoomRef = useRef<string | null>(null);
   const maskedRoomPassword = roomPassword
     ? "*".repeat(roomPassword.length)
     : "";
@@ -973,98 +928,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     );
   }, [handleOpenPlaylistItem, onLoadMorePlaylist, playlistHasMore, playlistItems, playlistLoadingMore]);
 
-  useEffect(() => {
-    if (!isMobileTabletLobbyLayout) {
-      setMobileChatDrawerOpen(false);
-    }
-  }, [isMobileTabletLobbyLayout]);
-
-  useEffect(() => {
-    const roomId = currentRoom?.id ?? null;
-    mobileChatUnreadSeededRoomRef.current = null;
-    lastUnreadMobileChatMessageIdRef.current = readRoomChatLastReadMessageId(roomId);
-    setMobileChatUnread(0);
-  }, [currentRoom?.id]);
-
-  const isUnreadMobileChatMessage = React.useCallback(
-    (message: ChatMessage) =>
-      !message.userId.startsWith("system:") && message.userId !== selfClientId,
-    [selfClientId],
-  );
-
-  const unreadMobileChatMessages = useMemo(
-    () => messages.filter(isUnreadMobileChatMessage),
-    [isUnreadMobileChatMessage, messages],
-  );
-
-  useEffect(() => {
-    const roomId = currentRoom?.id ?? null;
-    const latestUnreadMessageId =
-      unreadMobileChatMessages[unreadMobileChatMessages.length - 1]?.id ?? null;
-
-    if (!isMobileTabletLobbyLayout || mobileChatDrawerOpen) {
-      setMobileChatUnread(0);
-      mobileChatUnreadSeededRoomRef.current = roomId;
-      lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
-      writeRoomChatLastReadMessageId(roomId, latestUnreadMessageId);
-      return;
-    }
-
-    if (!roomId) {
-      setMobileChatUnread(0);
-      lastUnreadMobileChatMessageIdRef.current = latestUnreadMessageId;
-      return;
-    }
-
-    const lastSeenMessageId =
-      lastUnreadMobileChatMessageIdRef.current ??
-      readRoomChatLastReadMessageId(roomId);
-
-    if (mobileChatUnreadSeededRoomRef.current !== roomId) {
-      setMobileChatUnread(
-        lastSeenMessageId
-          ? Math.max(
-            0,
-            unreadMobileChatMessages.length -
-            (unreadMobileChatMessages.findIndex(
-              (message) => message.id === lastSeenMessageId,
-            ) + 1),
-          )
-          : unreadMobileChatMessages.length,
-      );
-      mobileChatUnreadSeededRoomRef.current = roomId;
-      return;
-    }
-
-    if (!latestUnreadMessageId) {
-      setMobileChatUnread(0);
-      lastUnreadMobileChatMessageIdRef.current = null;
-      writeRoomChatLastReadMessageId(roomId, null);
-      return;
-    }
-
-    const lastSeenIndex =
-      lastSeenMessageId === null
-        ? -1
-        : unreadMobileChatMessages.findIndex(
-          (message) => message.id === lastSeenMessageId,
-        );
-
-    if (lastSeenIndex < 0) {
-      setMobileChatUnread(unreadMobileChatMessages.length);
-    } else {
-      setMobileChatUnread(
-        Math.max(0, unreadMobileChatMessages.length - (lastSeenIndex + 1)),
-      );
-    }
-  }, [
-    currentRoom?.id,
-    isMobileTabletLobbyLayout,
-    messages,
-    mobileChatDrawerOpen,
-    unreadMobileChatMessages,
-  ]);
-
   const startActionDisabledReason = !isHost
     ? "只有房主可以開始遊戲"
     : gameState?.status === "playing"
@@ -1077,44 +940,81 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     : gameState?.status === "playing"
       ? "遊戲進行中不可更改"
       : undefined;
-  const inviteActionDisabledReason = !isHost ? "只有房主可以邀請玩家" : undefined;
+  const allowParticipantInvite =
+    currentRoom?.gameSettings?.allowParticipantInvite ?? false;
+  const canUseShareInvite = isHost || allowParticipantInvite;
+  const shareLockedReason = canUseShareInvite
+    ? undefined
+    : "房主尚未開啟玩家邀請權限";
+  const shareButtonLabel = canUseShareInvite ? "分享邀請" : "分享邀請未開放";
+  const inviteLink = React.useMemo(() => {
+    if (!currentRoom?.id || typeof window === "undefined") return "";
+    const url = new URL(window.location.href);
+    url.pathname = `/invited/${currentRoom.id}`;
+    url.search = "";
+    return url.toString();
+  }, [currentRoom?.id]);
 
-  const runInvite = React.useCallback(() => {
-    if (!isHost) return;
-    void (async () => {
-      try {
-        await onInvite();
-        setInviteSuccess(true);
-        setTimeout(() => setInviteSuccess(false), 1500);
-      } catch (e) {
-        console.log(e);
+  const flashCopiedState = React.useCallback(
+    (kind: "roomCode" | "inviteLink") => {
+      if (kind === "roomCode") {
+        setRoomCodeCopied(true);
+        window.setTimeout(() => setRoomCodeCopied(false), 1800);
+        return;
       }
-    })();
-  }, [isHost, onInvite]);
-
-  const mobileChatDragDismiss = useMobileDrawerDragDismiss({
-    open: mobileChatDrawerOpen,
-    direction: "down",
-    onDismiss: () => setMobileChatDrawerOpen(false),
-    height: mobileChatHeight,
-    minHeight: MOBILE_LOBBY_CHAT_MIN_HEIGHT_VH,
-    maxHeight: MOBILE_LOBBY_CHAT_MAX_HEIGHT_VH,
-    onHeightChange: (nextHeight) => {
-      setMobileChatHeight(nextHeight);
+      setInviteLinkCopied(true);
+      window.setTimeout(() => setInviteLinkCopied(false), 1800);
     },
-    threshold: 36,
-  });
-  const latestUnreadLobbyMessageId =
-    unreadMobileChatMessages[unreadMobileChatMessages.length - 1]?.id ?? null;
-  const markLobbyChatRead = React.useCallback(() => {
-    setMobileChatUnread(0);
-    mobileChatUnreadSeededRoomRef.current = currentRoom?.id ?? null;
-    lastUnreadMobileChatMessageIdRef.current = latestUnreadLobbyMessageId;
-    writeRoomChatLastReadMessageId(
-      currentRoom?.id ?? null,
-      latestUnreadLobbyMessageId,
-    );
-  }, [currentRoom?.id, latestUnreadLobbyMessageId]);
+    [],
+  );
+
+  const copyText = React.useCallback(
+    async (value: string, kind: "roomCode" | "inviteLink") => {
+      if (!value) return;
+      try {
+        await navigator.clipboard.writeText(value);
+        flashCopiedState(kind);
+      } catch {
+        if (kind === "roomCode") {
+          setRoomCodeCopied(false);
+          return;
+        }
+        setInviteLinkCopied(false);
+      }
+    },
+    [flashCopiedState],
+  );
+
+  const handleCopyRoomCode = React.useCallback(() => {
+    if (!currentRoom?.roomCode) return;
+    void copyText(currentRoom.roomCode, "roomCode");
+  }, [copyText, currentRoom?.roomCode]);
+
+  const handleCopyInviteLink = React.useCallback(() => {
+    if (!inviteLink) return;
+    void copyText(inviteLink, "inviteLink");
+  }, [copyText, inviteLink]);
+
+  const handleOpenShareDialog = React.useCallback(() => {
+    if (!canUseShareInvite) {
+      setShareBlockedNotice(true);
+      window.setTimeout(() => setShareBlockedNotice(false), 1800);
+      return;
+    }
+    setShareDialogOpen(true);
+  }, [canUseShareInvite]);
+
+  const handleToggleInvitePermission = React.useCallback(
+    async (nextValue: boolean) => {
+      if (!isHost || sharePermissionSaving) return;
+      setSharePermissionSaving(true);
+      const ok = await onUpdateRoomSettings({
+        allowParticipantInvite: nextValue,
+      });
+      setSharePermissionSaving(false);
+    },
+    [isHost, onUpdateRoomSettings, sharePermissionSaving],
+  );
 
   const mobileActionButtons = useMemo(
     () => [
@@ -1250,11 +1150,29 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const playerCountLabel = currentRoom?.maxPlayers
     ? `${participants.length}/${currentRoom.maxPlayers}`
     : String(participants.length);
-  const emptySeatCount = Math.max(
-    0,
-    (currentRoom?.maxPlayers ?? participants.length) - participants.length,
-  );
-  const roomMetricCards = [
+  // Always display PLAYER_MAX (12) slots: actual players, open seats, then locked seats
+  const roomMax =
+    currentRoom?.maxPlayers && currentRoom.maxPlayers > 0
+      ? Math.min(currentRoom.maxPlayers, PLAYER_MAX)
+      : PLAYER_MAX;
+  const openSlotCount = Math.max(0, roomMax - participants.length);
+  const lockedSlotCount = PLAYER_MAX - roomMax;
+  const hasRoomPassword = Boolean(currentRoom?.hasPin ?? currentRoom?.hasPassword);
+  const hasPassedPinVerification = Boolean(roomPassword);
+  const canToggleRoomPassword = isHost || hasPassedPinVerification;
+  const visibleRoomPassword = roomPassword
+    ? showRoomPassword
+      ? roomPassword
+      : maskedRoomPassword
+    : "****";
+  const roomMetaItems: Array<{
+    key: string;
+    label: string;
+    value: string;
+    icon: React.ReactNode;
+    tone: "amber" | "cyan" | "password";
+    trailing?: React.ReactNode;
+  }> = [
     {
       key: "questions",
       label: "題數",
@@ -1269,104 +1187,68 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       icon: <TimerRoundedIcon fontSize="small" />,
       tone: "cyan",
     },
-  ] as const;
-  const showRoomAccessStrip =
-    Boolean(formattedRoomCode) ||
-    (isHost && Boolean(currentRoom?.hasPin ?? currentRoom?.hasPassword));
-  const showInlineRoomAccess = showRoomAccessStrip;
-  const visibleRoomPassword = roomPassword
-    ? showRoomPassword
-      ? roomPassword
-      : maskedRoomPassword
-    : "未設定";
-
-  const handleCopyRoomCode = async () => {
-    if (!currentRoom?.roomCode) return;
-    try {
-      await navigator.clipboard.writeText(currentRoom.roomCode);
-      setRoomCodeCopied(true);
-      window.setTimeout(() => setRoomCodeCopied(false), 1800);
-    } catch {
-      setRoomCodeCopied(false);
-    }
-  };
-
-  const roomAccessActions = (
-    <>
-      {formattedRoomCode ? (
+  ];
+  if (hasRoomPassword) {
+    roomMetaItems.push({
+      key: "password",
+      label: "房間密碼",
+      value: visibleRoomPassword,
+      icon: <KeyRoundedIcon fontSize="small" />,
+      tone: "password",
+      trailing: canToggleRoomPassword ? (
         <button
           type="button"
-          className={`room-lobby-access-chip room-lobby-access-chip--code ${roomCodeCopied ? "is-copied" : ""
-            }`}
-          aria-label="複製房間代碼"
-          title="複製房間代碼"
-          onClick={() => {
-            void handleCopyRoomCode();
-          }}
-        >
-          <ContentCopyRoundedIcon fontSize="small" />
-          {roomCodeCopied ? (
-            <span className="room-lobby-access-copied-badge">已複製</span>
-          ) : null}
-          <div className="room-lobby-access-copy">
-            <strong>{formattedRoomCode}</strong>
-          </div>
-        </button>
-      ) : null}
-      {isHost ? (
-        <Button
-          variant="contained"
-          size="small"
-          color="inherit"
-          className={`room-lobby-access-btn ${inviteSuccess
-            ? "room-lobby-action-btn--invite-success"
-            : "room-lobby-action-btn--invite"
-            } room-lobby-access-btn--icon-only`}
-          disabled={Boolean(inviteActionDisabledReason)}
-          title={inviteSuccess ? "邀請連結已複製" : inviteActionDisabledReason ?? "複製邀請連結"}
-          aria-label={inviteSuccess ? "邀請連結已複製" : "複製邀請連結"}
-          onClick={runInvite}
-        >
-          <span className="room-lobby-access-btn__icon" aria-hidden="true">
-            {inviteSuccess ? (
-              <CheckRoundedIcon fontSize="small" />
-            ) : (
-              <PersonAddAlt1RoundedIcon fontSize="small" />
-            )}
-          </span>
-          <span className="room-lobby-sr-only">
-            {inviteSuccess ? "邀請連結已複製" : "複製邀請連結"}
-          </span>
-          {inviteSuccess ? (
-            <span className="room-lobby-access-success-badge" aria-hidden="true">
-              已複製
-            </span>
-          ) : null}
-          <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
-            {inviteSuccess ? "邀請連結已複製" : "邀請"}
-          </span>
-        </Button>
-      ) : null}
-      {isHost && (currentRoom?.hasPin ?? currentRoom?.hasPassword) ? (
-        <button
-          type="button"
-          className="room-lobby-access-chip room-lobby-access-chip--pin"
+          className="room-lobby-metric-trailing-icon room-lobby-metric-trailing-icon--toggle"
           title={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
+          aria-label={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
           onClick={() => setShowRoomPassword((prev) => !prev)}
         >
-          <KeyRoundedIcon fontSize="small" />
-          <div className="room-lobby-access-copy">
-            <strong>{visibleRoomPassword}</strong>
-          </div>
           {showRoomPassword ? (
             <VisibilityOffRoundedIcon fontSize="small" />
           ) : (
             <VisibilityRoundedIcon fontSize="small" />
           )}
         </button>
-      ) : null}
-    </>
+      ) : undefined,
+    });
+  }
+
+  const inviteToolbarButton = (
+    <Button
+      variant="outlined"
+      size="small"
+      color="inherit"
+      className={`room-lobby-toolbar-history-btn room-lobby-toolbar-icon-btn room-lobby-action-btn--invite room-lobby-toolbar-icon-btn--invite ${
+        !canUseShareInvite ? "room-lobby-action-btn--invite-locked" : ""
+      }`}
+      aria-disabled={!canUseShareInvite}
+      title={
+        shareBlockedNotice && !canUseShareInvite
+          ? shareLockedReason
+          : shareLockedReason ?? "開啟分享邀請"
+      }
+      aria-label={shareButtonLabel}
+      onClick={handleOpenShareDialog}
+    >
+      <span className="room-lobby-toolbar-icon-btn__icon" aria-hidden="true">
+        <ShareRoundedIcon fontSize="small" />
+      </span>
+      <span className="room-lobby-sr-only">{shareButtonLabel}</span>
+      <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+        {!canUseShareInvite && shareBlockedNotice
+          ? "房主未開放"
+          : !canUseShareInvite
+            ? "已鎖定"
+            : "分享"}
+      </span>
+    </Button>
   );
+  const shareBlockedToast =
+    shareBlockedNotice && !canUseShareInvite ? (
+      <div className="room-lobby-share-toast" role="status" aria-live="polite">
+        房主尚未開啟玩家邀請權限
+      </div>
+    ) : null;
 
   const participantsPanel = (
     <Box className="room-lobby-participants">
@@ -1388,7 +1270,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 目前尚無玩家
               </Typography>
             </div>
-            {Array.from({ length: Math.max(1, emptySeatCount) }).map((_, index) => (
+            {Array.from({ length: openSlotCount }).map((_, index) => (
               <div
                 key={`vacant-seat-${index}`}
                 className="room-lobby-player-row room-lobby-player-row--vacant"
@@ -1403,6 +1285,27 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     </div>
                     <div className="room-lobby-player-tags">
                       <span className="room-lobby-player-tag is-muted">等待玩家加入</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {Array.from({ length: lockedSlotCount }).map((_, index) => (
+              <div
+                key={`locked-seat-${index}`}
+                className="room-lobby-player-row room-lobby-player-row--locked"
+                aria-hidden="true"
+              >
+                <div className="room-lobby-player-row-main">
+                  <span className="room-lobby-player-avatar room-lobby-player-avatar--locked">
+                    <LockRoundedIcon sx={{ fontSize: 16 }} />
+                  </span>
+                  <div className="room-lobby-player-copy">
+                    <div className="room-lobby-player-title-row">
+                      <strong>已鎖定</strong>
+                    </div>
+                    <div className="room-lobby-player-tags">
+                      <span className="room-lobby-player-tag is-muted">超出人數上限</span>
                     </div>
                   </div>
                 </div>
@@ -1488,13 +1391,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           setActionAnchorEl(event.currentTarget);
                           setActionTargetId(p.clientId);
                         }}
-                        >
-                          <MoreHorizRoundedIcon fontSize="small" />
-                          <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
-                            玩家操作
-                          </span>
-                        </IconButton>
-                      )}
+                      >
+                        <MoreHorizRoundedIcon fontSize="small" />
+                        <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+                          玩家操作
+                        </span>
+                      </IconButton>
+                    )}
                   </div>
                   {showActions && (
                     <Popover
@@ -1553,7 +1456,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 </Box>
               );
             })}
-            {Array.from({ length: emptySeatCount }).map((_, index) => (
+            {Array.from({ length: openSlotCount }).map((_, index) => (
               <div
                 key={`vacant-seat-${index}`}
                 className="room-lobby-player-row room-lobby-player-row--vacant"
@@ -1568,6 +1471,27 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     </div>
                     <div className="room-lobby-player-tags">
                       <span className="room-lobby-player-tag is-muted">等待玩家加入</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {Array.from({ length: lockedSlotCount }).map((_, index) => (
+              <div
+                key={`locked-seat-${index}`}
+                className="room-lobby-player-row room-lobby-player-row--locked"
+                aria-hidden="true"
+              >
+                <div className="room-lobby-player-row-main">
+                  <span className="room-lobby-player-avatar room-lobby-player-avatar--locked">
+                    <LockRoundedIcon sx={{ fontSize: 16 }} />
+                  </span>
+                  <div className="room-lobby-player-copy">
+                    <div className="room-lobby-player-title-row">
+                      <strong>已鎖定</strong>
+                    </div>
+                    <div className="room-lobby-player-tags">
+                      <span className="room-lobby-player-tag is-muted">超出人數上限</span>
                     </div>
                   </div>
                 </div>
@@ -1656,31 +1580,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     </Box>
   );
 
-  const chatPanel = (
-    <RoomLobbyChatPanel
-      messages={messages}
-      messageInput={messageInput}
-      onInputChange={onInputChange}
-      onSend={onSend}
-      onChatInteraction={markLobbyChatRead}
-      latestSettlementRoundKey={latestSettlementRoundKey}
-      onOpenHistoryDrawer={onOpenHistoryDrawer}
-      onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
-    />
-  );
-  const chatPanelStage = (
-    <Box className="room-lobby-chat-stage">
-      <div className="room-lobby-panel-head room-lobby-panel-head--chat">
-        <div className="room-lobby-panel-title room-lobby-panel-title--chat">
-          <ChatBubbleRoundedIcon fontSize="small" />
-          <Typography variant="subtitle2" className="text-slate-100">
-            聊天室
-          </Typography>
-        </div>
-      </div>
-      {chatPanel}
-    </Box>
-  );
   const playlistPanel = (
     <Box className="room-lobby-playlist-panel">
       <div className="room-lobby-panel-head room-lobby-panel-head--playlist room-lobby-playlist-head">
@@ -1750,26 +1649,31 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 >
                   {displayRoomName}
                 </Typography>
-                {showInlineRoomAccess ? (
-                  <div className="room-lobby-header-inline-actions room-lobby-header-inline-actions--title">
-                    {roomAccessActions}
-                  </div>
-                ) : null}
               </div>
 
               <div className="room-lobby-header-info-band">
                 <div className="room-lobby-metric-grid">
-                  {roomMetricCards.map((card) => (
+                  {roomMetaItems.map((card) => (
                     <div
                       key={card.key}
                       className={`room-lobby-metric-card room-lobby-metric-card--${card.tone}`}
                       role="presentation"
                     >
                       <span className="room-lobby-metric-icon">{card.icon}</span>
-                      <div className="room-lobby-metric-copy">
-                        <small>{card.label}</small>
-                        <strong>{card.value}</strong>
+                      <div
+                        className={
+                          card.key === "password"
+                            ? "room-lobby-metric-main room-lobby-metric-main--password"
+                            : "room-lobby-metric-main"
+                        }
+                      >
+                        <div className="room-lobby-metric-copy">
+                          <small className="room-lobby-metric-label">{card.label}</small>
+                          <strong className="room-lobby-metric-value">{card.value}</strong>
+                        </div>
+                        {card.key === "password" ? card.trailing ?? null : null}
                       </div>
+                      {card.key !== "password" ? card.trailing ?? null : null}
                     </div>
                   ))}
                 </div>
@@ -1833,7 +1737,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     </Button>
                   )}
                 </div>
-                <div className="room-lobby-toolbar-group room-lobby-toolbar-group--history">
+                <div className="room-lobby-toolbar-group room-lobby-toolbar-group--history room-lobby-toolbar-group--share-anchor">
                   {onOpenHistoryDrawer && (
                     <Button
                       variant="outlined"
@@ -1852,6 +1756,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       </span>
                     </Button>
                   )}
+                  {gameState?.status !== "playing" && inviteToolbarButton}
+                  {shareBlockedToast}
                 </div>
                 <div className="room-lobby-toolbar-group room-lobby-toolbar-group--utility">
                   {desktopUtilityActions.map((action) => (
@@ -1896,25 +1802,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             <div className="room-lobby-mobile-shell">
               <div className="room-lobby-mobile-top-actions">
                 <div className="room-lobby-mobile-actions-card">
-                  {mobilePrimaryActions.length > 0 && (
-                    <div
-                      className={`room-lobby-mobile-primary-actions ${mobilePrimaryActions.length === 1
-                        ? "room-lobby-mobile-primary-actions--single"
-                        : ""
-                        }`}
-                    >
-                      {mobilePrimaryActions.map((action) => (
+                  {/* Resume if game is playing */}
+                  {mobilePrimaryActions.filter((a) => a.key === "resume").length > 0 && (
+                    <div className="room-lobby-mobile-primary-actions room-lobby-mobile-primary-actions--single">
+                      {mobilePrimaryActions.filter((a) => a.key === "resume").map((action) => (
                         <Button
                           key={action.key}
-                          variant={action.tone === "history" ? "outlined" : "contained"}
-                          color={action.tone === "resume" ? "success" : "inherit"}
+                          variant="contained"
+                          color="success"
                           size="small"
-                          className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-primary-action ${action.tone === "start"
-                            ? "room-lobby-action-btn--start room-lobby-mobile-start-btn"
-                            : action.tone === "history"
-                              ? "room-lobby-mobile-primary-action--history"
-                              : "room-lobby-mobile-primary-action--resume"
-                            }`}
+                          className="room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-primary-action room-lobby-mobile-primary-action--resume"
                           onClick={action.onClick}
                           disabled={action.disabled}
                           aria-label={action.label}
@@ -1928,31 +1825,83 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                       ))}
                     </div>
                   )}
-                  <div
-                    className={`room-lobby-mobile-secondary-actions ${mobileActionButtons.length === 1
-                      ? "room-lobby-mobile-secondary-actions--single"
-                      : ""
-                      }`}
-                  >
+                  {/* Start Game: full-width primary row for host */}
+                  {isHost && gameState?.status !== "playing" && (
+                    <div className="room-lobby-mobile-start-row">
+                      <Button
+                        variant="contained"
+                        color="inherit"
+                        size="small"
+                        className="room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-action-btn--start room-lobby-mobile-start-btn"
+                        disabled={Boolean(startActionDisabledReason)}
+                        onClick={onStartGame}
+                        aria-label={isStartBroadcastActive ? `即將開始 ${startBroadcastRemainingSec} 秒` : "開始遊戲"}
+                        title={startActionDisabledReason ?? (isStartBroadcastActive ? `即將開始 ${startBroadcastRemainingSec} 秒` : "開始遊戲")}
+                      >
+                        <span className="room-lobby-mobile-action-icon" aria-hidden="true">
+                          <PlayArrowRoundedIcon fontSize="small" />
+                        </span>
+                        <span>{isStartBroadcastActive ? `即將開始 ${startBroadcastRemainingSec}s` : "開始遊戲"}</span>
+                      </Button>
+                    </div>
+                  )}
+                  {/* Secondary icon-only row: History + Invite + Settings + Leave */}
+                  <div className="room-lobby-mobile-bottom-actions room-lobby-toolbar-group--share-anchor">
+                    {onOpenHistoryDrawer && (
+                      <Button
+                        variant="text"
+                        color="inherit"
+                        size="small"
+                        className="room-lobby-mobile-bottom-action"
+                        aria-label="對戰資訊"
+                        title="對戰資訊"
+                        onClick={() => onOpenHistoryDrawer?.()}
+                      >
+                        <span className="room-lobby-mobile-bottom-action__icon" aria-hidden="true">
+                          <HistoryEduRoundedIcon fontSize="small" />
+                        </span>
+                      </Button>
+                    )}
+                    {gameState?.status !== "playing" && (
+                      <Button
+                        variant="text"
+                        color="inherit"
+                        size="small"
+                        className={`room-lobby-mobile-bottom-action room-lobby-action-btn--invite ${
+                          !canUseShareInvite ? "room-lobby-action-btn--invite-locked" : ""
+                        }`}
+                        aria-disabled={!canUseShareInvite}
+                        aria-label={shareButtonLabel}
+                        title={
+                          shareBlockedNotice && !canUseShareInvite
+                            ? shareLockedReason
+                            : shareLockedReason ?? "開啟分享邀請"
+                        }
+                        onClick={handleOpenShareDialog}
+                      >
+                        <span className="room-lobby-mobile-bottom-action__icon" aria-hidden="true">
+                          <ShareRoundedIcon fontSize="small" />
+                        </span>
+                      </Button>
+                    )}
                     {mobileActionButtons.map((action) => (
                       <Button
-                        key={`mobile-${action.key}`}
-                        variant={action.key === "leave" ? "outlined" : "contained"}
+                        key={`mobile-bottom-${action.key}`}
+                        variant="text"
                         color="inherit"
-                        className={`room-lobby-action-btn room-lobby-action-btn--mobile room-lobby-mobile-secondary-action ${action.key === "settings" ? "room-lobby-mobile-secondary-action--settings" : ""
-                          } ${action.key === "leave" ? "room-lobby-mobile-secondary-action--leave" : ""
-                          }`}
-                        aria-label={action.label}
+                        size="small"
+                        className={`room-lobby-mobile-bottom-action ${action.key === "leave" ? "room-lobby-mobile-bottom-action--leave" : ""}`}
                         disabled={action.disabled}
+                        aria-label={action.label}
                         title={action.label}
                         onClick={action.onClick}
                       >
-                        <span className="room-lobby-mobile-secondary-action__icon">
+                        <span className="room-lobby-mobile-bottom-action__icon" aria-hidden="true">
                           {action.icon}
                         </span>
-                        <span className="room-lobby-sr-only">{action.label}</span>
                       </Button>
                     ))}
+                    {shareBlockedToast}
                   </div>
                 </div>
               </div>
@@ -2009,121 +1958,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 {mobileLobbyTab === "playlist" && playlistPanel}
               </div>
             </div>
-            <div className="room-lobby-mobile-chat-trigger-wrap">
-              <Button
-                variant="outlined"
-                color="info"
-                fullWidth
-                onClick={() => {
-                  markLobbyChatRead();
-                  setMobileChatDrawerOpen(true);
-                }}
-              >
-                <span className="room-lobby-mobile-chat-trigger-copy">
-                  <span>開啟聊天室</span>
-                  {mobileChatUnread > 0 ? (
-                    <span className="room-lobby-mobile-chat-trigger-count">
-                      {mobileChatUnread > 99 ? "99+" : mobileChatUnread}
-                    </span>
-                  ) : null}
-                </span>
-              </Button>
-            </div>
-            <SwipeableDrawer
-              className="room-lobby-mobile-chat-drawer-root"
-              anchor="bottom"
-              open={mobileChatDrawerOpen}
-              onOpen={() => {
-                markLobbyChatRead();
-                setMobileChatDrawerOpen(true);
-              }}
-              onClose={() => setMobileChatDrawerOpen(false)}
-              disableSwipeToOpen={false}
-              allowSwipeInChildren
-              swipeAreaWidth={26}
-              ModalProps={{
-                keepMounted: true,
-                hideBackdrop: true,
-                disableAutoFocus: true,
-                disableEnforceFocus: true,
-                disableRestoreFocus: true,
-                disableScrollLock: true,
-              }}
-              PaperProps={{
-                className: "room-lobby-mobile-chat-drawer-paper",
-                style: mobileChatDragDismiss.paperStyle,
-              }}
-            >
-              <div className="room-lobby-mobile-chat-drawer">
-                <div
-                  className="room-lobby-mobile-chat-drawer-head"
-                  role="presentation"
-                  aria-label="向下拖曳收合聊天室"
-                  {...mobileChatDragDismiss.dragHandleProps}
-                >
-                  <div
-                    className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${mobileChatDragDismiss.canDismiss
-                      ? "ready"
-                      : mobileChatDragDismiss.isDismissArmed
-                        ? "armed"
-                        : "idle"
-                      }`}
-                    aria-hidden="true"
-                  >
-                    <span className="game-room-mobile-drawer-handle-bar" />
-                  </div>
-                  <div className="room-lobby-mobile-chat-drawer-headline">
-                    <Typography variant="subtitle2" className="text-slate-100">
-                      房間聊天室
-                    </Typography>
-                    <Button
-                      size="small"
-                      variant="text"
-                      color="inherit"
-                      onClick={() => setMobileChatDrawerOpen(false)}
-                    >
-                      收合
-                    </Button>
-                  </div>
-                </div>
-                <div className="room-lobby-mobile-chat-drawer-body">
-                  {chatPanel}
-                </div>
-              </div>
-            </SwipeableDrawer>
-            {!mobileChatDrawerOpen && mobileChatUnread > 0 ? (
-              <button
-                type="button"
-                className="room-lobby-mobile-chat-fab"
-                onClick={() => setMobileChatDrawerOpen(true)}
-                aria-label={`開啟聊天室，目前有 ${mobileChatUnread} 則未讀訊息`}
-              >
-                <span className="room-lobby-mobile-chat-fab__icon">
-                  <ChatBubbleRoundedIcon fontSize="inherit" />
-                </span>
-                <span className="room-lobby-mobile-chat-fab__content">
-                  <span className="room-lobby-mobile-chat-fab__label">聊天室</span>
-                  <span className="room-lobby-mobile-chat-fab__hint">
-                    {mobileChatUnread === 1
-                      ? "有 1 則未讀訊息"
-                      : `有 ${mobileChatUnread > 99 ? "99+" : mobileChatUnread} 則未讀訊息`}
-                  </span>
-                </span>
-                <span className="room-lobby-mobile-chat-fab__count">
-                  {mobileChatUnread > 99 ? "99+" : mobileChatUnread}
-                </span>
-              </button>
-            ) : null}
           </>
         ) : (
           <>
             <div className="room-lobby-column room-lobby-column--social">
               <div className="room-lobby-column-section room-lobby-column-section--participants">
                 {participantsPanel}
-              </div>
-              <div className="room-lobby-column-divider" aria-hidden="true" />
-              <div className="room-lobby-column-section room-lobby-column-section--chat">
-                {chatPanelStage}
               </div>
             </div>
             <div className="room-lobby-column room-lobby-column--music">
@@ -2138,6 +1978,102 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           </>
         )}
       </Box>
+      <Dialog
+        open={shareDialogOpen}
+        onClose={() => setShareDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          className: "room-lobby-share-modal",
+        }}
+      >
+        <DialogTitle className="room-lobby-share-modal__title">
+          <span className="room-lobby-share-modal__title-icon" aria-hidden="true">
+            <ShareRoundedIcon fontSize="small" />
+          </span>
+          <span>分享邀請</span>
+        </DialogTitle>
+        <DialogContent className="room-lobby-share-modal__content">
+          <div className="room-lobby-share-modal__section room-lobby-share-modal__section--toggle">
+            <div className="room-lobby-share-modal__section-copy">
+              <strong>允許其他玩家透過代碼邀請</strong>
+            </div>
+            <div className="room-lobby-share-modal__toggle-wrap">
+              <Switch
+                checked={allowParticipantInvite}
+                onChange={(_, checked) => {
+                  void handleToggleInvitePermission(checked);
+                }}
+                disabled={!isHost || sharePermissionSaving}
+              />
+              <span className="room-lobby-share-modal__toggle-state">
+                {allowParticipantInvite ? "已開啟" : "未開啟"}
+              </span>
+            </div>
+          </div>
+          {!isHost && !allowParticipantInvite ? (
+            <div className="room-lobby-share-modal__locked-note">
+              房主尚未開啟玩家邀請權限
+            </div>
+          ) : null}
+          <div className="room-lobby-share-list">
+            <button
+              type="button"
+              className={`room-lobby-share-row ${roomCodeCopied ? "is-copied" : ""}`}
+              onClick={handleCopyRoomCode}
+              disabled={!currentRoom?.roomCode}
+            >
+              <span className="room-lobby-share-row__icon" aria-hidden="true">
+                {roomCodeCopied ? (
+                  <span className="room-lobby-share-row__copied-tip">已複製</span>
+                ) : null}
+                {roomCodeCopied ? (
+                  <CheckRoundedIcon fontSize="small" />
+                ) : (
+                  <ContentCopyRoundedIcon fontSize="small" />
+                )}
+              </span>
+              <span className="room-lobby-share-row__value">
+                {formattedRoomCode ?? "--"}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`room-lobby-share-row room-lobby-share-row--link ${
+                inviteLinkCopied ? "is-copied" : ""
+              }`}
+              onClick={handleCopyInviteLink}
+              disabled={!inviteLink}
+              title={inviteLink || "未提供"}
+            >
+              <span className="room-lobby-share-row__icon" aria-hidden="true">
+                {inviteLinkCopied ? (
+                  <span className="room-lobby-share-row__copied-tip">已複製</span>
+                ) : null}
+                {inviteLinkCopied ? (
+                  <CheckRoundedIcon fontSize="small" />
+                ) : (
+                  <ContentCopyRoundedIcon fontSize="small" />
+                )}
+              </span>
+              <span
+                className="room-lobby-share-row__value room-lobby-share-row__value--link"
+              >
+                {inviteLink || "未提供"}
+              </span>
+            </button>
+          </div>
+        </DialogContent>
+        <DialogActions className="room-lobby-share-modal__actions">
+          <Button
+            onClick={() => setShareDialogOpen(false)}
+            variant="text"
+            className="room-lobby-share-modal__close-btn"
+          >
+            關閉
+          </Button>
+        </DialogActions>
+      </Dialog>
       <RoomLobbySettingsDialog
         open={settingsOpen}
         settingsDisabled={settingsDisabled}

@@ -79,6 +79,7 @@ import {
   sortParticipantsByScore,
 } from "./components/gameRoomPage/gameRoomPageDerivations";
 import GameRoomExitDialog from "./components/gameRoomPage/GameRoomExitDialog";
+import { DanmuContext } from "./components/gameRoomPage/DanmuContext";
 import useGameRoomPlayerSync from "./components/gameRoomPage/useGameRoomPlayerSync";
 import useGameRoomAnswerFlow from "./components/gameRoomPage/useGameRoomAnswerFlow";
 import useGameRoomRecaps from "./components/gameRoomPage/useGameRoomRecaps";
@@ -1340,11 +1341,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   const playedQuestionCount = trackOrderLength || room.gameSettings?.questionCount || 0;
   const scoreboardRows = useMemo(
-    () => buildScoreboardRows(sortedParticipants, meClientId),
+    () => buildScoreboardRows(sortedParticipants, meClientId, 12, room.maxPlayers),
     [meClientId, sortedParticipants],
   );
   const mobileScoreboardRows = useMemo(
-    () => buildScoreboardRows(sortedParticipants, meClientId, 6),
+    () => buildScoreboardRows(sortedParticipants, meClientId, 12, room.maxPlayers),
     [meClientId, sortedParticipants],
   );
 
@@ -1716,31 +1717,34 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   if (isEnded) {
     return (
-      <div className="game-room-shell">
-        <LiveSettlementShowcase
-          room={settlementSnapshot?.room ?? room}
-          participants={settlementSnapshot?.participants ?? participants}
-          messages={settlementSnapshot?.messages ?? messages}
-          playlistItems={settlementSnapshot?.playlistItems ?? playlist}
-          trackOrder={settlementSnapshot?.trackOrder ?? gameState.trackOrder}
-          playedQuestionCount={
-            settlementSnapshot?.playedQuestionCount ?? playedQuestionCount
-          }
-          startedAt={settlementSnapshot?.startedAt ?? gameState.startedAt}
-          endedAt={settlementSnapshot?.endedAt}
-          meClientId={meClientId}
-          questionRecaps={settlementSnapshot?.questionRecaps ?? questionRecaps}
-          onBackToLobby={onBackToLobby}
-          onRequestExit={openExitConfirm}
-        />
-        {exitGameDialog}
-      </div>
+      <DanmuContext.Provider value={{ danmuEnabled, onDanmuEnabledChange: setDanmuEnabled }}>
+        <div className="game-room-shell">
+          <LiveSettlementShowcase
+            room={settlementSnapshot?.room ?? room}
+            participants={settlementSnapshot?.participants ?? participants}
+            messages={settlementSnapshot?.messages ?? messages}
+            playlistItems={settlementSnapshot?.playlistItems ?? playlist}
+            trackOrder={settlementSnapshot?.trackOrder ?? gameState.trackOrder}
+            playedQuestionCount={
+              settlementSnapshot?.playedQuestionCount ?? playedQuestionCount
+            }
+            startedAt={settlementSnapshot?.startedAt ?? gameState.startedAt}
+            endedAt={settlementSnapshot?.endedAt}
+            meClientId={meClientId}
+            questionRecaps={settlementSnapshot?.questionRecaps ?? questionRecaps}
+            onBackToLobby={onBackToLobby}
+            onRequestExit={openExitConfirm}
+          />
+          {exitGameDialog}
+        </div>
+      </DanmuContext.Provider>
     );
   }
 
   return (
+    <DanmuContext.Provider value={{ danmuEnabled, onDanmuEnabledChange: setDanmuEnabled }}>
     <div className="game-room-shell">
-      <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-3 pb-20 lg:px-0 lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:pb-0 xl:grid-cols-[minmax(360px,400px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(400px,440px)_minmax(0,1fr)] lg:h-[calc(100vh-60px)] lg:items-stretch">
+      <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-3 pb-20 lg:px-0 lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:pb-14 xl:grid-cols-[minmax(360px,400px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(400px,440px)_minmax(0,1fr)] lg:h-[calc(100vh-60px)] lg:items-stretch">
         <div className="hidden lg:block lg:h-full">
           <GameRoomLeftSidebar
             scoreboardRows={scoreboardRows}
@@ -1757,6 +1761,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             onMessageChange={onMessageChange}
             onSendMessage={onSendMessage}
             chatScrollRef={desktopChatScrollRef}
+            showChat={false}
           />
         </div>
         {/* ????????????????????????? + ?????? */}
@@ -1877,7 +1882,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             >
               <button
                 type="button"
-                className="game-room-mobile-action-btn game-room-mobile-action-btn--icon"
+                className="game-room-mobile-action-btn game-room-mobile-action-btn--icon col-span-2"
                 onClick={handleToggleMobileScoreboard}
               >
                 <span className="game-room-mobile-action-icon" aria-hidden>
@@ -1886,23 +1891,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <span className="game-room-mobile-action-label">分數榜</span>
                 <span className="game-room-mobile-action-meta">
                   已答 {answeredCount}/{participants.length || 0}
-                </span>
-              </button>
-              <button
-                type="button"
-                className={`game-room-mobile-action-btn game-room-mobile-action-btn--icon ${mobileChatOpen ? "game-room-mobile-action-btn--active" : ""
-                  } ${mobileChatUnread > 0 ? "game-room-mobile-action-btn--unread" : ""
-                  }`}
-                onClick={handleToggleMobileChat}
-              >
-                <span className="game-room-mobile-action-icon" aria-hidden>
-                  <ForumRoundedIcon fontSize="inherit" />
-                </span>
-                <span className="game-room-mobile-action-label">聊天室</span>
-                <span className="game-room-mobile-action-meta">
-                  {mobileChatUnread > 0
-                    ? `未讀 ${mobileChatUnread > 99 ? "99+" : mobileChatUnread}`
-                    : "開啟"}
                 </span>
               </button>
               <div
@@ -1989,22 +1977,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <span className="game-room-mobile-action-meta">
                     {mobileRevealAutoOverlayEnabled ? "ON" : "OFF"}
                   </span>
-                </button>
-              </div>
-              <div className="game-room-video-mode-seg col-span-2">
-                <button
-                  type="button"
-                  className={`game-room-video-mode-seg-btn${showVideo ? " game-room-video-mode-seg-btn--active" : ""}`}
-                  onClick={() => handleShowVideoChange(true)}
-                >
-                  顯示影片
-                </button>
-                <button
-                  type="button"
-                  className={`game-room-video-mode-seg-btn${!showVideo ? " game-room-video-mode-seg-btn--active" : ""}`}
-                  onClick={() => handleShowVideoChange(false)}
-                >
-                  顯示縮圖
                 </button>
               </div>
               <button
@@ -2122,36 +2094,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 />
               </div>
             </SwipeableDrawer>
-            <GameRoomMobileChatPopover
-              open={mobileChatOpen}
-              unreadCount={mobileChatUnread}
-              onOpen={handleOpenMobileChat}
-              onClose={handleCloseMobileChat}
-              showFab={
-                isMobileGameViewport &&
-                mobileChatAlertsEnabled &&
-                !mobileChatOpen &&
-                mobileChatUnread > 0
-              }
-              chatAlertsEnabled={mobileChatAlertsEnabled}
-              onChatAlertsEnabledChange={setMobileChatAlertsEnabled}
-              heightVh={clampMobileVh(
-                mobileChatHeight,
-                MOBILE_CHAT_MIN_HEIGHT_VH,
-                MOBILE_CHAT_MAX_HEIGHT_VH,
-              )}
-              minHeightVh={MOBILE_CHAT_MIN_HEIGHT_VH}
-              maxHeightVh={MOBILE_CHAT_MAX_HEIGHT_VH}
-              onHeightChange={handleChatHeightChange}
-              onDraggingChange={handleMobileChatDraggingChange}
-              danmuEnabled={danmuEnabled}
-              onDanmuEnabledChange={setDanmuEnabled}
-              recentMessages={recentMessages}
-              messageInput={messageInput}
-              onMessageChange={onMessageChange}
-              onSendMessage={onSendMessage}
-              chatScrollRef={mobileChatScrollRef}
-            />
           </>
         )}
         <Dialog
@@ -2291,6 +2233,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         {exitGameDialog}
       </div>
     </div>
+    </DanmuContext.Provider>
   );
 };
 

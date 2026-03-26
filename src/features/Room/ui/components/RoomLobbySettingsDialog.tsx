@@ -121,7 +121,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
     { title: string; meta: string; description: string }
   > = {
     manual_vote: {
-      title: "即時延長投票",
+      title: "延長投票",
       meta: "作答期間由玩家自行發起",
       description: "猜歌進行中可投票決定是否延長本題播放時間。",
     },
@@ -168,7 +168,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   ];
   const questionCountPresets = Array.from(
     new Set(
-      [questionMinLimit, 10, 20, 30, 50, questionMaxLimit].filter(
+      [10, 20, 30, 50].filter(
         (count) => count >= questionMinLimit && count <= questionMaxLimit,
       ),
     ),

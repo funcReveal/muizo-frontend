@@ -279,6 +279,7 @@ export interface RoomSummary {
     revealDurationSec?: number;
     startOffsetSec?: number;
     allowCollectionClipTiming?: boolean;
+    allowParticipantInvite?: boolean;
     playbackExtensionMode?: PlaybackExtensionMode;
   };
   visibility?: "public" | "private";
@@ -413,6 +414,7 @@ export interface ClientToServerEvents {
       revealDurationSec?: number;
       startOffsetSec?: number;
       allowCollectionClipTiming?: boolean;
+      allowParticipantInvite?: boolean;
       playbackExtensionMode?: PlaybackExtensionMode;
       maxPlayers?: number | null;
     },

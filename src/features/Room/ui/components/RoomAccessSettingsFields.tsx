@@ -44,12 +44,12 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
 
   const visibilityHint =
     visibility === "private"
-      ? "私人房不會出現在公開列表中，只能透過房間代碼加入。"
-      : "公開房會出現在大廳列表，也能透過房間代碼加入。";
+      ? "私人房需要房號或邀請連結加入，也可以額外設定 4 位 PIN。"
+      : "公開房會出現在房間列表，你也可以加上 4 位 PIN 提高進房門檻。";
 
   const pinHint = password.trim()
-    ? "已啟用 4 位 PIN，加入者除了代碼外還需要輸入 PIN。"
-    : "所有房間都會自動產生加入代碼；留空則不需要 PIN。";
+    ? "儲存後會更新目前房間的 PIN；清空即可移除密碼。"
+    : "未設定 PIN 時，房間不需要輸入密碼即可加入。";
 
   const inputLabelSlotProps =
     passwordFieldLabelShrink === undefined
@@ -71,7 +71,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
           className={classes?.visibilityButton}
           sx={{ width: { xs: "100%", sm: "auto" } }}
         >
-          公開房
+          公開
         </Button>
         <Button
           variant={visibility === "private" ? "contained" : "outlined"}
@@ -80,7 +80,7 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
           className={classes?.visibilityButton}
           sx={{ width: { xs: "100%", sm: "auto" } }}
         >
-          私人房
+          私人
         </Button>
       </Stack>
 
@@ -94,12 +94,12 @@ const RoomAccessSettingsFields: React.FC<RoomAccessSettingsFieldsProps> = ({
         slotProps={
           inputLabelSlotProps ? { inputLabel: inputLabelSlotProps } : undefined
         }
-        label="4 位 PIN（選填）"
+        label="房間 PIN"
         value={password}
         onChange={(event) =>
           onPasswordChange(event.target.value.replace(/\D/g, "").slice(0, 4))
         }
-        placeholder="例如 1234"
+        placeholder="輸入 4 位數 PIN（選填）"
         disabled={!pinEnabled}
         fullWidth
         className={classes?.passwordField}

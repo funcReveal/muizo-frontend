@@ -318,24 +318,34 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
                   ? "contained"
                   : "outlined"
               }
-              className="room-lobby-mode-button room-lobby-mode-button--owner"
+              className={`room-lobby-mode-button room-lobby-mode-button--owner${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
               startIcon={<LockRoundedIcon fontSize="small" />}
+              title={!isGoogleAuthed ? "需登入後才可使用此功能" : undefined}
               onClick={() => {
+                if (!isGoogleAuthed) {
+                  setSuggestNotice("請先登入後啟用功能");
+                  return;
+                }
                 setSuggestType("collection");
                 onCollectionScopeChange("owner");
                 setSuggestCollectionId(null);
                 clearSuggestError();
               }}
-              disabled={isSubmitting || !isGoogleAuthed}
+              disabled={isSubmitting}
             >
               個人
             </Button>
             <Button
               size="small"
               variant={suggestType === "youtube" ? "contained" : "outlined"}
-              className="room-lobby-mode-button room-lobby-mode-button--youtube"
+              className={`room-lobby-mode-button room-lobby-mode-button--youtube${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
               startIcon={<YouTubeIcon fontSize="small" />}
+              title={!isGoogleAuthed ? "需登入後才可使用此功能" : undefined}
               onClick={() => {
+                if (!isGoogleAuthed) {
+                  setSuggestNotice("請先登入後啟用功能");
+                  return;
+                }
                 setSuggestType("youtube");
                 clearSuggestError();
               }}

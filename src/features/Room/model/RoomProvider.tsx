@@ -910,17 +910,14 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     const nextPassword =
       currentRoom?.id &&
-        currentRoom.hostClientId === clientId &&
         (currentRoom.hasPin ?? currentRoom.hasPassword)
         ? readRoomPassword(currentRoom.id)
         : null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror local-storage password cache for host view.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror local-storage password cache for lobby password visibility.
     setHostRoomPassword(nextPassword);
   }, [
-    clientId,
     currentRoom?.hasPin,
     currentRoom?.hasPassword,
-    currentRoom?.hostClientId,
     currentRoom?.id,
   ]);
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Switch } from "@mui/material";
+import { Button } from "@mui/material";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 
 import type { DanmuItem } from "./gameRoomPageTypes";
@@ -60,6 +60,49 @@ const GameRoomDanmuLayer = React.memo(function GameRoomDanmuLayer({
   );
 });
 
+const GameRoomVideoModeSegment = React.memo(function GameRoomVideoModeSegment({
+  previewMode,
+  compact = false,
+  onChange,
+}: {
+  previewMode: "video" | "thumbnail";
+  compact?: boolean;
+  onChange: (nextMode: "video" | "thumbnail") => void;
+}) {
+  return (
+    <div
+      className={`game-room-video-mode-seg ${
+        compact ? "game-room-video-mode-seg--compact" : ""
+      }`}
+      role="group"
+      aria-label="影片顯示模式"
+    >
+      <button
+        type="button"
+        className={`game-room-video-mode-seg-btn ${
+          previewMode === "video" ? "game-room-video-mode-seg-btn--active" : ""
+        }`}
+        onClick={() => onChange("video")}
+        aria-pressed={previewMode === "video"}
+      >
+        顯示影片
+      </button>
+      <button
+        type="button"
+        className={`game-room-video-mode-seg-btn ${
+          previewMode === "thumbnail"
+            ? "game-room-video-mode-seg-btn--active"
+            : ""
+        }`}
+        onClick={() => onChange("thumbnail")}
+        aria-pressed={previewMode === "thumbnail"}
+      >
+        顯示縮圖
+      </button>
+    </div>
+  );
+});
+
 const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   rootRef,
   isMobileView = false,
@@ -100,15 +143,10 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   const shouldUseCompactMobileHeader = isMobileView && isCompactMobile;
   const shouldShowRoomName = !isMobileOverlay && !shouldUseCompactMobileHeader;
   const revealAnswerLabel = revealAnswerTitle?.trim() ?? "";
-  const revealAnswerWrapperClass = isMobileOverlay
-    ? "inline-flex min-w-0 w-fit max-w-[min(58vw,15rem)] items-center gap-1.5 overflow-hidden rounded-xl border border-emerald-300/45 bg-emerald-500/14 px-2.5 py-[0.34rem] text-emerald-50 shadow-[0_10px_20px_-16px_rgba(16,185,129,0.72)]"
-    : "mt-2 inline-flex max-w-full items-start gap-2 rounded-xl border border-emerald-300/45 bg-emerald-500/14 px-3 py-1.5 text-emerald-50 shadow-[0_10px_20px_-16px_rgba(16,185,129,0.72)]";
-  const revealAnswerTextClass = isMobileOverlay
-    ? "min-w-0 max-w-full truncate text-[11px] font-semibold leading-4"
-    : "text-xs font-semibold leading-5 sm:text-sm";
+  const shouldShowMobileReveal =
+    isMobileView && isRevealPhase && Boolean(revealAnswerLabel);
   const shouldUseRevealMarquee =
-    isMobileView &&
-    isRevealPhase &&
+    shouldShowMobileReveal &&
     revealAnswerLabel.length >= (isMobileOverlay ? 14 : 18);
 
   React.useEffect(() => {
@@ -153,34 +191,57 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
       ? "game-room-media-frame--mobile-inline"
       : isMobileView
         ? "h-[182px]"
-        : "h-[140px] sm:h-[188px] md:h-[214px] xl:h-[236px]";
+        : "h-[165px] sm:h-[220px] md:h-[254px] xl:h-[282px]";
   const iframeWrapClassName = `game-room-media-iframe-wrap ${
     reduceGuessVideoDisplayCost
       ? "game-room-media-iframe-wrap--guess-lite"
       : "game-room-media-iframe-wrap--full"
   }`;
+  const previewMode: "video" | "thumbnail" = showVideo ? "video" : "thumbnail";
+  const trackCounterNode = (
+    <div className="game-room-track-counter mt-1 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black tracking-[0.14em] text-amber-100">
+      <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+      題目 {boundedCursor + 1}/{trackOrderLength || "?"}
+    </div>
+  );
+  const videoModeControl = (
+    <GameRoomVideoModeSegment
+      previewMode={previewMode}
+      compact={isMobileView}
+      onChange={(nextMode) => onShowVideoChange(nextMode === "video")}
+    />
+  );
 
-  const revealAnswerNode =
-    isMobileView && isRevealPhase && revealAnswerLabel ? (
-      <div className={revealAnswerWrapperClass} title={`揭曉答案：${revealAnswerLabel}`}>
-        <span className="shrink-0 rounded-full border border-emerald-200/50 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black tracking-[0.12em]">
-          揭曉
-        </span>
-        {shouldUseRevealMarquee ? (
-          <span ref={revealMarqueeWrapRef} className="game-room-reveal-title-marquee">
-            <span
-              ref={revealMarqueeTrackRef}
-              className="game-room-reveal-title-marquee-track game-room-reveal-title-marquee-track--run"
-              style={revealMarqueeStyle}
-            >
-              <span>{revealAnswerLabel}</span>
-            </span>
+  const revealAnswerNode = shouldShowMobileReveal ? (
+    <div className="game-room-reveal-inline" title={`答案：${revealAnswerLabel}`}>
+      <span className="game-room-reveal-inline__label">答案</span>
+      {shouldUseRevealMarquee ? (
+        <span ref={revealMarqueeWrapRef} className="game-room-reveal-title-marquee">
+          <span
+            ref={revealMarqueeTrackRef}
+            className="game-room-reveal-title-marquee-track game-room-reveal-title-marquee-track--run game-room-reveal-inline__value"
+            style={revealMarqueeStyle}
+          >
+            <span>{revealAnswerLabel}</span>
           </span>
-        ) : (
-          <span className={revealAnswerTextClass}>{revealAnswerLabel}</span>
-        )}
+        </span>
+      ) : (
+        <span className="game-room-reveal-inline__value">{revealAnswerLabel}</span>
+      )}
+    </div>
+  ) : null;
+
+  const mobileInfoBar = isMobileView ? (
+    <div className="game-room-mobile-info-bar">
+      <div className="game-room-mobile-info-bar__top">
+        <div className="game-room-mobile-info-bar__counter">{trackCounterNode}</div>
+        <div className="game-room-mobile-info-bar__toggle">{videoModeControl}</div>
       </div>
-    ) : null;
+      {revealAnswerNode ? (
+        <div className="game-room-mobile-answer-row">{revealAnswerNode}</div>
+      ) : null}
+    </div>
+  ) : null;
 
   return (
     <div
@@ -213,23 +274,18 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
               : "flex min-w-0 items-center gap-2"
           }
         >
-          <div className={isMobileOverlay ? "game-room-mobile-overlay-meta-main min-w-0" : "min-w-0"}>
+          <div
+            className={
+              isMobileOverlay
+                ? "game-room-mobile-overlay-meta-main min-w-0"
+                : "min-w-0"
+            }
+          >
             {shouldShowRoomName && <p className="game-room-title">{roomName}</p>}
-            {isMobileOverlay ? (
-              <div className="game-room-mobile-overlay-meta-badges">
-                <div className="game-room-track-counter inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-xs font-black tracking-[0.14em] text-amber-100">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
-                  題目 {boundedCursor + 1}/{trackOrderLength || "?"}
-                </div>
-                {revealAnswerNode}
-              </div>
-            ) : (
-              <div className="game-room-track-counter mt-1 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black tracking-[0.14em] text-amber-100">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
-                題目 {boundedCursor + 1}/{trackOrderLength || "?"}
-              </div>
+            {!isMobileView && (
+              <div className="game-room-playback-meta-row">{trackCounterNode}</div>
             )}
-            {!isMobileOverlay && revealAnswerNode}
+            {!isMobileView && revealAnswerNode}
           </div>
         </div>
 
@@ -249,6 +305,8 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           </div>
         )}
       </div>
+
+      {mobileInfoBar}
 
       <div
         className={`game-room-media-frame relative w-full overflow-hidden ${mediaFrameHeightClass}`}
@@ -274,7 +332,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
-            目前沒有可播放的影片來源
+            目前沒有可播放的影片
           </div>
         )}
 
@@ -293,10 +351,10 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         {showGuessMask && (
           <div className="game-room-playback-mask game-room-playback-mask--guess pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950">
             <div className="relative h-24 w-24">
-              <div className="game-room-mask-spinner absolute inset-0 rounded-full border-4 border-slate-700 border-t-cyan-300 border-r-emerald-300 shadow-[0_0_26px_rgba(34,211,238,0.35)]" />
-              <div className="game-room-mask-spinner-core absolute inset-[22%] rounded-full bg-cyan-300/10" />
+              <div className="game-room-mask-spinner absolute inset-0 rounded-full border-4 border-slate-700 border-t-cyan-300 border-r-slate-400" />
+              <div className="game-room-mask-spinner-core absolute inset-[22%] rounded-full bg-slate-400/10" />
             </div>
-            <p className="mt-2 text-xs text-slate-300">猜歌中，影片已隱藏</p>
+            <p className="mt-2 text-xs text-slate-300">猜歌中</p>
           </div>
         )}
 
@@ -307,9 +365,11 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         {showLoadingMask && (
           <div className="game-room-playback-mask game-room-playback-mask--loading pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/95">
             <div className="relative h-16 w-16">
-              <div className="game-room-mask-spinner absolute inset-0 rounded-full border-4 border-slate-700 border-t-amber-300 border-r-cyan-300 shadow-[0_0_20px_rgba(250,204,21,0.28)]" />
+              <div className="game-room-mask-spinner absolute inset-0 rounded-full border-4 border-slate-700 border-t-amber-300 border-r-slate-400 shadow-[0_0_16px_rgba(148,163,184,0.18)]" />
             </div>
-            <p className="mt-2 text-[11px] tracking-[0.12em] text-slate-300">影片載入中</p>
+            <p className="mt-2 text-[11px] tracking-[0.12em] text-slate-300">
+              影片載入中
+            </p>
           </div>
         )}
 
@@ -325,16 +385,16 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-[#06070b]/80 via-transparent to-[#06070b]/40" />
                 <div className="relative z-10 rounded-full border border-slate-600/60 bg-slate-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300 backdrop-blur-sm">
-                  Audio Mode
+                  Thumbnail
                 </div>
               </>
             ) : (
               <>
                 <div className="rounded-full border border-slate-700 bg-slate-900/75 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300">
-                  Audio Mode
+                  Thumbnail
                 </div>
                 <p className="mt-2 text-xs text-slate-300">
-                  目前為純音訊模式，若需要觀看畫面可重新開啟影片顯示。
+                  目前無法取得影片縮圖，顯示縮圖模式會在有影片時自動更新。
                 </p>
               </>
             )}
@@ -342,29 +402,22 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         )}
       </div>
 
-      {!isOverlayMode && !isMobileView && (
-        <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <Switch
-              color="info"
-              checked={showVideo}
-              onChange={(event) => onShowVideoChange(event.target.checked)}
-            />
-            <span className="text-xs text-slate-300 max-[760px]:text-[11px]">
-              顯示影片預覽（猜歌時會自動隱藏）
-            </span>
-          </div>
-          <div className="flex items-center gap-2 md:min-w-[200px] max-[760px]:w-full">
-            <span className="text-xs text-slate-300">音量</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={gameVolume}
-              onChange={(event) => onGameVolumeChange(Number(event.target.value))}
-              className="w-full"
-            />
-          </div>
+      {!isMobileView && (
+        <div className="game-room-playback-footer game-room-playback-footer--desktop">
+          <div className="game-room-playback-footer__toggle">{videoModeControl}</div>
+          {!isOverlayMode ? (
+            <div className="game-room-playback-footer__volume">
+              <span className="text-xs text-slate-300">音量</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={gameVolume}
+                onChange={(event) => onGameVolumeChange(Number(event.target.value))}
+                className="w-full"
+              />
+            </div>
+          ) : null}
         </div>
       )}
     </div>

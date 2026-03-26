@@ -128,7 +128,6 @@ const baseProps = {
   onOpenHistoryDrawer: () => {},
   onOpenSettlementByRoundKey: () => {},
   onOpenGame: () => {},
-  onInvite: async () => {},
   onKickPlayer: () => {},
   onTransferHost: () => {},
   onSuggestPlaylist: async () => ({ ok: true }),

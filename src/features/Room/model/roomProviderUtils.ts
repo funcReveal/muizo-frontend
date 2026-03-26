@@ -213,6 +213,10 @@ export const mergeGameSettings = (
       incoming?.allowCollectionClipTiming ??
       current?.allowCollectionClipTiming ??
       true,
+    allowParticipantInvite:
+      incoming?.allowParticipantInvite ??
+      current?.allowParticipantInvite ??
+      false,
     playbackExtensionMode: normalizePlaybackExtensionMode(
       incoming?.playbackExtensionMode ?? current?.playbackExtensionMode,
     ),

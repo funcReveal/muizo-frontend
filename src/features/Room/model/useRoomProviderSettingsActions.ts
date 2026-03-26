@@ -38,6 +38,7 @@ type RoomSettingsPayload = {
   revealDurationSec?: number;
   startOffsetSec?: number;
   allowCollectionClipTiming?: boolean;
+  allowParticipantInvite?: boolean;
   playbackExtensionMode?: PlaybackExtensionMode;
   maxPlayers?: number | null;
 };
@@ -178,6 +179,9 @@ export const useRoomProviderSettingsActions = ({
         ...(typeof payload.allowCollectionClipTiming === "boolean"
           ? { allowCollectionClipTiming: payload.allowCollectionClipTiming }
           : {}),
+        ...(typeof payload.allowParticipantInvite === "boolean"
+          ? { allowParticipantInvite: payload.allowParticipantInvite }
+          : {}),
       };
 
       return await new Promise<boolean>((resolve) => {
@@ -210,6 +214,12 @@ export const useRoomProviderSettingsActions = ({
                 ? {
                     allowCollectionClipTiming:
                       normalizedPayload.allowCollectionClipTiming,
+                  }
+                : {}),
+              ...(typeof normalizedPayload.allowParticipantInvite === "boolean"
+                ? {
+                    allowParticipantInvite:
+                      normalizedPayload.allowParticipantInvite,
                   }
                 : {}),
               ...(normalizedPayload.playbackExtensionMode

@@ -2061,22 +2061,6 @@ const RoomLobbyPage: React.FC = () => {
             onSelectCollection={selectCollection}
             onLoadCollectionItems={loadCollectionItems}
             onFetchYoutubePlaylists={fetchYoutubePlaylists}
-            onInvite={async () => {
-              const url = new URL(window.location.href);
-              url.pathname = `/invited/${currentRoom.id}`;
-              url.search = "";
-              const inviteText = url.toString();
-              if (navigator.clipboard?.writeText) {
-                try {
-                  await navigator.clipboard.writeText(inviteText);
-                  setStatusText("邀請連結已複製");
-                } catch {
-                  setStatusText("複製失敗，請手動複製連結");
-                }
-              } else {
-                setStatusText(inviteText);
-              }
-            }}
           />
         )}
       </div>

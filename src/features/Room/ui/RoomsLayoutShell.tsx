@@ -15,6 +15,7 @@ import { USERNAME_MAX } from "../model/roomConstants";
 import { useRoom } from "../model/useRoom";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import SettingsPage from "../../Setting/ui/SettingsPage";
+import FloatingChatWindow from "./components/FloatingChatWindow";
 
 type NavigationTarget = "rooms" | "collections" | "history" | "settings";
 
@@ -256,7 +257,7 @@ const RoomsLayoutShell: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start">
-      <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6" : " p-4"}`}>
+      <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6 pt-4" : " p-4"}${currentRoom && !isGameMode ? " pb-16" : ""}`}>
         <div>
           <AppHeader
             displayUsername={displayUsername}
@@ -298,7 +299,7 @@ const RoomsLayoutShell: React.FC = () => {
           open={Boolean(statusText)}
           autoHideDuration={4000}
           onClose={handleStatusClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         />
         <ConfirmDialog
           open={loginConfirmOpen}
@@ -389,6 +390,7 @@ const RoomsLayoutShell: React.FC = () => {
             />
           </DialogContent>
         </Dialog>
+        {currentRoom && <FloatingChatWindow />}
         <Dialog
           open={needsNicknameConfirm || isProfileEditorOpen}
           onClose={() => {
