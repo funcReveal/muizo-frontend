@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ChatMessage } from "../../../model/types";
 import type { DanmuItem } from "./gameRoomPageTypes";
@@ -43,7 +43,7 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
   const danmuSeenMessageIdsRef = useRef<Set<string>>(new Set());
   const danmuLaneCursorRef = useRef(0);
   const danmuTimersRef = useRef<number[]>([]);
-  const isMobileDanmu = isMobileDevice();
+  const isMobileDanmu = useMemo(() => isMobileDevice(), []);
   const maxVisibleItems = isMobileDanmu
     ? DANMU_MOBILE_MAX_VISIBLE_ITEMS
     : DANMU_MAX_VISIBLE_ITEMS;

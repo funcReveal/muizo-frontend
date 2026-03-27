@@ -5,7 +5,6 @@ import type { GameState } from "../../../model/types";
 interface UseGameRoomPlayerSyncParams {
   serverOffsetMs: number;
   getServerNowMs: () => number;
-  setNowMs: React.Dispatch<React.SetStateAction<number>>;
   gameVolume: number;
   requiresAudioGesture: boolean;
   startedAt: number;
@@ -33,7 +32,6 @@ const RESUME_DRIFT_TOLERANCE_SEC = 1.2;
 const WATCHDOG_DRIFT_TOLERANCE_SEC = 1.8;
 const WATCHDOG_REQUEST_INTERVAL_MS = 1400;
 const AUTO_RESUME_MIN_INTERVAL_MS = 1800;
-const UI_CLOCK_TICK_MS = 250;
 const INITIAL_AUDIO_HOLD_RELEASE_MS = 680;
 const SYNC_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
 const PRESTART_ALIGNMENT_LEAD_MS = 280;
@@ -46,7 +44,6 @@ const ENABLE_STEADY_STATE_WATCHDOG = false;
 const useGameRoomPlayerSync = ({
   serverOffsetMs,
   getServerNowMs,
-  setNowMs,
   gameVolume,
   requiresAudioGesture,
   startedAt,
@@ -811,13 +808,6 @@ const useGameRoomPlayerSync = ({
   }, [debugSync, waitingToStart]);
 
   useEffect(() => {
-    const uiClock = window.setInterval(() => {
-      setNowMs(getServerNowMs());
-    }, UI_CLOCK_TICK_MS);
-    return () => window.clearInterval(uiClock);
-  }, [getServerNowMs, setNowMs]);
-
-  useEffect(() => {
     const interval = setInterval(() => {
       const now = getServerNowMs();
       if (resumeNeedsSyncRef.current && playerReadyRef.current && now >= startedAt) {
@@ -1266,7 +1256,6 @@ const useGameRoomPlayerSync = ({
         return;
       }
       const serverNow = getServerNowMs();
-      setNowMs(serverNow);
       if (!playerReadyRef.current) return;
       if (startedAt > serverNow) {
         resumeNeedsSyncRef.current = true;
@@ -1291,7 +1280,6 @@ const useGameRoomPlayerSync = ({
     getServerNowMs,
     postCommand,
     requestPlayerTime,
-    setNowMs,
     startSilentAudio,
     startedAt,
   ]);

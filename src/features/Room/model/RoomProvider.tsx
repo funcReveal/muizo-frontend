@@ -28,6 +28,7 @@ import {
   type RoomKickedNotice,
   type RoomCreateSourceMode,
 } from "./RoomContext";
+import { ChatInputContext } from "./ChatInputContext";
 import {
   API_URL,
   DEFAULT_PLAY_DURATION_SEC,
@@ -1014,8 +1015,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       participants,
       messages,
       settlementHistory,
-      messageInput,
-      setMessageInput,
       statusText,
       setStatusText,
       kickedNotice,
@@ -1064,7 +1063,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       handleCreateRoom,
       handleJoinRoom,
       handleLeaveRoom,
-      handleSendMessage,
       handleStartGame,
       handleSubmitChoice,
       handleRequestPlaybackExtensionVote,
@@ -1149,7 +1147,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       participants,
       messages,
       settlementHistory,
-      messageInput,
       statusText,
       setStatusText,
       kickedNotice,
@@ -1197,7 +1194,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
       handleCreateRoom,
       handleJoinRoom,
       handleLeaveRoom,
-      handleSendMessage,
       handleStartGame,
       handleSubmitChoice,
       handleRequestPlaybackExtensionVote,
@@ -1229,5 +1225,16 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     ],
   );
 
-  return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;
+  const chatInputValue = useMemo(
+    () => ({ messageInput, setMessageInput, handleSendMessage }),
+    [messageInput, handleSendMessage],
+  );
+
+  return (
+    <RoomContext.Provider value={value}>
+      <ChatInputContext.Provider value={chatInputValue}>
+        {children}
+      </ChatInputContext.Provider>
+    </RoomContext.Provider>
+  );
 };

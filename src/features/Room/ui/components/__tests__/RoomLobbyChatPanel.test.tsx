@@ -5,7 +5,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatMessage } from "../../../model/types";
+import { ChatInputContext } from "../../../model/ChatInputContext";
 import RoomLobbyChatPanel from "../RoomLobbyChatPanel";
+
+const chatInputValue = {
+  messageInput: "",
+  setMessageInput: () => {},
+  handleSendMessage: () => {},
+};
 
 const messages: ChatMessage[] = [
   {
@@ -40,15 +47,14 @@ describe("RoomLobbyChatPanel", () => {
     const onOpenHistoryDrawer = vi.fn();
 
     render(
-      <RoomLobbyChatPanel
-        messages={messages}
-        messageInput=""
-        onInputChange={() => {}}
-        onSend={() => {}}
-        latestSettlementRoundKey="round-latest"
-        onOpenHistoryDrawer={onOpenHistoryDrawer}
-        onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
-      />,
+      <ChatInputContext.Provider value={chatInputValue}>
+        <RoomLobbyChatPanel
+          messages={messages}
+          latestSettlementRoundKey="round-latest"
+          onOpenHistoryDrawer={onOpenHistoryDrawer}
+          onOpenSettlementByRoundKey={onOpenSettlementByRoundKey}
+        />
+      </ChatInputContext.Provider>,
     );
 
     expect(screen.getByText("A 加入了房間")).toBeInTheDocument();

@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 
 import type { ChatMessage } from "../../model/types";
+import { useChatInput } from "../../model/ChatInputContext";
 import {
   formatTime,
   normalizeDisplayText,
@@ -18,9 +19,6 @@ import {
 
 interface RoomLobbyChatPanelProps {
   messages: ChatMessage[];
-  messageInput: string;
-  onInputChange: (value: string) => void;
-  onSend: () => void;
   onChatInteraction?: () => void;
   latestSettlementRoundKey?: string | null;
   onOpenHistoryDrawer?: () => void;
@@ -29,14 +27,12 @@ interface RoomLobbyChatPanelProps {
 
 const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
   messages,
-  messageInput,
-  onInputChange,
-  onSend,
   onChatInteraction,
   latestSettlementRoundKey,
   onOpenHistoryDrawer,
   onOpenSettlementByRoundKey,
 }) => {
+  const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -215,15 +211,15 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
           size="small"
           placeholder="輸入訊息，按 Enter 送出"
           value={messageInput}
-          onChange={(e) => onInputChange(e.target.value)}
+          onChange={(e) => setMessageInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              onSend();
+              handleSendMessage();
             }
           }}
         />
-        <Button variant="contained" onClick={onSend}>
+        <Button variant="contained" onClick={handleSendMessage}>
           送出
         </Button>
       </Stack>

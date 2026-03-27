@@ -75,7 +75,7 @@ const GameRoomVideoModeSegment = React.memo(function GameRoomVideoModeSegment({
         compact ? "game-room-video-mode-seg--compact" : ""
       }`}
       role="group"
-      aria-label="影片顯示模式"
+      aria-label="影片顯示模式切換"
     >
       <button
         type="button"
@@ -300,7 +300,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
               onClick={onOpenExitConfirm}
               className="max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
             >
-              離開遊戲
+              離開房間
             </Button>
           </div>
         )}
@@ -321,7 +321,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
               className="game-room-media-iframe h-full w-full object-contain"
               allow="autoplay; encrypted-media"
               allowFullScreen
-              title="目前播放中"
+              title="遊戲影片播放器"
               style={{
                 pointerEvents: "none",
                 opacity: shouldHideVideoFrame || !shouldShowVideo ? 0 : 1,
@@ -379,7 +379,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
               <>
                 <img
                   src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
-                  alt="影片縮圖"
+                  alt="影片縮圖預覽"
                   className="absolute inset-0 h-full w-full object-cover opacity-28"
                   draggable={false}
                 />

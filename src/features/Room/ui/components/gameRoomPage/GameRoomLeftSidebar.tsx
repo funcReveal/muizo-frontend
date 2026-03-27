@@ -29,9 +29,6 @@ interface GameRoomLeftSidebarProps {
   danmuEnabled: boolean;
   onDanmuEnabledChange: (enabled: boolean) => void;
   recentMessages: ChatMessage[];
-  messageInput: string;
-  onMessageChange?: (value: string) => void;
-  onSendMessage?: () => void;
   chatScrollRef: React.RefObject<HTMLDivElement | null>;
   className?: string;
   showChat?: boolean;
@@ -79,9 +76,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   danmuEnabled,
   onDanmuEnabledChange,
   recentMessages,
-  messageInput,
-  onMessageChange,
-  onSendMessage,
   chatScrollRef,
   className,
   showChat = true,
@@ -170,6 +164,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   );
 
   React.useLayoutEffect(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+      lastDisplayedPlayerOrderRef.current = displayedPlayerOrder;
+      lastScoreByClientIdRef.current = scoreByClientId;
+      return;
+    }
     if (displayedPlayerOrder.length === 0) {
       lastDisplayedPlayerOrderRef.current = [];
       if (rankSwapTimerRef.current !== null) {
@@ -277,6 +276,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
 
   React.useLayoutEffect(() => {
     if (mobileOverlayMode) {
+      desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
+      desktopFlipAnimationsRef.current = [];
+      previousDesktopTopByClientIdRef.current.clear();
+      return;
+    }
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
       desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
       desktopFlipAnimationsRef.current = [];
       previousDesktopTopByClientIdRef.current.clear();
@@ -771,9 +776,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             danmuEnabled={danmuEnabled}
             onDanmuEnabledChange={onDanmuEnabledChange}
             recentMessages={recentMessages}
-            messageInput={messageInput}
-            onMessageChange={onMessageChange}
-            onSendMessage={onSendMessage}
             chatScrollRef={chatScrollRef}
             variant="sidebar"
           />

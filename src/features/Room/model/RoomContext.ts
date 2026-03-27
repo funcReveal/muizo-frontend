@@ -132,8 +132,6 @@ export interface RoomContextValue {
   participants: RoomParticipant[];
   messages: ChatMessage[];
   settlementHistory: RoomSettlementSnapshot[];
-  messageInput: string;
-  setMessageInput: (value: string) => void;
   statusText: string | null;
   setStatusText: (value: string | null) => void;
   kickedNotice: RoomKickedNotice | null;
@@ -195,7 +193,6 @@ export interface RoomContextValue {
     pinOverride?: string,
   ) => void;
   handleLeaveRoom: (onLeft?: () => void) => void;
-  handleSendMessage: () => void;
   handleStartGame: () => void;
   handleSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
   handleRequestPlaybackExtensionVote: () => Promise<boolean>;

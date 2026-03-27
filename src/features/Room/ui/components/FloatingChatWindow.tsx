@@ -5,6 +5,7 @@ import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 
 import { useRoom } from "../../model/useRoom";
+import { useChatInput } from "../../model/ChatInputContext";
 import type { ChatMessage } from "../../model/types";
 import { DanmuContext } from "./gameRoomPage/DanmuContext";
 
@@ -33,14 +34,8 @@ const isFromOther = (msg: ChatMessage, clientId: string) =>
   !msg.userId.startsWith("system:") && msg.userId !== clientId;
 
 const FloatingChatWindow: React.FC = () => {
-  const {
-    currentRoom,
-    messages,
-    messageInput,
-    setMessageInput,
-    handleSendMessage,
-    clientId,
-  } = useRoom();
+  const { currentRoom, messages, clientId } = useRoom();
+  const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
 
   const danmuCtx = React.useContext(DanmuContext);
   const [open, setOpen] = useState(false);
@@ -49,6 +44,7 @@ const FloatingChatWindow: React.FC = () => {
   const seededRoomRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const focusTimerRef = useRef<number | null>(null);
   const roomId = currentRoom?.id ?? null;
 
   useEffect(() => {
@@ -132,7 +128,11 @@ const FloatingChatWindow: React.FC = () => {
     const latestId = otherMessages[otherMessages.length - 1]?.id ?? null;
     lastReadIdRef.current = latestId;
     writeLastReadId(roomId, latestId);
-    window.setTimeout(() => inputRef.current?.focus(), 80);
+    if (focusTimerRef.current !== null) window.clearTimeout(focusTimerRef.current);
+    focusTimerRef.current = window.setTimeout(() => {
+      focusTimerRef.current = null;
+      inputRef.current?.focus();
+    }, 80);
   }, [otherMessages, roomId]);
 
   const handleClose = useCallback(() => {

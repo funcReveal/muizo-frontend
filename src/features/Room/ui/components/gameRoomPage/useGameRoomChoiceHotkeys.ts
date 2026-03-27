@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import type { GameState } from "../../../model/types";
 
@@ -15,6 +15,9 @@ const useGameRoomChoiceHotkeys = ({
   keyBindings,
   onSubmitChoice,
 }: UseGameRoomChoiceHotkeysArgs) => {
+  const onSubmitChoiceRef = useRef(onSubmitChoice);
+  onSubmitChoiceRef.current = onSubmitChoice;
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
@@ -45,12 +48,12 @@ const useGameRoomChoiceHotkeys = ({
       if (!choice) return;
 
       event.preventDefault();
-      onSubmitChoice(choice.index);
+      onSubmitChoiceRef.current(choice.index);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [choices, enabled, keyBindings, onSubmitChoice]);
+  }, [choices, enabled, keyBindings]);
 };
 
 export default useGameRoomChoiceHotkeys;

@@ -2,14 +2,12 @@
 import { Button, Switch } from "@mui/material";
 
 import type { ChatMessage } from "../../../model/types";
+import { useChatInput } from "../../../model/ChatInputContext";
 
 interface GameRoomChatPanelProps {
   danmuEnabled: boolean;
   onDanmuEnabledChange: (enabled: boolean) => void;
   recentMessages: ChatMessage[];
-  messageInput: string;
-  onMessageChange?: (value: string) => void;
-  onSendMessage?: () => void;
   chatScrollRef: React.RefObject<HTMLDivElement | null>;
   variant?: "sidebar" | "sheet";
 }
@@ -18,25 +16,27 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
   danmuEnabled,
   onDanmuEnabledChange,
   recentMessages,
-  messageInput,
-  onMessageChange,
-  onSendMessage,
   chatScrollRef,
   variant = "sidebar",
 }) => {
+  const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
   const isSheet = variant === "sheet";
-  const renderedMessages = React.useMemo(
-    () =>
-      recentMessages.map((msg) => ({
-        ...msg,
-        shortTime: new Date(msg.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        fullTime: new Date(msg.timestamp).toLocaleTimeString(),
-      })),
-    [recentMessages],
-  );
+  const timeCacheRef = React.useRef(new Map<string, { shortTime: string; fullTime: string }>());
+  const renderedMessages = React.useMemo(() => {
+    const cache = timeCacheRef.current;
+    return recentMessages.map((msg) => {
+      let times = cache.get(msg.id);
+      if (!times) {
+        const date = new Date(msg.timestamp);
+        times = {
+          shortTime: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          fullTime: date.toLocaleTimeString(),
+        };
+        cache.set(msg.id, times);
+      }
+      return { ...msg, ...times };
+    });
+  }, [recentMessages]);
 
   return (
     <div
@@ -114,11 +114,11 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
           className="game-room-chat-input-field flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100 focus:border-sky-500 focus:outline-none"
           placeholder="輸入訊息..."
           value={messageInput}
-          onChange={(e) => onMessageChange?.(e.target.value)}
+          onChange={(e) => setMessageInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              onSendMessage?.();
+              handleSendMessage();
             }
           }}
         />
@@ -127,7 +127,7 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
           color="info"
           size="small"
           className="game-room-chat-send"
-          onClick={() => onSendMessage?.()}
+          onClick={handleSendMessage}
         >
           送出
         </Button>

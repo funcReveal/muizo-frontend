@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useCallback,
   useEffect,
   useRef,
@@ -384,7 +385,9 @@ export const useRoomProviderSocketLifecycle = ({
           serverOffsetRef.current = 0;
         },
         onRoomsUpdated: (updatedRooms: RoomSummary[]) => {
-          setRooms(updatedRooms);
+          startTransition(() => {
+            setRooms(updatedRooms);
+          });
           if (isInviteMode && inviteRoomId) {
             const found = updatedRooms.some((r) => r.id === inviteRoomId);
             setInviteNotFound(!found);
@@ -434,16 +437,18 @@ export const useRoomProviderSocketLifecycle = ({
           setRouteRoomResolved(true);
         },
         onParticipantsUpdated: ({ roomId, participants, hostClientId }) => {
-          setRooms((prev) =>
-            prev.map((room) =>
-              room.id === roomId
-                ? {
-                    ...room,
-                    playerCount: participants.length,
-                  }
-                : room,
-            ),
-          );
+          startTransition(() => {
+            setRooms((prev) =>
+              prev.map((room) =>
+                room.id === roomId
+                  ? {
+                      ...room,
+                      playerCount: participants.length,
+                    }
+                  : room,
+              ),
+            );
+          });
           if (roomId !== currentRoomIdRef.current) return;
           if (
             presenceSeededRoomIdRef.current !== roomId ||

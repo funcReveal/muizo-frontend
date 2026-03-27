@@ -341,8 +341,6 @@ const RoomLobbyPage: React.FC = () => {
     participants,
     messages,
     settlementHistory,
-    messageInput,
-    setMessageInput,
     playlistViewItems,
     playlistHasMore,
     playlistLoadingMore,
@@ -379,7 +377,6 @@ const RoomLobbyPage: React.FC = () => {
     serverOffsetMs,
     setRouteRoomId,
     handleLeaveRoom,
-    handleSendMessage,
     loadMorePlaylist,
     handleStartGame,
     handleSubmitChoice,
@@ -1929,9 +1926,6 @@ const RoomLobbyPage: React.FC = () => {
             participants={participants}
             meClientId={clientId}
             messages={messages}
-            messageInput={messageInput}
-            onMessageChange={setMessageInput}
-            onSendMessage={handleSendMessage}
             username={username}
             serverOffsetMs={serverOffsetMs}
             onSettlementRecapChange={handleSettlementRecapChange}
@@ -1981,7 +1975,6 @@ const RoomLobbyPage: React.FC = () => {
             messages={lobbyMessages}
             selfClientId={clientId}
             roomPassword={hostRoomPassword}
-            messageInput={messageInput}
             playlistItems={playlistViewItems}
             playlistHasMore={playlistHasMore}
             playlistLoadingMore={playlistLoadingMore}
@@ -2005,8 +1998,6 @@ const RoomLobbyPage: React.FC = () => {
             gameState={gameState}
             canStartGame={playlistProgress.ready}
             onLeave={() => leaveRoomAndNavigate()}
-            onInputChange={setMessageInput}
-            onSend={handleSendMessage}
             onLoadMorePlaylist={loadMorePlaylist}
             onStartGame={handleStartGame}
             onUpdateRoomSettings={handleUpdateRoomSettings}
