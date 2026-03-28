@@ -25,6 +25,7 @@ import {
 import AutoFixHighOutlined from "@mui/icons-material/AutoFixHighOutlined";
 import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import Close from "@mui/icons-material/Close";
+import DragIndicatorRounded from "@mui/icons-material/DragIndicatorRounded";
 import HelpOutlineRounded from "@mui/icons-material/HelpOutlineRounded";
 import LibraryMusic from "@mui/icons-material/LibraryMusic";
 import SearchRounded from "@mui/icons-material/SearchRounded";
@@ -118,6 +119,7 @@ type SortableRowProps = {
   outerStyle?: CSSProperties;
   canDrag?: boolean;
   showQuestionForNoChange?: boolean;
+  isTouchDevice?: boolean;
 };
 
 const RowCard = ({
@@ -135,6 +137,7 @@ const RowCard = ({
   dragAttributes,
   dragListeners,
   showQuestionForNoChange,
+  isTouchDevice,
 }: {
   item: PlaylistItemView;
   index: number;
@@ -150,6 +153,7 @@ const RowCard = ({
   dragAttributes?: DraggableAttributes;
   dragListeners?: SortableBindings["listeners"];
   showQuestionForNoChange?: boolean;
+  isTouchDevice?: boolean;
 }) => {
   const isMarkedNoChange =
     item.answerStatus === "manual_reviewed" &&
@@ -158,8 +162,8 @@ const RowCard = ({
 
   return (
     <div
-      {...(dragAttributes ?? {})}
-      {...(dragListeners ?? {})}
+      {...(isTouchDevice ? {} : (dragAttributes ?? {}))}
+      {...(isTouchDevice ? {} : (dragListeners ?? {}))}
       onClick={onSelect ? () => onSelect(index) : undefined}
       onKeyDown={(event) => {
         if (!onSelect) return;
@@ -178,8 +182,34 @@ const RowCard = ({
       role={onSelect ? "button" : undefined}
       tabIndex={onSelect ? 0 : undefined}
     >
-      <div className="relative w-20 shrink-0 self-stretch p-2">
-        <span className="absolute left-1 top-1 rounded bg-[var(--mc-surface)]/80 px-1 py-0.5 text-[9px] text-[var(--mc-text)]">
+      <div
+        className={`relative flex shrink-0 self-stretch items-stretch p-2 ${
+          isTouchDevice ? "w-24" : "w-20"
+        }`}
+      >
+        {dragListeners && isTouchDevice ? (
+          <button
+            type="button"
+            {...(dragAttributes ?? {})}
+            {...(dragListeners ?? {})}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            className="mr-2 inline-flex w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--mc-surface-strong)]/60 text-[var(--mc-text)] transition active:scale-95"
+            aria-label="拖曳排序"
+            title="按住拖曳排序"
+          >
+            <DragIndicatorRounded sx={{ fontSize: 18 }} />
+          </button>
+        ) : null}
+        <span
+          className={`absolute top-1 rounded bg-[var(--mc-surface)]/80 px-1 py-0.5 text-[9px] text-[var(--mc-text)] ${
+            isTouchDevice ? "left-8" : "left-1"
+          }`}
+        >
           {index + 1}
         </span>
         {item.thumbnail ? (
@@ -292,6 +322,7 @@ const SortableRow = ({
   outerStyle,
   canDrag,
   showQuestionForNoChange,
+  isTouchDevice,
 }: SortableRowProps) => {
   const {
     attributes,
@@ -336,6 +367,7 @@ const SortableRow = ({
           onToggleNoChange={onToggleNoChange}
           totalCount={totalCount}
           showQuestionForNoChange={showQuestionForNoChange}
+          isTouchDevice={isTouchDevice}
           dimmed={isDragging}
           dragAttributes={canDrag ? attributes : undefined}
           dragListeners={canDrag ? listeners : undefined}
@@ -392,6 +424,7 @@ const PlaylistListPanel = ({
   const [filterMode, setFilterMode] = useState<PlaylistFilterMode>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const canReorder = filterMode === "all" && searchQuery.trim().length === 0;
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
@@ -404,6 +437,27 @@ const PlaylistListPanel = ({
       activationConstraint: { distance: 6 },
     }),
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const coarseQuery = window.matchMedia("(pointer: coarse)");
+    const hoverQuery = window.matchMedia("(hover: none)");
+    const updateDeviceMode = () => {
+      setIsTouchDevice(coarseQuery.matches || hoverQuery.matches);
+    };
+
+    updateDeviceMode();
+    coarseQuery.addEventListener("change", updateDeviceMode);
+    hoverQuery.addEventListener("change", updateDeviceMode);
+
+    return () => {
+      coarseQuery.removeEventListener("change", updateDeviceMode);
+      hoverQuery.removeEventListener("change", updateDeviceMode);
+    };
+  }, []);
 
   const activeIndex = activeId ? itemIds.indexOf(activeId) : -1;
   const activeItem = activeIndex >= 0 ? safeItems[activeIndex] : null;
@@ -587,6 +641,7 @@ const PlaylistListPanel = ({
     totalCount: number;
     canDrag?: boolean;
     showQuestionForNoChange?: boolean;
+    isTouchDevice?: boolean;
   };
 
   const ROW_HEIGHT = 84;
@@ -607,6 +662,7 @@ const PlaylistListPanel = ({
       totalCount,
       canDrag,
       showQuestionForNoChange,
+      isTouchDevice,
     }: {
       ariaAttributes: {
         "aria-posinset": number;
@@ -634,6 +690,7 @@ const PlaylistListPanel = ({
           outerStyle={style}
           canDrag={canDrag}
           showQuestionForNoChange={showQuestionForNoChange}
+          isTouchDevice={isTouchDevice}
         />
       );
     },
@@ -655,7 +712,7 @@ const PlaylistListPanel = ({
                 </span>
               </span>
               <span className="inline-flex items-center rounded-full bg-[var(--mc-surface-strong)]/45 px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--mc-text-muted)]">
-                {maxItems === null ? "未限制" : `上限 ${maxItems}`}
+                {maxItems === null ? "未限制上限" : `上限 ${maxItems} 題`}
               </span>
             </div>
           </div>
@@ -667,7 +724,7 @@ const PlaylistListPanel = ({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜尋歌曲、答案、上傳者"
-                className="min-w-0 flex-1 bg-transparent text-[12px] text-[var(--mc-text)] outline-none placeholder:text-[var(--mc-text-muted)]"
+                className="min-w-0 flex-1 bg-transparent text-base text-[var(--mc-text)] outline-none placeholder:text-[var(--mc-text-muted)] sm:text-[12px]"
               />
               <span className="h-5 w-px shrink-0 bg-[var(--mc-border)]/80" />
               {searchQuery ? (
@@ -713,7 +770,10 @@ const PlaylistListPanel = ({
                   displayEmpty
                   sx={{
                     color: "var(--mc-text)",
-                    fontSize: "12px",
+                    fontSize: {
+                      xs: "16px",
+                      sm: "12px",
+                    },
                   }}
                 >
                   <MenuItem value="all">{`全部 (${safeItems.length})`}</MenuItem>
@@ -787,6 +847,7 @@ const PlaylistListPanel = ({
                 totalCount: visibleItems.length,
                 canDrag: canReorder,
                 showQuestionForNoChange: filterMode !== "manual",
+                isTouchDevice,
               }}
               style={{ height: "100%" }}
             />

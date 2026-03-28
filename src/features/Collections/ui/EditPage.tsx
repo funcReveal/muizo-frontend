@@ -2235,7 +2235,7 @@ const EditPage = () => {
         visibility={collectionVisibility}
         onVisibilityChange={(value) => {
           if (visibilityUpdating) return;
-          if (value === "public" && collectionVisibility !== "public") {
+          if (value !== collectionVisibility) {
             setPendingVisibility(value);
             setConfirmPublicOpen(true);
             return;
@@ -2301,9 +2301,15 @@ const EditPage = () => {
       />
       <ConfirmDialog
         open={confirmPublicOpen}
-        title="設為公開？"
-        description="切換為公開後，任何人都能瀏覽此收藏庫內容。確定要公開嗎？"
-        confirmLabel="設為公開"
+        title={
+          pendingVisibility === "private" ? "設為私人？" : "設為公開？"
+        }
+        description={
+          pendingVisibility === "private"
+            ? "切換為私人後，只有你能瀏覽此收藏庫內容。確定要設為私人嗎？"
+            : "切換為公開後，任何人都能瀏覽此收藏庫內容。確定要公開嗎？"
+        }
+        confirmLabel={pendingVisibility === "private" ? "設為私人" : "設為公開"}
         onConfirm={() => {
           if (pendingVisibility) {
             void applyVisibilityChange(pendingVisibility);
