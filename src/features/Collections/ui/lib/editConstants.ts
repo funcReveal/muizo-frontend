@@ -23,7 +23,7 @@ export const TEXT = {
   startSec: "開始秒數",
   endSec: "結束秒數",
   answer: "答案",
-  answerPlaceholder: "輸入歌曲答案",
+  answerPlaceholder: "輸入本題答案",
   listTodo: "收藏庫列表（待實作）",
 } as const;
 

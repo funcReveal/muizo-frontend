@@ -90,6 +90,15 @@ const PlayerPanel = ({
   const [isVolumeDragging, setIsVolumeDragging] = useState(false);
   const [dragVolume, setDragVolume] = useState<number | null>(null);
   const [dragMuted, setDragMuted] = useState<boolean | null>(null);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return true;
+    }
+    return (
+      window.matchMedia("(pointer: fine)").matches &&
+      window.matchMedia("(hover: hover)").matches
+    );
+  });
   const updateVolumeFromEvent = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       const rect = event.currentTarget.getBoundingClientRect();
@@ -241,6 +250,27 @@ const PlayerPanel = ({
   };
   const effectiveDisplayVolume = dragVolume ?? volume;
   const effectiveDisplayMuted = dragMuted ?? isMuted;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const pointerQuery = window.matchMedia("(pointer: fine)");
+    const hoverQuery = window.matchMedia("(hover: hover)");
+    const sync = () => {
+      setShowVolumeSlider(pointerQuery.matches && hoverQuery.matches);
+    };
+
+    sync();
+    pointerQuery.addEventListener("change", sync);
+    hoverQuery.addEventListener("change", sync);
+
+    return () => {
+      pointerQuery.removeEventListener("change", sync);
+      hoverQuery.removeEventListener("change", sync);
+    };
+  }, []);
 
   // Avoid a render-loop "fight" between React style updates and rAF updates.
   // When playing, rAF owns `--progress-pct`. When paused/dragging, sync it from React state.
@@ -501,7 +531,7 @@ const PlayerPanel = ({
         >
           <Repeat fontSize="small" />
         </button>
-        <div className="ml-auto flex items-center gap-2 rounded-2xl bg-slate-950/60 py-1.5 text-[11px] text-slate-300 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.25)]">
+        <div className="ml-auto flex items-center gap-2 rounded-2xl bg-slate-950/60 px-1 py-1.5 text-[11px] text-slate-300 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.25)]">
           <button
             type="button"
             onClick={onToggleMute}
@@ -517,7 +547,9 @@ const PlayerPanel = ({
             )}
           </button>
           <div
-            className="relative h-6 w-28 cursor-pointer rounded-full bg-slate-900/70"
+            className={`relative h-6 w-28 cursor-pointer rounded-full bg-slate-900/70 ${
+              showVolumeSlider ? "block" : "hidden"
+            }`}
             onPointerDown={(event) => {
               event.preventDefault();
               volumeDragRef.current = true;

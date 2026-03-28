@@ -1,7 +1,13 @@
 ﻿import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Checkbox, FormControlLabel } from "@mui/material";
+import {
+  Checkbox,
+  FormControl,
+  FormControlLabel,
+  MenuItem,
+  Select,
+} from "@mui/material";
 
 import {
   DndContext,
@@ -17,8 +23,11 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import AutoFixHighOutlined from "@mui/icons-material/AutoFixHighOutlined";
+import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import Close from "@mui/icons-material/Close";
+import HelpOutlineRounded from "@mui/icons-material/HelpOutlineRounded";
 import LibraryMusic from "@mui/icons-material/LibraryMusic";
+import SearchRounded from "@mui/icons-material/SearchRounded";
 import {
   SortableContext,
   arrayMove,
@@ -32,6 +41,7 @@ import ConfirmDialog from "../../../../../shared/ui/ConfirmDialog";
 type PlaylistItemView = {
   localId: string;
   title: string;
+  answerText?: string;
   uploader?: string;
   duration?: string;
   startSec: number;
@@ -46,6 +56,35 @@ type PlaylistItemView = {
 type PlaylistFilterMode = "all" | "ai" | "manual" | "untouched";
 type SortableBindings = ReturnType<typeof useSortable>;
 
+const NoChangeIcon = ({
+  active = false,
+  showQuestion = true,
+}: {
+  active?: boolean;
+  showQuestion?: boolean;
+}) => (
+  <span className="relative inline-flex h-6 w-6 items-center justify-center">
+    <CheckCircleOutlineRounded sx={{ fontSize: 16 }} />
+    {showQuestion ? (
+      <span
+        className={`absolute -bottom-0.5 -right-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${
+          active
+            ? "bg-emerald-400 text-slate-950"
+            : "bg-slate-800 text-emerald-200"
+        }`}
+      >
+        <HelpOutlineRounded sx={{ fontSize: 10 }} />
+      </span>
+    ) : null}
+  </span>
+);
+
+const ManualReviewedIcon = () => (
+  <span className="inline-flex h-6 w-6 items-center justify-center">
+    <CheckCircleOutlineRounded sx={{ fontSize: 16 }} />
+  </span>
+);
+
 type PlaylistListPanelProps = {
   items: PlaylistItemView[];
   maxItems: number | null;
@@ -53,6 +92,7 @@ type PlaylistListPanelProps = {
   onSelect: (index: number) => void;
   onRemove: (index: number) => void;
   onReorder: (from: number, to: number) => void;
+  onToggleNoChange: (index: number) => void;
   listRef: RefObject<HTMLDivElement | null>;
   highlightIndex: number | null;
   clipDurationLabel: string;
@@ -73,9 +113,11 @@ type SortableRowProps = {
   formatSeconds: (value: number) => string;
   onSelect: (index: number) => void;
   onRemove: (index: number) => void;
+  onToggleNoChange: (index: number) => void;
   totalCount: number;
   outerStyle?: CSSProperties;
   canDrag?: boolean;
+  showQuestionForNoChange?: boolean;
 };
 
 const RowCard = ({
@@ -87,10 +129,12 @@ const RowCard = ({
   formatSeconds,
   onSelect,
   onRemove,
+  onToggleNoChange,
   totalCount,
   dimmed,
   dragAttributes,
   dragListeners,
+  showQuestionForNoChange,
 }: {
   item: PlaylistItemView;
   index: number;
@@ -100,11 +144,18 @@ const RowCard = ({
   formatSeconds: (value: number) => string;
   onSelect?: (index: number) => void;
   onRemove?: (index: number) => void;
+  onToggleNoChange?: (index: number) => void;
   totalCount?: number;
   dimmed?: boolean;
   dragAttributes?: DraggableAttributes;
   dragListeners?: SortableBindings["listeners"];
+  showQuestionForNoChange?: boolean;
 }) => {
+  const isMarkedNoChange =
+    item.answerStatus === "manual_reviewed" &&
+    (item.answerText ?? "") === (item.title ?? "");
+  const canMarkNoChange = item.answerStatus === "original";
+
   return (
     <div
       {...(dragAttributes ?? {})}
@@ -181,10 +232,43 @@ const RowCard = ({
           <AutoFixHighOutlined sx={{ fontSize: 14 }} />
         </span>
       )}
-      {item.answerStatus === "manual_reviewed" && (
-        <span className="absolute bottom-2 right-2 rounded-full bg-emerald-400/8 px-2 py-0.5 text-[9px] font-medium tracking-[0.12em] text-emerald-200 transition-colors duration-150 hover:bg-emerald-400/16">
-          已覆核
+      {isMarkedNoChange && (
+        <span
+          className="absolute bottom-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-emerald-200 transition-all duration-150 hover:text-emerald-100 hover:drop-shadow-[0_0_6px_rgba(74,222,128,0.45)]"
+          title="已標記為無需修改"
+          aria-label="已標記為無需修改"
+        >
+          <NoChangeIcon
+            active
+            showQuestion={showQuestionForNoChange !== false}
+          />
         </span>
+      )}
+      {item.answerStatus === "manual_reviewed" && !isMarkedNoChange && (
+        <span
+          className="absolute bottom-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-emerald-200 transition-all duration-150 hover:text-emerald-100 hover:drop-shadow-[0_0_6px_rgba(74,222,128,0.45)]"
+          title="已手動確認"
+          aria-label="已手動確認"
+        >
+          <ManualReviewedIcon />
+        </span>
+      )}
+      {canMarkNoChange && onToggleNoChange && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleNoChange(index);
+          }}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          className="absolute bottom-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/30 bg-slate-950/85 text-emerald-200 transition-colors hover:border-emerald-300/55 hover:bg-emerald-500/10 hover:text-emerald-100"
+          title="標記為無需修改"
+          aria-label="標記為無需修改"
+        >
+          <NoChangeIcon showQuestion={showQuestionForNoChange !== false} />
+        </button>
       )}
       {index < (totalCount ?? 0) - 1 && (
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[var(--mc-border)]/55" />
@@ -203,9 +287,11 @@ const SortableRow = ({
   formatSeconds,
   onSelect,
   onRemove,
+  onToggleNoChange,
   totalCount,
   outerStyle,
   canDrag,
+  showQuestionForNoChange,
 }: SortableRowProps) => {
   const {
     attributes,
@@ -247,7 +333,9 @@ const SortableRow = ({
           formatSeconds={formatSeconds}
           onSelect={onSelect}
           onRemove={onRemove}
+          onToggleNoChange={onToggleNoChange}
           totalCount={totalCount}
+          showQuestionForNoChange={showQuestionForNoChange}
           dimmed={isDragging}
           dragAttributes={canDrag ? attributes : undefined}
           dragListeners={canDrag ? listeners : undefined}
@@ -290,6 +378,7 @@ const PlaylistListPanel = ({
   onSelect,
   onRemove,
   onReorder,
+  onToggleNoChange,
   listRef,
   highlightIndex,
   clipDurationLabel,
@@ -301,7 +390,8 @@ const PlaylistListPanel = ({
     [safeItems],
   );
   const [filterMode, setFilterMode] = useState<PlaylistFilterMode>("all");
-  const canReorder = filterMode === "all";
+  const [searchQuery, setSearchQuery] = useState("");
+  const canReorder = filterMode === "all" && searchQuery.trim().length === 0;
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
@@ -321,6 +411,8 @@ const PlaylistListPanel = ({
     ? (safeItems.find((item) => item.localId === pendingRemoveId) ?? null)
     : null;
   const visibleIndexMap = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+
     return safeItems.reduce<number[]>((result, item, index) => {
       const hasAiModification =
         item.answerStatus === "ai_modified" ||
@@ -337,11 +429,25 @@ const PlaylistListPanel = ({
       ) {
         return result;
       }
+      if (normalizedQuery) {
+        const haystacks = [
+          item.title,
+          item.answerText,
+          item.uploader,
+          item.duration,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLocaleLowerCase();
+        if (!haystacks.includes(normalizedQuery)) {
+          return result;
+        }
+      }
 
       result.push(index);
       return result;
     }, []);
-  }, [filterMode, safeItems]);
+  }, [filterMode, safeItems, searchQuery]);
   const visibleItems = useMemo(
     () => visibleIndexMap.map((index) => safeItems[index]).filter(Boolean),
     [safeItems, visibleIndexMap],
@@ -477,22 +583,13 @@ const PlaylistListPanel = ({
     formatSeconds: (value: number) => string;
     onSelect: (index: number) => void;
     onRemove: (index: number) => void;
+    onToggleNoChange: (index: number) => void;
     totalCount: number;
     canDrag?: boolean;
+    showQuestionForNoChange?: boolean;
   };
 
   const ROW_HEIGHT = 84;
-
-  const handleFilterToggle = useCallback(
-    (nextMode: Exclude<PlaylistFilterMode, "all">) => {
-      setFilterMode((currentMode) =>
-        currentMode === nextMode ? "all" : nextMode,
-      );
-    },
-    [],
-  );
-
-  const hasActiveFilters = filterMode !== "all";
 
   const Row = useCallback(
     ({
@@ -506,8 +603,10 @@ const PlaylistListPanel = ({
       formatSeconds,
       onSelect,
       onRemove,
+      onToggleNoChange,
       totalCount,
       canDrag,
+      showQuestionForNoChange,
     }: {
       ariaAttributes: {
         "aria-posinset": number;
@@ -530,9 +629,11 @@ const PlaylistListPanel = ({
           formatSeconds={formatSeconds}
           onSelect={onSelect}
           onRemove={onRemove}
+          onToggleNoChange={onToggleNoChange}
           totalCount={totalCount}
           outerStyle={style}
           canDrag={canDrag}
+          showQuestionForNoChange={showQuestionForNoChange}
         />
       );
     },
@@ -541,85 +642,93 @@ const PlaylistListPanel = ({
 
   return (
     <div className="space-y-2 lg:sticky self-start">
-      <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/40 px-3 py-3">
+      <div className="px-1 py-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-                <span className="inline-flex items-center gap-1.5 text-base font-semibold text-[var(--mc-text)]">
-                  <LibraryMusic sx={{ fontSize: 18 }} />
-                  <span>
-                    {(() => {
-                      const limitLabel = maxItems === null ? "不限" : `${maxItems}`;
-                      return visibleItems.length === items.length
-                        ? `${items.length} / ${limitLabel}`
-                        : `${visibleItems.length} / ${items.length} / ${limitLabel}`;
-                    })()}
-                  </span>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-base font-semibold text-[var(--mc-text)]">
+                <LibraryMusic sx={{ fontSize: 18 }} />
+                <span>
+                  {visibleItems.length === items.length
+                    ? `${items.length}`
+                    : `${visibleItems.length} / ${items.length}`}
                 </span>
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-[var(--mc-text-muted)]">
-              <button
-                type="button"
-                onClick={() => handleFilterToggle("ai")}
-                disabled={aiModifiedCount === 0}
-                className={`rounded-full border px-2 py-0.5 transition-colors ${
-                  filterMode === "ai"
-                    ? "border-cyan-300/50 bg-cyan-400/18 text-cyan-50"
-                    : aiModifiedCount === 0
-                      ? "cursor-not-allowed border-cyan-400/10 bg-cyan-400/4 text-cyan-100/35"
-                      : "border-cyan-400/20 bg-cyan-400/8 text-cyan-100/85 hover:bg-cyan-400/14"
-                }`}
-              >
-                AI {aiModifiedCount}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFilterToggle("manual")}
-                disabled={manualModifiedCount === 0}
-                className={`rounded-full border px-2 py-0.5 transition-colors ${
-                  filterMode === "manual"
-                    ? "border-emerald-300/50 bg-emerald-400/18 text-emerald-50"
-                    : manualModifiedCount === 0
-                      ? "cursor-not-allowed border-emerald-400/10 bg-emerald-400/4 text-emerald-100/35"
-                      : "border-emerald-400/20 bg-emerald-400/8 text-emerald-100/85 hover:bg-emerald-400/14"
-                }`}
-              >
-                手動 {manualModifiedCount}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFilterToggle("untouched")}
-                disabled={untouchedCount === 0}
-                className={`rounded-full border px-2 py-0.5 transition-colors ${
-                  filterMode === "untouched"
-                    ? "border-amber-200/50 bg-amber-300/18 text-amber-50"
-                    : untouchedCount === 0
-                      ? "cursor-not-allowed border-amber-300/10 bg-amber-300/4 text-amber-50/35"
-                      : "border-amber-300/20 bg-amber-300/8 text-amber-50/85 hover:bg-amber-300/14"
-                }`}
-              >
-                未修改 {untouchedCount}
-              </button>
+              </span>
+              <span className="inline-flex items-center rounded-full bg-[var(--mc-surface-strong)]/45 px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--mc-text-muted)]">
+                {maxItems === null ? "未限制" : `上限 ${maxItems}`}
+              </span>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2">
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterMode("all");
+          <div className="flex w-full items-center gap-2">
+            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 px-3 py-1.5 text-[var(--mc-text)]">
+              <SearchRounded sx={{ fontSize: 16 }} className="shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="搜尋歌曲、答案、上傳者"
+                className="min-w-0 flex-1 bg-transparent text-[12px] text-[var(--mc-text)] outline-none placeholder:text-[var(--mc-text-muted)]"
+              />
+              <span className="h-5 w-px shrink-0 bg-[var(--mc-border)]/80" />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-[var(--mc-surface)]/70 hover:text-[var(--mc-text)]"
+                  aria-label="清除搜尋"
+                >
+                  <Close sx={{ fontSize: 12 }} />
+                </button>
+              ) : null}
+              <FormControl
+                size="small"
+                className="shrink-0"
+                sx={{
+                  minWidth: 124,
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "transparent",
+                  },
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    border: "none",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    border: "none",
+                  },
+                  "& .MuiSelect-select": {
+                    display: "flex",
+                    alignItems: "center",
+                    minHeight: "auto",
+                    padding: "0 24px 0 0",
+                  },
+                  "& .MuiSvgIcon-root": {
+                    color: "var(--mc-text-muted)",
+                  },
                 }}
-                className="text-[11px] text-[var(--mc-text-muted)] transition-colors hover:text-[var(--mc-text)]"
               >
-                清除
-              </button>
-            )}
+                <Select
+                  value={filterMode}
+                  onChange={(event) =>
+                    setFilterMode(event.target.value as PlaylistFilterMode)
+                  }
+                  displayEmpty
+                  sx={{
+                    color: "var(--mc-text)",
+                    fontSize: "12px",
+                  }}
+                >
+                  <MenuItem value="all">{`全部 (${safeItems.length})`}</MenuItem>
+                  <MenuItem value="ai">{`AI (${aiModifiedCount})`}</MenuItem>
+                  <MenuItem value="manual">{`手動 (${manualModifiedCount})`}</MenuItem>
+                  <MenuItem value="untouched">{`未修改 (${untouchedCount})`}</MenuItem>
+                </Select>
+              </FormControl>
+            </label>
           </div>
         </div>
       </div>
       {!canReorder && (
         <div className="px-2 text-[11px] text-[var(--mc-text-muted)]">
-          篩選中僅顯示符合條件的題目，若要拖曳排序請先清除篩選。
+          目前僅顯示符合篩選或搜尋條件的題目，已確認包含手動修改與「這題沒問題」標記；若要拖曳排序請先清除篩選與搜尋。
         </div>
       )}
 
@@ -651,7 +760,7 @@ const PlaylistListPanel = ({
           <div className="h-[calc(100svh-420px)] lg:h-[calc(100vh-300px)]">
             <List<VirtualRowProps>
               listRef={setListApi}
-              className="h-full overflow-y-auto pr-1"
+              className="collection-edit-scrollbar h-full overflow-y-auto pr-1"
               defaultHeight={420}
               rowCount={visibleItems.length}
               rowHeight={ROW_HEIGHT}
@@ -671,8 +780,13 @@ const PlaylistListPanel = ({
                   const nextIndex = visibleIndexMap[index];
                   if (nextIndex !== undefined) handleRequestRemove(nextIndex);
                 },
+                onToggleNoChange: (index) => {
+                  const nextIndex = visibleIndexMap[index];
+                  if (nextIndex !== undefined) onToggleNoChange(nextIndex);
+                },
                 totalCount: visibleItems.length,
                 canDrag: canReorder,
+                showQuestionForNoChange: filterMode !== "manual",
               }}
               style={{ height: "100%" }}
             />

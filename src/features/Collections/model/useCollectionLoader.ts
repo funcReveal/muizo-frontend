@@ -40,6 +40,35 @@ type UseCollectionLoaderParams = {
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
+const USER_SYNC_TIMEOUT_MS = 15_000;
+
+const syncUserWithTimeout = async (
+  url: string,
+  token: string,
+  body: Record<string, unknown>,
+) => {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    USER_SYNC_TIMEOUT_MS,
+  );
+
+  try {
+    return await fetch(url, {
+      method: "POST",
+      headers: collectionsApi.buildJsonHeaders(token),
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("同步使用者資料逾時，請重新整理後再試");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
 
 export const useCollectionLoader = ({
   authToken,
@@ -68,6 +97,31 @@ export const useCollectionLoader = ({
   const lastItemsAuthTokenRef = useRef<string | null>(null);
   const lastItemsKeyRef = useRef<string | null>(null);
 
+  const syncUserRecord = async (token: string, allowRetry: boolean) => {
+    if (!ownerId || !API_URL) return;
+
+    const userRes = await syncUserWithTimeout(`${API_URL}/api/users`, token, {
+      id: ownerId,
+      display_name:
+        authUser?.display_name && authUser.display_name !== "（未提供名稱）"
+          ? authUser.display_name
+          : displayUsername && displayUsername !== "（未提供名稱）"
+            ? displayUsername
+            : "Guest",
+      provider: authUser?.provider ?? "google",
+      provider_user_id: authUser?.provider_user_id ?? ownerId,
+      email: authUser?.email ?? null,
+      avatar_url: authUser?.avatar_url ?? null,
+    });
+
+    if (userRes.status === 401 && allowRetry) {
+      const refreshed = await refreshAuthToken();
+      if (refreshed) {
+        return syncUserRecord(refreshed, false);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!ownerId || !authToken) {
       setCollectionsLoading(false);
@@ -89,35 +143,7 @@ export const useCollectionLoader = ({
     let active = true;
 
     const run = async (token: string, allowRetry: boolean) => {
-      const userRes = await fetch(`${API_URL}/api/users`, {
-        method: "POST",
-        headers: collectionsApi.buildJsonHeaders(token),
-        body: JSON.stringify({
-          id: ownerId,
-          display_name:
-            authUser?.display_name && authUser.display_name !== "（未提供名稱）"
-              ? authUser.display_name
-              : displayUsername && displayUsername !== "（未提供名稱）"
-                ? displayUsername
-                : "Guest",
-          provider: authUser?.provider ?? "google",
-          provider_user_id: authUser?.provider_user_id ?? ownerId,
-          email: authUser?.email ?? null,
-          avatar_url: authUser?.avatar_url ?? null,
-        }),
-      });
-
-      if (userRes.status === 401 && allowRetry) {
-        const refreshed = await refreshAuthToken();
-        if (refreshed) {
-          return run(refreshed, false);
-        }
-      }
-
-      if (!userRes.ok) {
-        const userPayload = await userRes.json().catch(() => null);
-        throw new Error(userPayload?.error ?? "Failed to sync user");
-      }
+      void syncUserRecord(token, allowRetry).catch(() => null);
 
       let items: DbCollection[] = [];
       try {
@@ -145,54 +171,23 @@ export const useCollectionLoader = ({
     };
 
     const ensureAndLoad = async () => {
-      const startedAt = performance.now();
       setCollectionsLoading(true);
       setCollectionsError(null);
-      console.debug("[mq-collections] collections load start", {
-        ownerId,
-        collectionId: collectionId ?? null,
-        startedAt: new Date().toISOString(),
-      });
       try {
-        const tokenRefreshStartedAt = performance.now();
         const token = await ensureFreshAuthToken({
           token: authToken,
           refreshAuthToken,
         });
-        console.debug("[mq-collections] collections token ready", {
-          ownerId,
-          collectionId: collectionId ?? null,
-          elapsedMs: Math.round(performance.now() - tokenRefreshStartedAt),
-          hasToken: Boolean(token),
-        });
         if (!token) {
           throw new Error("Unauthorized");
         }
-        const fetchStartedAt = performance.now();
         await run(token, true);
-        console.debug("[mq-collections] collections fetch success", {
-          ownerId,
-          collectionId: collectionId ?? null,
-          elapsedMs: Math.round(performance.now() - fetchStartedAt),
-        });
       } catch (error) {
         if (!active) return;
-        console.error("[mq-collections] collections load failed", {
-          ownerId,
-          collectionId: collectionId ?? null,
-          elapsedMs: Math.round(performance.now() - startedAt),
-          error: error instanceof Error ? error.message : String(error),
-        });
         setCollectionsError(
           error instanceof Error ? error.message : String(error),
         );
       } finally {
-        console.debug("[mq-collections] collections load end", {
-          ownerId,
-          collectionId: collectionId ?? null,
-          elapsedMs: Math.round(performance.now() - startedAt),
-          active,
-        });
         if (active) setCollectionsLoading(false);
       }
     };
@@ -262,47 +257,21 @@ export const useCollectionLoader = ({
     };
 
     const ensureAndLoad = async () => {
-      const startedAt = performance.now();
       setItemsLoading(true);
       setItemsError(null);
-      console.debug("[mq-collections] items load start", {
-        collectionId,
-        startedAt: new Date().toISOString(),
-      });
       try {
-        const tokenRefreshStartedAt = performance.now();
         const token = await ensureFreshAuthToken({
           token: authToken,
           refreshAuthToken,
         });
-        console.debug("[mq-collections] items token ready", {
-          collectionId,
-          elapsedMs: Math.round(performance.now() - tokenRefreshStartedAt),
-          hasToken: Boolean(token),
-        });
         if (!token) {
           throw new Error("Unauthorized");
         }
-        const fetchStartedAt = performance.now();
         await run(token, true);
-        console.debug("[mq-collections] items fetch success", {
-          collectionId,
-          elapsedMs: Math.round(performance.now() - fetchStartedAt),
-        });
       } catch (error) {
         if (!active) return;
-        console.error("[mq-collections] items load failed", {
-          collectionId,
-          elapsedMs: Math.round(performance.now() - startedAt),
-          error: error instanceof Error ? error.message : String(error),
-        });
         setItemsError(error instanceof Error ? error.message : String(error));
       } finally {
-        console.debug("[mq-collections] items load end", {
-          collectionId,
-          elapsedMs: Math.round(performance.now() - startedAt),
-          active,
-        });
         if (active) setItemsLoading(false);
       }
     };
