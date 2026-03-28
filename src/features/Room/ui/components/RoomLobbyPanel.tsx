@@ -38,6 +38,7 @@ import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import ShareRoundedIcon from "@mui/icons-material/ShareRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type {
+  ChatMessage,
   GameState,
   PlaylistItem,
   PlaybackExtensionMode,
@@ -81,6 +82,7 @@ import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 interface RoomLobbyPanelProps {
   currentRoom: RoomState["room"] | null;
   participants: RoomParticipant[];
+  messages?: ChatMessage[];
   selfClientId: string;
   roomPassword?: string | null;
   playlistItems: PlaylistItem[];
@@ -124,6 +126,7 @@ interface RoomLobbyPanelProps {
   }) => Promise<boolean>;
   onOpenLastSettlement?: () => void;
   onOpenHistoryDrawer?: () => void;
+  onOpenSettlementByRoundKey?: (roundKey: string) => void;
   onOpenGame?: () => void;
   onKickPlayer: (clientId: string, durationMs?: number | null) => void;
   onTransferHost: (clientId: string) => void;
