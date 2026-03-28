@@ -74,6 +74,59 @@ body {
   background: transparent;
 }
 
+.collection-edit-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+}
+
+.collection-edit-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.collection-edit-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.collection-edit-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border: 0;
+}
+
+.collection-edit-scrollbar:hover::-webkit-scrollbar-track,
+.collection-edit-scrollbar:focus-within::-webkit-scrollbar-track {
+  background: rgba(20, 17, 13, 0.36);
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.06);
+}
+
+.collection-edit-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.collection-edit-scrollbar:hover::-webkit-scrollbar-thumb,
+.collection-edit-scrollbar:focus-within::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(245, 158, 11, 0.78),
+    rgba(234, 179, 8, 0.62)
+  );
+  border-radius: 999px;
+  border: 2px solid rgba(20, 17, 13, 0.54);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.18);
+}
+
+.collection-edit-scrollbar:hover,
+.collection-edit-scrollbar:focus-within {
+  scrollbar-color: rgba(245, 158, 11, 0.72) rgba(20, 17, 13, 0.36);
+}
+
 .room-create-page {
   --rc-paper: var(--mc-surface);
   --rc-paper-strong: var(--mc-surface-strong);

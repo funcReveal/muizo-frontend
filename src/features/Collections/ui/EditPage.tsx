@@ -72,7 +72,7 @@ type YTPlayer = YT.Player;
 type YTPlayerEvent = YT.PlayerEvent;
 type YTPlayerStateEvent = YT.OnStateChangeEvent;
 const AI_BATCH_PAGE_SIZE = 100;
-const MAX_AI_ASSISTANT_URL_LENGTH = 50000;
+const MAX_AI_ASSISTANT_URL_LENGTH = 45000;
 const AI_PROVIDER = "perplexity";
 const AI_PROVIDER_LABEL = "Perplexity";
 const AI_PROVIDER_BASE_URL = "https://www.perplexity.ai/search/new";
@@ -313,8 +313,7 @@ const EditPage = () => {
   ).length;
   const activeCollection =
     collections.find((item) => item.id === activeCollectionId) ?? null;
-  const activeCollectionStoredVisibility =
-    activeCollection?.visibility ?? null;
+  const activeCollectionStoredVisibility = activeCollection?.visibility ?? null;
   const activeCollectionItemLimit = resolveCollectionItemLimit({
     role: authUser?.role,
     plan: authUser?.plan,
@@ -957,7 +956,25 @@ const EditPage = () => {
     try {
       const shareUrl = new URL("/rooms", window.location.origin);
       shareUrl.searchParams.set("sharedCollection", activeCollectionId);
-      await navigator.clipboard.writeText(shareUrl.toString());
+      const shareUrlString = shareUrl.toString();
+      const shareData = {
+        title: collectionTitle.trim() || "收藏庫",
+        text: collectionTitle.trim()
+          ? `來看看這個收藏庫：${collectionTitle.trim()}`
+          : "來看看這個收藏庫",
+        url: shareUrlString,
+      };
+
+      if (
+        typeof navigator.share === "function" &&
+        (!("canShare" in navigator) ||
+          navigator.canShare?.({ url: shareUrlString }))
+      ) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrlString);
+      }
+
       if (shareFeedbackTimerRef.current !== null) {
         window.clearTimeout(shareFeedbackTimerRef.current);
       }
@@ -968,9 +985,12 @@ const EditPage = () => {
       }, 1400);
       setSaveError(null);
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       setSaveError(error instanceof Error ? error.message : "建立分享連結失敗");
     }
-  }, [activeCollectionId, authToken, collectionVisibility]);
+  }, [activeCollectionId, authToken, collectionTitle, collectionVisibility]);
 
   useEffect(() => {
     return () => {
@@ -1478,6 +1498,18 @@ const EditPage = () => {
     [markDirty, selectedIndex],
   );
 
+  const updateItemAtIndex = useCallback(
+    (index: number, updates: Partial<EditableItem>) => {
+      setPlaylistItems((prev) =>
+        prev.map((item, idx) =>
+          idx === index ? { ...item, ...updates } : item,
+        ),
+      );
+      markDirty();
+    },
+    [markDirty],
+  );
+
   const updateSelectedAnswerText = useCallback(
     (value: string) => {
       setAnswerText(value);
@@ -1492,6 +1524,77 @@ const EditPage = () => {
       });
     },
     [selectedItem, updateSelectedItem],
+  );
+
+  const saveReviewStatusImmediately = useCallback(() => {
+    const persist = async () => {
+      let attempts = 0;
+      while (saveInFlightRef.current && attempts < 20) {
+        attempts += 1;
+        await new Promise((resolve) => window.setTimeout(resolve, 150));
+      }
+      await handleSaveCollection("auto");
+    };
+
+    window.setTimeout(() => {
+      void persist();
+    }, 0);
+  }, [handleSaveCollection]);
+
+  const saveTitleImmediately = useCallback(
+    async (nextTitle: string, previousTitle: string) => {
+      if (!authToken || !activeCollectionId) {
+        setCollectionTitle(previousTitle);
+        setTitleDraft(previousTitle);
+        setSaveStatus("error");
+        setSaveError("請先登入並選擇收藏庫後再修改名稱");
+        return;
+      }
+
+      setSaveStatus("saving");
+      setSaveError(null);
+
+      try {
+        const token = await ensureFreshAuthToken({
+          token: authToken,
+          refreshAuthToken,
+        });
+        if (!token) {
+          throw new Error("登入已過期，請重新登入");
+        }
+
+        await collectionsApi.updateCollection(token, activeCollectionId, {
+          title: nextTitle,
+        });
+
+        setCollections((prev) =>
+          prev.map((item) =>
+            item.id === activeCollectionId
+              ? { ...item, title: nextTitle }
+              : item,
+          ),
+        );
+        setSaveStatus("saved");
+      } catch (error) {
+        setCollectionTitle(previousTitle);
+        setTitleDraft(previousTitle);
+        setSaveStatus("error");
+        setSaveError(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [activeCollectionId, authToken, refreshAuthToken, setCollections],
+  );
+
+  const toggleItemNoChange = useCallback(
+    (index: number) => {
+      const target = playlistItems[index];
+      if (!target || target.answerStatus !== "original") return;
+      updateItemAtIndex(index, {
+        answerStatus: "manual_reviewed",
+      });
+      saveReviewStatusImmediately();
+    },
+    [playlistItems, saveReviewStatusImmediately, updateItemAtIndex],
   );
 
   const handleSelectIndex = useCallback(
@@ -1851,10 +1954,13 @@ const EditPage = () => {
             item.id === activeCollectionId
               ? {
                   ...item,
-                  item_count: Math.max(0, (item.item_count ?? previousItems.length) - 1),
+                  item_count: Math.max(
+                    0,
+                    (item.item_count ?? previousItems.length) - 1,
+                  ),
                 }
               : item,
-            ),
+          ),
         );
         if (hadUnsavedChanges) {
           setSaveStatus("idle");
@@ -2081,14 +2187,18 @@ const EditPage = () => {
         onTitleDraftChange={(value) => setTitleDraft(value)}
         onTitleSave={() => {
           const nextTitle = titleDraft.trim();
-          if (nextTitle) {
-            setCollectionTitle(nextTitle);
-            if (!collectionTitleTouched) {
-              setCollectionTitleTouched(true);
-            }
-            markDirty();
+          if (!nextTitle || nextTitle === collectionTitle.trim()) {
+            setIsTitleEditing(false);
+            setTitleDraft(collectionTitle);
+            return;
+          }
+          const previousTitle = collectionTitle;
+          setCollectionTitle(nextTitle);
+          if (!collectionTitleTouched) {
+            setCollectionTitleTouched(true);
           }
           setIsTitleEditing(false);
+          void saveTitleImmediately(nextTitle, previousTitle);
         }}
         onTitleCancel={() => {
           setTitleDraft(collectionTitle);
@@ -2120,7 +2230,7 @@ const EditPage = () => {
         visibility={collectionVisibility}
         onVisibilityChange={(value) => {
           if (visibilityUpdating) return;
-          if (value === "public" && collectionVisibility !== "public") {
+          if (value !== collectionVisibility) {
             setPendingVisibility(value);
             setConfirmPublicOpen(true);
             return;
@@ -2186,9 +2296,15 @@ const EditPage = () => {
       />
       <ConfirmDialog
         open={confirmPublicOpen}
-        title="設為公開？"
-        description="切換為公開後，任何人都能瀏覽此收藏庫內容。確定要公開嗎？"
-        confirmLabel="設為公開"
+        title={
+          pendingVisibility === "private" ? "設為私人？" : "設為公開？"
+        }
+        description={
+          pendingVisibility === "private"
+            ? "切換為私人後，只有你能瀏覽此收藏庫內容。確定要設為私人嗎？"
+            : "切換為公開後，任何人都能瀏覽此收藏庫內容。確定要公開嗎？"
+        }
+        confirmLabel={pendingVisibility === "private" ? "設為私人" : "設為公開"}
         onConfirm={() => {
           if (pendingVisibility) {
             void applyVisibilityChange(pendingVisibility);
@@ -2231,7 +2347,7 @@ const EditPage = () => {
         onAddSingle={handleAddSingleTrack}
       />
       <div
-        className={`rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 p-1 shadow-[0_24px_60px_-36px_rgba(2,6,23,0.9)] overflow-hidden min-h-0 ${
+        className={` p-1 shadow-[0_24px_60px_-36px_rgba(2,6,23,0.9)] overflow-hidden min-h-0 ${
           isReadOnly ? "pointer-events-none opacity-60" : ""
         }`}
       >
@@ -2243,13 +2359,14 @@ const EditPage = () => {
         <div className="mt-2 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="order-2 lg:order-2 min-w-0">
             {playlistItems.length > 0 && (
-                <PlaylistListPanel
-                  items={playlistItems}
-                 maxItems={activeCollectionItemLimit}
-                  selectedIndex={selectedIndex}
+              <PlaylistListPanel
+                items={playlistItems}
+                maxItems={activeCollectionItemLimit}
+                selectedIndex={selectedIndex}
                 onSelect={handleSelectIndex}
                 onRemove={removeItem}
                 onReorder={moveItem}
+                onToggleNoChange={toggleItemNoChange}
                 listRef={listContainerRef}
                 highlightIndex={highlightIndex}
                 clipDurationLabel={CLIP_DURATION_LABEL}
@@ -2299,16 +2416,6 @@ const EditPage = () => {
                 value={answerText}
                 placeholder={TEXT.answerPlaceholder}
                 disabled={!selectedItem}
-                hint="用於遊戲作答的答案"
-                primaryActionLabel="套用標題"
-                onPrimaryAction={() => {
-                  if (!selectedItem?.title) return;
-                  updateSelectedAnswerText(selectedItem.title);
-                }}
-                secondaryActionLabel="清空"
-                onSecondaryAction={() => {
-                  updateSelectedAnswerText("");
-                }}
                 maxLength={ANSWER_MAX_LENGTH}
                 onChange={(value) => {
                   updateSelectedAnswerText(value);
@@ -2479,42 +2586,42 @@ const EditPage = () => {
               <div className="text-sm font-semibold text-[var(--mc-text)]">
                 Step 2. 選擇 AI
               </div>
-                <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                  目前固定使用 Perplexity。若網址過長，介面會提示這次未帶入
-                  prompt，並改為複製後開首頁。
+              <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                目前固定使用 Perplexity。若網址過長，介面會提示這次未帶入
+                prompt，並改為複製後開首頁。
+              </div>
+              <div
+                className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${
+                  aiDirectOpenState.tone === "ready"
+                    ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
+                    : aiDirectOpenState.tone === "warn"
+                      ? "border-amber-500/30 bg-amber-950/20 text-amber-100"
+                      : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 text-[var(--mc-text-muted)]"
+                }`}
+              >
+                <div className="font-medium">{aiDirectOpenState.title}</div>
+                <div className="mt-1 text-xs opacity-85">
+                  {aiDirectOpenState.description}
                 </div>
-                <div
-                  className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${
-                    aiDirectOpenState.tone === "ready"
-                      ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
-                      : aiDirectOpenState.tone === "warn"
-                        ? "border-amber-500/30 bg-amber-950/20 text-amber-100"
-                        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 text-[var(--mc-text-muted)]"
-                  }`}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleOpenAiAssistant}
+                  className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90"
                 >
-                  <div className="font-medium">{aiDirectOpenState.title}</div>
-                  <div className="mt-1 text-xs opacity-85">
-                    {aiDirectOpenState.description}
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={handleOpenAiAssistant}
-                    className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90"
-                  >
-                    在 {AI_PROVIDER_LABEL} 開啟
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={handleForceOpenAiAssistant}
-                    className="!border-[var(--mc-border)] !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60"
-                  >
-                    強制帶入測試
-                  </Button>
-                </div>
+                  在 {AI_PROVIDER_LABEL} 開啟
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleForceOpenAiAssistant}
+                  className="!border-[var(--mc-border)] !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60"
+                >
+                  強制帶入測試
+                </Button>
+              </div>
             </section>
 
             <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4">

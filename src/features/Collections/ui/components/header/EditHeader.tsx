@@ -1,18 +1,23 @@
 import { useEffect, useRef } from "react";
 import { Button, Switch, TextField, Tooltip } from "@mui/material";
 import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
-import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
+import EditOutlined from "@mui/icons-material/EditOutlined";
 import CloudDoneOutlined from "@mui/icons-material/CloudDoneOutlined";
 import CloudUploadOutlined from "@mui/icons-material/CloudUploadOutlined";
 import CloudOffOutlined from "@mui/icons-material/CloudOffOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
-import LockOutlined from "@mui/icons-material/LockOutlined";
-import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import FolderOpenOutlined from "@mui/icons-material/FolderOpenOutlined";
 import AutoFixHighOutlined from "@mui/icons-material/AutoFixHighOutlined";
 import ShareRounded from "@mui/icons-material/ShareRounded";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import ExpandLess from "@mui/icons-material/ExpandLess";
+
+const PUBLIC_SWITCH_ICON = encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0f172a"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm6.93 9h-3.1a15.9 15.9 0 0 0-1.38-5.02A8.02 8.02 0 0 1 18.93 11ZM12 4.04c.83 1.2 1.86 3.63 2.16 6.96H9.84C10.14 7.67 11.17 5.24 12 4.04ZM4.07 13h3.1a15.9 15.9 0 0 0 1.38 5.02A8.02 8.02 0 0 1 4.07 13Zm3.1-2h-3.1a8.02 8.02 0 0 1 4.48-5.02A15.9 15.9 0 0 0 7.17 11Zm4.83 8.96c-.83-1.2-1.86-3.63-2.16-6.96h4.32c-.3 3.33-1.33 5.76-2.16 6.96ZM14.45 18.02A15.9 15.9 0 0 0 15.83 13h3.1a8.02 8.02 0 0 1-4.48 5.02Z"/></svg>',
+);
+const PRIVATE_SWITCH_ICON = encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0f172a"><path d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-6 8.73V17a1 1 0 1 0 2 0v-.27a2 2 0 1 0-2 0ZM10 8V6a2 2 0 0 1 4 0v2Z"/></svg>',
+);
 
 type EditHeaderProps = {
   title: string;
@@ -84,21 +89,22 @@ const EditHeader = ({
   playlistMenuOpen,
 }: EditHeaderProps) => {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const trimmedTitleDraft = titleDraft.trim();
   const showSaved =
     !hasUnsavedChanges && !isSaving && saveStatus !== "error" && !saveError;
   const isAutoSaving = isSaving && autoSaveNotice?.type === "success";
   const isAutoSaveError = autoSaveNotice?.type === "error";
   const buttonLabel = isAutoSaving
-    ? "保存中"
+    ? "\u81ea\u52d5\u5132\u5b58\u4e2d"
     : isSaving
       ? savingLabel
       : saveStatus === "error"
         ? saveErrorLabel
         : showSaved
           ? autoSaveNotice?.type === "success"
-            ? "已同步"
+            ? "\u5df2\u81ea\u52d5\u5132\u5b58"
             : savedLabel
-          : "保存";
+          : "\u5132\u5b58";
   const buttonIcon = isAutoSaving ? (
     <CloudUploadOutlined fontSize="small" />
   ) : saveStatus === "error" || isAutoSaveError ? (
@@ -112,81 +118,196 @@ const EditHeader = ({
   useEffect(() => {
     if (!isTitleEditing) return;
     window.requestAnimationFrame(() => {
-      titleInputRef.current?.focus();
-      titleInputRef.current?.select();
+      const input = titleInputRef.current;
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
     });
   }, [isTitleEditing]);
 
+  const handleTitleCommit = () => {
+    if (!trimmedTitleDraft) {
+      onTitleCancel();
+      return;
+    }
+    onTitleSave();
+  };
+
+  const handleTitleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onTitleCancel();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleTitleCommit();
+    }
+  };
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="\u8fd4\u56de\u6536\u85cf\u5eab"
+            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--mc-surface-strong)]/40 text-xs text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/60"
+          >
+            <ArrowBackIosNew fontSize="inherit" />
+          </button>
           {isTitleEditing ? (
-            <>
+            <form
+              className="flex min-w-0 flex-1 items-center"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleTitleCommit();
+              }}
+            >
               <TextField
                 variant="standard"
                 value={titleDraft}
-                onChange={(e) => onTitleDraftChange(e.target.value)}
+                onChange={(event) => onTitleDraftChange(event.target.value)}
+                onKeyDown={handleTitleKeyDown}
+                onBlur={handleTitleCommit}
                 inputRef={titleInputRef}
-                placeholder="請輸入收藏庫名稱"
-                className="min-w-[200px] rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)] px-3 py-1.5 text-base font-semibold text-[var(--mc-text)]"
+                placeholder="\u8acb\u8f38\u5165\u6536\u85cf\u5eab\u540d\u7a31"
+                className="min-w-0 flex-1"
+                sx={{
+                  "& .MuiInputBase-root": {
+                    minHeight: 44,
+                    color: "var(--mc-text)",
+                    fontSize: {
+                      xs: "1.125rem",
+                      sm: "1.25rem",
+                    },
+                    fontWeight: 600,
+                    lineHeight: 1.15,
+                  },
+                  "& .MuiInputBase-input": {
+                    padding: "8px 0 7px",
+                  },
+                  "& .MuiInput-underline:before": {
+                    borderBottomColor: "rgba(148, 163, 184, 0.35)",
+                  },
+                  "& .MuiInput-underline:after": {
+                    borderBottomColor: "rgba(251, 191, 36, 0.75)",
+                  },
+                  "& .MuiInput-underline:hover:not(.Mui-disabled):before": {
+                    borderBottomColor: "rgba(148, 163, 184, 0.55)",
+                  },
+                  "& .MuiInputBase-input::placeholder": {
+                    color: "var(--mc-text-muted)",
+                    opacity: 1,
+                  },
+                }}
               />
-              <button
-                type="button"
-                onClick={onTitleSave}
-                className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-xs text-[var(--mc-text)] hover:border-[var(--mc-accent)]/60"
-              >
-                儲存
-              </button>
-              <button
-                type="button"
-                onClick={onTitleCancel}
-                className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-xs text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-              >
-                取消
-              </button>
-            </>
+            </form>
           ) : (
-            <>
-              <h2 className="text-xl font-semibold text-[var(--mc-text)]">
-                {title || "未命名收藏庫"}
-              </h2>
+            <div className="flex min-w-0 items-center gap-1">
               <button
                 type="button"
                 onClick={onStartEdit}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] hover:border-[var(--mc-accent)]/60"
+                className="flex min-h-11 min-w-0 cursor-pointer items-center text-left"
+                aria-label="\u7de8\u8f2f\u6536\u85cf\u5eab\u540d\u7a31"
               >
-                編輯名稱
+                <h2 className="min-w-0 truncate text-lg font-semibold leading-[1.15] text-[var(--mc-text)] sm:text-xl">
+                  {title || "\u672a\u547d\u540d\u6536\u85cf\u5eab"}
+                </h2>
               </button>
-              {showApplyPlaylistTitle && (
-                <button
-                  type="button"
-                  onClick={onApplyPlaylistTitle}
-                  className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] hover:border-[var(--mc-accent)]/60"
-                >
-                  套用播放清單名稱
-                </button>
-              )}
-            </>
+              <button
+                type="button"
+                onClick={onStartEdit}
+                aria-label="\u7de8\u8f2f\u540d\u7a31"
+                className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--mc-surface-strong)]/40 text-xs text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/60"
+              >
+                <EditOutlined fontSize="inherit" />
+              </button>
+            </div>
           )}
         </div>
+        <div className="inline-flex shrink-0 items-center">
+          <Tooltip
+            title={
+              visibility === "public"
+                ? "\u516c\u958b\u4e2d"
+                : "\u79c1\u4eba"
+            }
+          >
+            <Switch
+              size="small"
+              checked={visibility === "public"}
+              onChange={(_, checked) =>
+                onVisibilityChange(checked ? "public" : "private")
+              }
+              inputProps={{
+                "aria-label": "\u5207\u63db\u6536\u85cf\u5eab\u516c\u958b\u72c0\u614b",
+              }}
+              sx={{
+                width: 52,
+                height: 32,
+                padding: 0,
+                "& .MuiSwitch-switchBase": {
+                  padding: "4px",
+                  transitionDuration: "200ms",
+                },
+                "& .MuiSwitch-switchBase.Mui-checked": {
+                  transform: "translateX(20px)",
+                  color: "#fff",
+                },
+                "& .MuiSwitch-thumb": {
+                  position: "relative",
+                  width: 24,
+                  height: 24,
+                  boxShadow: "none",
+                  backgroundColor: "var(--mc-text)",
+                  "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    inset: 0,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                    backgroundSize: "16px 16px",
+                    backgroundImage: `url("data:image/svg+xml,${visibility === "public" ? PUBLIC_SWITCH_ICON : PRIVATE_SWITCH_ICON}")`,
+                  },
+                },
+                "& .MuiSwitch-track": {
+                  borderRadius: 999,
+                  backgroundColor: "rgba(148, 163, 184, 0.28)",
+                  opacity: 1,
+                },
+                "& .Mui-checked + .MuiSwitch-track": {
+                  backgroundColor: "var(--mc-accent)",
+                  opacity: 0.65,
+                },
+              }}
+            />
+          </Tooltip>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 px-3 py-1 text-xs text-[var(--mc-text)] transition hover:border-[var(--mc-accent)]/60 hover:bg-[var(--mc-surface-strong)]/60"
-        >
-          <ArrowBackIosNew fontSize="inherit" />
-          返回收藏庫
-        </button>
+
+      {showApplyPlaylistTitle && !isTitleEditing ? (
+        <div className="flex justify-start">
+          <button
+            type="button"
+            onClick={onApplyPlaylistTitle}
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] transition hover:border-[var(--mc-accent)]/60"
+          >
+            {"\u5957\u7528\u64ad\u653e\u6e05\u55ae\u540d\u7a31"}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex w-full flex-wrap items-center gap-2 lg:justify-end">
         <button
           type="button"
           onClick={onCollectionButtonClick}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] hover:border-[var(--mc-accent)]/60"
+          className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] transition hover:border-[var(--mc-accent)]/60 sm:flex-none sm:justify-start"
         >
           <FolderOpenOutlined fontSize="inherit" />
-          收藏庫
+          {"\u6536\u85cf\u5eab"}
           <span className="text-[10px] text-[var(--mc-text-muted)]">
             {collectionCount}
           </span>
@@ -199,80 +320,42 @@ const EditHeader = ({
         <button
           type="button"
           onClick={onPlaylistButtonClick}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] hover:border-[var(--mc-accent)]/60"
+          className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] transition hover:border-[var(--mc-accent)]/60 sm:flex-none sm:justify-start"
         >
-          播放清單
+          {"\u64ad\u653e\u6e05\u55ae"}
           {playlistMenuOpen ? (
             <ExpandLess fontSize="inherit" />
           ) : (
             <ExpandMore fontSize="inherit" />
           )}
         </button>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={
-            <span className="relative inline-flex h-[18px] w-[18px] items-center justify-center overflow-hidden">
-              <ShareRounded
-                fontSize="small"
-                className={`absolute transition-all duration-200 ${
-                  shareCopied ? "scale-75 opacity-0" : "scale-100 opacity-100"
-                }`}
-              />
-              <CheckCircleOutlineRounded
-                fontSize="small"
-                className={`absolute text-cyan-300 transition-all duration-200 ${
-                  shareCopied ? "scale-100 opacity-100" : "scale-75 opacity-0"
-                }`}
-              />
-            </span>
+        <Tooltip
+          title={
+            shareCopied
+              ? "\u5df2\u8907\u88fd\u5206\u4eab\u9023\u7d50"
+              : "\u5206\u4eab\u6536\u85cf\u5eab"
           }
-          onClick={onShare}
-          disabled={shareDisabled}
-          className="shrink-0 !border-[var(--mc-border)] !bg-[var(--mc-surface-strong)]/70 !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60 disabled:!border-[var(--mc-border)]/40 disabled:!bg-[var(--mc-surface)]/40 disabled:!text-[var(--mc-text-muted)] disabled:opacity-70"
         >
-          複製分享連結
-        </Button>
+          <button
+            type="button"
+            onClick={onShare}
+            disabled={shareDisabled}
+            aria-label="\u5206\u4eab\u6536\u85cf\u5eab"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--mc-surface-strong)]/70 text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/90 disabled:cursor-not-allowed disabled:bg-[var(--mc-surface)]/40 disabled:text-[var(--mc-text-muted)] disabled:opacity-70"
+          >
+            <ShareRounded fontSize="small" />
+          </button>
+        </Tooltip>
         <button
           type="button"
           onClick={onAiBatchEditClick}
           disabled={aiBatchDisabled}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] hover:border-[var(--mc-accent)]/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-w-[calc(50%-0.25rem)] items-center justify-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-3 py-1 text-xs text-[var(--mc-text)] transition hover:border-[var(--mc-accent)]/60 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-0"
         >
           <AutoFixHighOutlined fontSize="inherit" />
-          AI 批次修正答案
+          {"AI \u6279\u6b21\u7de8\u8f2f"}
         </button>
-        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 px-2 py-1">
-          <Tooltip title={visibility === "public" ? "公開中" : "私人"}>
-            <span className="inline-flex items-center gap-1 text-xs text-[var(--mc-text)]">
-              {visibility === "public" ? (
-                <PublicOutlined fontSize="small" />
-              ) : (
-                <LockOutlined fontSize="small" />
-              )}
-              {visibility === "public" ? "公開" : "私人"}
-            </span>
-          </Tooltip>
-          <Switch
-            size="small"
-            checked={visibility === "public"}
-            onChange={(_, checked) =>
-              onVisibilityChange(checked ? "public" : "private")
-            }
-            sx={{
-              "& .MuiSwitch-thumb": { backgroundColor: "var(--mc-text)" },
-              "& .MuiSwitch-track": {
-                backgroundColor: "var(--mc-border)",
-                opacity: 1,
-              },
-              "& .Mui-checked + .MuiSwitch-track": {
-                backgroundColor: "var(--mc-accent)",
-                opacity: 0.65,
-              },
-            }}
-          />
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <Button
             variant="outlined"
             size="small"
@@ -280,7 +363,7 @@ const EditHeader = ({
             disabled={isSaving || isReadOnly || !hasUnsavedChanges}
             title={saveError ? `${saveErrorLabel}: ${saveError}` : undefined}
             startIcon={buttonIcon}
-            className="min-w-[120px] w-[120px] shrink-0 justify-center !border-[var(--mc-border)] !bg-[var(--mc-surface-strong)]/70 !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60 disabled:!border-[var(--mc-border)]/40 disabled:!bg-[var(--mc-surface)]/40 disabled:!text-[var(--mc-text-muted)] disabled:opacity-70"
+            className="!h-9 w-full shrink-0 justify-center !border-[var(--mc-border)] !bg-[var(--mc-surface-strong)]/70 !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60 disabled:!border-[var(--mc-border)]/40 disabled:!bg-[var(--mc-surface)]/40 disabled:!text-[var(--mc-text-muted)] disabled:opacity-70 sm:!h-auto sm:min-w-[120px] sm:w-[120px]"
             sx={{
               "& .MuiButton-startIcon": {
                 marginLeft: 0,
