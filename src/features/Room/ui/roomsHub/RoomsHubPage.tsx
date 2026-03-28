@@ -377,7 +377,15 @@ const RoomsHubPage: React.FC = () => {
     return () => {
       isActive = false;
     };
-  }, [guideMode, joinEntryTab, normalizedDirectRoomCode]);
+  }, [
+    guideMode,
+    joinEntryTab,
+    normalizedDirectRoomCode,
+    setDirectJoinError,
+    setDirectJoinLoading,
+    setDirectJoinNeedsPassword,
+    setDirectJoinPreviewRoom,
+  ]);
 
   const canUseGoogleLibraries = Boolean(authUser);
     const filteredJoinRooms = useMemo(() => {
@@ -399,7 +407,7 @@ const RoomsHubPage: React.FC = () => {
       return bTs - aTs;
     });
     return next;
-  }, [isRoomCurrentlyPlaying, joinPasswordFilter, joinSortMode, joinStatusFilter, rooms]);
+  }, [joinPasswordFilter, joinSortMode, joinStatusFilter, rooms]);
   const filteredJoinPlayerTotal = useMemo(
     () =>
       filteredJoinRooms.reduce(
@@ -845,6 +853,7 @@ const RoomsHubPage: React.FC = () => {
     createLibrarySearch,
     fetchCollections,
     fetchYoutubePlaylists,
+    previousCreateLibraryTabRef,
     publicCollectionsSort,
     youtubePlaylists.length,
     youtubePlaylistsLoading,

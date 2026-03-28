@@ -610,12 +610,7 @@ const EditPage = () => {
         "Items to normalize:",
         aiPromptPayload,
       ].join("\n"),
-    [
-      aiBatchPageIndex,
-      aiPromptPages.length,
-      aiPromptPayload,
-      currentAiPromptPage,
-    ],
+    [aiPromptPayload],
   );
   const aiPromptUrl = useMemo(() => {
     const encoded = encodeURIComponent(aiPromptText);

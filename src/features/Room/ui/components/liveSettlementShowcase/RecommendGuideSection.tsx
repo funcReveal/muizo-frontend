@@ -1,5 +1,5 @@
-import React from "react";
-import { IconButton, Tooltip } from "@mui/material";
+﻿import React from "react";
+import { IconButton, Popover, Tooltip } from "@mui/material";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
 import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
@@ -9,6 +9,9 @@ import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
 import SmartDisplayRoundedIcon from "@mui/icons-material/SmartDisplayRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import YouTubeIcon from "@mui/icons-material/YouTube";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import QueueMusicRoundedIcon from "@mui/icons-material/QueueMusicRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 
 import type { RecommendCategory } from "../liveSettlementUtils";
 
@@ -222,23 +225,26 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   onGoPrevRecommendation,
   onGoNextRecommendation,
 }) => {
+  const [autoGuideHelpAnchor, setAutoGuideHelpAnchor] =
+    React.useState<HTMLElement | null>(null);
   const youtubeOverlayTitle = "如果喜歡這首音樂，別忘了到 YouTube 支持創作者喲！";
   const currentCard = currentRecommendation;
-  const shouldKeepLivePreviewVisible =
-    currentRecommendationPreviewUrl !== null &&
-    (isCurrentRecommendationPreviewOpen || previewPlayerState === "playing");
+  const shouldKeepLivePreviewVisible = currentRecommendationPreviewUrl !== null;
   const showPreviewCover =
     previewPlayerState !== "playing" &&
-    (shouldShowPreviewOverlay || !shouldKeepLivePreviewVisible);
+    (previewPlayerState === "paused" ||
+      shouldShowPreviewOverlay ||
+      !shouldKeepLivePreviewVisible);
 
   return (
     <section
       ref={recommendSectionRef}
-      className={`rounded-[30px] border p-5 transition-colors duration-300 ${activeCategoryTheme.shellClass}`}
+      className={`rounded-[22px] border p-3 transition-colors duration-300 lg:p-3.5 ${activeCategoryTheme.shellClass}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
+            <AutoAwesomeRoundedIcon className="text-[1.35rem] text-cyan-200" />
             <h3 className="text-[2rem] font-black tracking-tight text-white">推薦導覽</h3>
             <Tooltip title={recommendControlsTooltip} arrow>
               <IconButton
@@ -255,19 +261,46 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           </p>
         </div>
 
-        <button
-          type="button"
-          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-            autoPreviewEnabled
-              ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-50"
-              : "border-slate-600/70 bg-slate-900/68 text-slate-300 hover:border-slate-400"
-          }`}
-          onClick={onToggleAutoPreview}
-        >
-          <GraphicEqRoundedIcon className="text-[1rem]" />
-          自動導覽 {autoPreviewEnabled ? "ON" : "OFF"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
+              autoPreviewEnabled
+                ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-50"
+                : "border-slate-600/70 bg-slate-900/68 text-slate-300 hover:border-slate-400"
+            }`}
+            onClick={onToggleAutoPreview}
+          >
+            <GraphicEqRoundedIcon className="text-[1rem]" />
+            自動導覽 {autoPreviewEnabled ? "ON" : "OFF"}
+          </button>
+          <button
+            type="button"
+            aria-label="查看自動導覽說明"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/35 bg-cyan-500/10 text-cyan-100 transition hover:border-cyan-200/55 hover:bg-cyan-500/16"
+            onClick={(event) =>
+              setAutoGuideHelpAnchor((current) =>
+                current === event.currentTarget ? null : event.currentTarget,
+              )
+            }
+          >
+            <HelpOutlineRoundedIcon className="text-[1rem]" />
+          </button>
+        </div>
       </div>
+      <Popover
+        open={Boolean(autoGuideHelpAnchor)}
+        anchorEl={autoGuideHelpAnchor}
+        onClose={() => setAutoGuideHelpAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        PaperProps={{
+          className:
+            "!mt-2 !max-w-[300px] !rounded-[18px] !border !border-cyan-300/24 !bg-[linear-gradient(180deg,rgba(7,24,34,0.96),rgba(4,13,24,0.98))] !px-4 !py-3 !text-sm !text-cyan-50/92 !shadow-[0_22px_44px_-24px_rgba(34,211,238,0.55)]",
+        }}
+      >
+        開啟後會依目前分類自動切換推薦題，並同步播放預覽片段；關閉後改為手動挑題與手動播放。
+      </Popover>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {CATEGORY_META.map((item) => {
@@ -308,7 +341,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           目前沒有可顯示的推薦題目。
         </div>
       ) : (
-        <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.58fr)_minmax(340px,0.9fr)]">
+        <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.72fr)_minmax(360px,0.88fr)]">
           <article
             key={recommendationTransitionKey}
             className={`flex h-[760px] min-w-0 flex-col rounded-[28px] border p-5 transition-colors duration-300 ${activeCategoryTheme.sectionClass}`}
@@ -533,7 +566,10 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="shrink-0">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">題目清單</p>
+                  <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-slate-400">
+                    <QueueMusicRoundedIcon className="text-[1rem] text-cyan-200" />
+                    題目清單
+                  </p>
                   <p className="mt-1 whitespace-nowrap text-[1.95rem] font-black leading-none text-white">
                     {recommendationCards.length === 0
                       ? "0 / 0"
@@ -550,6 +586,9 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     上一位
                   </button>
                   <span className="truncate px-2 text-center text-[11px] font-semibold text-sky-100">
+                    <span className="mr-1 inline-flex align-middle text-cyan-200">
+                      <GroupsRoundedIcon className="text-[0.95rem]" />
+                    </span>
                     {selectedReviewParticipantLabel}
                   </span>
                   <button

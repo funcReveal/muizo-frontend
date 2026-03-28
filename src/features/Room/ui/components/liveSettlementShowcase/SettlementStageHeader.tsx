@@ -37,27 +37,20 @@ const MetaPill = ({
   icon,
   label,
   accentClass,
-  barClass,
   compact = false,
 }: {
   icon: React.ReactNode;
   label: string;
   accentClass: string;
-  barClass: string;
   compact?: boolean;
 }) => (
   <div
-    className={`inline-flex items-center gap-2 rounded-full border border-white/8 bg-[linear-gradient(180deg,rgba(19,26,40,0.92),rgba(10,14,24,0.98))] pl-2 pr-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_-18px_rgba(2,6,23,0.9)] backdrop-blur-sm ${compact ? "py-1" : "py-1.5"}`}
+    className={`inline-flex items-center gap-2 rounded-full border border-white/6 bg-[linear-gradient(180deg,rgba(16,21,31,0.78),rgba(8,12,20,0.9))] pl-2 pr-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_-20px_rgba(2,6,23,0.82)] backdrop-blur-sm ${compact ? "py-1" : "py-1.5"}`}
   >
     <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.04)] ${accentClass}`}>
       {icon}
     </span>
     <span className={`${compact ? "text-[10.5px]" : "text-[11px]"} font-semibold tracking-[0.03em] text-slate-100`}>{label}</span>
-    <span className="ml-1 inline-flex h-5 items-end gap-0.5 opacity-85">
-      <span className={`w-1 rounded-full ${barClass} ${compact ? "h-1.5" : "h-2"}`} />
-      <span className={`w-1 rounded-full ${barClass} ${compact ? "h-2.5" : "h-3"}`} />
-      <span className={`w-1 rounded-full ${barClass} ${compact ? "h-4" : "h-4"}`} />
-    </span>
   </div>
 );
 
@@ -118,14 +111,12 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
               icon={<QuizRoundedIcon sx={{ fontSize: 14 }} />}
               label={`題數 ${playedQuestionCount}`}
               accentClass="bg-amber-400/16 text-amber-100"
-              barClass="bg-amber-300/80"
             />
             <MetaPill
               compact
               icon={<Groups2RoundedIcon sx={{ fontSize: 14 }} />}
               label={`玩家 ${participantsLength}`}
               accentClass="bg-sky-400/16 text-sky-100"
-              barClass="bg-sky-300/80"
             />
             {mobileMetaExpanded && elapsedLabel && (
               <MetaPill
@@ -133,7 +124,6 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
                 icon={<TimerRoundedIcon sx={{ fontSize: 14 }} />}
                 label={`局長 ${elapsedLabel}`}
                 accentClass="bg-emerald-400/16 text-emerald-100"
-                barClass="bg-emerald-300/80"
               />
             )}
             {mobileMetaExpanded && settlementTimeChipLabel && (
@@ -142,7 +132,6 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
                 icon={<EventRoundedIcon sx={{ fontSize: 14 }} />}
                 label={settlementTimeChipLabel}
                 accentClass="bg-violet-400/14 text-violet-100"
-                barClass="bg-violet-300/80"
               />
             )}
             <button
@@ -159,20 +148,17 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
               icon={<QuizRoundedIcon sx={{ fontSize: 15 }} />}
               label={`題數 ${playedQuestionCount}`}
               accentClass="bg-amber-400/16 text-amber-100"
-              barClass="bg-amber-300/80"
             />
             <MetaPill
               icon={<Groups2RoundedIcon sx={{ fontSize: 15 }} />}
               label={`玩家 ${participantsLength}`}
               accentClass="bg-sky-400/16 text-sky-100"
-              barClass="bg-sky-300/80"
             />
             {elapsedLabel && (
               <MetaPill
                 icon={<TimerRoundedIcon sx={{ fontSize: 15 }} />}
                 label={`局長 ${elapsedLabel}`}
                 accentClass="bg-emerald-400/16 text-emerald-100"
-                barClass="bg-emerald-300/80"
               />
             )}
             {settlementTimeChipLabel && (
@@ -180,7 +166,6 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
                 icon={<EventRoundedIcon sx={{ fontSize: 15 }} />}
                 label={settlementTimeChipLabel}
                 accentClass="bg-violet-400/14 text-violet-100"
-                barClass="bg-violet-300/80"
               />
             )}
           </div>

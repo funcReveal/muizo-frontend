@@ -59,13 +59,13 @@ export const RECOMMEND_CATEGORY_THEME: Record<
 > = {
   quick: {
     shellClass:
-      "border-emerald-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(16,185,129,0.24),transparent_48%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(3,16,28,0.94))] shadow-[0_28px_60px_-44px_rgba(16,185,129,0.72)]",
+      "border-emerald-300/14 bg-[radial-gradient(circle_at_4%_0%,rgba(16,185,129,0.14),transparent_40%),linear-gradient(160deg,rgba(2,6,23,0.93),rgba(3,16,28,0.9))] shadow-[0_18px_40px_-42px_rgba(16,185,129,0.28)]",
     sectionClass:
-      "border-emerald-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.16),0_25px_55px_-45px_rgba(16,185,129,0.55)]",
+      "border-emerald-300/12 bg-gradient-to-br from-slate-950/74 via-slate-950/56 to-slate-900/72 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.05),0_18px_34px_-40px_rgba(16,185,129,0.18)]",
     asideClass:
-      "border-emerald-300/30 bg-[linear-gradient(180deg,rgba(5,24,37,0.92),rgba(2,12,23,0.95))]",
+      "border-emerald-300/12 bg-[linear-gradient(180deg,rgba(5,24,37,0.86),rgba(2,12,23,0.91))]",
     drawerClass:
-      "border-emerald-300/38 bg-[linear-gradient(180deg,rgba(6,26,37,0.9),rgba(2,14,26,0.94))]",
+      "border-emerald-300/12 bg-[linear-gradient(180deg,rgba(6,26,37,0.82),rgba(2,14,26,0.88))]",
     controlGroupClass:
       "border-emerald-300/42 bg-emerald-500/12 shadow-[0_10px_24px_-16px_rgba(16,185,129,0.86)]",
     listActiveClass: "border-emerald-300/50 bg-emerald-400/10",
@@ -76,13 +76,13 @@ export const RECOMMEND_CATEGORY_THEME: Record<
   },
   confuse: {
     shellClass:
-      "border-fuchsia-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(217,70,239,0.24),transparent_48%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(19,8,34,0.94))] shadow-[0_28px_60px_-44px_rgba(217,70,239,0.72)]",
+      "border-fuchsia-300/14 bg-[radial-gradient(circle_at_4%_0%,rgba(217,70,239,0.14),transparent_40%),linear-gradient(160deg,rgba(2,6,23,0.93),rgba(19,8,34,0.9))] shadow-[0_18px_40px_-42px_rgba(217,70,239,0.28)]",
     sectionClass:
-      "border-fuchsia-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.16),0_25px_55px_-45px_rgba(217,70,239,0.55)]",
+      "border-fuchsia-300/12 bg-gradient-to-br from-slate-950/74 via-slate-950/56 to-slate-900/72 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.05),0_18px_34px_-40px_rgba(217,70,239,0.18)]",
     asideClass:
-      "border-fuchsia-300/30 bg-[linear-gradient(180deg,rgba(33,10,43,0.92),rgba(18,8,30,0.95))]",
+      "border-fuchsia-300/12 bg-[linear-gradient(180deg,rgba(33,10,43,0.86),rgba(18,8,30,0.91))]",
     drawerClass:
-      "border-fuchsia-300/38 bg-[linear-gradient(180deg,rgba(36,10,44,0.9),rgba(18,8,31,0.94))]",
+      "border-fuchsia-300/12 bg-[linear-gradient(180deg,rgba(36,10,44,0.82),rgba(18,8,31,0.88))]",
     controlGroupClass:
       "border-fuchsia-300/42 bg-fuchsia-500/12 shadow-[0_10px_24px_-16px_rgba(217,70,239,0.86)]",
     listActiveClass: "border-fuchsia-300/50 bg-fuchsia-400/10",
@@ -93,13 +93,13 @@ export const RECOMMEND_CATEGORY_THEME: Record<
   },
   hard: {
     shellClass:
-      "border-amber-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(251,191,36,0.25),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(34,20,6,0.94))] shadow-[0_28px_60px_-44px_rgba(251,191,36,0.76)]",
+      "border-amber-300/14 bg-[radial-gradient(circle_at_4%_0%,rgba(251,191,36,0.14),transparent_42%),linear-gradient(160deg,rgba(2,6,23,0.93),rgba(34,20,6,0.9))] shadow-[0_18px_40px_-42px_rgba(251,191,36,0.28)]",
     sectionClass:
-      "border-amber-300/35 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-slate-900/78 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.16),0_25px_55px_-45px_rgba(251,191,36,0.55)]",
+      "border-amber-300/12 bg-gradient-to-br from-slate-950/74 via-slate-950/56 to-slate-900/72 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.05),0_18px_34px_-40px_rgba(251,191,36,0.18)]",
     asideClass:
-      "border-amber-300/30 bg-[linear-gradient(180deg,rgba(39,23,8,0.92),rgba(24,14,4,0.95))]",
+      "border-amber-300/12 bg-[linear-gradient(180deg,rgba(39,23,8,0.86),rgba(24,14,4,0.91))]",
     drawerClass:
-      "border-amber-300/38 bg-[linear-gradient(180deg,rgba(42,24,9,0.9),rgba(26,15,5,0.94))]",
+      "border-amber-300/12 bg-[linear-gradient(180deg,rgba(42,24,9,0.82),rgba(26,15,5,0.88))]",
     controlGroupClass:
       "border-amber-300/42 bg-amber-500/12 shadow-[0_10px_24px_-16px_rgba(251,191,36,0.86)]",
     listActiveClass: "border-amber-300/50 bg-amber-400/10",
@@ -110,13 +110,13 @@ export const RECOMMEND_CATEGORY_THEME: Record<
   },
   other: {
     shellClass:
-      "border-indigo-300/45 bg-[radial-gradient(circle_at_4%_0%,rgba(99,102,241,0.25),transparent_50%),linear-gradient(160deg,rgba(2,6,23,0.96),rgba(8,14,40,0.94))] shadow-[0_28px_60px_-44px_rgba(99,102,241,0.68)]",
+      "border-indigo-300/14 bg-[radial-gradient(circle_at_4%_0%,rgba(99,102,241,0.14),transparent_42%),linear-gradient(160deg,rgba(2,6,23,0.93),rgba(8,14,40,0.9))] shadow-[0_18px_40px_-42px_rgba(99,102,241,0.26)]",
     sectionClass:
-      "border-indigo-300/30 bg-gradient-to-br from-slate-950/78 via-slate-950/62 to-indigo-950/45 shadow-[inset_0_0_0_1px_rgba(129,140,248,0.22),0_25px_55px_-45px_rgba(99,102,241,0.55)]",
+      "border-indigo-300/12 bg-gradient-to-br from-slate-950/74 via-slate-950/56 to-indigo-950/40 shadow-[inset_0_0_0_1px_rgba(129,140,248,0.05),0_18px_34px_-40px_rgba(99,102,241,0.16)]",
     asideClass:
-      "border-indigo-300/30 bg-[linear-gradient(180deg,rgba(11,18,52,0.92),rgba(8,10,30,0.95))]",
+      "border-indigo-300/12 bg-[linear-gradient(180deg,rgba(11,18,52,0.86),rgba(8,10,30,0.91))]",
     drawerClass:
-      "border-indigo-300/38 bg-[linear-gradient(180deg,rgba(14,21,56,0.9),rgba(9,12,35,0.94))]",
+      "border-indigo-300/12 bg-[linear-gradient(180deg,rgba(14,21,56,0.82),rgba(9,12,35,0.88))]",
     controlGroupClass:
       "border-indigo-300/42 bg-indigo-500/12 shadow-[0_10px_24px_-16px_rgba(99,102,241,0.86)]",
     listActiveClass: "border-indigo-300/55 bg-indigo-400/12",
@@ -141,6 +141,11 @@ export const PERFORMANCE_GRADE_META: Record<
   SongPerformanceGrade,
   { badgeClass: string; detailClass: string }
 > = {
+  SS: {
+    badgeClass:
+      "border-amber-200/80 bg-[linear-gradient(135deg,rgba(251,191,36,0.34),rgba(250,204,21,0.2))] text-amber-50 shadow-[0_0_0_1px_rgba(251,191,36,0.22),0_16px_34px_-18px_rgba(251,191,36,0.82)]",
+    detailClass: "text-amber-100",
+  },
   S: {
     badgeClass: "border-emerald-200/65 bg-emerald-500/28 text-emerald-50",
     detailClass: "text-emerald-100",

@@ -1,4 +1,4 @@
-import type { SettlementQuestionRecap } from "./GameSettlementPanel";
+﻿import type { SettlementQuestionRecap } from "./GameSettlementPanel";
 
 export type RecommendCategory = "quick" | "confuse" | "hard" | "other";
 
@@ -10,7 +10,7 @@ export const RECOMMEND_CATEGORY_FLOW: RecommendCategory[] = [
 ];
 
 export type SongPerformanceResult = "correct" | "wrong" | "unanswered";
-export type SongPerformanceGrade = "S" | "A" | "B" | "C" | "D" | "E";
+export type SongPerformanceGrade = "SS" | "S" | "A" | "B" | "C" | "D" | "E";
 export type RecapPreviewInteractionSource = "click" | "doubleClick";
 export type RecapPreviewPlaybackMode = "idle" | "auto" | "manual";
 
@@ -31,11 +31,26 @@ export type SongPerformanceScore = {
   difficultyNorm: number;
 };
 
+export type SongPerformanceScoreSegment = {
+  key: "base" | "rank" | "speed" | "difficulty";
+  label: string;
+  value: number;
+  max: number;
+  color: string;
+};
+
 export const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+type ResolvedSongPerformanceMetrics = {
+  rankNorm: number;
+  speedNorm: number;
+  difficultyNorm: number;
+};
 
 export const resolveSongPerformanceGrade = (
   score: number,
 ): SongPerformanceGrade => {
+  if (score >= 100) return "SS";
   if (score >= 90) return "S";
   if (score >= 78) return "A";
   if (score >= 64) return "B";
@@ -44,9 +59,9 @@ export const resolveSongPerformanceGrade = (
   return "E";
 };
 
-export const calculateSongPerformanceScore = (
+const resolveSongPerformanceMetrics = (
   input: SongPerformanceScoreInput,
-): SongPerformanceScore => {
+): ResolvedSongPerformanceMetrics => {
   const participantCount = Math.max(1, Math.floor(input.participantCount));
   const validAnswerWindowMs = Math.max(
     1,
@@ -77,16 +92,22 @@ export const calculateSongPerformanceScore = (
       : clamp01(1 - answeredAtMs / Math.max(1, validAnswerWindowMs));
   const difficultyNorm = clamp01(1 - correctRate);
 
-  let rawScore = 0;
-  if (input.result === "correct") {
-    rawScore = 55 + rankNorm * 20 + speedNorm * 15 + difficultyNorm * 10;
-  } else if (input.result === "wrong") {
-    rawScore = 18 + rankNorm * 8 + speedNorm * 7 + difficultyNorm * 4;
-  } else {
-    rawScore = difficultyNorm * 6;
-  }
+  return {
+    rankNorm,
+    speedNorm,
+    difficultyNorm,
+  };
+};
 
-  const score = Math.round(Math.max(0, Math.min(100, rawScore)));
+export const calculateSongPerformanceScore = (
+  input: SongPerformanceScoreInput,
+): SongPerformanceScore => {
+  const { rankNorm, speedNorm, difficultyNorm } =
+    resolveSongPerformanceMetrics(input);
+  const score = resolveSongPerformanceSegments(input).reduce(
+    (sum, segment) => sum + segment.value,
+    0,
+  );
   return {
     score,
     grade: resolveSongPerformanceGrade(score),
@@ -94,6 +115,110 @@ export const calculateSongPerformanceScore = (
     speedNorm,
     difficultyNorm,
   };
+};
+
+export const resolveSongPerformanceSegments = (
+  input: SongPerformanceScoreInput,
+): SongPerformanceScoreSegment[] => {
+  const { rankNorm, speedNorm, difficultyNorm } =
+    resolveSongPerformanceMetrics(input);
+
+  if (input.result === "correct") {
+    return [
+      {
+        key: "base",
+        label: "答對",
+        value: 60,
+        max: 60,
+        color: "#f5b318",
+      },
+      {
+        key: "rank",
+        label: "搶答",
+        value: Math.round(rankNorm * 20),
+        max: 20,
+        color: "#5ea4ff",
+      },
+      {
+        key: "speed",
+        label: "速度",
+        value: Math.round(speedNorm * 20),
+        max: 20,
+        color: "#2dd4bf",
+      },
+      {
+        key: "difficulty",
+        label: "難度",
+        value: 0,
+        max: 0,
+        color: "#f472b6",
+      },
+    ];
+  }
+
+  if (input.result === "wrong") {
+    return [
+      {
+        key: "base",
+        label: "作答",
+        value: 8,
+        max: 8,
+        color: "#fb7185",
+      },
+      {
+        key: "rank",
+        label: "搶答",
+        value: Math.round(rankNorm * 8),
+        max: 8,
+        color: "#5ea4ff",
+      },
+      {
+        key: "speed",
+        label: "速度",
+        value: Math.round(speedNorm * 9),
+        max: 9,
+        color: "#2dd4bf",
+      },
+      {
+        key: "difficulty",
+        label: "難度",
+        value: Math.round(difficultyNorm * 5),
+        max: 5,
+        color: "#f472b6",
+      },
+    ];
+  }
+
+  return [
+    {
+      key: "base",
+      label: "作答",
+      value: 0,
+      max: 0,
+      color: "#64748b",
+    },
+    {
+      key: "rank",
+      label: "搶答",
+      value: 0,
+      max: 0,
+      color: "#5ea4ff",
+    },
+    {
+      key: "speed",
+      label: "速度",
+      value: 0,
+      max: 0,
+      color: "#2dd4bf",
+    },
+    {
+      key: "difficulty",
+      label: "難度",
+      value: Math.round(difficultyNorm * 4),
+      max: 4,
+      color: "#f472b6",
+    },
+  ];
 };
 
 type RecapAnswer = SettlementQuestionRecap["answersByClientId"] extends
@@ -161,6 +286,29 @@ export const resolveAverageCorrectMs = (
   if (values.length <= 0) return null;
   const total = values.reduce((sum, value) => sum + value, 0);
   return Math.round(total / values.length);
+};
+
+export const resolveMedianCorrectMs = (
+  answersByClientId?: Record<string, RecapAnswer>,
+): number | null => {
+  if (!answersByClientId) return null;
+  const values = Object.values(answersByClientId)
+    .filter((answer) => answer?.result === "correct")
+    .map((answer) =>
+      typeof answer.answeredAtMs === "number" &&
+      Number.isFinite(answer.answeredAtMs) &&
+      answer.answeredAtMs >= 0
+        ? Math.floor(answer.answeredAtMs)
+        : null,
+    )
+    .filter((value): value is number => value !== null)
+    .sort((a, b) => a - b);
+  if (values.length <= 0) return null;
+  const middleIndex = Math.floor(values.length / 2);
+  if (values.length % 2 === 1) {
+    return values[middleIndex];
+  }
+  return Math.round((values[middleIndex - 1] + values[middleIndex]) / 2);
 };
 
 export const distributeRecommendationCards = <T extends { recap: { key: string } }>(
@@ -276,7 +424,7 @@ const normalizeTimingMs = (value: number | null | undefined) => {
 };
 
 export type SpeedComparisonInsight = {
-  label: "你比大家快多少";
+  label: "比中位快慢";
   value: string;
   deltaMs: number | null;
   answeredMs: number | null;
@@ -295,7 +443,7 @@ export const resolveSpeedComparisonInsight = (
   if (answeredMs !== null && averageMs !== null) {
     const deltaMs = averageMs - answeredMs;
     return {
-      label: "你比大家快多少",
+      label: "比中位快慢",
       value: `${deltaMs >= 0 ? "+" : "-"}${formatMs(Math.abs(deltaMs))}`,
       deltaMs,
       answeredMs,
@@ -303,11 +451,12 @@ export const resolveSpeedComparisonInsight = (
     };
   }
   return {
-    label: "你比大家快多少",
+    label: "比中位快慢",
     value: "--",
     deltaMs: null,
     answeredMs,
     averageMs,
   };
 };
+
 

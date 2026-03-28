@@ -12,7 +12,7 @@ interface StartBroadcastOverlayPortalProps {
   startCountdownSec: number;
 }
 
-export const AudioGestureOverlayPortal: React.FC<AudioGestureOverlayPortalProps> = ({
+export const AudioGestureOverlayPortal: React.FC<AudioGestureOverlayPortalProps> = React.memo(({
   visible,
   isPlayerReady,
   onTrigger,
@@ -47,9 +47,9 @@ export const AudioGestureOverlayPortal: React.FC<AudioGestureOverlayPortalProps>
     </div>,
     document.body,
   );
-};
+});
 
-export const StartBroadcastOverlayPortal: React.FC<StartBroadcastOverlayPortalProps> = ({
+export const StartBroadcastOverlayPortal: React.FC<StartBroadcastOverlayPortalProps> = React.memo(({
   visible,
   startCountdownSec,
 }) => {
@@ -71,4 +71,4 @@ export const StartBroadcastOverlayPortal: React.FC<StartBroadcastOverlayPortalPr
     </div>,
     document.body,
   );
-};
+});

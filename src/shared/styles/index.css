@@ -3,7 +3,7 @@
   src: url("/fonts/jf-openhuninn-2.1.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 
 :root {
@@ -3308,7 +3308,7 @@ body {
   height: 100%;
   border-radius: 999px;
   object-fit: cover;
-  transform: scale(1.35);
+  transform: scale(1.16);
   transform-origin: center;
   filter: saturate(0.94) brightness(0.78) contrast(1.04);
 }
@@ -3400,6 +3400,12 @@ body {
   animation-timing-function: linear;
   animation-fill-mode: forwards;
   will-change: transform, opacity;
+}
+
+@media (max-width: 1023.95px) {
+  .game-room-danmu-item {
+    backdrop-filter: none;
+  }
 }
 
 .game-room-playback-mask {
@@ -3544,6 +3550,7 @@ body {
     transparent 70%
   );
   transform: translateX(-16%);
+  will-change: transform, opacity;
   animation: game-room-score-row-energy 3.4s ease-in-out infinite;
 }
 
@@ -5236,22 +5243,34 @@ body {
   border-radius: 999px;
 }
 
-.game-room-phase-progress-bar.MuiLinearProgress-root {
+.game-room-phase-progress-bar {
   border-radius: 999px;
   background-color: rgba(30, 41, 59, 0.82);
   overflow: hidden;
+  height: 4px;
 }
 
-.game-room-phase-progress-bar .MuiLinearProgress-bar {
-  transition: transform 120ms linear;
+.game-room-phase-progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.game-room-phase-progress-bar-fill--guess {
+  background-color: #f59e0b;
+}
+
+.game-room-phase-progress-bar-fill--reveal {
+  background-color: #22c55e;
 }
 
 .game-room-phase-progress--urgent
-  .game-room-phase-progress-bar.MuiLinearProgress-root {
+  .game-room-phase-progress-bar {
   box-shadow: 0 0 28px -4px rgba(248, 113, 113, 0.4);
 }
 
-.game-room-phase-progress--urgent .MuiLinearProgress-bar {
+.game-room-phase-progress--urgent .game-room-phase-progress-bar-fill {
   animation: game-room-urgent-bar 0.5s ease-in-out infinite;
 }
 
@@ -9930,7 +9949,7 @@ body {
     padding-top: 3px;
   }
 
-  .game-room-answer-layout--guess .game-room-phase-progress-bar.MuiLinearProgress-root {
+  .game-room-answer-layout--guess .game-room-phase-progress-bar {
     min-height: 6px;
     border-radius: 999px;
     background: rgba(20, 29, 42, 0.58);
@@ -10077,12 +10096,12 @@ body {
     rgba(23, 8, 12, 0.36);
 }
 
-.game-room-phase-progress-bar.MuiLinearProgress-root {
+.game-room-phase-progress-bar {
   background-color: rgba(19, 27, 39, 0.22);
   box-shadow: none;
 }
 
-.game-room-phase-progress-bar .MuiLinearProgress-bar {
+.game-room-phase-progress-bar-fill--guess {
   background: linear-gradient(
     90deg,
     rgba(245, 158, 11, 0.9),
@@ -10146,7 +10165,7 @@ body {
 }
 
 .game-settlement-stage {
-  --gs-border: rgba(245, 158, 11, 0.2);
+  --gs-border: rgba(255, 255, 255, 0.08);
   background:
     radial-gradient(
       720px 280px at 10% 0%,
@@ -10159,7 +10178,7 @@ body {
       transparent 62%
     ),
     linear-gradient(180deg, rgba(8, 10, 15, 0.96), rgba(5, 7, 11, 0.98));
-  border-color: rgba(245, 158, 11, 0.18);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .game-settlement-stage::before {
@@ -11040,7 +11059,7 @@ body {
 }
 
 .game-settlement-surface-card {
-  border-color: rgba(148, 163, 184, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
   background:
     radial-gradient(
       320px 160px at 90% 0%,
@@ -11050,7 +11069,7 @@ body {
     linear-gradient(180deg, rgba(9, 12, 18, 0.84), rgba(7, 10, 15, 0.9)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
-    0 18px 34px -28px rgba(0, 0, 0, 0.9);
+    0 14px 28px -26px rgba(0, 0, 0, 0.82);
 }
 
 .game-settlement-hero-card {
@@ -12551,8 +12570,7 @@ body {
 }
 
 .game-room-answer-layout--combo-live
-  .game-room-phase-progress-bar
-  .MuiLinearProgress-bar {
+  .game-room-phase-progress-bar-fill {
   background: linear-gradient(
     90deg,
     rgba(45, 212, 191, 0.92),
@@ -12579,8 +12597,7 @@ body {
 }
 
 .game-room-answer-layout--combo-tier-6
-  .game-room-phase-progress-bar
-  .MuiLinearProgress-bar {
+  .game-room-phase-progress-bar-fill {
   background: linear-gradient(
     90deg,
     rgba(251, 113, 133, 0.96),
@@ -12589,8 +12606,7 @@ body {
 }
 
 .game-room-answer-layout--combo-tier-7
-  .game-room-phase-progress-bar
-  .MuiLinearProgress-bar {
+  .game-room-phase-progress-bar-fill {
   background: linear-gradient(
     90deg,
     rgba(248, 113, 113, 0.98),
@@ -12599,8 +12615,7 @@ body {
 }
 
 .game-room-answer-layout--combo-tier-8
-  .game-room-phase-progress-bar
-  .MuiLinearProgress-bar {
+  .game-room-phase-progress-bar-fill {
   background: linear-gradient(
     90deg,
     rgba(251, 191, 36, 1),
@@ -12609,8 +12624,7 @@ body {
 }
 
 .game-room-answer-layout--combo-tier-9
-  .game-room-phase-progress-bar
-  .MuiLinearProgress-bar {
+  .game-room-phase-progress-bar-fill {
   background: linear-gradient(
     90deg,
     rgba(103, 232, 249, 1),
@@ -12619,8 +12633,7 @@ body {
 }
 
 .game-room-answer-layout--combo-tier-10
-  .game-room-phase-progress-bar
-  .MuiLinearProgress-bar {
+  .game-room-phase-progress-bar-fill {
   background: linear-gradient(
     90deg,
     rgba(255, 214, 10, 1),
@@ -14370,7 +14383,7 @@ body {
     gap: 10px;
   }
 
-  .game-room-phase-progress-bar.MuiLinearProgress-root {
+  .game-room-phase-progress-bar {
     min-height: 5px;
   }
 

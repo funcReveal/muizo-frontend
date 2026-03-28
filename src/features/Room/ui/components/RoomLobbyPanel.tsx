@@ -1008,7 +1008,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     async (nextValue: boolean) => {
       if (!isHost || sharePermissionSaving) return;
       setSharePermissionSaving(true);
-      const ok = await onUpdateRoomSettings({
+      await onUpdateRoomSettings({
         allowParticipantInvite: nextValue,
       });
       setSharePermissionSaving(false);

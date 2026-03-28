@@ -1022,7 +1022,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     }
     setStatusText("\u5ef6\u9577\u64ad\u653e\u6295\u7968\u672a\u901a\u904e\uff0c\u672c\u984c\u7dad\u6301\u539f\u64ad\u653e\u9577\u5ea6");
   }, [
-    isManualPlaybackExtensionMode,
     playbackExtensionVote,
     playbackVoteResolvedSeconds,
     setStatusText,

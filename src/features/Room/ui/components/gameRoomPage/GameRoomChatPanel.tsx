@@ -21,20 +21,32 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
 }) => {
   const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
   const isSheet = variant === "sheet";
-  const timeCacheRef = React.useRef(new Map<string, { shortTime: string; fullTime: string }>());
-  const renderedMessages = React.useMemo(() => {
-    const cache = timeCacheRef.current;
-    return recentMessages.map((msg) => {
-      let times = cache.get(msg.id);
-      if (!times) {
-        const date = new Date(msg.timestamp);
-        times = {
-          shortTime: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          fullTime: date.toLocaleTimeString(),
-        };
-        cache.set(msg.id, times);
+
+  const handleDanmuChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => onDanmuEnabledChange(event.target.checked),
+    [onDanmuEnabledChange],
+  );
+  const handleInputChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setMessageInput(e.target.value),
+    [setMessageInput],
+  );
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSendMessage();
       }
-      return { ...msg, ...times };
+    },
+    [handleSendMessage],
+  );
+  const renderedMessages = React.useMemo(() => {
+    return recentMessages.map((msg) => {
+      const date = new Date(msg.timestamp);
+      return {
+        ...msg,
+        shortTime: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        fullTime: date.toLocaleTimeString(),
+      };
     });
   }, [recentMessages]);
 
@@ -54,7 +66,7 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
             size="small"
             color="info"
             checked={danmuEnabled}
-            onChange={(event) => onDanmuEnabledChange(event.target.checked)}
+            onChange={handleDanmuChange}
           />
           <span className="text-[11px] text-slate-500">{danmuEnabled ? "開啟" : "關閉"}</span>
         </div>
@@ -114,13 +126,8 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
           className="game-room-chat-input-field flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100 focus:border-sky-500 focus:outline-none"
           placeholder="輸入訊息..."
           value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
         />
         <Button
           variant="contained"

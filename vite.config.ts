@@ -9,4 +9,14 @@ export default defineConfig({
     port: 5173,
   },
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom"],
+          "vendor-mui": ["@mui/material", "@mui/icons-material", "@mui/system", "@emotion/react", "@emotion/styled"],
+        },
+      },
+    },
+  },
 });

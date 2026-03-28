@@ -120,19 +120,20 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
     }
     if (unseenMessages.length === 0) return;
 
-    unseenMessages.reverse().forEach((message, orderIdx) => {
+    const newItems: DanmuItem[] = unseenMessages.reverse().map((message, orderIdx) => {
       const lane = danmuLaneCursorRef.current % DANMU_LANE_COUNT;
       danmuLaneCursorRef.current += 1;
       const durationMs =
         baseDurationMs + (lane % 3) * laneDurationStepMs + orderIdx * orderDurationStepMs;
       const itemId = `${message.id}-${Date.now()}-${orderIdx}`;
-      const nextItem: DanmuItem = {
-        id: itemId,
-        text: toDanmuText(message),
-        lane,
-        durationMs,
-      };
-      setDanmuItems((prev) => [...prev.slice(-maxVisibleItems), nextItem]);
+      return { id: itemId, text: toDanmuText(message), lane, durationMs };
+    });
+
+    // One state update for all new items instead of one per item
+    setDanmuItems((prev) => [...prev, ...newItems].slice(-maxVisibleItems));
+
+    newItems.forEach((newItem) => {
+      const { id: itemId, durationMs } = newItem;
       const timerId = window.setTimeout(() => {
         setDanmuItems((prev) => prev.filter((item) => item.id !== itemId));
         danmuTimersRef.current = danmuTimersRef.current.filter(

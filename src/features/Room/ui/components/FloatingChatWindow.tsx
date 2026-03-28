@@ -39,19 +39,11 @@ const FloatingChatWindow: React.FC = () => {
 
   const danmuCtx = React.useContext(DanmuContext);
   const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
-  const lastReadIdRef = useRef<string | null>(null);
-  const seededRoomRef = useRef<string | null>(null);
+  const [roomReadState, setRoomReadState] = useState<Record<string, string | null>>({});
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const focusTimerRef = useRef<number | null>(null);
   const roomId = currentRoom?.id ?? null;
-
-  useEffect(() => {
-    seededRoomRef.current = null;
-    lastReadIdRef.current = readLastReadId(roomId);
-    setUnread(0);
-  }, [roomId]);
 
   useEffect(() => {
     if (!open || !scrollRef.current) return;
@@ -62,82 +54,40 @@ const FloatingChatWindow: React.FC = () => {
     () => messages.filter((message) => isFromOther(message, clientId)),
     [clientId, messages],
   );
-
-  useEffect(() => {
-    const latestId = otherMessages[otherMessages.length - 1]?.id ?? null;
-
-    if (open) {
-      setUnread(0);
-      seededRoomRef.current = roomId;
-      lastReadIdRef.current = latestId;
-      writeLastReadId(roomId, latestId);
-      return;
-    }
-
-    if (!roomId) {
-      setUnread(0);
-      return;
-    }
-
-    const lastSeenId = lastReadIdRef.current ?? readLastReadId(roomId);
-
-    if (seededRoomRef.current !== roomId) {
-      const index = lastSeenId
-        ? otherMessages.findIndex((message) => message.id === lastSeenId)
-        : -1;
-      setUnread(
-        index < 0
-          ? otherMessages.length
-          : Math.max(0, otherMessages.length - (index + 1)),
-      );
-      seededRoomRef.current = roomId;
-      return;
-    }
-
-    if (!latestId) {
-      setUnread(0);
-      lastReadIdRef.current = null;
-      writeLastReadId(roomId, null);
-      return;
-    }
-
-    if (lastSeenId === latestId) {
-      setUnread(0);
-      return;
-    }
-
-    if (!lastSeenId) {
-      setUnread(otherMessages.length);
-      return;
-    }
-
-    const lastSeenIndex = otherMessages.findIndex(
-      (message) => message.id === lastSeenId,
-    );
-    setUnread(
-      lastSeenIndex < 0
-        ? otherMessages.length
-        : Math.max(0, otherMessages.length - (lastSeenIndex + 1)),
-    );
-  }, [open, otherMessages, roomId]);
+  const persistedLastReadId = React.useMemo(() => readLastReadId(roomId), [roomId]);
+  const latestOtherMessageId = otherMessages[otherMessages.length - 1]?.id ?? null;
+  const unread = React.useMemo(() => {
+    if (open || !roomId || !latestOtherMessageId) return 0;
+    const hasRoomSnapshot = Object.prototype.hasOwnProperty.call(roomReadState, roomId);
+    const lastSeenId = hasRoomSnapshot ? roomReadState[roomId] : persistedLastReadId;
+    if (!lastSeenId) return otherMessages.length;
+    if (lastSeenId === latestOtherMessageId) return 0;
+    const lastSeenIndex = otherMessages.findIndex((message) => message.id === lastSeenId);
+    return lastSeenIndex < 0
+      ? otherMessages.length
+      : Math.max(0, otherMessages.length - (lastSeenIndex + 1));
+  }, [latestOtherMessageId, open, otherMessages, persistedLastReadId, roomId, roomReadState]);
 
   const handleOpen = useCallback(() => {
     setOpen(true);
-    setUnread(0);
-    seededRoomRef.current = roomId;
-    const latestId = otherMessages[otherMessages.length - 1]?.id ?? null;
-    lastReadIdRef.current = latestId;
-    writeLastReadId(roomId, latestId);
+    if (roomId) {
+      setRoomReadState((prev) => ({ ...prev, [roomId]: latestOtherMessageId }));
+      writeLastReadId(roomId, latestOtherMessageId);
+    }
     if (focusTimerRef.current !== null) window.clearTimeout(focusTimerRef.current);
     focusTimerRef.current = window.setTimeout(() => {
       focusTimerRef.current = null;
       inputRef.current?.focus();
     }, 80);
-  }, [otherMessages, roomId]);
+  }, [latestOtherMessageId, roomId]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
-  }, []);
+    if (roomId) {
+      setRoomReadState((prev) => ({ ...prev, [roomId]: latestOtherMessageId }));
+      writeLastReadId(roomId, latestOtherMessageId);
+    }
+  }, [latestOtherMessageId, roomId]);
 
   const toggleOpen = useCallback(() => {
     if (open) {

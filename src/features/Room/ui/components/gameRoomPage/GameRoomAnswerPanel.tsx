@@ -116,41 +116,67 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     trackSessionKey: string;
     choiceIndex: number;
   } | null>(null);
-  const uiTickMs = React.useMemo(() => {
-    if (
-      gamePhase === "guess" &&
-      !isInterTrackWait &&
-      !isReveal &&
-      !isEnded &&
-      !allAnsweredReadyForReveal
-    ) {
-      return 125;
+  const progressBarFillRef = React.useRef<HTMLDivElement>(null);
+
+  // CSS-driven progress bar: set a single linear CSS transition per phase,
+  // runs entirely on compositor thread — zero React re-renders needed for the bar.
+  React.useLayoutEffect(() => {
+    const fill = progressBarFillRef.current;
+    if (!fill || isInterTrackWait || activePhaseDurationMs <= 0) return;
+    const now = getLocalNowMs();
+    const elapsed = activePhaseDurationMs - Math.max(0, phaseEndsAt - now);
+    const startFraction = Math.max(0, Math.min(1, elapsed / activePhaseDurationMs));
+    const remainingMs = Math.max(0, phaseEndsAt - now);
+    fill.style.transition = "none";
+    fill.style.transform = `scaleX(${startFraction})`;
+    void fill.offsetWidth;
+    if (remainingMs > 0) {
+      fill.style.transition = `transform ${remainingMs}ms linear`;
+      fill.style.transform = "scaleX(1)";
     }
-    if (isReveal || isInterTrackWait) {
-      return 250;
-    }
-    return 250;
-  }, [allAnsweredReadyForReveal, gamePhase, isEnded, isInterTrackWait, isReveal]);
+  }, [phaseEndsAt, activePhaseDurationMs, isInterTrackWait, getLocalNowMs]);
 
   React.useEffect(() => {
-    setLocalNowMs(getLocalNowMs());
-    const timer = window.setInterval(() => {
-      setLocalNowMs(getLocalNowMs());
-    }, uiTickMs);
-    return () => window.clearInterval(timer);
-  }, [getLocalNowMs, phaseEndsAt, revealEndsAt, startedAt, uiTickMs]);
+    if (!allAnsweredReadyForReveal) return;
+    const fill = progressBarFillRef.current;
+    if (!fill) return;
+    fill.style.transition = "transform 300ms ease-out";
+    fill.style.transform = "scaleX(1)";
+  }, [allAnsweredReadyForReveal]);
+
+  // Timer is now only needed for the countdown chip ("Xs") and urgency state.
+  // 1000ms during main phase is enough for integer-second display.
+  React.useEffect(() => {
+    let timerId: number | null = null;
+    const tick = () => {
+      const now = getLocalNowMs();
+      setLocalNowMs(now);
+      let delay: number;
+      if (
+        gamePhase === "guess" &&
+        !isInterTrackWait &&
+        !isReveal &&
+        !isEnded &&
+        !allAnsweredReadyForReveal
+      ) {
+        const remaining = phaseEndsAt - now;
+        delay = remaining > 4500 ? 1000 : 125;
+      } else {
+        delay = 500;
+      }
+      timerId = window.setTimeout(tick, delay);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [allAnsweredReadyForReveal, gamePhase, getLocalNowMs, isEnded, isInterTrackWait, isReveal, phaseEndsAt, revealEndsAt, startedAt]);
 
   const startCountdownSec = Math.max(
     1,
     Math.ceil(Math.max(0, startedAt - localNowMs) / 1000),
   );
   const phaseRemainingMs = Math.max(0, phaseEndsAt - localNowMs);
-  const progressPct =
-    activePhaseDurationMs <= 0
-      ? 0
-      : allAnsweredReadyForReveal
-        ? 100
-        : ((activePhaseDurationMs - phaseRemainingMs) / activePhaseDurationMs) * 100;
   const isGuessUrgency =
     gamePhase === "guess" &&
     !allAnsweredReadyForReveal &&
@@ -301,20 +327,20 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             <div
               className={`game-room-phase-progress ${isGuessUrgency ? "game-room-phase-progress--urgent" : ""}`}
             >
-              <LinearProgress
-                variant={isInterTrackWait ? "indeterminate" : "determinate"}
-                value={
-                  isInterTrackWait ? undefined : Math.min(100, Math.max(0, progressPct))
-                }
-                color={
-                  isInterTrackWait
-                    ? "info"
-                    : gamePhase === "guess"
-                      ? "warning"
-                      : "success"
-                }
-                className="game-room-phase-progress-bar"
-              />
+              {isInterTrackWait ? (
+                <LinearProgress
+                  variant="indeterminate"
+                  color="info"
+                  className="game-room-phase-progress-bar"
+                />
+              ) : (
+                <div className="game-room-phase-progress-bar">
+                  <div
+                    ref={progressBarFillRef}
+                    className={`game-room-phase-progress-bar-fill ${gamePhase === "guess" ? "game-room-phase-progress-bar-fill--guess" : "game-room-phase-progress-bar-fill--reveal"}`}
+                  />
+                </div>
+              )}
             </div>
             {isRevealPendingServerSync && (
               <div className="mt-2 rounded-lg border border-emerald-300/45 bg-emerald-500/14 px-3 py-1.5 text-xs font-semibold text-emerald-100">

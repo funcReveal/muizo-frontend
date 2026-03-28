@@ -878,11 +878,11 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   }, [endedAt, isMobileSettlementViewport, room.id, startedAt]);
 
   return (
-    <div className="game-settlement-mobile-shell mx-auto w-full max-w-6xl min-w-0 px-2 pb-28 sm:px-4 lg:pb-4">
-      <section ref={settlementStageRef} className="game-settlement-mobile-stage relative min-w-0 overflow-hidden rounded-[30px] border border-amber-400/35 bg-slate-950/95 px-4 py-6 shadow-[0_30px_120px_-60px_rgba(245,158,11,0.6)] sm:px-6 sm:py-7">
-        <div className="pointer-events-none absolute -left-20 -top-20 h-52 w-52 rounded-full bg-amber-400/20 blur-3xl" />
-        <div className="pointer-events-none absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-sky-500/15 blur-3xl" />
-
+    <div className="game-settlement-mobile-shell mx-auto w-full max-w-[1456px] min-w-0 px-0 pb-28 lg:pb-4">
+      <section
+        ref={settlementStageRef}
+        className="game-settlement-mobile-stage relative min-w-0 px-0 py-2 sm:py-3"
+      >
         <div className="relative space-y-4">
           <SettlementStageHeader
             isMobileView={isMobileSettlementViewport}
@@ -989,6 +989,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 }
                 currentRecommendationGradeLabel={
                   currentRecommendationRating?.grade ?? null
+                }
+                currentRecommendationAnsweredAtMs={
+                  currentRecommendationRating?.answeredAtMs ?? null
+                }
+                currentRecommendationResult={
+                  currentRecommendationRating?.result ?? "unanswered"
                 }
                 hasCurrentRecommendationSpeedDelta={hasCurrentRecommendationSpeedDelta}
                 currentRecommendationSpeedValue={currentRecommendationSpeedInsight.value}

@@ -8,6 +8,7 @@ import {
   distributeRecommendationCards,
   RECOMMEND_CATEGORY_FLOW,
   resolveAverageCorrectMs,
+  resolveMedianCorrectMs,
   resolveSpeedComparisonInsight,
   type RecommendCategory,
   type SongPerformanceGrade,
@@ -22,6 +23,7 @@ export interface SongPerformanceRating {
   answeredRank: number | null;
   answeredAtMs: number | null;
   correctRate: number;
+  answerWindowMs: number;
 }
 
 export interface GradeMeta {
@@ -205,7 +207,16 @@ const useSettlementRecommendationInsights = <
   const averageCorrectMsByRecapKey = useMemo(() => {
     const next = new Map<string, number | null>();
     normalizedRecaps.forEach((recap) => {
-      next.set(recap.key, resolveAverageCorrectMs(recap.answersByClientId));
+      const medianCorrectMs =
+        typeof recap.medianCorrectMs === "number" &&
+        Number.isFinite(recap.medianCorrectMs) &&
+        recap.medianCorrectMs >= 0
+          ? Math.floor(recap.medianCorrectMs)
+          : resolveMedianCorrectMs(recap.answersByClientId);
+      next.set(
+        recap.key,
+        medianCorrectMs ?? resolveAverageCorrectMs(recap.answersByClientId),
+      );
     });
     return next;
   }, [normalizedRecaps]);
@@ -423,6 +434,7 @@ const useSettlementRecommendationInsights = <
         answeredRank,
         answeredAtMs,
         correctRate,
+        answerWindowMs: configuredAnswerWindowMs,
       });
     });
     return next;
@@ -562,6 +574,13 @@ const useSettlementRecommendationInsights = <
   const selectedRecapRatingBreakdown = (() => {
     if (!selectedRecapRating) return "--";
     const parts: string[] = [];
+    if (selectedRecapRating.result === "correct") {
+      parts.push("答對 60 ・ 搶答最多 20 ・ 速度最多 20");
+    } else if (selectedRecapRating.result === "wrong") {
+      parts.push("作答 8 ・ 搶答最多 8 ・ 速度最多 9 ・ 難度最多 5");
+    } else {
+      parts.push("未作答僅保留難度參考 0 - 4");
+    }
     if (selectedRecapRating.result === "correct") {
       if (typeof selectedRecapCorrectRank === "number") {
         parts.push(`第 ${selectedRecapCorrectRank} 答`);

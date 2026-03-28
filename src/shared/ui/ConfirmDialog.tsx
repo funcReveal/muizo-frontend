@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import {
   Button,
   Dialog,
@@ -7,6 +7,18 @@ import {
   DialogContentText,
   DialogTitle,
 } from "@mui/material";
+
+const CONFIRM_DIALOG_SX = {
+  "& .MuiDialog-paper": {
+    background:
+      "linear-gradient(180deg, rgba(10,16,28,0.96), rgba(6,10,18,0.98))",
+    color: "#f8fafc",
+    border: "1px solid rgba(125, 211, 252, 0.28)",
+    borderRadius: "1rem",
+    boxShadow:
+      "0 28px 80px -36px rgba(2,6,23,0.92), 0 0 0 1px rgba(56,189,248,0.12)",
+  },
+} as const;
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -19,32 +31,23 @@ type ConfirmDialogProps = {
   onCancel: () => void;
 };
 
-const ConfirmDialog = ({
-  open,
-  title,
-  description,
-  confirmLabel = "確認",
-  cancelLabel = "取消",
-  extraContent,
-  onConfirm,
-  onCancel,
-}: ConfirmDialogProps) => (
+const ConfirmDialog: React.FC<ConfirmDialogProps> = React.memo(
+  ({
+    open,
+    title,
+    description,
+    confirmLabel = "確認",
+    cancelLabel = "取消",
+    extraContent,
+    onConfirm,
+    onCancel,
+  }) => (
   <Dialog
     open={open}
     onClose={onCancel}
     maxWidth="xs"
     fullWidth
-    sx={{
-      "& .MuiDialog-paper": {
-        background:
-          "linear-gradient(180deg, rgba(10,16,28,0.96), rgba(6,10,18,0.98))",
-        color: "#f8fafc",
-        border: "1px solid rgba(125, 211, 252, 0.28)",
-        borderRadius: "1rem",
-        boxShadow:
-          "0 28px 80px -36px rgba(2,6,23,0.92), 0 0 0 1px rgba(56,189,248,0.12)",
-      },
-    }}
+    sx={CONFIRM_DIALOG_SX}
   >
     <DialogTitle className="!font-black !text-slate-50">{title}</DialogTitle>
     <DialogContent>
@@ -70,6 +73,7 @@ const ConfirmDialog = ({
       </Button>
     </DialogActions>
   </Dialog>
+  ),
 );
 
 export default ConfirmDialog;

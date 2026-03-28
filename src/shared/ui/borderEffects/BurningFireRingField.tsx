@@ -279,11 +279,21 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
       config.maxParticles + (detailMode === "visual" ? 18 : 8),
     );
     let frameId = 0;
+    let paused = false;
     let lastTime = performance.now();
     let driftPhase = Math.random() * Math.PI * 2;
     const slowMode =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const handleVisibilityChange = () => {
+      paused = document.visibilityState !== "visible";
+      if (!paused && frameId === 0) {
+        lastTime = performance.now();
+        frameId = window.requestAnimationFrame(render);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const spawnParticle = (emitter: FireEmitter) => {
       const heat = emitter.heat;
@@ -345,6 +355,8 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
     };
 
     const render = (now: number) => {
+      frameId = 0;
+      if (paused) return;
       const deltaSeconds = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
       driftPhase +=
@@ -431,7 +443,11 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
     };
 
     frameId = window.requestAnimationFrame(render);
-    return () => window.cancelAnimationFrame(frameId);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = 0;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [
     detailMode,
     duration,

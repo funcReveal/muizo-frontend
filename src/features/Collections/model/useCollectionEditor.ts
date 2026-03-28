@@ -1,4 +1,4 @@
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+﻿import { useCallback, type Dispatch, type SetStateAction } from "react";
 
 import type { DbCollection, EditableItem } from "../ui/lib/editTypes";
 import { collectionsApi } from "./collectionsApi";
@@ -235,18 +235,17 @@ export const useCollectionEditor = ({
     async (mode: "manual" | "auto" = "manual") => {
       if (saveInFlightRef.current) return;
       if (!authToken || !ownerId || authExpired) {
-        void message;
         if (mode === "auto") {
-          showAutoSaveNotice("error", "自動保存失敗");
+          showAutoSaveNotice("error", "登入已失效，請重新登入後再試。");
         } else {
           setSaveStatus("error");
-          setSaveError("請先登入後再儲存");
+          setSaveError("登入已失效，請重新登入後再試。");
         }
         return;
       }
       if (!collectionTitle.trim()) {
         if (mode === "auto") {
-          showAutoSaveNotice("error", "請先輸入收藏庫名稱");
+          showAutoSaveNotice("error", "請先輸入收藏庫標題。");
         } else {
           setSaveStatus("error");
           setSaveError("title is required");
@@ -258,7 +257,6 @@ export const useCollectionEditor = ({
         !activeCollectionId &&
         collectionsCount >= MAX_COLLECTIONS_PER_USER
       ) {
-        const message = `一般使用者最多只能建立 ${MAX_COLLECTIONS_PER_USER} 個收藏庫`;
         if (mode === "auto") {
           showAutoSaveNotice("error", limitMessage);
         } else {
@@ -309,10 +307,10 @@ export const useCollectionEditor = ({
         });
         if (!token) {
           if (mode === "auto") {
-            showAutoSaveNotice("error", "自動保存失敗");
+            showAutoSaveNotice("error", "登入已失效，請重新登入後再試。");
           } else {
             setSaveStatus("error");
-            setSaveError("登入已過期，請重新登入");
+            setSaveError("登入已失效，請重新登入後再試。");
           }
           onAuthExpired?.();
           return;
@@ -414,7 +412,7 @@ export const useCollectionEditor = ({
           onSaved?.();
           if (mode === "auto") {
             setSaveStatus("idle");
-            showAutoSaveNotice("success", "自動保存成功");
+            showAutoSaveNotice("success", "已自動儲存。");
           } else {
             setSaveStatus("saved");
           }
@@ -425,7 +423,7 @@ export const useCollectionEditor = ({
         setSaveStatus("error");
         setSaveError(error instanceof Error ? error.message : String(error));
         if (mode === "auto") {
-          showAutoSaveNotice("error", "自動保存失敗");
+          showAutoSaveNotice("error", "自動儲存失敗，請稍後再試。");
         }
       } finally {
         saveInFlightRef.current = false;
@@ -435,7 +433,6 @@ export const useCollectionEditor = ({
       activeCollectionId,
       activeCollectionStoredVisibility,
       authExpired,
-      authRole,
       authToken,
       collectionVisibility,
       collectionTitle,
@@ -448,6 +445,7 @@ export const useCollectionEditor = ({
       navigateToEdit,
       onAuthExpired,
       ownerId,
+      isAdmin,
       setActiveCollectionId,
       setCollections,
       setHasUnsavedChanges,
@@ -462,3 +460,4 @@ export const useCollectionEditor = ({
 
   return { handleSaveCollection, syncItemsToDb };
 };
+

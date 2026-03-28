@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Button,
   Dialog,
@@ -13,24 +14,23 @@ type GameRoomExitDialogProps = {
   onConfirm: () => void;
 };
 
-const GameRoomExitDialog = ({
-  open,
-  onCancel,
-  onConfirm,
-}: GameRoomExitDialogProps) => (
+const EXIT_DIALOG_PAPER_PROPS = {
+  sx: {
+    background:
+      "linear-gradient(180deg, rgba(10,16,28,0.96), rgba(6,10,18,0.98))",
+    border: "1px solid rgba(248, 113, 113, 0.38)",
+    color: "#f8fafc",
+  },
+} as const;
+
+const GameRoomExitDialog: React.FC<GameRoomExitDialogProps> = React.memo(
+  ({ open, onCancel, onConfirm }) => (
   <Dialog
     open={open}
     onClose={onCancel}
     fullWidth
     maxWidth="xs"
-    PaperProps={{
-      sx: {
-        background:
-          "linear-gradient(180deg, rgba(10,16,28,0.96), rgba(6,10,18,0.98))",
-        border: "1px solid rgba(248, 113, 113, 0.38)",
-        color: "#f8fafc",
-      },
-    }}
+    PaperProps={EXIT_DIALOG_PAPER_PROPS}
   >
     <DialogTitle className="!font-black !text-slate-50">要離開對戰嗎？</DialogTitle>
     <DialogContent>
@@ -47,6 +47,7 @@ const GameRoomExitDialog = ({
       </Button>
     </DialogActions>
   </Dialog>
+  ),
 );
 
 export default GameRoomExitDialog;
