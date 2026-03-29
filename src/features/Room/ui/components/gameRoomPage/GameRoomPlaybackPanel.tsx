@@ -226,7 +226,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   );
 
   const revealAnswerNode = shouldShowMobileReveal ? (
-    <div className="game-room-reveal-inline" title={`答案 ${revealAnswerLabel}`}>
+    <div className="game-room-reveal-inline">
       <span className="game-room-reveal-inline__label">答案</span>
       {shouldUseRevealMarquee ? (
         <span ref={revealMarqueeWrapRef} className="game-room-reveal-title-marquee">

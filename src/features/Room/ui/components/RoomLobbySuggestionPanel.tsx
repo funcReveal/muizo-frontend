@@ -1,4 +1,4 @@
-import {
+﻿import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
@@ -11,12 +11,14 @@ import {
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
 import { useEffect, useRef, useState } from "react";
 
 import type { YoutubePlaylist } from "../../model/RoomContext";
 import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
+import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
 import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 import SuggestionStatusMessages from "./roomLobbySuggestionPanel/SuggestionStatusMessages";
@@ -49,6 +51,7 @@ export interface SuggestionPanelProps {
     detail: string | undefined,
     action: () => void,
   ) => void;
+  onRequestGoogleLogin: () => void;
 }
 
 const SUGGESTION_COOLDOWN_MS = 5000;
@@ -67,6 +70,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
   onSuggestPlaylist,
   extractPlaylistId,
   openConfirmModal,
+  onRequestGoogleLogin,
 }) => {
   const [suggestType, setSuggestType] = useState<SuggestType>("playlist");
   const [suggestPlaylistUrl, setSuggestPlaylistUrl] = useState("");
@@ -114,6 +118,17 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     if (isGoogleAuthed) return;
     hasRequestedYoutubeRef.current = false;
   }, [isGoogleAuthed]);
+
+  useEffect(() => {
+    if (isGoogleAuthed) return;
+    if (suggestType === "youtube") {
+      setSuggestType("playlist");
+      return;
+    }
+    if (suggestType === "collection" && collectionScope === "owner") {
+      onCollectionScopeChange("public");
+    }
+  }, [collectionScope, isGoogleAuthed, onCollectionScopeChange, suggestType]);
 
   useEffect(() => {
     if (cooldownTimerRef.current) {
@@ -200,8 +215,6 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     }
   };
 
-  const googleAuthStatusMessage = "請先登入 Google";
-
   const suggestionSourceStatus = (() => {
     if (suggestType === "playlist") {
       return {
@@ -214,14 +227,6 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     }
 
     if (suggestType === "collection") {
-      if (collectionScope === "owner" && !isGoogleAuthed) {
-        return {
-          message: googleAuthStatusMessage,
-          tone: "warning",
-          loading: false,
-        } as const;
-      }
-
       return {
         message:
           suggestCollectionId
@@ -231,14 +236,6 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
               : "選擇個人收藏庫",
         tone: collections.length === 0 ? "warning" : suggestCollectionId ? "info" : "neutral",
         loading: collectionsLoading,
-      } as const;
-    }
-
-    if (!isGoogleAuthed) {
-      return {
-        message: googleAuthStatusMessage,
-        tone: "warning",
-        loading: false,
       } as const;
     }
 
@@ -311,48 +308,64 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
             >
               公開
             </Button>
-            <Button
-              size="small"
-              variant={
-                suggestType === "collection" && collectionScope === "owner"
-                  ? "contained"
-                  : "outlined"
-              }
-              className={`room-lobby-mode-button room-lobby-mode-button--owner${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
-              startIcon={<LockRoundedIcon fontSize="small" />}
-              title={!isGoogleAuthed ? "需登入後才可使用此功能" : undefined}
-              onClick={() => {
-                if (!isGoogleAuthed) {
-                  setSuggestNotice("請先登入後啟用功能");
-                  return;
+            <RoomUiTooltip title={!isGoogleAuthed ? "點擊即可登入解鎖" : undefined} wrapperClassName="inline-flex">
+              <Button
+                size="small"
+                variant={
+                  suggestType === "collection" && collectionScope === "owner"
+                    ? "contained"
+                    : "outlined"
                 }
-                setSuggestType("collection");
-                onCollectionScopeChange("owner");
-                setSuggestCollectionId(null);
-                clearSuggestError();
-              }}
-              disabled={isSubmitting}
-            >
-              個人
-            </Button>
-            <Button
-              size="small"
-              variant={suggestType === "youtube" ? "contained" : "outlined"}
-              className={`room-lobby-mode-button room-lobby-mode-button--youtube${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
-              startIcon={<YouTubeIcon fontSize="small" />}
-              title={!isGoogleAuthed ? "需登入後才可使用此功能" : undefined}
-              onClick={() => {
-                if (!isGoogleAuthed) {
-                  setSuggestNotice("請先登入後啟用功能");
-                  return;
-                }
-                setSuggestType("youtube");
-                clearSuggestError();
-              }}
-              disabled={isSubmitting}
-            >
-              YouTube
-            </Button>
+                className={`room-lobby-mode-button room-lobby-mode-button--owner${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
+                startIcon={<BookmarkBorderRoundedIcon fontSize="small" />}
+                onClick={() => {
+                  if (!isGoogleAuthed) {
+                    onRequestGoogleLogin();
+                    return;
+                  }
+                  setSuggestType("collection");
+                  onCollectionScopeChange("owner");
+                  setSuggestCollectionId(null);
+                  clearSuggestError();
+                }}
+                disabled={isSubmitting}
+              >
+                <span className="room-lobby-mode-button__content">
+                  個人
+                  {!isGoogleAuthed ? (
+                    <span className="room-lobby-mode-button__lock-badge" aria-hidden="true">
+                      <LockRoundedIcon fontSize="inherit" />
+                    </span>
+                  ) : null}
+                </span>
+              </Button>
+            </RoomUiTooltip>
+            <RoomUiTooltip title={!isGoogleAuthed ? "點擊即可登入解鎖" : undefined} wrapperClassName="inline-flex">
+              <Button
+                size="small"
+                variant={suggestType === "youtube" ? "contained" : "outlined"}
+                className={`room-lobby-mode-button room-lobby-mode-button--youtube${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
+                startIcon={<YouTubeIcon fontSize="small" />}
+                onClick={() => {
+                  if (!isGoogleAuthed) {
+                    onRequestGoogleLogin();
+                    return;
+                  }
+                  setSuggestType("youtube");
+                  clearSuggestError();
+                }}
+                disabled={isSubmitting}
+              >
+                <span className="room-lobby-mode-button__content">
+                  YouTube
+                  {!isGoogleAuthed ? (
+                    <span className="room-lobby-mode-button__lock-badge" aria-hidden="true">
+                      <LockRoundedIcon fontSize="inherit" />
+                    </span>
+                  ) : null}
+                </span>
+              </Button>
+            </RoomUiTooltip>
             <Button
               size="small"
               variant={suggestType === "playlist" ? "contained" : "outlined"}

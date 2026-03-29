@@ -4810,7 +4810,6 @@ body {
   height: 100%;
   object-fit: cover;
   border-radius: 999px;
-  opacity: 0.8;
   filter: saturate(0.84) brightness(0.92);
 }
 
@@ -21533,15 +21532,51 @@ body {
   color: rgba(148, 163, 184, 0.78);
 }
 
-/* --- Auth-required mode buttons: restricted visual, native hover tooltip via title, click shows notice --- */
+/* --- Auth-required mode buttons: clickable lock-state entry --- */
+.room-lobby-mode-button__content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.room-lobby-mode-button__lock-badge {
+  position: absolute;
+  top: -14px;
+  right: -20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  color: rgba(250, 204, 21, 0.98);
+  text-shadow:
+    0 0 8px rgba(250, 204, 21, 0.42),
+    0 1px 0 rgba(15, 23, 42, 0.7);
+  font-size: 15px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.room-lobby-mode-button__content > .inline-flex {
+  pointer-events: none;
+}
+
 .room-lobby-mode-button--auth-required.MuiButton-root {
-  opacity: 0.5;
+  opacity: 0.78;
   border-style: dashed !important;
-  cursor: not-allowed;
+  cursor: pointer;
+  overflow: visible;
 }
 
 .room-lobby-mode-button--auth-required.MuiButton-root:hover {
-  opacity: 0.72;
+  opacity: 0.96;
+}
+
+.room-lobby-mode-button--auth-required.MuiButton-root .MuiTouchRipple-root {
+  overflow: visible;
 }
 
 /* ===== Room Lobby Header Meta Row ===== */

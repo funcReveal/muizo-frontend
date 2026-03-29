@@ -8,6 +8,7 @@ import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { Button } from "@mui/material";
+import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 
 type LiveSettlementTab = "overview" | "recommend";
 
@@ -175,15 +176,15 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
       <nav className="game-settlement-stage-tab-nav flex flex-wrap items-center justify-between gap-2">
         <div className="game-settlement-stage-tab-list flex min-w-0 flex-wrap items-center gap-2">
           {tabOrder.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={`${activeTabButtonClass(tab)} game-settlement-stage-tab-btn`}
-              onClick={() => onGoToTab(tab)}
-              title={tabHints[tab]}
-            >
-              {tabLabels[tab]}
-            </button>
+            <RoomUiTooltip key={tab} title={tabHints[tab]}>
+              <button
+                type="button"
+                className={`${activeTabButtonClass(tab)} game-settlement-stage-tab-btn`}
+                onClick={() => onGoToTab(tab)}
+              >
+                {tabLabels[tab]}
+              </button>
+            </RoomUiTooltip>
           ))}
         </div>
         <div className="hidden items-center justify-end gap-2 lg:flex">

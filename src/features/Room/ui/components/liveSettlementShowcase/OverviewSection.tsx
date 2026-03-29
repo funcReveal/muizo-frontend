@@ -3,6 +3,7 @@ import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 
 import type { RoomParticipant } from "../../../model/types";
+import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 
 interface ScoreMetrics {
   accuracy: number;
@@ -74,13 +75,14 @@ const renderParticipantName = (
 
   return (
     <span className="inline-flex min-w-0 items-center gap-2">
-      <span
-        className={`block min-w-0 text-center ${isLongName ? "text-[1.42rem] leading-[1.12]" : ""}`}
-        style={participantNameStyle}
-        title={username}
-      >
-        {username}
-      </span>
+      <RoomUiTooltip title={username} wrapperClassName="block min-w-0 max-w-full">
+        <span
+          className={`block min-w-0 text-center ${isLongName ? "text-[1.42rem] leading-[1.12]" : ""}`}
+          style={participantNameStyle}
+        >
+          {username}
+        </span>
+      </RoomUiTooltip>
       {isMe && useYouBadge && (
         <span className="shrink-0 rounded-full border border-cyan-300/45 bg-cyan-400/16 px-2 py-0.5 text-[10px] font-black tracking-[0.08em] text-cyan-50">
           YOU
@@ -114,13 +116,14 @@ const renderPodiumName = (
   };
 
   return (
-    <span
-      className={`mx-auto block max-w-[10.5rem] text-center font-black tracking-[-0.04em] ${podiumNameClass(username)}`}
-      style={style}
-      title={username}
-    >
-      {username}
-    </span>
+    <RoomUiTooltip title={username} wrapperClassName="mx-auto block max-w-[10.5rem]">
+      <span
+        className={`mx-auto block max-w-[10.5rem] text-center font-black tracking-[-0.04em] ${podiumNameClass(username)}`}
+        style={style}
+      >
+        {username}
+      </span>
+    </RoomUiTooltip>
   );
 };
 
@@ -494,12 +497,11 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end justify-between gap-3 text-right">
-                      <span
-                        className="rounded-full border border-white/12 bg-black/26 px-2.5 py-1 text-[10px] font-semibold text-white/84"
-                        title={titleTooltip}
-                      >
-                        {title}
-                      </span>
+                      <RoomUiTooltip title={titleTooltip}>
+                        <span className="rounded-full border border-white/12 bg-black/26 px-2.5 py-1 text-[10px] font-semibold text-white/84">
+                          {title}
+                        </span>
+                      </RoomUiTooltip>
                       <p className="text-[3.2rem] font-black leading-none text-white">
                         {participant.score}
                       </p>

@@ -14,6 +14,7 @@ import QueueMusicRoundedIcon from "@mui/icons-material/QueueMusicRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 
 import type { RecommendCategory } from "../liveSettlementUtils";
+import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 
 type RecommendationCardItem = {
   recap: {
@@ -396,17 +397,18 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 </span>
               )}
               {isCurrentRecommendationFastest && (
-                <span
-                  className={`inline-flex h-7 items-center justify-center gap-1 rounded-full border px-3 text-xs font-semibold ${
-                    isCurrentRecommendationGlobalFastest
-                      ? "border-orange-300/45 bg-orange-500/18 text-orange-100"
-                      : "border-amber-300/40 bg-amber-500/14 text-amber-100"
-                  }`}
-                  title={isCurrentRecommendationGlobalFastest ? "全場最快答對" : "速度表現亮眼"}
-                >
-                  <LocalFireDepartmentRoundedIcon className="text-[0.95rem]" />
-                  {currentRecommendationFastestBadgeText}
-                </span>
+                <RoomUiTooltip title={isCurrentRecommendationGlobalFastest ? "全場最快答對" : "速度表現亮眼"}>
+                  <span
+                    className={`inline-flex h-7 items-center justify-center gap-1 rounded-full border px-3 text-xs font-semibold ${
+                      isCurrentRecommendationGlobalFastest
+                        ? "border-orange-300/45 bg-orange-500/18 text-orange-100"
+                        : "border-amber-300/40 bg-amber-500/14 text-amber-100"
+                    }`}
+                  >
+                    <LocalFireDepartmentRoundedIcon className="text-[0.95rem]" />
+                    {currentRecommendationFastestBadgeText}
+                  </span>
+                </RoomUiTooltip>
               )}
             </div>
 
@@ -442,9 +444,11 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     <SmartDisplayRoundedIcon className="text-[1rem]" />
                     <p className="text-[11px]">速度差</p>
                   </div>
-                  <p className="mt-2 text-sm font-black text-white" title={currentRecommendationSpeedNote}>
-                    {hasCurrentRecommendationSpeedDelta ? currentRecommendationSpeedValue : "--"}
-                  </p>
+                  <RoomUiTooltip title={currentRecommendationSpeedNote} wrapperClassName="block max-w-full">
+                    <p className="mt-2 text-sm font-black text-white">
+                      {hasCurrentRecommendationSpeedDelta ? currentRecommendationSpeedValue : "--"}
+                    </p>
+                  </RoomUiTooltip>
                 </div>
               </div>
               {currentRecommendationFastestCorrectMeta && (
@@ -634,19 +638,15 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                                 onSelectRecommendation(index);
                                 onOpenCardLink(card);
                               }}
-                              title={card.recap.title}
                             >
                               <span className="block truncate">{card.recap.title}</span>
                             </button>
                           ) : (
-                            <p
-                              className="truncate text-lg font-black leading-snug text-white"
-                              title={card.recap.title}
-                            >
+                            <p className="truncate text-lg font-black leading-snug text-white">
                               {card.recap.title}
                             </p>
                           )}
-                          <p className="mt-2 truncate text-sm text-slate-300" title={card.recap.uploader || "未知作者"}>
+                          <p className="mt-2 truncate text-sm text-slate-300">
                             {card.recap.uploader || "未知作者"}
                           </p>
                           <div className="mt-3 flex flex-wrap gap-1.5">

@@ -68,6 +68,7 @@ import {
 import RoomLobbyHostControls from "./RoomLobbyHostControls";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
+import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 
 import { useGameSfx } from "../hooks/useGameSfx";
 import {
@@ -103,6 +104,7 @@ interface RoomLobbyPanelProps {
   collectionItemsLoading: boolean;
   collectionItemsError: string | null;
   isGoogleAuthed?: boolean;
+  onRequestGoogleLogin?: () => void;
   youtubePlaylists: YoutubePlaylist[];
   youtubePlaylistsLoading: boolean;
   youtubePlaylistsError: string | null;
@@ -181,6 +183,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   collectionItemsLoading,
   collectionItemsError,
   isGoogleAuthed = false,
+  onRequestGoogleLogin,
   youtubePlaylists,
   youtubePlaylistsLoading,
   youtubePlaylistsError,
@@ -394,9 +397,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 
   const hostCollectionPrimaryText = (() => {
     const scopeLabel = collectionScope === "public" ? "公開收藏庫" : "私人收藏庫";
-    if (collectionScope === "owner" && !isGoogleAuthed) {
-      return "請先連動 Google 帳號後再讀取私人收藏庫。";
-    }
     if (collectionsLoading) {
       return `正在載入 ${scopeLabel}...`;
     }
@@ -423,9 +423,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       ? youtubePlaylistsError
       : null;
   const hostYoutubePrimaryText = (() => {
-    if (!isGoogleAuthed) {
-      return "請先連動 Google 帳號，再讀取 YouTube 播放清單。";
-    }
     if (youtubePlaylistsLoading) {
       return "正在載入 YouTube 播放清單...";
     }
@@ -912,7 +909,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                     className="room-lobby-playlist-row-link room-lobby-playlist-row-link--button"
                     onClick={() => handleOpenPlaylistItem(item.url)}
                     aria-label={`開啟歌曲：${displayTitle}`}
-                    title={displayTitle}
                   >
                     {displayTitle}
                   </button>
@@ -949,9 +945,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const allowParticipantInvite =
     currentRoom?.gameSettings?.allowParticipantInvite ?? false;
   const canUseShareInvite = isHost || allowParticipantInvite;
-  const shareLockedReason = canUseShareInvite
-    ? undefined
-    : "房主尚未開啟玩家邀請權限";
   const shareButtonLabel = canUseShareInvite ? "分享邀請" : "分享邀請未開放";
   const inviteLink = React.useMemo(() => {
     if (!currentRoom?.id || typeof window === "undefined") return "";
@@ -1225,19 +1218,20 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       icon: <KeyRoundedIcon fontSize="small" />,
       tone: "password",
       trailing: canToggleRoomPassword ? (
-        <button
-          type="button"
-          className="room-lobby-metric-trailing-icon room-lobby-metric-trailing-icon--toggle"
-          title={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
-          aria-label={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
-          onClick={() => setShowRoomPassword((prev) => !prev)}
-        >
-          {showRoomPassword ? (
-            <VisibilityOffRoundedIcon fontSize="small" />
-          ) : (
-            <VisibilityRoundedIcon fontSize="small" />
-          )}
-        </button>
+        <RoomUiTooltip title={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}>
+          <button
+            type="button"
+            className="room-lobby-metric-trailing-icon room-lobby-metric-trailing-icon--toggle"
+            aria-label={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
+            onClick={() => setShowRoomPassword((prev) => !prev)}
+          >
+            {showRoomPassword ? (
+              <VisibilityOffRoundedIcon fontSize="small" />
+            ) : (
+              <VisibilityRoundedIcon fontSize="small" />
+            )}
+          </button>
+        </RoomUiTooltip>
       ) : undefined,
     });
   }
@@ -1251,11 +1245,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         !canUseShareInvite ? "room-lobby-action-btn--invite-locked" : ""
       }`}
       aria-disabled={!canUseShareInvite}
-      title={
-        shareBlockedNotice && !canUseShareInvite
-          ? shareLockedReason
-          : shareLockedReason ?? "開啟分享邀請"
-      }
       aria-label={shareButtonLabel}
       onClick={handleOpenShareDialog}
     >
@@ -1471,16 +1460,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 </div>
                 <div className="room-lobby-player-side room-lobby-player-side--vacant">
                   {showRemoveSlot ? (
-                    <IconButton
-                      size="small"
-                      color="inherit"
-                      className="room-lobby-player-action room-lobby-player-action--slot"
-                      aria-label="移除空位"
-                      title="移除此空位"
-                      onClick={() => handleRemovePlayerSlot()}
-                    >
-                      <DeleteOutlineRoundedIcon fontSize="small" />
-                    </IconButton>
+                    <RoomUiTooltip title="移除此空位">
+                      <IconButton
+                        size="small"
+                        color="inherit"
+                        className="room-lobby-player-action room-lobby-player-action--slot"
+                        aria-label="移除空位"
+                        onClick={() => handleRemovePlayerSlot()}
+                      >
+                        <DeleteOutlineRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </RoomUiTooltip>
                   ) : (
                     <span className="room-lobby-player-side-label">空位</span>
                   )}
@@ -1555,6 +1545,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onApplyPlaylistUrlDirect={onApplyPlaylistUrlDirect}
       onApplyCollectionDirect={onApplyCollectionDirect}
       onApplyYoutubePlaylistDirect={onApplyYoutubePlaylistDirect}
+      onRequestGoogleLogin={onRequestGoogleLogin ?? (() => undefined)}
     />
   ) : gameState?.status !== "playing" ? (
     <RoomLobbySuggestionPanel
@@ -1572,6 +1563,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onSuggestPlaylist={onSuggestPlaylist}
       extractPlaylistId={extractPlaylistId}
       openConfirmModal={openConfirmModal}
+      onRequestGoogleLogin={onRequestGoogleLogin ?? (() => undefined)}
     />
   ) : null;
   const controlPanel = hostPanel ?? (
@@ -1653,7 +1645,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 <Typography
                   variant="h6"
                   className="room-lobby-header-title"
-                  title={displayRoomName}
                 >
                   {displayRoomName}
                 </Typography>
@@ -1823,7 +1814,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                           onClick={action.onClick}
                           disabled={action.disabled}
                           aria-label={action.label}
-                          title={action.label}
                         >
                           <span className="room-lobby-mobile-action-icon" aria-hidden="true">
                             {action.icon}
@@ -1844,7 +1834,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         disabled={Boolean(startActionDisabledReason)}
                         onClick={onStartGame}
                         aria-label={isStartBroadcastActive ? `即將開始 ${startBroadcastRemainingSec} 秒` : "開始遊戲"}
-                        title={startActionDisabledReason ?? (isStartBroadcastActive ? `即將開始 ${startBroadcastRemainingSec} 秒` : "開始遊戲")}
                       >
                         <span className="room-lobby-mobile-action-icon" aria-hidden="true">
                           <PlayArrowRoundedIcon fontSize="small" />
@@ -1862,7 +1851,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         size="small"
                         className="room-lobby-mobile-bottom-action"
                         aria-label="對戰資訊"
-                        title="對戰資訊"
                         onClick={() => onOpenHistoryDrawer?.()}
                       >
                         <span className="room-lobby-mobile-bottom-action__icon" aria-hidden="true">
@@ -1880,11 +1868,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         }`}
                         aria-disabled={!canUseShareInvite}
                         aria-label={shareButtonLabel}
-                        title={
-                          shareBlockedNotice && !canUseShareInvite
-                            ? shareLockedReason
-                            : shareLockedReason ?? "開啟分享邀請"
-                        }
                         onClick={handleOpenShareDialog}
                       >
                         <span className="room-lobby-mobile-bottom-action__icon" aria-hidden="true">
@@ -1901,7 +1884,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                         className={`room-lobby-mobile-bottom-action ${action.key === "leave" ? "room-lobby-mobile-bottom-action--leave" : ""}`}
                         disabled={action.disabled}
                         aria-label={action.label}
-                        title={action.label}
                         onClick={action.onClick}
                       >
                         <span className="room-lobby-mobile-bottom-action__icon" aria-hidden="true">
@@ -1919,7 +1901,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   role="tab"
                   aria-selected={mobileLobbyTab === "members"}
                   aria-label="玩家"
-                  title="玩家"
                   className={`room-lobby-mobile-tab ${mobileLobbyTab === "members" ? "is-active" : ""
                     }`}
                   onClick={() => setMobileLobbyTab("members")}
@@ -1934,7 +1915,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   role="tab"
                   aria-selected={mobileLobbyTab === "host"}
                   aria-label="操作"
-                  title="操作"
                   className={`room-lobby-mobile-tab ${mobileLobbyTab === "host" ? "is-active" : ""
                     }`}
                   onClick={() => setMobileLobbyTab("host")}
@@ -1949,7 +1929,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                   role="tab"
                   aria-selected={mobileLobbyTab === "playlist"}
                   aria-label="播放清單"
-                  title="播放清單"
                   className={`room-lobby-mobile-tab ${mobileLobbyTab === "playlist" ? "is-active" : ""
                     }`}
                   onClick={() => setMobileLobbyTab("playlist")}
@@ -2052,7 +2031,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               }`}
               onClick={handleCopyInviteLink}
               disabled={!inviteLink}
-              title={inviteLink || "未提供"}
             >
               <span className="room-lobby-share-row__icon" aria-hidden="true">
                 {inviteLinkCopied ? (

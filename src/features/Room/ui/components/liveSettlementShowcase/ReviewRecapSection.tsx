@@ -16,6 +16,7 @@ import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
 
 import type { SettlementTrackLink } from "../../../model/settlementLinks";
 import type { RoomParticipant } from "../../../model/types";
+import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 import type { SettlementQuestionRecap } from "../GameSettlementPanel";
 import {
   resolveSongPerformanceSegments,
@@ -407,13 +408,14 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[1.05rem] font-black leading-snug text-white">{recap.title}</p>
                           <div className="mt-3 flex flex-wrap gap-1.5">
-                            <span
-                              className={`${REVIEW_BADGE_PILL_CLASS} ${resultMeta[result].badgeClass}`}
-                              aria-label={resultMeta[result].label}
-                              title={resultMeta[result].label}
-                            >
-                              {renderResultBadgeContent(result)}
-                            </span>
+                            <RoomUiTooltip title={resultMeta[result].label}>
+                              <span
+                                className={`${REVIEW_BADGE_PILL_CLASS} ${resultMeta[result].badgeClass}`}
+                                aria-label={resultMeta[result].label}
+                              >
+                                {renderResultBadgeContent(result)}
+                              </span>
+                            </RoomUiTooltip>
                             {gradeMeta && <span className={`${REVIEW_BADGE_PILL_CLASS} ${gradeMeta.badgeClass}`}>評級 {rating?.grade}</span>}
                           </div>
                         </div>
@@ -438,13 +440,14 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                 <p className="mt-2 text-lg text-slate-300">{selectedRecap.uploader || "未知來源"}</p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span
-                    className={`${REVIEW_BADGE_PILL_CLASS} ${resultMeta[selectedRecapAnswer.result].badgeClass}`}
-                    aria-label={resultMeta[selectedRecapAnswer.result].label}
-                    title={resultMeta[selectedRecapAnswer.result].label}
-                  >
-                    {renderResultBadgeContent(selectedRecapAnswer.result)}
-                  </span>
+                  <RoomUiTooltip title={resultMeta[selectedRecapAnswer.result].label}>
+                    <span
+                      className={`${REVIEW_BADGE_PILL_CLASS} ${resultMeta[selectedRecapAnswer.result].badgeClass}`}
+                      aria-label={resultMeta[selectedRecapAnswer.result].label}
+                    >
+                      {renderResultBadgeContent(selectedRecapAnswer.result)}
+                    </span>
+                  </RoomUiTooltip>
                   {selectedRecapGradeMeta && <span className={`${REVIEW_BADGE_PILL_CLASS} ${selectedRecapGradeMeta.badgeClass}`}>評級 {selectedRecapRating?.grade}</span>}
                   {selectedRecapCorrectRank !== null && <span className={`${REVIEW_BADGE_PILL_CLASS} border-sky-300/45 bg-sky-500/16 text-sky-100`}>第 {selectedRecapCorrectRank} 答</span>}
                   {isSelectedRecapGlobalFastest && <span className={`${REVIEW_BADGE_PILL_CLASS} border-orange-300/45 bg-orange-500/18 text-orange-100`}>{selectedRecapFastestBadgeText}</span>}

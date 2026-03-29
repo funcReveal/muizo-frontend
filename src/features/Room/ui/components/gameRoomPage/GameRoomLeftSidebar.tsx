@@ -11,6 +11,7 @@ import {
 } from "../../../../Setting/model/settingsContext";
 import { getScoreboardBorderThemeClassName } from "../../../../Setting/model/scoreboardBorderEffects";
 import AnimatedScoreboardBorder from "../../../../../shared/ui/AnimatedScoreboardBorder";
+import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 import type { ChatMessage, RoomParticipant } from "../../../model/types";
 import { normalizeRoomDisplayText } from "../../../model/roomProviderUtils";
 import type { TopTwoSwapState } from "./gameRoomPageTypes";
@@ -723,18 +724,15 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 ) : null}
                 <span className="truncate flex items-center gap-2">
                   {hasAnswered && (
-                    <span
-                      className={`h-2 w-2 rounded-full ${answerDotClass}`}
-                      title={answerDotTitle}
-                    />
+                    <RoomUiTooltip title={answerDotTitle}>
+                      <span className={`h-2 w-2 rounded-full ${answerDotClass}`} />
+                    </RoomUiTooltip>
                   )}
                   <span className="truncate">
                     {idx + 1}. {displayName}
                   </span>
                   {isMeRow && (
-                    <span className="game-room-score-row-you-badge" title="YOU">
-                      YOU
-                    </span>
+                    <span className="game-room-score-row-you-badge">YOU</span>
                   )}
                 </span>
                 <div className="flex items-center gap-2">

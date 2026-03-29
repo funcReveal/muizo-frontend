@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 
 import type {
   DbCollection,
@@ -97,30 +98,42 @@ export const useCollectionLoader = ({
   const lastItemsAuthTokenRef = useRef<string | null>(null);
   const lastItemsKeyRef = useRef<string | null>(null);
 
-  const syncUserRecord = async (token: string, allowRetry: boolean) => {
-    if (!ownerId || !API_URL) return;
+  const syncUserRecord = useCallback(
+    async (token: string, allowRetry: boolean) => {
+      if (!ownerId || !API_URL) return;
 
-    const userRes = await syncUserWithTimeout(`${API_URL}/api/users`, token, {
-      id: ownerId,
-      display_name:
-        authUser?.display_name && authUser.display_name !== "（未提供名稱）"
-          ? authUser.display_name
-          : displayUsername && displayUsername !== "（未提供名稱）"
-            ? displayUsername
-            : "Guest",
-      provider: authUser?.provider ?? "google",
-      provider_user_id: authUser?.provider_user_id ?? ownerId,
-      email: authUser?.email ?? null,
-      avatar_url: authUser?.avatar_url ?? null,
-    });
+      const userRes = await syncUserWithTimeout(`${API_URL}/api/users`, token, {
+        id: ownerId,
+        display_name:
+          authUser?.display_name && authUser.display_name !== "（未提供名稱）"
+            ? authUser.display_name
+            : displayUsername && displayUsername !== "（未提供名稱）"
+              ? displayUsername
+              : "Guest",
+        provider: authUser?.provider ?? "google",
+        provider_user_id: authUser?.provider_user_id ?? ownerId,
+        email: authUser?.email ?? null,
+        avatar_url: authUser?.avatar_url ?? null,
+      });
 
-    if (userRes.status === 401 && allowRetry) {
-      const refreshed = await refreshAuthToken();
-      if (refreshed) {
-        return syncUserRecord(refreshed, false);
+      if (userRes.status === 401 && allowRetry) {
+        const refreshed = await refreshAuthToken();
+        if (refreshed) {
+          return syncUserRecord(refreshed, false);
+        }
       }
-    }
-  };
+    },
+    [
+      ownerId,
+      authUser?.display_name,
+      authUser?.provider,
+      authUser?.provider_user_id,
+      authUser?.email,
+      authUser?.avatar_url,
+      displayUsername,
+      refreshAuthToken,
+    ],
+  );
 
   useEffect(() => {
     if (!ownerId || !authToken) {
@@ -208,6 +221,7 @@ export const useCollectionLoader = ({
     authUser?.avatar_url,
     displayUsername,
     refreshAuthToken,
+    syncUserRecord,
     setCollections,
     setCollectionsLoading,
     setCollectionsError,

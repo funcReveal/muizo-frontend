@@ -1,4 +1,4 @@
-import {
+﻿import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
@@ -14,12 +14,14 @@ import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import { useEffect, useState } from "react";
 
 import type { GameState, PlaylistSuggestion } from "../../model/types";
 import type { YoutubePlaylist } from "../../model/RoomContext";
 import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
+import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
 import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 
@@ -78,6 +80,7 @@ interface RoomLobbyHostControlsProps {
     playlistId: string,
     title?: string | null,
   ) => Promise<boolean>;
+  onRequestGoogleLogin: () => void;
 }
 
 const getSuggestionKey = (suggestion: PlaylistSuggestion) =>
@@ -126,12 +129,32 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
   onApplyPlaylistUrlDirect,
   onApplyCollectionDirect,
   onApplyYoutubePlaylistDirect,
+  onRequestGoogleLogin,
 }) => {
   const [playlistDraftUrl, setPlaylistDraftUrl] = useState(playlistUrl);
 
   useEffect(() => {
     setPlaylistDraftUrl(playlistUrl);
   }, [playlistUrl]);
+
+  useEffect(() => {
+    if (isGoogleAuthed) return;
+    if (hostSourceType === "youtube") {
+      setHostSourceType("playlist");
+      return;
+    }
+    if (hostSourceType === "collection" && collectionScope === "owner") {
+      setCollectionScope("public");
+      onSelectCollection(null);
+    }
+  }, [
+    collectionScope,
+    hostSourceType,
+    isGoogleAuthed,
+    onSelectCollection,
+    setCollectionScope,
+    setHostSourceType,
+  ]);
 
   const switchSourceType = (
     nextType: "suggestions" | "playlist" | "collection" | "youtube",
@@ -145,8 +168,6 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
     }
     setHostSourceType(nextType);
   };
-
-  const googleAuthStatusMessage = "請先登入 Google";
 
   const hostSourceStatus = (() => {
     if (hostSourceType === "suggestions") {
@@ -199,14 +220,6 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
             ? "info"
             : "neutral",
         loading: collectionsLoading || collectionItemsLoading,
-      } as const;
-    }
-
-    if (!isGoogleAuthed) {
-      return {
-        message: googleAuthStatusMessage,
-        tone: "warning",
-        loading: false,
       } as const;
     }
 
@@ -318,33 +331,66 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                 >
                   公開
                 </Button>
-                <Button
-                  size="small"
-                  variant={
-                    hostSourceType === "collection" && collectionScope === "owner"
-                      ? "contained"
-                      : "outlined"
-                  }
-                  className="room-lobby-mode-button room-lobby-mode-button--owner"
-                  startIcon={<LockRoundedIcon fontSize="small" />}
-                  onClick={() => {
-                    switchSourceType("collection");
-                    setCollectionScope("owner");
-                    onSelectCollection(null);
-                  }}
-                  disabled={!isGoogleAuthed}
+                <RoomUiTooltip
+                  title={!isGoogleAuthed ? "點擊即可登入解鎖" : undefined}
+                  wrapperClassName="inline-flex"
                 >
-                  個人
-                </Button>
-                <Button
-                  size="small"
-                  variant={hostSourceType === "youtube" ? "contained" : "outlined"}
-                  className="room-lobby-mode-button room-lobby-mode-button--youtube"
-                  startIcon={<YouTubeIcon fontSize="small" />}
-                  onClick={() => switchSourceType("youtube")}
+                  <Button
+                    size="small"
+                    variant={
+                      hostSourceType === "collection" && collectionScope === "owner"
+                        ? "contained"
+                        : "outlined"
+                    }
+                    className={`room-lobby-mode-button room-lobby-mode-button--owner${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
+                    startIcon={<BookmarkBorderRoundedIcon fontSize="small" />}
+                    onClick={() => {
+                      if (!isGoogleAuthed) {
+                        onRequestGoogleLogin();
+                        return;
+                      }
+                      switchSourceType("collection");
+                      setCollectionScope("owner");
+                      onSelectCollection(null);
+                    }}
+                  >
+                    <span className="room-lobby-mode-button__content">
+                      個人
+                      {!isGoogleAuthed ? (
+                        <span className="room-lobby-mode-button__lock-badge" aria-hidden="true">
+                          <LockRoundedIcon fontSize="inherit" />
+                        </span>
+                      ) : null}
+                    </span>
+                  </Button>
+                </RoomUiTooltip>
+                <RoomUiTooltip
+                  title={!isGoogleAuthed ? "點擊即可登入解鎖" : undefined}
+                  wrapperClassName="inline-flex"
                 >
-                  YouTube
-                </Button>
+                  <Button
+                    size="small"
+                    variant={hostSourceType === "youtube" ? "contained" : "outlined"}
+                    className={`room-lobby-mode-button room-lobby-mode-button--youtube${!isGoogleAuthed ? " room-lobby-mode-button--auth-required" : ""}`}
+                    startIcon={<YouTubeIcon fontSize="small" />}
+                    onClick={() => {
+                      if (!isGoogleAuthed) {
+                        onRequestGoogleLogin();
+                        return;
+                      }
+                      switchSourceType("youtube");
+                    }}
+                  >
+                    <span className="room-lobby-mode-button__content">
+                      YouTube
+                      {!isGoogleAuthed ? (
+                        <span className="room-lobby-mode-button__lock-badge" aria-hidden="true">
+                          <LockRoundedIcon fontSize="inherit" />
+                        </span>
+                      ) : null}
+                    </span>
+                  </Button>
+                </RoomUiTooltip>
                 <Button
                   size="small"
                   variant={hostSourceType === "playlist" ? "contained" : "outlined"}

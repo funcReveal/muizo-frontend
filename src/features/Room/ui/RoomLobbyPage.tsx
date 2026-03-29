@@ -358,6 +358,7 @@ const RoomLobbyPage: React.FC = () => {
     collectionItemsError,
     selectedCollectionId,
     authUser,
+    loginWithGoogle,
     youtubePlaylists,
     youtubePlaylistsLoading,
     youtubePlaylistsError,
@@ -1995,6 +1996,7 @@ const RoomLobbyPage: React.FC = () => {
             youtubePlaylists={youtubePlaylists}
             youtubePlaylistsLoading={youtubePlaylistsLoading}
             youtubePlaylistsError={youtubePlaylistsError}
+            onRequestGoogleLogin={loginWithGoogle}
             isHost={isHost}
             gameState={gameState}
             canStartGame={playlistProgress.ready}

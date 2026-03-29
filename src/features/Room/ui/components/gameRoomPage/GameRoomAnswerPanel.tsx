@@ -4,6 +4,7 @@ import { Button, Chip, LinearProgress } from "@mui/material";
 import RevealChoiceAvatarRow from "./RevealChoiceAvatarRow";
 import type { GameState, PlaylistItem } from "../../../model/types";
 import { normalizeRoomDisplayText } from "../../../model/roomProviderUtils";
+import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 import type {
   ChoiceCommitFxState,
   MyFeedbackModel,
@@ -96,8 +97,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   onOpenExitConfirm,
   isPendingFeedbackCard,
   allAnsweredReadyForReveal,
-  isRevealPendingServerSync,
-  isRevealPendingOptimisticSync,
   revealChoicePickMap,
   serverOffsetMs,
 }) => {
@@ -561,9 +560,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
 
 
                         <div className="game-room-choice-content flex w-full items-start justify-between gap-2">
-                          <span className="game-room-choice-title" title={choiceDisplayTitle}>
-                            {choiceDisplayTitle}
-                          </span>
+                          <RoomUiTooltip title={choiceDisplayTitle} wrapperClassName="min-w-0 max-w-full">
+                            <span className="game-room-choice-title">
+                              {choiceDisplayTitle}
+                            </span>
+                          </RoomUiTooltip>
 
                           <span className="game-room-choice-meta ml-3 inline-flex items-center gap-1">
                             {showGuessLockTag && (
@@ -578,12 +579,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                             )}
 
                             {isMyChoice && myComboTier > 0 && (
-                              <span
-                                className={`game-room-choice-tag game-room-choice-tag--combo game-room-choice-tag--combo-tier-${myComboTier}`}
-                                title={`Combo x${myComboNow}`}
-                              >
-                                Combo x{myComboNow}
-                              </span>
+                          <span
+                            className={`game-room-choice-tag game-room-choice-tag--combo game-room-choice-tag--combo-tier-${myComboTier}`}
+                          >
+                            Combo x{myComboNow}
+                          </span>
                             )}
 
                             {showCorrectTag && (
@@ -632,7 +632,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 {isReveal && myFeedback.inlineMeta && (
                   <span
                     className={`game-room-feedback-inline-meta game-room-feedback-inline-meta--${revealTone}`}
-                    title={myFeedback.inlineMeta}
                   >
                     {myFeedback.inlineMeta}
                   </span>
@@ -643,7 +642,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                       ? ""
                       : "game-room-feedback-pill--placeholder"
                       }`}
-                    title={myFeedback.pillText ?? myFeedback.detail ?? ""}
                   >
                     {(myFeedback.pillText ?? myFeedback.detail) || "等待揭曉"}
                   </span>
@@ -659,7 +657,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                       <p
                         key={`${trackSessionKey}-feedback-line-${idx}`}
                         className="game-room-feedback-line"
-                        title={line}
                       >
                         {line}
                       </p>
@@ -682,10 +679,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 )}
               {isReveal && (
                 <>
-                  <p
-                    className="game-room-reveal-answer mt-1 text-sm text-emerald-50"
-                    title={resolvedAnswerTitle}
-                  >
+                  <p className="game-room-reveal-answer mt-1 text-sm text-emerald-50">
                     <span className="mr-1 text-[11px] font-semibold text-emerald-200">正解</span>
                     {resolvedAnswerTitle}
                   </p>
