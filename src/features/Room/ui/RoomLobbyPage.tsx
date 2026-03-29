@@ -1975,6 +1975,7 @@ const RoomLobbyPage: React.FC = () => {
             messages={lobbyMessages}
             selfClientId={clientId}
             roomPassword={hostRoomPassword}
+            selfAvatarUrl={authUser?.avatar_url ?? null}
             playlistItems={playlistViewItems}
             playlistHasMore={playlistHasMore}
             playlistLoadingMore={playlistLoadingMore}

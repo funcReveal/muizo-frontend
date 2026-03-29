@@ -13,6 +13,7 @@ export type RevealChoicePickBadge = {
   clientId: string;
   username: string;
   initial: string;
+  avatarUrl?: string | null;
   result: RevealAnswerResult;
   isMe: boolean;
   answeredAtMs: number | null;

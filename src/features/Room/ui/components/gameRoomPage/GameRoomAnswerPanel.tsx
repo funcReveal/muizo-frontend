@@ -122,7 +122,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   // runs entirely on compositor thread — zero React re-renders needed for the bar.
   React.useLayoutEffect(() => {
     const fill = progressBarFillRef.current;
-    if (!fill || isInterTrackWait || activePhaseDurationMs <= 0) return;
+    if (!fill || isInitialCountdown || isInterTrackWait || activePhaseDurationMs <= 0) {
+      return;
+    }
     const now = getLocalNowMs();
     const elapsed = activePhaseDurationMs - Math.max(0, phaseEndsAt - now);
     const startFraction = Math.max(0, Math.min(1, elapsed / activePhaseDurationMs));
@@ -134,7 +136,15 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
       fill.style.transition = `transform ${remainingMs}ms linear`;
       fill.style.transform = "scaleX(1)";
     }
-  }, [phaseEndsAt, activePhaseDurationMs, isInterTrackWait, getLocalNowMs]);
+  }, [
+    phaseEndsAt,
+    activePhaseDurationMs,
+    isInitialCountdown,
+    isInterTrackWait,
+    gamePhase,
+    trackSessionKey,
+    getLocalNowMs,
+  ]);
 
   React.useEffect(() => {
     if (!allAnsweredReadyForReveal) return;
@@ -213,7 +223,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     const timer = window.setTimeout(() => {
       setSelectedChoiceFxState((current) =>
         current?.trackSessionKey === trackSessionKey &&
-        current.choiceIndex === selectedChoice
+          current.choiceIndex === selectedChoice
           ? null
           : current,
       );
@@ -238,7 +248,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
       setPanelComboFxActive(false);
       setComboChoiceFxState((current) =>
         current?.trackSessionKey === trackSessionKey &&
-        current.choiceIndex === selectedChoice
+          current.choiceIndex === selectedChoice
           ? null
           : current,
       );
@@ -342,18 +352,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 </div>
               )}
             </div>
-            {isRevealPendingServerSync && (
-              <div className="mt-2 rounded-lg border border-emerald-300/45 bg-emerald-500/14 px-3 py-1.5 text-xs font-semibold text-emerald-100">
-                正在等待全員同步，答案即將公布...
-              </div>
-            )}
-            {!isRevealPendingServerSync && isRevealPendingOptimisticSync && (
-              <div className="mt-2 rounded-lg border border-sky-300/40 bg-sky-500/14 px-3 py-1.5 text-xs font-semibold text-sky-100">
-                已收到最後作答，正在整理揭曉資訊...
-              </div>
-            )}
             <div
-              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-2 md:grid-cols-2 ${isMobileView ? "game-room-options-grid--mobile" : ""
+              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-3 md:grid-cols-2 ${isMobileView ? "game-room-options-grid--mobile" : ""
                 }`}
             >
               {isInterTrackWait

@@ -110,6 +110,7 @@ export const buildRevealChoicePickMap = ({
         clientId: participant.clientId,
         username,
         initial: Array.from(username)[0] || "?",
+        avatarUrl: participant.avatar_url ?? participant.avatarUrl ?? null,
         result: answer.result,
         isMe: participant.clientId === meClientId,
         answeredAtMs,

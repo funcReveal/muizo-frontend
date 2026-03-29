@@ -33,7 +33,17 @@ const RevealChoiceAvatarRow: React.FC<RevealChoiceAvatarRowProps> = React.memo(
             aria-label={pick.isMe ? `${pick.username}（你）` : pick.username}
             style={{ zIndex: visiblePicks.length - index }}
           >
-            {pick.initial}
+            {pick.avatarUrl ? (
+              <img
+                src={pick.avatarUrl}
+                alt=""
+                className="game-room-choice-avatar__image"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              pick.initial
+            )}
           </span>
         ))}
 

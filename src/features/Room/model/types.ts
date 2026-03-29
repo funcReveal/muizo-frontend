@@ -144,6 +144,8 @@ export interface PlaylistSuggestion {
 export interface RoomParticipant {
   clientId: string;
   username: string;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
   socketId?: string;
   joinedAt: number;
   isOnline: boolean;
