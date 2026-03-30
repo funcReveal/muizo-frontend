@@ -54,6 +54,7 @@ interface GameRoomAnswerPanelProps {
   isRevealPendingOptimisticSync: boolean;
   revealChoicePickMap: RevealChoicePickMap;
   serverOffsetMs: number;
+  mobileHeaderAction?: React.ReactNode;
 }
 
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
@@ -98,6 +99,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   allAnsweredReadyForReveal,
   revealChoicePickMap,
   serverOffsetMs,
+  mobileHeaderAction,
 }) => {
   const getLocalNowMs = React.useCallback(
     () => Date.now() + serverOffsetMs,
@@ -303,33 +305,38 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
         >
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
-              <div>
+              <div className="game-room-answer-head__main min-w-0 flex-1">
                 <p className="game-room-title">
                   {isInterTrackWait ? "下一題準備中" : phaseLabel}
                 </p>
+                <Chip
+                  label={
+                    isInterTrackWait
+                      ? `${startCountdownSec}s`
+                      : allAnsweredReadyForReveal
+                        ? "READY"
+                        : `${Math.ceil(phaseRemainingMs / 1000)}s`
+                  }
+                  size="small"
+                  color={
+                    isInterTrackWait
+                      ? "info"
+                      : allAnsweredReadyForReveal
+                        ? "success"
+                        : gamePhase === "guess"
+                          ? "warning"
+                          : "success"
+                  }
+                  variant={allAnsweredReadyForReveal ? "filled" : "outlined"}
+                  className={`game-room-chip ${isGuessUrgency ? "game-room-chip--urgent" : ""
+                    } ${urgentChipPingActive ? "game-room-chip--urgent-ping" : ""} ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
+                />
               </div>
-              <Chip
-                label={
-                  isInterTrackWait
-                    ? `${startCountdownSec}s`
-                    : allAnsweredReadyForReveal
-                      ? "READY"
-                      : `${Math.ceil(phaseRemainingMs / 1000)}s`
-                }
-                size="small"
-                color={
-                  isInterTrackWait
-                    ? "info"
-                    : allAnsweredReadyForReveal
-                      ? "success"
-                      : gamePhase === "guess"
-                        ? "warning"
-                        : "success"
-                }
-                variant={allAnsweredReadyForReveal ? "filled" : "outlined"}
-                className={`game-room-chip ${isGuessUrgency ? "game-room-chip--urgent" : ""
-                  } ${urgentChipPingActive ? "game-room-chip--urgent-ping" : ""} ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
-              />
+              {isMobileView && mobileHeaderAction ? (
+                <div className="game-room-answer-head__action">
+                  {mobileHeaderAction}
+                </div>
+              ) : null}
             </div>
 
             <div

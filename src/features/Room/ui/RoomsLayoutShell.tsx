@@ -47,6 +47,7 @@ const RoomsLayoutShell: React.FC = () => {
   const [privacyConfirmOpen, setPrivacyConfirmOpen] = useState(false);
   const [termsConfirmOpen, setTermsConfirmOpen] = useState(false);
   const settingsDialogFullScreen = useMediaQuery("(max-width: 900px)");
+  const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
   const [navigationConfirmTarget, setNavigationConfirmTarget] =
     useState<NavigationTarget | null>(null);
   const getNavigationPath = useCallback((target: NavigationTarget) => {
@@ -257,7 +258,7 @@ const RoomsLayoutShell: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start">
-      <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6 pt-4" : " p-4"}${currentRoom && !isGameMode ? " pb-16" : ""}`}>
+      <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6 pt-4" : " p-4"}${currentRoom && !isGameMode ? " pb-16" : ""}${currentRoom && isMobileViewport ? " pb-10" : ""}`}>
         <div>
           <AppHeader
             displayUsername={displayUsername}
@@ -276,7 +277,11 @@ const RoomsLayoutShell: React.FC = () => {
 
         <Outlet />
 
-        <footer className="flex m-0 items-center justify-center gap-4 text-xs text-[var(--mc-text-muted)]">
+        <footer
+          className={`flex m-0 items-center justify-center gap-4 text-xs text-[var(--mc-text-muted)] ${
+            isGameMode && isMobileViewport ? "game-room-mobile-legal-footer" : ""
+          }`}
+        >
           <button
             type="button"
             className="cursor-pointer border-0 bg-transparent p-0 text-xs text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"

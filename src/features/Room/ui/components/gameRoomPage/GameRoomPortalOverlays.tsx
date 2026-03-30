@@ -18,21 +18,39 @@ export const AudioGestureOverlayPortal: React.FC<AudioGestureOverlayPortalProps>
   onTrigger,
 }) => {
   if (!visible || typeof document === "undefined") return null;
+  const stopOverlayEvent = (event: React.SyntheticEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const nativeEvent = event.nativeEvent as Event & {
+      stopImmediatePropagation?: () => void;
+    };
+    nativeEvent.stopImmediatePropagation?.();
+  };
+  const handleTrigger = (event: React.SyntheticEvent) => {
+    stopOverlayEvent(event);
+    onTrigger(event);
+  };
   return createPortal(
     <div
       className="fixed inset-0 z-[2400] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm"
-      onPointerDown={onTrigger}
-      onTouchStart={onTrigger}
-      onClick={onTrigger}
+      onPointerDownCapture={stopOverlayEvent}
+      onPointerUpCapture={stopOverlayEvent}
+      onClick={handleTrigger}
       role="button"
       tabIndex={0}
       aria-label="點擊後開始播放"
     >
-      <div className="mx-4 w-full max-w-sm rounded-2xl border border-emerald-300/40 bg-slate-900/85 px-6 py-6 text-center shadow-[0_20px_60px_rgba(2,6,23,0.6)]">
+      <div
+        className="mx-4 w-full max-w-sm rounded-2xl border border-emerald-300/40 bg-slate-900/85 px-6 py-6 text-center shadow-[0_20px_60px_rgba(2,6,23,0.6)]"
+        onPointerDownCapture={stopOverlayEvent}
+        onPointerUpCapture={stopOverlayEvent}
+        onClick={handleTrigger}
+      >
         <button
           type="button"
-          onClick={onTrigger}
-          onTouchStart={onTrigger}
+          onPointerDownCapture={stopOverlayEvent}
+          onPointerUpCapture={stopOverlayEvent}
+          onClick={handleTrigger}
           disabled={!isPlayerReady}
           className="rounded-full border border-emerald-300/60 bg-emerald-400/15 px-5 py-2 text-base font-semibold text-emerald-100"
         >

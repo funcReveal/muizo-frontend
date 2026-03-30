@@ -4964,6 +4964,21 @@ body {
   min-height: 0;
 }
 
+.game-room-answer-head__main {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.game-room-answer-head__action {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .game-room-options-grid {
   min-height: 0;
   overflow: hidden;
@@ -14802,9 +14817,9 @@ body {
     gap: 10px;
   }
 
-  .game-room-mobile-action-dock {
+.game-room-mobile-action-dock {
     position: sticky;
-    bottom: max(10px, env(safe-area-inset-bottom) + 6px);
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
     z-index: 24;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -14981,6 +14996,10 @@ body {
   .game-room-mobile-toggle-chip--half {
     width: auto;
     flex: 1 1 0;
+  }
+
+  .game-room-mobile-toggle-chip--wide {
+    grid-column: 1 / -1;
   }
 
   .game-room-mobile-toggle-chip--compact {
@@ -15398,7 +15417,7 @@ body {
   }
 
   .game-room-mobile-drawer-root--scoreboard {
-    z-index: 1360 !important;
+    z-index: 1380 !important;
   }
 
   .game-room-mobile-overlay-blocker {
@@ -16276,6 +16295,21 @@ body {
 
   .game-room-answer-layout--mobile .game-room-answer-head {
     align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .game-room-answer-layout--mobile .game-room-chip {
+    flex: 0 0 auto;
+  }
+
+  .game-room-answer-layout--mobile .game-room-answer-head__action {
+    margin-left: auto;
+  }
+
+  .game-room-answer-layout--mobile .game-room-extend-vote-btn--mobile-inline {
+    min-width: 120px;
+    max-width: 42vw;
   }
 
   .game-room-answer-layout--mobile .game-room-answer-body {
@@ -16379,9 +16413,10 @@ body {
     max-height: min(56svh, 530px);
   }
 
-  .game-room-mobile-action-dock {
+.game-room-mobile-action-dock {
     gap: 6px;
     padding: 6px;
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
   }
 
   .game-room-mobile-action-btn {
@@ -16562,6 +16597,35 @@ body {
     0 12px 28px -22px rgba(245, 158, 11, 0.58);
 }
 
+.game-room-extend-vote-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.game-room-extend-vote-btn__copy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-room-extend-vote-btn--mobile-inline {
+  min-width: 94px;
+  max-width: 124px;
+  min-height: 30px;
+  padding: 0 8px !important;
+  gap: 5px;
+  font-size: 10px !important;
+  line-height: 1.1;
+  justify-content: center;
+  text-align: center;
+  border-color: rgba(245, 158, 11, 0.26) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 .game-room-mobile-chat-alert-toggle {
   display: inline-flex;
   align-items: center;
@@ -16643,6 +16707,31 @@ body {
   border-color: rgba(148, 163, 184, 0.38) !important;
   background: rgba(15, 23, 42, 0.72) !important;
   color: rgba(226, 232, 240, 0.84) !important;
+}
+
+.game-room-extend-vote-btn--mobile-inline:hover,
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--active,
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--approved,
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--rejected,
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--prompt {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--active {
+  border-color: rgba(251, 191, 36, 0.52) !important;
+}
+
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--approved {
+  border-color: rgba(74, 222, 128, 0.44) !important;
+}
+
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--rejected {
+  border-color: rgba(148, 163, 184, 0.34) !important;
+}
+
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--prompt::after {
+  display: none;
 }
 
 @keyframes game-room-vote-prompt-pulse {
@@ -22316,6 +22405,122 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+
+.game-room-mobile-chat-drawer-trigger {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 !important;
+  z-index: 1362;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 16px calc(11px + env(safe-area-inset-bottom, 0px));
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(10, 16, 26, 0.94), rgba(8, 12, 20, 0.98));
+  color: rgba(248, 250, 252, 0.96);
+  box-shadow: 0 -10px 28px -18px rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(12px);
+}
+
+.game-room-mobile-chat-drawer-trigger__label {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.game-room-mobile-chat-drawer-trigger__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.game-room-mobile-chat-drawer-trigger__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.game-room-mobile-chat-drawer {
+  border-radius: 18px 18px 0 0 !important;
+  border: 1px solid rgba(71, 85, 105, 0.22) !important;
+  border-bottom: none !important;
+  background:
+    radial-gradient(260px 150px at 14% 0%, rgba(56, 189, 248, 0.12), transparent 68%),
+    linear-gradient(180deg, rgba(6, 12, 20, 0.98), rgba(5, 9, 15, 0.98)) !important;
+  overflow: hidden;
+  box-shadow:
+    0 -24px 54px -34px rgba(8, 145, 178, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset !important;
+  margin-bottom: 0 !important;
+}
+
+.game-room-mobile-drawer-head--chat {
+  padding-bottom: 10px;
+}
+
+.game-room-mobile-chat-drawer-headline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.game-room-mobile-chat-drawer-title-group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.game-room-mobile-chat-drawer-title {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: rgba(248, 250, 252, 0.98);
+}
+
+.game-room-mobile-chat-drawer-hint {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.88);
+}
+
+.game-room-mobile-chat-drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-room-mobile-chat-drawer-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0 8px env(safe-area-inset-bottom, 0px);
+  overflow: hidden;
+}
+
+.game-room-mobile-chat-drawer-panel {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid rgba(71, 85, 105, 0.14);
+  background: linear-gradient(180deg, rgba(8, 12, 22, 0.88), rgba(5, 9, 16, 0.94));
+  overflow: hidden;
+}
+
+.game-room-mobile-chat-drawer-panel .floating-chat-input-row {
+  padding-bottom: 8px;
 }
 
 /* ── Collapsed FAB ── */
