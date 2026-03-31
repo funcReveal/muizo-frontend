@@ -255,6 +255,9 @@ const useGameRoomAnswerFlow = ({
           : selectedChoiceState.trackIndex === currentTrackIndex
             ? selectedChoiceState.choiceIndex
             : null;
+      if (currentSelectedChoice === choiceIndex) {
+        return;
+      }
       const changedChoice =
         currentSelectedChoice !== null && currentSelectedChoice !== choiceIndex;
       const fxKind: ChoiceCommitFxKind = changedChoice ? "reselect" : "lock";

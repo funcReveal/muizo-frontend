@@ -52,6 +52,7 @@ import {
 } from "../model/roomProviderUtils";
 import {
   resolveCorrectResultSfxEvent,
+  resolveComboMilestoneSfxEvent,
   resolveCountdownSfxEvent,
   resolveGuessDeadlineSfxEvent,
 } from "../model/sfx/gameSfxEngine";
@@ -1325,8 +1326,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     const sfxKey = `${trackSessionKey}:combo-up:${myComboNow}:${myComboTier}`;
     if (lastComboStateSfxKeyRef.current === sfxKey) return;
     lastComboStateSfxKeyRef.current = sfxKey;
+    const comboMilestoneSfxEvent = resolveComboMilestoneSfxEvent(myComboTier);
     timerId = window.setTimeout(() => {
-      playGameSfx("combo");
+      playGameSfx(comboMilestoneSfxEvent);
       triggerHapticFeedback("combo");
     }, 120);
     return () => {

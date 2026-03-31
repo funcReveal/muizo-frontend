@@ -651,6 +651,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             const rowComboTier = isComboLeader ? resolveComboTier(p.combo ?? 0) : 0;
             const rowComboTierClass =
               rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
+            const comboDisplayTier = resolveComboTier(p.combo ?? 0);
+            const comboDisplayClass =
+              comboDisplayTier > 0
+                ? `game-room-score-row-combo-text game-room-score-row-combo-text--tier-${comboDisplayTier}`
+                : "";
             const shouldShowComboFlare = isComboLeader && rowComboTier > 0;
             const shouldShowComboChampion =
               shouldShowComboFlare && scoreboardBorderEnabled;
@@ -747,7 +752,9 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                         {scoreParts.gain > 0 ? `+${scoreParts.gain}` : scoreParts.gain}
                       </span>
                     )}
-                    {p.combo > 0 && <span className="ml-1 text-amber-300">x{p.combo}</span>}
+                    {p.combo > 0 && (
+                      <span className={`ml-1 ${comboDisplayClass}`}>x{p.combo}</span>
+                    )}
                   </span>
                 </div>
               </div>

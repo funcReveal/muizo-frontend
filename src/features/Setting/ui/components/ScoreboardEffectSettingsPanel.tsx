@@ -431,6 +431,10 @@ const ScoreboardEffectPreviewRow: React.FC<ScoreboardEffectPreviewRowProps> = ({
   const themeClassName = enabled
     ? getScoreboardBorderThemeClassName(themeId)
     : "";
+  const comboDisplayClass =
+    comboTier > 0
+      ? `game-room-score-row-combo-text game-room-score-row-combo-text--tier-${comboTier}`
+      : "";
 
   return (
     <div
@@ -473,7 +477,7 @@ const ScoreboardEffectPreviewRow: React.FC<ScoreboardEffectPreviewRowProps> = ({
       </span>
       <span className="font-semibold text-emerald-300 tabular-nums">
         {score}
-        {combo ? <span className="ml-1 text-amber-300">{combo}</span> : null}
+        {combo ? <span className={`ml-1 ${comboDisplayClass}`}>{combo}</span> : null}
       </span>
     </div>
   );

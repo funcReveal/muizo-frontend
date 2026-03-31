@@ -10,6 +10,11 @@ export type GameSfxEvent =
   | "lock"
   | "reveal"
   | "combo"
+  | "comboTier1"
+  | "comboTier2"
+  | "comboTier3"
+  | "comboTier4"
+  | "comboTier5"
   | "comboBreak"
   | "correct"
   | "correctCombo1"
@@ -106,6 +111,17 @@ export const resolveCorrectResultSfxEvent = (
   return `correctCombo${tier}` as GameSfxEvent;
 };
 
+export const resolveComboMilestoneSfxEvent = (
+  comboTier: number | null | undefined,
+): GameSfxEvent => {
+  const safeTier = Number.isFinite(comboTier)
+    ? Math.max(0, Math.floor(comboTier ?? 0))
+    : 0;
+  if (safeTier <= 0) return "combo";
+  const audioTier = Math.max(1, Math.min(5, Math.ceil(safeTier / 2)));
+  return `comboTier${audioTier}` as GameSfxEvent;
+};
+
 const buildCorrectComboTierSteps = (
   preset: SfxPresetProfile,
   tier: number,
@@ -173,6 +189,107 @@ const buildCorrectComboTierSteps = (
       gain: g(0.06),
       type: preset.primaryWave,
     });
+  }
+
+  return steps;
+};
+
+const buildComboMilestoneSteps = (
+  preset: SfxPresetProfile,
+  tier: number,
+): SfxStep[] => {
+  const clampedTier = Math.max(1, Math.min(5, Math.floor(tier)));
+  const p = (freq: number) => Math.max(40, freq * preset.pitchMul);
+  const g = (gain: number) => Math.max(0.0001, gain * preset.gainMul);
+  const lift = (clampedTier - 1) * 54;
+
+  const steps: SfxStep[] = [
+    {
+      atSec: 0,
+      durationSec: 0.12,
+      freq: p(320 + lift * 0.2),
+      endFreq: p(420 + lift * 0.24),
+      gain: g(0.075 + clampedTier * 0.008),
+      type: preset.softWave,
+    },
+    {
+      atSec: 0.016,
+      durationSec: 0.074,
+      freq: p(980 + lift * 0.44),
+      endFreq: p(1180 + lift * 0.56),
+      gain: g(0.132 + clampedTier * 0.007),
+      type: preset.accentWave,
+    },
+    {
+      atSec: 0.072,
+      durationSec: 0.11,
+      freq: p(1260 + lift * 0.64),
+      endFreq: p(1540 + lift * 0.78),
+      gain: g(0.128 + clampedTier * 0.008),
+      type: preset.primaryWave,
+    },
+    {
+      atSec: 0.15,
+      durationSec: 0.12,
+      freq: p(1560 + lift * 0.82),
+      endFreq: p(1940 + lift),
+      gain: g(0.11 + clampedTier * 0.01),
+      type: preset.accentWave,
+    },
+  ];
+
+  if (clampedTier >= 2) {
+    steps.push({
+      atSec: 0.196,
+      durationSec: 0.16,
+      freq: p(820 + lift * 0.3),
+      endFreq: p(980 + lift * 0.42),
+      gain: g(0.072),
+      type: preset.softWave,
+    });
+  }
+
+  if (clampedTier >= 3) {
+    steps.push({
+      atSec: 0.232,
+      durationSec: 0.1,
+      freq: p(1980 + lift),
+      endFreq: p(2360 + lift * 1.1),
+      gain: g(0.094),
+      type: preset.primaryWave,
+    });
+  }
+
+  if (clampedTier >= 4) {
+    steps.push({
+      atSec: 0.278,
+      durationSec: 0.12,
+      freq: p(2280 + lift * 1.04),
+      endFreq: p(2760 + lift * 1.16),
+      gain: g(0.084),
+      type: preset.accentWave,
+    });
+  }
+
+  if (clampedTier >= 5) {
+    steps.push(
+      {
+        atSec: 0.052,
+        durationSec: 0.24,
+        freq: p(470 + lift * 0.26),
+        endFreq: p(640 + lift * 0.28),
+        gain: g(0.074),
+        type: "triangle",
+      },
+      {
+        atSec: 0.318,
+        durationSec: 0.16,
+        freq: p(2840 + lift * 1.1),
+        endFreq: p(3420 + lift * 1.22),
+        gain: g(0.078),
+        type: preset.primaryWave,
+      },
+    );
   }
 
   return steps;
@@ -338,37 +455,55 @@ const getSfxSteps = (preset: SfxPresetProfile, event: GameSfxEvent): SfxStep[] =
       return [
         {
           atSec: 0,
-          durationSec: 0.054,
-          freq: p(980),
-          endFreq: p(1120),
-          gain: g(0.13),
+          durationSec: 0.1,
+          freq: p(420),
+          endFreq: p(520),
+          gain: g(0.068),
+          type: preset.softWave,
+        },
+        {
+          atSec: 0.012,
+          durationSec: 0.058,
+          freq: p(1020),
+          endFreq: p(1180),
+          gain: g(0.142),
           type: preset.accentWave,
         },
         {
-          atSec: 0.05,
-          durationSec: 0.068,
-          freq: p(1260),
-          endFreq: p(1480),
-          gain: g(0.125),
+          atSec: 0.062,
+          durationSec: 0.082,
+          freq: p(1320),
+          endFreq: p(1580),
+          gain: g(0.136),
           type: preset.primaryWave,
         },
         {
-          atSec: 0.11,
-          durationSec: 0.074,
-          freq: p(1580),
-          endFreq: p(1980),
-          gain: g(0.11),
+          atSec: 0.138,
+          durationSec: 0.09,
+          freq: p(1680),
+          endFreq: p(2140),
+          gain: g(0.122),
           type: preset.accentWave,
         },
         {
-          atSec: 0.176,
-          durationSec: 0.09,
-          freq: p(2040),
-          endFreq: p(2360),
-          gain: g(0.082),
+          atSec: 0.214,
+          durationSec: 0.12,
+          freq: p(2160),
+          endFreq: p(2580),
+          gain: g(0.094),
           type: preset.primaryWave,
         },
       ];
+    case "comboTier1":
+      return buildComboMilestoneSteps(preset, 1);
+    case "comboTier2":
+      return buildComboMilestoneSteps(preset, 2);
+    case "comboTier3":
+      return buildComboMilestoneSteps(preset, 3);
+    case "comboTier4":
+      return buildComboMilestoneSteps(preset, 4);
+    case "comboTier5":
+      return buildComboMilestoneSteps(preset, 5);
     case "comboBreak":
       return [
         {
@@ -521,6 +656,11 @@ export const playSynthSfx = (
   const safeVolume = Math.min(1, Math.max(0, volumeRatio));
   const isComboEvent =
     event === "combo" ||
+    event === "comboTier1" ||
+    event === "comboTier2" ||
+    event === "comboTier3" ||
+    event === "comboTier4" ||
+    event === "comboTier5" ||
     event === "correctCombo1" ||
     event === "correctCombo2" ||
     event === "correctCombo3" ||
@@ -532,11 +672,11 @@ export const playSynthSfx = (
       : event === "wrong" || event === "comboBreak"
         ? 1.12
         : isComboEvent
-          ? 1.18
+          ? 1.26
           : 1;
   const releaseSec =
     isComboEvent || event === "comboBreak"
-      ? 0.72
+      ? 0.88
       : event === "wrong"
         ? 0.66
         : 0.56;

@@ -35,6 +35,7 @@ const useGameRoomChoiceHotkeys = ({
         }
       }
       if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+      if (event.repeat) return;
       if (!enabled) return;
       if (!choices?.length) return;
 

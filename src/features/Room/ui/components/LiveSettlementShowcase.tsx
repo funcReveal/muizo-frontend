@@ -755,6 +755,46 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     syncPreviewVolume,
   ]);
 
+  const handleJumpToRecapPreview = useCallback(
+    (
+      recap: (typeof normalizedRecaps)[number],
+      source: "click" | "doubleClick" = "doubleClick",
+    ) => {
+      const isSameRecapDoubleClick =
+        source === "doubleClick" &&
+        reviewDoubleClickPlayEnabled &&
+        previewRecapKey === recap.key &&
+        currentRecommendation?.recap.key === recap.key &&
+        Boolean(currentRecommendationPreviewUrl);
+
+      if (isSameRecapDoubleClick) {
+        setPreviewPlaybackMode("manual");
+        setPreviewPlayerState("playing");
+        setAutoAdvanceAtMs(null);
+        setPausedCountdownRemainingMs(null);
+        setPreviewCountdownSec(RECOMMEND_PREVIEW_SECONDS);
+        postYouTubeCommand("playVideo");
+        window.setTimeout(() => postYouTubeCommand("playVideo"), 180);
+        return true;
+      }
+
+      return jumpToRecapPreview(recap, source);
+    },
+    [
+      currentRecommendation,
+      currentRecommendationPreviewUrl,
+      jumpToRecapPreview,
+      postYouTubeCommand,
+      previewRecapKey,
+      reviewDoubleClickPlayEnabled,
+      setAutoAdvanceAtMs,
+      setPausedCountdownRemainingMs,
+      setPreviewCountdownSec,
+      setPreviewPlaybackMode,
+      setPreviewPlayerState,
+    ],
+  );
+
   const goToTab = (tab: LiveSettlementTab) => {
     if (tab === activeTab) return;
     setTabRenderKey((prev) => prev + 1);
@@ -1066,7 +1106,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 selectedRecap={selectedRecap}
                 selectedRecapKey={effectiveSelectedRecapKey}
                 onSetSelectedRecapKey={setSelectedRecapKey}
-                onJumpToRecapPreview={jumpToRecapPreview}
+                onJumpToRecapPreview={handleJumpToRecapPreview}
                 resolveParticipantResult={resolveParticipantResult}
                 resultMeta={RESULT_META}
                 performanceRatingByRecapKey={performanceRatingByRecapKey}

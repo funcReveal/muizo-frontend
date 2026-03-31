@@ -654,33 +654,40 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                           }`}
                       >
                         {pickedParticipants.length > 0 && (
-                          <div className="pointer-events-none absolute right-5 top-0 z-10 flex -translate-y-[62%] flex-row-reverse">
+                          <div className="absolute right-5 top-0 z-10 flex -translate-y-[58%] flex-row-reverse pointer-events-auto">
                             {pickedParticipants.slice(0, 4).map((participant, index) => {
                               const avatarUrl = participant.avatar_url ?? participant.avatarUrl ?? null;
                               return (
-                                <div
+                                <RoomUiTooltip
                                   key={`${choice.index}-${participant.clientId}`}
-                                  className="relative h-10 w-10 overflow-hidden rounded-full border border-slate-700/38 bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.1),transparent_42%),linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] text-white/88 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)]"
-                                  style={{ marginRight: index === 0 ? 0 : -10 }}
+                                  title={participant.username}
                                 >
-                                  {avatarUrl ? (
-                                    <img
-                                      src={avatarUrl}
-                                      alt={participant.username}
-                                      className="h-full w-full object-cover opacity-[0.88] saturate-[0.9] brightness-[0.98]"
-                                    />
-                                  ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-transparent text-[11px] font-black text-white/88">
-                                      {participant.username.slice(0, 1).toUpperCase()}
-                                    </div>
-                                  )}
-                                </div>
+                                  <div
+                                    className="relative h-9 w-9 overflow-hidden rounded-full border border-slate-700/38 bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.1),transparent_42%),linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] text-white/88 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)]"
+                                    style={{ marginRight: index === 0 ? 0 : -9 }}
+                                    aria-label={participant.username}
+                                  >
+                                    {avatarUrl ? (
+                                      <img
+                                        src={avatarUrl}
+                                        alt={participant.username}
+                                        className="h-full w-full object-cover opacity-[0.88] saturate-[0.9] brightness-[0.98]"
+                                      />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center bg-transparent text-[10px] font-black text-white/88">
+                                        {participant.username.slice(0, 1).toUpperCase()}
+                                      </div>
+                                    )}
+                                  </div>
+                                </RoomUiTooltip>
                               );
                             })}
                             {pickedParticipants.length > 4 && (
-                              <div className="relative ml-2 flex h-10 min-w-[2.25rem] items-center justify-center rounded-full border border-slate-700/38 bg-[linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] px-2 text-[10px] font-black text-slate-100/92 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)]">
-                                +{pickedParticipants.length - 4}
-                              </div>
+                              <RoomUiTooltip title={`另外 ${pickedParticipants.length - 4} 位玩家`}>
+                                <div className="relative ml-2 flex h-9 min-w-[2.1rem] items-center justify-center rounded-full border border-slate-700/38 bg-[linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] px-2 text-[9px] font-black text-slate-100/92 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)]">
+                                  +{pickedParticipants.length - 4}
+                                </div>
+                              </RoomUiTooltip>
                             )}
                           </div>
                         )}

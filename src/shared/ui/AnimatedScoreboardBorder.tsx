@@ -135,10 +135,14 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const clampedIntensity = Math.max(0, Math.min(1, intensity));
+  const easedIntensity = React.useMemo(
+    () => Math.pow(clampedIntensity, 1.7),
+    [clampedIntensity],
+  );
   const effectiveParticleCount = React.useMemo(() => {
     if (particleCount <= 0 || clampedIntensity <= 0) return 0;
-    return Math.max(1, Math.round(particleCount * clampedIntensity));
-  }, [clampedIntensity, particleCount]);
+    return Math.max(1, Math.round(particleCount * easedIntensity));
+  }, [clampedIntensity, easedIntensity, particleCount]);
   const seeds = React.useMemo(
     () =>
       Array.from({ length: Math.max(0, effectiveParticleCount) }, (_, index) =>
@@ -255,6 +259,12 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
       ]
         .filter(Boolean)
         .join(" ")}
+      style={
+        {
+          ["--sb-intensity" as const]: easedIntensity.toFixed(3),
+          ["--sb-intensity-soft" as const]: (0.2 + easedIntensity * 0.8).toFixed(3),
+        } as React.CSSProperties
+      }
       aria-hidden="true"
     >
       <span className="scoreboard-border-effect__ring" />

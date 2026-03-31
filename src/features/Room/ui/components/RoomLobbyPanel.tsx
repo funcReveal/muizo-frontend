@@ -35,6 +35,7 @@ import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import ShareRoundedIcon from "@mui/icons-material/ShareRounded";
+import IosShareRoundedIcon from "@mui/icons-material/IosShareRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
@@ -220,6 +221,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [shareBlockedNotice, setShareBlockedNotice] = useState(false);
   const [sharePermissionSaving, setSharePermissionSaving] = useState(false);
+  const [shareActionRunning, setShareActionRunning] = useState(false);
   const [showRoomPassword, setShowRoomPassword] = useState(false);
   const [hostSourceType, setHostSourceType] = useState<
     "suggestions" | "playlist" | "collection" | "youtube"
@@ -954,6 +956,22 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     url.search = "";
     return url.toString();
   }, [currentRoom?.id]);
+  const shareMessage = React.useMemo(() => {
+    const roomName = currentRoom?.name?.trim() || "一起來猜歌";
+    const code = currentRoom?.roomCode?.trim() || "--";
+    const segments = [`${roomName}`, `房號：${code}`];
+    if (inviteLink) {
+      segments.push(`邀請連結：${inviteLink}`);
+    }
+    if (roomPassword) {
+      segments.push(`房間密碼：${roomPassword}`);
+    }
+    return segments.join("\n");
+  }, [currentRoom?.name, currentRoom?.roomCode, inviteLink, roomPassword]);
+  const canUseNativeShare =
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function" &&
+    Boolean(shareMessage);
 
   const flashCopiedState = React.useCallback(
     (kind: "roomCode" | "inviteLink") => {
@@ -994,6 +1012,21 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     if (!inviteLink) return;
     void copyText(inviteLink, "inviteLink");
   }, [copyText, inviteLink]);
+  const handleNativeShare = React.useCallback(async () => {
+    if (!canUseNativeShare || !currentRoom) return;
+    try {
+      setShareActionRunning(true);
+      await navigator.share({
+        title: currentRoom.name || "分享邀請",
+        text: shareMessage,
+        url: inviteLink || undefined,
+      });
+    } catch {
+      // Ignore cancelled native share.
+    } finally {
+      setShareActionRunning(false);
+    }
+  }, [canUseNativeShare, currentRoom, inviteLink, shareMessage]);
 
   const handleOpenShareDialog = React.useCallback(() => {
     if (!canUseShareInvite) {
@@ -2047,6 +2080,28 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 className="room-lobby-share-row__value room-lobby-share-row__value--link"
               >
                 {inviteLink || "未提供"}
+              </span>
+            </button>
+          </div>
+          <div className="room-lobby-share-actions-grid">
+            <button
+              type="button"
+              className={`room-lobby-share-action-card ${
+                shareActionRunning ? "is-pending" : ""
+              }`}
+              onClick={() => {
+                void handleNativeShare();
+              }}
+              disabled={!canUseNativeShare || shareActionRunning}
+            >
+              <span
+                className="room-lobby-share-action-card__icon"
+                aria-hidden="true"
+              >
+                <IosShareRoundedIcon fontSize="small" />
+              </span>
+              <span className="room-lobby-share-action-card__copy">
+                <strong>分享</strong>
               </span>
             </button>
           </div>
