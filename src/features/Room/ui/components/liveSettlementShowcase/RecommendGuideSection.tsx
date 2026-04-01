@@ -98,6 +98,12 @@ interface RecommendGuideSectionProps {
   recommendNavLabels: { prev: string; next: string };
   onGoPrevRecommendation: () => void;
   onGoNextRecommendation: () => void;
+  isMobileCategoryOpen: boolean;
+  onToggleMobileCategoryOpen: () => void;
+  isMobileInsightOpen: boolean;
+  onToggleMobileInsightOpen: () => void;
+  isMobileRecommendPanelOpen: boolean;
+  onToggleMobileRecommendPanelOpen: () => void;
 }
 
 const CATEGORY_META: Array<{ key: RecommendCategory; icon: React.ElementType }> = [
@@ -214,15 +220,15 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   recommendNavLabels,
   onGoPrevRecommendation,
   onGoNextRecommendation,
+  isMobileCategoryOpen,
+  onToggleMobileCategoryOpen,
+  isMobileInsightOpen,
+  onToggleMobileInsightOpen,
+  isMobileRecommendPanelOpen,
+  onToggleMobileRecommendPanelOpen,
 }) => {
   const [autoPreviewHelpAnchor, setAutoPreviewHelpAnchor] =
     React.useState<HTMLElement | null>(null);
-  const [isMobileCategoryOpen, setIsMobileCategoryOpen] =
-    React.useState(false);
-  const [isMobileInsightOpen, setIsMobileInsightOpen] =
-    React.useState(true);
-  const [isMobileRecommendPanelOpen, setIsMobileRecommendPanelOpen] =
-    React.useState(true);
   const youtubeOverlayTitle = "如果喜歡這首音樂，別忘了到 YouTube 支持創作者喲！";
   const currentCard = currentRecommendation;
   const shouldKeepLivePreviewVisible = currentRecommendationPreviewUrl !== null;
@@ -344,7 +350,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
         <div className="mt-4 rounded-[20px] border border-white/8 bg-black/14">
           <button
             type="button"
-            onClick={() => setIsMobileCategoryOpen((current) => !current)}
+            onClick={onToggleMobileCategoryOpen}
             className="inline-flex w-full cursor-pointer items-center justify-between px-4 py-2.5 text-left"
           >
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
@@ -512,7 +518,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => setIsMobileInsightOpen((current) => !current)}
+                    onClick={onToggleMobileInsightOpen}
                     className="inline-flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left"
                   >
                     <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
@@ -727,7 +733,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                 <div className="rounded-[24px] border border-white/8 bg-transparent px-4 py-2.5">
                   <button
                     type="button"
-                    onClick={() => setIsMobileRecommendPanelOpen((current) => !current)}
+                    onClick={onToggleMobileRecommendPanelOpen}
                     className="inline-flex w-full cursor-pointer items-center justify-between text-left transition"
                   >
                     <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
@@ -887,11 +893,13 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                       >
                         上一位
                       </button>
-                      <span className="truncate px-2 text-center text-[11px] font-semibold text-sky-100">
-                        <span className="mr-1 inline-flex align-middle text-cyan-200">
+                      <span className="flex min-w-0 flex-col items-center justify-center px-2 text-center">
+                        <span className="inline-flex text-cyan-200">
                           <GroupsRoundedIcon className="text-[0.95rem]" />
                         </span>
-                        {selectedReviewParticipantLabel}
+                        <span className="mt-1 block w-full truncate text-center text-[11px] font-semibold text-sky-100">
+                          {selectedReviewParticipantLabel}
+                        </span>
                       </span>
                       <button
                         type="button"

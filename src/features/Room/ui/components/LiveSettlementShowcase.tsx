@@ -6,6 +6,8 @@
   useState,
 } from "react";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import UnfoldLessRoundedIcon from "@mui/icons-material/UnfoldLessRounded";
+import UnfoldMoreRoundedIcon from "@mui/icons-material/UnfoldMoreRounded";
 
 import { trackEvent } from "../../../../shared/analytics/track";
 import { useSettingsModel } from "../../../Setting/model/settingsContext";
@@ -67,6 +69,7 @@ type RecommendationCard = SettlementRecommendationCard<ExtendedRecap>;
 interface LiveSettlementShowcaseProps {
   room: RoomState["room"];
   participants: RoomParticipant[];
+  participantAvatarFallbacks?: RoomParticipant[];
   messages: ChatMessage[];
   playlistItems?: PlaylistItem[];
   trackOrder?: number[];
@@ -77,6 +80,7 @@ interface LiveSettlementShowcaseProps {
   questionRecaps?: SettlementQuestionRecap[];
   upcomingGameStartAt?: number | null;
   nowMs?: number;
+  selfAvatarUrl?: string | null;
   onBackToLobby?: () => void;
   onRequestExit?: () => void;
 }
@@ -172,6 +176,7 @@ const buildFallbackRecaps = (
 const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   room,
   participants,
+  participantAvatarFallbacks = [],
   messages,
   playlistItems = [],
   trackOrder = [],
@@ -182,6 +187,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   questionRecaps = [],
   upcomingGameStartAt = null,
   nowMs,
+  selfAvatarUrl = null,
   onBackToLobby,
   onRequestExit,
 }) => {
@@ -204,6 +210,15 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     setSettlementPreviewVolume,
   } = useSettingsModel();
   const [activeTab, setActiveTab] = useState<LiveSettlementTab>("overview");
+  const [isMobileRecommendCategoryOpen, setIsMobileRecommendCategoryOpen] =
+    useState(true);
+  const [isMobileRecommendInsightOpen, setIsMobileRecommendInsightOpen] =
+    useState(true);
+  const [isMobileRecommendPanelOpen, setIsMobileRecommendPanelOpen] =
+    useState(true);
+  const [isMobileReviewListOpen, setIsMobileReviewListOpen] = useState(true);
+  const [isMobileReviewDetailTopOpen, setIsMobileReviewDetailTopOpen] =
+    useState(true);
   const [recommendCategory, setRecommendCategory] =
     useState<RecommendCategory>("quick");
   const [recommendIndex, setRecommendIndex] = useState(0);
@@ -245,6 +260,58 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const exitConfirmLockedRef = useRef(false);
 
   const stepIndex = TAB_ORDER.indexOf(activeTab);
+  const areAllMobileRecommendSectionsExpanded =
+    isMobileRecommendCategoryOpen &&
+    isMobileRecommendInsightOpen &&
+    isMobileRecommendPanelOpen &&
+    isMobileReviewListOpen &&
+    isMobileReviewDetailTopOpen;
+  const areAnyMobileRecommendSectionsExpanded =
+    isMobileRecommendCategoryOpen ||
+    isMobileRecommendInsightOpen ||
+    isMobileRecommendPanelOpen ||
+    isMobileReviewListOpen ||
+    isMobileReviewDetailTopOpen;
+  const expandAllMobileRecommendSections = useCallback(() => {
+    setIsMobileRecommendCategoryOpen(true);
+    setIsMobileRecommendInsightOpen(true);
+    setIsMobileRecommendPanelOpen(true);
+    setIsMobileReviewListOpen(true);
+    setIsMobileReviewDetailTopOpen(true);
+  }, []);
+  const collapseAllMobileRecommendSections = useCallback(() => {
+    setIsMobileRecommendCategoryOpen(false);
+    setIsMobileRecommendInsightOpen(false);
+    setIsMobileRecommendPanelOpen(false);
+    setIsMobileReviewListOpen(false);
+    setIsMobileReviewDetailTopOpen(false);
+  }, []);
+  const settlementParticipants = useMemo(() => {
+    const fallbackByClientId = new Map(
+      participantAvatarFallbacks.map((participant) => [
+        participant.clientId,
+        participant,
+      ]),
+    );
+
+    return participants.map((participant) => {
+      const fallbackParticipant = fallbackByClientId.get(participant.clientId) ?? null;
+      const resolvedAvatarUrl =
+        participant.avatar_url ??
+        participant.avatarUrl ??
+        fallbackParticipant?.avatar_url ??
+        fallbackParticipant?.avatarUrl ??
+        (meClientId && participant.clientId === meClientId ? selfAvatarUrl : null) ??
+        null;
+
+      return {
+        ...participant,
+        avatar_url: resolvedAvatarUrl,
+        avatarUrl: resolvedAvatarUrl,
+      };
+    });
+  }, [meClientId, participantAvatarFallbacks, participants, selfAvatarUrl]);
+
   const {
     sortedParticipants,
     winner,
@@ -263,7 +330,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     fastestAverageAnswerEntry,
     participantScoreMeta,
   } = useSettlementReviewState({
-    participants,
+    participants: settlementParticipants,
     playedQuestionCount,
     meClientId,
   });
@@ -801,6 +868,24 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     ],
   );
 
+  const handleNavigateRecapPreview = useCallback(
+    (recap: (typeof normalizedRecaps)[number]) => {
+      return jumpToRecapPreview(recap, "click", {
+        playbackMode: autoPreviewEnabled
+          ? "auto"
+          : previewPlayerState !== "idle" || previewPlaybackMode === "manual"
+            ? "manual"
+            : undefined,
+      });
+    },
+    [
+      autoPreviewEnabled,
+      jumpToRecapPreview,
+      previewPlaybackMode,
+      previewPlayerState,
+    ],
+  );
+
   const goToTab = (tab: LiveSettlementTab) => {
     if (tab === activeTab) return;
     setTabRenderKey((prev) => prev + 1);
@@ -929,7 +1014,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
   return (
     <div
-      className={`game-settlement-mobile-shell mx-auto w-full max-w-[1456px] min-w-0 px-0 pb-28 lg:pb-4 ${
+      className={`game-settlement-mobile-shell mx-auto w-full max-w-[1456px] min-w-0 px-0 pb-20 lg:pb-4 ${
         isMobileSettlementViewport ? "game-settlement-mobile-shell--immersive" : ""
       }`}
     >
@@ -1014,6 +1099,37 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
             )}
 
             {activeTab === "recommend" && (
+              <>
+                {isMobileSettlementViewport && (
+                  <div className="mb-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={expandAllMobileRecommendSections}
+                      disabled={areAllMobileRecommendSectionsExpanded}
+                      className={`inline-flex min-h-[3rem] w-full cursor-pointer items-center justify-center gap-2 rounded-[16px] border px-4 py-3 text-sm font-semibold transition ${
+                        areAllMobileRecommendSectionsExpanded
+                          ? "cursor-not-allowed border-cyan-300/20 bg-cyan-500/8 text-cyan-100/45"
+                          : "border-cyan-300/40 bg-cyan-500/14 text-cyan-50 active:scale-[0.985] active:border-cyan-200/70"
+                      }`}
+                      >
+                        <UnfoldMoreRoundedIcon className="text-[1.1rem]" />
+                        完整展開
+                      </button>
+                    <button
+                      type="button"
+                      onClick={collapseAllMobileRecommendSections}
+                      disabled={!areAnyMobileRecommendSectionsExpanded}
+                      className={`inline-flex min-h-[3rem] w-full cursor-pointer items-center justify-center gap-2 rounded-[16px] border px-4 py-3 text-sm font-semibold transition ${
+                        !areAnyMobileRecommendSectionsExpanded
+                          ? "cursor-not-allowed border-slate-500/30 bg-slate-900/45 text-slate-400/55"
+                          : "border-slate-500/65 bg-slate-900/78 text-slate-100 active:scale-[0.985] active:border-slate-300/75"
+                      }`}
+                      >
+                        <UnfoldLessRoundedIcon className="text-[1.1rem]" />
+                        最小展示
+                      </button>
+                  </div>
+                )}
               <RecommendGuideSection
                 isMobileView={isMobileSettlementViewport}
                 recommendSectionRef={recommendSectionRef}
@@ -1089,7 +1205,20 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 recommendNavLabels={recommendNavLabels}
                 onGoPrevRecommendation={goPrevRecommendation}
                 onGoNextRecommendation={goNextRecommendation}
+                isMobileCategoryOpen={isMobileRecommendCategoryOpen}
+                onToggleMobileCategoryOpen={() =>
+                  setIsMobileRecommendCategoryOpen((current) => !current)
+                }
+                isMobileInsightOpen={isMobileRecommendInsightOpen}
+                onToggleMobileInsightOpen={() =>
+                  setIsMobileRecommendInsightOpen((current) => !current)
+                }
+                isMobileRecommendPanelOpen={isMobileRecommendPanelOpen}
+                onToggleMobileRecommendPanelOpen={() =>
+                  setIsMobileRecommendPanelOpen((current) => !current)
+                }
               />
+              </>
             )}
 
             {activeTab === "recommend" && (
@@ -1112,6 +1241,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 selectedRecapKey={effectiveSelectedRecapKey}
                 onSetSelectedRecapKey={setSelectedRecapKey}
                 onJumpToRecapPreview={handleJumpToRecapPreview}
+                onNavigateRecapPreview={handleNavigateRecapPreview}
                 resolveParticipantResult={resolveParticipantResult}
                 resultMeta={RESULT_META}
                 performanceRatingByRecapKey={performanceRatingByRecapKey}
@@ -1130,6 +1260,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 reviewDoubleClickPlayEnabled={reviewDoubleClickPlayEnabled}
                 onToggleReviewDoubleClickPlay={() =>
                   setReviewDoubleClickPlayEnabled((current) => !current)
+                }
+                isMobileListOpen={isMobileReviewListOpen}
+                onToggleMobileListOpen={() =>
+                  setIsMobileReviewListOpen((current) => !current)
+                }
+                isMobileDetailTopOpen={isMobileReviewDetailTopOpen}
+                onToggleMobileDetailTopOpen={() =>
+                  setIsMobileReviewDetailTopOpen((current) => !current)
                 }
               />
             )}

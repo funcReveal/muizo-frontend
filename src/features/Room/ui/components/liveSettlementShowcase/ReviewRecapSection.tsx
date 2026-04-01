@@ -55,6 +55,7 @@ interface ReviewRecapSectionProps {
     recap: SettlementQuestionRecap,
     source: "click" | "doubleClick",
   ) => void;
+  onNavigateRecapPreview?: (recap: SettlementQuestionRecap) => void;
   resolveParticipantResult: (
     recap: SettlementQuestionRecap,
     participantClientId: string | null,
@@ -86,6 +87,10 @@ interface ReviewRecapSectionProps {
   multilineEllipsis2Style: React.CSSProperties;
   reviewDoubleClickPlayEnabled: boolean;
   onToggleReviewDoubleClickPlay: () => void;
+  isMobileListOpen: boolean;
+  onToggleMobileListOpen: () => void;
+  isMobileDetailTopOpen: boolean;
+  onToggleMobileDetailTopOpen: () => void;
 }
 
 const clampPercent = (value: number) =>
@@ -192,9 +197,64 @@ const ChoiceMarqueeTitle: React.FC<{
   );
 };
 
+const RecapTitleMarquee: React.FC<{
+  text: string;
+  className?: string;
+}> = ({ text, className = "" }) => {
+  const wrapRef = React.useRef<HTMLSpanElement | null>(null);
+  const trackRef = React.useRef<HTMLSpanElement | null>(null);
+  const [canMarquee, setCanMarquee] = React.useState(false);
+  const [style, setStyle] = React.useState<React.CSSProperties>({});
+
+  React.useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const track = trackRef.current;
+    if (!wrap || !track) return;
+
+    const measure = () => {
+      const overflow = track.scrollWidth - wrap.clientWidth;
+      if (overflow > 10) {
+        setCanMarquee(true);
+        setStyle({
+          ["--settlement-title-shift" as const]: `${-(overflow + 22)}px`,
+          ["--settlement-title-duration" as const]: `${Math.min(
+            11.5,
+            Math.max(5.4, overflow / 44),
+          ).toFixed(2)}s`,
+        } as React.CSSProperties);
+      } else {
+        setCanMarquee(false);
+        setStyle({});
+      }
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrap);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <span
+      ref={wrapRef}
+      className={`game-settlement-title-marquee block overflow-hidden ${className}`}
+    >
+      <span
+        ref={trackRef}
+        className={`game-settlement-title-marquee-track ${
+          canMarquee ? "game-settlement-title-marquee-track--run" : ""
+        }`}
+        style={style}
+      >
+        {text}
+      </span>
+    </span>
+  );
+};
+
 const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   isMobileView = false,
-  activeCategoryTheme,
   reviewRecapSummary,
   sortedParticipants,
   meClientId,
@@ -207,6 +267,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   selectedRecapKey,
   onSetSelectedRecapKey,
   onJumpToRecapPreview,
+  onNavigateRecapPreview,
   resolveParticipantResult,
   resultMeta,
   performanceRatingByRecapKey,
@@ -223,10 +284,12 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   multilineEllipsis2Style,
   reviewDoubleClickPlayEnabled,
   onToggleReviewDoubleClickPlay,
+  isMobileListOpen,
+  onToggleMobileListOpen,
+  isMobileDetailTopOpen,
+  onToggleMobileDetailTopOpen,
 }) => {
   const [filter, setFilter] = React.useState<ReviewListFilter>("all");
-  const [isMobileListOpen, setIsMobileListOpen] = React.useState(false);
-  const [isMobileDetailTopOpen, setIsMobileDetailTopOpen] = React.useState(true);
   const [recapJumpValue, setRecapJumpValue] = React.useState("1");
   const [reviewPlaybackHelpAnchor, setReviewPlaybackHelpAnchor] =
     React.useState<HTMLElement | null>(null);
@@ -388,6 +451,18 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
       selectedRecapRating.answeredRank > 0
       ? `#${selectedRecapRating.answeredRank}`
       : "--";
+  const reviewSurfaceClass =
+    selectedRecapAnswer.result === "correct"
+      ? isMobileView
+        ? "rounded-[22px] border border-emerald-300/8 bg-[radial-gradient(circle_at_18%_0%,rgba(52,211,153,0.075),transparent_26%),linear-gradient(180deg,rgba(8,22,19,0.84),rgba(8,13,22,0.95))] p-3"
+        : "rounded-[22px] border border-emerald-300/9 bg-[radial-gradient(circle_at_18%_0%,rgba(52,211,153,0.07),transparent_24%),linear-gradient(180deg,rgba(8,20,21,0.86),rgba(8,13,24,0.97))] p-2.5 lg:p-3"
+      : selectedRecapAnswer.result === "wrong"
+        ? isMobileView
+          ? "rounded-[22px] border border-rose-300/8 bg-[radial-gradient(circle_at_18%_0%,rgba(251,113,133,0.065),transparent_27%),linear-gradient(180deg,rgba(23,13,18,0.84),rgba(8,12,22,0.96))] p-3"
+          : "rounded-[22px] border border-rose-300/9 bg-[radial-gradient(circle_at_18%_0%,rgba(251,113,133,0.06),transparent_24%),linear-gradient(180deg,rgba(20,13,19,0.85),rgba(8,13,24,0.97))] p-2.5 lg:p-3"
+        : isMobileView
+          ? "rounded-[22px] border border-slate-300/7 bg-[radial-gradient(circle_at_18%_0%,rgba(148,163,184,0.055),transparent_28%),linear-gradient(180deg,rgba(16,19,29,0.84),rgba(8,12,22,0.96))] p-3"
+          : "rounded-[22px] border border-slate-300/8 bg-[radial-gradient(circle_at_18%_0%,rgba(148,163,184,0.05),transparent_25%),linear-gradient(180deg,rgba(14,18,29,0.86),rgba(8,13,24,0.97))] p-2.5 lg:p-3";
   const selectedRecapFilteredIndex = selectedRecapKey
     ? filteredRecaps.findIndex((recap) => recap.key === selectedRecapKey)
     : -1;
@@ -402,6 +477,10 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
     const targetRecap = filteredRecaps[nextIndex];
     if (!targetRecap) return;
     onSetSelectedRecapKey(targetRecap.key);
+    if (onNavigateRecapPreview) {
+      onNavigateRecapPreview(targetRecap);
+      return;
+    }
     onJumpToRecapPreview(targetRecap, "click");
   };
 
@@ -418,7 +497,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
     if (filteredRecaps.length <= 0) return;
     const nextIndex =
       selectedRecapFilteredIndex < 0 ||
-      selectedRecapFilteredIndex >= filteredRecaps.length - 1
+        selectedRecapFilteredIndex >= filteredRecaps.length - 1
         ? 0
         : selectedRecapFilteredIndex + 1;
     goToRecapIndex(nextIndex);
@@ -438,10 +517,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
 
   return (
     <section
-      className={`mt-4 ${isMobileView
-        ? "rounded-[22px] border border-amber-300/16 bg-[linear-gradient(180deg,rgba(35,20,8,0.94),rgba(10,10,20,0.98))] p-3"
-        : "rounded-[22px] border p-2.5 lg:p-3"
-        } ${activeCategoryTheme.drawerClass}`}
+      className={`mt-4 ${reviewSurfaceClass}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -512,7 +588,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
           {isMobileView && (
             <button
               type="button"
-              onClick={() => setIsMobileListOpen((current) => !current)}
+              onClick={onToggleMobileListOpen}
               className="mb-3 inline-flex w-full cursor-pointer items-center justify-between rounded-[18px] border border-white/8 bg-black/16 px-4 py-3 text-left transition hover:border-white/14"
             >
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
@@ -552,10 +628,28 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   const rating = performanceRatingByRecapKey.get(recap.key) ?? null;
                   const gradeMeta = rating ? performanceGradeMeta[rating.grade] : null;
                   const isActive = selectedRecapKey === recap.key;
+                  const activeCardClass =
+                    result === "correct"
+                      ? "border-emerald-300/22 bg-[radial-gradient(circle_at_16%_8%,rgba(52,211,153,0.11),transparent_28%),linear-gradient(180deg,rgba(11,29,24,0.66),rgba(10,18,22,0.8))] shadow-[0_18px_36px_-30px_rgba(16,185,129,0.22)]"
+                      : result === "wrong"
+                        ? "border-rose-300/22 bg-[radial-gradient(circle_at_16%_8%,rgba(251,113,133,0.11),transparent_28%),linear-gradient(180deg,rgba(28,15,20,0.68),rgba(13,12,21,0.8))] shadow-[0_18px_36px_-30px_rgba(244,63,94,0.2)]"
+                        : "border-slate-300/14 bg-[radial-gradient(circle_at_16%_8%,rgba(148,163,184,0.08),transparent_30%),linear-gradient(180deg,rgba(22,27,39,0.62),rgba(12,16,25,0.78))] shadow-[0_18px_36px_-30px_rgba(148,163,184,0.14)]";
+                  const inactiveCardClass =
+                    result === "correct"
+                      ? "border-emerald-300/10 bg-[linear-gradient(180deg,rgba(9,22,19,0.34),rgba(6,10,18,0.72))] hover:border-emerald-300/18"
+                      : result === "wrong"
+                        ? "border-rose-300/10 bg-[linear-gradient(180deg,rgba(20,12,18,0.36),rgba(7,10,18,0.72))] hover:border-rose-300/18"
+                        : "border-slate-700/75 bg-slate-950/55 hover:border-slate-500/80";
+                  const orderBadgeClass =
+                    result === "correct"
+                      ? "border-emerald-300/28 bg-emerald-400/7 text-emerald-100"
+                      : result === "wrong"
+                        ? "border-rose-300/28 bg-rose-400/7 text-rose-100"
+                        : "border-slate-400/24 bg-slate-400/6 text-slate-100";
                   return (
-                    <button key={recap.key} type="button" className={`block w-full cursor-pointer rounded-[22px] border px-4 py-4 text-left transition ${isActive ? "border-transparent bg-amber-400/10 shadow-[0_18px_36px_-30px_rgba(251,191,36,0.62)]" : "border-slate-700/75 bg-slate-950/55 hover:border-slate-500/80"}`} onClick={() => { onSetSelectedRecapKey(recap.key); onJumpToRecapPreview(recap, "click"); }} onDoubleClick={() => { onSetSelectedRecapKey(recap.key); onJumpToRecapPreview(recap, "doubleClick"); }}>
+                    <button key={recap.key} type="button" className={`block w-full cursor-pointer rounded-[22px] border px-4 py-4 text-left transition ${isActive ? activeCardClass : inactiveCardClass}`} onClick={() => { onSetSelectedRecapKey(recap.key); onJumpToRecapPreview(recap, "click"); }} onDoubleClick={() => { onSetSelectedRecapKey(recap.key); onJumpToRecapPreview(recap, "doubleClick"); }}>
                       <div className="flex items-start gap-3">
-                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber-300/45 bg-amber-400/10 text-sm font-black text-amber-100">{recap.order}</span>
+                        <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black ${orderBadgeClass}`}>{recap.order}</span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[1.05rem] font-black leading-snug text-white">{recap.title}</p>
                           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -600,15 +694,15 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
               >
                 <div className="relative min-w-0 flex-1 pr-2">
                   <div
-                    className={`pointer-events-none absolute overflow-hidden rounded-tl-[25px] rounded-br-[6.25rem] ${isMobileView
-                      ? "-left-4 -top-4 h-[13rem] w-[15rem]"
-                      : "-left-6 -top-6 h-[15.5rem] w-[20.5rem]"
+                    className={`pointer-events-none absolute overflow-hidden rounded-br-[6.25rem] ${isMobileView
+                      ? "rounded-tl-[20px] -left-3 -top-3 h-[11.75rem] w-[13.5rem]"
+                      : "rounded-tl-[28px] -left-6 -top-6 h-[14rem] w-[18.5rem]"
                       }`}
                   >
                     <div
                       className={`absolute rounded-full opacity-70 ${scoreVisualTone.statusGlowClass} ${isMobileView
-                        ? "-left-[5.5rem] -top-[5.5rem] h-[11.5rem] w-[15rem] blur-[66px]"
-                        : "-left-[4.75rem] -top-[4.75rem] h-[12rem] w-[17rem] blur-[72px]"
+                        ? "-left-[4.4rem] -top-[4.6rem] h-[9.8rem] w-[12.8rem] blur-[58px]"
+                        : "-left-[3.8rem] -top-[3.8rem] h-[10.6rem] w-[14.8rem] blur-[64px]"
                         }`}
                     />
                   </div>
@@ -636,9 +730,10 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                         className="w-full text-[1.5rem] font-black leading-tight text-white"
                       />
                     ) : (
-                      <span className="block" style={multilineEllipsis2Style}>
-                        {selectedRecap.title}
-                      </span>
+                      <RecapTitleMarquee
+                        text={selectedRecap.title}
+                        className="w-full text-[2rem] font-black leading-tight text-white"
+                      />
                     )}
                   </button>
                   <p className="mt-2 text-lg text-slate-300">
@@ -650,13 +745,13 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   className={
                     isMobileView
                       ? "rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] px-4 py-3"
-                      : ""
+                      : "contents"
                   }
                 >
                   {isMobileView && (
                     <button
                       type="button"
-                      onClick={() => setIsMobileDetailTopOpen((current) => !current)}
+                      onClick={onToggleMobileDetailTopOpen}
                       className="inline-flex w-full cursor-pointer items-center justify-between text-left transition"
                     >
                       <span className="text-sm font-semibold text-white">題目數據</span>
@@ -667,23 +762,22 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                   )}
 
                   <div
-                    className={`transition-[max-height,opacity,margin] duration-300 ${
-                      !isMobileView || isMobileDetailTopOpen
-                        ? "mt-3 max-h-[60rem] opacity-100"
-                        : "mt-0 max-h-0 opacity-0"
-                    } ${isMobileView ? "overflow-visible" : ""}`}
+                    className={`transition-[max-height,opacity,margin] duration-300 ${!isMobileView || isMobileDetailTopOpen
+                      ? "mt-3 max-h-[60rem] opacity-100"
+                      : "mt-0 max-h-0 opacity-0"
+                      } ${isMobileView ? "overflow-visible" : "contents"}`}
                   >
-                    <div className={`min-h-0 ${isMobileView ? "overflow-visible" : "overflow-hidden"}`}>
+                    <div className={`min-h-0 ${isMobileView ? "overflow-visible" : "contents"}`}>
                       <div
                         className={
                           isMobileView
-                            ? "flex items-center justify-end gap-7 pr-2"
+                            ? "flex items-center justify-between gap-4 px-4"
                             : "flex shrink-0 items-center gap-10 pr-3"
                         }
                       >
                         <div className={`flex ${isMobileView ? "min-h-0" : "min-h-[8rem]"} items-center justify-center`}>
                           <p
-                            className={`${isMobileView ? "-translate-x-3 text-[4.5rem]" : "text-[6rem]"} font-black leading-[0.88] ${scoreVisualTone.gradeClass}`}
+                            className={`${isMobileView ? "text-[4.4rem]" : "text-[4.5rem]"} font-black leading-[0.88] ${scoreVisualTone.gradeClass}`}
                           >
                             {selectedRecapRating?.grade ?? "E"}
                           </p>
@@ -739,7 +833,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                         </div>
                       </div>
 
-                      <div className={`relative z-10 mt-5 ${isMobileView ? "p-0" : "p-1"}`}>
+                      <div className={`relative z-10 mt-5 ${isMobileView ? "p-0" : "w-full p-1"}`}>
                         <div className="grid gap-4">
                           <div className={`grid gap-3 rounded-[18px] ${isMobileView ? "grid-cols-2" : "border border-white/6 bg-black/18 p-4 xl:grid-cols-[1.2fr_1fr_1fr_1fr_1fr]"}`}>
                             <div className={isMobileView ? "rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3" : ""}>
@@ -823,15 +917,13 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                       .filter(([, answer]) => answer.choiceIndex === choice.index)
                       .map(([clientId]) => participantByClientId.get(clientId))
                       .filter((participant): participant is RoomParticipant => Boolean(participant));
-                    const choiceCardClass = `relative ${
-                      isMobileView ? "overflow-visible" : "overflow-visible"
-                    } rounded-[22px] px-5 py-4 ${
-                      isCorrect
+                    const choiceCardClass = `relative ${isMobileView ? "overflow-visible" : "overflow-visible"
+                      } rounded-[22px] px-5 py-4 ${isCorrect
                         ? "border border-emerald-300/34 bg-[linear-gradient(180deg,rgba(6,42,34,0.7),rgba(4,18,20,0.66))]"
                         : isMine
                           ? "border border-rose-300/30 bg-[linear-gradient(180deg,rgba(64,16,28,0.68),rgba(26,10,18,0.62))]"
                           : "bg-black/18"
-                    }`;
+                      }`;
                     return (
                       <div
                         key={`${selectedRecap.key}-${choice.index}`}
@@ -839,9 +931,9 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                       >
                         {pickedParticipants.length > 0 && (
                           <div
-                            className={`z-10 pointer-events-auto ${isMobileView
-                              ? "absolute right-4 top-0 flex -translate-y-[66%] flex-row-reverse"
-                              : "absolute right-5 top-0 flex -translate-y-[58%] flex-row-reverse"
+                            className={`z-10 ${isMobileView
+                              ? "pointer-events-auto absolute right-4 top-0 flex -translate-y-[66%] flex-row-reverse"
+                              : "pointer-events-none absolute right-5 top-0 flex -translate-y-[62%] flex-row-reverse"
                               }`}
                           >
                             {pickedParticipants.slice(0, 4).map((participant, index) => {
@@ -852,11 +944,11 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                                   title={participant.username}
                                 >
                                   <div
-                                    className={`relative overflow-hidden rounded-full border border-slate-700/38 bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.1),transparent_42%),linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] text-white/88 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)] ${isMobileView ? "h-8 w-8" : "h-9 w-9"}`}
+                                    className={`relative overflow-hidden rounded-full border border-slate-700/38 bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.1),transparent_42%),linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] text-white/88 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)] ${isMobileView ? "h-8 w-8" : "h-10 w-10"}`}
                                     style={
                                       isMobileView
                                         ? { marginRight: index === 0 ? 0 : -9 }
-                                        : { marginRight: index === 0 ? 0 : -9 }
+                                        : { marginRight: index === 0 ? 0 : -10 }
                                     }
                                     aria-label={participant.username}
                                   >
@@ -877,7 +969,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                             })}
                             {pickedParticipants.length > 4 && (
                               <RoomUiTooltip title={`另外 ${pickedParticipants.length - 4} 位玩家`}>
-                                <div className={`relative flex items-center justify-center rounded-full border border-slate-700/38 bg-[linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] px-2 text-[9px] font-black text-slate-100/92 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)] ${isMobileView ? "h-8 min-w-[1.9rem]" : "ml-2 h-9 min-w-[2.1rem]"}`}>
+                                <div className={`relative flex items-center justify-center rounded-full border border-slate-700/38 bg-[linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] px-2 font-black text-slate-100/92 opacity-[0.9] shadow-[0_10px_24px_-14px_rgba(15,23,42,0.9)] ${isMobileView ? "h-8 min-w-[1.9rem] text-[9px]" : "ml-2 h-10 min-w-[2.25rem] text-[10px]"}`}>
                                   +{pickedParticipants.length - 4}
                                 </div>
                               </RoomUiTooltip>
@@ -890,7 +982,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                               <ChoiceMarqueeTitle
                                 text={choice.title}
                                 disableMarquee={isMobileView}
-                                className="text-[1.02rem] font-semibold leading-[1.38] text-white"
+                                className={`text-[1.02rem] font-semibold text-white ${isMobileView ? "leading-[1.38]" : "leading-relaxed"}`}
                                 staticStyle={isMobileView ? multilineEllipsis2Style : undefined}
                               />
                             </div>
@@ -903,13 +995,12 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                           </div>
                           <div className="h-3 w-full overflow-hidden rounded-full bg-black/25">
                             <div
-                              className={`h-full rounded-full ${
-                                isCorrect
-                                  ? "bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))]"
-                                  : isMine
-                                    ? "bg-[linear-gradient(90deg,rgba(56,189,248,0.95),rgba(96,165,250,0.95))]"
-                                    : "bg-[linear-gradient(90deg,rgba(100,116,139,0.9),rgba(148,163,184,0.85))]"
-                              }`}
+                              className={`h-full rounded-full ${isCorrect
+                                ? "bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))]"
+                                : isMine
+                                  ? "bg-[linear-gradient(90deg,rgba(56,189,248,0.95),rgba(96,165,250,0.95))]"
+                                  : "bg-[linear-gradient(90deg,rgba(100,116,139,0.9),rgba(148,163,184,0.85))]"
+                                }`}
                               style={{ width: `${pickedPercent}%` }}
                             />
                           </div>
@@ -933,7 +1024,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
             >
               上一題
             </button>
-            <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/18 px-3 py-2 text-sm font-semibold text-white">
+            <div className="inline-grid shrink-0 grid-cols-[2.2rem_auto_2.2rem] items-center justify-items-center rounded-full border border-white/10 bg-black/18 px-3.5 py-2 text-sm font-semibold text-white">
               <input
                 inputMode="numeric"
                 pattern="[0-9]*"
@@ -949,11 +1040,11 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                     commitRecapJumpValue();
                   }
                 }}
-                className="w-[1.8rem] border-0 bg-transparent text-center text-sm font-semibold text-white outline-none"
+                className="w-[2.2rem] border-0 bg-transparent text-center text-sm font-semibold tabular-nums text-white outline-none"
                 aria-label="跳至題目"
               />
-              <span className="text-slate-400">/</span>
-              <span className="min-w-[1.8rem] text-left text-slate-300">
+              <span className="px-1 text-center text-slate-400">/</span>
+              <span className="min-w-[2.2rem] text-center tabular-nums text-slate-300">
                 {filteredRecaps.length}
               </span>
             </div>

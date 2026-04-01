@@ -1997,6 +1997,7 @@ const RoomLobbyPage: React.FC = () => {
           <LiveSettlementShowcase
             room={activeSettlementSnapshot.room}
             participants={activeSettlementSnapshot.participants}
+            participantAvatarFallbacks={participants}
             messages={activeSettlementSnapshot.messages}
             playlistItems={activeSettlementSnapshot.playlistItems ?? []}
             trackOrder={activeSettlementSnapshot.trackOrder}
@@ -2009,6 +2010,7 @@ const RoomLobbyPage: React.FC = () => {
               gameState?.status === "playing" ? gameState.startedAt : null
             }
             nowMs={uiNowMs}
+            selfAvatarUrl={authUser?.avatar_url ?? null}
             onBackToLobby={() => setActiveSettlementRoundKey(null)}
             onRequestExit={() => leaveRoomAndNavigate()}
           />

@@ -92,37 +92,109 @@ const renderParticipantName = (
   );
 };
 
-const podiumNameClass = (username: string) => {
-  if (username.length >= 14) return "text-[1.6rem] leading-[1.08]";
-  if (username.length >= 10) return "text-[1.9rem] leading-[1.08]";
-  return "text-[2.35rem] leading-[1]";
-};
-
-const renderPodiumName = (
+const renderPodiumAvatar = (
   participant: RoomParticipant | null,
-  multilineEllipsis2Style?: React.CSSProperties,
+  rank: number,
+  isMobileView: boolean,
+  meClientId?: string,
 ) => {
-  if (!participant?.username) return <span>--</span>;
-  const username = participant.username;
-  const style: React.CSSProperties = {
-    ...multilineEllipsis2Style,
-    display: "-webkit-box",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 2,
-    overflow: "hidden",
-    textWrap: "balance",
-    wordBreak: "keep-all",
-    overflowWrap: "anywhere",
-  };
+  if (!participant) {
+    return (
+      <div
+        className={`mx-auto inline-flex items-center justify-center rounded-full text-white/78 ${
+          rank === 1
+            ? isMobileView
+              ? "h-20 w-20 bg-[radial-gradient(circle_at_35%_28%,rgba(255,248,214,0.2),rgba(250,204,21,0.08)_32%,rgba(12,18,30,0.22)_72%,transparent_100%)] text-[1.7rem]"
+              : "h-24 w-24 bg-[radial-gradient(circle_at_35%_28%,rgba(255,248,214,0.2),rgba(250,204,21,0.08)_32%,rgba(12,18,30,0.22)_72%,transparent_100%)] text-[2rem]"
+            : isMobileView
+              ? "h-16 w-16 bg-[radial-gradient(circle_at_35%_28%,rgba(241,245,249,0.14),rgba(148,163,184,0.05)_36%,rgba(12,18,30,0.18)_72%,transparent_100%)] text-[1.2rem]"
+              : "h-20 w-20 bg-[radial-gradient(circle_at_35%_28%,rgba(241,245,249,0.14),rgba(148,163,184,0.05)_36%,rgba(12,18,30,0.18)_72%,transparent_100%)] text-[1.5rem]"
+        }`}
+      >
+        --
+      </div>
+    );
+  }
+
+  const avatarUrl = participant.avatar_url ?? participant.avatarUrl ?? null;
+  const isMe = Boolean(meClientId && participant.clientId === meClientId);
+  const shellClass = avatarUrl
+    ? rank === 1
+      ? isMobileView
+        ? "h-20 w-20 shadow-[0_14px_28px_-24px_rgba(250,204,21,0.28)]"
+        : "h-24 w-24 shadow-[0_16px_34px_-26px_rgba(250,204,21,0.3)]"
+      : isMobileView
+        ? "h-16 w-16 shadow-[0_10px_18px_-20px_rgba(15,23,42,0.34)]"
+        : "h-20 w-20 shadow-[0_12px_24px_-22px_rgba(15,23,42,0.34)]"
+    : rank === 1
+      ? isMobileView
+        ? "h-20 w-20 shadow-[0_10px_24px_-22px_rgba(250,204,21,0.18)]"
+        : "h-24 w-24 shadow-[0_14px_28px_-24px_rgba(250,204,21,0.18)]"
+      : rank === 2
+        ? isMobileView
+          ? "h-16 w-16 shadow-[0_10px_20px_-20px_rgba(15,23,42,0.28)]"
+          : "h-20 w-20 shadow-[0_12px_24px_-22px_rgba(15,23,42,0.28)]"
+        : isMobileView
+        ? "h-16 w-16 shadow-[0_10px_20px_-20px_rgba(120,53,15,0.16)]"
+        : "h-20 w-20 shadow-[0_12px_24px_-22px_rgba(120,53,15,0.16)]";
+  const shellSurfaceClass = avatarUrl
+    ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.03))]"
+    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.035))]";
 
   return (
-    <RoomUiTooltip title={username} wrapperClassName="mx-auto block max-w-[10.5rem]">
-      <span
-        className={`mx-auto block max-w-[10.5rem] text-center font-black tracking-[-0.04em] ${podiumNameClass(username)}`}
-        style={style}
-      >
-        {username}
-      </span>
+    <RoomUiTooltip title={participant.username} wrapperClassName="mx-auto inline-flex">
+      <div className="relative inline-flex">
+        <div
+          className={`inline-flex items-center justify-center overflow-hidden rounded-full ${shellSurfaceClass} text-white ${shellClass}`}
+        >
+          {avatarUrl ? (
+            <div className="relative h-full w-full overflow-hidden rounded-full">
+              <img
+                src={avatarUrl}
+                alt={participant.username}
+                className="h-full w-full object-cover opacity-[0.84] saturate-[0.92] brightness-[1.08] contrast-[0.98]"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,22,0.02),rgba(8,12,22,0.12))]" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,rgba(255,255,255,0.22),transparent_52%)]" />
+            </div>
+          ) : (
+            <div
+              className={`relative inline-flex h-full w-full items-center justify-center rounded-full ${
+                rank === 1
+                  ? "bg-[linear-gradient(180deg,rgba(255,247,214,0.2),rgba(250,204,21,0.1)_24%,rgba(23,27,37,0.26)_100%)]"
+                  : rank === 2
+                    ? "bg-[linear-gradient(180deg,rgba(248,250,252,0.15),rgba(148,163,184,0.08)_24%,rgba(22,28,40,0.26)_100%)]"
+                    : "bg-[linear-gradient(180deg,rgba(253,186,116,0.14),rgba(217,119,6,0.07)_24%,rgba(34,24,21,0.26)_100%)]"
+              }`}
+            >
+              <span className={`relative font-black tracking-[-0.04em] ${
+                rank === 1
+                  ? isMobileView
+                    ? "text-[1.7rem] text-amber-50"
+                    : "text-[2rem] text-amber-50"
+                  : rank === 2
+                    ? isMobileView
+                      ? "text-[1.2rem] text-slate-50"
+                      : "text-[1.5rem] text-slate-50"
+                    : isMobileView
+                      ? "text-[1.2rem] text-orange-50"
+                      : "text-[1.5rem] text-orange-50"
+              }`}>
+                {participant.username.slice(0, 1).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
+        {isMe && (
+          <span className={`absolute left-1/2 -translate-x-1/2 rounded-full border border-cyan-300/45 bg-cyan-400/16 font-black tracking-[0.08em] text-cyan-50 ${
+            isMobileView
+              ? "-bottom-1 px-1.5 py-0.5 text-[9px]"
+              : "-bottom-1.5 px-2 py-0.5 text-[10px]"
+          }`}>
+            YOU
+          </span>
+        )}
+      </div>
     </RoomUiTooltip>
   );
 };
@@ -210,12 +282,16 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
         <div className="pointer-events-none absolute inset-x-[28%] top-0 h-16 rounded-full bg-amber-200/8 blur-[38px]" />
 
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="flex items-center gap-3">
+            <div className={`inline-flex shrink-0 items-center justify-center text-amber-100 ${
+              isMobileView ? "h-10 w-10" : "h-11 w-11"
+            }`}>
+              <WorkspacePremiumRoundedIcon fontSize="small" />
+            </div>
+            <div>
             <h3 className={`${isMobileView ? "text-[2.2rem]" : "text-3xl"} font-black tracking-tight text-white`}>本場冠軍榜</h3>
+            </div>
           </div>
-          <span className="rounded-full border border-amber-200/30 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-100">
-            前 3 名玩家
-          </span>
         </div>
 
         <div className={`relative ${isMobileView ? "mt-4 min-h-[340px] gap-2 px-0" : "mt-6 min-h-[430px] gap-4 px-1"} grid grid-cols-3 items-end`}>
@@ -310,8 +386,8 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                     {podiumLabel(rank)}
                   </div>
 
-                  <div className={`relative z-10 ${isMobileView ? "mt-3 min-h-[3.55rem] px-0.5" : "mt-4 min-h-[4.9rem] px-1"} ${nameToneClass}`}>
-                    {renderPodiumName(participant, multilineEllipsis2Style)}
+                  <div className={`relative z-10 ${isMobileView ? "mt-3 min-h-[5.8rem]" : "mt-4 min-h-[6.8rem]"} ${nameToneClass}`}>
+                    {renderPodiumAvatar(participant, rank, isMobileView, meClientId)}
                   </div>
 
                   <div
@@ -422,7 +498,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
       </article>
 
       <article className="rounded-[28px] border border-cyan-300/18 bg-[radial-gradient(circle_at_16%_8%,rgba(34,211,238,0.14),transparent_18%),radial-gradient(circle_at_88%_100%,rgba(14,165,233,0.08),transparent_20%),linear-gradient(180deg,rgba(11,18,31,0.98),rgba(9,13,24,0.95))] p-5 shadow-[0_24px_70px_-52px_rgba(34,211,238,0.44)]">
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center text-cyan-100">
             <EmojiEventsRoundedIcon />
           </div>

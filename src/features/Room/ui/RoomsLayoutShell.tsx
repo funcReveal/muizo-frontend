@@ -258,7 +258,7 @@ const RoomsLayoutShell: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start">
-      <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6 pt-4" : " p-4"}${currentRoom && !isGameMode ? " pb-16" : ""}${currentRoom && isMobileViewport ? " pb-10" : ""}`}>
+      <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6 pt-4" : " p-4"}${currentRoom && !isGameMode ? " pb-16" : ""}${currentRoom && isMobileViewport ? " pb-4" : ""}`}>
         <div>
           <AppHeader
             displayUsername={displayUsername}

@@ -67,6 +67,7 @@ interface UseSettlementRecommendationNavigatorResult<
   jumpToRecapPreview: (
     recap: TRecap,
     source?: "click" | "doubleClick",
+    options?: { forcePreview?: boolean; playbackMode?: PreviewPlaybackMode },
   ) => boolean;
   startAutoGuideFromPreferredCategory: (
     preferredCategory: RecommendCategory,
@@ -249,17 +250,27 @@ const useSettlementRecommendationNavigator = <
   );
 
   const jumpToRecapPreview = useCallback(
-    (recap: TRecap, source: "click" | "doubleClick" = "doubleClick") => {
+    (
+      recap: TRecap,
+      source: "click" | "doubleClick" = "doubleClick",
+      options?: { forcePreview?: boolean; playbackMode?: PreviewPlaybackMode },
+    ) => {
       for (const category of RECOMMEND_CATEGORY_FLOW) {
         const cards = recommendationCardsByCategoryRef.current[category];
         const targetIndex = cards.findIndex(
           (card) => card.recap.key === recap.key,
         );
         if (targetIndex < 0) continue;
-        const navigation = resolveRecapPreviewNavigation(source, {
+        const baseNavigation = resolveRecapPreviewNavigation(source, {
           autoPreviewEnabled,
           reviewDoubleClickPlayEnabled,
         });
+        const navigation = options
+          ? {
+              ...baseNavigation,
+              ...options,
+            }
+          : baseNavigation;
         jumpToRecommendation(category, targetIndex, navigation);
         return true;
       }

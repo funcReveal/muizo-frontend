@@ -257,7 +257,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   serverOffsetMs = 0,
   onSettlementRecapChange,
 }) => {
-  const { setStatusText } = useRoom();
+  const { setStatusText, authUser } = useRoom();
   const { danmuEnabled, setDanmuEnabled, danmuItems } = useGameRoomDanmu({
     roomId: room.id,
     messages,
@@ -1719,6 +1719,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           <LiveSettlementShowcase
             room={settlementSnapshot?.room ?? room}
             participants={settlementSnapshot?.participants ?? participants}
+            participantAvatarFallbacks={participants}
             messages={settlementSnapshot?.messages ?? messages}
             playlistItems={settlementSnapshot?.playlistItems ?? playlist}
             trackOrder={settlementSnapshot?.trackOrder ?? gameState.trackOrder}
@@ -1729,6 +1730,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             endedAt={settlementSnapshot?.endedAt}
             meClientId={meClientId}
             questionRecaps={settlementSnapshot?.questionRecaps ?? questionRecaps}
+            selfAvatarUrl={authUser?.avatar_url ?? null}
             onBackToLobby={onBackToLobby}
             onRequestExit={openExitConfirm}
           />
