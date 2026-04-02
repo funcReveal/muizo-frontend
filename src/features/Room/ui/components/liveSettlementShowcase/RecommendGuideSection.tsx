@@ -1007,4 +1007,4 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   );
 };
 
-export default RecommendGuideSection;
+export default React.memo(RecommendGuideSection);

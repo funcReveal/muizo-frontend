@@ -314,9 +314,8 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                 <div
                   key={`podium-${rank}`}
                   className={`relative overflow-hidden ${orderClass} ${heightClass} ${widthClass} ${topPadClass} ${isMobileView ? "rounded-[22px] px-2.5 pb-3" : "rounded-[28px] px-4 pb-4"} text-center ${rankSurfaceClass(rank)} ${podiumAuraClass(rank)} ${isMe ? "ring-1 ring-white/18" : ""
-                    } ${rank === 1 ? "z-20" : rank === 2 ? "z-10" : "z-0"
+                    } ${rank === 1 ? "z-20 settlement-champion-glow" : rank === 2 ? "z-10" : "z-0"
                     }`}
-                  style={rank === 1 ? { animation: "settlementChampionGlow 2.8s ease-in-out infinite" } : undefined}
                 >
                   <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/8" />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-[linear-gradient(180deg,transparent,rgba(10,10,16,0.08)_55%,rgba(10,10,16,0.14))]" />
@@ -324,6 +323,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                     <>
                       <div
                         className="pointer-events-none absolute left-1/2 top-0 h-[356px] w-[252px] -translate-x-1/2 opacity-[0.8]"
+                        className="settlement-champion-spotlight"
                         style={{
                           background:
                             "linear-gradient(90deg, rgba(250,204,21,0) 0%, rgba(255,244,194,0.06) 18%, rgba(255,249,226,0.26) 50%, rgba(255,244,194,0.06) 82%, rgba(250,204,21,0) 100%), linear-gradient(180deg, rgba(255,248,214,0.26) 0%, rgba(255,239,170,0.15) 18%, rgba(250,204,21,0.08) 42%, rgba(250,204,21,0.03) 68%, rgba(250,204,21,0) 100%)",
@@ -331,7 +331,6 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                           filter: "blur(5px)",
                           maskImage:
                             "linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.86) 38%, rgba(0,0,0,0.48) 72%, rgba(0,0,0,0.12) 90%, rgba(0,0,0,0) 100%)",
-                          animation: "settlementChampionSpotlight 3.8s ease-in-out infinite",
                         }}
                       />
                       <div
@@ -346,29 +345,23 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                         }}
                       />
                       <div
-                        className="pointer-events-none absolute left-1/2 top-5 h-24 w-[68%] -translate-x-1/2 rounded-full border border-amber-200/12 bg-[radial-gradient(circle,rgba(253,224,71,0.08),transparent_66%)] blur-[1px]"
-                        style={{ animation: "settlementChampionHalo 3.2s ease-in-out infinite" }}
+                        className="settlement-champion-halo pointer-events-none absolute left-1/2 top-5 h-24 w-[68%] -translate-x-1/2 rounded-full border border-amber-200/12 bg-[radial-gradient(circle,rgba(253,224,71,0.08),transparent_66%)] blur-[1px]"
                       />
                       <div
-                        className="pointer-events-none absolute left-1/2 top-[43%] h-24 w-[58%] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.12),rgba(250,204,21,0.03)_52%,transparent_74%)] blur-[12px]"
-                        style={{ animation: "settlementChampionHalo 3.2s ease-in-out infinite 0.4s" }}
+                        className="settlement-champion-halo--delayed pointer-events-none absolute left-1/2 top-[43%] h-24 w-[58%] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.12),rgba(250,204,21,0.03)_52%,transparent_74%)] blur-xs"
                       />
                       <div className="pointer-events-none absolute inset-x-[24%] top-0 h-8 rounded-[18px] bg-[radial-gradient(circle_at_50%_0%,rgba(255,245,190,0.2),rgba(255,228,136,0.03)_56%,transparent_80%)] blur-[1.5px]" />
                       <div
-                        className="pointer-events-none absolute left-[18%] top-20 h-3.5 w-3.5 rounded-full bg-amber-100/60 blur-[1px]"
-                        style={{ animation: "settlementChampionSpark 1.8s ease-out infinite" }}
+                        className="settlement-champion-spark--a pointer-events-none absolute left-[18%] top-20 h-3.5 w-3.5 rounded-full bg-amber-100/60 blur-[1px]"
                       />
                       <div
-                        className="pointer-events-none absolute right-[18%] top-24 h-3 w-3 rounded-full bg-amber-50/66 blur-[1px]"
-                        style={{ animation: "settlementChampionSpark 2.1s ease-out infinite 0.45s" }}
+                        className="settlement-champion-spark--b pointer-events-none absolute right-[18%] top-24 h-3 w-3 rounded-full bg-amber-50/66 blur-[1px]"
                       />
                       <div
-                        className="pointer-events-none absolute left-1/2 top-28 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-amber-200/44 blur-[1px]"
-                        style={{ animation: "settlementChampionSpark 1.9s ease-out infinite 0.9s" }}
+                        className="settlement-champion-spark--c pointer-events-none absolute left-1/2 top-28 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-amber-200/44 blur-[1px]"
                       />
                       <div
-                        className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-amber-200/22 p-2 shadow-[0_0_38px_rgba(250,204,21,0.5)]"
-                        style={{ animation: "settlementCrownFloat 2.1s ease-in-out infinite" }}
+                        className="settlement-crown-float pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-amber-200/22 p-2 shadow-[0_0_38px_rgba(250,204,21,0.5)]"
                       >
                         <WorkspacePremiumRoundedIcon className="text-[1.15rem] text-amber-50" />
                       </div>
@@ -594,5 +587,5 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
   );
 };
 
-export default OverviewSection;
+export default React.memo(OverviewSection);
 

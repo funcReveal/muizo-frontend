@@ -241,4 +241,4 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
   );
 };
 
-export default SettlementStageHeader;
+export default React.memo(SettlementStageHeader);

@@ -259,3 +259,17 @@ export interface RoomContextValue {
 }
 
 export const RoomContext = createContext<RoomContextValue | null>(null);
+
+export type RoomUiContextValue = Pick<
+  RoomContextValue,
+  "authUser" | "setStatusText"
+>;
+
+export type RoomRealtimeContextValue = Pick<
+  RoomContextValue,
+  "currentRoom" | "messages" | "clientId" | "gameState"
+>;
+
+export const RoomUiContext = createContext<RoomUiContextValue | null>(null);
+export const RoomRealtimeContext =
+  createContext<RoomRealtimeContextValue | null>(null);

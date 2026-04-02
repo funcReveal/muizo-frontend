@@ -57,6 +57,178 @@ interface GameRoomAnswerPanelProps {
   mobileHeaderAction?: React.ReactNode;
 }
 
+const GameRoomStartCountdownDisplay = React.memo(function GameRoomStartCountdownDisplay({
+  startedAt,
+  countdownTone,
+  getLocalNowMs,
+}: {
+  startedAt: number;
+  countdownTone: string;
+  getLocalNowMs: () => number;
+}) {
+  const [countdownSec, setCountdownSec] = React.useState(() =>
+    Math.max(1, Math.ceil(Math.max(0, startedAt - getLocalNowMs()) / 1000)),
+  );
+
+  React.useEffect(() => {
+    let timerId: number | null = null;
+    const tick = () => {
+      const remainingMs = Math.max(0, startedAt - getLocalNowMs());
+      const nextCountdownSec = Math.max(1, Math.ceil(remainingMs / 1000));
+      setCountdownSec((current) =>
+        current === nextCountdownSec ? current : nextCountdownSec,
+      );
+      timerId = window.setTimeout(tick, remainingMs <= 4200 ? 125 : 1000);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [getLocalNowMs, startedAt]);
+
+  return (
+    <div className="flex flex-col items-center py-6 text-center">
+      <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-slate-300">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
+        即將開始
+      </div>
+      <div
+        className={`mt-5 flex h-28 w-28 items-center justify-center rounded-full border ${countdownTone}`}
+      >
+        <span className="text-5xl font-black tracking-widest sm:text-6xl">
+          {countdownSec}
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-slate-400">請準備，歌曲即將開始。</p>
+    </div>
+  );
+});
+
+const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
+  isInterTrackWait,
+  allAnsweredReadyForReveal,
+  gamePhase,
+  startedAt,
+  phaseEndsAt,
+  getLocalNowMs,
+  isGuessUrgency,
+  urgentChipPingActive,
+}: {
+  isInterTrackWait: boolean;
+  allAnsweredReadyForReveal: boolean;
+  gamePhase: GameState["phase"];
+  startedAt: number;
+  phaseEndsAt: number;
+  getLocalNowMs: () => number;
+  isGuessUrgency: boolean;
+  urgentChipPingActive: boolean;
+}) {
+  const resolveLabel = React.useCallback(() => {
+    const now = getLocalNowMs();
+    if (isInterTrackWait) {
+      return `${Math.max(1, Math.ceil(Math.max(0, startedAt - now) / 1000))}s`;
+    }
+    if (allAnsweredReadyForReveal) return "READY";
+    return `${Math.ceil(Math.max(0, phaseEndsAt - now) / 1000)}s`;
+  }, [
+    allAnsweredReadyForReveal,
+    getLocalNowMs,
+    isInterTrackWait,
+    phaseEndsAt,
+    startedAt,
+  ]);
+  const [label, setLabel] = React.useState(resolveLabel);
+
+  React.useEffect(() => {
+    if (allAnsweredReadyForReveal) {
+      setLabel("READY");
+      return;
+    }
+    let timerId: number | null = null;
+    const tick = () => {
+      if (document.visibilityState !== "visible") {
+        timerId = window.setTimeout(tick, 1000);
+        return;
+      }
+      setLabel(resolveLabel());
+      const now = getLocalNowMs();
+      const remainingMs = isInterTrackWait
+        ? Math.max(0, startedAt - now)
+        : Math.max(0, phaseEndsAt - now);
+      const nextDelay =
+        !isInterTrackWait &&
+        gamePhase === "guess" &&
+        remainingMs > 0 &&
+        remainingMs <= 4500
+          ? 125
+          : 1000;
+      timerId = window.setTimeout(tick, nextDelay);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [
+    allAnsweredReadyForReveal,
+    gamePhase,
+    getLocalNowMs,
+    isInterTrackWait,
+    phaseEndsAt,
+    resolveLabel,
+    startedAt,
+  ]);
+
+  return (
+    <Chip
+      label={label}
+      size="small"
+      color={
+        isInterTrackWait
+          ? "info"
+          : allAnsweredReadyForReveal
+            ? "success"
+            : gamePhase === "guess"
+              ? "warning"
+              : "success"
+      }
+      variant={allAnsweredReadyForReveal ? "filled" : "outlined"}
+      className={`game-room-chip ${isGuessUrgency ? "game-room-chip--urgent" : ""} ${urgentChipPingActive ? "game-room-chip--urgent-ping" : ""} ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
+    />
+  );
+});
+
+const GameRoomRevealCountdownText = React.memo(function GameRoomRevealCountdownText({
+  revealEndsAt,
+  getLocalNowMs,
+}: {
+  revealEndsAt: number;
+  getLocalNowMs: () => number;
+}) {
+  const [countdownSec, setCountdownSec] = React.useState(() =>
+    Math.max(0, Math.ceil(Math.max(0, revealEndsAt - getLocalNowMs()) / 1000)),
+  );
+
+  React.useEffect(() => {
+    let timerId: number | null = null;
+    const tick = () => {
+      const nextCountdownSec = Math.max(
+        0,
+        Math.ceil(Math.max(0, revealEndsAt - getLocalNowMs()) / 1000),
+      );
+      setCountdownSec((current) =>
+        current === nextCountdownSec ? current : nextCountdownSec,
+      );
+      timerId = window.setTimeout(tick, 250);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [getLocalNowMs, revealEndsAt]);
+
+  return <p className="mt-1 text-xs text-emerald-200">{countdownSec} 秒後下一題</p>;
+});
+
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   isMobileView = false,
   answerPanelRef,
@@ -105,7 +277,19 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     () => Date.now() + serverOffsetMs,
     [serverOffsetMs],
   );
-  const [localNowMs, setLocalNowMs] = React.useState(getLocalNowMs);
+  const [isGuessUrgency, setIsGuessUrgency] = React.useState(() => {
+    if (
+      gamePhase !== "guess" ||
+      isInterTrackWait ||
+      isReveal ||
+      isEnded ||
+      allAnsweredReadyForReveal
+    ) {
+      return false;
+    }
+    const remainingMs = Math.max(0, phaseEndsAt - getLocalNowMs());
+    return remainingMs > 0 && remainingMs <= 3000;
+  });
   const [urgentChipPingActive, setUrgentChipPingActive] = React.useState(false);
   const [panelComboFxActive, setPanelComboFxActive] = React.useState(false);
   const [selectedChoiceFxState, setSelectedChoiceFxState] = React.useState<{
@@ -154,50 +338,44 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     fill.style.transform = "scaleX(1)";
   }, [allAnsweredReadyForReveal]);
 
-  // Timer is now only needed for the countdown chip ("Xs") and urgency state.
-  // 1000ms during main phase is enough for integer-second display.
   React.useEffect(() => {
+    if (
+      gamePhase !== "guess" ||
+      isInterTrackWait ||
+      isReveal ||
+      isEnded ||
+      allAnsweredReadyForReveal
+    ) {
+      setIsGuessUrgency(false);
+      return;
+    }
+    const now = getLocalNowMs();
+    const remainingMs = Math.max(0, phaseEndsAt - now);
+    const nextUrgency = remainingMs > 0 && remainingMs <= 3000;
+    setIsGuessUrgency(nextUrgency);
     let timerId: number | null = null;
-    const tick = () => {
-      const now = getLocalNowMs();
-      setLocalNowMs(now);
-      let delay: number;
-      if (
-        gamePhase === "guess" &&
-        !isInterTrackWait &&
-        !isReveal &&
-        !isEnded &&
-        !allAnsweredReadyForReveal
-      ) {
-        const remaining = phaseEndsAt - now;
-        delay = remaining > 4500 ? 1000 : 125;
-      } else {
-        delay = 500;
-      }
-      timerId = window.setTimeout(tick, delay);
-    };
-    tick();
+    if (remainingMs > 3000) {
+      timerId = window.setTimeout(() => {
+        setIsGuessUrgency(true);
+      }, remainingMs - 3000);
+    } else if (remainingMs > 0) {
+      timerId = window.setTimeout(() => {
+        setIsGuessUrgency(false);
+      }, remainingMs);
+    }
     return () => {
       if (timerId !== null) window.clearTimeout(timerId);
     };
-  }, [allAnsweredReadyForReveal, gamePhase, getLocalNowMs, isEnded, isInterTrackWait, isReveal, phaseEndsAt, revealEndsAt, startedAt]);
-
-  const startCountdownSec = Math.max(
-    1,
-    Math.ceil(Math.max(0, startedAt - localNowMs) / 1000),
-  );
-  const phaseRemainingMs = Math.max(0, phaseEndsAt - localNowMs);
-  const isGuessUrgency =
-    gamePhase === "guess" &&
-    !allAnsweredReadyForReveal &&
-    !isInterTrackWait &&
-    !isEnded &&
-    phaseRemainingMs > 0 &&
-    phaseRemainingMs <= 3000;
-  const revealCountdownSec = Math.max(
-    0,
-    Math.ceil(Math.max(0, revealEndsAt - localNowMs) / 1000),
-  );
+  }, [
+    allAnsweredReadyForReveal,
+    gamePhase,
+    getLocalNowMs,
+    isEnded,
+    isInterTrackWait,
+    isReveal,
+    phaseEndsAt,
+    trackSessionKey,
+  ]);
 
   React.useEffect(() => {
     if (!isGuessUrgency) {
@@ -262,6 +440,14 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     trackSessionKey,
   ]);
 
+  const handleChoiceClick = React.useCallback(
+    (choiceIndex: number) => {
+      if (isReveal || isEnded || !canAnswerNow) return;
+      onSubmitChoice(choiceIndex);
+    },
+    [canAnswerNow, isEnded, isReveal, onSubmitChoice],
+  );
+
   const showGuessComboAtmosphere =
     !isReveal && hasActiveComboStreak && myComboTier > 0;
   const guessComboPanelClass = showGuessComboAtmosphere
@@ -278,20 +464,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
         } flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
     >
       {isInitialCountdown ? (
-        <div className="flex flex-col items-center py-6 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-slate-300">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
-            即將開始
-          </div>
-          <div
-            className={`mt-5 flex h-28 w-28 items-center justify-center rounded-full border ${countdownTone}`}
-          >
-            <span className="text-5xl font-black tracking-widest sm:text-6xl">
-              {startCountdownSec}
-            </span>
-          </div>
-          <p className="mt-3 text-xs text-slate-400">請準備，歌曲即將開始。</p>
-        </div>
+        <GameRoomStartCountdownDisplay
+          startedAt={startedAt}
+          countdownTone={countdownTone}
+          getLocalNowMs={getLocalNowMs}
+        />
       ) : (
         <div
           className={`game-room-answer-layout ${isReveal
@@ -309,27 +486,15 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 <p className="game-room-title">
                   {isInterTrackWait ? "下一題準備中" : phaseLabel}
                 </p>
-                <Chip
-                  label={
-                    isInterTrackWait
-                      ? `${startCountdownSec}s`
-                      : allAnsweredReadyForReveal
-                        ? "READY"
-                        : `${Math.ceil(phaseRemainingMs / 1000)}s`
-                  }
-                  size="small"
-                  color={
-                    isInterTrackWait
-                      ? "info"
-                      : allAnsweredReadyForReveal
-                        ? "success"
-                        : gamePhase === "guess"
-                          ? "warning"
-                          : "success"
-                  }
-                  variant={allAnsweredReadyForReveal ? "filled" : "outlined"}
-                  className={`game-room-chip ${isGuessUrgency ? "game-room-chip--urgent" : ""
-                    } ${urgentChipPingActive ? "game-room-chip--urgent-ping" : ""} ${allAnsweredReadyForReveal ? "game-room-chip--ready" : ""}`}
+                <GameRoomPhaseStatusChip
+                  isInterTrackWait={isInterTrackWait}
+                  allAnsweredReadyForReveal={allAnsweredReadyForReveal}
+                  gamePhase={gamePhase}
+                  startedAt={startedAt}
+                  phaseEndsAt={phaseEndsAt}
+                  getLocalNowMs={getLocalNowMs}
+                  isGuessUrgency={isGuessUrgency}
+                  urgentChipPingActive={urgentChipPingActive}
                 />
               </div>
               {isMobileView && mobileHeaderAction ? (
@@ -439,7 +604,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
 
                   return (
                     <div
-                      key={`${choice.index}-${idx}`}
+                      key={`${choice.index}`}
                       className={`game-room-choice-shell ${hasRevealPicks ? "game-room-choice-shell--with-avatars" : ""
                         }`}
                     >
@@ -516,10 +681,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                             : ""
                           } ${isMobileView ? "game-room-choice-button--mobile" : ""}`}
                         disabled={false}
-                        onClick={() => {
-                          if (isLocked || !canAnswerNow) return;
-                          onSubmitChoice(choice.index);
-                        }}
+                        onClick={() => handleChoiceClick(choice.index)}
                       >
                         {choiceCommitFxKind && (
                           <span aria-hidden="true" className="game-room-choice-press-flash" />
@@ -563,14 +725,12 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                               }`}
                           />
                         )}
-
-
                         <div className="game-room-choice-content flex w-full items-start justify-between gap-2">
                           <span className="game-room-choice-title">
                             {choiceDisplayTitle}
                           </span>
 
-                          <span className="game-room-choice-meta ml-3 inline-flex items-center gap-1">
+                          <span className={`game-room-choice-meta inline-flex items-center gap-1 ${isMobileView ? "" : "ml-3"}`}>
                             {showGuessLockTag && (
                               <span
                                 className={`game-room-choice-tag ${myHasChangedAnswer
@@ -688,9 +848,10 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     {resolvedAnswerTitle}
                   </p>
                   {gameStatus === "playing" ? (
-                    <p className="mt-1 text-xs text-emerald-200">
-                      {revealCountdownSec} 秒後下一題
-                    </p>
+                    <GameRoomRevealCountdownText
+                      revealEndsAt={revealEndsAt}
+                      getLocalNowMs={getLocalNowMs}
+                    />
                   ) : (
                     <div className="mt-1 flex items-center justify-between">
                       <p className="text-xs text-emerald-200">

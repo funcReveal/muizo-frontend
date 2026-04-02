@@ -11659,6 +11659,38 @@ body {
   }
 }
 
+.settlement-champion-glow {
+  animation: settlementChampionGlow 2.8s ease-in-out infinite;
+}
+
+.settlement-champion-spotlight {
+  animation: settlementChampionSpotlight 3.8s ease-in-out infinite;
+}
+
+.settlement-champion-halo {
+  animation: settlementChampionHalo 3.2s ease-in-out infinite;
+}
+
+.settlement-champion-halo--delayed {
+  animation: settlementChampionHalo 3.2s ease-in-out infinite 0.4s;
+}
+
+.settlement-champion-spark--a {
+  animation: settlementChampionSpark 1.8s ease-out infinite;
+}
+
+.settlement-champion-spark--b {
+  animation: settlementChampionSpark 2.1s ease-out infinite 0.45s;
+}
+
+.settlement-champion-spark--c {
+  animation: settlementChampionSpark 1.9s ease-out infinite 0.9s;
+}
+
+.settlement-crown-float {
+  animation: settlementCrownFloat 2.1s ease-in-out infinite;
+}
+
 @keyframes settlementSwapIn {
   0% {
     opacity: 0;
@@ -17066,12 +17098,21 @@ body {
     line-height: 1.28;
     -webkit-line-clamp: 2;
     max-width: 100%;
+    padding-right: 6.5rem;
   }
 
   .game-room-choice-button--mobile .game-room-choice-meta {
-    margin-left: 8px;
-    align-self: flex-start;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    width: 6rem;
+    margin-left: 0;
+    align-items: flex-end;
+    justify-content: flex-start;
+    flex-direction: column;
     gap: 4px;
+    max-width: none;
   }
 
   .game-room-choice-button--mobile .game-room-choice-tag {

@@ -1,4 +1,5 @@
 ﻿import React, {
+  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -74,7 +75,6 @@ import {
   triggerHapticFeedback,
 } from "./components/gameRoomPage/gameRoomPageUtils";
 import {
-  buildRevealChoicePickMap,
   buildScoreboardRows,
   sortParticipantsByScore,
 } from "./components/gameRoomPage/gameRoomPageDerivations";
@@ -82,6 +82,7 @@ import GameRoomExitDialog from "./components/gameRoomPage/GameRoomExitDialog";
 import { DanmuContext } from "./components/gameRoomPage/DanmuContext";
 import useGameRoomPlayerSync from "./components/gameRoomPage/useGameRoomPlayerSync";
 import useGameRoomAnswerFlow from "./components/gameRoomPage/useGameRoomAnswerFlow";
+import useGameRoomQuestionDerivedState from "./components/gameRoomPage/useGameRoomQuestionDerivedState";
 import useGameRoomRecaps from "./components/gameRoomPage/useGameRoomRecaps";
 import useGameRoomStats from "./components/gameRoomPage/useGameRoomStats";
 import useSettlementSnapshot from "./components/gameRoomPage/useSettlementSnapshot";
@@ -92,7 +93,7 @@ import useGameRoomAnswerPanelAutoScroll from "./components/gameRoomPage/useGameR
 import useMobileDrawerDragDismiss from "./components/gameRoomPage/useMobileDrawerDragDismiss";
 import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
-import { useRoom } from "../model/useRoom";
+import { useRoomUi } from "../model/useRoomUi";
 
 interface GameRoomPageProps {
   room: RoomState["room"];
@@ -193,7 +194,9 @@ const useGameRoomUiClock = ({
     let timerId: number | null = null;
     const scheduleTick = (delayMs: number) => {
       timerId = window.setTimeout(() => {
-        setNowMs(getServerNowMs());
+        startTransition(() => {
+          setNowMs(getServerNowMs());
+        });
       }, Math.max(40, delayMs));
     };
 
@@ -257,7 +260,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   serverOffsetMs = 0,
   onSettlementRecapChange,
 }) => {
-  const { setStatusText, authUser } = useRoom();
+  const { setStatusText, authUser } = useRoomUi();
   const { danmuEnabled, setDanmuEnabled, danmuItems } = useGameRoomDanmu({
     roomId: room.id,
     messages,
@@ -682,66 +685,19 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const clipIdentityEndSec = Math.round(clipEndSec * 1000) / 1000;
   const trackLoadKey = `${videoId ?? "none"}:${clipIdentityStartSec}-${clipIdentityEndSec}`;
   const trackSessionKey = `${gameState.startedAt}:${trackCursor}:${currentTrackIndex}`;
-  const participantCount = participants.length;
-  const participantClientIdSet = useMemo(
-    () => new Set(participants.map((participant) => participant.clientId)),
-    [participants],
-  );
-  const questionParticipantCount =
-    typeof gameState.questionStats?.participantCount === "number" &&
-      Number.isFinite(gameState.questionStats.participantCount)
-      ? Math.max(0, Math.floor(gameState.questionStats.participantCount))
-      : participantCount;
-  const requiredAnswerCount =
-    participantCount > 0 && questionParticipantCount > 0
-      ? Math.min(participantCount, questionParticipantCount)
-      : Math.max(participantCount, questionParticipantCount);
-  const serverAnsweredCount =
-    typeof gameState.questionStats?.answeredCount === "number" &&
-      Number.isFinite(gameState.questionStats.answeredCount)
-      ? Math.max(0, Math.floor(gameState.questionStats.answeredCount))
-      : Array.isArray(gameState.questionStats?.answerOrderLatest)
-        ? gameState.questionStats.answerOrderLatest.length
-        : 0;
-  const serverAnsweredCurrentParticipantCount = useMemo(() => {
-    const answersByClientId = gameState.questionStats?.answersByClientId;
-    if (
-      answersByClientId &&
-      typeof answersByClientId === "object" &&
-      participantClientIdSet.size > 0
-    ) {
-      return Object.entries(answersByClientId).reduce((count, [clientId, answer]) => {
-        if (!participantClientIdSet.has(clientId)) return count;
-        const hasChoiceIndex =
-          typeof answer?.choiceIndex === "number" &&
-          Number.isFinite(answer.choiceIndex);
-        const hasResolvedResult =
-          answer?.result === "correct" || answer?.result === "wrong";
-        return hasChoiceIndex || hasResolvedResult ? count + 1 : count;
-      }, 0);
-    }
-    const answerOrderLatest = gameState.questionStats?.answerOrderLatest;
-    if (Array.isArray(answerOrderLatest) && participantClientIdSet.size > 0) {
-      const seen = new Set<string>();
-      let count = 0;
-      answerOrderLatest.forEach((clientId) => {
-        if (!participantClientIdSet.has(clientId) || seen.has(clientId)) return;
-        seen.add(clientId);
-        count += 1;
-      });
-      return count;
-    }
-    return serverAnsweredCount;
-  }, [
-    gameState.questionStats?.answerOrderLatest,
-    gameState.questionStats?.answersByClientId,
-    participantClientIdSet,
-    serverAnsweredCount,
-  ]);
-  const allAnsweredByServer =
-    gameState.phase === "guess" &&
-    requiredAnswerCount > 0 &&
-    serverAnsweredCurrentParticipantCount >= requiredAnswerCount;
+  const {
+    liveParticipantCount,
+    liveAnsweredCount,
+    liveAccuracyPct,
+    requiredAnswerCount,
+    allAnsweredByServer,
+    revealChoicePickMap,
+  } = useGameRoomQuestionDerivedState({
+    gamePhase: gameState.phase,
+    questionStats: gameState.questionStats,
+    participants,
+    meClientId,
+  });
   const uiNowMs = useGameRoomUiClock({
     getServerNowMs,
     startedAt: gameState.startedAt,
@@ -898,21 +854,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => sortParticipantsByScore(participants),
     [participants],
   );
-  const revealChoicePickMap = useMemo(
-    () =>
-      buildRevealChoicePickMap({
-        phase: gameState.phase,
-        answersByClientId: gameState.questionStats?.answersByClientId,
-        participants,
-        meClientId,
-      }),
-    [
-      gameState.phase,
-      gameState.questionStats?.answersByClientId,
-      participants,
-      meClientId,
-    ],
-  );
   const { topTwoSwapState, resetTopTwoSwapState } =
     useTopTwoSwapState(sortedParticipants);
   const { questionRecaps, resetQuestionRecaps } = useGameRoomRecaps({
@@ -923,6 +864,20 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     correctChoiceIndex,
     choices: gameState.choices,
     questionStats: gameState.questionStats,
+    liveParticipantCount,
+    liveAnsweredCount,
+    liveCorrectCount:
+      typeof gameState.questionStats?.correctCount === "number"
+        ? Math.max(0, Math.floor(gameState.questionStats.correctCount))
+        : null,
+    liveWrongCount:
+      typeof gameState.questionStats?.wrongCount === "number"
+        ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
+        : null,
+    liveUnansweredCount:
+      typeof gameState.questionStats?.unansweredCount === "number"
+        ? Math.max(0, Math.floor(gameState.questionStats.unansweredCount))
+        : null,
     meClientId,
     selectedChoiceState,
     answeredOrderForCurrentParticipants,
@@ -1232,10 +1187,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     scorePartsByClientId,
     answeredRankByClientId,
     answeredClientIdSet,
-    answeredCount,
+    liveParticipantCount,
+    liveAnsweredCount,
+    liveAccuracyPct,
     selectedChoice,
     correctChoiceIndex,
-    questionStats: gameState.questionStats,
+    myBackendScoreBreakdown:
+      meClientId && gameState.questionStats?.scoreBreakdownsByClientId
+        ? gameState.questionStats.scoreBreakdownsByClientId[meClientId] ?? null
+        : null,
     gamePhase: gameState.phase,
     isReveal,
     isInterTrackWait,

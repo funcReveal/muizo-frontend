@@ -51,6 +51,7 @@ const useGameRoomAnswerFlow = ({
     trackSessionKey: string;
     choiceIndex: number | null;
     requestId: number;
+    submittedAtMs: number;
   } | null>(null);
   const [answerDecisionMeta, setAnswerDecisionMeta] = useState<AnswerDecisionMeta>({
     trackSessionKey: "",
@@ -280,6 +281,7 @@ const useGameRoomAnswerFlow = ({
         trackSessionKey,
         choiceIndex,
         requestId,
+        submittedAtMs,
       });
       setChoiceCommitFxState((prev) => ({
         trackSessionKey,
@@ -393,7 +395,6 @@ const useGameRoomAnswerFlow = ({
     return rankMap;
   }, [answeredOrderForCurrentParticipants]);
   const answeredCount = answeredOrderForCurrentParticipants.length;
-
   const scorePartsByClientId = useMemo(() => {
     const partsMap = new Map<string, { base: number; gain: number }>();
     participants.forEach((participant) => {

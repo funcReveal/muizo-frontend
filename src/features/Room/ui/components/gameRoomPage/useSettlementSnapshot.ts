@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ChatMessage, PlaylistItem, RoomParticipant, RoomState } from "../../../model/types";
 import type { SettlementQuestionRecap } from "../GameSettlementPanel";
@@ -37,8 +37,40 @@ const useSettlementSnapshot = ({
   const [endedSnapshot, setEndedSnapshot] = useState<FrozenSettlementSnapshot | null>(
     null,
   );
+  const latestPayloadRef = useRef({
+    room,
+    participants,
+    messages,
+    playlist,
+    trackOrder,
+    playedQuestionCount,
+    startedAt,
+    serverOffsetMs,
+  });
 
   const endedRoundKey = `${room.id}:${startedAt}`;
+
+  useEffect(() => {
+    latestPayloadRef.current = {
+      room,
+      participants,
+      messages,
+      playlist,
+      trackOrder,
+      playedQuestionCount,
+      startedAt,
+      serverOffsetMs,
+    };
+  }, [
+    messages,
+    participants,
+    playedQuestionCount,
+    playlist,
+    room,
+    serverOffsetMs,
+    startedAt,
+    trackOrder,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,16 +89,17 @@ const useSettlementSnapshot = ({
       if (cancelled) return;
       setEndedSnapshot((prev) => {
         if (!prev || prev.roundKey !== endedRoundKey) {
+          const latestPayload = latestPayloadRef.current;
           return {
             roundKey: endedRoundKey,
-            startedAt,
-            endedAt: Date.now() + serverOffsetMs,
-            room: cloneRoomForSettlement(room),
-            participants: participants.map((participant) => ({ ...participant })),
-            messages: messages.map((message) => ({ ...message })),
-            playlistItems: playlist.map((item) => ({ ...item })),
-            trackOrder: [...trackOrder],
-            playedQuestionCount,
+            startedAt: latestPayload.startedAt,
+            endedAt: Date.now() + latestPayload.serverOffsetMs,
+            room: cloneRoomForSettlement(latestPayload.room),
+            participants: latestPayload.participants.map((participant) => ({ ...participant })),
+            messages: latestPayload.messages.map((message) => ({ ...message })),
+            playlistItems: latestPayload.playlist.map((item) => ({ ...item })),
+            trackOrder: [...latestPayload.trackOrder],
+            playedQuestionCount: latestPayload.playedQuestionCount,
             questionRecaps: normalizedRecaps,
           };
         }
@@ -83,19 +116,7 @@ const useSettlementSnapshot = ({
     return () => {
       cancelled = true;
     };
-  }, [
-    endedRoundKey,
-    isEnded,
-    messages,
-    participants,
-    playedQuestionCount,
-    playlist,
-    questionRecaps,
-    room,
-    serverOffsetMs,
-    startedAt,
-    trackOrder,
-  ]);
+  }, [endedRoundKey, isEnded, questionRecaps]);
 
   const settlementSnapshot = useMemo(
     () =>

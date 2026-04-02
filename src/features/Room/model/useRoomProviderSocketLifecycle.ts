@@ -479,14 +479,19 @@ export const useRoomProviderSocketLifecycle = ({
         },
         onRoomPingUpdated: ({ roomId, pings }) => {
           if (roomId !== currentRoomIdRef.current) return;
-          setParticipants((prev) =>
-            prev.map((participant) => {
-              if (!(participant.clientId in pings)) return participant;
-              const nextPing = pings[participant.clientId];
-              if (participant.pingMs === nextPing) return participant;
-              return { ...participant, pingMs: nextPing };
-            }),
-          );
+          startTransition(() => {
+            setParticipants((prev) => {
+              let changed = false;
+              const next = prev.map((participant) => {
+                if (!(participant.clientId in pings)) return participant;
+                const nextPing = pings[participant.clientId];
+                if (participant.pingMs === nextPing) return participant;
+                changed = true;
+                return { ...participant, pingMs: nextPing };
+              });
+              return changed ? next : prev;
+            });
+          });
         },
         onUserLeft: ({ roomId, clientId: leftId }) => {
           if (roomId !== currentRoomIdRef.current) return;
@@ -522,7 +527,9 @@ export const useRoomProviderSocketLifecycle = ({
         },
         onMessageAdded: ({ roomId, message }) => {
           if (roomId !== currentRoomIdRef.current) return;
-          setMessages((prev) => [...prev, message]);
+          startTransition(() => {
+            setMessages((prev) => [...prev, message]);
+          });
         },
         onGameStarted: ({ roomId, gameState, serverNow }) => {
           if (roomId !== currentRoomIdRef.current) return;
@@ -698,13 +705,18 @@ export const useRoomProviderSocketLifecycle = ({
         if (!ack?.ok) return;
         const measuredMs = Math.max(0, Math.round(performance.now() - startedAt));
         syncServerOffset(ack.data.serverNow);
-        setParticipants((prev) =>
-          prev.map((participant) =>
-            participant.clientId === clientId
-              ? { ...participant, pingMs: measuredMs }
-              : participant,
-          ),
-        );
+        startTransition(() => {
+          setParticipants((prev) => {
+            let changed = false;
+            const next = prev.map((participant) => {
+              if (participant.clientId !== clientId) return participant;
+              if (participant.pingMs === measuredMs) return participant;
+              changed = true;
+              return { ...participant, pingMs: measuredMs };
+            });
+            return changed ? next : prev;
+          });
+        });
       });
     },
     [clientId, setParticipants, socketRef, syncServerOffset],

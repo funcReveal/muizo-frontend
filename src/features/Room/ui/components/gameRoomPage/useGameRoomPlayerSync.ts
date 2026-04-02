@@ -808,12 +808,10 @@ const useGameRoomPlayerSync = ({
   }, [debugSync, waitingToStart]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
       const now = getServerNowMs();
       if (resumeNeedsSyncRef.current && playerReadyRef.current && now >= startedAt) {
-        if (document.visibilityState !== "visible") {
-          return;
-        }
         resumeNeedsSyncRef.current = false;
         requestPlayerTime("interval-resume");
         return;
@@ -845,7 +843,8 @@ const useGameRoomPlayerSync = ({
       ) {
         requestPlayerTime("watchdog");
       }
-    }, 500);
+    };
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
   }, [
     applyVolume,

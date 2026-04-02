@@ -175,10 +175,18 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
     measure();
 
     if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(measure);
+      let debounceId: number | null = null;
+      const debouncedMeasure = () => {
+        if (debounceId !== null) window.clearTimeout(debounceId);
+        debounceId = window.setTimeout(measure, 80);
+      };
+      const observer = new ResizeObserver(debouncedMeasure);
       observer.observe(wrap);
       observer.observe(track);
-      return () => observer.disconnect();
+      return () => {
+        observer.disconnect();
+        if (debounceId !== null) window.clearTimeout(debounceId);
+      };
     }
 
     window.addEventListener("resize", measure);

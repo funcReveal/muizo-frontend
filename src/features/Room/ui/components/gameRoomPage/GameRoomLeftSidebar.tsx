@@ -169,6 +169,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   const rowElementByClientIdRef = React.useRef(new Map<string, HTMLDivElement>());
   const previousDesktopTopByClientIdRef = React.useRef(new Map<string, number>());
   const desktopFlipAnimationsRef = React.useRef<Animation[]>([]);
+  const flipPrevScoreByClientIdRef = React.useRef<Map<string, number>>(new Map());
 
   const debugScoreboard = React.useCallback(
     (label: string, payload: Record<string, unknown>) => {
@@ -308,7 +309,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     }
 
     const nextTopByClientId = new Map<string, number>();
-    const previousScoreByClientId = lastScoreByClientIdRef.current;
     displayedPlayerOrder.forEach((clientId) => {
       const rowElement = rowElementByClientIdRef.current.get(clientId);
       if (!rowElement) return;
@@ -321,9 +321,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       return;
     }
 
+    const flipPrevScore = flipPrevScoreByClientIdRef.current;
+
     const movedRows: Array<{
       element: HTMLDivElement;
       deltaY: number;
+      clientId: string;
     }> = [];
     nextTopByClientId.forEach((nextTop, clientId) => {
       const prevTop = previousTopByClientId.get(clientId);
@@ -332,35 +335,24 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       if (Math.abs(deltaY) < 1) return;
       const rowElement = rowElementByClientIdRef.current.get(clientId);
       if (!rowElement) return;
-      movedRows.push({ element: rowElement, deltaY });
+      movedRows.push({ element: rowElement, deltaY, clientId });
     });
-    const movedClientIds = movedRows.flatMap(({ element }) => {
-      const found = Array.from(rowElementByClientIdRef.current.entries()).find(
-        ([, candidate]) => candidate === element,
-      );
-      return found ? [found[0]] : [];
-    });
+
+    if (movedRows.length === 0) {
+      previousDesktopTopByClientIdRef.current = nextTopByClientId;
+      flipPrevScoreByClientIdRef.current = new Map(scoreByClientId);
+      return;
+    }
+
+    const movedClientIds = movedRows.map((r) => r.clientId);
     const didScoreChangeForMovedClients = movedClientIds.some((clientId) => {
-      const prevScore = previousScoreByClientId.get(clientId);
+      const prevScore = flipPrevScore.get(clientId);
       const nextScore = scoreByClientId.get(clientId);
       return typeof prevScore === "number" && typeof nextScore === "number" && prevScore !== nextScore;
     });
     if (!didScoreChangeForMovedClients) {
       previousDesktopTopByClientIdRef.current = nextTopByClientId;
-      if (movedClientIds.length > 0) {
-        debugScoreboard("flip-skipped", {
-          trigger: "flip",
-          prevOrder: lastDisplayedPlayerOrderRef.current,
-          nextOrder: displayedPlayerOrder,
-          movedClientIds,
-          prevScores: Object.fromEntries(
-            movedClientIds.map((clientId) => [clientId, previousScoreByClientId.get(clientId) ?? null]),
-          ),
-          nextScores: Object.fromEntries(
-            movedClientIds.map((clientId) => [clientId, scoreByClientId.get(clientId) ?? null]),
-          ),
-        });
-      }
+      flipPrevScoreByClientIdRef.current = new Map(scoreByClientId);
       return;
     }
 
@@ -383,26 +375,22 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       const animation = element.animate(
         [
           {
-            transform: `translateY(${deltaY}px)`,
-            opacity: 0.88,
-            filter: "brightness(0.9) saturate(0.95)",
+            transform: `translateY(${deltaY}px) scale(0.97)`,
+            opacity: 0.72,
           },
           {
-            transform: `translateY(${Math.round(deltaY * 0.5)}px)`,
+            transform: `translateY(${Math.round(deltaY * 0.5)}px) scale(1.02)`,
             opacity: 1,
-            filter: "brightness(1.04) saturate(1.02)",
             offset: 0.48,
           },
           {
-            transform: `translateY(${overshootY}px)`,
+            transform: `translateY(${overshootY}px) scale(1.01)`,
             opacity: 1,
-            filter: "brightness(1.02) saturate(1.01)",
             offset: 0.82,
           },
           {
-            transform: "translateY(0)",
+            transform: "translateY(0) scale(1)",
             opacity: 1,
-            filter: "brightness(1) saturate(1)",
           },
         ],
         {
@@ -411,10 +399,16 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           fill: "both",
         },
       );
+      animation.onfinish = () => {
+        desktopFlipAnimationsRef.current = desktopFlipAnimationsRef.current.filter(
+          (a) => a !== animation,
+        );
+      };
       desktopFlipAnimationsRef.current.push(animation);
     });
 
     previousDesktopTopByClientIdRef.current = nextTopByClientId;
+    flipPrevScoreByClientIdRef.current = new Map(scoreByClientId);
     if (movedClientIds.length > 0) {
       debugScoreboard("flip", {
         trigger: "flip",
@@ -422,7 +416,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         nextOrder: displayedPlayerOrder,
         movedClientIds,
         prevScores: Object.fromEntries(
-          movedClientIds.map((clientId) => [clientId, previousScoreByClientId.get(clientId) ?? null]),
+          movedClientIds.map((clientId) => [clientId, flipPrevScore.get(clientId) ?? null]),
         ),
         nextScores: Object.fromEntries(
           movedClientIds.map((clientId) => [clientId, scoreByClientId.get(clientId) ?? null]),

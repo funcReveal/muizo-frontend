@@ -1296,7 +1296,10 @@ const RoomLobbyPage: React.FC = () => {
       setUiNowMs(Date.now() + serverOffsetMs);
       return;
     }
-    const tick = () => setUiNowMs(Date.now() + serverOffsetMs);
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      setUiNowMs(Date.now() + serverOffsetMs);
+    };
     tick();
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);

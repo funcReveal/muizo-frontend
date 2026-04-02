@@ -32,7 +32,7 @@ export const AudioGestureOverlayPortal: React.FC<AudioGestureOverlayPortalProps>
   };
   return createPortal(
     <div
-      className="fixed inset-0 z-[2400] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[2400] flex items-center justify-center bg-slate-950/80"
       onPointerDownCapture={stopOverlayEvent}
       onPointerUpCapture={stopOverlayEvent}
       onClick={handleTrigger}
@@ -73,7 +73,7 @@ export const StartBroadcastOverlayPortal: React.FC<StartBroadcastOverlayPortalPr
 }) => {
   if (!visible || typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[2300] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[2300] flex items-center justify-center bg-slate-950/82">
       <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
         <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
           即將開局

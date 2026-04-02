@@ -111,6 +111,80 @@ const RECOMMEND_CATEGORY_SHORT_HINT: Record<RecommendCategory, string> = {
   other: "其餘值得回顧的歌曲",
 };
 
+const useAnimatedCountdownSeconds = (
+  targetAtMs: number | null,
+  enabled: boolean,
+) => {
+  const [countdownSec, setCountdownSec] = useState(0);
+
+  useEffect(() => {
+    if (!enabled || targetAtMs === null) return;
+    let timerId: number | null = null;
+    const tick = () => {
+      const remainingMs = Math.max(0, targetAtMs - Date.now());
+      setCountdownSec(Math.max(0, Math.ceil(remainingMs / 1000)));
+      if (remainingMs <= 0) return;
+      timerId = window.setTimeout(tick, remainingMs <= 4500 ? 200 : 1000);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [enabled, targetAtMs]);
+
+  return enabled && targetAtMs !== null ? countdownSec : 0;
+};
+
+const useUpcomingStartGuard = (
+  upcomingGameStartAt: number | null,
+  externalNowMs?: number,
+) => {
+  const [renderNowMs, setRenderNowMs] = useState(() =>
+    typeof externalNowMs === "number" && Number.isFinite(externalNowMs)
+      ? externalNowMs
+      : Date.now(),
+  );
+
+  useEffect(() => {
+    if (typeof externalNowMs === "number" && Number.isFinite(externalNowMs)) return;
+    if (!upcomingGameStartAt || !Number.isFinite(upcomingGameStartAt)) return;
+    let timerId: number | null = null;
+    const tick = () => {
+      const now = Date.now();
+      setRenderNowMs(now);
+      const remainingMs = Math.max(0, upcomingGameStartAt - now);
+      if (remainingMs <= 0) return;
+      timerId = window.setTimeout(tick, remainingMs <= 5000 ? 200 : 1000);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [externalNowMs, upcomingGameStartAt]);
+
+  const effectiveNowMs =
+    typeof externalNowMs === "number" && Number.isFinite(externalNowMs)
+      ? externalNowMs
+      : renderNowMs;
+
+  if (!upcomingGameStartAt || !Number.isFinite(upcomingGameStartAt)) {
+    return {
+      isPending: false,
+      remainingMs: 0,
+      remainingSec: 0,
+      warnMode: false,
+    };
+  }
+
+  const remainingMs = Math.max(0, upcomingGameStartAt - effectiveNowMs);
+  return {
+    isPending: remainingMs > 0,
+    remainingMs,
+    remainingSec: Math.ceil(remainingMs / 1000),
+    warnMode: remainingMs <= 5000,
+  };
+};
+
 const RESULT_META: Record<
   "correct" | "wrong" | "unanswered",
   { label: string; badgeClass: string }
@@ -247,7 +321,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   );
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [tabRenderKey, setTabRenderKey] = useState(0);
-  const [tickerNowMs, setTickerNowMs] = useState(() => Date.now());
   const isMobileSettlementViewport = useMediaQuery("(max-width: 1023.95px)");
   const settlementHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const settlementStageRef = useRef<HTMLElement | null>(null);
@@ -258,6 +331,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const autoCenteredRecommendRoundKeyRef = useRef<string | null>(null);
   const autoAnchoredSettlementRoundKeyRef = useRef<string | null>(null);
   const exitConfirmLockedRef = useRef(false);
+  const previewCommandTimersRef = useRef<number[]>([]);
 
   const stepIndex = TAB_ORDER.indexOf(activeTab);
   const areAllMobileRecommendSectionsExpanded =
@@ -334,14 +408,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     playedQuestionCount,
     meClientId,
   });
-
-  useEffect(() => {
-    if (typeof nowMs === "number" && Number.isFinite(nowMs)) return;
-    const timer = window.setInterval(() => {
-      setTickerNowMs(Date.now());
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [nowMs]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -628,25 +694,11 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   return null;
 }, [gameEndTime, startedAt]);
 
-  const settlementStartGuard = useMemo(() => {
-    if (!upcomingGameStartAt || !Number.isFinite(upcomingGameStartAt)) {
-      return {
-        isPending: false,
-        remainingMs: 0,
-        remainingSec: 0,
-        warnMode: false,
-      };
-    }
-    const effectiveNowMs =
-      typeof nowMs === "number" && Number.isFinite(nowMs) ? nowMs : tickerNowMs;
-    const remainingMs = Math.max(0, upcomingGameStartAt - effectiveNowMs);
-    return {
-      isPending: remainingMs > 0,
-      remainingMs,
-      remainingSec: Math.ceil(remainingMs / 1000),
-      warnMode: remainingMs <= 5000,
-    };
-  }, [nowMs, tickerNowMs, upcomingGameStartAt]);
+  const settlementStartGuard = useUpcomingStartGuard(upcomingGameStartAt, nowMs);
+  const animatedPreviewCountdownSec = useAnimatedCountdownSeconds(
+    autoAdvanceAtMs,
+    canAutoGuideLoop,
+  );
 
   const handleOpenTrackLink = useCallback(
     (link: SettlementTrackLink, recap: ExtendedRecap) => {
@@ -671,9 +723,13 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
   const dispatchPreviewCommand = useCallback(
     (command: "playVideo" | "pauseVideo") => {
+      previewCommandTimersRef.current.forEach((id) => window.clearTimeout(id));
+      previewCommandTimersRef.current = [];
       postYouTubeCommand(command);
-      window.setTimeout(() => postYouTubeCommand(command), 180);
-      window.setTimeout(() => postYouTubeCommand(command), 420);
+      previewCommandTimersRef.current.push(
+        window.setTimeout(() => postYouTubeCommand(command), 180),
+        window.setTimeout(() => postYouTubeCommand(command), 420),
+      );
     },
     [postYouTubeCommand],
   );
@@ -967,17 +1023,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   ]);
 
   useEffect(() => {
-    if (!canAutoGuideLoop || autoAdvanceAtMs === null) return;
-    const updateCountdown = () => {
-      const remainingMs = Math.max(0, autoAdvanceAtMs - Date.now());
-      setPreviewCountdownSec(Math.max(0, Math.ceil(remainingMs / 1000)));
-    };
-    updateCountdown();
-    const timer = window.setInterval(updateCountdown, 200);
-    return () => window.clearInterval(timer);
-  }, [autoAdvanceAtMs, canAutoGuideLoop]);
-
-  useEffect(() => {
     if (activeTab !== "recommend") return;
     if (typeof window === "undefined") return;
     const media = window.matchMedia("(max-width: 1023px)");
@@ -1011,6 +1056,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     }, 280);
     return () => window.clearTimeout(timer);
   }, [endedAt, isMobileSettlementViewport, room.id, startedAt]);
+
+  useEffect(() => {
+    const timers = previewCommandTimersRef;
+    return () => {
+      timers.current.forEach((id) => window.clearTimeout(id));
+      timers.current = [];
+    };
+  }, []);
 
   return (
     <div
@@ -1174,7 +1227,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                   currentRecommendationFastestCorrectMeta
                 }
                 canAutoGuideLoop={canAutoGuideLoop}
-                previewCountdownSec={previewCountdownSec}
+                previewCountdownSec={
+                  canAutoGuideLoop ? animatedPreviewCountdownSec : previewCountdownSec
+                }
                 previewSwitchNotice={previewSwitchNotice}
                 recommendPreviewStageRef={recommendPreviewStageRef}
                 isCurrentRecommendationPreviewOpen={isCurrentRecommendationPreviewOpen}

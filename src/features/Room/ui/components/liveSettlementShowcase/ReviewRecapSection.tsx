@@ -176,6 +176,8 @@ const renderResultBadgeContent = (result: RecapAnswerResult) => {
 const REVIEW_BADGE_PILL_CLASS =
   "inline-flex h-7 min-w-[4.25rem] items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold";
 
+const MOBILE_DOUBLE_TAP_WINDOW_MS = 320;
+
 const ChoiceMarqueeTitle: React.FC<{
   text: string;
   className?: string;
@@ -347,6 +349,10 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
     React.useState<number | null>(null);
   const [reviewPlaybackHelpAnchor, setReviewPlaybackHelpAnchor] =
     React.useState<HTMLElement | null>(null);
+  const mobileRecapTapRef = React.useRef<{
+    recapKey: string;
+    tappedAtMs: number;
+  } | null>(null);
   const filteredRecaps = React.useMemo(() => {
     if (filter === "all") return reviewRecaps;
     return reviewRecaps.filter((recap) => {
@@ -576,6 +582,45 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
     goToRecapIndex(clamped - 1);
   };
 
+  const handleRecapCardClick = React.useCallback(
+    (recap: SettlementQuestionRecap) => {
+      onSetSelectedRecapKey(recap.key);
+
+      if (!isMobileView) {
+        onJumpToRecapPreview(recap, "click");
+        return;
+      }
+
+      const now = Date.now();
+      const lastTap = mobileRecapTapRef.current;
+      const isDoubleTap =
+        lastTap?.recapKey === recap.key &&
+        now - lastTap.tappedAtMs <= MOBILE_DOUBLE_TAP_WINDOW_MS;
+
+      if (isDoubleTap) {
+        mobileRecapTapRef.current = null;
+        onJumpToRecapPreview(recap, "doubleClick");
+        return;
+      }
+
+      mobileRecapTapRef.current = {
+        recapKey: recap.key,
+        tappedAtMs: now,
+      };
+      onJumpToRecapPreview(recap, "click");
+    },
+    [isMobileView, onJumpToRecapPreview, onSetSelectedRecapKey],
+  );
+
+  const handleRecapCardDoubleClick = React.useCallback(
+    (recap: SettlementQuestionRecap) => {
+      onSetSelectedRecapKey(recap.key);
+      mobileRecapTapRef.current = null;
+      onJumpToRecapPreview(recap, "doubleClick");
+    },
+    [onJumpToRecapPreview, onSetSelectedRecapKey],
+  );
+
   return (
     <section
       className={`mt-4 ${reviewSurfaceClass}`}
@@ -708,7 +753,7 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                         ? "border-rose-300/28 bg-rose-400/7 text-rose-100"
                         : "border-slate-400/24 bg-slate-400/6 text-slate-100";
                   return (
-                    <button key={recap.key} type="button" className={`block w-full cursor-pointer rounded-[22px] border px-4 py-4 text-left transition ${isActive ? activeCardClass : inactiveCardClass}`} onClick={() => { onSetSelectedRecapKey(recap.key); onJumpToRecapPreview(recap, "click"); }} onDoubleClick={() => { onSetSelectedRecapKey(recap.key); onJumpToRecapPreview(recap, "doubleClick"); }}>
+                    <button key={recap.key} type="button" className={`block w-full cursor-pointer rounded-[22px] border px-4 py-4 text-left transition ${isActive ? activeCardClass : inactiveCardClass}`} onClick={() => { handleRecapCardClick(recap); }} onDoubleClick={() => { handleRecapCardDoubleClick(recap); }}>
                       <div className="flex items-start gap-3">
                         <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black ${orderBadgeClass}`}>{recap.order}</span>
                         <div className="min-w-0 flex-1">
@@ -1166,4 +1211,4 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   );
 };
 
-export default ReviewRecapSection;
+export default React.memo(ReviewRecapSection);

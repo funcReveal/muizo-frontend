@@ -256,6 +256,24 @@ const RoomsLayoutShell: React.FC = () => {
 
   const isGameMode = Boolean(currentRoom && gameState);
 
+  const settingsDialogPaperProps = useMemo(
+    () => ({
+      sx: {
+        width: settingsDialogFullScreen ? "100vw" : "min(1400px, calc(100vw - 24px))",
+        maxWidth: "unset",
+        height: settingsDialogFullScreen ? "100dvh" : "min(920px, calc(100dvh - 24px))",
+        maxHeight: settingsDialogFullScreen ? "100dvh" : "min(920px, calc(100dvh - 24px))",
+        borderRadius: settingsDialogFullScreen ? 0 : { xs: 2, sm: 3 },
+        m: settingsDialogFullScreen ? 0 : undefined,
+        border: "1px solid rgba(148, 163, 184, 0.24)",
+        background: "linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.84))",
+        boxShadow: "0 24px 64px rgba(2,6,23,0.45), 0 0 0 1px rgba(34,211,238,0.06)",
+        backdropFilter: "none",
+      },
+    }),
+    [settingsDialogFullScreen],
+  );
+
   return (
     <div className="flex min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start">
       <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6 pt-4" : " p-4"}${currentRoom && !isGameMode ? " pb-16" : ""}${currentRoom && isMobileViewport ? " pb-4" : ""}`}>
@@ -357,28 +375,7 @@ const RoomsLayoutShell: React.FC = () => {
           fullScreen={settingsDialogFullScreen}
           fullWidth
           maxWidth="xl"
-          PaperProps={{
-            sx: {
-              width: settingsDialogFullScreen
-                ? "100vw"
-                : "min(1400px, calc(100vw - 24px))",
-              maxWidth: "unset",
-              height: settingsDialogFullScreen
-                ? "100dvh"
-                : "min(920px, calc(100dvh - 24px))",
-              maxHeight: settingsDialogFullScreen
-                ? "100dvh"
-                : "min(920px, calc(100dvh - 24px))",
-              borderRadius: settingsDialogFullScreen ? 0 : { xs: 2, sm: 3 },
-              m: settingsDialogFullScreen ? 0 : undefined,
-              border: "1px solid rgba(148, 163, 184, 0.24)",
-              background:
-                "linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.84))",
-              boxShadow:
-                "0 24px 64px rgba(2,6,23,0.45), 0 0 0 1px rgba(34,211,238,0.06)",
-              backdropFilter: "blur(14px)",
-            },
-          }}
+          PaperProps={settingsDialogPaperProps}
         >
           <DialogContent
             sx={{

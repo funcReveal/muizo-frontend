@@ -14,7 +14,7 @@ import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import type { YoutubePlaylist } from "../../model/RoomContext";
 import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
@@ -152,7 +152,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     setCooldownNow(Date.now());
     cooldownIntervalRef.current = window.setInterval(() => {
       setCooldownNow(Date.now());
-    }, 500);
+    }, 1000);
     cooldownTimerRef.current = window.setTimeout(() => {
       setCooldownUntil(null);
       setSuggestNotice(null);
@@ -570,4 +570,4 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
   );
 };
 
-export default RoomLobbySuggestionPanel;
+export default React.memo(RoomLobbySuggestionPanel);

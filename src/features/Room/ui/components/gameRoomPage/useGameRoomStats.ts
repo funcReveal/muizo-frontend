@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { GameQuestionStats, GameState, QuestionScoreBreakdown, RoomParticipant } from "../../../model/types";
+import type { GameState, QuestionScoreBreakdown, RoomParticipant } from "../../../model/types";
 import { buildMyFeedbackModel } from "./gameRoomPageDerivations";
 import { isComboMilestone, resolveComboBreakTier, resolveComboTier } from "../../gameRoomUiUtils";
 
@@ -10,10 +10,12 @@ interface UseGameRoomStatsParams {
   scorePartsByClientId: Map<string, { base: number; gain: number }>;
   answeredRankByClientId: Map<string, number>;
   answeredClientIdSet: Set<string>;
-  answeredCount: number;
+  liveParticipantCount: number;
+  liveAnsweredCount: number;
+  liveAccuracyPct: number | null;
   selectedChoice: number | null;
   correctChoiceIndex: number;
-  questionStats: GameQuestionStats | undefined;
+  myBackendScoreBreakdown: QuestionScoreBreakdown | null;
   gamePhase: GameState["phase"];
   isReveal: boolean;
   isInterTrackWait: boolean;
@@ -28,10 +30,12 @@ const useGameRoomStats = ({
   scorePartsByClientId,
   answeredRankByClientId,
   answeredClientIdSet,
-  answeredCount,
+  liveParticipantCount,
+  liveAnsweredCount,
+  liveAccuracyPct,
   selectedChoice,
   correctChoiceIndex,
-  questionStats,
+  myBackendScoreBreakdown,
   gamePhase,
   isReveal,
   isInterTrackWait,
@@ -55,30 +59,6 @@ const useGameRoomStats = ({
   const myGain = myScoreParts?.gain ?? 0;
   const myAnswerRank =
     meClientId != null ? answeredRankByClientId.get(meClientId) ?? null : null;
-  const liveParticipantCount =
-    typeof questionStats?.participantCount === "number" &&
-    Number.isFinite(questionStats.participantCount)
-      ? Math.max(0, Math.floor(questionStats.participantCount))
-      : participants.length;
-  const liveAnsweredCount =
-    typeof questionStats?.answeredCount === "number" &&
-    Number.isFinite(questionStats.answeredCount)
-      ? Math.max(0, Math.floor(questionStats.answeredCount))
-      : answeredCount;
-  const liveCorrectCount =
-    typeof questionStats?.correctCount === "number" &&
-    Number.isFinite(questionStats.correctCount)
-      ? Math.max(0, Math.floor(questionStats.correctCount))
-      : null;
-  const liveAccuracyPct =
-    liveCorrectCount !== null && liveParticipantCount > 0
-      ? Math.round((liveCorrectCount / Math.max(1, liveParticipantCount)) * 100)
-      : null;
-  const scoreBreakdownsByClientId = questionStats?.scoreBreakdownsByClientId;
-  const myBackendScoreBreakdown =
-    meClientId && scoreBreakdownsByClientId
-      ? scoreBreakdownsByClientId[meClientId] ?? null
-      : null;
   const myHasAnswered =
     selectedChoice !== null ||
     Boolean(meClientId && answeredClientIdSet.has(meClientId));

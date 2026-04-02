@@ -4,7 +4,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
-import { useRoom } from "../../model/useRoom";
+import { useRoomRealtime } from "../../model/useRoomRealtime";
 import { useChatInput } from "../../model/ChatInputContext";
 import type { ChatMessage } from "../../model/types";
 import { DanmuContext } from "./gameRoomPage/DanmuContext";
@@ -50,7 +50,7 @@ const FloatingChatWindow: React.FC = () => {
     messages,
     clientId,
     gameState,
-  } = useRoom();
+  } = useRoomRealtime();
   const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
 
   const danmuCtx = React.useContext(DanmuContext);

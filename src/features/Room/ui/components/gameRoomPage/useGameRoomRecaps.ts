@@ -13,6 +13,11 @@ interface UseGameRoomRecapsParams {
   correctChoiceIndex: number;
   choices: GameChoice[];
   questionStats: GameQuestionStats | undefined;
+  liveParticipantCount: number;
+  liveAnsweredCount: number;
+  liveCorrectCount: number | null;
+  liveWrongCount: number | null;
+  liveUnansweredCount: number | null;
   meClientId?: string;
   selectedChoiceState: {
     trackIndex: number;
@@ -40,6 +45,11 @@ const useGameRoomRecaps = ({
   correctChoiceIndex,
   choices,
   questionStats,
+  liveParticipantCount,
+  liveAnsweredCount,
+  liveCorrectCount,
+  liveWrongCount,
+  liveUnansweredCount,
   meClientId,
   selectedChoiceState,
   answeredOrderForCurrentParticipants,
@@ -79,17 +89,9 @@ const useGameRoomRecaps = ({
         : selectedChoiceState.trackIndex === currentTrackIndex
           ? selectedChoiceState.choiceIndex
           : null;
-    const participantCount =
-      typeof questionStats?.participantCount === "number" &&
-      Number.isFinite(questionStats.participantCount)
-        ? Math.max(0, Math.floor(questionStats.participantCount))
-        : participants.length;
+    const participantCount = liveParticipantCount;
     const answeredClientIds = answeredOrderForCurrentParticipants;
-    const answeredCount =
-      typeof questionStats?.answeredCount === "number" &&
-      Number.isFinite(questionStats.answeredCount)
-        ? Math.max(0, Math.floor(questionStats.answeredCount))
-        : answeredClientIds.length;
+    const answeredCount = liveAnsweredCount || answeredClientIds.length;
     const correctClientIds = participants
       .filter((participant) => {
         const parts = scorePartsByClientId.get(participant.clientId);
@@ -97,21 +99,10 @@ const useGameRoomRecaps = ({
       })
       .map((participant) => participant.clientId);
     const correctClientIdSet = new Set(correctClientIds);
-    const correctCount =
-      typeof questionStats?.correctCount === "number" &&
-      Number.isFinite(questionStats.correctCount)
-        ? Math.max(0, Math.floor(questionStats.correctCount))
-        : correctClientIds.length;
-    const wrongCount =
-      typeof questionStats?.wrongCount === "number" &&
-      Number.isFinite(questionStats.wrongCount)
-        ? Math.max(0, Math.floor(questionStats.wrongCount))
-        : Math.max(0, answeredCount - correctCount);
+    const correctCount = liveCorrectCount ?? correctClientIds.length;
+    const wrongCount = liveWrongCount ?? Math.max(0, answeredCount - correctCount);
     const unansweredCount =
-      typeof questionStats?.unansweredCount === "number" &&
-      Number.isFinite(questionStats.unansweredCount)
-        ? Math.max(0, Math.floor(questionStats.unansweredCount))
-        : Math.max(0, participantCount - answeredCount);
+      liveUnansweredCount ?? Math.max(0, participantCount - answeredCount);
     const fastestCorrectRank =
       answeredClientIds.findIndex((clientId) => correctClientIdSet.has(clientId));
     const fastestCorrectMs =
@@ -186,6 +177,11 @@ const useGameRoomRecaps = ({
     item?.duration,
     item?.thumbnail,
     item?.uploader,
+    liveAnsweredCount,
+    liveCorrectCount,
+    liveParticipantCount,
+    liveUnansweredCount,
+    liveWrongCount,
     meClientId,
     participants,
     playlist,

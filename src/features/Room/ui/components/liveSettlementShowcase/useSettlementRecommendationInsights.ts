@@ -183,6 +183,8 @@ const useSettlementRecommendationInsights = <
   TRecap,
   TRecommendationCard
 >): UseSettlementRecommendationInsightsResult<TRecap, TRecommendationCard> => {
+  const shouldResolveRecommendData =
+    activeTab === "recommend" || autoPreviewEnabled;
   const defaultParticipantCount = Math.max(1, participantsLength);
   const participantNameByClientId = useMemo(() => {
     const next = new Map<string, string>();
@@ -206,6 +208,7 @@ const useSettlementRecommendationInsights = <
 
   const averageCorrectMsByRecapKey = useMemo(() => {
     const next = new Map<string, number | null>();
+    if (!shouldResolveRecommendData) return next;
     normalizedRecaps.forEach((recap) => {
       const medianCorrectMs =
         typeof recap.medianCorrectMs === "number" &&
@@ -219,9 +222,10 @@ const useSettlementRecommendationInsights = <
       );
     });
     return next;
-  }, [normalizedRecaps]);
+  }, [normalizedRecaps, shouldResolveRecommendData]);
 
   const quickRecommendations = useMemo(() => {
+    if (!shouldResolveRecommendData) return [];
     return normalizedRecaps
       .map((recap) => {
         const participantCount = resolveParticipantCount(recap);
@@ -260,9 +264,11 @@ const useSettlementRecommendationInsights = <
     normalizedRecaps,
     quickSolveThresholdMs,
     resolveParticipantCount,
+    shouldResolveRecommendData,
   ]);
 
   const confuseRecommendations = useMemo(() => {
+    if (!shouldResolveRecommendData) return [];
     return normalizedRecaps
       .map((recap) => {
         const answers = recap.answersByClientId
@@ -304,9 +310,15 @@ const useSettlementRecommendationInsights = <
           b.confusionRate - a.confusionRate ||
           a.recap.order - b.recap.order,
       );
-  }, [getChangedAnswerCount, normalizedRecaps, resolveParticipantCount]);
+  }, [
+    getChangedAnswerCount,
+    normalizedRecaps,
+    resolveParticipantCount,
+    shouldResolveRecommendData,
+  ]);
 
   const hardRecommendations = useMemo(() => {
+    if (!shouldResolveRecommendData) return [];
     return normalizedRecaps
       .map((recap) => {
         const participantCount = resolveParticipantCount(recap);
@@ -322,9 +334,10 @@ const useSettlementRecommendationInsights = <
       .sort(
         (a, b) => b.hardScore - a.hardScore || a.recap.order - b.recap.order,
       );
-  }, [normalizedRecaps, resolveParticipantCount]);
+  }, [normalizedRecaps, resolveParticipantCount, shouldResolveRecommendData]);
 
   const otherRecommendations = useMemo(() => {
+    if (!shouldResolveRecommendData) return [];
     const highlightedKeys = new Set<string>([
       ...quickRecommendations.map((entry) => entry.recap.key),
       ...confuseRecommendations.map((entry) => entry.recap.key),
@@ -346,13 +359,22 @@ const useSettlementRecommendationInsights = <
     normalizedRecaps,
     quickRecommendations,
     resolveParticipantCount,
+    shouldResolveRecommendData,
   ]);
 
   const recommendationCardsByCategory = useMemo<
     Record<RecommendCategory, TRecommendationCard[]>
   >(
-    () =>
-      distributeRecommendationCards({
+    () => {
+      if (!shouldResolveRecommendData) {
+        return {
+          quick: [],
+          confuse: [],
+          hard: [],
+          other: [],
+        };
+      }
+      return distributeRecommendationCards({
         quick: quickRecommendations.map((entry) =>
           buildRecommendationCard(
             entry.recap,
@@ -381,7 +403,8 @@ const useSettlementRecommendationInsights = <
             "值得回顧",
           ),
         ),
-      }),
+      });
+    },
     [
       buildRecommendationCard,
       confuseRecommendations,
@@ -390,6 +413,7 @@ const useSettlementRecommendationInsights = <
       hardRecommendations,
       otherRecommendations,
       quickRecommendations,
+      shouldResolveRecommendData,
     ],
   );
 
@@ -397,7 +421,7 @@ const useSettlementRecommendationInsights = <
     effectiveSelectedReviewParticipantClientId ?? meClientId ?? null;
   const performanceRatingByRecapKey = useMemo(() => {
     const next = new Map<string, SongPerformanceRating>();
-    if (!ratingParticipantClientId) return next;
+    if (!shouldResolveRecommendData || !ratingParticipantClientId) return next;
     normalizedRecaps.forEach((recap) => {
       const participantCount = resolveParticipantCount(recap);
       const correctCount = Math.max(0, recap.correctCount ?? 0);
@@ -445,6 +469,7 @@ const useSettlementRecommendationInsights = <
     ratingParticipantClientId,
     resolveParticipantAnswer,
     resolveParticipantCount,
+    shouldResolveRecommendData,
   ]);
 
   const recapOrderByKey = useMemo(() => {
@@ -461,6 +486,7 @@ const useSettlementRecommendationInsights = <
   }, [normalizedRecaps]);
 
   const personalFastestCorrectRecapKeys = useMemo(() => {
+    if (!shouldResolveRecommendData) return new Set<string>();
     const candidates: Array<{ key: string; answeredAtMs: number; order: number }> = [];
     performanceRatingByRecapKey.forEach((rating, key) => {
       if (rating.result !== "correct") return;
@@ -486,13 +512,14 @@ const useSettlementRecommendationInsights = <
     const keys = new Set<string>();
     keys.add(candidates[0].key);
     return keys;
-  }, [performanceRatingByRecapKey, recapOrderByKey]);
+  }, [performanceRatingByRecapKey, recapOrderByKey, shouldResolveRecommendData]);
 
   const fastestCorrectMetaByRecapKey = useMemo(() => {
     const next = new Map<
       string,
       { clientId: string; username: string; answeredAtMs: number } | null
     >();
+    if (!shouldResolveRecommendData) return next;
     normalizedRecaps.forEach((recap) => {
       const answers = recap.answersByClientId
         ? Object.entries(recap.answersByClientId)
@@ -537,12 +564,12 @@ const useSettlementRecommendationInsights = <
       });
     });
     return next;
-  }, [normalizedRecaps, participantNameByClientId]);
+  }, [normalizedRecaps, participantNameByClientId, shouldResolveRecommendData]);
 
-  const selectedRecapRating = selectedRecap
+  const selectedRecapRating = shouldResolveRecommendData && selectedRecap
     ? performanceRatingByRecapKey.get(selectedRecap.key) ?? null
     : null;
-  const selectedRecapAverageCorrectMs = selectedRecap
+  const selectedRecapAverageCorrectMs = shouldResolveRecommendData && selectedRecap
     ? averageCorrectMsByRecapKey.get(selectedRecap.key) ?? null
     : null;
   const selectedRecapGradeMeta = selectedRecapRating
@@ -568,10 +595,11 @@ const useSettlementRecommendationInsights = <
   const selectedRecapFastestBadgeText = isSelectedRecapGlobalFastest
     ? "全場最速王"
     : "最快答對";
-  const selectedRecapFastestCorrectMeta = selectedRecap
+  const selectedRecapFastestCorrectMeta = shouldResolveRecommendData && selectedRecap
     ? fastestCorrectMetaByRecapKey.get(selectedRecap.key) ?? null
     : null;
   const selectedRecapRatingBreakdown = (() => {
+    if (!shouldResolveRecommendData) return "--";
     if (!selectedRecapRating) return "--";
     const parts: string[] = [];
     if (selectedRecapRating.result === "correct") {
@@ -596,14 +624,17 @@ const useSettlementRecommendationInsights = <
   })();
 
   const availableRecommendCategories = useMemo(
-    () =>
-      RECOMMEND_CATEGORY_FLOW.filter(
+    () => {
+      if (!shouldResolveRecommendData) return [];
+      return RECOMMEND_CATEGORY_FLOW.filter(
         (category) => recommendationCardsByCategory[category].length > 0,
-      ),
-    [recommendationCardsByCategory],
+      );
+    },
+    [recommendationCardsByCategory, shouldResolveRecommendData],
   );
 
   const activeRecommendCategory =
+    shouldResolveRecommendData &&
     recommendationCardsByCategory[recommendCategory].length > 0
       ? recommendCategory
       : (availableRecommendCategories[0] ?? "quick");
@@ -727,7 +758,7 @@ const useSettlementRecommendationInsights = <
     previewPlayerState === "paused" ||
     (previewPlaybackMode !== "auto" && previewPlayerState !== "playing");
   const canAutoGuideLoop =
-    activeTab === "recommend" &&
+    shouldResolveRecommendData &&
     autoPreviewEnabled &&
     previewPlaybackMode !== "manual" &&
     recommendationCards.length > 0 &&

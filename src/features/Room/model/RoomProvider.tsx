@@ -24,7 +24,11 @@ import type {
 } from "./types";
 import {
   RoomContext,
+  RoomRealtimeContext,
+  RoomUiContext,
   type RoomContextValue,
+  type RoomRealtimeContextValue,
+  type RoomUiContextValue,
   type RoomKickedNotice,
   type RoomCreateSourceMode,
 } from "./RoomContext";
@@ -1229,12 +1233,32 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     () => ({ messageInput, setMessageInput, handleSendMessage }),
     [messageInput, handleSendMessage],
   );
+  const roomUiValue = useMemo<RoomUiContextValue>(
+    () => ({
+      authUser,
+      setStatusText,
+    }),
+    [authUser, setStatusText],
+  );
+  const roomRealtimeValue = useMemo<RoomRealtimeContextValue>(
+    () => ({
+      currentRoom,
+      messages,
+      clientId,
+      gameState,
+    }),
+    [clientId, currentRoom, gameState, messages],
+  );
 
   return (
     <RoomContext.Provider value={value}>
-      <ChatInputContext.Provider value={chatInputValue}>
-        {children}
-      </ChatInputContext.Provider>
+      <RoomUiContext.Provider value={roomUiValue}>
+        <RoomRealtimeContext.Provider value={roomRealtimeValue}>
+          <ChatInputContext.Provider value={chatInputValue}>
+            {children}
+          </ChatInputContext.Provider>
+        </RoomRealtimeContext.Provider>
+      </RoomUiContext.Provider>
     </RoomContext.Provider>
   );
 };

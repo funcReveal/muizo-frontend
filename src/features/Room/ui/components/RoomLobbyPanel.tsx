@@ -162,6 +162,452 @@ interface RoomLobbyPanelProps {
   onFetchYoutubePlaylists: () => void;
 }
 
+interface RoomMetaItem {
+  key: string;
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  tone: "amber" | "cyan" | "password";
+  trailing?: React.ReactNode;
+}
+
+const RoomLobbyMetaGrid = React.memo(function RoomLobbyMetaGrid({
+  roomMetaItems,
+}: {
+  roomMetaItems: RoomMetaItem[];
+}) {
+  return (
+    <div className="room-lobby-header-info-band">
+      <div className="room-lobby-metric-grid">
+        {roomMetaItems.map((card) => (
+          <div
+            key={card.key}
+            className={`room-lobby-metric-card room-lobby-metric-card--${card.tone}`}
+            role="presentation"
+          >
+            <span className="room-lobby-metric-icon">{card.icon}</span>
+            <div
+              className={
+                card.key === "password"
+                  ? "room-lobby-metric-main room-lobby-metric-main--password"
+                  : "room-lobby-metric-main"
+              }
+            >
+              <div className="room-lobby-metric-copy">
+                <small className="room-lobby-metric-label">{card.label}</small>
+                <strong className="room-lobby-metric-value">{card.value}</strong>
+              </div>
+              {card.key === "password" ? card.trailing ?? null : null}
+            </div>
+            {card.key !== "password" ? card.trailing ?? null : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+interface RoomLobbyParticipantsPanelProps {
+  hostClientId?: string | null;
+  participants: RoomParticipant[];
+  selfClientId: string;
+  selfAvatarUrl?: string | null;
+  isHost: boolean;
+  playerCountLabel: string;
+  openSlotCount: number;
+  canDecreasePlayers: boolean;
+  canIncreasePlayers: boolean;
+  actionAnchorEl: HTMLElement | null;
+  actionTargetId: string | null;
+  closeActionMenu: () => void;
+  onOpenPlayerAction: (targetId: string, anchor: HTMLElement) => void;
+  onTransferHost: (clientId: string) => void;
+  onKickPlayer: (clientId: string, durationMs?: number | null) => void;
+  onRemovePlayerSlot: () => void;
+  onAddPlayerSlot: () => void;
+}
+
+interface RoomLobbyParticipantRowProps {
+  participant: RoomParticipant;
+  hostClientId?: string | null;
+  selfClientId: string;
+  selfAvatarUrl?: string | null;
+  isHost: boolean;
+  isActionOpen: boolean;
+  actionAnchorEl: HTMLElement | null;
+  closeActionMenu: () => void;
+  onOpenPlayerAction: (targetId: string, anchor: HTMLElement) => void;
+  onTransferHost: (clientId: string) => void;
+  onKickPlayer: (clientId: string, durationMs?: number | null) => void;
+}
+
+const RoomLobbyParticipantRow = React.memo(function RoomLobbyParticipantRow({
+  participant,
+  hostClientId,
+  selfClientId,
+  selfAvatarUrl,
+  isHost,
+  isActionOpen,
+  actionAnchorEl,
+  closeActionMenu,
+  onOpenPlayerAction,
+  onTransferHost,
+  onKickPlayer,
+}: RoomLobbyParticipantRowProps) {
+  const isSelf = participant.clientId === selfClientId;
+  const isParticipantHost = participant.clientId === hostClientId;
+  const showActions = isHost && !isSelf;
+  const participantName = normalizeDisplayText(participant.username, "玩家");
+  const participantInitial = participantName.trim().slice(0, 1).toUpperCase();
+  const participantAvatarUrl = isSelf
+    ? selfAvatarUrl ?? participant.avatar_url ?? participant.avatarUrl ?? null
+    : participant.avatar_url ?? participant.avatarUrl ?? null;
+
+  return (
+    <Box
+      className={`room-lobby-player-row ${isSelf ? "is-self" : ""} ${participant.isOnline ? "is-online" : "is-offline"} ${showActions ? "has-actions" : ""}`}
+    >
+      <div className="room-lobby-player-row-main">
+        <Badge
+          variant="dot"
+          color={participant.isOnline ? "success" : "default"}
+          overlap="circular"
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        >
+          <Avatar
+            className="room-lobby-player-avatar"
+            src={participantAvatarUrl ?? undefined}
+            alt={participantName}
+          >
+            {participantInitial || "P"}
+          </Avatar>
+        </Badge>
+        <div className="room-lobby-player-copy">
+          <div className="room-lobby-player-title-row">
+            <strong>{participantName}</strong>
+          </div>
+          <div className="room-lobby-player-tags">
+            {isParticipantHost ? (
+              <span className="room-lobby-player-tag is-host">房主</span>
+            ) : (
+              <span className="room-lobby-player-tag is-player">玩家</span>
+            )}
+            {!participant.isOnline && (
+              <span className="room-lobby-player-tag is-muted">暫離</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="room-lobby-player-side">
+        <span
+          className={`room-lobby-player-status ${participant.isOnline ? "is-online" : "is-offline"}`}
+        >
+          {participant.isOnline ? "在線" : "離線"}
+        </span>
+        {showActions && (
+          <IconButton
+            size="small"
+            color="inherit"
+            className="room-lobby-player-action"
+            aria-label="玩家操作"
+            title="玩家操作"
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: "999px",
+              "&:hover": {
+                backgroundColor: "rgba(148,163,184,0.12)",
+              },
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenPlayerAction(participant.clientId, event.currentTarget);
+            }}
+          >
+            <MoreHorizRoundedIcon fontSize="small" />
+            <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
+              玩家操作
+            </span>
+          </IconButton>
+        )}
+      </div>
+      {showActions && (
+        <Popover
+          open={isActionOpen}
+          anchorEl={actionAnchorEl}
+          onClose={closeActionMenu}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "left",
+          }}
+        >
+          <MUIList dense>
+            <ListItem>
+              <Button
+                size="small"
+                variant="text"
+                color="info"
+                disabled={!participant.isOnline}
+                onClick={() => {
+                  onTransferHost(participant.clientId);
+                  closeActionMenu();
+                }}
+              >
+                轉移房主
+              </Button>
+            </ListItem>
+            <ListItem>
+              <Button
+                size="small"
+                variant="text"
+                color="warning"
+                onClick={() => {
+                  onKickPlayer(participant.clientId);
+                  closeActionMenu();
+                }}
+              >
+                踢出並封鎖
+              </Button>
+            </ListItem>
+            <ListItem>
+              <Button
+                size="small"
+                variant="text"
+                color="warning"
+                onClick={() => {
+                  onKickPlayer(participant.clientId, null);
+                  closeActionMenu();
+                }}
+              >
+                只踢出玩家
+              </Button>
+            </ListItem>
+          </MUIList>
+        </Popover>
+      )}
+    </Box>
+  );
+}, (prevProps, nextProps) => (
+  prevProps.participant === nextProps.participant &&
+  prevProps.hostClientId === nextProps.hostClientId &&
+  prevProps.selfClientId === nextProps.selfClientId &&
+  prevProps.selfAvatarUrl === nextProps.selfAvatarUrl &&
+  prevProps.isHost === nextProps.isHost &&
+  prevProps.isActionOpen === nextProps.isActionOpen &&
+  prevProps.actionAnchorEl === nextProps.actionAnchorEl
+));
+
+const RoomLobbyVacantSlotRow = React.memo(function RoomLobbyVacantSlotRow({
+  showRemoveSlot,
+  onRemovePlayerSlot,
+}: {
+  showRemoveSlot: boolean;
+  onRemovePlayerSlot: () => void;
+}) {
+  return (
+    <div className="room-lobby-player-row room-lobby-player-row--vacant">
+      <div className="room-lobby-player-row-main">
+        <span className="room-lobby-player-avatar room-lobby-player-avatar--vacant">
+          +
+        </span>
+        <div className="room-lobby-player-copy">
+          <div className="room-lobby-player-title-row">
+            <strong>可加入空位</strong>
+          </div>
+          <div className="room-lobby-player-tags">
+            <span className="room-lobby-player-tag is-muted">等待玩家加入</span>
+          </div>
+        </div>
+      </div>
+      <div className="room-lobby-player-side room-lobby-player-side--vacant">
+        {showRemoveSlot ? (
+          <RoomUiTooltip title="移除此空位">
+            <IconButton
+              size="small"
+              color="inherit"
+              className="room-lobby-player-action room-lobby-player-action--slot"
+              aria-label="移除空位"
+              onClick={onRemovePlayerSlot}
+            >
+              <DeleteOutlineRoundedIcon fontSize="small" />
+            </IconButton>
+          </RoomUiTooltip>
+        ) : (
+          <span className="room-lobby-player-side-label">空位</span>
+        )}
+      </div>
+    </div>
+  );
+});
+
+const RoomLobbyAddSlotRow = React.memo(function RoomLobbyAddSlotRow({
+  onAddPlayerSlot,
+}: {
+  onAddPlayerSlot: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="room-lobby-player-row room-lobby-player-row--vacant room-lobby-player-row--add-slot"
+      onClick={onAddPlayerSlot}
+    >
+      <div className="room-lobby-player-row-main room-lobby-player-row-main--add-slot">
+        <span className="room-lobby-player-avatar room-lobby-player-avatar--vacant room-lobby-player-avatar--add">
+          <AddRoundedIcon fontSize="small" />
+        </span>
+        <div className="room-lobby-player-copy room-lobby-player-copy--add-slot">
+          <div className="room-lobby-player-title-row">
+            <strong>新增空位</strong>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+});
+
+const RoomLobbyParticipantsPanel = React.memo(function RoomLobbyParticipantsPanel({
+  hostClientId,
+  participants,
+  selfClientId,
+  selfAvatarUrl,
+  isHost,
+  playerCountLabel,
+  openSlotCount,
+  canDecreasePlayers,
+  canIncreasePlayers,
+  actionAnchorEl,
+  actionTargetId,
+  closeActionMenu,
+  onOpenPlayerAction,
+  onTransferHost,
+  onKickPlayer,
+  onRemovePlayerSlot,
+  onAddPlayerSlot,
+}: RoomLobbyParticipantsPanelProps) {
+  return (
+    <Box className="room-lobby-participants">
+      <div className="room-lobby-panel-head room-lobby-panel-head--players">
+        <div className="room-lobby-panel-title room-lobby-panel-title--players">
+          <GroupsRoundedIcon fontSize="small" />
+          <Typography variant="subtitle2" className="text-slate-100">
+            玩家
+          </Typography>
+        </div>
+        <div className="room-lobby-panel-counter">{playerCountLabel}</div>
+      </div>
+
+      <div className="room-lobby-player-list">
+        <div
+          className={`room-lobby-player-list-inner ${participants.length === 0 ? "room-lobby-player-list-inner--vacant" : ""}`}
+        >
+          {participants.length === 0 && (
+            <div className="room-lobby-roster-empty room-lobby-roster-empty--dashed">
+              <Typography variant="body2" className="text-slate-400">
+                目前尚無玩家
+              </Typography>
+            </div>
+          )}
+          {participants.map((participant) => (
+            <RoomLobbyParticipantRow
+              key={participant.clientId}
+              participant={participant}
+              hostClientId={hostClientId}
+              selfClientId={selfClientId}
+              selfAvatarUrl={selfAvatarUrl}
+              isHost={isHost}
+              isActionOpen={
+                Boolean(actionAnchorEl) && actionTargetId === participant.clientId
+              }
+              actionAnchorEl={actionAnchorEl}
+              closeActionMenu={closeActionMenu}
+              onOpenPlayerAction={onOpenPlayerAction}
+              onTransferHost={onTransferHost}
+              onKickPlayer={onKickPlayer}
+            />
+          ))}
+          {Array.from({ length: openSlotCount }).map((_, index) => {
+            const isLastOpenSlot = index === openSlotCount - 1;
+            const showRemoveSlot = canDecreasePlayers && isLastOpenSlot;
+            return (
+              <RoomLobbyVacantSlotRow
+                key={`vacant-seat-${index}`}
+                showRemoveSlot={showRemoveSlot}
+                onRemovePlayerSlot={onRemovePlayerSlot}
+              />
+            );
+          })}
+          {canIncreasePlayers && (
+            <RoomLobbyAddSlotRow onAddPlayerSlot={onAddPlayerSlot} />
+          )}
+        </div>
+      </div>
+    </Box>
+  );
+});
+
+interface RoomLobbyPlaylistPanelProps {
+  playlistProgress: { received: number; total: number; ready: boolean };
+  playlistItems: PlaylistItem[];
+  playlistListShellStyle: React.CSSProperties;
+  playlistListViewportStyle: React.CSSProperties;
+  rowCount: number;
+  playlistRowHeight: number;
+  playlistRowProps: Record<string, never>;
+  playlistRowComponent: React.ComponentType<RowComponentProps>;
+}
+
+const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
+  playlistProgress,
+  playlistItems,
+  playlistListShellStyle,
+  playlistListViewportStyle,
+  rowCount,
+  playlistRowHeight,
+  playlistRowProps,
+  playlistRowComponent,
+}: RoomLobbyPlaylistPanelProps) {
+  return (
+    <Box className="room-lobby-playlist-panel">
+      <div className="room-lobby-panel-head room-lobby-panel-head--playlist room-lobby-playlist-head">
+        <div className="room-lobby-panel-title room-lobby-panel-title--playlist">
+          <LibraryMusicRoundedIcon fontSize="small" />
+          <Typography variant="subtitle2" className="text-slate-200">
+            播放清單
+          </Typography>
+        </div>
+        <div className="room-lobby-panel-counter">
+          {playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
+        </div>
+      </div>
+      {playlistItems.length === 0 ? (
+        <div className="room-lobby-playlist-shell" style={playlistListShellStyle}>
+          <div className="flex h-full min-h-[140px] items-center justify-center rounded border border-slate-800 bg-slate-900/60 px-3">
+            <Typography
+              variant="body2"
+              className="text-slate-500"
+              align="center"
+            >
+              目前沒有歌曲
+            </Typography>
+          </div>
+        </div>
+      ) : (
+        <div className="room-lobby-playlist-shell" style={playlistListShellStyle}>
+          <div className="h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-900/60">
+            <VirtualList
+              style={playlistListViewportStyle}
+              rowCount={rowCount}
+              rowHeight={playlistRowHeight}
+              rowProps={playlistRowProps}
+              rowComponent={playlistRowComponent}
+            />
+          </div>
+        </div>
+      )}
+    </Box>
+  );
+});
+
 
 const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   currentRoom,
@@ -1213,6 +1659,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     if (!canDecreasePlayers) return;
     void updateRoomMaxPlayers(roomMax - 1);
   }, [canDecreasePlayers, roomMax, updateRoomMaxPlayers]);
+  const handleOpenPlayerAction = useCallback(
+    (targetId: string, anchor: HTMLElement) => {
+      setActionAnchorEl(anchor);
+      setActionTargetId(targetId);
+    },
+    [],
+  );
   const hasRoomPassword = Boolean(currentRoom?.hasPin ?? currentRoom?.hasPassword);
   const hasPassedPinVerification = Boolean(roomPassword);
   const canToggleRoomPassword = isHost || hasPassedPinVerification;
@@ -1221,14 +1674,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       ? roomPassword
       : maskedRoomPassword
     : "****";
-  const roomMetaItems: Array<{
-    key: string;
-    label: string;
-    value: string;
-    icon: React.ReactNode;
-    tone: "amber" | "cyan" | "password";
-    trailing?: React.ReactNode;
-  }> = [
+  const roomMetaItems: RoomMetaItem[] = [
     {
       key: "questions",
       label: "題數",
@@ -1303,236 +1749,25 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ) : null;
 
   const participantsPanel = (
-    <Box className="room-lobby-participants">
-      <div className="room-lobby-panel-head room-lobby-panel-head--players">
-        <div className="room-lobby-panel-title room-lobby-panel-title--players">
-          <GroupsRoundedIcon fontSize="small" />
-          <Typography variant="subtitle2" className="text-slate-100">
-            玩家
-          </Typography>
-        </div>
-        <div className="room-lobby-panel-counter">{playerCountLabel}</div>
-      </div>
-
-      <div className="room-lobby-player-list">
-        <div
-          className={`room-lobby-player-list-inner ${participants.length === 0 ? "room-lobby-player-list-inner--vacant" : ""}`}
-        >
-          {participants.length === 0 && (
-            <div className="room-lobby-roster-empty room-lobby-roster-empty--dashed">
-              <Typography variant="body2" className="text-slate-400">
-                目前尚無玩家
-              </Typography>
-            </div>
-          )}
-          {participants.map((p) => {
-            const isSelf = p.clientId === selfClientId;
-            const host = p.clientId === currentRoom?.hostClientId;
-            const isActionOpen =
-              Boolean(actionAnchorEl) && actionTargetId === p.clientId;
-            const showActions = isHost && !isSelf;
-            const participantInitial = normalizeDisplayText(p.username, "玩")
-              .trim()
-              .slice(0, 1)
-              .toUpperCase();
-            const participantAvatarUrl = isSelf
-              ? selfAvatarUrl ?? p.avatar_url ?? p.avatarUrl ?? null
-              : p.avatar_url ?? p.avatarUrl ?? null;
-            return (
-              <Box
-                key={p.clientId}
-                className={`room-lobby-player-row ${isSelf ? "is-self" : ""} ${p.isOnline ? "is-online" : "is-offline"} ${showActions ? "has-actions" : ""}`}
-              >
-                <div className="room-lobby-player-row-main">
-                  <Badge
-                    variant="dot"
-                    color={p.isOnline ? "success" : "default"}
-                    overlap="circular"
-                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-                  >
-                    <Avatar
-                      className="room-lobby-player-avatar"
-                      src={participantAvatarUrl ?? undefined}
-                      alt={normalizeDisplayText(p.username, "玩家")}
-                    >
-                      {participantInitial || "P"}
-                    </Avatar>
-                  </Badge>
-                  <div className="room-lobby-player-copy">
-                    <div className="room-lobby-player-title-row">
-                      <strong>{normalizeDisplayText(p.username, "玩家")}</strong>
-                    </div>
-                    <div className="room-lobby-player-tags">
-                      {host ? (
-                        <span className="room-lobby-player-tag is-host">
-                          房主
-                        </span>
-                      ) : (
-                        <span className="room-lobby-player-tag is-player">
-                          玩家
-                        </span>
-                      )}
-                      {!p.isOnline && (
-                        <span className="room-lobby-player-tag is-muted">
-                          暫離
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="room-lobby-player-side">
-                  <span
-                    className={`room-lobby-player-status ${p.isOnline ? "is-online" : "is-offline"}`}
-                  >
-                    {p.isOnline ? "在線" : "離線"}
-                  </span>
-                  {showActions && (
-                    <IconButton
-                      size="small"
-                      color="inherit"
-                      className="room-lobby-player-action"
-                      aria-label="玩家操作"
-                      title="玩家操作"
-                      sx={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: "999px",
-                        "&:hover": {
-                          backgroundColor: "rgba(148,163,184,0.12)",
-                        },
-                      }}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setActionAnchorEl(event.currentTarget);
-                        setActionTargetId(p.clientId);
-                      }}
-                    >
-                      <MoreHorizRoundedIcon fontSize="small" />
-                      <span className="room-lobby-toolbar-floating-label" aria-hidden="true">
-                        玩家操作
-                      </span>
-                    </IconButton>
-                  )}
-                </div>
-                {showActions && (
-                  <Popover
-                    open={isActionOpen}
-                    anchorEl={actionAnchorEl}
-                    onClose={closeActionMenu}
-                    anchorOrigin={{
-                      vertical: "bottom",
-                      horizontal: "left",
-                    }}
-                  >
-                    <MUIList dense>
-                      <ListItem>
-                        <Button
-                          size="small"
-                          variant="text"
-                          color="info"
-                          disabled={!p.isOnline}
-                          onClick={() => {
-                            onTransferHost(p.clientId);
-                            closeActionMenu();
-                          }}
-                        >
-                          轉移房主
-                        </Button>
-                      </ListItem>
-                      <ListItem>
-                        <Button
-                          size="small"
-                          variant="text"
-                          color="warning"
-                          onClick={() => {
-                            onKickPlayer(p.clientId);
-                            closeActionMenu();
-                          }}
-                        >
-                          踢出並封鎖
-                        </Button>
-                      </ListItem>
-                      <ListItem>
-                        <Button
-                          size="small"
-                          variant="text"
-                          color="warning"
-                          onClick={() => {
-                            onKickPlayer(p.clientId, null);
-                            closeActionMenu();
-                          }}
-                        >
-                          只踢出玩家
-                        </Button>
-                      </ListItem>
-                    </MUIList>
-                  </Popover>
-                )}
-              </Box>
-            );
-          })}
-          {Array.from({ length: openSlotCount }).map((_, index) => {
-            const isLastOpenSlot = index === openSlotCount - 1;
-            const showRemoveSlot = canDecreasePlayers && isLastOpenSlot;
-            return (
-              <div
-                key={`vacant-seat-${index}`}
-                className="room-lobby-player-row room-lobby-player-row--vacant"
-              >
-                <div className="room-lobby-player-row-main">
-                  <span className="room-lobby-player-avatar room-lobby-player-avatar--vacant">
-                    +
-                  </span>
-                  <div className="room-lobby-player-copy">
-                    <div className="room-lobby-player-title-row">
-                      <strong>可加入空位</strong>
-                    </div>
-                    <div className="room-lobby-player-tags">
-                      <span className="room-lobby-player-tag is-muted">等待玩家加入</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="room-lobby-player-side room-lobby-player-side--vacant">
-                  {showRemoveSlot ? (
-                    <RoomUiTooltip title="移除此空位">
-                      <IconButton
-                        size="small"
-                        color="inherit"
-                        className="room-lobby-player-action room-lobby-player-action--slot"
-                        aria-label="移除空位"
-                        onClick={() => handleRemovePlayerSlot()}
-                      >
-                        <DeleteOutlineRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </RoomUiTooltip>
-                  ) : (
-                    <span className="room-lobby-player-side-label">空位</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {canIncreasePlayers && (
-            <button
-              type="button"
-              className="room-lobby-player-row room-lobby-player-row--vacant room-lobby-player-row--add-slot"
-              onClick={handleAddPlayerSlot}
-            >
-              <div className="room-lobby-player-row-main room-lobby-player-row-main--add-slot">
-                <span className="room-lobby-player-avatar room-lobby-player-avatar--vacant room-lobby-player-avatar--add">
-                  <AddRoundedIcon fontSize="small" />
-                </span>
-                <div className="room-lobby-player-copy room-lobby-player-copy--add-slot">
-                  <div className="room-lobby-player-title-row">
-                    <strong>新增空位</strong>
-                  </div>
-                </div>
-              </div>
-            </button>
-          )}
-        </div>
-      </div>
-    </Box>
+    <RoomLobbyParticipantsPanel
+            hostClientId={currentRoom?.hostClientId}
+      participants={participants}
+      selfClientId={selfClientId}
+      selfAvatarUrl={selfAvatarUrl}
+      isHost={isHost}
+      playerCountLabel={playerCountLabel}
+      openSlotCount={openSlotCount}
+      canDecreasePlayers={canDecreasePlayers}
+      canIncreasePlayers={canIncreasePlayers}
+      actionAnchorEl={actionAnchorEl}
+      actionTargetId={actionTargetId}
+      closeActionMenu={closeActionMenu}
+      onOpenPlayerAction={handleOpenPlayerAction}
+      onTransferHost={onTransferHost}
+      onKickPlayer={onKickPlayer}
+      onRemovePlayerSlot={handleRemovePlayerSlot}
+      onAddPlayerSlot={handleAddPlayerSlot}
+    />
   );
 
   const hostPanel = isHost ? (
@@ -1615,44 +1850,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
 
   const playlistPanel = (
-    <Box className="room-lobby-playlist-panel">
-      <div className="room-lobby-panel-head room-lobby-panel-head--playlist room-lobby-playlist-head">
-        <div className="room-lobby-panel-title room-lobby-panel-title--playlist">
-          <LibraryMusicRoundedIcon fontSize="small" />
-          <Typography variant="subtitle2" className="text-slate-200">
-            播放清單
-          </Typography>
-        </div>
-        <div className="room-lobby-panel-counter">
-          {playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
-        </div>
-      </div>
-      {playlistItems.length === 0 ? (
-        <div className="room-lobby-playlist-shell" style={playlistListShellStyle}>
-          <div className="flex h-full min-h-[140px] items-center justify-center rounded border border-slate-800 bg-slate-900/60 px-3">
-            <Typography
-              variant="body2"
-              className="text-slate-500"
-              align="center"
-            >
-              目前沒有歌曲
-            </Typography>
-          </div>
-        </div>
-      ) : (
-        <div className="room-lobby-playlist-shell" style={playlistListShellStyle}>
-          <div className="h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-900/60">
-            <VirtualList
-              style={playlistListViewportStyle}
-              rowCount={rowCount}
-              rowHeight={playlistRowHeight}
-              rowProps={playlistRowProps}
-              rowComponent={PlaylistRow}
-            />
-          </div>
-        </div>
-      )}
-    </Box>
+    <RoomLobbyPlaylistPanel
+      playlistProgress={playlistProgress}
+      playlistItems={playlistItems}
+      playlistListShellStyle={playlistListShellStyle}
+      playlistListViewportStyle={playlistListViewportStyle}
+      rowCount={rowCount}
+      playlistRowHeight={playlistRowHeight}
+      playlistRowProps={playlistRowProps}
+      playlistRowComponent={PlaylistRow}
+    />
   );
 
   return (
@@ -1684,33 +1891,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 </Typography>
               </div>
 
-              <div className="room-lobby-header-info-band">
-                <div className="room-lobby-metric-grid">
-                  {roomMetaItems.map((card) => (
-                    <div
-                      key={card.key}
-                      className={`room-lobby-metric-card room-lobby-metric-card--${card.tone}`}
-                      role="presentation"
-                    >
-                      <span className="room-lobby-metric-icon">{card.icon}</span>
-                      <div
-                        className={
-                          card.key === "password"
-                            ? "room-lobby-metric-main room-lobby-metric-main--password"
-                            : "room-lobby-metric-main"
-                        }
-                      >
-                        <div className="room-lobby-metric-copy">
-                          <small className="room-lobby-metric-label">{card.label}</small>
-                          <strong className="room-lobby-metric-value">{card.value}</strong>
-                        </div>
-                        {card.key === "password" ? card.trailing ?? null : null}
-                      </div>
-                      {card.key !== "password" ? card.trailing ?? null : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <RoomLobbyMetaGrid roomMetaItems={roomMetaItems} />
             </div>
           </Stack>
         </div>
