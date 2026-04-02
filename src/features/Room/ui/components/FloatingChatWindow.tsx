@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Badge, SwipeableDrawer, Switch } from "@mui/material";
+import { Badge, Drawer, Switch } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
@@ -16,11 +16,20 @@ const MOBILE_CHAT_MAX_HEIGHT_VH = 62;
 const MOBILE_CHAT_DEFAULT_HEIGHT_VH = 38;
 const GAME_ROOM_DRAWER_MODAL_PROPS = {
   hideBackdrop: true,
+  keepMounted: true,
   disableAutoFocus: true,
   disableEnforceFocus: true,
   disableRestoreFocus: true,
   disableScrollLock: true,
 } as const;
+
+const blurActiveInteractiveElement = () => {
+  if (typeof document === "undefined") return;
+  const activeElement = document.activeElement;
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur();
+  }
+};
 
 const readLastReadId = (roomId: string | null): string | null => {
   if (!roomId || typeof window === "undefined") return null;
@@ -104,6 +113,11 @@ const FloatingChatWindow: React.FC = () => {
   }, [markRoomRead]);
 
   const handleClose = useCallback(() => {
+    blurActiveInteractiveElement();
+    if (focusTimerRef.current !== null) {
+      window.clearTimeout(focusTimerRef.current);
+      focusTimerRef.current = null;
+    }
     setOpen(false);
     markRoomRead();
   }, [markRoomRead]);
@@ -203,16 +217,11 @@ const FloatingChatWindow: React.FC = () => {
           </button>
         )}
 
-        <SwipeableDrawer
+        <Drawer
           className="game-room-mobile-drawer-root game-room-mobile-drawer-root--chat lg:!hidden"
           anchor="bottom"
           open={open}
-          onOpen={handleOpen}
           onClose={handleClose}
-          disableSwipeToOpen={false}
-          disableDiscovery
-          allowSwipeInChildren
-          swipeAreaWidth={28}
           ModalProps={GAME_ROOM_DRAWER_MODAL_PROPS}
           PaperProps={{
             className: `game-room-mobile-chat-drawer ${
@@ -299,7 +308,7 @@ const FloatingChatWindow: React.FC = () => {
               </div>
             </div>
           </div>
-        </SwipeableDrawer>
+        </Drawer>
       </>
     );
   }

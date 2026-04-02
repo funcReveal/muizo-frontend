@@ -699,6 +699,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     autoAdvanceAtMs,
     canAutoGuideLoop,
   );
+  const displayedPreviewCountdownSec =
+    canAutoGuideLoop &&
+    previewPlaybackMode === "auto" &&
+    pausedCountdownRemainingMs === null
+      ? animatedPreviewCountdownSec
+      : previewCountdownSec;
 
   const handleOpenTrackLink = useCallback(
     (link: SettlementTrackLink, recap: ExtendedRecap) => {
@@ -1228,7 +1234,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 }
                 canAutoGuideLoop={canAutoGuideLoop}
                 previewCountdownSec={
-                  canAutoGuideLoop ? animatedPreviewCountdownSec : previewCountdownSec
+                  displayedPreviewCountdownSec
                 }
                 previewSwitchNotice={previewSwitchNotice}
                 recommendPreviewStageRef={recommendPreviewStageRef}

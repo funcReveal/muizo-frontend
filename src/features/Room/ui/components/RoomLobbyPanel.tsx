@@ -905,11 +905,18 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     if (gameState?.status !== "playing") return;
     const remainingMs = gameState.startedAt - Date.now();
     if (remainingMs <= 0) return;
-    setStartCountdownNow(Date.now());
-    const timer = window.setInterval(() => {
-      setStartCountdownNow(Date.now());
-    }, 250);
-    return () => window.clearInterval(timer);
+    let timerId: number | null = null;
+    const tick = () => {
+      const now = Date.now();
+      setStartCountdownNow(now);
+      const nextRemainingMs = Math.max(0, gameState.startedAt - now);
+      if (nextRemainingMs <= 0) return;
+      timerId = window.setTimeout(tick, nextRemainingMs <= 5000 ? 250 : 1000);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
   }, [gameState?.startedAt, gameState?.status]);
   const startBroadcastRemainingSec =
     gameState?.status === "playing"

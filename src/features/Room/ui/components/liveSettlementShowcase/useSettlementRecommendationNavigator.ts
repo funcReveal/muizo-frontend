@@ -194,9 +194,7 @@ const useSettlementRecommendationNavigator = <
       if (nextPlaybackMode === "auto" || options?.forcePreview) {
         setPreviewPlaybackMode("auto");
         if (keepPausedWhenSwitching) {
-          const frozenMs =
-            pausedCountdownRemainingMsRef.current ??
-            recommendPreviewSeconds * 1000;
+          const frozenMs = recommendPreviewSeconds * 1000;
           setPreviewRecapKey(hasPreview ? targetCard.recap.key : null);
           setPreviewPlayerState("paused");
           setAutoAdvanceAtMs(null);

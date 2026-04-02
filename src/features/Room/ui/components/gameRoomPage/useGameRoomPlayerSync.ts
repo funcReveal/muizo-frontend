@@ -808,44 +808,57 @@ const useGameRoomPlayerSync = ({
   }, [debugSync, waitingToStart]);
 
   useEffect(() => {
+    let timerId: number | null = null;
     const tick = () => {
-      if (document.visibilityState !== "visible") return;
+      const visibilityHidden =
+        typeof document !== "undefined" && document.visibilityState !== "visible";
       const now = getServerNowMs();
       if (resumeNeedsSyncRef.current && playerReadyRef.current && now >= startedAt) {
         resumeNeedsSyncRef.current = false;
         requestPlayerTime("interval-resume");
+        timerId = window.setTimeout(tick, 420);
         return;
       }
-      const playerState = lastPlayerStateRef.current;
-      const canAutoResumeNow =
-        now - lastAutoResumeAttemptAtMsRef.current >= AUTO_RESUME_MIN_INTERVAL_MS;
-      if (
-        playerReadyRef.current &&
-        now >= startedAt &&
-        !isEnded
-      ) {
-        if (playerState === 2 && canAutoResumeNow) {
-          lastAutoResumeAttemptAtMsRef.current = now;
-          postCommand("playVideo");
-          postCommand("unMute");
-          applyVolume(gameVolume);
-        } else if ((playerState === null || playerState === -1) && canAutoResumeNow) {
-          lastAutoResumeAttemptAtMsRef.current = now;
-          startPlayback();
+      if (!visibilityHidden) {
+        const playerState = lastPlayerStateRef.current;
+        const canAutoResumeNow =
+          now - lastAutoResumeAttemptAtMsRef.current >= AUTO_RESUME_MIN_INTERVAL_MS;
+        if (
+          playerReadyRef.current &&
+          now >= startedAt &&
+          !isEnded
+        ) {
+          if (playerState === 2 && canAutoResumeNow) {
+            lastAutoResumeAttemptAtMsRef.current = now;
+            postCommand("playVideo");
+            postCommand("unMute");
+            applyVolume(gameVolume);
+          } else if ((playerState === null || playerState === -1) && canAutoResumeNow) {
+            lastAutoResumeAttemptAtMsRef.current = now;
+            startPlayback();
+          }
+        }
+        if (
+          ENABLE_STEADY_STATE_WATCHDOG &&
+          playerReadyRef.current &&
+          hasStartedPlaybackRef.current &&
+          now >= startedAt &&
+          now - lastTimeRequestAtMsRef.current >= WATCHDOG_REQUEST_INTERVAL_MS
+        ) {
+          requestPlayerTime("watchdog");
         }
       }
-      if (
-        ENABLE_STEADY_STATE_WATCHDOG &&
-        playerReadyRef.current &&
-        hasStartedPlaybackRef.current &&
-        now >= startedAt &&
-        now - lastTimeRequestAtMsRef.current >= WATCHDOG_REQUEST_INTERVAL_MS
-      ) {
-        requestPlayerTime("watchdog");
-      }
+      const nextDelay = visibilityHidden
+        ? 1400
+        : waitingToStart || !playerReadyRef.current || isEnded
+          ? 900
+          : 420;
+      timerId = window.setTimeout(tick, nextDelay);
     };
-    const interval = setInterval(tick, 500);
-    return () => clearInterval(interval);
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
   }, [
     applyVolume,
     gameVolume,
@@ -855,6 +868,7 @@ const useGameRoomPlayerSync = ({
     requestPlayerTime,
     startPlayback,
     startedAt,
+    waitingToStart,
   ]);
 
   useEffect(() => {

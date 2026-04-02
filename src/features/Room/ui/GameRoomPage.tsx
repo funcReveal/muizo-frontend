@@ -14,8 +14,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Drawer,
   Stack,
-  SwipeableDrawer,
   Typography,
 } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -163,11 +163,20 @@ const readInitialGameRoomGuessAnchorEnabled = () => {
 
 const GAME_ROOM_DRAWER_MODAL_PROPS = {
   hideBackdrop: true,
+  keepMounted: true,
   disableAutoFocus: true,
   disableEnforceFocus: true,
   disableRestoreFocus: true,
   disableScrollLock: true,
 } as const;
+
+const blurActiveInteractiveElement = () => {
+  if (typeof document === "undefined") return;
+  const activeElement = document.activeElement;
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur();
+  }
+};
 
 const useGameRoomUiClock = ({
   getServerNowMs,
@@ -281,6 +290,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [mobileScoreboardHeight, setMobileScoreboardHeight] = useState(
     MOBILE_SCOREBOARD_DEFAULT_HEIGHT_VH,
   );
+  const mobileScoreboardHeightRafRef = useRef<number | null>(null);
+  const mobileScoreboardHeightPendingRef = useRef<number>(
+    MOBILE_SCOREBOARD_DEFAULT_HEIGHT_VH,
+  );
   const [mobileScoreboardSwapReplayToken, setMobileScoreboardSwapReplayToken] =
     useState(0);
   const [mobileScoreboardSwapArmed, setMobileScoreboardSwapArmed] =
@@ -354,7 +367,23 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       MOBILE_SCOREBOARD_MIN_HEIGHT_VH,
       MOBILE_SCOREBOARD_MAX_HEIGHT_VH,
     );
-    setMobileScoreboardHeight(clampedNext);
+    mobileScoreboardHeightPendingRef.current = clampedNext;
+    if (mobileScoreboardHeightRafRef.current !== null) return;
+    mobileScoreboardHeightRafRef.current = window.requestAnimationFrame(() => {
+      mobileScoreboardHeightRafRef.current = null;
+      setMobileScoreboardHeight((prev) => {
+        const next = mobileScoreboardHeightPendingRef.current;
+        return Math.abs(prev - next) < 0.05 ? prev : next;
+      });
+    });
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (mobileScoreboardHeightRafRef.current !== null) {
+        window.cancelAnimationFrame(mobileScoreboardHeightRafRef.current);
+        mobileScoreboardHeightRafRef.current = null;
+      }
+    };
   }, []);
   const handleToggleMobileScoreboard = useCallback(() => {
     setMobileScoreboardSwapArmed(false);
@@ -363,20 +392,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     );
   }, []);
   const handleCloseMobileScoreboard = useCallback(() => {
+    blurActiveInteractiveElement();
     setMobileScoreboardSwapArmed(false);
     setMobileBottomPanel((current) =>
       current === "scoreboard" ? null : current,
     );
-  }, []);
-  const handleOpenMobileScoreboard = useCallback(() => {
-    setMobileScoreboardSwapArmed(false);
-    setMobileBottomPanel("scoreboard");
   }, []);
   const handleOpenHostManagement = useCallback(() => {
     if (!isHostInGame) return;
     setHostManagementOpen(true);
   }, [isHostInGame]);
   const handleCloseHostManagement = useCallback(() => {
+    blurActiveInteractiveElement();
     setHostManagementOpen(false);
   }, []);
   const mobileHostManageDragDismiss = useMobileDrawerDragDismiss({
@@ -1934,25 +1961,24 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 aria-hidden="true"
               />
             )}
-            <SwipeableDrawer
+            <Drawer
               className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${mobileAutoOverlayTransition !== "idle"
                 ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
                 : ""
                 }`}
               anchor="bottom"
               open={mobileScoreboardOpen}
-              onOpen={handleOpenMobileScoreboard}
               onClose={handleCloseMobileScoreboard}
-              disableSwipeToOpen
-              disableDiscovery
-              allowSwipeInChildren
-              swipeAreaWidth={0}
               ModalProps={GAME_ROOM_DRAWER_MODAL_PROPS}
               PaperProps={{
                 className: `game-room-mobile-scoreboard-drawer game-room-mobile-scoreboard-drawer--single ${
                   mobileScoreboardOpen
                     ? "game-room-mobile-scoreboard-drawer--open"
                     : "game-room-mobile-scoreboard-drawer--closed"
+                } ${
+                  isMobileDrawerGestureActive
+                    ? "game-room-mobile-scoreboard-drawer--dragging"
+                    : ""
                 }`,
                 style: {
                   ...mobileScoreboardDragDismiss.paperStyle,
@@ -2010,12 +2036,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   mobileOverlayMode
                   mobileMinimalHeader
                   swapAnimationEnabled={
-                    mobileScoreboardOpen && mobileScoreboardSwapArmed
+                    mobileScoreboardOpen &&
+                    mobileScoreboardSwapArmed &&
+                    !isMobileDrawerGestureActive
                   }
                   swapReplayToken={mobileScoreboardSwapReplayToken}
                 />
               </div>
-            </SwipeableDrawer>
+            </Drawer>
           </>
         )}
         <Dialog
@@ -2084,14 +2112,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           </Dialog>
         )}
         {isHostInGame && isMobileGameViewport && (
-          <SwipeableDrawer
+          <Drawer
             className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage lg:!hidden"
             anchor="bottom"
             open={hostManagementOpen}
-            onOpen={handleOpenHostManagement}
             onClose={handleCloseHostManagement}
-            disableSwipeToOpen={false}
-            swipeAreaWidth={26}
             ModalProps={GAME_ROOM_DRAWER_MODAL_PROPS}
             PaperProps={{
               className:
@@ -2131,7 +2156,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             <div className="game-room-mobile-host-manage-body">
               {hostManagementPanelContent}
             </div>
-          </SwipeableDrawer>
+          </Drawer>
         )}
         <ConfirmDialog
           open={isHostInGame && Boolean(hostManagementConfirm)}

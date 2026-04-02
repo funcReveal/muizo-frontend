@@ -44,7 +44,11 @@ const applyElasticResistance = (distance: number, ceiling: number) => {
 const swallowGestureEvent = (
   event: TouchEvent<HTMLElement> | PointerEvent<HTMLElement>,
 ) => {
-  if ("cancelable" in event && event.cancelable) {
+  if (
+    event.type.startsWith("pointer") &&
+    "cancelable" in event &&
+    event.cancelable
+  ) {
     event.preventDefault();
   }
   event.stopPropagation();

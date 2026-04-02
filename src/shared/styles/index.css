@@ -16237,6 +16237,27 @@ body {
       linear-gradient(180deg, rgba(6, 11, 20, 0.91), rgba(5, 8, 14, 0.94)) !important;
     backdrop-filter: blur(16px);
     overflow: clip;
+    position: relative;
+  }
+
+  .game-room-mobile-scoreboard-drawer::before {
+    content: "";
+    position: absolute;
+    top: -18px;
+    left: 10%;
+    right: 10%;
+    height: 42px;
+    pointer-events: none;
+    border-radius: 999px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(34, 211, 238, 0.2) 0%,
+      rgba(56, 189, 248, 0.12) 36%,
+      rgba(8, 145, 178, 0.04) 64%,
+      transparent 84%
+    );
+    filter: blur(14px);
+    opacity: 0.92;
   }
 
   .game-room-mobile-scoreboard-drawer--single {
@@ -16248,6 +16269,14 @@ body {
       0 -18px 46px -26px rgba(2, 6, 23, 0.88),
       0 -2px 24px -18px rgba(56, 189, 248, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  }
+
+  .game-room-mobile-scoreboard-drawer--dragging {
+    backdrop-filter: blur(12px);
+  }
+
+  .game-room-mobile-scoreboard-drawer--dragging::before {
+    opacity: 0.7;
   }
 
   .game-room-mobile-scoreboard-drawer--split {
@@ -16419,6 +16448,27 @@ body {
       ),
       linear-gradient(180deg, rgba(7, 17, 30, 0.78), rgba(6, 12, 22, 0.54));
     backdrop-filter: blur(16px);
+    overflow: visible;
+  }
+
+  .game-room-mobile-drawer-head--scoreboard::before {
+    content: "";
+    position: absolute;
+    top: -16px;
+    left: 12%;
+    right: 12%;
+    height: 34px;
+    pointer-events: none;
+    border-radius: 999px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(56, 189, 248, 0.34) 0%,
+      rgba(34, 211, 238, 0.2) 34%,
+      rgba(8, 145, 178, 0.08) 62%,
+      transparent 84%
+    );
+    filter: blur(12px);
+    opacity: 0.96;
   }
 
   .game-room-mobile-scoreboard-headline {

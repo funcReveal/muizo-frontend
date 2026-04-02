@@ -149,6 +149,23 @@ interface UseSettlementRecommendationInsightsResult<
   canAutoGuideLoop: boolean;
 }
 
+type RecapAnalysisRow<TRecap extends SettlementQuestionRecap> = {
+  recap: TRecap;
+  order: number;
+  participantCount: number;
+  correctCount: number;
+  wrongCount: number;
+  unansweredCount: number;
+  correctRate: number;
+  unansweredRate: number;
+  averageCorrectMs: number;
+  fastestCorrectMs: number;
+  changedUsers: number;
+  changedTimes: number;
+  confusionRate: number;
+  avgChangedCount: number;
+};
+
 const useSettlementRecommendationInsights = <
   TRecap extends SettlementQuestionRecap,
   TRecommendationCard extends RecommendationCardLike<TRecap>,
@@ -206,110 +223,64 @@ const useSettlementRecommendationInsights = <
     [defaultParticipantCount],
   );
 
-  const averageCorrectMsByRecapKey = useMemo(() => {
-    const next = new Map<string, number | null>();
-    if (!shouldResolveRecommendData) return next;
-    normalizedRecaps.forEach((recap) => {
+  const recapAnalysisRows = useMemo<RecapAnalysisRow<TRecap>[]>(() => {
+    if (!shouldResolveRecommendData) return [];
+    return normalizedRecaps.map((recap, index) => {
+      const participantCount = resolveParticipantCount(recap);
+      const correctCount = Math.max(0, recap.correctCount ?? 0);
+      const wrongCount = Math.max(0, recap.wrongCount ?? 0);
+      const unansweredCount = Math.max(0, recap.unansweredCount ?? 0);
       const medianCorrectMs =
         typeof recap.medianCorrectMs === "number" &&
         Number.isFinite(recap.medianCorrectMs) &&
         recap.medianCorrectMs >= 0
           ? Math.floor(recap.medianCorrectMs)
           : resolveMedianCorrectMs(recap.answersByClientId);
-      next.set(
-        recap.key,
-        medianCorrectMs ?? resolveAverageCorrectMs(recap.answersByClientId),
+      const averageCorrectMs =
+        medianCorrectMs ?? resolveAverageCorrectMs(recap.answersByClientId) ?? Number.POSITIVE_INFINITY;
+      const fastestCorrectMs =
+        typeof recap.fastestCorrectMs === "number" &&
+        Number.isFinite(recap.fastestCorrectMs)
+          ? recap.fastestCorrectMs
+          : Number.POSITIVE_INFINITY;
+      const answers = recap.answersByClientId
+        ? Object.values(recap.answersByClientId)
+        : [];
+      const changedUsersFromAnswers = answers.filter(
+        (answer) => getChangedAnswerCount(answer) > 0,
+      ).length;
+      const changedTimesFromAnswers = answers.reduce(
+        (sum, answer) => sum + getChangedAnswerCount(answer),
+        0,
       );
+      const changedUsers = Math.max(
+        changedUsersFromAnswers,
+        Math.max(0, recap.changedAnswerUserCount ?? 0),
+      );
+      const changedTimes = Math.max(
+        changedTimesFromAnswers,
+        Math.max(0, recap.changedAnswerCount ?? 0),
+      );
+      return {
+        recap,
+        order:
+          typeof recap.order === "number" && Number.isFinite(recap.order)
+            ? recap.order
+            : index + 1,
+        participantCount,
+        correctCount,
+        wrongCount,
+        unansweredCount,
+        correctRate: correctCount / participantCount,
+        unansweredRate: unansweredCount / participantCount,
+        averageCorrectMs,
+        fastestCorrectMs,
+        changedUsers,
+        changedTimes,
+        confusionRate: participantCount > 0 ? changedUsers / participantCount : 0,
+        avgChangedCount: participantCount > 0 ? changedTimes / participantCount : 0,
+      };
     });
-    return next;
-  }, [normalizedRecaps, shouldResolveRecommendData]);
-
-  const quickRecommendations = useMemo(() => {
-    if (!shouldResolveRecommendData) return [];
-    return normalizedRecaps
-      .map((recap) => {
-        const participantCount = resolveParticipantCount(recap);
-        const correctCount = Math.max(0, recap.correctCount ?? 0);
-        const unansweredCount = Math.max(0, recap.unansweredCount ?? 0);
-        const correctRate = correctCount / participantCount;
-        const unansweredRate = unansweredCount / participantCount;
-        const allCorrect = participantCount > 0 && correctCount >= participantCount;
-        const averageCorrectMs =
-          averageCorrectMsByRecapKey.get(recap.key) ?? Number.POSITIVE_INFINITY;
-        const fastestCorrectMs =
-          typeof recap.fastestCorrectMs === "number" &&
-          Number.isFinite(recap.fastestCorrectMs)
-            ? recap.fastestCorrectMs
-            : Number.POSITIVE_INFINITY;
-        return {
-          recap,
-          correctRate,
-          unansweredRate,
-          allCorrect,
-          averageCorrectMs,
-          fastestCorrectMs,
-        };
-      })
-      .filter(
-        (row) => row.allCorrect && row.averageCorrectMs <= quickSolveThresholdMs,
-      )
-      .sort(
-        (a, b) =>
-          a.averageCorrectMs - b.averageCorrectMs ||
-          a.fastestCorrectMs - b.fastestCorrectMs ||
-          a.recap.order - b.recap.order,
-      );
-  }, [
-    averageCorrectMsByRecapKey,
-    normalizedRecaps,
-    quickSolveThresholdMs,
-    resolveParticipantCount,
-    shouldResolveRecommendData,
-  ]);
-
-  const confuseRecommendations = useMemo(() => {
-    if (!shouldResolveRecommendData) return [];
-    return normalizedRecaps
-      .map((recap) => {
-        const answers = recap.answersByClientId
-          ? Object.values(recap.answersByClientId)
-          : [];
-        const changedUsersFromAnswers = answers.filter(
-          (answer) => getChangedAnswerCount(answer) > 0,
-        ).length;
-        const changedTimesFromAnswers = answers.reduce(
-          (sum, answer) => sum + getChangedAnswerCount(answer),
-          0,
-        );
-        const changedUsers = Math.max(
-          changedUsersFromAnswers,
-          Math.max(0, recap.changedAnswerUserCount ?? 0),
-        );
-        const changedTimes = Math.max(
-          changedTimesFromAnswers,
-          Math.max(0, recap.changedAnswerCount ?? 0),
-        );
-        const participantCount = resolveParticipantCount(recap);
-        const confusionRate =
-          participantCount > 0 ? changedUsers / participantCount : 0;
-        const avgChangedCount =
-          participantCount > 0 ? changedTimes / participantCount : 0;
-        return {
-          recap,
-          changedUsers,
-          changedTimes,
-          confusionRate,
-          avgChangedCount,
-        };
-      })
-      .filter((row) => row.confusionRate >= 0.3 || row.avgChangedCount >= 0.5)
-      .sort(
-        (a, b) =>
-          b.changedUsers - a.changedUsers ||
-          b.changedTimes - a.changedTimes ||
-          b.confusionRate - a.confusionRate ||
-          a.recap.order - b.recap.order,
-      );
   }, [
     getChangedAnswerCount,
     normalizedRecaps,
@@ -317,49 +288,79 @@ const useSettlementRecommendationInsights = <
     shouldResolveRecommendData,
   ]);
 
+  const averageCorrectMsByRecapKey = useMemo(() => {
+    const next = new Map<string, number | null>();
+    recapAnalysisRows.forEach((row) => {
+      next.set(
+        row.recap.key,
+        Number.isFinite(row.averageCorrectMs) ? row.averageCorrectMs : null,
+      );
+    });
+    return next;
+  }, [recapAnalysisRows]);
+
+  const quickRecommendations = useMemo(() => {
+    return recapAnalysisRows
+      .map((row) => ({
+        ...row,
+        allCorrect: row.participantCount > 0 && row.correctCount >= row.participantCount,
+      }))
+      .filter(
+        (row) => row.allCorrect && row.averageCorrectMs <= quickSolveThresholdMs,
+      )
+      .sort(
+        (a, b) =>
+          a.averageCorrectMs - b.averageCorrectMs ||
+          a.fastestCorrectMs - b.fastestCorrectMs ||
+          a.order - b.order,
+      );
+  }, [
+    quickSolveThresholdMs,
+    recapAnalysisRows,
+  ]);
+
+  const confuseRecommendations = useMemo(() => {
+    return recapAnalysisRows
+      .filter((row) => row.confusionRate >= 0.3 || row.avgChangedCount >= 0.5)
+      .sort(
+        (a, b) =>
+          b.changedUsers - a.changedUsers ||
+          b.changedTimes - a.changedTimes ||
+          b.confusionRate - a.confusionRate ||
+          a.order - b.order,
+      );
+  }, [
+    recapAnalysisRows,
+  ]);
+
   const hardRecommendations = useMemo(() => {
-    if (!shouldResolveRecommendData) return [];
-    return normalizedRecaps
-      .map((recap) => {
-        const participantCount = resolveParticipantCount(recap);
-        const correctCount = Math.max(0, recap.correctCount ?? 0);
-        const wrongCount = Math.max(0, recap.wrongCount ?? 0);
-        const unansweredCount = Math.max(0, recap.unansweredCount ?? 0);
-        const hardScore = (wrongCount + unansweredCount * 1.2) / participantCount;
-        const correctRate = correctCount / participantCount;
-        const unansweredRate = unansweredCount / participantCount;
-        return { recap, hardScore, correctRate, unansweredRate };
-      })
+    return recapAnalysisRows
+      .map((row) => ({
+        ...row,
+        hardScore: (row.wrongCount + row.unansweredCount * 1.2) / row.participantCount,
+      }))
       .filter((row) => row.correctRate <= 0.25 || row.unansweredRate >= 0.35)
       .sort(
-        (a, b) => b.hardScore - a.hardScore || a.recap.order - b.recap.order,
+        (a, b) => b.hardScore - a.hardScore || a.order - b.order,
       );
-  }, [normalizedRecaps, resolveParticipantCount, shouldResolveRecommendData]);
+  }, [recapAnalysisRows]);
 
   const otherRecommendations = useMemo(() => {
-    if (!shouldResolveRecommendData) return [];
     const highlightedKeys = new Set<string>([
       ...quickRecommendations.map((entry) => entry.recap.key),
       ...confuseRecommendations.map((entry) => entry.recap.key),
       ...hardRecommendations.map((entry) => entry.recap.key),
     ]);
-    return normalizedRecaps
-      .filter((recap) => !highlightedKeys.has(recap.key))
-      .map((recap) => ({
-        recap,
-        correctRate:
-          Math.max(0, recap.correctCount ?? 0) / resolveParticipantCount(recap),
-      }))
+    return recapAnalysisRows
+      .filter((row) => !highlightedKeys.has(row.recap.key))
       .sort(
-        (a, b) => b.correctRate - a.correctRate || a.recap.order - b.recap.order,
+        (a, b) => b.correctRate - a.correctRate || a.order - b.order,
       );
   }, [
     confuseRecommendations,
     hardRecommendations,
-    normalizedRecaps,
     quickRecommendations,
-    resolveParticipantCount,
-    shouldResolveRecommendData,
+    recapAnalysisRows,
   ]);
 
   const recommendationCardsByCategory = useMemo<
@@ -422,10 +423,8 @@ const useSettlementRecommendationInsights = <
   const performanceRatingByRecapKey = useMemo(() => {
     const next = new Map<string, SongPerformanceRating>();
     if (!shouldResolveRecommendData || !ratingParticipantClientId) return next;
-    normalizedRecaps.forEach((recap) => {
-      const participantCount = resolveParticipantCount(recap);
-      const correctCount = Math.max(0, recap.correctCount ?? 0);
-      const correctRate = correctCount / participantCount;
+    recapAnalysisRows.forEach((row) => {
+      const { recap, participantCount, correctRate } = row;
       const answer = resolveParticipantAnswer(
         recap,
         ratingParticipantClientId,
@@ -465,25 +464,19 @@ const useSettlementRecommendationInsights = <
   }, [
     configuredAnswerWindowMs,
     meClientId,
-    normalizedRecaps,
     ratingParticipantClientId,
-    resolveParticipantAnswer,
-    resolveParticipantCount,
     shouldResolveRecommendData,
+    resolveParticipantAnswer,
+    recapAnalysisRows,
   ]);
 
   const recapOrderByKey = useMemo(() => {
     const next = new Map<string, number>();
-    normalizedRecaps.forEach((recap, index) => {
-      next.set(
-        recap.key,
-        typeof recap.order === "number" && Number.isFinite(recap.order)
-          ? recap.order
-          : index + 1,
-      );
+    recapAnalysisRows.forEach((row) => {
+      next.set(row.recap.key, row.order);
     });
     return next;
-  }, [normalizedRecaps]);
+  }, [recapAnalysisRows]);
 
   const personalFastestCorrectRecapKeys = useMemo(() => {
     if (!shouldResolveRecommendData) return new Set<string>();
@@ -520,7 +513,7 @@ const useSettlementRecommendationInsights = <
       { clientId: string; username: string; answeredAtMs: number } | null
     >();
     if (!shouldResolveRecommendData) return next;
-    normalizedRecaps.forEach((recap) => {
+    recapAnalysisRows.forEach(({ recap }) => {
       const answers = recap.answersByClientId
         ? Object.entries(recap.answersByClientId)
         : [];
@@ -564,7 +557,7 @@ const useSettlementRecommendationInsights = <
       });
     });
     return next;
-  }, [normalizedRecaps, participantNameByClientId, shouldResolveRecommendData]);
+  }, [participantNameByClientId, recapAnalysisRows, shouldResolveRecommendData]);
 
   const selectedRecapRating = shouldResolveRecommendData && selectedRecap
     ? performanceRatingByRecapKey.get(selectedRecap.key) ?? null
