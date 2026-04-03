@@ -276,6 +276,9 @@ export interface RoomSummary {
   playlistCount: number;
   playlistId?: string | null;
   playlistTitle?: string | null;
+  playlistCoverTitle?: string | null;
+  playlistCoverThumbnailUrl?: string | null;
+  playlistCoverSourceId?: string | null;
   playlistSourceType?: PlaylistSourceType | null;
   gameSettings?: {
     questionCount: number;
@@ -352,6 +355,10 @@ export interface ClientToServerEvents {
   resumeSession: (
     payload: { roomId: string; username: string },
     callback?: (ack: Ack<RoomState>) => void
+  ) => void;
+  updateProfile: (
+    payload: { roomId: string; username: string },
+    callback?: (ack: Ack<null>) => void
   ) => void;
   leaveRoom: (
     payload: { roomId: string },
