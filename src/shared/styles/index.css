@@ -10372,6 +10372,10 @@ body {
 }
 
 .game-room-choice-button.MuiButton-contained.MuiButton-containedSuccess {
+  --gr-reveal-accent: rgba(74, 222, 128, 0.92);
+  --gr-reveal-core: rgba(110, 231, 183, 0.24);
+  --gr-reveal-glow: rgba(45, 212, 191, 0.26);
+  --gr-reveal-sheen: rgba(236, 253, 245, 0.18);
   border-color: rgba(74, 222, 128, 0.46);
   background:
     radial-gradient(
@@ -10386,27 +10390,51 @@ body {
     ),
     linear-gradient(180deg, rgba(8, 34, 29, 0.52), rgba(6, 28, 24, 0.56)) !important;
   color: #ecfdf5 !important;
-  box-shadow: 0 0 22px -10px rgba(16, 185, 129, 0.22);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--gr-reveal-accent) 22%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--gr-reveal-accent) 10%, transparent),
+    0 18px 34px -30px color-mix(in srgb, var(--gr-reveal-glow) 72%, transparent);
 }
 
 .game-room-choice-button.MuiButton-contained.MuiButton-containedSuccess::before {
-  opacity: 0.22;
+  opacity: 0.24;
   background:
     radial-gradient(
       220px 130px at 16% 18%,
-      rgba(110, 231, 183, 0.22),
+      color-mix(in srgb, var(--gr-reveal-core) 120%, transparent),
       transparent 74%
     ),
     radial-gradient(
       240px 150px at 84% 84%,
-      rgba(45, 212, 191, 0.12),
+      color-mix(in srgb, var(--gr-reveal-glow) 82%, transparent),
       transparent 80%
     );
   animation: game-room-reveal-result-breathe 2.8s ease-in-out infinite;
   will-change: opacity, transform;
 }
 
+.game-room-choice-button.MuiButton-contained.MuiButton-containedSuccess::after {
+  inset: 0;
+  opacity: 0.72;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--gr-reveal-sheen) 100%, transparent),
+      transparent 48%
+    ),
+    radial-gradient(
+      160px 58px at 50% 8%,
+      color-mix(in srgb, var(--gr-reveal-sheen) 92%, transparent),
+      transparent 80%
+    );
+  transform: none;
+}
+
 .game-room-choice-button.MuiButton-contained.MuiButton-containedError {
+  --gr-reveal-accent: rgba(251, 113, 133, 0.94);
+  --gr-reveal-core: rgba(251, 113, 133, 0.22);
+  --gr-reveal-glow: rgba(251, 146, 60, 0.22);
+  --gr-reveal-sheen: rgba(255, 241, 242, 0.14);
   border-color: rgba(251, 113, 133, 0.5);
   background:
     radial-gradient(
@@ -10421,24 +10449,44 @@ body {
     ),
     linear-gradient(180deg, rgba(40, 10, 18, 0.54), rgba(31, 8, 15, 0.58)) !important;
   color: #fff1f2 !important;
-  box-shadow: 0 0 22px -10px rgba(225, 29, 72, 0.22);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--gr-reveal-accent) 24%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--gr-reveal-accent) 12%, transparent),
+    0 18px 34px -30px color-mix(in srgb, var(--gr-reveal-glow) 74%, transparent);
 }
 
 .game-room-choice-button.MuiButton-contained.MuiButton-containedError::before {
-  opacity: 0.18;
+  opacity: 0.2;
   background:
     radial-gradient(
       220px 130px at 16% 18%,
-      rgba(251, 113, 133, 0.2),
+      color-mix(in srgb, var(--gr-reveal-core) 120%, transparent),
       transparent 74%
     ),
     radial-gradient(
       240px 150px at 84% 84%,
-      rgba(251, 146, 60, 0.1),
+      color-mix(in srgb, var(--gr-reveal-glow) 78%, transparent),
       transparent 80%
     );
   animation: game-room-reveal-result-breathe 3s ease-in-out infinite;
   will-change: opacity, transform;
+}
+
+.game-room-choice-button.MuiButton-contained.MuiButton-containedError::after {
+  inset: 0;
+  opacity: 0.64;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--gr-reveal-sheen) 100%, transparent),
+      transparent 50%
+    ),
+    radial-gradient(
+      160px 58px at 50% 8%,
+      color-mix(in srgb, var(--gr-reveal-sheen) 88%, transparent),
+      transparent 82%
+    );
+  transform: none;
 }
 
 .game-room-choice-button.MuiButton-contained.MuiButton-containedSuccess
@@ -14541,74 +14589,173 @@ body {
 }
 
 .game-room-choice-button--selected-live.MuiButton-root {
-  border-color: rgba(56, 189, 248, 0.74) !important;
+  --gr-choice-accent: rgba(56, 189, 248, 0.88);
+  --gr-choice-core: rgba(56, 189, 248, 0.2);
+  --gr-choice-glow: rgba(56, 189, 248, 0.34);
+  --gr-choice-sheen: rgba(186, 230, 253, 0.16);
+  --gr-choice-breathe-duration: 2.9s;
+  border-color: rgba(56, 189, 248, 0.64) !important;
   background:
     radial-gradient(
-      220px 130px at 14% 16%,
-      rgba(56, 189, 248, 0.24),
+      200px 118px at 14% 18%,
+      var(--gr-choice-core),
       transparent 74%
     ),
-    linear-gradient(180deg, rgba(4, 73, 109, 0.34), rgba(8, 47, 73, 0.26)) !important;
-  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.28) !important;
-  transition: none !important;
-  position: relative;
-}
-
-.game-room-choice-button--combo-live.MuiButton-root {
+    linear-gradient(180deg, rgba(7, 41, 64, 0.38), rgba(8, 29, 47, 0.3)) !important;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--gr-combo-inner) 100%, transparent),
-    inset 0 0 0 2px rgba(15, 23, 42, 0.16),
-    0 0 0 1px color-mix(in srgb, var(--gr-combo-border) 74%, transparent),
-    0 0 28px -18px color-mix(in srgb, var(--gr-combo-glow) 44%, transparent),
-    0 0 52px -36px color-mix(in srgb, var(--gr-combo-glow) 24%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 12%, transparent),
+    0 14px 30px -28px color-mix(in srgb, var(--gr-choice-glow) 42%, transparent) !important;
+  position: relative;
+  animation: game-room-choice-selected-settle 240ms
+    cubic-bezier(0.2, 0.82, 0.24, 1) 1;
 }
 
-/* When selected + combo both active: combo background wins (two-class specificity beats single-class) */
-.game-room-choice-button--selected-live.game-room-choice-button--combo-live.MuiButton-root {
-  border-color: var(--gr-combo-border) !important;
+.game-room-choice-button--selected-live.MuiButton-root::before {
+  opacity: 0.22;
+  background:
+    radial-gradient(
+      180px 110px at 14% 18%,
+      color-mix(in srgb, var(--gr-choice-core) 120%, transparent),
+      transparent 76%
+    ),
+    radial-gradient(
+      220px 140px at 86% 84%,
+      color-mix(in srgb, var(--gr-choice-glow) 68%, transparent),
+      transparent 80%
+    );
+  transform: scale(0.992);
+  animation: game-room-choice-selected-breathe var(--gr-choice-breathe-duration)
+    ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.game-room-choice-button--selected-live.MuiButton-root::after {
+  inset: 0;
+  opacity: 0.64;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--gr-choice-sheen) 100%, transparent),
+      transparent 48%
+    ),
+    radial-gradient(
+      140px 52px at 50% 6%,
+      color-mix(in srgb, var(--gr-choice-sheen) 82%, transparent),
+      transparent 78%
+    );
+  transform: none;
+}
+
+.game-room-choice-button--selected-live.game-room-choice-button--combo-focus.MuiButton-root {
+  border-color: color-mix(
+    in srgb,
+    var(--gr-choice-accent) 84%,
+    white 8%
+  ) !important;
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--gr-combo-glow) 22%, transparent),
-      transparent 34%,
-      color-mix(in srgb, var(--gr-combo-border) 18%, transparent) 66%,
+      color-mix(in srgb, var(--gr-choice-glow) 20%, transparent),
+      transparent 30%,
+      color-mix(in srgb, var(--gr-choice-accent) 10%, transparent) 68%,
       transparent 100%
     ),
     radial-gradient(
-      240px 150px at 14% 14%,
-      var(--gr-combo-core),
-      transparent 72%
+      220px 128px at 15% 18%,
+      color-mix(in srgb, var(--gr-choice-core) 132%, transparent),
+      transparent 74%
+    ),
+    linear-gradient(180deg, rgba(12, 31, 44, 0.42), rgba(10, 24, 37, 0.34)) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 34%, transparent),
+    inset 0 0 0 2px rgba(15, 23, 42, 0.16),
+    0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 16%, transparent),
+    0 16px 34px -28px color-mix(in srgb, var(--gr-choice-glow) 68%, transparent) !important;
+}
+
+.game-room-choice-button--selected-live.game-room-choice-button--combo-focus.MuiButton-root::before {
+  opacity: 0.3;
+  animation: game-room-choice-combo-breathe var(--gr-choice-breathe-duration)
+    ease-in-out infinite;
+}
+
+.game-room-choice-button--selected-live.game-room-choice-button--combo-focus.MuiButton-root::after {
+  opacity: 0.78;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--gr-choice-sheen) 100%, transparent),
+      transparent 46%
     ),
     radial-gradient(
-      220px 140px at 92% 88%,
-      color-mix(in srgb, var(--gr-combo-border) 42%, transparent),
-      transparent 76%
+      176px 60px at 50% 8%,
+      color-mix(in srgb, var(--gr-choice-sheen) 92%, transparent),
+      transparent 82%
     ),
-    linear-gradient(180deg, var(--gr-combo-top), var(--gr-combo-bottom)) !important;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--gr-combo-inner) 95%, transparent),
-    inset 0 0 0 2px rgba(15, 23, 42, 0.16),
-    0 0 0 1px color-mix(in srgb, var(--gr-combo-border) 70%, transparent),
-    0 0 30px -10px color-mix(in srgb, var(--gr-combo-glow) 92%, transparent),
-    0 0 52px -24px color-mix(in srgb, var(--gr-combo-glow) 70%, transparent) !important;
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--gr-choice-accent) 10%, transparent) 18%,
+      color-mix(in srgb, var(--gr-choice-accent) 18%, transparent) 50%,
+      color-mix(in srgb, var(--gr-choice-accent) 10%, transparent) 82%,
+      transparent 100%
+    );
 }
 
-.game-room-choice-button--combo-overdrive.MuiButton-root {
-  filter: saturate(1.22) brightness(1.14);
-  box-shadow:
-    inset 0 0 0 1px rgba(225, 29, 72, 0.64),
-    inset 0 0 0 2px rgba(251, 191, 36, 0.24),
-    0 0 0 1px rgba(244, 114, 182, 0.52),
-    0 0 46px -8px rgba(244, 114, 182, 0.94),
-    0 0 72px -26px rgba(251, 191, 36, 0.72);
+.game-room-choice-button--combo-focus-tier-1.MuiButton-root {
+  --gr-choice-accent: rgba(34, 211, 238, 0.84);
+  --gr-choice-core: rgba(45, 212, 191, 0.18);
+  --gr-choice-glow: rgba(103, 232, 249, 0.28);
+  --gr-choice-sheen: rgba(186, 230, 253, 0.18);
+  --gr-choice-breathe-duration: 2.8s;
 }
 
-.game-room-choice-button--combo-break.MuiButton-root {
+.game-room-choice-button--combo-focus-tier-2.MuiButton-root {
+  --gr-choice-accent: rgba(74, 222, 128, 0.88);
+  --gr-choice-core: rgba(110, 231, 183, 0.22);
+  --gr-choice-glow: rgba(163, 230, 53, 0.32);
+  --gr-choice-sheen: rgba(217, 249, 157, 0.18);
+  --gr-choice-breathe-duration: 2.6s;
+}
+
+.game-room-choice-button--combo-focus-tier-3.MuiButton-root,
+.game-room-choice-button--combo-focus-tier-4.MuiButton-root {
+  --gr-choice-accent: rgba(250, 204, 21, 0.92);
+  --gr-choice-core: rgba(251, 191, 36, 0.24);
+  --gr-choice-glow: rgba(253, 224, 71, 0.38);
+  --gr-choice-sheen: rgba(254, 243, 199, 0.2);
+  --gr-choice-breathe-duration: 2.3s;
+}
+
+.game-room-choice-button--combo-focus-tier-5.MuiButton-root,
+.game-room-choice-button--combo-focus-tier-6.MuiButton-root,
+.game-room-choice-button--combo-focus-tier-7.MuiButton-root {
+  --gr-choice-accent: rgba(244, 114, 182, 0.96);
+  --gr-choice-core: rgba(244, 114, 182, 0.26);
+  --gr-choice-glow: rgba(216, 180, 254, 0.46);
+  --gr-choice-sheen: rgba(253, 242, 248, 0.22);
+  --gr-choice-breathe-duration: 2.05s;
+}
+
+.game-room-choice-button--combo-focus-tier-8.MuiButton-root,
+.game-room-choice-button--combo-focus-tier-9.MuiButton-root,
+.game-room-choice-button--combo-focus-tier-10.MuiButton-root {
+  --gr-choice-accent: rgba(255, 214, 10, 0.98);
+  --gr-choice-core: rgba(255, 179, 71, 0.28);
+  --gr-choice-glow: rgba(255, 120, 40, 0.54);
+  --gr-choice-sheen: rgba(255, 244, 214, 0.24);
+  --gr-choice-breathe-duration: 1.78s;
+}
+
+.game-room-choice-button--combo-focus-tier-8.MuiButton-root,
+.game-room-choice-button--combo-focus-tier-9.MuiButton-root,
+.game-room-choice-button--combo-focus-tier-10.MuiButton-root {
   box-shadow:
-    inset 0 0 0 1px var(--gr-combo-break-inner),
-    inset 0 0 0 2px rgba(15, 23, 42, 0.16),
-    0 0 0 1px color-mix(in srgb, var(--gr-combo-break-border) 62%, transparent),
-    0 0 34px -12px var(--gr-combo-break-glow);
+    inset 0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 38%, transparent),
+    inset 0 0 0 2px rgba(15, 23, 42, 0.14),
+    0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 18%, transparent),
+    0 18px 36px -28px color-mix(in srgb, var(--gr-choice-glow) 88%, transparent) !important;
 }
 
 .game-room-choice-press-flash {
@@ -15346,6 +15493,33 @@ body {
   100% {
     --gr-row-angle: 360deg;
     filter: saturate(1.14) brightness(1.02) hue-rotate(0deg);
+  }
+}
+
+@keyframes game-room-choice-selected-settle {
+  0% {
+    transform: translateY(1px) scale(0.992);
+    filter: brightness(0.98);
+  }
+  58% {
+    transform: translateY(-0.5px) scale(1.006);
+    filter: brightness(1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes game-room-choice-selected-breathe {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(0.992);
+  }
+  50% {
+    opacity: 0.34;
+    transform: scale(1.012);
   }
 }
 
@@ -24079,21 +24253,62 @@ body {
   justify-content: center;
   overflow: hidden;
   border-radius: inherit;
-  border: 1px solid var(--player-avatar-outline);
-  background:
-    radial-gradient(
-      circle at 28% 24%,
-      rgba(255, 255, 255, 0.18),
-      transparent 40%
-    ),
-    linear-gradient(
-      145deg,
-      var(--player-avatar-bg-from),
-      var(--player-avatar-bg-to)
-    );
+  outline: 1px solid var(--player-avatar-outline);
+  isolation: isolate;
+  background: linear-gradient(
+    145deg,
+    var(--player-avatar-bg-from),
+    var(--player-avatar-bg-to)
+  );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 12px 24px -18px var(--player-avatar-shadow);
+}
+
+.player-avatar__core::before,
+.player-avatar__core::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.player-avatar__core::before {
+  z-index: 1;
+  background:
+    radial-gradient(
+      112% 86% at 50% -8%,
+      rgba(255, 255, 255, 0.24) 0%,
+      rgba(255, 255, 255, 0.12) 28%,
+      rgba(255, 255, 255, 0.04) 48%,
+      transparent 66%
+    ),
+    radial-gradient(
+      72% 54% at 22% 18%,
+      rgba(255, 255, 255, 0.16) 0%,
+      transparent 72%
+    );
+
+  opacity: 0.92;
+}
+
+.player-avatar__core::after {
+  z-index: 1;
+  background:
+    radial-gradient(
+      118% 104% at 50% 122%,
+      rgba(2, 6, 23, 0.3) 0%,
+      rgba(2, 6, 23, 0.16) 36%,
+      transparent 62%
+    ),
+    linear-gradient(
+      180deg,
+      transparent 42%,
+      rgba(2, 6, 23, 0.06) 68%,
+      rgba(2, 6, 23, 0.16) 100%
+    );
+  opacity: 0.9;
 }
 
 .player-avatar--off .player-avatar__core {
@@ -24134,6 +24349,8 @@ body {
 }
 
 .player-avatar__image {
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -24141,6 +24358,8 @@ body {
 }
 
 .player-avatar__monogram {
+  position: relative;
+  z-index: 2;
   font-weight: 900;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -24269,9 +24488,9 @@ body {
 .player-avatar--settlement-podium.player-avatar--text .player-avatar__core {
   background:
     radial-gradient(
-      circle at 28% 24%,
+      circle at 0% -50%,
       rgba(255, 255, 255, 0.12),
-      transparent 42%
+      transparent 46%
     ),
     linear-gradient(
       145deg,

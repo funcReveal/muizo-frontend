@@ -490,6 +490,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   const showMyChoiceTag = isReveal && isMyChoice;
                   const showMyCorrectTag = isReveal && isMyChoice && isCorrect;
                   const showGuessLockTag = !isReveal && isMyChoice;
+                  const showComboFocusStyle =
+                    !isReveal && isMyChoice && myComboTier > 0 && myComboNow > 0;
+                  const comboFocusTierClass = showComboFocusStyle
+                    ? `game-room-choice-button--combo-focus-tier-${myComboTier}`
+                    : "";
 
                   return (
                     <div
@@ -532,6 +537,12 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                         }
                         className={`game-room-choice-button justify-start ${!isReveal && isSelected
                             ? "game-room-choice-button--selected-live"
+                            : ""
+                          } ${showComboFocusStyle
+                            ? "game-room-choice-button--combo-focus"
+                            : ""
+                          } ${comboFocusTierClass
+                            ? comboFocusTierClass
                             : ""
                           } ${isLocked || waitingToStart || shouldShowGestureOverlay
                             ? "pointer-events-none"
