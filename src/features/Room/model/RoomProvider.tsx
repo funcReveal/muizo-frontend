@@ -67,6 +67,7 @@ import {
   capRoomMessages,
   capSettlementHistory,
   extractVideoIdFromUrl,
+  formatAckError,
   mergeGameSettings,
   sanitizePossibleGarbledText,
 } from "./roomProviderUtils";
@@ -234,8 +235,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   });
   const lastLatencyProbeRoomIdRef = useRef<string | null>(null);
 
-  const displayUsername = useMemo(() => username ?? "(訪客)", [username]);
-
   const persistUsername = useCallback((name: string) => {
     setUsername(name);
     setStoredUsername(name);
@@ -250,22 +249,6 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const setUsernameInput = useCallback((value: string) => {
     setUsernameInputState(value.slice(0, USERNAME_MAX));
   }, []);
-
-  useEffect(() => {
-    const previousUsername = previousUsernameRef.current;
-    const previousDefaultName = getDefaultRoomName(previousUsername);
-    const nextDefaultName = getDefaultRoomName(username);
-
-    setRoomNameInput((currentValue) => {
-      const trimmed = currentValue.trim();
-      if (!trimmed || trimmed === previousDefaultName || trimmed === "新房間") {
-        return nextDefaultName;
-      }
-      return currentValue;
-    });
-
-    previousUsernameRef.current = username;
-  }, [getDefaultRoomName, username]);
 
   const onResetCollectionRef = useRef<() => void>(() => { });
   const handlePlaylistCollectionReset = useCallback(() => {
@@ -294,6 +277,33 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     setStatusText,
     onClearAuth: clearAuth,
   });
+
+  const activeUsername = useMemo(() => {
+    const authDisplayName = authUser?.display_name?.trim();
+    return authDisplayName
+      ? authDisplayName.slice(0, USERNAME_MAX)
+      : username;
+  }, [authUser?.display_name, username]);
+  const displayUsername = useMemo(
+    () => activeUsername ?? "(訪客)",
+    [activeUsername],
+  );
+
+  useEffect(() => {
+    const previousUsername = previousUsernameRef.current;
+    const previousDefaultName = getDefaultRoomName(previousUsername);
+    const nextDefaultName = getDefaultRoomName(activeUsername);
+
+    setRoomNameInput((currentValue) => {
+      const trimmed = currentValue.trim();
+      if (!trimmed || trimmed === previousDefaultName || trimmed === "新房間") {
+        return nextDefaultName;
+      }
+      return currentValue;
+    });
+
+    previousUsernameRef.current = activeUsername;
+  }, [activeUsername, getDefaultRoomName]);
 
   const authClientId = authUser?.id ?? null;
   const clientId = useMemo(
@@ -564,7 +574,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   });
 
   const confirmNickname = useCallback(async () => {
-    const previousUsername = username;
+    const previousUsername = activeUsername;
     const previousDefaultRoomName = getDefaultRoomName(previousUsername);
     const nextUsername = nicknameDraft.trim();
     const nextDefaultRoomName = getDefaultRoomName(nextUsername || null);
@@ -577,10 +587,22 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     setParticipants((previous) =>
       previous.map((participant) =>
         participant.clientId === clientId
-          ? { ...participant, name: nextUsername }
+          ? { ...participant, username: nextUsername }
           : participant,
       ),
     );
+    const socket = getSocket();
+    if (socket && currentRoom?.id) {
+      socket.emit(
+        "updateProfile",
+        { roomId: currentRoom.id, username: nextUsername },
+        (ack) => {
+          if (!ack?.ok) {
+            setStatusText(formatAckError("同步房內暱稱失敗", ack?.error));
+          }
+        },
+      );
+    }
 
     const shouldRenameCurrentRoom =
       currentRoom?.hostClientId === clientId &&
@@ -604,11 +626,14 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     handleUpdateRoomSettings,
     nicknameDraft,
     setCurrentRoom,
-    username,
+    activeUsername,
+    currentRoom?.id,
+    getSocket,
+    setStatusText,
   ]);
 
   useRoomProviderSocketLifecycle({
-    username,
+    username: activeUsername,
     authLoading,
     shouldConnectSocket,
     authToken,
@@ -671,7 +696,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
   const { handleCreateRoom } = useRoomProviderCreateRoomAction({
     apiUrl: API_URL,
     getSocket,
-    username,
+    username: activeUsername,
     authToken,
     refreshAuthToken,
     setStatusText,
@@ -726,7 +751,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     handleTransferHost,
   } = useRoomProviderRoomActions({
     getSocket,
-    username,
+    username: activeUsername,
     joinPasswordInput,
     setJoinPasswordInput,
     saveRoomPassword,

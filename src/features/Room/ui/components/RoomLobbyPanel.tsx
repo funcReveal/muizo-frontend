@@ -950,12 +950,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const canUseShareInvite = isHost || allowParticipantInvite;
   const shareButtonLabel = canUseShareInvite ? "分享邀請" : "分享邀請未開放";
   const inviteLink = React.useMemo(() => {
-    if (!currentRoom?.id || typeof window === "undefined") return "";
+    const inviteReference = currentRoom?.roomCode?.trim() || currentRoom?.id;
+    if (!inviteReference || typeof window === "undefined") return "";
     const url = new URL(window.location.href);
-    url.pathname = `/invited/${currentRoom.id}`;
+    url.pathname = `/invited/${inviteReference}`;
     url.search = "";
     return url.toString();
-  }, [currentRoom?.id]);
+  }, [currentRoom?.id, currentRoom?.roomCode]);
   const shareMessage = React.useMemo(() => {
     const roomName = currentRoom?.name?.trim() || "一起來猜歌";
     const code = currentRoom?.roomCode?.trim() || "--";

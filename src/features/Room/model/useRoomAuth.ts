@@ -98,11 +98,12 @@ export const useRoomAuth = ({
       if (!confirmed) {
         setNicknameDraft((user.display_name ?? "").slice(0, USERNAME_MAX));
         setNeedsNicknameConfirm(true);
-      } else if (!username && user.display_name) {
+      }
+      if (user.display_name) {
         persistUsername(user.display_name.slice(0, USERNAME_MAX));
       }
     },
-    [persistUsername, username],
+    [persistUsername],
   );
 
   const refreshAuthToken = useCallback(async () => {

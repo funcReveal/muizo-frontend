@@ -389,7 +389,9 @@ export const useRoomProviderSocketLifecycle = ({
             setRooms(updatedRooms);
           });
           if (isInviteMode && inviteRoomId) {
-            const found = updatedRooms.some((r) => r.id === inviteRoomId);
+            const found = updatedRooms.some(
+              (r) => r.id === inviteRoomId || r.roomCode === inviteRoomId,
+            );
             setInviteNotFound(!found);
             if (!found) {
               setStatusText("找不到邀請房間，可能已關閉或邀請失效。");
