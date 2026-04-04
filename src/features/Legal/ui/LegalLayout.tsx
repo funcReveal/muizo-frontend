@@ -2,7 +2,7 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import AppHeader from "../../../app/layout/AppHeader";
-import { useRoom } from "../../Room/model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
 
 const LegalLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ const LegalLayout: React.FC = () => {
     loginWithGoogle,
     logout,
   } =
-    useRoom();
+    useAuth();
 
   return (
     <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text)] p-4">

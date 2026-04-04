@@ -1,4 +1,5 @@
-import type { AuthUser, YoutubePlaylist } from "./RoomContext";
+import type { AuthUser } from "../../../shared/auth/AuthContext";
+import type { YoutubePlaylist } from "./RoomPlaylistContext";
 import type { PlaylistItem, RoomSummary } from "./types";
 
 export type ApiResult<T> = {
@@ -170,7 +171,7 @@ const fetchJson = async <T>(
       return {
         ok: false,
         status: 408,
-        payload: { error: "請求逾時，請稍後再試" } as T,
+        payload: { error: "嚙請求嚙瞌嚙褕，嚙請稍嚙踝蕭A嚙踝蕭" } as T,
       };
     }
     throw error;

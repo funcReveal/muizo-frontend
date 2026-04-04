@@ -32,6 +32,24 @@ import {
   type RoomKickedNotice,
   type RoomCreateSourceMode,
 } from "./RoomContext";
+import { AuthContext, type AuthContextValue } from "../../../shared/auth/AuthContext";
+import {
+  RoomCollectionsContext,
+  type RoomCollectionsContextValue,
+} from "./RoomCollectionsContext";
+import {
+  RoomPlaylistContext,
+  type RoomPlaylistContextValue,
+} from "./RoomPlaylistContext";
+import {
+  RoomSessionContext,
+  type RoomSessionContextValue,
+} from "./RoomSessionContext";
+import {
+  RoomCreateContext,
+  type RoomCreateContextValue,
+} from "./RoomCreateContext";
+import { RoomGameContext, type RoomGameContextValue } from "./RoomGameContext";
 import { ChatInputContext } from "../../../shared/chat/ChatInputContext";
 import {
   API_URL,
@@ -1254,6 +1272,321 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
     ],
   );
 
+  const authContextValue = useMemo<AuthContextValue>(
+    () => ({
+      authToken,
+      authUser,
+      authLoading,
+      authExpired,
+      refreshAuthToken,
+      loginWithGoogle,
+      logout,
+      needsNicknameConfirm,
+      nicknameDraft,
+      setNicknameDraft,
+      confirmNickname,
+      isProfileEditorOpen,
+      openProfileEditor,
+      closeProfileEditor,
+      clientId,
+      username,
+      displayUsername,
+      usernameInput,
+      setUsernameInput,
+      handleSetUsername,
+    }),
+    [
+      authToken,
+      authUser,
+      authLoading,
+      authExpired,
+      refreshAuthToken,
+      loginWithGoogle,
+      logout,
+      needsNicknameConfirm,
+      nicknameDraft,
+      setNicknameDraft,
+      confirmNickname,
+      isProfileEditorOpen,
+      openProfileEditor,
+      closeProfileEditor,
+      clientId,
+      username,
+      displayUsername,
+      usernameInput,
+      setUsernameInput,
+      handleSetUsername,
+    ],
+  );
+
+  const roomCollectionsContextValue = useMemo<RoomCollectionsContextValue>(
+    () => ({
+      collections,
+      collectionsLoading,
+      collectionsLoadingMore,
+      collectionsHasMore,
+      collectionsError,
+      collectionScope,
+      publicCollectionsSort,
+      setPublicCollectionsSort,
+      collectionFavoriteUpdatingId,
+      collectionsLastFetchedAt,
+      selectedCollectionId,
+      collectionItemsLoading,
+      collectionItemsError,
+      fetchCollections,
+      loadMoreCollections,
+      toggleCollectionFavorite,
+      selectCollection,
+      loadCollectionItems,
+    }),
+    [
+      collections,
+      collectionsLoading,
+      collectionsLoadingMore,
+      collectionsHasMore,
+      collectionsError,
+      collectionScope,
+      publicCollectionsSort,
+      setPublicCollectionsSort,
+      collectionFavoriteUpdatingId,
+      collectionsLastFetchedAt,
+      selectedCollectionId,
+      collectionItemsLoading,
+      collectionItemsError,
+      fetchCollections,
+      loadMoreCollections,
+      toggleCollectionFavorite,
+      selectCollection,
+      loadCollectionItems,
+    ],
+  );
+
+  const roomPlaylistContextValue = useMemo<RoomPlaylistContextValue>(
+    () => ({
+      playlistUrl,
+      setPlaylistUrl,
+      playlistItems,
+      playlistError,
+      playlistLoading,
+      playlistStage,
+      playlistLocked,
+      playlistPreviewMeta,
+      lastFetchedPlaylistId,
+      lastFetchedPlaylistTitle,
+      playlistViewItems,
+      playlistHasMore,
+      playlistLoadingMore,
+      playlistPageCursor,
+      playlistPageSize,
+      playlistProgress,
+      playlistSuggestions,
+      loadMorePlaylist,
+      questionCount,
+      questionMin,
+      questionMax: QUESTION_MAX,
+      questionStep,
+      questionMaxLimit,
+      updateQuestionCount: handleUpdateQuestionCount,
+      youtubePlaylists,
+      youtubePlaylistsLoading,
+      youtubePlaylistsError,
+      fetchYoutubePlaylists,
+      importYoutubePlaylist,
+      handleFetchPlaylistByUrl,
+      handleFetchPlaylist,
+      handleResetPlaylist,
+      handleChangePlaylist,
+      handleApplyPlaylistUrlDirect,
+      handleApplyCollectionDirect,
+      handleApplyYoutubePlaylistDirect,
+      handleSuggestPlaylist,
+      handleApplySuggestionSnapshot,
+    }),
+    [
+      playlistUrl,
+      setPlaylistUrl,
+      playlistItems,
+      playlistError,
+      playlistLoading,
+      playlistStage,
+      playlistLocked,
+      playlistPreviewMeta,
+      lastFetchedPlaylistId,
+      lastFetchedPlaylistTitle,
+      playlistViewItems,
+      playlistHasMore,
+      playlistLoadingMore,
+      playlistPageCursor,
+      playlistPageSize,
+      playlistProgress,
+      playlistSuggestions,
+      loadMorePlaylist,
+      questionCount,
+      questionMin,
+      questionStep,
+      questionMaxLimit,
+      youtubePlaylists,
+      youtubePlaylistsLoading,
+      youtubePlaylistsError,
+      fetchYoutubePlaylists,
+      importYoutubePlaylist,
+      handleFetchPlaylistByUrl,
+      handleFetchPlaylist,
+      handleResetPlaylist,
+      handleChangePlaylist,
+      handleApplyPlaylistUrlDirect,
+      handleApplyCollectionDirect,
+      handleApplyYoutubePlaylistDirect,
+      handleSuggestPlaylist,
+      handleApplySuggestionSnapshot,
+      handleUpdateQuestionCount,
+    ],
+  );
+
+  const roomSessionContextValue = useMemo<RoomSessionContextValue>(
+    () => ({
+      currentRoom,
+      currentRoomId,
+      participants,
+      messages,
+      settlementHistory,
+      statusText,
+      setStatusText,
+      kickedNotice,
+      setKickedNotice,
+      sessionProgress,
+      isConnected,
+      serverOffsetMs,
+      syncServerOffset,
+      hostRoomPassword,
+      rooms,
+      fetchRooms,
+      fetchRoomById,
+      inviteRoomId,
+      inviteNotFound,
+      isInviteMode,
+      setInviteRoomId,
+      routeRoomResolved,
+      setRouteRoomId,
+      handleLeaveRoom,
+      handleKickPlayer,
+      handleTransferHost,
+      fetchSettlementHistorySummaries,
+      fetchSettlementReplay,
+    }),
+    [
+      currentRoom,
+      currentRoomId,
+      participants,
+      messages,
+      settlementHistory,
+      statusText,
+      setStatusText,
+      kickedNotice,
+      setKickedNotice,
+      sessionProgress,
+      isConnected,
+      serverOffsetMs,
+      syncServerOffset,
+      hostRoomPassword,
+      rooms,
+      fetchRooms,
+      fetchRoomById,
+      inviteRoomId,
+      inviteNotFound,
+      isInviteMode,
+      setInviteRoomId,
+      routeRoomResolved,
+      setRouteRoomId,
+      handleLeaveRoom,
+      handleKickPlayer,
+      handleTransferHost,
+      fetchSettlementHistorySummaries,
+      fetchSettlementReplay,
+    ],
+  );
+
+  const roomCreateContextValue = useMemo<RoomCreateContextValue>(
+    () => ({
+      roomNameInput,
+      setRoomNameInput,
+      roomVisibilityInput,
+      setRoomVisibilityInput,
+      roomCreateSourceMode,
+      setRoomCreateSourceMode,
+      roomPasswordInput,
+      setRoomPasswordInput,
+      roomMaxPlayersInput,
+      setRoomMaxPlayersInput,
+      joinPasswordInput,
+      setJoinPasswordInput,
+      isCreatingRoom,
+      handleCreateRoom,
+      handleJoinRoom,
+      resetCreateState,
+    }),
+    [
+      roomNameInput,
+      setRoomNameInput,
+      roomVisibilityInput,
+      setRoomVisibilityInput,
+      roomCreateSourceMode,
+      setRoomCreateSourceMode,
+      roomPasswordInput,
+      setRoomPasswordInput,
+      roomMaxPlayersInput,
+      setRoomMaxPlayersInput,
+      joinPasswordInput,
+      setJoinPasswordInput,
+      isCreatingRoom,
+      handleCreateRoom,
+      handleJoinRoom,
+      resetCreateState,
+    ],
+  );
+
+  const roomGameContextValue = useMemo<RoomGameContextValue>(
+    () => ({
+      gameState,
+      gamePlaylist,
+      isGameView,
+      setIsGameView,
+      playDurationSec,
+      revealDurationSec,
+      startOffsetSec,
+      allowCollectionClipTiming,
+      updatePlayDurationSec: handleUpdatePlayDurationSec,
+      updateRevealDurationSec: handleUpdateRevealDurationSec,
+      updateStartOffsetSec: handleUpdateStartOffsetSec,
+      updateAllowCollectionClipTiming: handleUpdateAllowCollectionClipTiming,
+      handleStartGame,
+      handleSubmitChoice,
+      handleRequestPlaybackExtensionVote,
+      handleCastPlaybackExtensionVote,
+      handleUpdateRoomSettings,
+    }),
+    [
+      gameState,
+      gamePlaylist,
+      isGameView,
+      setIsGameView,
+      playDurationSec,
+      revealDurationSec,
+      startOffsetSec,
+      allowCollectionClipTiming,
+      handleUpdatePlayDurationSec,
+      handleUpdateRevealDurationSec,
+      handleUpdateStartOffsetSec,
+      handleUpdateAllowCollectionClipTiming,
+      handleStartGame,
+      handleSubmitChoice,
+      handleRequestPlaybackExtensionVote,
+      handleCastPlaybackExtensionVote,
+      handleUpdateRoomSettings,
+    ],
+  );
+
   const chatInputValue = useMemo(
     () => ({ messageInput, setMessageInput, handleSendMessage }),
     [messageInput, handleSendMessage],
@@ -1277,13 +1610,25 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({
 
   return (
     <RoomContext.Provider value={value}>
-      <RoomUiContext.Provider value={roomUiValue}>
-        <RoomRealtimeContext.Provider value={roomRealtimeValue}>
-          <ChatInputContext.Provider value={chatInputValue}>
-            {children}
-          </ChatInputContext.Provider>
-        </RoomRealtimeContext.Provider>
-      </RoomUiContext.Provider>
+      <AuthContext.Provider value={authContextValue}>
+        <RoomCollectionsContext.Provider value={roomCollectionsContextValue}>
+          <RoomPlaylistContext.Provider value={roomPlaylistContextValue}>
+            <RoomSessionContext.Provider value={roomSessionContextValue}>
+              <RoomCreateContext.Provider value={roomCreateContextValue}>
+                <RoomGameContext.Provider value={roomGameContextValue}>
+                  <RoomUiContext.Provider value={roomUiValue}>
+                    <RoomRealtimeContext.Provider value={roomRealtimeValue}>
+                      <ChatInputContext.Provider value={chatInputValue}>
+                        {children}
+                      </ChatInputContext.Provider>
+                    </RoomRealtimeContext.Provider>
+                  </RoomUiContext.Provider>
+                </RoomGameContext.Provider>
+              </RoomCreateContext.Provider>
+            </RoomSessionContext.Provider>
+          </RoomPlaylistContext.Provider>
+        </RoomCollectionsContext.Provider>
+      </AuthContext.Provider>
     </RoomContext.Provider>
   );
 };
