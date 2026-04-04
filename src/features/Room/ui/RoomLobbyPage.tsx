@@ -6,12 +6,12 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import HistoryEduRoundedIcon from "@mui/icons-material/HistoryEduRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
-import GameRoomPage from "./GameRoomPage";
-import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
-import HistoryReplayModal from "./components/HistoryReplayModal";
-import LiveSettlementShowcase from "./components/LiveSettlementShowcase";
-import HistoryReplayCompactView from "./components/HistoryReplayCompactView";
-import { HistoryReplaySkeleton } from "./components/roomHistoryPage/HistoryReplayDialog";
+import GameRoomPage from "../../GameRoom/ui/GameRoomPage";
+import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import HistoryReplayModal from "../../Settlement/ui/components/HistoryReplayModal";
+import LiveSettlementShowcase from "../../Settlement/ui/components/LiveSettlementShowcase";
+import HistoryReplayCompactView from "../../Settlement/ui/components/HistoryReplayCompactView";
+import { HistoryReplaySkeleton } from "../../Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 import RoomLobbyPanel from "./components/RoomLobbyPanel";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import {

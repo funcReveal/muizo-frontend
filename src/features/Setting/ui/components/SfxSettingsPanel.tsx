@@ -12,7 +12,7 @@ import {
   resolveCorrectResultSfxEvent,
   type GameSfxEvent,
 } from "../../../Room/model/sfx/gameSfxEngine";
-import { useGameSfx } from "../../../Room/ui/hooks/useGameSfx";
+import { useGameSfx } from "../../../GameRoom/model/useGameSfx";
 import SettingsSectionCard from "./SettingsSectionCard";
 import {
   DEFAULT_SFX_VOLUME,

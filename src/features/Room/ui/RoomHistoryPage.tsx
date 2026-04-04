@@ -16,9 +16,9 @@ import type {
   RoomSettlementSnapshot,
 } from "../model/types";
 import { useRoom } from "../model/useRoom";
-import type { SettlementQuestionRecap } from "./components/GameSettlementPanel";
-import HistoryArchiveHeader from "./components/roomHistoryPage/HistoryArchiveHeader";
-import HistoryReplayDialog from "./components/roomHistoryPage/HistoryReplayDialog";
+import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import HistoryArchiveHeader from "../../Settlement/ui/components/roomHistoryPage/HistoryArchiveHeader";
+import HistoryReplayDialog from "../../Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");

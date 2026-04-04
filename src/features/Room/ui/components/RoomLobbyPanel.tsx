@@ -57,7 +57,7 @@ import {
   getQuestionMax,
 } from "../../model/roomUtils";
 import { normalizePlaybackExtensionMode } from "../../model/roomProviderUtils";
-import { resolveSettlementTrackLink } from "../../model/settlementLinks";
+import { resolveSettlementTrackLink } from "../../../Settlement/model/settlementLinks";
 import {
   DEFAULT_PLAYBACK_EXTENSION_MODE,
   DEFAULT_PLAY_DURATION_SEC,
@@ -73,7 +73,7 @@ import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 
-import { useGameSfx } from "../hooks/useGameSfx";
+import { useGameSfx } from "../../../GameRoom/model/useGameSfx";
 import {
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   DEFAULT_GAME_VOLUME,

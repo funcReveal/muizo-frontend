@@ -13,7 +13,7 @@ import {
   formatSeconds,
   normalizePlaylistItems,
 } from "./roomUtils";
-import { resolveSettlementTrackLink } from "./settlementLinks";
+import { resolveSettlementTrackLink } from "../../Settlement/model/settlementLinks";
 import type {
   ChatMessage,
   PlaylistItem,
