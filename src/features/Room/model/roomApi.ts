@@ -1,4 +1,5 @@
-import type { AuthUser, YoutubePlaylist } from "./RoomContext";
+import type { AuthUser } from "../../../shared/auth/AuthContext";
+import type { YoutubePlaylist } from "./RoomPlaylistContext";
 import type { PlaylistItem, RoomSummary } from "./types";
 
 export type ApiResult<T> = {

@@ -15,37 +15,11 @@ import type {
   SubmitAnswerResult,
 } from "./types";
 
-export type AuthUser = {
-  id: string;
-  email?: string | null;
-  provider?: string;
-  provider_user_id?: string;
-  display_name?: string | null;
-  avatar_url?: string | null;
-  role?: string | null;
-  plan?: string | null;
-  status?: string | null;
-};
-
-export type YoutubePlaylist = {
-  id: string;
-  title: string;
-  itemCount: number;
-  thumbnail?: string;
-};
-
-export type RoomCreateSourceMode =
-  | "link"
-  | "youtube"
-  | "publicCollection"
-  | "privateCollection";
-
-export type RoomKickedNotice = {
-  roomId: string;
-  reason: string;
-  bannedUntil: number | null;
-  kickedAt: number;
-};
+// Re-export moved types so existing consumers continue to work
+export type { AuthUser } from "../../../shared/auth/AuthContext";
+export type { YoutubePlaylist } from "./RoomPlaylistContext";
+export type { RoomCreateSourceMode } from "./RoomCreateContext";
+export type { RoomKickedNotice } from "./RoomSessionContext";
 
 export interface RoomContextValue {
   authToken: string | null;

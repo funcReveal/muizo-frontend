@@ -3,7 +3,7 @@ import type { PropsWithChildren } from "react";
 import React from "react";
 import { Link } from "react-router-dom";
 
-import { useRoom } from "../../features/Room/model/useRoom";
+import { useAuth } from "../../shared/auth/AuthContext";
 
 type RequireAuthRouteProps = PropsWithChildren<{
   title?: string;
@@ -21,7 +21,7 @@ const RequireAuthRoute: React.FC<RequireAuthRouteProps> = ({
   highlights = ["跨裝置同步", "保留歷史資料", "快速回到常用功能"],
   allowGuest = false,
 }) => {
-  const { authLoading, authUser, username, loginWithGoogle } = useRoom();
+  const { authLoading, authUser, username, loginWithGoogle } = useAuth();
 
   if (authLoading) {
     return (

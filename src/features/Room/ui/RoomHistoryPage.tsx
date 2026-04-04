@@ -15,7 +15,8 @@ import type {
   RoomSettlementQuestionRecap,
   RoomSettlementSnapshot,
 } from "../model/types";
-import { useRoom } from "../model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { useRoomSession } from "../model/RoomSessionContext";
 import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
 import HistoryArchiveHeader from "../../Settlement/ui/components/roomHistoryPage/HistoryArchiveHeader";
 import HistoryReplayDialog from "../../Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
@@ -224,7 +225,8 @@ const normalizeQuestionRecap = (
 
 const RoomHistoryPage: React.FC = () => {
   const navigate = useNavigate();
-  const { clientId, authToken, refreshAuthToken, setStatusText } = useRoom();
+  const { clientId, authToken, refreshAuthToken } = useAuth();
+  const { setStatusText } = useRoomSession();
 
   const [items, setItems] = useState<RoomSettlementHistorySummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);

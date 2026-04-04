@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { AuthUser } from "./RoomContext";
+import type { AuthUser } from "../../../shared/auth/AuthContext";
 import {
   apiAuthGoogle,
   apiLogout,
