@@ -1,4 +1,4 @@
-ï»¿import type { AuthUser, YoutubePlaylist } from "./RoomContext";
+import type { AuthUser, YoutubePlaylist } from "./RoomContext";
 import type { PlaylistItem, RoomSummary } from "./types";
 
 export type ApiResult<T> = {
@@ -170,7 +170,7 @@ const fetchJson = async <T>(
       return {
         ok: false,
         status: 408,
-        payload: { error: "è«‹æ±‚é€¾æ™‚ï¼Œè«‹ç¨å¾Œå†è©¦" } as T,
+        payload: { error: "½Ğ¨D¹O®É¡A½Ğµy«á¦A¸Õ" } as T,
       };
     }
     throw error;

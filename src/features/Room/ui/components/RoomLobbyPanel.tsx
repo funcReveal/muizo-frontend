@@ -57,6 +57,7 @@ import {
   getQuestionMax,
 } from "../../model/roomUtils";
 import { normalizePlaybackExtensionMode } from "../../model/roomProviderUtils";
+import { resolveSettlementTrackLink } from "../../../Settlement/model/settlementLinks";
 import {
   DEFAULT_PLAYBACK_EXTENSION_MODE,
   DEFAULT_PLAY_DURATION_SEC,
@@ -70,9 +71,11 @@ import RoomLobbyHostControls from "./RoomLobbyHostControls";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
+import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 
-import { useGameSfx } from "../hooks/useGameSfx";
+import { useGameSfx } from "../../../GameRoom/model/useGameSfx";
 import {
+  DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   DEFAULT_GAME_VOLUME,
   DEFAULT_SFX_ENABLED,
   DEFAULT_SFX_PRESET,
@@ -217,6 +220,7 @@ interface RoomLobbyParticipantsPanelProps {
   openSlotCount: number;
   canDecreasePlayers: boolean;
   canIncreasePlayers: boolean;
+  avatarEffectLevel: "off" | "simple" | "full";
   actionAnchorEl: HTMLElement | null;
   actionTargetId: string | null;
   closeActionMenu: () => void;
@@ -233,6 +237,7 @@ interface RoomLobbyParticipantRowProps {
   selfClientId: string;
   selfAvatarUrl?: string | null;
   isHost: boolean;
+  avatarEffectLevel: "off" | "simple" | "full";
   isActionOpen: boolean;
   actionAnchorEl: HTMLElement | null;
   closeActionMenu: () => void;
@@ -247,6 +252,7 @@ const RoomLobbyParticipantRow = React.memo(function RoomLobbyParticipantRow({
   selfClientId,
   selfAvatarUrl,
   isHost,
+  avatarEffectLevel,
   isActionOpen,
   actionAnchorEl,
   closeActionMenu,
@@ -258,7 +264,6 @@ const RoomLobbyParticipantRow = React.memo(function RoomLobbyParticipantRow({
   const isParticipantHost = participant.clientId === hostClientId;
   const showActions = isHost && !isSelf;
   const participantName = normalizeDisplayText(participant.username, "玩家");
-  const participantInitial = participantName.trim().slice(0, 1).toUpperCase();
   const participantAvatarUrl = isSelf
     ? selfAvatarUrl ?? participant.avatar_url ?? participant.avatarUrl ?? null
     : participant.avatar_url ?? participant.avatarUrl ?? null;
@@ -274,13 +279,15 @@ const RoomLobbyParticipantRow = React.memo(function RoomLobbyParticipantRow({
           overlap="circular"
           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         >
-          <Avatar
+          <PlayerAvatar
             className="room-lobby-player-avatar"
-            src={participantAvatarUrl ?? undefined}
-            alt={participantName}
-          >
-            {participantInitial || "P"}
-          </Avatar>
+            username={participantName}
+            clientId={participant.clientId}
+            avatarUrl={participantAvatarUrl ?? undefined}
+            size={56}
+            effectLevel={avatarEffectLevel}
+            isMe={isSelf}
+          />
         </Badge>
         <div className="room-lobby-player-copy">
           <div className="room-lobby-player-title-row">
@@ -393,6 +400,7 @@ const RoomLobbyParticipantRow = React.memo(function RoomLobbyParticipantRow({
   prevProps.selfClientId === nextProps.selfClientId &&
   prevProps.selfAvatarUrl === nextProps.selfAvatarUrl &&
   prevProps.isHost === nextProps.isHost &&
+  prevProps.avatarEffectLevel === nextProps.avatarEffectLevel &&
   prevProps.isActionOpen === nextProps.isActionOpen &&
   prevProps.actionAnchorEl === nextProps.actionAnchorEl
 ));
@@ -471,6 +479,7 @@ const RoomLobbyParticipantsPanel = React.memo(function RoomLobbyParticipantsPane
   selfClientId,
   selfAvatarUrl,
   isHost,
+  avatarEffectLevel,
   playerCountLabel,
   openSlotCount,
   canDecreasePlayers,
@@ -515,6 +524,7 @@ const RoomLobbyParticipantsPanel = React.memo(function RoomLobbyParticipantsPane
               selfClientId={selfClientId}
               selfAvatarUrl={selfAvatarUrl}
               isHost={isHost}
+              avatarEffectLevel={avatarEffectLevel}
               isActionOpen={
                 Boolean(actionAnchorEl) && actionTargetId === participant.clientId
               }
@@ -697,6 +707,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const sfxEnabled = settingsModel?.sfxEnabled ?? DEFAULT_SFX_ENABLED;
   const sfxVolume = settingsModel?.sfxVolume ?? DEFAULT_SFX_VOLUME;
   const sfxPreset = settingsModel?.sfxPreset ?? DEFAULT_SFX_PRESET;
+  const avatarEffectLevel =
+    settingsModel?.avatarEffectLevel ?? DEFAULT_AVATAR_EFFECT_LEVEL_VALUE;
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
     volume: Math.round((sfxVolume * gameVolume) / 100),
@@ -1355,6 +1367,16 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       `歌曲 ${index + 1}`,
     );
     const displayUploader = normalizeDisplayText(item.uploader ?? "", "Unknown");
+    const playlistAuthorHref = resolveSettlementTrackLink({
+      provider: item.provider,
+      sourceId: item.sourceId ?? null,
+      channelId: item.channelId ?? null,
+      videoId: item.videoId,
+      url: item.url ?? "",
+      title: item.title ?? "",
+      answerText: item.answerText ?? item.title ?? "",
+      uploader: item.uploader ?? displayUploader,
+    }).authorHref;
 
     return (
       <div style={style}>
@@ -1385,21 +1407,34 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 {canOpenItem ? (
                   <button
                     type="button"
-                    className="room-lobby-playlist-row-link room-lobby-playlist-row-link--button"
+                    className="mq-title-link mq-title-link--list room-lobby-playlist-row-link room-lobby-playlist-row-link--button"
                     onClick={() => handleOpenPlaylistItem(item.url)}
                     aria-label={`開啟歌曲：${displayTitle}`}
                   >
                     {displayTitle}
                   </button>
                 ) : (
-                  <span className="room-lobby-playlist-row-link">
+                  <span className="mq-title-link mq-title-link--list room-lobby-playlist-row-link">
                     {displayTitle}
                   </span>
                 )}
               </Typography>
 
               <p className="text-[11px] text-slate-400">
-                {displayUploader}
+                {playlistAuthorHref ? (
+                  <a
+                    href={playlistAuthorHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={playlistAuthorHref}
+                    data-author-href={playlistAuthorHref}
+                    className="mq-author-link mq-author-link--subtle"
+                  >
+                    {displayUploader}
+                  </a>
+                ) : (
+                  displayUploader
+                )}
                 {item.duration ? ` · ${item.duration}` : ""}
               </p>
             </div>
@@ -1781,11 +1816,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 
   const participantsPanel = (
     <RoomLobbyParticipantsPanel
-            hostClientId={currentRoom?.hostClientId}
+      hostClientId={currentRoom?.hostClientId}
       participants={participants}
       selfClientId={selfClientId}
       selfAvatarUrl={selfAvatarUrl}
       isHost={isHost}
+      avatarEffectLevel={avatarEffectLevel}
       playerCountLabel={playerCountLabel}
       openSlotCount={openSlotCount}
       canDecreasePlayers={canDecreasePlayers}
@@ -2485,4 +2521,5 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 };
 
 export default RoomLobbyPanel;
+
 

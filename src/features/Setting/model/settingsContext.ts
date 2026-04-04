@@ -14,6 +14,10 @@ import {
   DEFAULT_SCOREBOARD_BORDER_LINE_STYLE,
   DEFAULT_SCOREBOARD_BORDER_THEME,
 } from "./scoreboardBorderEffects";
+import {
+  DEFAULT_AVATAR_EFFECT_LEVEL,
+  type AvatarEffectLevel,
+} from "../../../shared/ui/playerAvatar/playerAvatarTheme";
 
 export type KeyBindings = Record<number, string>;
 
@@ -37,6 +41,8 @@ export const SETTLEMENT_PREVIEW_STORAGE_KEYS = {
   volume: "mq_settlement_preview_volume",
 } as const;
 
+export const AVATAR_EFFECT_STORAGE_KEY = "mq_avatar_effect_level";
+
 export const DEFAULT_SFX_ENABLED = true;
 export const DEFAULT_SFX_VOLUME = 50;
 export const DEFAULT_SFX_PRESET: SfxPresetId = "arcade";
@@ -54,6 +60,7 @@ export const DEFAULT_SCOREBOARD_BORDER_MASK_ENABLED_VALUE =
   DEFAULT_SCOREBOARD_BORDER_MASK_ENABLED;
 export const DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT_VALUE =
   DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT;
+export const DEFAULT_AVATAR_EFFECT_LEVEL_VALUE = DEFAULT_AVATAR_EFFECT_LEVEL;
 
 export type KeyBindingSetter = (
   next: KeyBindings | ((prev: KeyBindings) => KeyBindings),
@@ -86,6 +93,8 @@ export type SettingsModelValue = {
   setScoreboardBorderTheme: (next: ScoreboardBorderThemeId) => void;
   scoreboardBorderParticleCount: number;
   setScoreboardBorderParticleCount: (next: number) => void;
+  avatarEffectLevel: AvatarEffectLevel;
+  setAvatarEffectLevel: (next: AvatarEffectLevel) => void;
   resetSfxSettings: () => void;
 };
 

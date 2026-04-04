@@ -8,6 +8,7 @@ export type SettingsSectionId =
   | "keybindings"
   | "control-preview"
   | "sfx"
+  | "avatar-effects"
   | "scoreboard-effects"
   | "display-presets"
   | "accessibility-presets";

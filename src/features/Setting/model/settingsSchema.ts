@@ -56,6 +56,13 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
     status: "ready",
   },
   {
+    id: "avatar-effects",
+    categoryId: "display",
+    title: "玩家頭像特效",
+    description: "調整玩家頭像的辨識度、名次外框與成就感呈現，並可直接預覽。",
+    status: "ready",
+  },
+  {
     id: "scoreboard-effects",
     categoryId: "display",
     title: "排行榜邊框特效",

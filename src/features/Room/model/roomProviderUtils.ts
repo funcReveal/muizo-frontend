@@ -14,7 +14,7 @@ import {
   formatSeconds,
   normalizePlaylistItems,
 } from "./roomUtils";
-import { resolveSettlementTrackLink } from "./settlementLinks";
+import { resolveSettlementTrackLink } from "../../Settlement/model/settlementLinks";
 import type {
   ChatMessage,
   PlaylistItem,
@@ -71,7 +71,10 @@ export const mapCollectionItemsToPlaylist = (
       uploader: item.channel_title ?? undefined,
       channelId:
         item.channel_id ??
-        extractYoutubeChannelId((item as CollectionItemRecord & { channel_url?: string | null }).channel_url) ??
+        extractYoutubeChannelId(
+          (item as CollectionItemRecord & { channel_url?: string | null })
+            .channel_url,
+        ) ??
         undefined,
       duration: durationValue,
       startSec,
@@ -112,7 +115,7 @@ export const extractVideoIdFromUrl = (url: string) => {
   }
 };
 
-const GARBLED_TEXT_RE = /[嚙甇蝘撠]/;
+const GARBLED_TEXT_RE = /[?��??��?]/;
 const ESCAPED_UNICODE_RE = /\\[uU][0-9a-fA-F]{4}/;
 const DOUBLY_ESCAPED_UNICODE_RE = /\\\\[uU]/g;
 
@@ -159,12 +162,12 @@ export const sanitizePossibleGarbledText = (
 };
 
 export const formatAckError = (prefix: string, error?: string) => {
-  const safePrefix = sanitizePossibleGarbledText(prefix, "操作失敗");
+  const safePrefix = sanitizePossibleGarbledText(prefix, "?��?失�?");
   const detail = sanitizePossibleGarbledText(
-    error?.trim() || "未知錯誤",
-    "未知錯誤",
+    error?.trim() || "?�知?�誤",
+    "?�知?�誤",
   );
-  return `${safePrefix}：${detail}`;
+  return `${safePrefix}�?{detail}`;
 };
 
 export const normalizeQuestionCount = (
@@ -325,7 +328,9 @@ export const mergeRoomSummaryIntoCurrentRoom = (
   ...summary,
   playlist: {
     ...current.playlist,
-    ...(summary.playlistId !== undefined ? { id: summary.playlistId ?? undefined } : {}),
+    ...(summary.playlistId !== undefined
+      ? { id: summary.playlistId ?? undefined }
+      : {}),
     ...(summary.playlistTitle !== undefined
       ? { title: summary.playlistTitle ?? undefined }
       : {}),

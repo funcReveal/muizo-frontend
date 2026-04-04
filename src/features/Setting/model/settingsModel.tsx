@@ -23,6 +23,8 @@ import {
   DEFAULT_SFX_ENABLED,
   DEFAULT_SFX_PRESET,
   DEFAULT_SFX_VOLUME,
+  AVATAR_EFFECT_STORAGE_KEY,
+  DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   GAME_VOLUME_STORAGE_KEY,
   KEY_BINDINGS_STORAGE_KEY,
   SETTLEMENT_PREVIEW_STORAGE_KEYS,
@@ -32,6 +34,10 @@ import {
   type KeyBindings,
   type SettingsModelValue,
 } from "./settingsContext";
+import {
+  parseAvatarEffectLevel,
+  type AvatarEffectLevel,
+} from "../../../shared/ui/playerAvatar/playerAvatarTheme";
 import {
   clampScoreboardBorderParticleCount,
   parseStoredScoreboardBorderEnabled,
@@ -231,6 +237,15 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         ),
       );
     });
+  const [avatarEffectLevel, setAvatarEffectLevelState] =
+    useState<AvatarEffectLevel>(() => {
+      if (typeof window === "undefined") {
+        return DEFAULT_AVATAR_EFFECT_LEVEL_VALUE;
+      }
+      return parseAvatarEffectLevel(
+        window.localStorage.getItem(AVATAR_EFFECT_STORAGE_KEY),
+      );
+    });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -327,6 +342,11 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       String(scoreboardBorderParticleCount),
     );
   }, [scoreboardBorderParticleCount]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(AVATAR_EFFECT_STORAGE_KEY, avatarEffectLevel);
+  }, [avatarEffectLevel]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -432,6 +452,14 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
             ),
           ),
         );
+        return;
+      }
+      if (event.key === AVATAR_EFFECT_STORAGE_KEY) {
+        setAvatarEffectLevelState(
+          parseAvatarEffectLevel(
+            window.localStorage.getItem(AVATAR_EFFECT_STORAGE_KEY),
+          ),
+        );
       }
     };
 
@@ -505,6 +533,10 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     );
   }, []);
 
+  const setAvatarEffectLevel = useCallback((next: AvatarEffectLevel) => {
+    setAvatarEffectLevelState(parseAvatarEffectLevel(next));
+  }, []);
+
   const resetSfxSettings = useCallback(() => {
     setGameVolumeState(DEFAULT_GAME_VOLUME);
     setSfxEnabledState(DEFAULT_SFX_ENABLED);
@@ -540,6 +572,8 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setScoreboardBorderTheme,
       scoreboardBorderParticleCount,
       setScoreboardBorderParticleCount,
+      avatarEffectLevel,
+      setAvatarEffectLevel,
       resetSfxSettings,
     }),
     [
@@ -569,6 +603,8 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setScoreboardBorderTheme,
       scoreboardBorderParticleCount,
       setScoreboardBorderParticleCount,
+      avatarEffectLevel,
+      setAvatarEffectLevel,
       resetSfxSettings,
     ],
   );

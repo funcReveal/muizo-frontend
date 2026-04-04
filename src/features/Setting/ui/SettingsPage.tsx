@@ -20,6 +20,7 @@ import SettingsLayoutShell from "./components/SettingsLayoutShell";
 import SettingsSectionCard from "./components/SettingsSectionCard";
 import SettingsSidebarNav from "./components/SettingsSidebarNav";
 import SfxSettingsPanel from "./components/SfxSettingsPanel";
+import AvatarEffectSettingsPanel from "./components/AvatarEffectSettingsPanel";
 import ScoreboardEffectSettingsPanel from "./components/ScoreboardEffectSettingsPanel";
 import {
   DEFAULT_KEY_BINDINGS,
@@ -194,6 +195,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
       case "sfx":
         return <SfxSettingsPanel key={sectionId} sectionId={sectionId} />;
+
+      case "avatar-effects":
+        return (
+          <AvatarEffectSettingsPanel key={sectionId} sectionId={sectionId} />
+        );
 
       case "scoreboard-effects":
         return (

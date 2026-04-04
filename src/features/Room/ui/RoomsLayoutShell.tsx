@@ -15,7 +15,7 @@ import { USERNAME_MAX } from "../model/roomConstants";
 import { useRoom } from "../model/useRoom";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import SettingsPage from "../../Setting/ui/SettingsPage";
-import FloatingChatWindow from "./components/FloatingChatWindow";
+import FloatingChatWindow from "../../../shared/chat/FloatingChatWindow";
 
 type NavigationTarget = "rooms" | "collections" | "history" | "settings";
 

@@ -32,7 +32,7 @@ import {
   type RoomKickedNotice,
   type RoomCreateSourceMode,
 } from "./RoomContext";
-import { ChatInputContext } from "./ChatInputContext";
+import { ChatInputContext } from "../../../shared/chat/ChatInputContext";
 import {
   API_URL,
   DEFAULT_PLAY_DURATION_SEC,
