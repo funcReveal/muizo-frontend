@@ -115,7 +115,7 @@ export const extractVideoIdFromUrl = (url: string) => {
   }
 };
 
-const GARBLED_TEXT_RE = /[?��??��?]/;
+const GARBLED_TEXT_RE = /�/;
 const ESCAPED_UNICODE_RE = /\\[uU][0-9a-fA-F]{4}/;
 const DOUBLY_ESCAPED_UNICODE_RE = /\\\\[uU]/g;
 
@@ -155,19 +155,19 @@ export const normalizeRoomDisplayText = (
 
 export const sanitizePossibleGarbledText = (
   value: string,
-  fallback = "系統訊息",
+  fallback = "發生錯誤",
 ) => {
   const text = decodeEscapedUnicodeText(value);
   return looksBrokenText(text) ? fallback : text;
 };
 
 export const formatAckError = (prefix: string, error?: string) => {
-  const safePrefix = sanitizePossibleGarbledText(prefix, "?��?失�?");
+  const safePrefix = sanitizePossibleGarbledText(prefix, "操作失敗");
   const detail = sanitizePossibleGarbledText(
-    error?.trim() || "?�知?�誤",
-    "?�知?�誤",
+    error?.trim() || "未知錯誤",
+    "未知錯誤",
   );
-  return `${safePrefix}�?{detail}`;
+  return `${safePrefix}：${detail}`;
 };
 
 export const normalizeQuestionCount = (
