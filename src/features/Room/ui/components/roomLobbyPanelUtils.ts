@@ -1,5 +1,5 @@
 import type { RoomSettlementHistorySummary } from "../../model/types";
-import { normalizeRoomDisplayText } from "../../model/roomProviderUtils";
+import { normalizeRoomDisplayText } from "../../../../shared/utils/text";
 
 export const SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX = "settlement-review:";
 

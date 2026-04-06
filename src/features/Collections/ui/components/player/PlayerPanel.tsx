@@ -14,7 +14,7 @@ import {
   VolumeOff,
   VolumeUp,
 } from "@mui/icons-material";
-import { buildYoutubeChannelUrl } from "../../../../Room/model/roomUtils";
+import { buildYoutubeChannelUrl } from "../../../../../shared/utils/youtube";
 
 type PlayerPanelProps = {
   selectedVideoId: string | null;

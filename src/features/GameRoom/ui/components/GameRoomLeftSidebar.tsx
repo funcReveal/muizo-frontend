@@ -9,8 +9,13 @@ import {
   DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT_VALUE,
   DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID,
   DEFAULT_SCOREBOARD_BORDER_THEME_ID,
-  SettingsModelContext,
+  DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
 } from "../../../Setting/model/settingsContext";
+import type {
+  ScoreboardBorderAnimationId,
+  ScoreboardBorderLineStyleId,
+  ScoreboardBorderThemeId,
+} from "../../../Setting/model/scoreboardBorderEffects";
 import {
   getScoreboardBorderThemeClassName,
   resolveScoreboardBorderMotionByTheme,
@@ -19,12 +24,12 @@ import AnimatedScoreboardBorder from "../../../../shared/ui/AnimatedScoreboardBo
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 import type { ChatMessage, RoomParticipant } from "../../../Room/model/types";
-import { normalizeRoomDisplayText } from "../../../Room/model/roomProviderUtils";
+import { normalizeRoomDisplayText } from "../../../shared/utils/text";
 import type { TopTwoSwapState } from "../../model/gameRoomTypes";
 import { resolveComboTier } from "../lib/gameRoomUiUtils";
 import type { ScoreboardRow } from "../../model/gameRoomDerivations";
+import type { AvatarEffectLevel } from "../../../../shared/ui/playerAvatar/playerAvatarTheme";
 import GameRoomChatPanel from "../../../../shared/chat/GameRoomChatPanel";
-import { DEFAULT_AVATAR_EFFECT_LEVEL_VALUE } from "../../../Setting/model/settingsContext";
 
 interface GameRoomLeftSidebarProps {
   scoreboardRows: ScoreboardRow[];
@@ -46,6 +51,15 @@ interface GameRoomLeftSidebarProps {
   mobileMinimalHeader?: boolean;
   swapAnimationEnabled?: boolean;
   swapReplayToken?: number;
+  // Settings — passed from parent so React.memo can isolate scoreboard re-renders
+  // from unrelated settings changes (e.g. volume) that don't affect the sidebar.
+  avatarEffectLevel?: AvatarEffectLevel;
+  scoreboardBorderEnabled?: boolean;
+  scoreboardBorderMaskEnabled?: boolean;
+  scoreboardBorderAnimation?: ScoreboardBorderAnimationId;
+  scoreboardBorderLineStyle?: ScoreboardBorderLineStyleId;
+  scoreboardBorderTheme?: ScoreboardBorderThemeId;
+  scoreboardBorderParticleCount?: number;
 }
 
 const RANK_SWAP_DURATION_MS = 960;
@@ -214,26 +228,14 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   mobileMinimalHeader = false,
   swapAnimationEnabled = true,
   swapReplayToken = 0,
+  avatarEffectLevel = DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
+  scoreboardBorderEnabled = DEFAULT_SCOREBOARD_BORDER_ENABLED_VALUE,
+  scoreboardBorderMaskEnabled = true,
+  scoreboardBorderAnimation = DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID,
+  scoreboardBorderLineStyle = DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID,
+  scoreboardBorderTheme = DEFAULT_SCOREBOARD_BORDER_THEME_ID,
+  scoreboardBorderParticleCount = DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT_VALUE,
 }) => {
-  const settingsModel = React.useContext(SettingsModelContext);
-  const scoreboardBorderAnimation =
-    settingsModel?.scoreboardBorderAnimation ??
-    DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID;
-  const scoreboardBorderEnabled =
-    settingsModel?.scoreboardBorderEnabled ??
-    DEFAULT_SCOREBOARD_BORDER_ENABLED_VALUE;
-  const scoreboardBorderMaskEnabled =
-    settingsModel?.scoreboardBorderMaskEnabled ?? true;
-  const scoreboardBorderLineStyle =
-    settingsModel?.scoreboardBorderLineStyle ??
-    DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID;
-  const scoreboardBorderTheme =
-    settingsModel?.scoreboardBorderTheme ?? DEFAULT_SCOREBOARD_BORDER_THEME_ID;
-  const scoreboardBorderParticleCount =
-    settingsModel?.scoreboardBorderParticleCount ??
-    DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT_VALUE;
-  const avatarEffectLevel =
-    settingsModel?.avatarEffectLevel ?? DEFAULT_AVATAR_EFFECT_LEVEL_VALUE;
   const effectiveScoreboardBorderMotion = React.useMemo(() => {
     if (!scoreboardBorderEnabled) return "none";
     if (scoreboardBorderAnimation === "none") return "none";

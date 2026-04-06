@@ -9,6 +9,7 @@ import { useChatInput } from "./ChatInputContext";
 import type { ChatMessage } from "../../features/Room/model/types";
 import { DanmuContext } from "../../features/GameRoom/model/DanmuContext";
 import useMobileDrawerDragDismiss from "../../features/GameRoom/ui/lib/useMobileDrawerDragDismiss";
+import { blurActiveInteractiveElement } from "../utils/dom";
 
 const LAST_READ_KEY_PREFIX = "mq_room_chat_last_read_message:";
 const MOBILE_CHAT_MIN_HEIGHT_VH = 26;
@@ -22,14 +23,6 @@ const GAME_ROOM_DRAWER_MODAL_PROPS = {
   disableRestoreFocus: true,
   disableScrollLock: true,
 } as const;
-
-const blurActiveInteractiveElement = () => {
-  if (typeof document === "undefined") return;
-  const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLElement) {
-    activeElement.blur();
-  }
-};
 
 const readLastReadId = (roomId: string | null): string | null => {
   if (!roomId || typeof window === "undefined") return null;

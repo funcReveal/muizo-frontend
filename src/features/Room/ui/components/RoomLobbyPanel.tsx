@@ -40,7 +40,6 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type {
-  ChatMessage,
   GameState,
   PlaylistItem,
   PlaybackExtensionMode,
@@ -88,7 +87,6 @@ import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 interface RoomLobbyPanelProps {
   currentRoom: RoomState["room"] | null;
   participants: RoomParticipant[];
-  messages?: ChatMessage[];
   selfClientId: string;
   roomPassword?: string | null;
   selfAvatarUrl?: string | null;
@@ -622,6 +620,8 @@ const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
 const LOBBY_INTERACTIVE_SELECTOR =
   "button, [role='button'], [role='tab'], .MuiButtonBase-root";
 
+const noop = () => undefined;
+
 const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   currentRoom,
   participants,
@@ -935,7 +935,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const roomAllowCollectionClipTiming =
     currentRoom?.gameSettings?.allowCollectionClipTiming ?? true;
 
-  const extractPlaylistId = (url: string) => {
+  const extractPlaylistId = React.useCallback((url: string) => {
     try {
       const parsed = new URL(url.trim());
       const listId = parsed.searchParams.get("list");
@@ -946,7 +946,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     } catch {
       return null;
     }
-  };
+  }, []);
   const isCollectionsEmptyNotice = Boolean(
     collectionsError &&
     (collectionsError.toLowerCase().includes("no collections") ||
@@ -1069,11 +1069,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     });
   }, [getSuggestionKey, playlistSuggestions]);
 
-  const markSuggestionsSeen = () => {
+  const markSuggestionsSeen = React.useCallback(() => {
     if (latestSuggestionAt > 0) {
       setLastSuggestionSeenAt(latestSuggestionAt);
     }
-  };
+  }, [latestSuggestionAt]);
   const newSuggestionCount = useMemo(
     () =>
       playlistSuggestions.reduce(
@@ -1116,10 +1116,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     mobileLobbyTab,
   ]);
 
-  const closeActionMenu = () => {
+  const closeActionMenu = React.useCallback(() => {
     setActionAnchorEl(null);
     setActionTargetId(null);
-  };
+  }, []);
 
   const openSettingsModal = React.useCallback(() => {
     if (!currentRoom) return;
@@ -1158,13 +1158,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     setSettingsOpen(true);
   }, [currentRoom, questionMaxLimit, roomPassword]);
 
-  const closeSettingsModal = () => {
+  const closeSettingsModal = React.useCallback(() => {
     if (settingsSaving) return;
     setSettingsOpen(false);
     setSettingsError(null);
-  };
+  }, [settingsSaving]);
 
-  const handleSaveSettings = async () => {
+  const handleSaveSettings = React.useCallback(async () => {
     if (settingsDisabled || settingsSaving) return;
     const trimmedName = settingsName.trim();
     if (!trimmedName) {
@@ -1227,7 +1227,28 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     } finally {
       setSettingsSaving(false);
     }
-  };
+  }, [
+    onUpdateRoomSettings,
+    questionMaxLimit,
+    settingsAllowCollectionClipTiming,
+    settingsDisabled,
+    settingsMaxPlayers,
+    settingsName,
+    settingsPassword,
+    settingsPasswordDirty,
+    settingsPlaybackExtensionMode,
+    settingsPlayDurationSec,
+    settingsQuestionCount,
+    settingsRevealDurationSec,
+    settingsSaving,
+    settingsStartOffsetSec,
+    settingsVisibility,
+  ]);
+
+  const handleSaveSettingsClick = React.useCallback(
+    () => { void handleSaveSettings(); },
+    [handleSaveSettings],
+  );
 
   const openConfirmModal = React.useCallback(
     (title: string, detail: string | undefined, action: () => void) => {
@@ -1256,7 +1277,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     );
   }, [onLeave, openConfirmModal]);
 
-  const handleApplyHostSuggestion = async (suggestion: PlaylistSuggestion) => {
+  const handleApplyHostSuggestion = React.useCallback(async (suggestion: PlaylistSuggestion) => {
     const suggestionKey = getSuggestionKey(suggestion);
     const now = Date.now();
     const lastRequest = lastHostSuggestionRequestRef.current;
@@ -1306,9 +1327,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         setIsApplyingHostSuggestion(false);
       }, HOST_SUGGESTION_REQUEST_GAP_MS);
     }
-  };
+  }, [
+    onApplySuggestionSnapshot,
+    onFetchPlaylistByUrl,
+    onSelectCollection,
+    onLoadCollectionItems,
+  ]);
 
-  const requestApplyHostSuggestion = (suggestion: PlaylistSuggestion) => {
+  const requestApplyHostSuggestion = React.useCallback((suggestion: PlaylistSuggestion) => {
     const isSnapshot = Boolean(suggestion.items?.length);
     const displayLabel = suggestion.title ?? suggestion.value;
     openConfirmModal(
@@ -1323,12 +1349,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     setHostSuggestionHint(
       isSnapshot ? "即將套用快照" : "即將套用來源",
     );
-  };
+  }, [handleApplyHostSuggestion, openConfirmModal]);
 
   const suggestionResetKey =
     gameState?.status === "ended"
       ? `ended-${gameState?.startedAt ?? 0}`
       : "not-ended";
+
+  const handleToggleShowRoomPassword = React.useCallback(
+    () => setShowRoomPassword((prev) => !prev),
+    [],
+  );
 
   const handleOpenPlaylistItem = React.useCallback((url?: string | null) => {
     if (!url) return;
@@ -1762,7 +1793,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             type="button"
             className="room-lobby-metric-trailing-icon room-lobby-metric-trailing-icon--toggle"
             aria-label={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
-            onClick={() => setShowRoomPassword((prev) => !prev)}
+            onClick={handleToggleShowRoomPassword}
           >
             {showRoomPassword ? (
               <VisibilityOffRoundedIcon fontSize="small" />
@@ -1875,7 +1906,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onApplyPlaylistUrlDirect={onApplyPlaylistUrlDirect}
       onApplyCollectionDirect={onApplyCollectionDirect}
       onApplyYoutubePlaylistDirect={onApplyYoutubePlaylistDirect}
-      onRequestGoogleLogin={onRequestGoogleLogin ?? (() => undefined)}
+      onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
     />
   ) : gameState?.status !== "playing" ? (
     <RoomLobbySuggestionPanel
@@ -1893,7 +1924,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onSuggestPlaylist={onSuggestPlaylist}
       extractPlaylistId={extractPlaylistId}
       openConfirmModal={openConfirmModal}
-      onRequestGoogleLogin={onRequestGoogleLogin ?? (() => undefined)}
+      onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
     />
   ) : null;
   const controlPanel = hostPanel ?? (
@@ -2457,7 +2488,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         }}
         settingsError={settingsError}
         onClose={closeSettingsModal}
-        onSave={() => void handleSaveSettings()}
+        onSave={handleSaveSettingsClick}
       />
       <Dialog
         open={Boolean(confirmModal)}

@@ -13,6 +13,7 @@ import { isAdminRole } from "../../../shared/auth/roles";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { isGoogleReauthRequired } from "../../../shared/auth/providerAuth";
 import { trackEvent } from "../../../shared/analytics/track";
+import { extractVideoId } from "../../../shared/utils/youtube";
 import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
@@ -56,25 +57,6 @@ const parseDurationToSeconds = (duration?: string): number | null => {
   return null;
 };
 
-const extractVideoId = (url: string | undefined | null) => {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    if (host.includes("youtu.be")) {
-      const id = parsed.pathname.split("/").filter(Boolean)[0];
-      return id || null;
-    }
-    const id = parsed.searchParams.get("v");
-    if (id) return id;
-    const path = parsed.pathname.split("/").filter(Boolean);
-    if (path[0] === "shorts" && path[1]) return path[1];
-    if (path[0] === "embed" && path[1]) return path[1];
-    return null;
-  } catch {
-    return null;
-  }
-};
 
 const createServerId = () =>
   crypto.randomUUID?.() ??

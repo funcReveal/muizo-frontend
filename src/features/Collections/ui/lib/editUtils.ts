@@ -15,18 +15,7 @@ export const parseDurationToSeconds = (duration?: string): number | null => {
   return null;
 };
 
-export const formatSeconds = (value: number) => {
-  const clamped = Math.max(0, Math.floor(value));
-  const h = Math.floor(clamped / 3600);
-  const m = Math.floor((clamped % 3600) / 60);
-  const s = clamped % 60;
-  if (h > 0) {
-    return `${h}:${m.toString().padStart(2, "0")}:${s
-      .toString()
-      .padStart(2, "0")}`;
-  }
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
+export { formatSeconds } from "../../../../shared/utils/format";
 
 export const parseTimeInput = (value: string) => {
   const trimmed = value.trim();
@@ -53,54 +42,13 @@ export const createLocalId = () =>
 
 export const createServerId = () => createLocalId();
 
-export const videoUrlFromId = (videoId: string) =>
-  `https://www.youtube.com/watch?v=${videoId}`;
-
-export const extractYoutubeChannelId = (value?: string | null) => {
-  const raw = value?.trim();
-  if (!raw) return undefined;
-  if (/^UC[\w-]+$/.test(raw)) return raw;
-  try {
-    const parsed = new URL(raw);
-    if (!/^(www\.)?youtube\.com$/i.test(parsed.hostname)) return undefined;
-    const match = parsed.pathname.match(/^\/channel\/([^/?#]+)/i);
-    return match?.[1] ? decodeURIComponent(match[1]) : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-export type YoutubeThumbnailSize = "default" | "mq" | "hq";
-
-// Prefer smaller thumbnails to keep memory usage reasonable when rendering long lists.
-export const thumbnailFromId = (
-  videoId: string,
-  size: YoutubeThumbnailSize = "mq",
-) => {
-  const key =
-    size === "hq" ? "hqdefault" : size === "default" ? "default" : "mqdefault";
-  return `https://img.youtube.com/vi/${videoId}/${key}.jpg`;
-};
-
-export const extractVideoId = (url: string | undefined | null) => {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    if (host.includes("youtu.be")) {
-      const id = parsed.pathname.split("/").filter(Boolean)[0];
-      return id || null;
-    }
-    const id = parsed.searchParams.get("v");
-    if (id) return id;
-    const path = parsed.pathname.split("/").filter(Boolean);
-    if (path[0] === "shorts" && path[1]) return path[1];
-    if (path[0] === "embed" && path[1]) return path[1];
-    return null;
-  } catch {
-    return null;
-  }
-};
+export {
+  videoUrlFromId,
+  extractYoutubeChannelId,
+  thumbnailFromId,
+  extractVideoId,
+} from "../../../../shared/utils/youtube";
+export type { YoutubeThumbnailSize } from "../../../../shared/utils/youtube";
 
 export const getPlaylistItemKey = (item: { url?: string; title?: string }) => {
   const videoId = extractVideoId(item.url ?? "");

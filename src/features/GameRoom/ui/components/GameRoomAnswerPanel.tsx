@@ -3,7 +3,7 @@ import { Button, Chip, LinearProgress } from "@mui/material";
 
 import RevealChoiceAvatarRow from "./RevealChoiceAvatarRow";
 import type { GameState, PlaylistItem } from "../../../Room/model/types";
-import { normalizeRoomDisplayText } from "../../../Room/model/roomProviderUtils";
+import { normalizeRoomDisplayText } from "../../../shared/utils/text";
 import type {
   MyFeedbackModel,
   RevealChoicePickMap,

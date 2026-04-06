@@ -2,7 +2,7 @@ import type {
   RoomParticipant,
   RoomSettlementQuestionAnswer,
 } from "../../Room/model/types";
-import { normalizeRoomDisplayText } from "../../Room/model/roomProviderUtils";
+import { normalizeRoomDisplayText } from "../../shared/utils/text";
 import type {
   SettlementQuestionRecap,
   SettlementQuestionResult,
