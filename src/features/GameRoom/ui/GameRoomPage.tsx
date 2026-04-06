@@ -84,7 +84,7 @@ import PlayerAvatar from "../../../shared/ui/playerAvatar/PlayerAvatar";
 import useGameRoomChoiceHotkeys from "./lib/useGameRoomChoiceHotkeys";
 import useGameRoomAnswerPanelAutoScroll from "./lib/useGameRoomAnswerPanelAutoScroll";
 import useMobileDrawerDragDismiss from "./lib/useMobileDrawerDragDismiss";
-import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "../../Settlement/model/types";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import { useRoomUi } from "../../Room/model/useRoomUi";
 import { useGameRoomPlaybackState } from "../model/useGameRoomPlaybackState";
@@ -503,13 +503,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     setHostManagementConfirm(null);
   }, [hostManagementConfirm, isHostInGame, onKickPlayer, onTransferHost]);
   const {
-    playbackExtensionMode,
     isManualPlaybackExtensionMode,
     isAutoPlaybackExtensionMode,
     playbackExtensionVote,
     playbackVoteApproveCount,
     playbackVoteRejectCount,
-    playbackVoteEligibleCount,
     playbackVoteMajorityCount,
     playbackVoteEndsAt,
     playbackExtensionSeconds,
@@ -574,31 +572,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   });
 
   const {
-    effectiveTrackOrder,
     trackCursor,
     trackOrderLength,
     boundedCursor,
-    backendTrackIndex,
     currentTrackIndex,
     item,
     resolvedAnswerTitle,
     resolvedRoomName,
-    roomPlayDurationSec,
-    configuredGuessDurationMs,
-    serverGuessDurationMs,
     effectiveGuessDurationMs,
-    roomStartOffsetSec,
-    hasExplicitEndSec,
-    hasExplicitStartSec,
-    itemTimingSource,
-    fallbackClipSource,
-    serverClipSource,
-    effectiveClipSource,
-    derivedClipStartSec,
     fallbackDurationSec,
-    derivedClipEndSec,
-    serverClipStartSec,
-    serverClipEndSec,
     clipStartSec,
     clipEndSec,
     shouldLoopRoomSettingsClip,
@@ -607,7 +589,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     isEnded,
     isReveal,
     showVideo,
-    clipIdentityStartSec,
     trackSessionKey,
     trackLoadKey,
   } = useGameRoomPlaybackState({ gameState, playlist, room, showVideoOverride });
@@ -1847,4 +1828,3 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 };
 
 export default GameRoomPage;
-

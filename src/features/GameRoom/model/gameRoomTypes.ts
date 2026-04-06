@@ -5,7 +5,7 @@
   RoomSettlementQuestionAnswer,
   RoomState,
 } from "../../Room/model/types";
-import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "../../Settlement/model/types";
 
 export type RevealAnswerResult = RoomSettlementQuestionAnswer["result"];
 

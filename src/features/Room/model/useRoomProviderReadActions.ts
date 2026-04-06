@@ -27,10 +27,7 @@ export const useRoomProviderReadActions = ({
   apiUrl,
   getSocket,
   currentRoom,
-  isInviteMode: _isInviteMode,
-  inviteRoomId: _inviteRoomId,
   setRooms,
-  setInviteNotFound: _setInviteNotFound,
   setStatusText,
 }: UseRoomProviderReadActionsParams) => {
   const withSocketAckTimeout = useCallback(

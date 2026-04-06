@@ -6,7 +6,7 @@ import {
   resolveComboMilestoneSfxEvent,
   resolveCountdownSfxEvent,
   resolveGuessDeadlineSfxEvent,
-} from "../../Room/model/sfx/gameSfxEngine";
+} from "../../../shared/sfx/gameSfxEngine";
 import { triggerHapticFeedback } from "./gameRoomUtils";
 import type { PlayGameSfx } from "./useGameSfx";
 

@@ -20,10 +20,8 @@ import type {
   RoomParticipant,
   RoomState,
 } from "../../../Room/model/types";
-import type { SettlementQuestionRecap } from "./GameSettlementPanel";
-import {
-  type RecommendCategory,
-} from "../lib/settlementUtils";
+import type { SettlementQuestionRecap } from "../../model/types";
+import { type RecommendCategory } from "../lib/settlementUtils";
 import OverviewSection from "./liveSettlementShowcase/OverviewSection";
 import RecommendGuideSection from "./liveSettlementShowcase/RecommendGuideSection";
 import {
@@ -49,13 +47,13 @@ import {
   type SettlementExtendedRecap,
   type SettlementRecommendationCard,
 } from "./liveSettlementShowcase/showcasePrimitives";
-import useSettlementPreviewPlayback from "./liveSettlementShowcase/useSettlementPreviewPlayback";
-import useSettlementRecommendLifecycle from "./liveSettlementShowcase/useSettlementRecommendLifecycle";
-import useSettlementRecommendationNavigator from "./liveSettlementShowcase/useSettlementRecommendationNavigator";
-import useSettlementRecommendationInsights from "./liveSettlementShowcase/useSettlementRecommendationInsights";
+import useSettlementPreviewPlayback from "../../model/useSettlementPreviewPlayback";
+import useSettlementRecommendLifecycle from "../../model/useSettlementRecommendLifecycle";
+import useSettlementRecommendationNavigator from "../../model/useSettlementRecommendationNavigator";
+import useSettlementRecommendationInsights from "../../model/useSettlementRecommendationInsights";
 import ReviewRecapSection from "./liveSettlementShowcase/ReviewRecapSection";
-import useSettlementRecapSelectionState from "./liveSettlementShowcase/useSettlementRecapSelectionState";
-import useSettlementReviewState from "./liveSettlementShowcase/useSettlementReviewState";
+import useSettlementRecapSelectionState from "../../model/useSettlementRecapSelectionState";
+import useSettlementReviewState from "../../model/useSettlementReviewState";
 import SettlementStageHeader from "./liveSettlementShowcase/SettlementStageHeader";
 import SettlementMobileFooter from "./liveSettlementShowcase/SettlementMobileFooter";
 import SettlementExitDialog from "./liveSettlementShowcase/SettlementExitDialog";

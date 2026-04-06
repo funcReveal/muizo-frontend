@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-import type { SfxPresetId } from "../../Room/model/sfx/gameSfxEngine";
+import type { SfxPresetId } from "../../../shared/sfx/gameSfxEngine";
 import type {
   ScoreboardBorderAnimationId,
   ScoreboardBorderLineStyleId,

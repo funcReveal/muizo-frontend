@@ -118,7 +118,7 @@ export const useRoomAuth = ({
     const run = async () => {
       const startedAt = performance.now();
       try {
-        const { ok, status, payload } = await apiRefreshAuthToken(apiUrl);
+        const { ok, payload } = await apiRefreshAuthToken(apiUrl);
         if (!ok || !payload?.token || !payload.user) {
           setAuthExpired(true);
           lastRefreshFailAtRef.current = Date.now();

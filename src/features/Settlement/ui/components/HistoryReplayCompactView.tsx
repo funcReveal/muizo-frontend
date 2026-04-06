@@ -810,7 +810,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                           : "border-slate-700/70 bg-slate-900/55 hover:-translate-y-0.5 hover:border-amber-300/35 hover:bg-slate-900/68"
                       }`}
                     >
-                      <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex min-w-0 items-start gap-2">
                         <span
                           className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${
                             active
@@ -818,10 +818,15 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                               : "bg-slate-700"
                           }`}
                         />
-                        <HoverMarqueeText
-                          text={recap.title}
-                          className="min-w-0 max-w-full flex-1 text-sm font-semibold text-slate-100"
-                        />
+                        <div className="min-w-0 flex-1">
+                          <HoverMarqueeText
+                            text={recap.title}
+                            className="min-w-0 max-w-full text-sm font-semibold text-slate-100"
+                          />
+                          <p className="mt-1 truncate text-[11px] text-slate-400">
+                            {recap.uploader || "未知作者"}
+                          </p>
+                        </div>
                         <span
                           className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone.chipClassName}`}
                         >

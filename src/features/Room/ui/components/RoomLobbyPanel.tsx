@@ -72,7 +72,7 @@ import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 
-import { useGameSfx } from "../../../GameRoom/model/useGameSfx";
+import { useGameSfx } from "../../../../shared/hooks/useGameSfx";
 import {
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   DEFAULT_GAME_VOLUME,
@@ -1328,6 +1328,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       }, HOST_SUGGESTION_REQUEST_GAP_MS);
     }
   }, [
+    getSuggestionKey,
     onApplySuggestionSnapshot,
     onFetchPlaylistByUrl,
     onSelectCollection,
@@ -2545,5 +2546,4 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 };
 
 export default RoomLobbyPanel;
-
 

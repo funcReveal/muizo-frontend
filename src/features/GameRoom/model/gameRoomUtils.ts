@@ -3,7 +3,7 @@
   RoomParticipant,
   RoomState,
 } from "../../Room/model/types";
-import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "../../Settlement/model/types";
 
 export const MAX_DANMU_TEXT_LENGTH = 56;
 export const DANMU_LANE_COUNT = 6;

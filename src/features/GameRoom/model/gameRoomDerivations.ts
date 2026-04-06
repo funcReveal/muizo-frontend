@@ -6,7 +6,7 @@ import { normalizeRoomDisplayText } from "../../shared/utils/text";
 import type {
   SettlementQuestionRecap,
   SettlementQuestionResult,
-} from "../../Settlement/ui/components/GameSettlementPanel";
+} from "../../Settlement/model/types";
 
 import type {
   MyFeedbackModel,
