@@ -1406,7 +1406,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   return (
     <DanmuContext.Provider value={danmuContextValue}>
     <div className="game-room-shell">
-      <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-3 pb-20 lg:px-0 lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:pb-14 xl:grid-cols-[minmax(360px,400px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(400px,440px)_minmax(0,1fr)] lg:h-[calc(100vh-60px)] lg:items-stretch">
+      <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-20 lg:grid-cols-[minmax(250px,290px)_minmax(0,1fr)] lg:pb-14 xl:grid-cols-[minmax(265px,305px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] lg:h-[calc(100vh-60px)] lg:items-stretch">
         {!isMobileGameViewport && (
           <div className="hidden lg:block lg:h-full">
             <GameRoomLeftSidebar
@@ -1433,7 +1433,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           </div>
         )}
         {/* ????????????????????????? + ?????? */}
-        <section className="game-room-main-section flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
+        <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
           <GameRoomPlaybackPanel
             rootRef={isMobileGameViewport ? mobilePlaybackPanelRef : undefined}
             isMobileView={isMobileGameViewport}

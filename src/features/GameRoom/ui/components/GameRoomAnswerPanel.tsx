@@ -285,6 +285,25 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   });
   const [urgentChipPingActive, setUrgentChipPingActive] = React.useState(false);
   const progressBarFillRef = React.useRef<HTMLDivElement>(null);
+  const shouldUseDesktopStatusBarBelowOptions =
+    !isMobileView && !isInitialCountdown;
+  const desktopStatusLabel = isReveal
+    ? myFeedback.tone === "correct"
+      ? "答對"
+      : myFeedback.tone === "wrong"
+        ? "答錯"
+        : "未作答"
+    : myFeedback.tone === "locked"
+      ? "已作答"
+      : "未作答";
+  const desktopStatusPrimary = isReveal
+    ? `正解 ${resolvedAnswerTitle}`.trim()
+    : myFeedback.lines?.[0]?.trim() || myFeedback.detail?.trim() || "";
+  const desktopStatusSecondary = isReveal
+    ? myFeedback.inlineMeta?.trim() || ""
+    : myFeedback.lines?.[1]?.trim() ||
+      myFeedback.badges?.[0]?.trim() ||
+      "";
 
   // CSS-driven progress bar: set a single linear CSS transition per phase,
   // runs entirely on compositor thread — zero React re-renders needed for the bar.
@@ -400,6 +419,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             : "game-room-answer-layout--guess"
             } ${!isReveal && revealTone === "neutral"
               ? "game-room-answer-layout--neutral"
+              : ""
+            } ${shouldUseDesktopStatusBarBelowOptions
+              ? "game-room-answer-layout--desktop-status-inline"
               : ""
             } ${isMobileView ? "game-room-answer-layout--mobile" : ""
             }`}
@@ -557,41 +579,43 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                           </span>
 
                           <span className={`game-room-choice-meta inline-flex items-center gap-1 ${isMobileView ? "" : "ml-3"}`}>
-                            {showGuessLockTag && (
-                              <span
-                                className={`game-room-choice-tag ${myHasChangedAnswer
-                                  ? "game-room-choice-tag--reselect"
-                                  : "game-room-choice-tag--lock"
-                                  }`}
-                              >
-                                {myHasChangedAnswer ? "改答已鎖" : "已鎖定"}
-                              </span>
-                            )}
+                            <span className="game-room-choice-badges inline-flex items-center gap-1">
+                              {showGuessLockTag && (
+                                <span
+                                  className={`game-room-choice-tag ${myHasChangedAnswer
+                                    ? "game-room-choice-tag--reselect"
+                                    : "game-room-choice-tag--lock"
+                                    }`}
+                                >
+                                  {myHasChangedAnswer ? "改答已鎖" : "已鎖定"}
+                                </span>
+                              )}
 
-                            {isMyChoice && myComboTier > 0 && (
-                          <span
-                            className={`game-room-choice-tag game-room-choice-tag--combo game-room-choice-tag--combo-tier-${myComboTier}`}
-                          >
-                            Combo x{myComboNow}
-                          </span>
-                            )}
+                              {isMyChoice && myComboTier > 0 && (
+                                <span
+                                  className={`game-room-choice-tag game-room-choice-tag--combo game-room-choice-tag--combo-tier-${myComboTier}`}
+                                >
+                                  Combo x{myComboNow}
+                                </span>
+                              )}
 
-                            {showCorrectTag && (
-                              <span className="game-room-choice-tag game-room-choice-tag--correct">
-                                正解
-                              </span>
-                            )}
+                              {showCorrectTag && (
+                                <span className="game-room-choice-tag game-room-choice-tag--correct">
+                                  正解
+                                </span>
+                              )}
 
-                            {showMyChoiceTag && (
-                              <span
-                                className={`game-room-choice-tag ${showMyCorrectTag
-                                  ? "game-room-choice-tag--you-correct"
-                                  : "game-room-choice-tag--you"
-                                  }`}
-                              >
-                                {showMyCorrectTag ? "你答對" : "你作答"}
-                              </span>
-                            )}
+                              {showMyChoiceTag && (
+                                <span
+                                  className={`game-room-choice-tag ${showMyCorrectTag
+                                    ? "game-room-choice-tag--you-correct"
+                                    : "game-room-choice-tag--you"
+                                    }`}
+                                >
+                                  {showMyCorrectTag ? "你答對" : "你作答"}
+                                </span>
+                              )}
+                            </span>
 
                             <span className="game-room-choice-key inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-700 bg-slate-800 text-[11px] font-semibold text-slate-200">
                               {(keyBindings[idx] ?? "").toUpperCase()}
@@ -604,9 +628,26 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   );
                 })}
             </div>
+            {shouldUseDesktopStatusBarBelowOptions && (
+              <div className="game-room-guess-status-strip game-room-guess-status-strip--below-options">
+                <span className={`game-room-guess-status-pill game-room-guess-status-pill--${myFeedback.tone}`}>
+                  {desktopStatusLabel}
+                </span>
+                {desktopStatusPrimary ? (
+                  <span className="game-room-guess-status-text">
+                    {desktopStatusPrimary}
+                  </span>
+                ) : null}
+                {desktopStatusSecondary ? (
+                  <span className="game-room-guess-status-text game-room-guess-status-text--muted">
+                    {desktopStatusSecondary}
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
 
-          <div className="game-room-reveal">
+          <div className={`game-room-reveal ${shouldUseDesktopStatusBarBelowOptions ? "game-room-reveal--hidden-desktop" : ""}`}>
             <div
               className={`game-room-reveal-card rounded-lg border game-room-reveal-card--${revealTone} ${isReveal ? "game-room-reveal-card--result game-room-reveal-card--result-burst" : ""
                 } ${isPendingFeedbackCard ? "game-room-reveal-card--pending" : ""} ${isComboBreakThisQuestion && comboBreakTier > 0
