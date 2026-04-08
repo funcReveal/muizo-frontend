@@ -18,6 +18,7 @@ type CurrentPlaylistCardProps = {
   pendingSuggestionCount: number;
   onChange: () => void;
   changeDisabled?: boolean;
+  actionLabel?: string;
 };
 
 const sourceTypeConfig: Record<
@@ -55,6 +56,7 @@ const CurrentPlaylistCard = ({
   pendingSuggestionCount,
   onChange,
   changeDisabled = false,
+  actionLabel,
 }: CurrentPlaylistCardProps) => {
   const thumbnailUrl = room?.playlistCoverThumbnailUrl ?? null;
   const title = normalizeDisplayText(
@@ -67,6 +69,7 @@ const CurrentPlaylistCard = ({
   );
   const sourceConfig = getSourceConfig(room?.playlistSourceType ?? null);
   const sourceLabel = sourceConfig?.label ?? "房間題庫";
+  const buttonLabel = actionLabel ?? (isHost ? "更換題庫" : "推薦題庫");
 
   return (
     <div className="rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(7,11,18,0.74),rgba(7,11,18,0.56))] p-4 shadow-[0_24px_44px_-34px_rgba(2,6,23,0.9)]">
@@ -152,7 +155,7 @@ const CurrentPlaylistCard = ({
             className="!min-h-[42px] !shrink-0 !rounded-full !border-white/10 !bg-white/[0.02] !px-4 !font-medium !text-slate-200 hover:!border-amber-300/30 hover:!bg-amber-300/[0.08] hover:!text-amber-50 disabled:!border-white/8 disabled:!bg-white/[0.02] disabled:!text-slate-500"
             startIcon={<SwapHorizRoundedIcon fontSize="small" />}
           >
-            更換題庫
+            {buttonLabel}
           </Button>
         </div>
       </div>

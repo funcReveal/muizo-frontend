@@ -95,6 +95,8 @@ const TAB_HINTS: Record<LiveSettlementTab, string> = {
   recommend: "查看推薦導覽、題目清單與回顧詳情",
 };
 
+const SETTLEMENT_OVERVIEW_BGM_PATH = "/Muizo_result_bgm.mp3";
+
 const RECOMMEND_CATEGORY_LABELS: Record<RecommendCategory, string> = {
   quick: "全員速解",
   confuse: "易混淆",
@@ -330,6 +332,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const autoAnchoredSettlementRoundKeyRef = useRef<string | null>(null);
   const exitConfirmLockedRef = useRef(false);
   const previewCommandTimersRef = useRef<number[]>([]);
+  const settlementOverviewBgmRef = useRef<HTMLAudioElement | null>(null);
 
   const stepIndex = TAB_ORDER.indexOf(activeTab);
   const areAllMobileRecommendSectionsExpanded =
@@ -473,6 +476,89 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       void ctx.close().catch(() => undefined);
     };
   }, [gameVolume, room.id, startedAt, sfxEnabled, sfxVolume]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof Audio === "undefined") return;
+
+    const audio = new Audio(SETTLEMENT_OVERVIEW_BGM_PATH);
+    audio.loop = true;
+    audio.preload = "auto";
+    audio.volume = Math.max(0, Math.min(1, gameVolume / 100));
+    settlementOverviewBgmRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = "";
+      settlementOverviewBgmRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!settlementOverviewBgmRef.current) return;
+    settlementOverviewBgmRef.current.volume = Math.max(
+      0,
+      Math.min(1, gameVolume / 100),
+    );
+  }, [gameVolume]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (typeof document === "undefined") return;
+
+    const audio = settlementOverviewBgmRef.current;
+    if (!audio) return;
+
+    const shouldPlayOverviewBgm = activeTab === "overview";
+    const tryPlayOverviewBgm = () => {
+      if (!shouldPlayOverviewBgm || document.hidden) return;
+      void audio.play().catch(() => {
+        // Browser autoplay policy may block until the next user gesture.
+      });
+    };
+    const stopOverviewBgm = (resetToStart = false) => {
+      audio.pause();
+      if (resetToStart) {
+        audio.currentTime = 0;
+      }
+    };
+
+    if (!shouldPlayOverviewBgm) {
+      stopOverviewBgm(true);
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopOverviewBgm();
+        return;
+      }
+      tryPlayOverviewBgm();
+    };
+    const handleWindowBlur = () => {
+      stopOverviewBgm();
+    };
+    const handleWindowFocus = () => {
+      tryPlayOverviewBgm();
+    };
+
+    tryPlayOverviewBgm();
+    window.addEventListener("pointerdown", tryPlayOverviewBgm, { passive: true });
+    window.addEventListener("keydown", tryPlayOverviewBgm);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("blur", handleWindowBlur);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pointerdown", tryPlayOverviewBgm);
+      window.removeEventListener("keydown", tryPlayOverviewBgm);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("blur", handleWindowBlur);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stopOverviewBgm(true);
+    };
+  }, [activeTab]);
+
   const normalizedRecaps = useMemo<ExtendedRecap[]>(() => {
     if (questionRecaps.length > 0) {
       return questionRecaps.map((recap) => {
@@ -1387,4 +1473,3 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 };
 
 export default LiveSettlementShowcase;
-

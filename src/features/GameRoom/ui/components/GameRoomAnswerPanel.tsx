@@ -20,6 +20,7 @@ interface GameRoomAnswerPanelProps {
   phaseLabel: string;
   activePhaseDurationMs: number;
   phaseEndsAt: number;
+  phaseRemainingMs: number;
   gamePhase: GameState["phase"];
   startedAt: number;
   choices: GameState["choices"];
@@ -50,6 +51,11 @@ interface GameRoomAnswerPanelProps {
   revealChoicePickMap: RevealChoicePickMap;
   serverOffsetMs: number;
   mobileHeaderAction?: React.ReactNode;
+  liveParticipantCount: number;
+  liveAnsweredCount: number;
+  liveCorrectCount: number | null;
+  liveWrongCount: number | null;
+  liveUnansweredCount: number | null;
 }
 
 const GameRoomStartCountdownDisplay = React.memo(function GameRoomStartCountdownDisplay({
@@ -133,6 +139,7 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
     startedAt,
   ]);
   const [label, setLabel] = React.useState(resolveLabel);
+  const isNumericCountdownLabel = /^\d+s$/.test(label);
 
   React.useEffect(() => {
     if (allAnsweredReadyForReveal) {
@@ -175,7 +182,15 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
 
   return (
     <Chip
-      label={label}
+      label={
+        <span
+          className={`game-room-phase-chip-label ${
+            isNumericCountdownLabel ? "game-room-phase-chip-label--countdown" : ""
+          }`}
+        >
+          {label}
+        </span>
+      }
       size="small"
       color={
         isInterTrackWait
@@ -237,6 +252,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   phaseLabel,
   activePhaseDurationMs,
   phaseEndsAt,
+  phaseRemainingMs,
   gamePhase,
   startedAt,
   choices,
@@ -265,6 +281,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   revealChoicePickMap,
   serverOffsetMs,
   mobileHeaderAction,
+  liveParticipantCount,
+  liveAnsweredCount,
+  liveCorrectCount,
+  liveWrongCount,
+  liveUnansweredCount,
 }) => {
   const getLocalNowMs = React.useCallback(
     () => Date.now() + serverOffsetMs,
@@ -284,9 +305,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     return remainingMs > 0 && remainingMs <= 3000;
   });
   const [urgentChipPingActive, setUrgentChipPingActive] = React.useState(false);
-  const progressBarFillRef = React.useRef<HTMLDivElement>(null);
-  const shouldUseDesktopStatusBarBelowOptions =
-    !isMobileView && !isInitialCountdown;
+  const shouldHideDesktopRevealCard = !isMobileView;
+  const shouldShowInlinePhaseStatus = !isInitialCountdown;
   const desktopStatusLabel = isReveal
     ? myFeedback.tone === "correct"
       ? "答對"
@@ -304,42 +324,35 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     : myFeedback.lines?.[1]?.trim() ||
       myFeedback.badges?.[0]?.trim() ||
       "";
-
-  // CSS-driven progress bar: set a single linear CSS transition per phase,
-  // runs entirely on compositor thread — zero React re-renders needed for the bar.
-  React.useLayoutEffect(() => {
-    const fill = progressBarFillRef.current;
-    if (!fill || isInitialCountdown || isInterTrackWait || activePhaseDurationMs <= 0) {
-      return;
-    }
-    const now = getLocalNowMs();
-    const elapsed = activePhaseDurationMs - Math.max(0, phaseEndsAt - now);
-    const startFraction = Math.max(0, Math.min(1, elapsed / activePhaseDurationMs));
-    const remainingMs = Math.max(0, phaseEndsAt - now);
-    fill.style.transition = "none";
-    fill.style.transform = `scaleX(${startFraction})`;
-    void fill.offsetWidth;
-    if (remainingMs > 0) {
-      fill.style.transition = `transform ${remainingMs}ms linear`;
-      fill.style.transform = "scaleX(1)";
-    }
-  }, [
-    phaseEndsAt,
-    activePhaseDurationMs,
-    isInitialCountdown,
-    isInterTrackWait,
-    gamePhase,
-    trackSessionKey,
-    getLocalNowMs,
-  ]);
-
-  React.useEffect(() => {
-    if (!allAnsweredReadyForReveal) return;
-    const fill = progressBarFillRef.current;
-    if (!fill) return;
-    fill.style.transition = "transform 300ms ease-out";
-    fill.style.transform = "scaleX(1)";
-  }, [allAnsweredReadyForReveal]);
+  const inlineAnsweredText =
+    liveParticipantCount > 0
+      ? `已答 ${liveAnsweredCount}/${liveParticipantCount} 人`
+      : "";
+  const inlineMetaText =
+    !isReveal && desktopStatusSecondary === inlineAnsweredText
+      ? ""
+      : desktopStatusSecondary;
+  const inlineBreakdownText =
+    liveParticipantCount > 0 &&
+    liveCorrectCount !== null &&
+    liveWrongCount !== null &&
+    liveUnansweredCount !== null
+      ? `答對 ${liveCorrectCount} · 答錯 ${liveWrongCount} · 未作答 ${liveUnansweredCount}`
+      : "";
+  const effectivePhaseDurationMs = Math.max(1, activePhaseDurationMs);
+  const phaseProgressFraction =
+    isInterTrackWait || isInitialCountdown
+      ? 0
+      : allAnsweredReadyForReveal
+        ? 1
+        : Math.max(
+            0,
+            Math.min(
+              1,
+              (effectivePhaseDurationMs - Math.max(0, phaseRemainingMs)) /
+                effectivePhaseDurationMs,
+            ),
+          );
 
   React.useEffect(() => {
     if (
@@ -420,7 +433,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             } ${!isReveal && revealTone === "neutral"
               ? "game-room-answer-layout--neutral"
               : ""
-            } ${shouldUseDesktopStatusBarBelowOptions
+            } ${!isMobileView
               ? "game-room-answer-layout--desktop-status-inline"
               : ""
             } ${isMobileView ? "game-room-answer-layout--mobile" : ""
@@ -429,9 +442,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
               <div className="game-room-answer-head__main min-w-0 flex-1">
-                <p className="game-room-title">
-                  {isInterTrackWait ? "下一題準備中" : phaseLabel}
-                </p>
                 <GameRoomPhaseStatusChip
                   isInterTrackWait={isInterTrackWait}
                   allAnsweredReadyForReveal={allAnsweredReadyForReveal}
@@ -442,6 +452,38 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   isGuessUrgency={isGuessUrgency}
                   urgentChipPingActive={urgentChipPingActive}
                 />
+                <p className="game-room-title">
+                  {isInterTrackWait ? "下一題準備中" : phaseLabel}
+                </p>
+                {shouldShowInlinePhaseStatus ? (
+                  <div className="game-room-guess-inline-status">
+                    <span
+                      className={`game-room-guess-status-pill game-room-guess-status-pill--${myFeedback.tone}`}
+                    >
+                      {desktopStatusLabel}
+                    </span>
+                    {desktopStatusPrimary ? (
+                      <span className="game-room-guess-status-text">
+                        {desktopStatusPrimary}
+                      </span>
+                    ) : null}
+                    {inlineMetaText ? (
+                      <span className="game-room-guess-status-text game-room-guess-status-text--muted">
+                        {inlineMetaText}
+                      </span>
+                    ) : null}
+                    {inlineAnsweredText ? (
+                      <span className="game-room-guess-status-text game-room-guess-status-text--muted">
+                        {inlineAnsweredText}
+                      </span>
+                    ) : null}
+                    {inlineBreakdownText ? (
+                      <span className="game-room-guess-status-text game-room-guess-status-text--muted">
+                        {inlineBreakdownText}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               {isMobileView && mobileHeaderAction ? (
                 <div className="game-room-answer-head__action">
@@ -462,8 +504,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               ) : (
                 <div className="game-room-phase-progress-bar">
                   <div
-                    ref={progressBarFillRef}
                     className={`game-room-phase-progress-bar-fill ${gamePhase === "guess" ? "game-room-phase-progress-bar-fill--guess" : "game-room-phase-progress-bar-fill--reveal"}`}
+                    style={{ transform: `scaleX(${phaseProgressFraction})` }}
                   />
                 </div>
               )}
@@ -628,26 +670,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   );
                 })}
             </div>
-            {shouldUseDesktopStatusBarBelowOptions && (
-              <div className="game-room-guess-status-strip game-room-guess-status-strip--below-options">
-                <span className={`game-room-guess-status-pill game-room-guess-status-pill--${myFeedback.tone}`}>
-                  {desktopStatusLabel}
-                </span>
-                {desktopStatusPrimary ? (
-                  <span className="game-room-guess-status-text">
-                    {desktopStatusPrimary}
-                  </span>
-                ) : null}
-                {desktopStatusSecondary ? (
-                  <span className="game-room-guess-status-text game-room-guess-status-text--muted">
-                    {desktopStatusSecondary}
-                  </span>
-                ) : null}
-              </div>
-            )}
           </div>
 
-          <div className={`game-room-reveal ${shouldUseDesktopStatusBarBelowOptions ? "game-room-reveal--hidden-desktop" : ""}`}>
+          <div className={`game-room-reveal ${shouldHideDesktopRevealCard ? "game-room-reveal--hidden-desktop" : ""}`}>
             <div
               className={`game-room-reveal-card rounded-lg border game-room-reveal-card--${revealTone} ${isReveal ? "game-room-reveal-card--result game-room-reveal-card--result-burst" : ""
                 } ${isPendingFeedbackCard ? "game-room-reveal-card--pending" : ""} ${isComboBreakThisQuestion && comboBreakTier > 0

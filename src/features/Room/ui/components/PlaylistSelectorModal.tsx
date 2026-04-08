@@ -104,6 +104,21 @@ type Props = {
   onLoadMoreCollections: () => void;
   onFetchYoutubePlaylists: (force?: boolean) => void;
   onRequestGoogleLogin: () => void;
+  onSuggestPlaylist?: (
+    type: "collection" | "playlist",
+    value: string,
+    options?: {
+      useSnapshot?: boolean;
+      sourceId?: string | null;
+      title?: string | null;
+    },
+  ) => Promise<{ ok: boolean; error?: string }>;
+  extractPlaylistId?: (url: string) => string | null;
+  openConfirmModal?: (
+    title: string,
+    detail: string | undefined,
+    action: () => void,
+  ) => void;
   onMarkSuggestionsSeen: () => void;
   onRecordSourceApplied: (entry: {
     sourceType: PlaylistSourceType;
@@ -118,10 +133,11 @@ type Props = {
 const FILTER_TAGS = ["動畫", "日文", "OP", "多人", "派對"];
 const MODAL_W = 1180;
 const MODAL_H = 820;
-const GRID_H = 356;
+const GRID_H = 372;
 const LIST_H = 132;
 const SUGGESTION_H = 116;
 const PREVIEW_H = 80;
+const RECOMMENDATION_COOLDOWN_MS = 5000;
 
 const sourceType = (visibility?: "private" | "public") =>
   visibility === "private" ? "private_collection" : "public_collection";
@@ -247,7 +263,6 @@ const SourceCard = ({
   badge,
   mode,
   metrics,
-  disabled,
   onClick,
 }: {
   title: string;
@@ -256,19 +271,17 @@ const SourceCard = ({
   badge?: string | null;
   mode: BrowseViewMode;
   metrics: React.ReactNode;
-  disabled?: boolean;
   onClick: () => void;
 }) => {
   const list = mode === "list";
   return (
     <button
       type="button"
-      disabled={disabled}
       onClick={onClick}
       className={
         list
-          ? "flex h-[120px] w-full items-center gap-4 overflow-hidden rounded-[24px] border border-cyan-300/18 bg-[#060b16] px-3 py-3 text-left transition hover:border-cyan-300/36 hover:bg-[#08101e] disabled:cursor-not-allowed disabled:opacity-55"
-          : "group flex h-[340px] w-full flex-col overflow-hidden rounded-[24px] border border-cyan-300/18 bg-[#060b16] text-left transition hover:border-cyan-300/36 hover:bg-[#08101e] hover:shadow-[0_24px_50px_-32px_rgba(34,211,238,0.36)] disabled:cursor-not-allowed disabled:opacity-55"
+          ? "relative flex h-[120px] w-full items-center gap-4 overflow-hidden rounded-[24px] border border-cyan-300/18 bg-[#060b16] px-3 py-3 text-left transition duration-200 hover:border-cyan-300/36 hover:bg-[#08101e]"
+          : "group relative flex h-[356px] w-full flex-col overflow-hidden rounded-[24px] border border-cyan-300/18 bg-[#060b16] text-left transition duration-200 hover:border-cyan-300/36 hover:bg-[#08101e] hover:shadow-[0_24px_50px_-32px_rgba(34,211,238,0.36)]"
       }
     >
       <div
@@ -349,9 +362,13 @@ const PlaylistSelectorModal = ({
   onLoadMoreCollections,
   onFetchYoutubePlaylists,
   onRequestGoogleLogin,
+  onSuggestPlaylist,
+  extractPlaylistId,
+  openConfirmModal,
   onMarkSuggestionsSeen,
   onRecordSourceApplied,
 }: Props) => {
+  const isSuggestionMode = !isHost;
   const [activeTab, setActiveTab] = useState<SelectorTab>("suggestions");
   const [searchDraft, setSearchDraft] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -364,14 +381,34 @@ const PlaylistSelectorModal = ({
   const [playWindow, setPlayWindow] = useState<ToolPlayMode>("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [aiEditedOnly, setAiEditedOnly] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownNow, setCooldownNow] = useState(() => Date.now());
+  const [actionRunning, setActionRunning] = useState(false);
+  const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const oneCol = useMediaQuery("(max-width:900px)");
   const twoCol = useMediaQuery("(max-width:1260px)");
   const columns = oneCol ? 1 : twoCol ? 2 : 3;
   const viewportH = Math.max(280, MODAL_H - 260);
+  const modalInteractionLocked = actionRunning;
+
+  const isCooldownActive =
+    typeof cooldownUntil === "number" && cooldownUntil > Date.now();
+  const cooldownSeconds = cooldownUntil
+    ? Math.max(0, Math.ceil((cooldownUntil - cooldownNow) / 1000))
+    : 0;
 
   useEffect(() => {
     if (open) onMarkSuggestionsSeen();
   }, [open, onMarkSuggestionsSeen]);
+
+  useEffect(() => {
+    if (!open) return;
+    setActiveTab(isSuggestionMode ? "public" : "suggestions");
+    setActionError(null);
+    setActionNotice(null);
+  }, [isSuggestionMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -381,6 +418,21 @@ const PlaylistSelectorModal = ({
     );
     return () => window.clearTimeout(id);
   }, [open, searchDraft]);
+
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const tick = window.setInterval(() => {
+      setCooldownNow(Date.now());
+    }, 1000);
+    const timer = window.setTimeout(() => {
+      setCooldownUntil(null);
+      setActionNotice(null);
+    }, Math.max(0, cooldownUntil - Date.now()));
+    return () => {
+      window.clearInterval(tick);
+      window.clearTimeout(timer);
+    };
+  }, [cooldownUntil]);
 
   useEffect(() => {
     if (!open) return;
@@ -458,7 +510,7 @@ const PlaylistSelectorModal = ({
     () =>
       playlistSuggestions.filter(
         (item) =>
-          matchCount(item.totalCount) &&
+          (typeof item.totalCount !== "number" || matchCount(item.totalCount)) &&
           matchText(item.username, item.title, item.value),
       ),
     [playlistSuggestions, matchCount, matchText],
@@ -479,20 +531,91 @@ const PlaylistSelectorModal = ({
     [aiEditedOnly, createdWindow, playWindow, questionRange, selectedTags],
   );
 
+  const runSuggestion = useCallback(
+    async (
+      type: "collection" | "playlist",
+      value: string,
+      options?: {
+        useSnapshot?: boolean;
+        sourceId?: string | null;
+        title?: string | null;
+      },
+    ) => {
+      if (!onSuggestPlaylist) return;
+      if (actionRunning) return;
+      if (isCooldownActive) {
+        setActionNotice(`請等待 ${Math.max(1, cooldownSeconds)}s 後再送出下一次推薦。`);
+        return;
+      }
+      setActionError(null);
+      setActionRunning(true);
+      setPendingActionKey(`suggest:${type}:${options?.sourceId ?? value}`);
+      try {
+        const result = await onSuggestPlaylist(type, value, options);
+        if (!result?.ok) {
+          setActionError(result?.error ?? "提交推薦失敗。");
+          return;
+        }
+        setCooldownUntil(Date.now() + RECOMMENDATION_COOLDOWN_MS);
+        setCooldownNow(Date.now());
+        setActionNotice("推薦已送出。");
+      } finally {
+        setActionRunning(false);
+        setPendingActionKey(null);
+      }
+    },
+    [actionRunning, cooldownSeconds, isCooldownActive, onSuggestPlaylist],
+  );
+
   const applyCollection = useCallback(
     async (item: CollectionEntry) => {
-      const ok = await onApplyCollectionDirect(item.id, item.title);
-      if (!ok) return;
-      onRecordSourceApplied({
-        sourceType: sourceType(item.visibility),
-        title: item.title,
-        sourceId: item.id,
-        thumbnailUrl: item.cover_thumbnail_url ?? null,
-        itemCount: item.item_count ?? null,
-      });
-      onClose();
+      if (actionRunning) return;
+      if (isSuggestionMode) {
+        const action = () => {
+          void runSuggestion("collection", item.id, {
+            useSnapshot: item.visibility === "private",
+            sourceId: item.id,
+            title: item.title ?? null,
+          });
+        };
+        if (openConfirmModal) {
+          openConfirmModal(
+            "要推薦這個題庫給房主嗎？",
+            normalizeDisplayText(item.title, "未命名題庫"),
+            action,
+          );
+        } else {
+          action();
+        }
+        return;
+      }
+      setActionRunning(true);
+      setPendingActionKey(`collection:${item.id}`);
+      try {
+        const ok = await onApplyCollectionDirect(item.id, item.title);
+        if (!ok) return;
+        onRecordSourceApplied({
+          sourceType: sourceType(item.visibility),
+          title: item.title,
+          sourceId: item.id,
+          thumbnailUrl: item.cover_thumbnail_url ?? null,
+          itemCount: item.item_count ?? null,
+        });
+        onClose();
+      } finally {
+        setActionRunning(false);
+        setPendingActionKey(null);
+      }
     },
-    [onApplyCollectionDirect, onClose, onRecordSourceApplied],
+    [
+      actionRunning,
+      isSuggestionMode,
+      onApplyCollectionDirect,
+      onClose,
+      onRecordSourceApplied,
+      openConfirmModal,
+      runSuggestion,
+    ],
   );
 
   const renderCollectionCard = useCallback(
@@ -509,7 +632,6 @@ const PlaylistSelectorModal = ({
         thumbnailUrl={item.cover_thumbnail_url}
         badge={badge}
         mode={mode}
-        disabled={collectionItemsLoading}
         metrics={
           <Metrics
             itemCount={item.item_count}
@@ -522,7 +644,7 @@ const PlaylistSelectorModal = ({
         }}
       />
     ),
-    [applyCollection, collectionItemsLoading],
+    [applyCollection, isSuggestionMode, pendingActionKey],
   );
 
   const renderYoutubeCard = useCallback(
@@ -537,21 +659,57 @@ const PlaylistSelectorModal = ({
         metrics={<Metrics itemCount={item.itemCount} />}
         onClick={() => {
           void (async () => {
-            const ok = await onApplyYoutubePlaylistDirect(item.id, item.title);
-            if (!ok) return;
-            onRecordSourceApplied({
-              sourceType: "youtube_google_import",
-              title: item.title,
-              sourceId: item.id,
-              thumbnailUrl: item.thumbnail ?? null,
-              itemCount: item.itemCount,
-            });
-            onClose();
+            if (actionRunning) return;
+            if (isSuggestionMode) {
+              const action = () => {
+                void runSuggestion("playlist", item.id, {
+                  useSnapshot: true,
+                  sourceId: item.id,
+                  title: item.title ?? null,
+                });
+              };
+              if (openConfirmModal) {
+                openConfirmModal(
+                  "要推薦這份 YouTube 播放清單給房主嗎？",
+                  `${normalizeDisplayText(item.title, "未命名 YouTube 播放清單")} (${item.itemCount})`,
+                  action,
+                );
+              } else {
+                action();
+              }
+              return;
+            }
+            setActionRunning(true);
+            setPendingActionKey(`youtube:${item.id}`);
+            try {
+              const ok = await onApplyYoutubePlaylistDirect(item.id, item.title);
+              if (!ok) return;
+              onRecordSourceApplied({
+                sourceType: "youtube_google_import",
+                title: item.title,
+                sourceId: item.id,
+                thumbnailUrl: item.thumbnail ?? null,
+                itemCount: item.itemCount,
+              });
+              onClose();
+            } finally {
+              setActionRunning(false);
+              setPendingActionKey(null);
+            }
           })();
         }}
       />
     ),
-    [onApplyYoutubePlaylistDirect, onClose, onRecordSourceApplied],
+    [
+      actionRunning,
+      isSuggestionMode,
+      onApplyYoutubePlaylistDirect,
+      onClose,
+      onRecordSourceApplied,
+      openConfirmModal,
+      pendingActionKey,
+      runSuggestion,
+    ],
   );
 
   const renderSuggestion = useCallback(
@@ -561,41 +719,63 @@ const PlaylistSelectorModal = ({
         type="button"
         onClick={() => {
           void (async () => {
+            if (actionRunning) return;
             if (item.items?.length) {
-              await onApplySuggestionSnapshot(item);
-              onClose();
+              setActionRunning(true);
+              setPendingActionKey(`suggestion:${item.clientId}:${item.suggestedAt}`);
+              try {
+                await onApplySuggestionSnapshot(item);
+                onClose();
+              } finally {
+                setActionRunning(false);
+                setPendingActionKey(null);
+              }
               return;
             }
             if (item.type === "playlist") {
-              const ok = await onApplyPlaylistUrlDirect(item.value);
-              if (!ok) return;
-              onRecordSourceApplied({
-                sourceType: "youtube_pasted_link",
-                title: item.title ?? item.value,
-                sourceId: item.sourceId ?? null,
-                url: item.value,
-                itemCount: item.totalCount ?? null,
-              });
-              onClose();
+              setActionRunning(true);
+              setPendingActionKey(`suggestion:${item.clientId}:${item.suggestedAt}`);
+              try {
+                const ok = await onApplyPlaylistUrlDirect(item.value);
+                if (!ok) return;
+                onRecordSourceApplied({
+                  sourceType: "youtube_pasted_link",
+                  title: item.title ?? item.value,
+                  sourceId: item.sourceId ?? null,
+                  url: item.value,
+                  itemCount: item.totalCount ?? null,
+                });
+                onClose();
+              } finally {
+                setActionRunning(false);
+                setPendingActionKey(null);
+              }
               return;
             }
             const matched = collections.find((entry) => entry.id === item.value);
-            const ok = await onApplyCollectionDirect(
-              item.value,
-              item.title ?? matched?.title ?? null,
-            );
-            if (!ok) return;
-            onRecordSourceApplied({
-              sourceType: sourceType(matched?.visibility),
-              title: item.title ?? matched?.title ?? item.value,
-              sourceId: item.value,
-              thumbnailUrl: matched?.cover_thumbnail_url ?? null,
-              itemCount: item.totalCount ?? matched?.item_count ?? null,
-            });
-            onClose();
+            setActionRunning(true);
+            setPendingActionKey(`suggestion:${item.clientId}:${item.suggestedAt}`);
+            try {
+              const ok = await onApplyCollectionDirect(
+                item.value,
+                item.title ?? matched?.title ?? null,
+              );
+              if (!ok) return;
+              onRecordSourceApplied({
+                sourceType: sourceType(matched?.visibility),
+                title: item.title ?? matched?.title ?? item.value,
+                sourceId: item.value,
+                thumbnailUrl: matched?.cover_thumbnail_url ?? null,
+                itemCount: item.totalCount ?? matched?.item_count ?? null,
+              });
+              onClose();
+            } finally {
+              setActionRunning(false);
+              setPendingActionKey(null);
+            }
           })();
         }}
-        className="flex h-[108px] w-full items-center gap-4 rounded-[24px] border border-white/8 bg-[#060b16] px-4 text-left transition hover:border-cyan-300/34 hover:bg-[#08101e]"
+        className="relative flex h-[108px] w-full items-center gap-4 rounded-[24px] border border-white/8 bg-[#060b16] px-4 text-left transition duration-200 hover:border-cyan-300/34 hover:bg-[#08101e]"
       >
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-cyan-400/8 text-cyan-100">
           <TipsAndUpdatesRoundedIcon sx={{ fontSize: 24 }} />
@@ -620,6 +800,7 @@ const PlaylistSelectorModal = ({
       </button>
     ),
     [
+      pendingActionKey,
       collections,
       onApplyCollectionDirect,
       onApplyPlaylistUrlDirect,
@@ -724,6 +905,19 @@ const PlaylistSelectorModal = ({
         rowComponent={GenericRow as never}
       />
     );
+
+  const statusBanner =
+    actionError || actionNotice ? (
+      <div
+        className={`mb-4 rounded-[18px] border px-4 py-3 text-sm ${
+          actionError
+            ? "border-rose-300/20 bg-rose-400/10 text-rose-100"
+            : "border-cyan-300/20 bg-cyan-400/10 text-cyan-50"
+        }`}
+      >
+        {actionError ?? actionNotice}
+      </div>
+    ) : null;
 
   const content =
     activeTab === "suggestions" ? (
@@ -856,6 +1050,7 @@ const PlaylistSelectorModal = ({
       )
     ) : (
       <div className="space-y-4">
+        {statusBanner}
         <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
           <div className="text-sm font-semibold text-slate-100">
             貼上 YouTube 播放清單連結
@@ -873,6 +1068,7 @@ const PlaylistSelectorModal = ({
               variant="outlined"
               color="inherit"
               disabled={!playlistUrl.trim() || playlistLoading}
+              disabled={!playlistUrl.trim() || playlistLoading || actionRunning}
               onClick={() => onPreviewPlaylistUrl(playlistUrl.trim())}
             >
               預覽
@@ -880,23 +1076,61 @@ const PlaylistSelectorModal = ({
             <Button
               variant="contained"
               color="inherit"
-              disabled={!playlistUrl.trim() || playlistLoading}
+              disabled={!playlistUrl.trim() || playlistLoading || actionRunning}
               onClick={() => {
                 void (async () => {
+                  if (actionRunning) return;
                   const trimmed = playlistUrl.trim();
-                  const ok = await onApplyPlaylistUrlDirect(trimmed);
-                  if (!ok) return;
-                  onRecordSourceApplied({
-                    sourceType: "youtube_pasted_link",
-                    title: trimmed,
-                    url: trimmed,
-                    itemCount: playlistItemsForChange.length || null,
-                  });
-                  onClose();
+                  if (isSuggestionMode) {
+                    const playlistId = extractPlaylistId?.(trimmed);
+                    if (!playlistId) {
+                      setActionError("請輸入有效的 YouTube 播放清單 URL。");
+                      return;
+                    }
+                    const action = () => {
+                      void runSuggestion("playlist", trimmed, {
+                        useSnapshot: false,
+                        sourceId: playlistId,
+                      });
+                    };
+                    if (openConfirmModal) {
+                      openConfirmModal("要推薦這個播放清單給房主嗎？", trimmed, action);
+                    } else {
+                      action();
+                    }
+                    return;
+                  }
+                  setActionRunning(true);
+                  setPendingActionKey("link:apply");
+                  try {
+                    const ok = await onApplyPlaylistUrlDirect(trimmed);
+                    if (!ok) return;
+                    onRecordSourceApplied({
+                      sourceType: "youtube_pasted_link",
+                      title: trimmed,
+                      url: trimmed,
+                      itemCount: playlistItemsForChange.length || null,
+                    });
+                    onClose();
+                  } finally {
+                    setActionRunning(false);
+                    setPendingActionKey(null);
+                  }
                 })();
               }}
+              className={`!transition-all !duration-200 ${
+                pendingActionKey === "link:apply"
+                  ? "!scale-[0.985] !bg-cyan-300/20 !text-cyan-50"
+                  : ""
+              }`}
             >
-              直接套用
+              {actionRunning
+                ? isSuggestionMode
+                  ? "推薦中..."
+                  : "套用中..."
+                : isSuggestionMode
+                  ? "推薦給房主"
+                  : "直接套用"}
             </Button>
           </div>
           {playlistError ? (
@@ -948,6 +1182,7 @@ const PlaylistSelectorModal = ({
       maxWidth={false}
       PaperProps={{
         sx: {
+          position: "relative",
           width: `min(${MODAL_W}px, calc(100vw - 32px))`,
           maxWidth: `${MODAL_W}px`,
           height: `min(${MODAL_H}px, calc(100vh - 24px))`,
@@ -966,7 +1201,7 @@ const PlaylistSelectorModal = ({
         <div className="border-b border-white/8 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <Typography className="!text-[2rem] !font-semibold !tracking-[-0.03em] !text-slate-50">
-              更換題庫
+              {isSuggestionMode ? "推薦題庫" : "更換題庫"}
             </Typography>
             <IconButton
               onClick={onClose}
@@ -1172,11 +1407,15 @@ const PlaylistSelectorModal = ({
           </Popover>
           <div className="mt-4 flex flex-wrap gap-2">
             {[
-              {
-                key: "suggestions",
-                label: "建議",
-                icon: <TipsAndUpdatesRoundedIcon fontSize="small" />,
-              },
+              ...(!isSuggestionMode
+                ? [
+                    {
+                      key: "suggestions",
+                      label: "建議",
+                      icon: <TipsAndUpdatesRoundedIcon fontSize="small" />,
+                    },
+                  ]
+                : []),
               {
                 key: "public",
                 label: "公開",
@@ -1233,6 +1472,14 @@ const PlaylistSelectorModal = ({
       <DialogContent className="!flex !min-h-0 !flex-1 !flex-col !overflow-hidden !p-5 sm:!p-6">
         {content}
       </DialogContent>
+      {modalInteractionLocked ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(8,12,22,0.08),rgba(8,12,22,0.18))] backdrop-blur-[1.5px]">
+          <div className="pointer-events-auto inline-flex items-center gap-3 rounded-full border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(16,27,46,0.84),rgba(8,18,34,0.92))] px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[0_22px_44px_-30px_rgba(34,211,238,0.65)]">
+            <CircularProgress size={16} sx={{ color: "#a5f3fc" }} />
+            <span>{isSuggestionMode ? "推薦處理中，請稍候" : "套用處理中，請稍候"}</span>
+          </div>
+        </div>
+      ) : null}
     </Dialog>
   );
 };

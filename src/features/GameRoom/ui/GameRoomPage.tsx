@@ -222,7 +222,8 @@ const useGameRoomUiClock = ({
       if (remainingMs > 0 && remainingMs <= 4200) {
         scheduleTick(125);
       } else if (remainingMs > 4200) {
-        scheduleTick(remainingMs - 4000);
+        const nextBoundaryMs = (currentNowMs % 1000) || 1000;
+        scheduleTick(nextBoundaryMs);
       }
     }
 
@@ -1476,6 +1477,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             phaseLabel={phaseLabel}
             activePhaseDurationMs={activePhaseDurationMs}
             phaseEndsAt={phaseEndsAt}
+            phaseRemainingMs={phaseRemainingMs}
             gamePhase={gameState.phase}
             startedAt={gameState.startedAt}
             choices={gameState.choices}
@@ -1506,6 +1508,23 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             revealChoicePickMap={revealChoicePickMap}
             serverOffsetMs={serverOffsetMs}
             mobileHeaderAction={mobilePlaybackVoteAction}
+            liveParticipantCount={liveParticipantCount}
+            liveAnsweredCount={liveAnsweredCount}
+            liveCorrectCount={
+              typeof gameState.questionStats?.correctCount === "number"
+                ? Math.max(0, Math.floor(gameState.questionStats.correctCount))
+                : null
+            }
+            liveWrongCount={
+              typeof gameState.questionStats?.wrongCount === "number"
+                ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
+                : null
+            }
+            liveUnansweredCount={
+              typeof gameState.questionStats?.unansweredCount === "number"
+                ? Math.max(0, Math.floor(gameState.questionStats.unansweredCount))
+                : null
+            }
           />
           {isMobileGameViewport && (
             <div

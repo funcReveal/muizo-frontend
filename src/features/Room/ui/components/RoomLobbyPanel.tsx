@@ -67,7 +67,6 @@ import {
   QUESTION_MIN,
 } from "../../model/roomConstants";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
-import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import CurrentPlaylistCard from "./CurrentPlaylistCard";
 import PlaylistSelectorModal from "./PlaylistSelectorModal";
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
@@ -757,12 +756,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ? "*".repeat(roomPassword.length)
     : "";
   const playlistRowHeight = isMobileLobbyLayout ? 72 : 84;
-  const desktopPlaylistVisibleRows = 4.25;
+  const desktopPlaylistVisibleRows = 5.5;
   const playlistViewportMinHeight = isMobileLobbyLayout
     ? 340
     : isCompactLobbyLayout
       ? 300
-      : 3.1 * playlistRowHeight;
+      : desktopPlaylistVisibleRows * playlistRowHeight;
   const playlistViewportMaxHeight = isMobileLobbyLayout
     ? 480
     : isCompactLobbyLayout
@@ -772,7 +771,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     playlistViewportMaxHeight,
     Math.max(
       playlistViewportMinHeight,
-      Math.max(rowCount, isMobileLobbyLayout ? 2 : 4.5) * playlistRowHeight,
+      Math.max(
+        rowCount,
+        isMobileLobbyLayout ? 2 : desktopPlaylistVisibleRows,
+      ) * playlistRowHeight,
     ),
   );
   const playlistListShellStyle = (
@@ -1707,7 +1709,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     />
   );
 
-  const desktopHostPlaylistPanel = !isMobileTabletLobbyLayout && isHost ? (
+  const desktopCombinedPlaylistPanel = !isMobileTabletLobbyLayout ? (
     <div className="room-lobby-current-playlist-list">
       <RoomLobbyPlaylistPanel
         playlistProgress={playlistProgress}
@@ -1749,11 +1751,31 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           setSelectorModalOpen(true);
         }}
         changeDisabled={gameState?.status === "playing"}
+        actionLabel="更換題庫"
       />
-      {desktopHostPlaylistPanel}
-        <PlaylistSelectorModal
-          open={selectorModalOpen}
-          onClose={() => setSelectorModalOpen(false)}
+      {desktopCombinedPlaylistPanel}
+    </div>
+  ) : (
+    <div className="room-lobby-current-playlist-stack">
+      <CurrentPlaylistCard
+        room={currentRoom}
+        playlistCount={playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
+        isHost={false}
+        pendingSuggestionCount={0}
+        onChange={() => {
+          setSelectorModalOpen(true);
+        }}
+        changeDisabled={gameState?.status === "playing"}
+        actionLabel="推薦題庫"
+      />
+      {desktopCombinedPlaylistPanel}
+    </div>
+  );
+
+  const playlistSelectorModal = (
+    <PlaylistSelectorModal
+      open={selectorModalOpen}
+      onClose={() => setSelectorModalOpen(false)}
         isHost={isHost}
         isGoogleAuthed={isGoogleAuthed}
         playlistUrl={playlistUrl}
@@ -1783,42 +1805,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         }}
         onFetchYoutubePlaylists={requestYoutubePlaylists}
         onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
+        onSuggestPlaylist={onSuggestPlaylist}
+        extractPlaylistId={extractPlaylistId}
+        openConfirmModal={openConfirmModal}
         onMarkSuggestionsSeen={markSuggestionsSeen}
         onRecordSourceApplied={handleRecordSourceApplied}
       />
-    </div>
-  ) : gameState?.status !== "playing" ? (
-    <RoomLobbySuggestionPanel
-      key={suggestionResetKey}
-      collectionScope={collectionScope}
-      onCollectionScopeChange={setCollectionScope}
-      collections={collections}
-      collectionsLoading={collectionsLoading}
-      isGoogleAuthed={isGoogleAuthed}
-      youtubePlaylists={youtubePlaylists}
-      youtubePlaylistsLoading={youtubePlaylistsLoading}
-      youtubePlaylistsError={youtubePlaylistsError}
-      requestCollections={requestCollections}
-      requestYoutubePlaylists={requestYoutubePlaylists}
-      onSuggestPlaylist={onSuggestPlaylist}
-      extractPlaylistId={extractPlaylistId}
-      openConfirmModal={openConfirmModal}
-      onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
-    />
-  ) : null;
-  const controlPanel = hostPanel ?? (
-    <Box className="room-lobby-control-placeholder">
-      <div className="room-lobby-panel-title">
-        <PlaylistPlayRoundedIcon fontSize="small" />
-        <Typography variant="subtitle2" className="text-slate-100">
-          操作已鎖定
-        </Typography>
-      </div>
-      <Typography variant="body2" className="text-slate-300">
-        遊戲進行中
-      </Typography>
-    </Box>
   );
+
+  const controlPanel = hostPanel ?? null;
 
   const playlistPanel = (
     <div>
@@ -1985,6 +1980,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
           }`}
         sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 1 }}
       >
+        {playlistSelectorModal}
         {isMobileTabletLobbyLayout ? (
           <>
             <div className="room-lobby-mobile-shell">
@@ -2156,7 +2152,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
               <div className="room-lobby-column-section room-lobby-column-section--control">
                 {controlPanel}
               </div>
-              {!isHost ? (
+              {isMobileTabletLobbyLayout ? (
                 <>
                   <div className="room-lobby-column-divider hidden" aria-hidden="true" />
                   <div className="room-lobby-column-section room-lobby-column-section--playlist">

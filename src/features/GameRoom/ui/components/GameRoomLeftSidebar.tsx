@@ -2,6 +2,7 @@
 import { Badge, Chip } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 
 import {
   DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID,
@@ -69,6 +70,27 @@ const DESKTOP_FLIP_MAX_DURATION_MS = 1680;
 const DESKTOP_FLIP_ROW_HEIGHT_PX = 60;
 const SCOREBOARD_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
 
+const WaitingJoinDots = React.memo(function WaitingJoinDots() {
+  return (
+    <span className="game-room-waiting-join">
+      <span>等待玩家加入</span>
+      <span className="game-room-waiting-join__dots" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+    </span>
+  );
+});
+
+const PlaceholderAvatarIcon = React.memo(function PlaceholderAvatarIcon() {
+  return (
+    <span className="game-room-score-row-placeholder-avatar" aria-hidden="true">
+      <PersonOutlineRoundedIcon sx={{ fontSize: 16 }} />
+    </span>
+  );
+});
+
 type RankSwapState = {
   key: number;
   offsetByClientId: Record<string, number>;
@@ -76,7 +98,6 @@ type RankSwapState = {
 
 interface GameRoomScorePlayerRowProps {
   player: RoomParticipant;
-  rowIndex: number;
   isReveal: boolean;
   hasAnswered: boolean;
   answerRank?: number;
@@ -101,7 +122,6 @@ interface GameRoomScorePlayerRowProps {
 
 const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   player,
-  rowIndex,
   isReveal,
   hasAnswered,
   answerRank,
@@ -143,7 +163,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
             username={displayName}
             clientId={player.clientId}
             avatarUrl={player.avatar_url ?? player.avatarUrl ?? undefined}
-            rank={rowIndex < 3 ? rowIndex + 1 : null}
+            rank={null}
             combo={player.combo}
             isMe={isMeRow}
             size={26}
@@ -157,7 +177,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
           </RoomUiTooltip>
         </span>
         <span className="truncate">
-          {rowIndex + 1}. {displayName}
+          {displayName}
         </span>
         {isMeRow && (
           <span className="game-room-score-row-you-badge">YOU</span>
@@ -632,7 +652,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--locked" />
                     </span>
                     <LockRoundedIcon sx={{ fontSize: 12 }} />
-                    {idx + 1}. 已鎖定
+                    已鎖定
                   </span>
                   <span className="text-[11px] text-slate-600">--</span>
                 </div>
@@ -647,16 +667,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 >
                   <span className="truncate flex items-center gap-2">
                     <span className="game-room-score-row-avatar-wrap">
-                      <PlayerAvatar
-                        username="待加入"
-                        clientId={row.key}
-                        size={26}
-                        effectLevel="off"
-                        className="player-avatar--scoreboard player-avatar--scoreboard-placeholder"
-                      />
+                      <PlaceholderAvatarIcon />
                       <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--vacant" />
                     </span>
-                    <span className="truncate">{idx + 1}. 等待加入</span>
+                    <span className="truncate">
+                      <WaitingJoinDots />
+                    </span>
                   </span>
                   <span className="text-[11px] text-slate-500">--</span>
                 </div>
@@ -849,7 +865,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               >
                 <GameRoomScorePlayerRow
                   player={p}
-                  rowIndex={idx}
                   isReveal={isReveal}
                   hasAnswered={hasAnswered}
                   answerRank={answerRank}

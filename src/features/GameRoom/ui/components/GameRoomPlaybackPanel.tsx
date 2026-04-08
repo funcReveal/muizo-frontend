@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Button } from "@mui/material";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import VolumeDownRoundedIcon from "@mui/icons-material/VolumeDownRounded";
+import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
+import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
 
 import type { DanmuItem } from "../../model/gameRoomTypes";
 
@@ -257,6 +260,14 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
     [effectiveShouldShowVideoFrame, shouldHideVideoFrame],
   );
   const previewMode: "video" | "thumbnail" = showVideo ? "video" : "thumbnail";
+  const volumeIcon =
+    gameVolume <= 0 ? (
+      <VolumeOffRoundedIcon fontSize="small" />
+    ) : gameVolume < 50 ? (
+      <VolumeDownRoundedIcon fontSize="small" />
+    ) : (
+      <VolumeUpRoundedIcon fontSize="small" />
+    );
   const shouldShowYoutubeBadge =
     showGuessMask || showAudioOnlyMask || showPreStartMask || isRevealPhase;
   const handleVideoModeChange = useCallback(
@@ -506,7 +517,20 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           <div className="game-room-playback-footer__toggle">{videoModeControl}</div>
           {!isOverlayMode ? (
             <div className="game-room-playback-footer__volume">
-              <span className="text-xs text-slate-300">音量</span>
+              <div className="game-room-playback-volume-panel">
+                <span className="game-room-playback-volume-panel__icon" aria-hidden="true">
+                  {volumeIcon}
+                </span>
+                <div className="game-room-playback-volume-panel__copy">
+                  <span className="game-room-playback-volume-panel__label">遊戲音量</span>
+                  <span
+                    ref={volumeTextRef}
+                    className="game-room-playback-volume-panel__value"
+                  >
+                    {Math.round(gameVolume)}%
+                  </span>
+                </div>
+              </div>
               <input
                 ref={sliderRef}
                 type="range"
@@ -516,11 +540,9 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 onChange={handleVolumeChange}
                 onPointerDown={handleVolumePointerDown}
                 onPointerUp={handleVolumePointerUp}
-                className="w-full"
+                aria-label="遊戲音量"
+                className="game-room-playback-volume-slider"
               />
-              <span ref={volumeTextRef} className="shrink-0 text-[11px] font-semibold tabular-nums text-slate-300">
-                {Math.round(gameVolume)}%
-              </span>
             </div>
           ) : null}
         </div>
