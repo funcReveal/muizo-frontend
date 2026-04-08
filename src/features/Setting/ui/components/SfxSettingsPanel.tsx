@@ -149,7 +149,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
             }}
           />
           <p className="mt-2 text-xs text-slate-400">
-            會同時影響遊戲播放音量、結算試聽同步音量，以及提示特效音量基準。
+            會同時影響房間大廳背景音、遊戲播放音量、結算試聽同步音量，以及提示特效音量基準。
           </p>
         </div>
 

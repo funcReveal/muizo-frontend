@@ -635,7 +635,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 </ListItemIcon>
                 <ListItemText
                   primary="設定"
-                  secondary="調整快捷鍵與遊戲偏好（即將擴充）"
+                  secondary="調整快捷鍵、遊玩音量與房間大廳背景音"
                 />
               </MenuItem>
             </>

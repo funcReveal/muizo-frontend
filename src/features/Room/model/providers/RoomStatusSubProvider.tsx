@@ -22,7 +22,7 @@ export const RoomStatusSubProvider: React.FC<{ children: ReactNode }> = ({
       setStatusTextState(value);
       return;
     }
-    setStatusTextState(sanitizePossibleGarbledText(value, "蝟餌絞閮"));
+    setStatusTextState(sanitizePossibleGarbledText(value, "狀態已更新"));
   }, []);
 
   const writeValue = useMemo<StatusWriteContextValue>(

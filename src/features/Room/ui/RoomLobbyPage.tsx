@@ -539,13 +539,13 @@ const RoomLobbyPage: React.FC = () => {
   const {
     collections,
     collectionsLoading,
+    collectionsLoadingMore,
+    collectionsHasMore,
     collectionsError,
     collectionItemsLoading,
     collectionItemsError,
-    selectedCollectionId,
     fetchCollections,
-    selectCollection,
-    loadCollectionItems,
+    loadMoreCollections,
   } = useRoomCollections();
   const {
     gameState,
@@ -2285,11 +2285,12 @@ const RoomLobbyPage: React.FC = () => {
             playlistLoading={playlistLoading}
             collections={collections}
             collectionsLoading={collectionsLoading}
+            collectionsLoadingMore={collectionsLoadingMore}
+            collectionsHasMore={collectionsHasMore}
             collectionsError={collectionsError}
             collectionItemsLoading={collectionItemsLoading}
             collectionItemsError={collectionItemsError}
             isGoogleAuthed={Boolean(authUser)}
-            selectedCollectionId={selectedCollectionId}
             youtubePlaylists={youtubePlaylists}
             youtubePlaylistsLoading={youtubePlaylistsLoading}
             youtubePlaylistsError={youtubePlaylistsError}
@@ -2317,8 +2318,7 @@ const RoomLobbyPage: React.FC = () => {
             onPlaylistUrlChange={setPlaylistUrl}
             onFetchPlaylistByUrl={handleFetchPlaylistByUrl}
             onFetchCollections={fetchCollections}
-            onSelectCollection={selectCollection}
-            onLoadCollectionItems={loadCollectionItems}
+            onLoadMoreCollections={loadMoreCollections}
             onFetchYoutubePlaylists={fetchYoutubePlaylists}
           />
         )}

@@ -25122,3 +25122,66 @@ body {
     bottom: max(4px, env(safe-area-inset-bottom));
   }
 }
+
+@media (min-width: 1181px) {
+  .room-lobby-column--music {
+    grid-template-rows: auto 0 minmax(0, 1fr);
+  }
+
+  .room-lobby-column-section--control {
+    min-height: auto;
+    max-height: none;
+  }
+
+  .room-lobby-column-divider.hidden {
+    display: none;
+  }
+}
+
+@media (min-width: 1181px) {
+  .room-lobby-shell {
+    min-height: auto !important;
+  }
+
+  .room-lobby-column--music-host-combined {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .room-lobby-column--music-host-combined .room-lobby-column-section--control {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .room-lobby-current-playlist-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .room-lobby-current-playlist-list {
+    min-height: 0;
+  }
+
+  .room-lobby-current-playlist-list .room-lobby-playlist-panel {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .room-lobby-current-playlist-list .room-lobby-playlist-shell > div {
+    height: calc(84px * 4);
+    background: linear-gradient(
+      180deg,
+      rgba(7, 12, 19, 0.2),
+      rgba(7, 12, 19, 0.34)
+    ) !important;
+    box-shadow: none !important;
+  }
+
+  .room-lobby-current-playlist-list .room-lobby-playlist-shell > div::after {
+    height: 22px;
+    margin-top: -22px;
+  }
+}

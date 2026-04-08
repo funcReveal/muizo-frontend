@@ -66,9 +66,10 @@ import {
   PLAYER_MIN,
   QUESTION_MIN,
 } from "../../model/roomConstants";
-import RoomLobbyHostControls from "./RoomLobbyHostControls";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
+import CurrentPlaylistCard from "./CurrentPlaylistCard";
+import PlaylistSelectorModal from "./PlaylistSelectorModal";
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 
@@ -83,6 +84,7 @@ import {
 } from "../../../Setting/model/settingsContext";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
 import { normalizeDisplayText } from "./roomLobbyPanelUtils";
+import { pushRoomLobbyPlaylistSourceHistory } from "./roomLobbyPlaylistSourceHistory";
 
 interface RoomLobbyPanelProps {
   currentRoom: RoomState["room"] | null;
@@ -101,8 +103,9 @@ interface RoomLobbyPanelProps {
   playlistLoading?: boolean;
   collections: CollectionOption[];
   collectionsLoading: boolean;
+  collectionsLoadingMore?: boolean;
+  collectionsHasMore?: boolean;
   collectionsError: string | null;
-  selectedCollectionId: string | null;
   collectionItemsLoading: boolean;
   collectionItemsError: string | null;
   isGoogleAuthed?: boolean;
@@ -154,12 +157,11 @@ interface RoomLobbyPanelProps {
   ) => Promise<boolean>;
   onPlaylistUrlChange: (value: string) => void;
   onFetchPlaylistByUrl: (url: string) => void;
-  onFetchCollections: (scope?: "owner" | "public") => void;
-  onSelectCollection: (collectionId: string | null) => void;
-  onLoadCollectionItems: (
-    collectionId: string,
-    options?: { readToken?: string | null },
-  ) => Promise<void>;
+  onFetchCollections: (
+    scope?: "owner" | "public",
+    options?: { query?: string },
+  ) => void;
+  onLoadMoreCollections?: () => Promise<void>;
   onFetchYoutubePlaylists: () => void;
 }
 
@@ -562,6 +564,7 @@ interface RoomLobbyPlaylistPanelProps {
   playlistRowHeight: number;
   playlistRowProps: Record<string, never>;
   playlistRowComponent: (props: RowComponentProps) => React.ReactElement;
+  showHeader?: boolean;
 }
 
 const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
@@ -573,20 +576,23 @@ const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
   playlistRowHeight,
   playlistRowProps,
   playlistRowComponent,
+  showHeader = true,
 }: RoomLobbyPlaylistPanelProps) {
   return (
     <Box className="room-lobby-playlist-panel">
-      <div className="room-lobby-panel-head room-lobby-panel-head--playlist room-lobby-playlist-head">
-        <div className="room-lobby-panel-title room-lobby-panel-title--playlist">
-          <LibraryMusicRoundedIcon fontSize="small" />
-          <Typography variant="subtitle2" className="text-slate-200">
-            播放清單
-          </Typography>
+      {showHeader ? (
+        <div className="room-lobby-panel-head room-lobby-panel-head--playlist room-lobby-playlist-head">
+          <div className="room-lobby-panel-title room-lobby-panel-title--playlist">
+            <LibraryMusicRoundedIcon fontSize="small" />
+            <Typography variant="subtitle2" className="text-slate-200">
+              播放清單
+            </Typography>
+          </div>
+          <div className="room-lobby-panel-counter">
+            {playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
+          </div>
         </div>
-        <div className="room-lobby-panel-counter">
-          {playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
-        </div>
-      </div>
+      ) : null}
       {playlistItems.length === 0 ? (
         <div className="room-lobby-playlist-shell" style={playlistListShellStyle}>
           <div className="flex h-full min-h-[140px] items-center justify-center rounded border border-slate-800 bg-slate-900/60 px-3">
@@ -619,6 +625,7 @@ const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
 
 const LOBBY_INTERACTIVE_SELECTOR =
   "button, [role='button'], [role='tab'], .MuiButtonBase-root";
+const ROOM_LOBBY_BGM_PATH = "/room-lobby-bgm.mp3";
 
 const noop = () => undefined;
 
@@ -639,8 +646,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   playlistLoading = false,
   collections,
   collectionsLoading,
+  collectionsLoadingMore = false,
+  collectionsHasMore = false,
   collectionsError,
-  selectedCollectionId,
   collectionItemsLoading,
   collectionItemsError,
   isGoogleAuthed = false,
@@ -667,8 +675,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onPlaylistUrlChange,
   onFetchPlaylistByUrl,
   onFetchCollections,
-  onSelectCollection,
-  onLoadCollectionItems,
+  onLoadMoreCollections,
   onFetchYoutubePlaylists,
 }) => {
   type MobileLobbyTab = "members" | "host" | "playlist";
@@ -680,14 +687,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [sharePermissionSaving, setSharePermissionSaving] = useState(false);
   const [shareActionRunning, setShareActionRunning] = useState(false);
   const [showRoomPassword, setShowRoomPassword] = useState(false);
-  const [hostSourceType, setHostSourceType] = useState<
-    "suggestions" | "playlist" | "collection" | "youtube"
-  >("suggestions");
-  const [selectedSuggestionKey, setSelectedSuggestionKey] = useState("");
-  const [isApplyingHostSuggestion, setIsApplyingHostSuggestion] = useState(false);
-  const [hostSuggestionHint, setHostSuggestionHint] = useState(
-    "請選擇來源並套用歌單，變更會立即同步到房間。",
-  );
+  const [selectorModalOpen, setSelectorModalOpen] = useState(false);
   const [collectionScope, setCollectionScope] = useState<"public" | "owner">(
     "public",
   );
@@ -695,11 +695,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const lastFetchedScopeRef = useRef<"public" | "owner" | null>(null);
   const lastRequestedYoutubeRef = useRef(false);
   const hasAttemptedYoutubeFetchRef = useRef(false);
-  const [selectedYoutubePlaylistId, setSelectedYoutubePlaylistId] = useState<
-    string | null
-  >(null);
-  const hostCollectionAutoRequestKeyRef = useRef<string | null>(null);
-  const hostYoutubeAutoRequestedRef = useRef(false);
   const isCompactLobbyLayout = useMediaQuery("(max-width:1180px)");
   const isMobileLobbyLayout = useMediaQuery("(max-width:640px)");
   const isMobileTabletLobbyLayout = useMediaQuery("(max-width:1024px)");
@@ -715,8 +710,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     volume: Math.round((sfxVolume * gameVolume) / 100),
     preset: sfxPreset,
   });
-  const isHostPanelCollapsible = false;
-  const isHostPanelExpanded = true;
   const [lastSuggestionSeenAt, setLastSuggestionSeenAt] = useState(0);
   const [actionAnchorEl, setActionAnchorEl] = useState<HTMLElement | null>(
     null,
@@ -728,6 +721,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     detail?: string;
   } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const lobbyBgmRef = useRef<HTMLAudioElement | null>(null);
   const [settingsName, setSettingsName] = useState("");
   const [settingsVisibility, setSettingsVisibility] = useState<
     "public" | "private"
@@ -763,14 +757,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ? "*".repeat(roomPassword.length)
     : "";
   const playlistRowHeight = isMobileLobbyLayout ? 72 : 84;
-  const desktopPlaylistVisibleRows = 4.5;
+  const desktopPlaylistVisibleRows = 4.25;
   const playlistViewportMinHeight = isMobileLobbyLayout
-    ? 300
+    ? 340
     : isCompactLobbyLayout
-      ? 248
-      : desktopPlaylistVisibleRows * playlistRowHeight;
+      ? 300
+      : 3.1 * playlistRowHeight;
   const playlistViewportMaxHeight = isMobileLobbyLayout
-    ? 460
+    ? 480
     : isCompactLobbyLayout
       ? 360
       : desktopPlaylistVisibleRows * playlistRowHeight;
@@ -795,16 +789,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     height: isMobileLobbyLayout ? "100%" : playlistListViewportHeight,
     width: "100%",
   } as React.CSSProperties;
-  const playlistLoadNotice =
-    playlistLoading || collectionItemsLoading ? "讀取歌單中" : null;
   const displayRoomName = normalizeDisplayText(currentRoom?.name, "未命名房間");
-  const hostPlaylistPrimaryText =
-    "推薦播放清單會優先作為預設焦點；你也可以切換成公開、個人、YouTube 或連結來源後再套用到房間。";
-  const isHostCollectionEmptyNotice =
-    hostSourceType === "collection" &&
-    !collectionsLoading &&
-    collections.length === 0 &&
-    !(collectionScope === "owner" && !isGoogleAuthed);
   const findInteractiveTarget = useCallback((target: EventTarget | null) => {
     if (!(target instanceof Element)) return null;
     return target.closest(LOBBY_INTERACTIVE_SELECTOR) as HTMLElement | null;
@@ -853,37 +838,63 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     [findInteractiveTarget, playGameSfx, primeSfxAudio],
   );
 
-  const hostCollectionScopeLabel =
-    collectionScope === "public" ? "公開收藏庫" : "私人收藏庫";
-  const hostCollectionPrimaryText = collectionsLoading
-    ? `正在載入 ${hostCollectionScopeLabel}...`
-    : collections.length === 0
-      ? `${hostCollectionScopeLabel} 目前沒有可用清單。`
-      : `已取得 ${hostCollectionScopeLabel}，可直接選擇並套用到房間。`;
-  const isHostYoutubeEmptyNotice =
-    hostSourceType === "youtube" &&
-    isGoogleAuthed &&
-    !youtubePlaylistsLoading &&
-    youtubePlaylists.length === 0 &&
-    !youtubePlaylistsError;
-  const isHostYoutubeMissingNotice =
-    hostSourceType === "youtube" &&
-    Boolean(
-      youtubePlaylistsError &&
-      (youtubePlaylistsError.toLowerCase().includes("youtube") ||
-        youtubePlaylistsError.includes("YouTube")),
-    );
-  const visibleHostYoutubeError =
-    youtubePlaylistsError && !isHostYoutubeMissingNotice
-      ? youtubePlaylistsError
-      : null;
-  const hostYoutubePrimaryText = youtubePlaylistsLoading
-    ? "正在載入 YouTube 播放清單..."
-    : isHostYoutubeMissingNotice
-      ? "找不到可匯入的 YouTube 播放清單，請檢查連結與權限。"
-      : youtubePlaylists.length === 0 && !youtubePlaylistsError
-        ? "目前沒有可匯入的 YouTube 播放清單。"
-        : "已取得 YouTube 播放清單，可直接選擇匯入。";
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof Audio === "undefined") return;
+
+    const audio = new Audio(ROOM_LOBBY_BGM_PATH);
+    audio.loop = true;
+    audio.preload = "auto";
+    audio.volume = Math.max(0, Math.min(1, gameVolume / 100));
+    lobbyBgmRef.current = audio;
+
+    const playLobbyBgm = () => {
+      if (document.hidden) return;
+      void audio.play().catch(() => {
+        // Browser autoplay policy may block until the next user gesture.
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        audio.pause();
+        return;
+      }
+      playLobbyBgm();
+    };
+
+    const handleWindowBlur = () => {
+      audio.pause();
+    };
+
+    const handleWindowFocus = () => {
+      playLobbyBgm();
+    };
+
+    playLobbyBgm();
+    window.addEventListener("pointerdown", playLobbyBgm, { passive: true });
+    window.addEventListener("keydown", playLobbyBgm);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("blur", handleWindowBlur);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pointerdown", playLobbyBgm);
+      window.removeEventListener("keydown", playLobbyBgm);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("blur", handleWindowBlur);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = "";
+      lobbyBgmRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!lobbyBgmRef.current) return;
+    lobbyBgmRef.current.volume = Math.max(0, Math.min(1, gameVolume / 100));
+  }, [gameVolume]);
+
   const questionMaxLimit = getQuestionMax(
     currentRoom?.playlist.totalCount ?? 0,
   );
@@ -952,13 +963,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     (collectionsError.toLowerCase().includes("no collections") ||
       collectionsError.includes("收藏庫")),
   );
-  const visibleCollectionsError = React.useMemo(() => {
-    if (!collectionsError || isCollectionsEmptyNotice) {
-      return null;
-    }
-    return collectionsError;
-  }, [collectionsError, isCollectionsEmptyNotice]);
-
   useEffect(() => {
     if (collectionsLoading) return;
     const requested = lastRequestedScopeRef.current;
@@ -1010,65 +1014,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     if (isGoogleAuthed) return;
     lastRequestedYoutubeRef.current = false;
     hasAttemptedYoutubeFetchRef.current = false;
-    hostYoutubeAutoRequestedRef.current = false;
   }, [isGoogleAuthed]);
-
-  useEffect(() => {
-    if (hostSourceType !== "collection") return;
-    const requestKey = collectionScope;
-    if (hostCollectionAutoRequestKeyRef.current === requestKey) return;
-    hostCollectionAutoRequestKeyRef.current = requestKey;
-    requestCollections(collectionScope);
-  }, [collectionScope, hostSourceType, requestCollections]);
-
-  useEffect(() => {
-    if (hostSourceType !== "youtube") return;
-    if (hostYoutubeAutoRequestedRef.current) return;
-    hostYoutubeAutoRequestedRef.current = true;
-    requestYoutubePlaylists();
-  }, [hostSourceType, isGoogleAuthed, requestYoutubePlaylists]);
-
-  useEffect(() => {
-    if (hostSourceType !== "collection") {
-      hostCollectionAutoRequestKeyRef.current = null;
-    }
-    if (hostSourceType !== "youtube") {
-      hostYoutubeAutoRequestedRef.current = false;
-    }
-  }, [hostSourceType]);
 
   const latestSuggestionAt = playlistSuggestions.reduce(
     (max, suggestion) => Math.max(max, suggestion.suggestedAt),
     0,
   );
-  const hostSuggestionApplyingRef = useRef(false);
-  const lastHostSuggestionRequestRef = useRef<{
-    key: string;
-    at: number;
-  } | null>(null);
-  const HOST_SUGGESTION_REQUEST_GAP_MS = 1200;
-  const getSuggestionKey = React.useCallback(
-    (suggestion: PlaylistSuggestion) =>
-      `${suggestion.clientId}-${suggestion.suggestedAt}`,
-    [],
-  );
-
-  useEffect(() => {
-    if (playlistSuggestions.length === 0) {
-      setSelectedSuggestionKey("");
-      setHostSuggestionHint("尚無建議");
-      return;
-    }
-    setHostSuggestionHint("可直接套用");
-    setSelectedSuggestionKey((prev) => {
-      if (!prev) return "";
-      const stillExists = playlistSuggestions.some(
-        (suggestion) => getSuggestionKey(suggestion) === prev,
-      );
-      return stillExists ? prev : "";
-    });
-  }, [getSuggestionKey, playlistSuggestions]);
-
   const markSuggestionsSeen = React.useCallback(() => {
     if (latestSuggestionAt > 0) {
       setLastSuggestionSeenAt(latestSuggestionAt);
@@ -1083,38 +1034,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       ),
     [lastSuggestionSeenAt, playlistSuggestions],
   );
-  const hasNewSuggestions =
-    isHost &&
-    !(isHostPanelExpanded && hostSourceType === "suggestions") &&
-    newSuggestionCount > 0;
-
-  useEffect(() => {
-    if (!isHost) return;
-    if (isHostPanelCollapsible) return;
-    if (hostSourceType !== "suggestions") return;
-    if (latestSuggestionAt <= lastSuggestionSeenAt) return;
-    setLastSuggestionSeenAt(latestSuggestionAt);
-  }, [
-    hostSourceType,
-    isHost,
-    isHostPanelCollapsible,
-    lastSuggestionSeenAt,
-    latestSuggestionAt,
-  ]);
-
-  useEffect(() => {
-    if (!isHost) return;
-    if (!isMobileTabletLobbyLayout) return;
-    if (mobileLobbyTab !== "host") return;
-    if (latestSuggestionAt <= lastSuggestionSeenAt) return;
-    setLastSuggestionSeenAt(latestSuggestionAt);
-  }, [
-    isHost,
-    isMobileTabletLobbyLayout,
-    lastSuggestionSeenAt,
-    latestSuggestionAt,
-    mobileLobbyTab,
-  ]);
+  const hasNewSuggestions = isHost && newSuggestionCount > 0;
 
   const closeActionMenu = React.useCallback(() => {
     setActionAnchorEl(null);
@@ -1276,81 +1196,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onLeave,
     );
   }, [onLeave, openConfirmModal]);
-
-  const handleApplyHostSuggestion = React.useCallback(async (suggestion: PlaylistSuggestion) => {
-    const suggestionKey = getSuggestionKey(suggestion);
-    const now = Date.now();
-    const lastRequest = lastHostSuggestionRequestRef.current;
-    if (hostSuggestionApplyingRef.current) {
-      setHostSuggestionHint("套用中");
-      return;
-    }
-    if (
-      lastRequest &&
-      lastRequest.key === suggestionKey &&
-      now - lastRequest.at < HOST_SUGGESTION_REQUEST_GAP_MS
-    ) {
-      setHostSuggestionHint("請稍後再試");
-      return;
-    }
-
-    lastHostSuggestionRequestRef.current = { key: suggestionKey, at: now };
-    hostSuggestionApplyingRef.current = true;
-    setIsApplyingHostSuggestion(true);
-    setHostSuggestionHint("套用中");
-
-    try {
-      const isSnapshot = Boolean(suggestion.items?.length);
-      if (isSnapshot) {
-        await onApplySuggestionSnapshot(suggestion);
-        setHostSuggestionHint("已套用快照");
-        return;
-      }
-
-      if (suggestion.type === "playlist") {
-        onFetchPlaylistByUrl(suggestion.value);
-        setHostSuggestionHint("已套用連結");
-        return;
-      }
-
-      onSelectCollection(suggestion.value);
-      await onLoadCollectionItems(suggestion.value, {
-        readToken: suggestion.readToken ?? null,
-      });
-      setHostSuggestionHint("已套用收藏庫");
-    } catch (error) {
-      console.error(error);
-      setHostSuggestionHint("套用失敗");
-    } finally {
-      window.setTimeout(() => {
-        hostSuggestionApplyingRef.current = false;
-        setIsApplyingHostSuggestion(false);
-      }, HOST_SUGGESTION_REQUEST_GAP_MS);
-    }
-  }, [
-    getSuggestionKey,
-    onApplySuggestionSnapshot,
-    onFetchPlaylistByUrl,
-    onSelectCollection,
-    onLoadCollectionItems,
-  ]);
-
-  const requestApplyHostSuggestion = React.useCallback((suggestion: PlaylistSuggestion) => {
-    const isSnapshot = Boolean(suggestion.items?.length);
-    const displayLabel = suggestion.title ?? suggestion.value;
-    openConfirmModal(
-      suggestion.type === "playlist"
-        ? "要套用這個播放清單連結嗎？"
-        : "要套用這個收藏庫建議嗎？",
-      displayLabel,
-      () => {
-        void handleApplyHostSuggestion(suggestion);
-      },
-    );
-    setHostSuggestionHint(
-      isSnapshot ? "即將套用快照" : "即將套用來源",
-    );
-  }, [handleApplyHostSuggestion, openConfirmModal]);
 
   const suggestionResetKey =
     gameState?.status === "ended"
@@ -1862,53 +1707,86 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     />
   );
 
+  const desktopHostPlaylistPanel = !isMobileTabletLobbyLayout && isHost ? (
+    <div className="room-lobby-current-playlist-list">
+      <RoomLobbyPlaylistPanel
+        playlistProgress={playlistProgress}
+        playlistItems={playlistItems}
+        playlistListShellStyle={playlistListShellStyle}
+        playlistListViewportStyle={playlistListViewportStyle}
+        rowCount={rowCount}
+        playlistRowHeight={playlistRowHeight}
+        playlistRowProps={playlistRowProps}
+        playlistRowComponent={PlaylistRow}
+        showHeader={false}
+      />
+    </div>
+  ) : null;
+
+  const handleRecordSourceApplied = React.useCallback(
+    (entry: {
+      sourceType: "public_collection" | "private_collection" | "youtube_google_import" | "youtube_pasted_link";
+      title: string;
+      sourceId?: string | null;
+      url?: string | null;
+      thumbnailUrl?: string | null;
+      itemCount?: number | null;
+    }) => {
+      pushRoomLobbyPlaylistSourceHistory(entry);
+    },
+    [],
+  );
+
   const hostPanel = isHost ? (
-    <RoomLobbyHostControls
-      isHostPanelExpanded={isHostPanelExpanded}
-      hasNewSuggestions={hasNewSuggestions}
-      newSuggestionCount={newSuggestionCount}
-      playlistSuggestions={playlistSuggestions}
-      gameStatus={gameState?.status}
-      hostSourceType={hostSourceType}
-      setHostSourceType={setHostSourceType}
-      markSuggestionsSeen={markSuggestionsSeen}
-      isApplyingHostSuggestion={isApplyingHostSuggestion}
-      hostSuggestionHint={hostSuggestionHint}
-      selectedSuggestionKey={selectedSuggestionKey}
-      setSelectedSuggestionKey={setSelectedSuggestionKey}
-      requestApplyHostSuggestion={requestApplyHostSuggestion}
-      hostPlaylistPrimaryText={hostPlaylistPrimaryText}
-      playlistUrl={playlistUrl}
-      onPlaylistUrlChange={onPlaylistUrlChange}
-      isGoogleAuthed={isGoogleAuthed}
-      collectionScope={collectionScope}
-      setCollectionScope={setCollectionScope}
-      onSelectCollection={onSelectCollection}
-      selectedCollectionId={selectedCollectionId}
-      collections={collections}
-      collectionsLoading={collectionsLoading}
-      collectionItemsLoading={collectionItemsLoading}
-      isHostCollectionEmptyNotice={isHostCollectionEmptyNotice}
-      hostCollectionPrimaryText={hostCollectionPrimaryText}
-      visibleCollectionsError={visibleCollectionsError}
-      collectionItemsError={collectionItemsError}
-      isHostYoutubeEmptyNotice={isHostYoutubeEmptyNotice}
-      isHostYoutubeMissingNotice={isHostYoutubeMissingNotice}
-      hostYoutubePrimaryText={hostYoutubePrimaryText}
-      visibleHostYoutubeError={visibleHostYoutubeError}
-      youtubePlaylists={youtubePlaylists}
-      youtubePlaylistsLoading={youtubePlaylistsLoading}
-      selectedYoutubePlaylistId={selectedYoutubePlaylistId}
-      setSelectedYoutubePlaylistId={setSelectedYoutubePlaylistId}
-      openConfirmModal={openConfirmModal}
-      playlistLoadNotice={playlistLoadNotice}
-      playlistError={playlistError}
-      playlistLoading={playlistLoading}
-      onApplyPlaylistUrlDirect={onApplyPlaylistUrlDirect}
-      onApplyCollectionDirect={onApplyCollectionDirect}
-      onApplyYoutubePlaylistDirect={onApplyYoutubePlaylistDirect}
-      onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
-    />
+    <div className="room-lobby-current-playlist-stack">
+      <CurrentPlaylistCard
+        room={currentRoom}
+        playlistCount={playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
+        isHost={isHost}
+        pendingSuggestionCount={newSuggestionCount}
+        onChange={() => {
+          markSuggestionsSeen();
+          setSelectorModalOpen(true);
+        }}
+        changeDisabled={gameState?.status === "playing"}
+      />
+      {desktopHostPlaylistPanel}
+        <PlaylistSelectorModal
+          open={selectorModalOpen}
+          onClose={() => setSelectorModalOpen(false)}
+        isHost={isHost}
+        isGoogleAuthed={isGoogleAuthed}
+        playlistUrl={playlistUrl}
+        playlistItemsForChange={playlistItemsForChange}
+        playlistError={playlistError}
+        playlistLoading={playlistLoading}
+        playlistSuggestions={playlistSuggestions}
+          collections={collections}
+          collectionsLoading={collectionsLoading}
+          collectionsLoadingMore={collectionsLoadingMore}
+          collectionsHasMore={collectionsHasMore}
+          collectionsError={collectionsError}
+          collectionItemsLoading={collectionItemsLoading}
+          collectionItemsError={collectionItemsError}
+        youtubePlaylists={youtubePlaylists}
+        youtubePlaylistsLoading={youtubePlaylistsLoading}
+        youtubePlaylistsError={youtubePlaylistsError}
+        onPlaylistUrlChange={onPlaylistUrlChange}
+        onPreviewPlaylistUrl={onFetchPlaylistByUrl}
+        onApplyPlaylistUrlDirect={onApplyPlaylistUrlDirect}
+        onApplyCollectionDirect={onApplyCollectionDirect}
+        onApplyYoutubePlaylistDirect={onApplyYoutubePlaylistDirect}
+        onApplySuggestionSnapshot={onApplySuggestionSnapshot}
+        onFetchCollections={onFetchCollections}
+        onLoadMoreCollections={() => {
+          void onLoadMoreCollections?.();
+        }}
+        onFetchYoutubePlaylists={requestYoutubePlaylists}
+        onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
+        onMarkSuggestionsSeen={markSuggestionsSeen}
+        onRecordSourceApplied={handleRecordSourceApplied}
+      />
+    </div>
   ) : gameState?.status !== "playing" ? (
     <RoomLobbySuggestionPanel
       key={suggestionResetKey}
@@ -1943,16 +1821,19 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
 
   const playlistPanel = (
-    <RoomLobbyPlaylistPanel
-      playlistProgress={playlistProgress}
-      playlistItems={playlistItems}
-      playlistListShellStyle={playlistListShellStyle}
-      playlistListViewportStyle={playlistListViewportStyle}
-      rowCount={rowCount}
-      playlistRowHeight={playlistRowHeight}
-      playlistRowProps={playlistRowProps}
-      playlistRowComponent={PlaylistRow}
-    />
+    <div>
+      <RoomLobbyPlaylistPanel
+        playlistProgress={playlistProgress}
+        playlistItems={playlistItems}
+        playlistListShellStyle={playlistListShellStyle}
+        playlistListViewportStyle={playlistListViewportStyle}
+        rowCount={rowCount}
+        playlistRowHeight={playlistRowHeight}
+        playlistRowProps={playlistRowProps}
+        playlistRowComponent={PlaylistRow}
+        showHeader
+      />
+    </div>
   );
 
   return (
@@ -1961,13 +1842,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onPointerOverCapture={handleLobbyPointerEnter}
       onPointerDownCapture={handleLobbyPointerDown}
       sx={{
-        minHeight: isCompactLobbyLayout ? "auto" : "min(860px, calc(100dvh - 120px))",
+        minHeight: "auto",
         height: "auto",
         maxHeight: "none",
         display: "flex",
         flexDirection: "column",
         width: "100%",
-        maxWidth: "1460px",
+        maxWidth: "1320px",
         marginInline: "auto",
       }}
     >
@@ -2102,7 +1983,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       <Box
         className={`room-lobby-content room-lobby-content--shell-less ${isMobileTabletLobbyLayout ? "room-lobby-content--mobile-redesign" : ""
           }`}
-        sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 1.5 }}
+        sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 1 }}
       >
         {isMobileTabletLobbyLayout ? (
           <>
@@ -2271,14 +2152,18 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
                 {participantsPanel}
               </div>
             </div>
-            <div className="room-lobby-column room-lobby-column--music">
+            <div className={`room-lobby-column room-lobby-column--music ${isHost ? "room-lobby-column--music-host-combined" : ""}`}>
               <div className="room-lobby-column-section room-lobby-column-section--control">
                 {controlPanel}
               </div>
-              <div className="room-lobby-column-divider" aria-hidden="true" />
-              <div className="room-lobby-column-section room-lobby-column-section--playlist">
-                {playlistPanel}
-              </div>
+              {!isHost ? (
+                <>
+                  <div className="room-lobby-column-divider hidden" aria-hidden="true" />
+                  <div className="room-lobby-column-section room-lobby-column-section--playlist">
+                    {playlistPanel}
+                  </div>
+                </>
+              ) : null}
             </div>
           </>
         )}

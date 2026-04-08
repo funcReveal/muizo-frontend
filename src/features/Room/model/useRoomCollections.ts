@@ -180,7 +180,7 @@ export const useRoomCollections = ({
       setCollectionsLoadingMore(false);
       setCollectionsHasMore(false);
       setCollectionsError(null);
-      if (resolvedScope === "public" && previousScope !== "public") {
+      if (previousScope !== resolvedScope) {
         setCollections([]);
       }
       try {

@@ -1,18 +1,22 @@
-﻿/**
+/**
  * RoomCreateSubProvider
  *
- * 蝞∠?撱箇?/??輸??”?桃????澆 useRoomProviderCreateRoomAction?? *
- * 靘陷嚗? *   - AuthContext嚗uthToken?lientId?efreshAuthToken
- *   - RoomAuthInternalContext嚗ctiveUsername?etDefaultRoomName?reviousUsernameRef
- *   - StatusWriteContext嚗etStatusText
- *   - RoomPlaylistContext嚗laylistItems?astFetchedPlaylistId?astFetchedPlaylistTitle
- *                          questionCount?layDurationSec?evealDurationSec?tartOffsetSec?? *                          allowCollectionClipTiming嚗ackfilled values via RoomGameContext嚗? *   - RoomGameContext嚗layDurationSec?evealDurationSec?tartOffsetSec?llowCollectionClipTiming
- *   - PlaylistInputControlContext嚗esetPlaylistState
- *   - PlaylistLiveSettersContext嚗esetPlaylistPagingState?etPlaylistProgress
- *   - CollectionAccessContext嚗esetCollectionSelection?learCollectionsError
- *   - RoomSessionInternalContext嚗??session ?折撌亙
+ * 組合建立房間所需的上層狀態，並包裝 `useRoomProviderCreateRoomAction`。
+ * 主要依賴：
+ * - AuthContext: `authToken`, `clientId`, `refreshAuthToken`
+ * - RoomAuthInternalContext: `activeUsername`, `getDefaultRoomName`,
+ *   `previousUsernameRef`
+ * - StatusWriteContext: `setStatusText`
+ * - RoomPlaylistContext: `playlistItems`, `lastFetchedPlaylistId`,
+ *   `lastFetchedPlaylistTitle`, `questionCount`
+ * - RoomGameContext: `playDurationSec`, `revealDurationSec`, `startOffsetSec`,
+ *   `allowCollectionClipTiming`
+ * - PlaylistInputControlContext: `resetPlaylistState`
+ * - PlaylistLiveSettersContext: `resetPlaylistPagingState`, `setPlaylistProgress`
+ * - CollectionAccessContext: `resetCollectionSelection`, `clearCollectionsError`
+ * - RoomSessionInternalContext: socket/session 相關同步能力
  *
- * ??嚗oomCreateContext
+ * 對外提供 `RoomCreateContext`。
  */
 import {
   useCallback,
@@ -44,7 +48,7 @@ import { API_URL, DEFAULT_ROOM_MAX_PLAYERS } from "../roomConstants";
 export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  // ?? Reads from parent providers ????????????????????????????????????????????
+  // Reads from parent providers.
   const { authToken, clientId, refreshAuthToken } = useAuth();
   const {
     activeUsername,
@@ -99,7 +103,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     resetGameSettingsDefaults,
   } = useRoomSessionInternal();
 
-  // ?? Local state ????????????????????????????????????????????????????????????
+  // Local state.
   const [roomNameInput, setRoomNameInput] = useState(
     () => getDefaultRoomName(activeUsername),
   );
@@ -114,7 +118,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
   );
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
-  // ?? Sync roomNameInput when username changes ???????????????????????????????
+  // Sync roomNameInput when username changes.
   useEffect(() => {
     const previousUsername = previousUsernameRef.current;
     const previousDefaultName = getDefaultRoomName(previousUsername);
@@ -129,7 +133,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     });
   }, [activeUsername, getDefaultRoomName, previousUsernameRef]);
 
-  // ?? handleCreateRoom ???????????????????????????????????????????????????????
+  // Create room action.
   const { handleCreateRoom } = useRoomProviderCreateRoomAction({
     apiUrl: API_URL,
     getSocket,
@@ -176,7 +180,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     setRoomMaxPlayersInput,
   });
 
-  // ?? resetCreateState ???????????????????????????????????????????????????????
+  // Reset room creation state.
   const resetCreateState = useCallback(() => {
     setRoomNameInput(getDefaultRoomName(activeUsername));
     setRoomVisibilityInput("public");
@@ -202,7 +206,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     setRouteRoomResolved,
   ]);
 
-  // ?? RoomCreateContext value ????????????????????????????????????????????????
+  // RoomCreateContext value.
   const ctxValue = useMemo<RoomCreateContextValue>(
     () => ({
       roomNameInput,
@@ -243,4 +247,3 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     </RoomCreateContext.Provider>
   );
 };
-
