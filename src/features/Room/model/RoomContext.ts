@@ -1,4 +1,4 @@
-import { createContext } from "react";
+import { createContext, type Dispatch, type SetStateAction } from "react";
 
 import type {
   ChatMessage,
@@ -14,6 +14,10 @@ import type {
   RoomSummary,
   SubmitAnswerResult,
 } from "./types";
+import type { AuthUser } from "../../../shared/auth/AuthContext";
+import type { YoutubePlaylist } from "./RoomPlaylistContext";
+import type { RoomCreateSourceMode } from "./RoomCreateContext";
+import type { RoomKickedNotice } from "./RoomSessionContext";
 
 // Re-export moved types so existing consumers continue to work
 export type { AuthUser } from "../../../shared/auth/AuthContext";
@@ -109,7 +113,7 @@ export interface RoomContextValue {
   statusText: string | null;
   setStatusText: (value: string | null) => void;
   kickedNotice: RoomKickedNotice | null;
-  setKickedNotice: (value: RoomKickedNotice | null) => void;
+  setKickedNotice: Dispatch<SetStateAction<RoomKickedNotice | null>>;
   sessionProgress: SessionProgressPayload | null;
   playlistUrl: string;
   setPlaylistUrl: (value: string) => void;

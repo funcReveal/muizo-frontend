@@ -65,6 +65,7 @@ const HostControlsHarness = ({
     <RoomLobbyHostControls
       isHostPanelExpanded
       hasNewSuggestions
+      newSuggestionCount={suggestions.length}
       playlistSuggestions={suggestions}
       gameStatus={gameStatus}
       hostSourceType={hostSourceType}

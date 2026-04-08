@@ -11,8 +11,8 @@ import { Button, Slider, Switch } from "@mui/material";
 import {
   resolveCorrectResultSfxEvent,
   type GameSfxEvent,
-} from "../../../Room/model/sfx/gameSfxEngine";
-import { useGameSfx } from "../../../GameRoom/model/useGameSfx";
+} from "../../../../shared/sfx/gameSfxEngine";
+import { useGameSfx } from "../../../../shared/hooks/useGameSfx";
 import SettingsSectionCard from "./SettingsSectionCard";
 import {
   DEFAULT_SFX_VOLUME,

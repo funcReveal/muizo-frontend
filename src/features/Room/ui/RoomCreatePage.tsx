@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { type RoomCreateSourceMode } from "../model/RoomContext";
+import { type RoomCreateSourceMode } from "../model/RoomCreateContext";
 import { PLAYER_MIN } from "../model/roomConstants";
-import { useRoom } from "../model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { useRoomSession } from "../model/RoomSessionContext";
+import { useRoomPlaylist } from "../model/RoomPlaylistContext";
+import { useRoomCollections } from "../model/RoomCollectionsContext";
+import { useRoomCreate } from "../model/RoomCreateContext";
+import { useRoomGame } from "../model/RoomGameContext";
 import RoomCreationSection from "./components/RoomCreationSection";
 
 const sourceModeLabels: Record<RoomCreateSourceMode, string> = {
@@ -16,32 +21,29 @@ const sourceModeLabels: Record<RoomCreateSourceMode, string> = {
 const RoomCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [activeCreateStep, setActiveCreateStep] = useState<1 | 2>(1);
+  const { username, authUser, loginWithGoogle } = useAuth();
+  const { currentRoom } = useRoomSession();
   const {
-    username,
-    currentRoom,
-    roomNameInput,
-    roomVisibilityInput,
-    roomCreateSourceMode,
-    roomPasswordInput,
-    roomMaxPlayersInput,
     playlistUrl,
     playlistItems,
     playlistError,
     playlistLoading,
     playlistStage,
-    joinPasswordInput,
     playlistProgress,
     questionCount,
-    playDurationSec,
-    revealDurationSec,
-    startOffsetSec,
-    allowCollectionClipTiming,
     questionMin,
     questionMaxLimit,
     questionStep,
     youtubePlaylists,
     youtubePlaylistsLoading,
     youtubePlaylistsError,
+    setPlaylistUrl,
+    updateQuestionCount,
+    handleFetchPlaylist,
+    fetchYoutubePlaylists,
+    importYoutubePlaylist,
+  } = useRoomPlaylist();
+  const {
     collections,
     collectionsLoading,
     collectionsError,
@@ -53,32 +55,39 @@ const RoomCreatePage: React.FC = () => {
     selectedCollectionId,
     collectionItemsLoading,
     collectionItemsError,
-    authUser,
-    loginWithGoogle,
+    fetchCollections,
+    toggleCollectionFavorite,
+    selectCollection,
+    loadCollectionItems,
+  } = useRoomCollections();
+  const {
+    roomNameInput,
+    roomVisibilityInput,
+    roomCreateSourceMode,
+    roomPasswordInput,
+    roomMaxPlayersInput,
+    joinPasswordInput,
+    isCreatingRoom,
     setRoomNameInput,
     setRoomVisibilityInput,
     setRoomCreateSourceMode,
     setRoomPasswordInput,
     setRoomMaxPlayersInput,
     setJoinPasswordInput,
-    setPlaylistUrl,
-    updateQuestionCount,
+    handleCreateRoom,
+    handleJoinRoom,
+    resetCreateState,
+  } = useRoomCreate();
+  const {
+    playDurationSec,
+    revealDurationSec,
+    startOffsetSec,
+    allowCollectionClipTiming,
     updatePlayDurationSec,
     updateRevealDurationSec,
     updateStartOffsetSec,
     updateAllowCollectionClipTiming,
-    isCreatingRoom,
-    handleFetchPlaylist,
-    fetchYoutubePlaylists,
-    importYoutubePlaylist,
-    fetchCollections,
-    toggleCollectionFavorite,
-    selectCollection,
-    loadCollectionItems,
-    handleCreateRoom,
-    handleJoinRoom,
-    resetCreateState,
-  } = useRoom();
+  } = useRoomGame();
 
   useEffect(() => {
     resetCreateState();

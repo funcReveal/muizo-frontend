@@ -14,7 +14,9 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { USERNAME_MAX } from "../../Room/model/roomConstants";
 import type { RoomSummary } from "../../Room/model/types";
-import { useRoom } from "../../Room/model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { useRoomSession } from "../../Room/model/RoomSessionContext";
+import { useRoomCreate } from "../../Room/model/RoomCreateContext";
 
 const TEXT = {
   invalidInviteLink: "找不到邀請資訊，請確認連結是否正確。",
@@ -111,18 +113,22 @@ const InvitedPage: React.FC = () => {
     loginWithGoogle,
     username,
     usernameInput,
+    setUsernameInput,
+    handleSetUsername,
+  } = useAuth();
+  const {
     rooms,
     currentRoom,
-    joinPasswordInput,
     inviteNotFound,
-    setUsernameInput,
-    setJoinPasswordInput,
     setInviteRoomId,
     setStatusText,
     fetchRoomById,
+  } = useRoomSession();
+  const {
+    joinPasswordInput,
+    setJoinPasswordInput,
     handleJoinRoom,
-    handleSetUsername,
-  } = useRoom();
+  } = useRoomCreate();
 
   const [inviteRoomApi, setInviteRoomApi] = useState<{
     roomReference: string;

@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, type Dispatch, type SetStateAction } from "react";
 
 import type {
   ChatMessage,
@@ -28,7 +28,7 @@ export interface RoomSessionContextValue {
   statusText: string | null;
   setStatusText: (value: string | null) => void;
   kickedNotice: RoomKickedNotice | null;
-  setKickedNotice: (value: RoomKickedNotice | null) => void;
+  setKickedNotice: Dispatch<SetStateAction<RoomKickedNotice | null>>;
   sessionProgress: SessionProgressPayload | null;
   // 連線
   isConnected: boolean;

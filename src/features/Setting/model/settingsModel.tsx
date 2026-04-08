@@ -8,7 +8,7 @@ import React, {
 import {
   parseStoredSfxPreset,
   type SfxPresetId,
-} from "../../Room/model/sfx/gameSfxEngine";
+} from "../../../shared/sfx/gameSfxEngine";
 import {
   DEFAULT_SCOREBOARD_BORDER_ENABLED_VALUE,
   DEFAULT_SCOREBOARD_BORDER_MASK_ENABLED_VALUE,

@@ -1,5 +1,7 @@
 ﻿import React, {
+  lazy,
   startTransition,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -32,30 +34,17 @@ import type {
   ChatMessage,
   GameState,
   PlaylistItem,
-  PlaybackExtensionMode,
   RoomState,
   SubmitAnswerResult,
 } from "../../Room/model/types";
 import {
-  DEFAULT_CLIP_SEC,
-  DEFAULT_PLAYBACK_EXTENSION_MODE,
-  DEFAULT_PLAY_DURATION_SEC,
-  DEFAULT_START_OFFSET_SEC,
-} from "../../Room/model/roomConstants";
-import {
   getStoredShowVideoPreference,
   setStoredShowVideoPreference,
 } from "../../Room/model/roomStorage";
-import {
-  normalizePlaybackExtensionMode,
-  normalizeRoomDisplayText,
-} from "../../Room/model/roomProviderUtils";
-import {
-  resolveCorrectResultSfxEvent,
-  resolveComboMilestoneSfxEvent,
-  resolveCountdownSfxEvent,
-  resolveGuessDeadlineSfxEvent,
-} from "../../Room/model/sfx/gameSfxEngine";
+import { normalizeRoomDisplayText } from "../../../shared/utils/text";
+import { blurActiveInteractiveElement } from "../../../shared/utils/dom";
+import { useGameRoomSfxEffects } from "../model/useGameRoomSfxEffects";
+import { useGameRoomVoteDialogEffects } from "../model/useGameRoomVoteDialogEffects";
 import { useKeyBindings } from "../../Setting/ui/components/useKeyBindings";
 import { useSfxSettings } from "../../Setting/ui/components/useSfxSettings";
 import {
@@ -63,7 +52,9 @@ import {
   useSettingsModel,
 } from "../../Setting/model/settingsContext";
 import { useGameSfx } from "../model/useGameSfx";
-import LiveSettlementShowcase from "../../Settlement/ui/components/LiveSettlementShowcase";
+const LiveSettlementShowcase = lazy(
+  () => import("../../Settlement/ui/components/LiveSettlementShowcase"),
+);
 import GameRoomAnswerPanel from "./components/GameRoomAnswerPanel";
 import GameRoomLeftSidebar from "./components/GameRoomLeftSidebar";
 import GameRoomPlaybackPanel from "./components/GameRoomPlaybackPanel";
@@ -72,10 +63,8 @@ import {
   StartBroadcastOverlayPortal,
 } from "./components/GameRoomPortalOverlays";
 import {
-  extractYouTubeId,
   isMobileDevice,
   SILENT_AUDIO_SRC,
-  triggerHapticFeedback,
 } from "../model/gameRoomUtils";
 import {
   buildScoreboardRows,
@@ -95,9 +84,11 @@ import PlayerAvatar from "../../../shared/ui/playerAvatar/PlayerAvatar";
 import useGameRoomChoiceHotkeys from "./lib/useGameRoomChoiceHotkeys";
 import useGameRoomAnswerPanelAutoScroll from "./lib/useGameRoomAnswerPanelAutoScroll";
 import useMobileDrawerDragDismiss from "./lib/useMobileDrawerDragDismiss";
-import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "../../Settlement/model/types";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import { useRoomUi } from "../../Room/model/useRoomUi";
+import { useGameRoomPlaybackState } from "../model/useGameRoomPlaybackState";
+import { useGameRoomVoteState } from "../model/useGameRoomVoteState";
 
 interface GameRoomPageProps {
   room: RoomState["room"];
@@ -174,13 +165,12 @@ const GAME_ROOM_DRAWER_MODAL_PROPS = {
   disableScrollLock: true,
 } as const;
 
-const blurActiveInteractiveElement = () => {
-  if (typeof document === "undefined") return;
-  const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLElement) {
-    activeElement.blur();
-  }
-};
+const GameRoomSettlementLoader = () => (
+  <div className="flex min-h-screen w-full items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-slate-300" />
+  </div>
+);
+
 
 const useGameRoomUiClock = ({
   getServerNowMs,
@@ -280,8 +270,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   });
   const { gameVolume, setGameVolume, sfxEnabled, sfxVolume, sfxPreset } =
     useSfxSettings();
-  const { avatarEffectLevel = DEFAULT_AVATAR_EFFECT_LEVEL_VALUE } =
-    useSettingsModel();
+  const {
+    avatarEffectLevel = DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
+    scoreboardBorderEnabled,
+    scoreboardBorderMaskEnabled,
+    scoreboardBorderAnimation,
+    scoreboardBorderLineStyle,
+    scoreboardBorderTheme,
+    scoreboardBorderParticleCount,
+  } = useSettingsModel();
   const requiresAudioGesture = useMemo(() => {
     if (typeof window === "undefined") return false;
     return isMobileDevice();
@@ -322,18 +319,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   >(null);
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
-  const lastPreStartCountdownSfxKeyRef = useRef<string | null>(null);
-  const lastGuessUrgencySfxKeyRef = useRef<string | null>(null);
-  const lastCountdownGoSfxKeyRef = useRef<string | null>(null);
-  const lastRevealResultSfxKeyRef = useRef<string | null>(null);
-  const lastComboStateSfxKeyRef = useRef<string | null>(null);
+
   const previousPhaseRef = useRef<GameState["phase"]>(gameState.phase);
   const lastAutoOverlayTransitionAtRef = useRef(0);
   const mobileScoreboardAutoOpenedRef = useRef(false);
-  const lastPlaybackVotePromptKeyRef = useRef<string | null>(null);
-  const lastPlaybackVoteActiveKeyRef = useRef<string | null>(null);
-  const lastPlaybackVoteResolvedKeyRef = useRef<string | null>(null);
-  const lastAutoPlaybackExtensionNoticeRef = useRef<string | null>(null);
+
   const answerPanelRef = useRef<HTMLDivElement | null>(null);
   const mobilePlaybackPanelRef = useRef<HTMLDivElement | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
@@ -407,6 +397,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       current === "scoreboard" ? null : current,
     );
   }, []);
+  const handleToggleMobileRevealAutoOverlay = useCallback(
+    () => setMobileRevealAutoOverlayEnabled((current) => !current),
+    [],
+  );
+  const handleToggleMobileGuessAnchor = useCallback(
+    () => setMobileGuessAnchorEnabled((current) => !current),
+    [],
+  );
   const handleOpenHostManagement = useCallback(() => {
     if (!isHostInGame) return;
     setHostManagementOpen(true);
@@ -441,6 +439,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       });
     },
     [isHostInGame],
+  );
+  const handleHostManagementClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-hm-action]");
+      if (!btn) return;
+      const action = btn.dataset.hmAction as HostManagementActionType | undefined;
+      const clientId = btn.dataset.hmClientId;
+      if (!action || !clientId) return;
+      const participant = hostManageParticipants.find((p) => p.clientId === clientId);
+      if (participant) requestHostManagementAction(action, participant);
+    },
+    [hostManageParticipants, requestHostManagementAction],
   );
   const hostManagementConfirmText = useMemo(() => {
     if (!hostManagementConfirm) return null;
@@ -492,64 +502,21 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     }
     setHostManagementConfirm(null);
   }, [hostManagementConfirm, isHostInGame, onKickPlayer, onTransferHost]);
-  const playbackExtensionVote = gameState.playbackExtensionVote ?? null;
-  const playbackExtensionMode: PlaybackExtensionMode =
-    normalizePlaybackExtensionMode(
-      room.gameSettings?.playbackExtensionMode ?? DEFAULT_PLAYBACK_EXTENSION_MODE,
-    );
-  const isManualPlaybackExtensionMode = playbackExtensionMode === "manual_vote";
-  const isAutoPlaybackExtensionMode = playbackExtensionMode === "auto_once";
-  const playbackVoteApproveCount =
-    playbackExtensionVote?.approveClientIds.length ?? 0;
-  const playbackVoteRejectCount =
-    playbackExtensionVote?.rejectClientIds.length ?? 0;
-  const playbackVoteEligibleCount =
-    playbackExtensionVote?.eligibleClientIds.length ?? 0;
-  const playbackVoteMajorityCount =
-    playbackVoteEligibleCount > 0
-      ? Math.floor(playbackVoteEligibleCount / 2) + 1
-      : 0;
-  const playbackVoteEndsAt =
-    playbackExtensionVote?.status === "active"
-      ? playbackExtensionVote.endsAt
-      : null;
-  const playbackExtensionSeconds = Math.max(
-    0,
-    Math.round((gameState.playbackExtensionMs ?? 0) / 1000),
-  );
-  const myPlaybackVote = useMemo(() => {
-    if (!playbackExtensionVote || !meClientId) return null;
-    if (playbackExtensionVote.approveClientIds.includes(meClientId)) {
-      return "approve";
-    }
-    if (playbackExtensionVote.rejectClientIds.includes(meClientId)) {
-      return "reject";
-    }
-    return null;
-  }, [meClientId, playbackExtensionVote]);
-  const playbackVoteRequesterName =
-    normalizeRoomDisplayText(playbackExtensionVote?.requestedByUsername, "玩家");
-  const playbackVoteProposalSeconds = Math.max(
-    0,
-    Math.round((playbackExtensionVote?.extendMs ?? 0) / 1000),
-  );
-  const playbackVoteResolvedSeconds = Math.max(
+  const {
+    isManualPlaybackExtensionMode,
+    isAutoPlaybackExtensionMode,
+    playbackExtensionVote,
+    playbackVoteApproveCount,
+    playbackVoteRejectCount,
+    playbackVoteMajorityCount,
+    playbackVoteEndsAt,
     playbackExtensionSeconds,
+    myPlaybackVote,
+    playbackVoteRequesterName,
     playbackVoteProposalSeconds,
-  );
-  const playbackVoteButtonLabel = playbackVoteRequestPending
-    ? "\u767c\u8d77\u6295\u7968\u4e2d..."
-    : playbackExtensionVote?.status === "active"
-      ? myPlaybackVote === null
-        ? `\u5ef6\u9577\u6295\u7968 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
-        : `\u5df2\u6295\u7968 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
-      : playbackExtensionVote?.status === "approved" && playbackVoteResolvedSeconds > 0
-        ? `\u5df2\u5ef6\u9577 ${playbackVoteResolvedSeconds} \u79d2`
-        : playbackExtensionVote?.status === "rejected"
-          ? "\u6295\u7968\u672a\u901a\u904e"
-      : playbackExtensionSeconds > 0
-            ? `\u5df2\u5ef6\u9577 ${playbackExtensionSeconds} \u79d2`
-            : "\u5ef6\u9577\u64ad\u653e";
+    playbackVoteResolvedSeconds,
+    playbackVoteButtonLabel,
+  } = useGameRoomVoteState({ gameState, room, meClientId, playbackVoteRequestPending });
   const effectiveMobileScoreboardHeight = clampMobileVh(
     normalizedSplitHeights.scoreboardHeight,
     MOBILE_SCOREBOARD_MIN_HEIGHT_VH,
@@ -604,122 +571,27 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         : null,
   });
 
-  const effectiveTrackOrder = useMemo(() => {
-    if (gameState.trackOrder?.length) {
-      return gameState.trackOrder;
-    }
-    return playlist.map((_, idx) => idx);
-  }, [gameState.trackOrder, playlist]);
-
-  const trackCursor = Math.max(0, gameState.trackCursor ?? 0);
-  const trackOrderLength = effectiveTrackOrder.length || playlist.length || 0;
-  const boundedCursor = Math.min(
+  const {
     trackCursor,
-    Math.max(trackOrderLength - 1, 0),
-  );
-  const backendTrackIndex = effectiveTrackOrder[boundedCursor];
-  const currentTrackIndex =
-    backendTrackIndex ??
-    gameState.currentIndex ??
-    effectiveTrackOrder[0] ??
-    0;
-  const item = useMemo(() => {
-    return playlist[currentTrackIndex] ?? playlist[0];
-  }, [playlist, currentTrackIndex]);
-  const resolvedAnswerTitle = normalizeRoomDisplayText(
-    gameState.answerTitle?.trim() ||
-    item?.answerText?.trim() ||
-    item?.title?.trim(),
-    "未提供歌名",
-  );
-  const resolvedRoomName = normalizeRoomDisplayText(room.name, "未命名房間");
-
-  const roomPlayDurationSec = Math.max(
-    1,
-    room.gameSettings?.playDurationSec ?? DEFAULT_PLAY_DURATION_SEC,
-  );
-  const configuredGuessDurationMs = Math.max(
-    1000,
-    Math.floor(roomPlayDurationSec * 1000),
-  );
-  const serverGuessDurationMs =
-    Number.isFinite(gameState.guessDurationMs) && gameState.guessDurationMs > 0
-      ? Math.max(1000, Math.floor(gameState.guessDurationMs))
-      : null;
-  const effectiveGuessDurationMs =
-    serverGuessDurationMs ?? configuredGuessDurationMs;
-  const roomStartOffsetSec = Math.max(
-    0,
-    room.gameSettings?.startOffsetSec ?? DEFAULT_START_OFFSET_SEC,
-  );
-  const hasExplicitEndSec = Boolean(
-    item &&
-    (typeof item.hasExplicitEndSec === "boolean"
-      ? item.hasExplicitEndSec
-      : (typeof item.endSec === "number" &&
-        Math.abs(
-          item.endSec -
-          ((typeof item.startSec === "number" ? item.startSec : 0) +
-            DEFAULT_CLIP_SEC),
-        ) > 0.001)),
-  );
-  const hasExplicitStartSec = Boolean(
-    item &&
-    (typeof item.hasExplicitStartSec === "boolean"
-      ? item.hasExplicitStartSec
-      : (typeof item.startSec === "number" && item.startSec > 0) ||
-      hasExplicitEndSec),
-  );
-  const itemTimingSource =
-    item?.timingSource === "room_settings" || item?.timingSource === "track_clip"
-      ? item.timingSource
-      : null;
-  const fallbackClipSource: "room_settings" | "track_clip" =
-    itemTimingSource ??
-    (!hasExplicitStartSec && !hasExplicitEndSec ? "room_settings" : "track_clip");
-  const serverClipSource =
-    gameState.clipSource === "room_settings" || gameState.clipSource === "track_clip"
-      ? gameState.clipSource
-      : null;
-  const effectiveClipSource = serverClipSource ?? fallbackClipSource;
-  const derivedClipStartSec = fallbackClipSource === "room_settings"
-    ? Math.max(0, item?.startSec ?? roomStartOffsetSec)
-    : Math.max(0, item?.startSec ?? 0);
-  const fallbackDurationSec = Math.max(1, Math.floor(effectiveGuessDurationMs / 1000));
-  const derivedClipEndSec =
-    fallbackClipSource === "room_settings"
-      ? typeof item?.endSec === "number" && item.endSec > derivedClipStartSec
-        ? item.endSec
-        : derivedClipStartSec + fallbackDurationSec
-      : typeof item?.endSec === "number" && item.endSec > derivedClipStartSec
-        ? item.endSec
-        : derivedClipStartSec + DEFAULT_CLIP_SEC;
-  const serverClipStartSec =
-    typeof gameState.clipStartSec === "number" && gameState.clipStartSec >= 0
-      ? gameState.clipStartSec
-      : null;
-  const serverClipEndSec =
-    typeof gameState.clipEndSec === "number" && gameState.clipEndSec > 0
-      ? gameState.clipEndSec
-      : null;
-  const clipStartSec = serverClipStartSec ?? derivedClipStartSec;
-  const clipEndSec =
-    serverClipEndSec !== null && serverClipEndSec > clipStartSec
-      ? serverClipEndSec
-      : derivedClipEndSec;
-  const shouldLoopRoomSettingsClip = effectiveClipSource === "room_settings";
-
-  const videoId = item ? extractYouTubeId(item.url, item.videoId) : null;
-  const phaseEndsAt =
-    gameState.phase === "guess"
-      ? gameState.startedAt + effectiveGuessDurationMs
-      : gameState.revealEndsAt;
-  const isEnded = gameState.status === "ended";
-  const isReveal = gameState.phase === "reveal";
-  const showVideo = showVideoOverride ?? gameState.showVideo ?? true;
-  const clipIdentityStartSec = Math.round(clipStartSec * 1000) / 1000;
-  const trackSessionKey = `${gameState.startedAt}:${trackCursor}:${currentTrackIndex}`;
-  const trackLoadKey = `${videoId ?? "none"}:${trackSessionKey}:${clipIdentityStartSec}`;
+    trackOrderLength,
+    boundedCursor,
+    currentTrackIndex,
+    item,
+    resolvedAnswerTitle,
+    resolvedRoomName,
+    effectiveGuessDurationMs,
+    fallbackDurationSec,
+    clipStartSec,
+    clipEndSec,
+    shouldLoopRoomSettingsClip,
+    videoId,
+    phaseEndsAt,
+    isEnded,
+    isReveal,
+    showVideo,
+    trackSessionKey,
+    trackLoadKey,
+  } = useGameRoomPlaybackState({ gameState, playlist, room, showVideoOverride });
   const {
     liveParticipantCount,
     liveAnsweredCount,
@@ -944,106 +816,24 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     waitingToStart,
   ]);
 
-  useEffect(() => {
-    setPlaybackVoteDialogOpen(false);
-    setPlaybackVoteRequestPending(false);
-    setPlaybackVoteSubmitPending(null);
-    lastPlaybackVotePromptKeyRef.current = null;
-    lastPlaybackVoteActiveKeyRef.current = null;
-    lastPlaybackVoteResolvedKeyRef.current = null;
-    lastAutoPlaybackExtensionNoticeRef.current = null;
-  }, [trackSessionKey]);
-
-  useEffect(() => {
-    setPlaybackVoteDialogOpen(false);
-    if (!isManualPlaybackExtensionMode) return;
-    if (!playbackExtensionVote || playbackExtensionVote.status !== "active") return;
-    if (!meClientId || myPlaybackVote !== null) return;
-    const promptKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}`;
-    if (lastPlaybackVotePromptKeyRef.current === promptKey) return;
-    lastPlaybackVotePromptKeyRef.current = promptKey;
-  }, [
+  useGameRoomVoteDialogEffects({
+    trackSessionKey,
     isManualPlaybackExtensionMode,
+    isAutoPlaybackExtensionMode,
+    playbackExtensionVote,
+    playbackExtensionSeconds,
     meClientId,
     myPlaybackVote,
-    playbackExtensionVote,
-    trackSessionKey,
-  ]);
-
-  useEffect(() => {
-    if (!playbackExtensionVote || playbackExtensionVote.status !== "active") {
-      return;
-    }
-    if (!isManualPlaybackExtensionMode) {
-      return;
-    }
-    const activeKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}:active`;
-    if (lastPlaybackVoteActiveKeyRef.current === activeKey) return;
-    lastPlaybackVoteActiveKeyRef.current = activeKey;
-    setStatusText(
-      `${playbackVoteRequesterName} \u63d0\u8b70\u5c07\u672c\u984c\u591a\u64ad\u653e ${playbackVoteProposalSeconds} \u79d2\uff0c\u8acb\u5118\u5feb\u6295\u7968\u3002`,
-    );
-  }, [
-    isManualPlaybackExtensionMode,
-    playbackExtensionVote,
     playbackVoteProposalSeconds,
     playbackVoteRequesterName,
-    setStatusText,
-    trackSessionKey,
-  ]);
-
-  useEffect(() => {
-    if (
-      !playbackExtensionVote ||
-      (playbackExtensionVote.status !== "approved" &&
-        playbackExtensionVote.status !== "rejected")
-    ) {
-      return;
-    }
-    const resolvedKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}:${playbackExtensionVote.status}:${playbackVoteResolvedSeconds}`;
-    if (lastPlaybackVoteResolvedKeyRef.current === resolvedKey) return;
-    lastPlaybackVoteResolvedKeyRef.current = resolvedKey;
-    if (
-      playbackExtensionVote.status === "approved" &&
-      playbackVoteResolvedSeconds > 0
-    ) {
-      setStatusText(`\u5ef6\u9577\u64ad\u653e\u6295\u7968\u901a\u904e\uff0c\u672c\u984c\u5df2\u5ef6\u9577 ${playbackVoteResolvedSeconds} \u79d2`);
-      return;
-    }
-    setStatusText("\u5ef6\u9577\u64ad\u653e\u6295\u7968\u672a\u901a\u904e\uff0c\u672c\u984c\u7dad\u6301\u539f\u64ad\u653e\u9577\u5ea6");
-  }, [
-    playbackExtensionVote,
     playbackVoteResolvedSeconds,
+    gamePhase: gameState.phase,
+    gameStatus: gameState.status,
+    setPlaybackVoteDialogOpen,
+    setPlaybackVoteRequestPending,
+    setPlaybackVoteSubmitPending,
     setStatusText,
-    trackSessionKey,
-  ]);
-
-  useEffect(() => {
-    if (!isAutoPlaybackExtensionMode) {
-      return;
-    }
-    if (gameState.phase !== "guess" || gameState.status !== "playing") {
-      return;
-    }
-    if (playbackExtensionSeconds <= 0) {
-      return;
-    }
-    const autoNoticeKey = `${trackSessionKey}:${playbackExtensionSeconds}`;
-    if (lastAutoPlaybackExtensionNoticeRef.current === autoNoticeKey) {
-      return;
-    }
-    lastAutoPlaybackExtensionNoticeRef.current = autoNoticeKey;
-    setStatusText(
-      `\u4ecd\u6709\u73a9\u5bb6\u672a\u4f5c\u7b54\uff0c\u7cfb\u7d71\u5df2\u81ea\u52d5\u5ef6\u9577 ${playbackExtensionSeconds} \u79d2`,
-    );
-  }, [
-    gameState.phase,
-    gameState.status,
-    isAutoPlaybackExtensionMode,
-    playbackExtensionSeconds,
-    setStatusText,
-    trackSessionKey,
-  ]);
+  });
 
   useEffect(() => {
     if (legacyClipWarningShownRef.current) return;
@@ -1069,16 +859,19 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   });
 
   const effectivePlayerVideoId = playerVideoId ?? videoId;
-  const iframeSrc = effectivePlayerVideoId
-    ? `https://www.youtube-nocookie.com/embed/${effectivePlayerVideoId}?autoplay=0&controls=0&fs=0&disablekb=1&modestbranding=1&iv_load_policy=3&enablejsapi=1&rel=0&playsinline=1`
-    : null;
-  const shouldShowVideo = showVideo;
+  const iframeSrc = useMemo(
+    () =>
+      effectivePlayerVideoId
+        ? `https://www.youtube-nocookie.com/embed/${effectivePlayerVideoId}?autoplay=0&controls=0&fs=0&disablekb=1&modestbranding=1&iv_load_policy=3&enablejsapi=1&rel=0&playsinline=1`
+        : null,
+    [effectivePlayerVideoId],
+  );
 
   const phaseLabel = isEnded
-    ? "\u5df2\u7d50\u675f"
+    ? "已結束"
     : gameState.phase === "guess" && !allAnsweredReadyForReveal
-      ? "\u731c\u6b4c\u4e2d"
-      : "\u516c\u5e03\u7b54\u6848";
+      ? "猜歌中"
+      : "公布答案";
 
   const activePhaseDurationMs =
     gameState.phase === "guess"
@@ -1137,73 +930,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     },
     [canOpenPlaybackVotePrompt, onCastPlaybackExtensionVote],
   );
-
-  useEffect(() => {
-    // Inter-track prep is usually very short; keep only the guess-start "go" sound
-    // to avoid stacked cues between reveal end and next track start.
-    if (isEnded || !waitingToStart || isInterTrackWait) return;
-    const sfxKey = `${trackSessionKey}:prestart:${preStartCountdownSfxSec}`;
-    if (lastPreStartCountdownSfxKeyRef.current === sfxKey) return;
-    lastPreStartCountdownSfxKeyRef.current = sfxKey;
-    playGameSfx(resolveCountdownSfxEvent(preStartCountdownSfxSec));
-  }, [
-    isEnded,
-    isInterTrackWait,
-    playGameSfx,
-    preStartCountdownSfxSec,
-    trackSessionKey,
-    waitingToStart,
-  ]);
-
-  useEffect(() => {
-    if (
-      gameState.phase !== "guess" ||
-      isEnded ||
-      waitingToStart ||
-      phaseCountdownSec === null ||
-      phaseCountdownSec > 3
-    ) {
-      return;
-    }
-    const sfxKey = `${trackSessionKey}:${gameState.phase}:countdown:${phaseCountdownSec}`;
-    if (lastGuessUrgencySfxKeyRef.current === sfxKey) return;
-    lastGuessUrgencySfxKeyRef.current = sfxKey;
-    playGameSfx(resolveGuessDeadlineSfxEvent(phaseCountdownSec));
-  }, [
-    gameState.phase,
-    isEnded,
-    playGameSfx,
-    phaseCountdownSec,
-    trackSessionKey,
-    waitingToStart,
-  ]);
-
-  useEffect(() => {
-    if (isEnded) return;
-    if (gameState.phase !== "guess") return;
-    const sfxKey = `${trackSessionKey}:guess:go:${gameState.startedAt}`;
-    if (lastCountdownGoSfxKeyRef.current === sfxKey) return;
-    const currentNowMs = getServerNowMs();
-    const msUntilStart = gameState.startedAt - currentNowMs;
-    // Skip if too early (track countdown still running) or too late (missed the window)
-    if (msUntilStart > 500) return;
-    if (msUntilStart <= -220) return;
-    const fireDelay = Math.max(0, msUntilStart + 60);
-    const timer = window.setTimeout(() => {
-      if (lastCountdownGoSfxKeyRef.current === sfxKey) return;
-      lastCountdownGoSfxKeyRef.current = sfxKey;
-      playGameSfx("go");
-    }, fireDelay);
-    return () => window.clearTimeout(timer);
-  }, [
-    gameState.phase,
-    gameState.startedAt,
-    getServerNowMs,
-    isEnded,
-    playGameSfx,
-    trackSessionKey,
-    waitingToStart,
-  ]);
+  const handleVoteReject = useCallback(
+    () => void handleCastPlaybackVote("reject"),
+    [handleCastPlaybackVote],
+  );
+  const handleVoteApprove = useCallback(
+    () => void handleCastPlaybackVote("approve"),
+    [handleCastPlaybackVote],
+  );
 
   const {
     myHasAnswered,
@@ -1240,113 +974,30 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     myHasChangedAnswer,
   });
 
-  useEffect(() => {
-    if (!isReveal || isInterTrackWait || waitingToStart || isEnded) return;
-    if (!meClientId) return;
-
-    let resultSfxEvent:
-      | "correct"
-      | "correctCombo1"
-      | "correctCombo2"
-      | "correctCombo3"
-      | "correctCombo4"
-      | "correctCombo5"
-      | "wrong"
-      | "unanswered";
-    let comboBonusKey = 0;
-
-    if (!myHasAnswered || selectedChoice === null) {
-      resultSfxEvent = "unanswered";
-    } else if (myIsCorrect) {
-      if (!myResolvedScoreBreakdown) return;
-      comboBonusKey = Math.max(
-        0,
-        Math.floor(myResolvedScoreBreakdown.comboBonusPoints ?? 0),
-      );
-      resultSfxEvent = resolveCorrectResultSfxEvent(comboBonusKey) as
-        | "correct"
-        | "correctCombo1"
-        | "correctCombo2"
-        | "correctCombo3"
-        | "correctCombo4"
-        | "correctCombo5";
-    } else {
-      resultSfxEvent = "wrong";
-    }
-
-    const sfxKey = `${trackSessionKey}:reveal:result:${resultSfxEvent}:${comboBonusKey}`;
-    if (lastRevealResultSfxKeyRef.current === sfxKey) return;
-    lastRevealResultSfxKeyRef.current = sfxKey;
-    playGameSfx(resultSfxEvent);
-    if (resultSfxEvent === "wrong") {
-      triggerHapticFeedback("wrong");
-      return;
-    }
-    if (resultSfxEvent === "unanswered") {
-      return;
-    }
-    triggerHapticFeedback("correct");
-  }, [
+  useGameRoomSfxEffects({
+    gamePhase: gameState.phase,
+    gameStartedAt: gameState.startedAt,
+    trackSessionKey,
     isEnded,
-    isInterTrackWait,
     isReveal,
+    isInterTrackWait,
+    waitingToStart,
+    preStartCountdownSfxSec,
+    phaseCountdownSec,
     meClientId,
+    selectedChoice,
     myHasAnswered,
     myIsCorrect,
     myResolvedScoreBreakdown,
-    playGameSfx,
-    selectedChoice,
-    trackSessionKey,
-    waitingToStart,
-  ]);
-
-  useEffect(() => {
-    if (!isReveal || isInterTrackWait || waitingToStart || isEnded) return;
-    if (!meClientId) return;
-    let timerId: number | null = null;
-    if (isComboBreakThisQuestion && comboBreakTier > 0) {
-      const sfxKey = `${trackSessionKey}:combo-break:${comboBreakTier}`;
-      if (lastComboStateSfxKeyRef.current === sfxKey) return;
-      lastComboStateSfxKeyRef.current = sfxKey;
-      timerId = window.setTimeout(() => {
-        playGameSfx("comboBreak");
-        triggerHapticFeedback("comboBreak");
-      }, 110);
-      return () => {
-        if (timerId !== null) {
-          window.clearTimeout(timerId);
-        }
-      };
-    }
-    if (!myIsCorrect || !myComboMilestone || myComboTier <= 0) return;
-    const sfxKey = `${trackSessionKey}:combo-up:${myComboNow}:${myComboTier}`;
-    if (lastComboStateSfxKeyRef.current === sfxKey) return;
-    lastComboStateSfxKeyRef.current = sfxKey;
-    const comboMilestoneSfxEvent = resolveComboMilestoneSfxEvent(myComboTier);
-    timerId = window.setTimeout(() => {
-      playGameSfx(comboMilestoneSfxEvent);
-      triggerHapticFeedback("combo");
-    }, 120);
-    return () => {
-      if (timerId !== null) {
-        window.clearTimeout(timerId);
-      }
-    };
-  }, [
     comboBreakTier,
     isComboBreakThisQuestion,
-    isEnded,
-    isInterTrackWait,
-    isReveal,
-    meClientId,
+    myIsCorrectForCombo: myIsCorrect,
     myComboMilestone,
     myComboNow,
     myComboTier,
-    myIsCorrect,
+    getServerNowMs,
     playGameSfx,
-    trackSessionKey,
-    waitingToStart,
-  ]);
+  });
 
   const playedQuestionCount = trackOrderLength || room.gameSettings?.questionCount || 0;
   const scoreboardRows = useMemo(
@@ -1675,6 +1326,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   spacing={0.7}
                   alignItems="center"
                   className="game-room-host-manage-actions"
+                  onClick={handleHostManagementClick}
                 >
                   <Button
                     size="small"
@@ -1682,9 +1334,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     color="info"
                     startIcon={<SwapHorizRoundedIcon />}
                     disabled={!participant.isOnline}
-                    onClick={() =>
-                      requestHostManagementAction("transfer", participant)
-                    }
+                    data-hm-action="transfer"
+                    data-hm-client-id={participant.clientId}
                   >
                     轉移房主
                   </Button>
@@ -1693,7 +1344,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     variant="outlined"
                     color="warning"
                     startIcon={<PersonRemoveRoundedIcon />}
-                    onClick={() => requestHostManagementAction("kick", participant)}
+                    data-hm-action="kick"
+                    data-hm-client-id={participant.clientId}
                   >
                     踢出(永久封鎖)
                   </Button>
@@ -1702,7 +1354,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     variant="contained"
                     color="error"
                     startIcon={<BlockRoundedIcon />}
-                    onClick={() => requestHostManagementAction("ban", participant)}
+                    data-hm-action="ban"
+                    data-hm-client-id={participant.clientId}
                   >
                     踢出(5分鐘)
                   </Button>
@@ -1715,33 +1368,35 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     );
   }, [
     avatarEffectLevel,
+    handleHostManagementClick,
     hostManageParticipants,
     hostManagementOpen,
-    requestHostManagementAction,
   ]);
 
   if (isEnded) {
     return (
       <DanmuContext.Provider value={danmuContextValue}>
         <div className="game-room-shell">
-          <LiveSettlementShowcase
-            room={settlementSnapshot?.room ?? room}
-            participants={settlementSnapshot?.participants ?? participants}
-            participantAvatarFallbacks={participants}
-            messages={settlementSnapshot?.messages ?? messages}
-            playlistItems={settlementSnapshot?.playlistItems ?? playlist}
-            trackOrder={settlementSnapshot?.trackOrder ?? gameState.trackOrder}
-            playedQuestionCount={
-              settlementSnapshot?.playedQuestionCount ?? playedQuestionCount
-            }
-            startedAt={settlementSnapshot?.startedAt ?? gameState.startedAt}
-            endedAt={settlementSnapshot?.endedAt}
-            meClientId={meClientId}
-            questionRecaps={settlementSnapshot?.questionRecaps ?? questionRecaps}
-            selfAvatarUrl={authUser?.avatar_url ?? null}
-            onBackToLobby={onBackToLobby}
-            onRequestExit={openExitConfirm}
-          />
+          <Suspense fallback={<GameRoomSettlementLoader />}>
+            <LiveSettlementShowcase
+              room={settlementSnapshot?.room ?? room}
+              participants={settlementSnapshot?.participants ?? participants}
+              participantAvatarFallbacks={participants}
+              messages={settlementSnapshot?.messages ?? messages}
+              playlistItems={settlementSnapshot?.playlistItems ?? playlist}
+              trackOrder={settlementSnapshot?.trackOrder ?? gameState.trackOrder}
+              playedQuestionCount={
+                settlementSnapshot?.playedQuestionCount ?? playedQuestionCount
+              }
+              startedAt={settlementSnapshot?.startedAt ?? gameState.startedAt}
+              endedAt={settlementSnapshot?.endedAt}
+              meClientId={meClientId}
+              questionRecaps={settlementSnapshot?.questionRecaps ?? questionRecaps}
+              selfAvatarUrl={authUser?.avatar_url ?? null}
+              onBackToLobby={onBackToLobby}
+              onRequestExit={openExitConfirm}
+            />
+          </Suspense>
           {exitGameDialog}
         </div>
       </DanmuContext.Provider>
@@ -1751,7 +1406,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   return (
     <DanmuContext.Provider value={danmuContextValue}>
     <div className="game-room-shell">
-      <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-3 pb-20 lg:px-0 lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:pb-14 xl:grid-cols-[minmax(360px,400px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(400px,440px)_minmax(0,1fr)] lg:h-[calc(100vh-60px)] lg:items-stretch">
+      <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-20 lg:grid-cols-[minmax(250px,290px)_minmax(0,1fr)] lg:pb-14 xl:grid-cols-[minmax(265px,305px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] lg:h-[calc(100vh-60px)] lg:items-stretch">
         {!isMobileGameViewport && (
           <div className="hidden lg:block lg:h-full">
             <GameRoomLeftSidebar
@@ -1767,73 +1422,49 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               recentMessages={recentMessages}
               chatScrollRef={desktopChatScrollRef}
               showChat={false}
+              avatarEffectLevel={avatarEffectLevel}
+              scoreboardBorderEnabled={scoreboardBorderEnabled}
+              scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
+              scoreboardBorderAnimation={scoreboardBorderAnimation}
+              scoreboardBorderLineStyle={scoreboardBorderLineStyle}
+              scoreboardBorderTheme={scoreboardBorderTheme}
+              scoreboardBorderParticleCount={scoreboardBorderParticleCount}
             />
           </div>
         )}
         {/* ????????????????????????? + ?????? */}
-        <section className="game-room-main-section flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
-          {isMobileGameViewport ? (
-            <GameRoomPlaybackPanel
-              rootRef={mobilePlaybackPanelRef}
-              isMobileView
-              isCompactMobile
-              isRevealPhase={isReveal}
-              revealAnswerTitle={resolvedAnswerTitle}
-              roomName={resolvedRoomName}
-              boundedCursor={boundedCursor}
-              trackOrderLength={trackOrderLength}
-              onOpenExitConfirm={openExitConfirm}
-              headerActions={playbackHeaderActions}
-              iframeSrc={iframeSrc}
-              shouldHideVideoFrame={shouldHideVideoFrame}
-              shouldShowVideo={shouldShowVideo}
-              iframeRef={iframeRef}
-              onIframeLoad={handlePlaybackIframeLoad}
-              silentAudioRef={silentAudioRef}
-              silentAudioSrc={SILENT_AUDIO_SRC}
-              danmuEnabled={danmuEnabled}
-              danmuItems={danmuItems}
-              showGuessMask={showGuessMask}
-              showPreStartMask={showPreStartMask}
-              showLoadingMask={showLoadingMask}
-              showAudioOnlyMask={showAudioOnlyMask}
-              reduceGuessVideoDisplayCost={reduceGuessVideoDisplayCost}
-              showVideo={showVideo}
-              onShowVideoChange={handleShowVideoChange}
-              gameVolume={gameVolume}
-              onGameVolumeChange={setGameVolume}
-              videoId={videoId}
-            />
-          ) : (
-            <GameRoomPlaybackPanel
-              isRevealPhase={isReveal}
-              revealAnswerTitle={resolvedAnswerTitle}
-              roomName={resolvedRoomName}
-              boundedCursor={boundedCursor}
-              trackOrderLength={trackOrderLength}
-              onOpenExitConfirm={openExitConfirm}
-              headerActions={playbackHeaderActions}
-              iframeSrc={iframeSrc}
-              shouldHideVideoFrame={shouldHideVideoFrame}
-              shouldShowVideo={shouldShowVideo}
-              iframeRef={iframeRef}
-              onIframeLoad={handlePlaybackIframeLoad}
-              silentAudioRef={silentAudioRef}
-              silentAudioSrc={SILENT_AUDIO_SRC}
-              danmuEnabled={danmuEnabled}
-              danmuItems={danmuItems}
-              showGuessMask={showGuessMask}
-              showPreStartMask={showPreStartMask}
-              showLoadingMask={showLoadingMask}
-              showAudioOnlyMask={showAudioOnlyMask}
-              reduceGuessVideoDisplayCost={reduceGuessVideoDisplayCost}
-              showVideo={showVideo}
-              onShowVideoChange={handleShowVideoChange}
-              gameVolume={gameVolume}
-              onGameVolumeChange={setGameVolume}
-              videoId={videoId}
-            />
-          )}
+        <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-hidden">
+          <GameRoomPlaybackPanel
+            rootRef={isMobileGameViewport ? mobilePlaybackPanelRef : undefined}
+            isMobileView={isMobileGameViewport}
+            isCompactMobile={isMobileGameViewport}
+            isRevealPhase={isReveal}
+            revealAnswerTitle={resolvedAnswerTitle}
+            roomName={resolvedRoomName}
+            boundedCursor={boundedCursor}
+            trackOrderLength={trackOrderLength}
+            onOpenExitConfirm={openExitConfirm}
+            headerActions={playbackHeaderActions}
+            iframeSrc={iframeSrc}
+            shouldHideVideoFrame={shouldHideVideoFrame}
+            shouldShowVideo={showVideo}
+            iframeRef={iframeRef}
+            onIframeLoad={handlePlaybackIframeLoad}
+            silentAudioRef={silentAudioRef}
+            silentAudioSrc={SILENT_AUDIO_SRC}
+            danmuEnabled={danmuEnabled}
+            danmuItems={danmuItems}
+            showGuessMask={showGuessMask}
+            showPreStartMask={showPreStartMask}
+            showLoadingMask={showLoadingMask}
+            showAudioOnlyMask={showAudioOnlyMask}
+            reduceGuessVideoDisplayCost={reduceGuessVideoDisplayCost}
+            showVideo={showVideo}
+            onShowVideoChange={handleShowVideoChange}
+            gameVolume={gameVolume}
+            onGameVolumeChange={setGameVolume}
+            videoId={videoId}
+          />
           <GameRoomAnswerPanel
             isMobileView={isMobileGameViewport}
             answerPanelRef={answerPanelRef}
@@ -1924,9 +1555,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     ? "game-room-mobile-toggle-chip--active"
                     : ""
                     }`}
-                  onClick={() =>
-                    setMobileRevealAutoOverlayEnabled((current) => !current)
-                  }
+                  onClick={handleToggleMobileRevealAutoOverlay}
                   aria-pressed={mobileRevealAutoOverlayEnabled}
                 >
                   <span className="game-room-mobile-action-icon" aria-hidden>
@@ -1943,9 +1572,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     ? "game-room-mobile-toggle-chip--active"
                     : ""
                     }`}
-                  onClick={() =>
-                    setMobileGuessAnchorEnabled((current) => !current)
-                  }
+                  onClick={handleToggleMobileGuessAnchor}
                   aria-pressed={mobileGuessAnchorEnabled}
                 >
                   <span className="game-room-mobile-action-icon" aria-hidden>
@@ -2058,6 +1685,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     !isMobileDrawerGestureActive
                   }
                   swapReplayToken={mobileScoreboardSwapReplayToken}
+                  avatarEffectLevel={avatarEffectLevel}
+                  scoreboardBorderEnabled={scoreboardBorderEnabled}
+                  scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
+                  scoreboardBorderAnimation={scoreboardBorderAnimation}
+                  scoreboardBorderLineStyle={scoreboardBorderLineStyle}
+                  scoreboardBorderTheme={scoreboardBorderTheme}
+                  scoreboardBorderParticleCount={scoreboardBorderParticleCount}
                 />
               </div>
             </Drawer>
@@ -2077,35 +1711,35 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             <Stack spacing={1.2}>
               <Typography variant="body2" className="text-slate-200">
                 {playbackVoteRequesterName}{" "}
-                {`\u63d0\u8b70\u5c07\u672c\u984c\u591a\u64ad\u653e ${playbackVoteProposalSeconds} \u79d2\uff0c\u8acb\u5728\u6642\u9650\u5167\u8868\u614b\u3002`}
+                {`提議將本題多播放 ${playbackVoteProposalSeconds} 秒，請在時限內表態。`}
               </Typography>
               <div className="game-room-playback-vote-dialog__stats">
-                <span>{`\u540c\u610f ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
-                <span>{`\u4e0d\u540c\u610f ${playbackVoteRejectCount}`}</span>
-                <span>{`\u5269 ${playbackVoteRemainingSeconds} \u79d2`}</span>
+                <span>{`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
+                <span>{`不同意 ${playbackVoteRejectCount}`}</span>
+                <span>{`剩 ${playbackVoteRemainingSeconds} 秒`}</span>
               </div>
             </Stack>
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={() => handleCastPlaybackVote("reject")}
+              onClick={handleVoteReject}
               variant="outlined"
               color="inherit"
               disabled={playbackVoteSubmitPending !== null}
             >
               {playbackVoteSubmitPending === "reject"
-                ? "\u9001\u51fa\u4e2d..."
-                : "\u7dad\u6301\u539f\u64ad\u653e\u9577\u5ea6"}
+                ? "送出中..."
+                : "維持原播放長度"}
             </Button>
             <Button
-              onClick={() => handleCastPlaybackVote("approve")}
+              onClick={handleVoteApprove}
               variant="contained"
               color="warning"
               disabled={playbackVoteSubmitPending !== null}
             >
               {playbackVoteSubmitPending === "approve"
-                ? "\u9001\u51fa\u4e2d..."
-                : `\u5ef6\u9577 ${playbackVoteProposalSeconds} \u79d2`}
+                ? "送出中..."
+                : `延長 ${playbackVoteProposalSeconds} 秒`}
             </Button>
           </DialogActions>
         </Dialog>
@@ -2194,4 +1828,3 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 };
 
 export default GameRoomPage;
-

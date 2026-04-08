@@ -17,7 +17,7 @@ import CheckRounded from "@mui/icons-material/CheckRounded";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import ShareRounded from "@mui/icons-material/ShareRounded";
-import { useRoom } from "../../Room/model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
 import { isAdminRole } from "../../../shared/auth/roles";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { collectionsApi } from "../model/collectionsApi";
@@ -101,7 +101,7 @@ const CollectionsPage = () => {
     displayUsername,
     authLoading,
     refreshAuthToken,
-  } = useRoom();
+  } = useAuth();
   const [collections, setCollections] = useState<DbCollection[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [visibilityUpdatingId, setVisibilityUpdatingId] = useState<

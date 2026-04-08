@@ -1,4 +1,4 @@
-﻿import type { SfxPresetId } from "../../../Room/model/sfx/gameSfxEngine";
+﻿import type { SfxPresetId } from "../../../../shared/sfx/gameSfxEngine";
 import {
   DEFAULT_SETTLEMENT_PREVIEW_SYNC,
   DEFAULT_SETTLEMENT_PREVIEW_VOLUME,

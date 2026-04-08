@@ -347,7 +347,7 @@ export const buildRecommendationLink = (recap: SettlementExtendedRecap) =>
   resolveSettlementTrackLink({
     provider: recap.provider,
     sourceId: recap.sourceId,
-    channelId: recap.channelId,
+    channelId: recap.channelId ?? undefined,
     videoId: recap.videoId,
     url: recap.url ?? "",
     title: recap.title ?? "",

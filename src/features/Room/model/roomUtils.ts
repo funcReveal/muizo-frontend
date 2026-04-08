@@ -1,4 +1,5 @@
-﻿import type { PlaylistItem } from "./types";
+﻿import { extractYoutubeChannelId } from "../../../shared/utils/youtube";
+import type { PlaylistItem } from "./types";
 import {
   DEFAULT_CLIP_SEC,
   DEFAULT_PLAY_DURATION_SEC,
@@ -14,42 +15,13 @@ import {
   START_OFFSET_MIN,
 } from "./roomConstants";
 
-export const formatSeconds = (value: number) => {
-  const clamped = Math.max(0, Math.floor(value));
-  const h = Math.floor(clamped / 3600);
-  const m = Math.floor((clamped % 3600) / 60);
-  const s = clamped % 60;
-  if (h > 0) {
-    return `${h}:${m.toString().padStart(2, "0")}:${s
-      .toString()
-      .padStart(2, "0")}`;
-  }
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
-
-export const videoUrlFromId = (videoId: string) =>
-  `https://www.youtube.com/watch?v=${videoId}`;
-
-export const thumbnailFromId = (videoId: string) =>
-  `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-
-export const buildYoutubeChannelUrl = (channelId?: string | null) =>
-  channelId ? `https://www.youtube.com/channel/${encodeURIComponent(channelId)}` : undefined;
-
-export const extractYoutubeChannelId = (value?: string | null) => {
-  const raw = value?.trim();
-  if (!raw) return undefined;
-  if (/^UC[\w-]+$/.test(raw)) return raw;
-
-  try {
-    const parsed = new URL(raw);
-    if (!/^(www\.)?youtube\.com$/i.test(parsed.hostname)) return undefined;
-    const match = parsed.pathname.match(/^\/channel\/([^/?#]+)/i);
-    return match?.[1] ? decodeURIComponent(match[1]) : undefined;
-  } catch {
-    return undefined;
-  }
-};
+export { formatSeconds } from "../../../shared/utils/format";
+export {
+  videoUrlFromId,
+  thumbnailFromId,
+  buildYoutubeChannelUrl,
+  extractYoutubeChannelId,
+} from "../../../shared/utils/youtube";
 
 export const normalizePlaylistItems = (items: PlaylistItem[]) =>
   items.map((item) => {
@@ -143,4 +115,5 @@ export const clampStartOffsetSec = (value: number) =>
     START_OFFSET_MAX,
     DEFAULT_START_OFFSET_SEC,
   );
+
 

@@ -210,6 +210,9 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   const rafRef = useRef<number | null>(null);
   const sliderRef = useRef<HTMLInputElement | null>(null);
   const volumeTextRef = useRef<HTMLSpanElement | null>(null);
+  const shouldKeepDesktopGuessVideoVisible = !isMobileView && showGuessMask;
+  const effectiveShouldShowVideoFrame =
+    shouldKeepDesktopGuessVideoVisible || shouldShowVideo;
 
   useEffect(() => {
     if (isDraggingRef.current) return;
@@ -249,11 +252,13 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   const iframeStyle = useMemo<React.CSSProperties>(
     () => ({
       pointerEvents: "none",
-      opacity: shouldHideVideoFrame || !shouldShowVideo ? 0 : 1,
+      opacity: shouldHideVideoFrame || !effectiveShouldShowVideoFrame ? 0 : 1,
     }),
-    [shouldHideVideoFrame, shouldShowVideo],
+    [effectiveShouldShowVideoFrame, shouldHideVideoFrame],
   );
   const previewMode: "video" | "thumbnail" = showVideo ? "video" : "thumbnail";
+  const shouldShowYoutubeBadge =
+    showGuessMask || showAudioOnlyMask || showPreStartMask || isRevealPhase;
   const handleVideoModeChange = useCallback(
     (nextMode: "video" | "thumbnail") => {
       onShowVideoChange(nextMode === "video");
@@ -376,7 +381,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         {iframeSrc ? (
           <div
             className={iframeWrapClassName}
-            aria-hidden={shouldHideVideoFrame || !shouldShowVideo}
+            aria-hidden={shouldHideVideoFrame || !effectiveShouldShowVideoFrame}
           >
             <iframe
               src={iframeSrc}
@@ -409,7 +414,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 
         {showGuessMask && (
           <div className="game-room-playback-mask game-room-playback-mask--guess pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950">
-            <div className="relative h-24 w-24">
+            <div className="relative h-20 w-20 sm:h-24 sm:w-24">
               <div className="game-room-mask-spinner absolute inset-0 rounded-full border-4 border-slate-700 border-t-cyan-300 border-r-slate-400" />
               <div className="game-room-mask-spinner-core absolute inset-[22%] rounded-full bg-slate-400/10" />
             </div>
@@ -470,6 +475,28 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 <p className="game-room-thumbnail-mask__hint mt-2 text-xs text-slate-300" />
               </>
             )}
+          </div>
+        )}
+
+        {shouldShowYoutubeBadge && (
+          <div
+            className={`game-room-youtube-badge ${
+              isMobileView ? "game-room-youtube-badge--mobile" : ""
+            }`}
+            aria-hidden="true"
+          >
+            <picture>
+              <source
+                srcSet="/developed-with-youtube-lowercase-dark.png"
+                media="(prefers-color-scheme: light)"
+              />
+              <img
+                src="/developed-with-youtube-lowercase-light.png"
+                alt=""
+                className="game-room-youtube-badge__image"
+                draggable={false}
+              />
+            </picture>
           </div>
         )}
       </div>

@@ -11,7 +11,12 @@ import {
 } from "@mui/icons-material";
 
 import type { RoomSummary } from "../../model/types";
-import { useRoom } from "../../model/useRoom";
+import { useAuth } from "../../../../shared/auth/AuthContext";
+import { useRoomSession } from "../../model/RoomSessionContext";
+import { useRoomCreate } from "../../model/RoomCreateContext";
+import { useRoomCollections } from "../../model/RoomCollectionsContext";
+import { useRoomPlaylist } from "../../model/RoomPlaylistContext";
+import { useRoomGame } from "../../model/RoomGameContext";
 import { apiFetchRoomById } from "../../model/roomApi";
 import {
   API_URL,
@@ -182,7 +187,12 @@ const RoomsHubPage: React.FC = () => {
     loginWithGoogle,
     authLoading,
     authUser,
+  } = useAuth();
+  const {
     rooms,
+    currentRoom,
+  } = useRoomSession();
+  const {
     collections,
     collectionsLoading,
     collectionsLoadingMore,
@@ -196,6 +206,8 @@ const RoomsHubPage: React.FC = () => {
     fetchCollections,
     loadMoreCollections,
     loadCollectionItems,
+  } = useRoomCollections();
+  const {
     youtubePlaylists,
     youtubePlaylistsLoading,
     fetchYoutubePlaylists,
@@ -207,7 +219,12 @@ const RoomsHubPage: React.FC = () => {
     lastFetchedPlaylistTitle,
     handleFetchPlaylistByUrl,
     handleResetPlaylist,
-    currentRoom,
+    questionCount,
+    questionMin,
+    questionMaxLimit,
+    updateQuestionCount,
+  } = useRoomPlaylist();
+  const {
     roomNameInput,
     setRoomNameInput,
     roomVisibilityInput,
@@ -216,10 +233,14 @@ const RoomsHubPage: React.FC = () => {
     setRoomPasswordInput,
     roomMaxPlayersInput,
     setRoomMaxPlayersInput,
-    questionCount,
-    questionMin,
-    questionMaxLimit,
-    updateQuestionCount,
+    roomCreateSourceMode,
+    setRoomCreateSourceMode,
+    isCreatingRoom,
+    handleCreateRoom,
+    setJoinPasswordInput,
+    handleJoinRoom,
+  } = useRoomCreate();
+  const {
     playDurationSec,
     updatePlayDurationSec,
     revealDurationSec,
@@ -228,13 +249,7 @@ const RoomsHubPage: React.FC = () => {
     updateStartOffsetSec,
     allowCollectionClipTiming,
     updateAllowCollectionClipTiming,
-    roomCreateSourceMode,
-    setRoomCreateSourceMode,
-    isCreatingRoom,
-    handleCreateRoom,
-    setJoinPasswordInput,
-    handleJoinRoom,
-  } = useRoom();
+  } = useRoomGame();
   const isLibraryGridWide = useMediaQuery("(min-width:640px)");
   const [guideMode, setGuideMode] = useState<"create" | "join">(() => {
     if (typeof window === "undefined") return "create";

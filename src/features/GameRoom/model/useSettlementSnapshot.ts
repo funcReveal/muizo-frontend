@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ChatMessage, PlaylistItem, RoomParticipant, RoomState } from "../../Room/model/types";
-import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "../../Settlement/model/types";
 import type { FrozenSettlementSnapshot } from "./gameRoomTypes";
 import {
   cloneRoomForSettlement,

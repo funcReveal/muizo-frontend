@@ -40,7 +40,6 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 import type {
-  ChatMessage,
   GameState,
   PlaylistItem,
   PlaybackExtensionMode,
@@ -73,7 +72,7 @@ import RoomLobbySuggestionPanel from "./RoomLobbySuggestionPanel";
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 
-import { useGameSfx } from "../../../GameRoom/model/useGameSfx";
+import { useGameSfx } from "../../../../shared/hooks/useGameSfx";
 import {
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   DEFAULT_GAME_VOLUME,
@@ -88,7 +87,6 @@ import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 interface RoomLobbyPanelProps {
   currentRoom: RoomState["room"] | null;
   participants: RoomParticipant[];
-  messages?: ChatMessage[];
   selfClientId: string;
   roomPassword?: string | null;
   selfAvatarUrl?: string | null;
@@ -563,7 +561,7 @@ interface RoomLobbyPlaylistPanelProps {
   rowCount: number;
   playlistRowHeight: number;
   playlistRowProps: Record<string, never>;
-  playlistRowComponent: React.ComponentType<RowComponentProps>;
+  playlistRowComponent: (props: RowComponentProps) => React.ReactElement;
 }
 
 const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
@@ -619,6 +617,11 @@ const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
 });
 
 
+const LOBBY_INTERACTIVE_SELECTOR =
+  "button, [role='button'], [role='tab'], .MuiButtonBase-root";
+
+const noop = () => undefined;
+
 const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   currentRoom,
   participants,
@@ -669,8 +672,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onFetchYoutubePlaylists,
 }) => {
   type MobileLobbyTab = "members" | "host" | "playlist";
-  const LOBBY_INTERACTIVE_SELECTOR =
-    "button, [role='button'], [role='tab'], .MuiButtonBase-root";
   const rowCount = playlistItems.length + (playlistHasMore ? 1 : 0);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
@@ -794,12 +795,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     height: isMobileLobbyLayout ? "100%" : playlistListViewportHeight,
     width: "100%",
   } as React.CSSProperties;
-  const playlistLoadNotice = (() => {
-    if (playlistLoading || collectionItemsLoading) {
-      return "讀取歌單中";
-    }
-    return null;
-  })();
+  const playlistLoadNotice =
+    playlistLoading || collectionItemsLoading ? "讀取歌單中" : null;
   const displayRoomName = normalizeDisplayText(currentRoom?.name, "未命名房間");
   const hostPlaylistPrimaryText =
     "推薦播放清單會優先作為預設焦點；你也可以切換成公開、個人、YouTube 或連結來源後再套用到房間。";
@@ -856,16 +853,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     [findInteractiveTarget, playGameSfx, primeSfxAudio],
   );
 
-  const hostCollectionPrimaryText = (() => {
-    const scopeLabel = collectionScope === "public" ? "公開收藏庫" : "私人收藏庫";
-    if (collectionsLoading) {
-      return `正在載入 ${scopeLabel}...`;
-    }
-    if (collections.length === 0) {
-      return `${scopeLabel} 目前沒有可用清單。`;
-    }
-    return `已取得 ${scopeLabel}，可直接選擇並套用到房間。`;
-  })();
+  const hostCollectionScopeLabel =
+    collectionScope === "public" ? "公開收藏庫" : "私人收藏庫";
+  const hostCollectionPrimaryText = collectionsLoading
+    ? `正在載入 ${hostCollectionScopeLabel}...`
+    : collections.length === 0
+      ? `${hostCollectionScopeLabel} 目前沒有可用清單。`
+      : `已取得 ${hostCollectionScopeLabel}，可直接選擇並套用到房間。`;
   const isHostYoutubeEmptyNotice =
     hostSourceType === "youtube" &&
     isGoogleAuthed &&
@@ -883,18 +877,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     youtubePlaylistsError && !isHostYoutubeMissingNotice
       ? youtubePlaylistsError
       : null;
-  const hostYoutubePrimaryText = (() => {
-    if (youtubePlaylistsLoading) {
-      return "正在載入 YouTube 播放清單...";
-    }
-    if (isHostYoutubeMissingNotice) {
-      return "找不到可匯入的 YouTube 播放清單，請檢查連結與權限。";
-    }
-    if (youtubePlaylists.length === 0 && !youtubePlaylistsError) {
-      return "目前沒有可匯入的 YouTube 播放清單。";
-    }
-    return "已取得 YouTube 播放清單，可直接選擇匯入。";
-  })();
+  const hostYoutubePrimaryText = youtubePlaylistsLoading
+    ? "正在載入 YouTube 播放清單..."
+    : isHostYoutubeMissingNotice
+      ? "找不到可匯入的 YouTube 播放清單，請檢查連結與權限。"
+      : youtubePlaylists.length === 0 && !youtubePlaylistsError
+        ? "目前沒有可匯入的 YouTube 播放清單。"
+        : "已取得 YouTube 播放清單，可直接選擇匯入。";
   const questionMaxLimit = getQuestionMax(
     currentRoom?.playlist.totalCount ?? 0,
   );
@@ -902,13 +891,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const settingsDisabled = gameState?.status === "playing";
   const settingsSourceItems =
     playlistItemsForChange.length > 0 ? playlistItemsForChange : playlistItems;
-  const settingsUseCollectionSource = settingsSourceItems.some(
-    (item) =>
-      item.provider === "collection" ||
-      typeof item.collectionClipStartSec === "number" ||
-      typeof item.collectionClipEndSec === "number" ||
-      item.collectionHasExplicitStartSec === true ||
-      item.collectionHasExplicitEndSec === true,
+  const settingsUseCollectionSource = useMemo(
+    () =>
+      settingsSourceItems.some(
+        (item) =>
+          item.provider === "collection" ||
+          typeof item.collectionClipStartSec === "number" ||
+          typeof item.collectionClipEndSec === "number" ||
+          item.collectionHasExplicitStartSec === true ||
+          item.collectionHasExplicitEndSec === true,
+      ),
+    [settingsSourceItems],
   );
   const useCollectionTimingForSettings =
     settingsUseCollectionSource && settingsAllowCollectionClipTiming;
@@ -942,7 +935,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const roomAllowCollectionClipTiming =
     currentRoom?.gameSettings?.allowCollectionClipTiming ?? true;
 
-  const extractPlaylistId = (url: string) => {
+  const extractPlaylistId = React.useCallback((url: string) => {
     try {
       const parsed = new URL(url.trim());
       const listId = parsed.searchParams.get("list");
@@ -953,7 +946,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     } catch {
       return null;
     }
-  };
+  }, []);
   const isCollectionsEmptyNotice = Boolean(
     collectionsError &&
     (collectionsError.toLowerCase().includes("no collections") ||
@@ -1076,11 +1069,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     });
   }, [getSuggestionKey, playlistSuggestions]);
 
-  const markSuggestionsSeen = () => {
+  const markSuggestionsSeen = React.useCallback(() => {
     if (latestSuggestionAt > 0) {
       setLastSuggestionSeenAt(latestSuggestionAt);
     }
-  };
+  }, [latestSuggestionAt]);
   const newSuggestionCount = useMemo(
     () =>
       playlistSuggestions.reduce(
@@ -1123,10 +1116,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     mobileLobbyTab,
   ]);
 
-  const closeActionMenu = () => {
+  const closeActionMenu = React.useCallback(() => {
     setActionAnchorEl(null);
     setActionTargetId(null);
-  };
+  }, []);
 
   const openSettingsModal = React.useCallback(() => {
     if (!currentRoom) return;
@@ -1165,13 +1158,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     setSettingsOpen(true);
   }, [currentRoom, questionMaxLimit, roomPassword]);
 
-  const closeSettingsModal = () => {
+  const closeSettingsModal = React.useCallback(() => {
     if (settingsSaving) return;
     setSettingsOpen(false);
     setSettingsError(null);
-  };
+  }, [settingsSaving]);
 
-  const handleSaveSettings = async () => {
+  const handleSaveSettings = React.useCallback(async () => {
     if (settingsDisabled || settingsSaving) return;
     const trimmedName = settingsName.trim();
     if (!trimmedName) {
@@ -1234,7 +1227,28 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     } finally {
       setSettingsSaving(false);
     }
-  };
+  }, [
+    onUpdateRoomSettings,
+    questionMaxLimit,
+    settingsAllowCollectionClipTiming,
+    settingsDisabled,
+    settingsMaxPlayers,
+    settingsName,
+    settingsPassword,
+    settingsPasswordDirty,
+    settingsPlaybackExtensionMode,
+    settingsPlayDurationSec,
+    settingsQuestionCount,
+    settingsRevealDurationSec,
+    settingsSaving,
+    settingsStartOffsetSec,
+    settingsVisibility,
+  ]);
+
+  const handleSaveSettingsClick = React.useCallback(
+    () => { void handleSaveSettings(); },
+    [handleSaveSettings],
+  );
 
   const openConfirmModal = React.useCallback(
     (title: string, detail: string | undefined, action: () => void) => {
@@ -1263,7 +1277,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     );
   }, [onLeave, openConfirmModal]);
 
-  const handleApplyHostSuggestion = async (suggestion: PlaylistSuggestion) => {
+  const handleApplyHostSuggestion = React.useCallback(async (suggestion: PlaylistSuggestion) => {
     const suggestionKey = getSuggestionKey(suggestion);
     const now = Date.now();
     const lastRequest = lastHostSuggestionRequestRef.current;
@@ -1313,9 +1327,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         setIsApplyingHostSuggestion(false);
       }, HOST_SUGGESTION_REQUEST_GAP_MS);
     }
-  };
+  }, [
+    getSuggestionKey,
+    onApplySuggestionSnapshot,
+    onFetchPlaylistByUrl,
+    onSelectCollection,
+    onLoadCollectionItems,
+  ]);
 
-  const requestApplyHostSuggestion = (suggestion: PlaylistSuggestion) => {
+  const requestApplyHostSuggestion = React.useCallback((suggestion: PlaylistSuggestion) => {
     const isSnapshot = Boolean(suggestion.items?.length);
     const displayLabel = suggestion.title ?? suggestion.value;
     openConfirmModal(
@@ -1330,12 +1350,17 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     setHostSuggestionHint(
       isSnapshot ? "即將套用快照" : "即將套用來源",
     );
-  };
+  }, [handleApplyHostSuggestion, openConfirmModal]);
 
   const suggestionResetKey =
     gameState?.status === "ended"
       ? `ended-${gameState?.startedAt ?? 0}`
       : "not-ended";
+
+  const handleToggleShowRoomPassword = React.useCallback(
+    () => setShowRoomPassword((prev) => !prev),
+    [],
+  );
 
   const handleOpenPlaylistItem = React.useCallback((url?: string | null) => {
     if (!url) return;
@@ -1370,7 +1395,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     const playlistAuthorHref = resolveSettlementTrackLink({
       provider: item.provider,
       sourceId: item.sourceId ?? null,
-      channelId: item.channelId ?? null,
+      channelId: item.channelId ?? undefined,
       videoId: item.videoId,
       url: item.url ?? "",
       title: item.title ?? "",
@@ -1769,7 +1794,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             type="button"
             className="room-lobby-metric-trailing-icon room-lobby-metric-trailing-icon--toggle"
             aria-label={showRoomPassword ? "隱藏房間 PIN" : "顯示房間 PIN"}
-            onClick={() => setShowRoomPassword((prev) => !prev)}
+            onClick={handleToggleShowRoomPassword}
           >
             {showRoomPassword ? (
               <VisibilityOffRoundedIcon fontSize="small" />
@@ -1882,7 +1907,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onApplyPlaylistUrlDirect={onApplyPlaylistUrlDirect}
       onApplyCollectionDirect={onApplyCollectionDirect}
       onApplyYoutubePlaylistDirect={onApplyYoutubePlaylistDirect}
-      onRequestGoogleLogin={onRequestGoogleLogin ?? (() => undefined)}
+      onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
     />
   ) : gameState?.status !== "playing" ? (
     <RoomLobbySuggestionPanel
@@ -1900,7 +1925,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onSuggestPlaylist={onSuggestPlaylist}
       extractPlaylistId={extractPlaylistId}
       openConfirmModal={openConfirmModal}
-      onRequestGoogleLogin={onRequestGoogleLogin ?? (() => undefined)}
+      onRequestGoogleLogin={onRequestGoogleLogin ?? noop}
     />
   ) : null;
   const controlPanel = hostPanel ?? (
@@ -2464,7 +2489,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         }}
         settingsError={settingsError}
         onClose={closeSettingsModal}
-        onSave={() => void handleSaveSettings()}
+        onSave={handleSaveSettingsClick}
       />
       <Dialog
         open={Boolean(confirmModal)}
@@ -2521,5 +2546,3 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
 };
 
 export default RoomLobbyPanel;
-
-

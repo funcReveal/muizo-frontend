@@ -12,7 +12,8 @@ import {
 } from "@mui/material";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import LoadingPage from "../../../shared/ui/LoadingPage";
-import { useRoom } from "../../Room/model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { useRoomPlaylist } from "../../Room/model/RoomPlaylistContext";
 import { isAdminRole } from "../../../shared/auth/roles";
 import type { DbCollection, EditableItem } from "./lib/editTypes";
 import {
@@ -91,6 +92,10 @@ const EditPage = () => {
     authUser,
     displayUsername,
     refreshAuthToken,
+    authLoading,
+    authExpired,
+  } = useAuth();
+  const {
     playlistUrl,
     playlistItems: fetchedPlaylistItems,
     lastFetchedPlaylistTitle,
@@ -99,9 +104,7 @@ const EditPage = () => {
     handleFetchPlaylist,
     handleResetPlaylist,
     setPlaylistUrl,
-    authLoading,
-    authExpired,
-  } = useRoom();
+  } = useRoomPlaylist();
 
   const [collections, setCollections] = useState<DbCollection[]>([]);
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
@@ -1795,7 +1798,7 @@ const EditPage = () => {
     setSingleTrackTitle("");
     setSingleTrackAnswer("");
     setSingleTrackUploader("");
-    setSingleTrackChannelUrl("");
+    setSingleTrackChannelId("");
     setSingleTrackError(null);
     const key = getPlaylistItemKey({ url });
     if (!key) {

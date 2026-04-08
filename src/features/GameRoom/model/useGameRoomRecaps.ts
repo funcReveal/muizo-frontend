@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GameChoice, GameQuestionStats, PlaylistItem, RoomParticipant } from "../../Room/model/types";
-import type { SettlementQuestionRecap } from "../../Settlement/ui/components/GameSettlementPanel";
+import type { SettlementQuestionRecap } from "../../Settlement/model/types";
 import { buildSettlementQuestionRecap } from "./gameRoomDerivations";
 import { deferStateUpdate } from "./gameRoomUtils";
 

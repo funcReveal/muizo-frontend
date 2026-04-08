@@ -20,10 +20,8 @@ import type {
   RoomParticipant,
   RoomState,
 } from "../../../Room/model/types";
-import type { SettlementQuestionRecap } from "./GameSettlementPanel";
-import {
-  type RecommendCategory,
-} from "../lib/settlementUtils";
+import type { SettlementQuestionRecap } from "../../model/types";
+import { type RecommendCategory } from "../lib/settlementUtils";
 import OverviewSection from "./liveSettlementShowcase/OverviewSection";
 import RecommendGuideSection from "./liveSettlementShowcase/RecommendGuideSection";
 import {
@@ -49,13 +47,13 @@ import {
   type SettlementExtendedRecap,
   type SettlementRecommendationCard,
 } from "./liveSettlementShowcase/showcasePrimitives";
-import useSettlementPreviewPlayback from "./liveSettlementShowcase/useSettlementPreviewPlayback";
-import useSettlementRecommendLifecycle from "./liveSettlementShowcase/useSettlementRecommendLifecycle";
-import useSettlementRecommendationNavigator from "./liveSettlementShowcase/useSettlementRecommendationNavigator";
-import useSettlementRecommendationInsights from "./liveSettlementShowcase/useSettlementRecommendationInsights";
+import useSettlementPreviewPlayback from "../../model/useSettlementPreviewPlayback";
+import useSettlementRecommendLifecycle from "../../model/useSettlementRecommendLifecycle";
+import useSettlementRecommendationNavigator from "../../model/useSettlementRecommendationNavigator";
+import useSettlementRecommendationInsights from "../../model/useSettlementRecommendationInsights";
 import ReviewRecapSection from "./liveSettlementShowcase/ReviewRecapSection";
-import useSettlementRecapSelectionState from "./liveSettlementShowcase/useSettlementRecapSelectionState";
-import useSettlementReviewState from "./liveSettlementShowcase/useSettlementReviewState";
+import useSettlementRecapSelectionState from "../../model/useSettlementRecapSelectionState";
+import useSettlementReviewState from "../../model/useSettlementReviewState";
 import SettlementStageHeader from "./liveSettlementShowcase/SettlementStageHeader";
 import SettlementMobileFooter from "./liveSettlementShowcase/SettlementMobileFooter";
 import SettlementExitDialog from "./liveSettlementShowcase/SettlementExitDialog";
@@ -203,6 +201,14 @@ const RESULT_META: Record<
   },
 };
 
+const getChangedAnswerCount = (answer: unknown): number => {
+  if (!answer || typeof answer !== "object") return 0;
+  const value = (answer as { changedAnswerCount?: number }).changedAnswerCount;
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, value)
+    : 0;
+};
+
 const buildFallbackRecaps = (
   playlistItems: PlaylistItem[],
   trackOrder: number[],
@@ -266,15 +272,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   onBackToLobby,
   onRequestExit,
 }) => {
-  const getChangedAnswerCount = (answer: unknown): number => {
-    if (!answer || typeof answer !== "object") return 0;
-    const value = (answer as { changedAnswerCount?: number })
-      .changedAnswerCount;
-    return typeof value === "number" && Number.isFinite(value)
-      ? Math.max(0, value)
-      : 0;
-  };
-
   const {
     gameVolume,
     setGameVolume,
@@ -429,6 +426,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const effectivePreviewVolume = settlementPreviewSyncGameVolume
     ? gameVolume
     : settlementPreviewVolume;
+
+  const handleExternalPreviewVolumeChange = useCallback((next: number) => {
+    if (settlementPreviewSyncGameVolume) {
+      setGameVolume(next);
+      return;
+    }
+    setSettlementPreviewVolume(next);
+  }, [settlementPreviewSyncGameVolume, setGameVolume, setSettlementPreviewVolume]);
 
   useEffect(() => {
     if (!sfxEnabled) return;
@@ -606,13 +611,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     setPreviewPlayerState,
     setPreviewCountdownSec,
     setPreviewSwitchNotice,
-    onExternalPreviewVolumeChange: (next) => {
-      if (settlementPreviewSyncGameVolume) {
-        setGameVolume(next);
-        return;
-      }
-      setSettlementPreviewVolume(next);
-    },
+    onExternalPreviewVolumeChange: handleExternalPreviewVolumeChange,
   });
   const {
     jumpToRecommendation,
@@ -724,10 +723,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     [room.id],
   );
 
-  const handleOpenRecommendationTitle = () => {
+  const handleOpenRecommendationTitle = useCallback(() => {
     if (!currentRecommendation || !currentRecommendationLink) return;
     handleOpenTrackLink(currentRecommendationLink, currentRecommendation.recap);
-  };
+  }, [currentRecommendation, currentRecommendationLink, handleOpenTrackLink]);
 
   const dispatchPreviewCommand = useCallback(
     (command: "playVideo" | "pauseVideo") => {
@@ -975,7 +974,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     ],
   );
 
-  const goToTab = (tab: LiveSettlementTab) => {
+  const goToTab = useCallback((tab: LiveSettlementTab) => {
     if (tab === activeTab) return;
     setTabRenderKey((prev) => prev + 1);
     setActiveTab(tab);
@@ -988,9 +987,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       return;
     }
     resetRecommendPreviewState();
-  };
+  }, [activeTab, autoPreviewEnabled, startAutoGuideFromPreferredCategory, recommendCategory, activateRecommendationCategory, resetRecommendPreviewState]);
 
-  const goNextStep = () => {
+  const goNextStep = useCallback(() => {
     if (stepIndex < TAB_ORDER.length - 1) {
       goToTab(TAB_ORDER[stepIndex + 1]);
       return;
@@ -1002,12 +1001,12 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     if (onRequestExit) {
       setExitConfirmOpen(true);
     }
-  };
+  }, [stepIndex, goToTab, onBackToLobby, onRequestExit]);
 
-  const goPrevStep = () => {
+  const goPrevStep = useCallback(() => {
     if (stepIndex <= 0) return;
     goToTab(TAB_ORDER[stepIndex - 1]);
-  };
+  }, [stepIndex, goToTab]);
 
   const openExitConfirm = useCallback(() => {
     exitConfirmLockedRef.current = false;

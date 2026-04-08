@@ -59,6 +59,7 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = React.memo(
       [combo, effectLevel, rank, stateTone],
     );
     const effectiveSize = Math.max(20, Math.round(size));
+    const comboValue = combo ?? 0;
     const isCompact = effectiveSize <= 32;
     const monogramFontSize = Math.max(
       isCompact ? 9 : 11,
@@ -92,7 +93,7 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = React.memo(
           `player-avatar--${effectLevel}`,
           avatarUrl ? "player-avatar--image" : "player-avatar--text",
           isMe ? "player-avatar--self" : "",
-          combo >= 3 ? "player-avatar--combo-ready" : "",
+          comboValue >= 3 ? "player-avatar--combo-ready" : "",
           className,
         ]
           .filter(Boolean)
@@ -126,7 +127,7 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = React.memo(
             {rank}
           </span>
         ) : null}
-        {effectLevel === "full" && combo >= 3 ? (
+        {effectLevel === "full" && comboValue >= 3 ? (
           <span className="player-avatar__combo-mark" aria-hidden="true" />
         ) : null}
       </span>

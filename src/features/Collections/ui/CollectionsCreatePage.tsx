@@ -16,11 +16,14 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import { useRoom } from "../../Room/model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { useRoomPlaylist } from "../../Room/model/RoomPlaylistContext";
+import { useRoomCollections } from "../../Room/model/RoomCollectionsContext";
 import { isAdminRole } from "../../../shared/auth/roles";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { isGoogleReauthRequired } from "../../../shared/auth/providerAuth";
 import { trackEvent } from "../../../shared/analytics/track";
+import { extractVideoId } from "../../../shared/utils/youtube";
 import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
@@ -62,26 +65,6 @@ const parseDurationToSeconds = (duration?: string): number | null => {
     return h * 3600 + m * 60 + s;
   }
   return null;
-};
-
-const extractVideoId = (url: string | undefined | null) => {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    if (host.includes("youtu.be")) {
-      const id = parsed.pathname.split("/").filter(Boolean)[0];
-      return id || null;
-    }
-    const id = parsed.searchParams.get("v");
-    if (id) return id;
-    const path = parsed.pathname.split("/").filter(Boolean);
-    if (path[0] === "shorts" && path[1]) return path[1];
-    if (path[0] === "embed" && path[1]) return path[1];
-    return null;
-  } catch {
-    return null;
-  }
 };
 
 const createServerId = () =>
@@ -147,6 +130,11 @@ const CollectionsCreatePage = () => {
   const {
     authToken,
     authUser,
+    authLoading,
+    refreshAuthToken,
+    loginWithGoogle,
+  } = useAuth();
+  const {
     playlistUrl,
     playlistItems,
     lastFetchedPlaylistTitle,
@@ -157,18 +145,14 @@ const CollectionsCreatePage = () => {
     handleFetchPlaylist,
     handleResetPlaylist,
     setPlaylistUrl,
-    authLoading,
-    refreshAuthToken,
-    collections,
-    collectionScope,
-    fetchCollections,
     youtubePlaylists,
     youtubePlaylistsLoading,
     youtubePlaylistsError,
     fetchYoutubePlaylists,
     importYoutubePlaylist,
-    loginWithGoogle,
-  } = useRoom();
+  } = useRoomPlaylist();
+  const { collections, collectionScope, fetchCollections } =
+    useRoomCollections();
 
   const [collectionTitle, setCollectionTitle] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
@@ -1196,7 +1180,6 @@ const CollectionsCreatePage = () => {
               ) : null}
             </div>
           </div>
-
         </div>
       </Box>
     </Box>

@@ -5,7 +5,7 @@ import type {
   RoomParticipant,
   SubmitAnswerResult,
 } from "../../Room/model/types";
-import type { GameSfxEvent } from "../../Room/model/sfx/gameSfxEngine";
+import type { GameSfxEvent } from "../../../shared/sfx/gameSfxEngine";
 import type {
   AnswerDecisionMeta,
   ChoiceCommitFxKind,

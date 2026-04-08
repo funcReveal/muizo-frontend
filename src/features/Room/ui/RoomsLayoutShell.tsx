@@ -12,7 +12,9 @@ import {
 
 import AppHeader from "../../../app/layout/AppHeader";
 import { USERNAME_MAX } from "../model/roomConstants";
-import { useRoom } from "../model/useRoom";
+import { useAuth } from "../../../shared/auth/AuthContext";
+import { useRoomSession } from "../model/RoomSessionContext";
+import { useRoomGame } from "../model/RoomGameContext";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import SettingsPage from "../../Setting/ui/SettingsPage";
 import FloatingChatWindow from "../../../shared/chat/FloatingChatWindow";
@@ -34,13 +36,15 @@ const RoomsLayoutShell: React.FC = () => {
     openProfileEditor,
     closeProfileEditor,
     displayUsername,
-    statusText,
     username,
-    currentRoom,
-    gameState,
-    handleLeaveRoom,
+  } = useAuth();
+  const {
+    statusText,
     setStatusText,
-  } = useRoom();
+    currentRoom,
+    handleLeaveRoom,
+  } = useRoomSession();
+  const { gameState } = useRoomGame();
   const [loginConfirmOpen, setLoginConfirmOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [inRoomSettingsOpen, setInRoomSettingsOpen] = useState(false);
@@ -276,7 +280,7 @@ const RoomsLayoutShell: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start">
-      <div className={`flex w-full min-w-0 max-w-[1600px] flex-col space-y-4${isGameMode ? " px-6 pt-4" : " p-4"}${currentRoom && !isGameMode ? " pb-16" : ""}${currentRoom && isMobileViewport ? " pb-4" : ""}`}>
+      <div className={`flex w-full min-w-0 ${isGameMode ? "max-w-none px-3 pt-3 xl:px-5" : "max-w-[1600px] p-4"} flex-col space-y-4${currentRoom && !isGameMode ? " pb-16" : ""}${currentRoom && isMobileViewport ? " pb-4" : ""}`}>
         <div>
           <AppHeader
             displayUsername={displayUsername}

@@ -141,12 +141,6 @@ const renderPodiumAvatar = (
           hideRankMark
           className="player-avatar--settlement-podium"
         />
-        <span
-          className={`settlement-podium-rank-mark settlement-podium-rank-mark--${rank}`}
-          aria-hidden="true"
-        >
-          {rank}
-        </span>
         {isMe && (
           <span className={`absolute left-1/2 -translate-x-1/2 rounded-full border border-cyan-300/45 bg-cyan-400/16 font-black tracking-[0.08em] text-cyan-50 ${
             isMobileView
@@ -334,11 +328,19 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
 
                   <div
                     className={`relative z-10 mx-auto inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-black tracking-[0.18em] ${rank === 1
-                      ? "mt-10 border-amber-100/18 bg-black/18 text-amber-50"
+                      ? "mt-10 border-amber-200/30 text-white"
                       : rank === 2
-                        ? "mt-3 border-slate-200/16 bg-black/12 text-slate-100"
-                        : "mt-0 border-orange-200/14 bg-black/10 text-orange-100"
+                        ? "mt-3 border-slate-300/30 text-white"
+                        : "mt-0 border-orange-300/28 text-white"
                       }`}
+                    style={{
+                      background:
+                        rank === 1
+                          ? "rgba(168,139,8,0.96)"
+                          : rank === 2
+                            ? "rgba(107,114,128,0.96)"
+                            : "rgba(180,83,9,0.96)",
+                    }}
                   >
                     {podiumLabel(rank)}
                   </div>
