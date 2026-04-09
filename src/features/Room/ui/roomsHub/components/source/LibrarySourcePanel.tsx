@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
 import {
   Box,
@@ -27,6 +27,8 @@ type LibrarySourcePanelProps = {
   canUseGoogleLibraries: boolean;
   setCreateLibraryTab: (value: CreateLibraryTab) => void;
   handleBackToCreateLibrary: () => void;
+  onLockedSourceClick: () => void;
+  sidebarContent?: ReactNode;
   children: ReactNode;
 };
 
@@ -63,13 +65,24 @@ const LibrarySourcePanel = ({
   canUseGoogleLibraries,
   setCreateLibraryTab,
   handleBackToCreateLibrary,
+  onLockedSourceClick,
+  sidebarContent,
   children,
 }: LibrarySourcePanelProps) => {
   const selectedSource =
     sourceItems.find((item) => item.key === createLibraryTab) ?? sourceItems[0];
 
   const handleMobileSelectChange = (event: SelectChangeEvent<CreateLibraryTab>) => {
-    setCreateLibraryTab(event.target.value as CreateLibraryTab);
+    const nextValue = event.target.value as CreateLibraryTab;
+    const isLocked =
+      !canUseGoogleLibraries && nextValue !== "public" && nextValue !== "link";
+
+    if (isLocked) {
+      onLockedSourceClick();
+      return;
+    }
+
+    setCreateLibraryTab(nextValue);
   };
 
   return (
@@ -77,21 +90,25 @@ const LibrarySourcePanel = ({
       <aside className="min-w-0 px-0 py-1 lg:flex lg:min-h-0 lg:flex-col lg:pr-2 lg:pb-2 lg:pl-0 lg:pt-2">
         <div className="mb-2 hidden items-center gap-1 lg:mb-0 lg:flex">
           {createLeftTab === "settings" ? (
-            <Tooltip title="返回題庫來源" placement="top">
-              <button
-                type="button"
-                onClick={handleBackToCreateLibrary}
-                className="inline-flex h-10 w-10 items-center justify-center text-cyan-100 transition hover:text-cyan-200"
-                aria-label="返回題庫來源"
-              >
-                <ChevronLeftRounded sx={{ fontSize: 24 }} />
-              </button>
-            </Tooltip>
+            <button
+              type="button"
+              onClick={handleBackToCreateLibrary}
+              className="inline-flex h-10 w-10 cursor-pointer items-center justify-center text-cyan-100 transition hover:text-cyan-200"
+              aria-label="返回題庫來源"
+            >
+              <ChevronLeftRounded sx={{ fontSize: 24 }} />
+            </button>
           ) : null}
           <p className="text-base font-semibold tracking-[0.18em] text-[var(--mc-text)] sm:text-lg">
             {createLeftTab === "library" ? "題庫來源" : "房間設定"}
           </p>
         </div>
+
+        {createLeftTab === "settings" && sidebarContent ? (
+          <div className="hidden lg:mt-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+            {sidebarContent}
+          </div>
+        ) : null}
 
         {createLeftTab === "library" ? (
           <>
@@ -198,12 +215,17 @@ const LibrarySourcePanel = ({
                       <MenuItem
                         key={item.key}
                         value={item.key}
-                        disabled={disabled}
+                        onClick={() => {
+                          if (disabled) {
+                            onLockedSourceClick();
+                          }
+                        }}
                         sx={{
                           gap: 1.25,
                           py: 1.2,
                           px: 1.5,
                           minHeight: 0,
+                          opacity: disabled ? 0.72 : 1,
                         }}
                       >
                         <Box
@@ -264,12 +286,15 @@ const LibrarySourcePanel = ({
                     type="button"
                     aria-disabled={disabled}
                     onClick={() => {
-                      if (disabled) return;
+                      if (disabled) {
+                        onLockedSourceClick();
+                        return;
+                      }
                       setCreateLibraryTab(item.key);
                     }}
                     className={`rounded-xl px-3 py-2 text-left text-sm transition ${
                       disabled
-                        ? "cursor-not-allowed bg-slate-900/40 text-slate-500"
+                        ? "cursor-pointer bg-slate-900/40 text-slate-400 hover:bg-slate-900/55 hover:text-slate-200"
                         : isActive
                           ? "cursor-pointer bg-cyan-500/10 text-cyan-100 shadow-[inset_3px_0_0_0_rgba(34,211,238,0.85)]"
                           : "cursor-pointer bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:bg-cyan-500/10 hover:text-cyan-100"
@@ -281,7 +306,7 @@ const LibrarySourcePanel = ({
                         <span>{item.label}</span>
                       </span>
                       {disabled ? (
-                        <Tooltip title="登入 Google 後即可使用" placement="top">
+                        <Tooltip title="點擊即可登入後使用" placement="top">
                           <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
                         </Tooltip>
                       ) : null}

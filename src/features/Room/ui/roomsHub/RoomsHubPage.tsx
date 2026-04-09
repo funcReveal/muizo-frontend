@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, TextField, useMediaQuery } from "@mui/material";
 import {
   AddCircleOutlineRounded,
+  ChevronLeftRounded,
   MeetingRoomRounded,
 } from "@mui/icons-material";
 
@@ -26,6 +27,7 @@ import {
   type PlaylistIssueListItem,
 } from "./components/source/PlaylistPreviewRows";
 import RoomSetupPanel from "./components/setup/RoomSetupPanel";
+import RoomSetupSidebarSummary from "./components/setup/RoomSetupSidebarSummary";
 import JoinRoomPanel from "./components/join/JoinRoomPanel";
 import LibrarySourcePanel from "./components/source/LibrarySourcePanel";
 import LibrarySourceToolbar from "./components/source/LibrarySourceToolbar";
@@ -1248,40 +1250,18 @@ const RoomsHubPage: React.FC = () => {
                     canUseGoogleLibraries={canUseGoogleLibraries}
                     setCreateLibraryTab={setCreateLibraryTab}
                     handleBackToCreateLibrary={handleBackToCreateLibrary}
-                  >
-                    <div className="flex min-h-0 flex-1 flex-col bg-[var(--mc-surface)]/10 lg:rounded-none lg:border-l lg:border-[var(--mc-border)]/45 lg:pl-5">
-                      {createLeftTab === "settings" ? (
-                        <RoomSetupPanel
+                    onLockedSourceClick={loginWithGoogle}
+                    sidebarContent={
+                      createLeftTab === "settings" ? (
+                        <RoomSetupSidebarSummary
                           roomNameInput={roomNameInput}
-                          setRoomNameInput={setRoomNameInput}
                           roomVisibilityInput={roomVisibilityInput}
-                          setRoomVisibilityInput={setRoomVisibilityInput}
-                          roomPasswordInput={roomPasswordInput}
-                          setRoomPasswordInput={setRoomPasswordInput}
-                          setRoomMaxPlayersInput={setRoomMaxPlayersInput}
                           parsedMaxPlayers={parsedMaxPlayers}
                           questionCount={questionCount}
-                          questionMin={questionMin}
-                          questionMaxLimit={questionMaxLimit}
-                          updateQuestionCount={updateQuestionCount}
-                          playDurationSec={playDurationSec}
-                          revealDurationSec={revealDurationSec}
-                          startOffsetSec={startOffsetSec}
-                          allowCollectionClipTiming={allowCollectionClipTiming}
-                          updatePlayDurationSec={updatePlayDurationSec}
-                          updateRevealDurationSec={updateRevealDurationSec}
-                          updateStartOffsetSec={updateStartOffsetSec}
-                          updateAllowCollectionClipTiming={
-                            updateAllowCollectionClipTiming
-                          }
-                          supportsCollectionClipTiming={
-                            supportsCollectionClipTiming
-                          }
                           selectedCreateSourceSummary={
                             selectedCreateSourceSummary
                           }
                           isSourceSummaryLoading={isCreateSourceSummaryLoading}
-                          createSettingsCards={createSettingsCards}
                           createRequirementsHintText={
                             createRequirementsHintText
                           }
@@ -1294,6 +1274,102 @@ const RoomsHubPage: React.FC = () => {
                             void handleCreateRoom();
                           }}
                         />
+                      ) : undefined
+                    }
+                  >
+                    {createLeftTab === "settings" ? (
+                      <div className="mb-3 flex items-center gap-1 lg:hidden">
+                        <button
+                          type="button"
+                          onClick={handleBackToCreateLibrary}
+                          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center text-cyan-100 transition hover:text-cyan-200"
+                          aria-label="返回題庫來源"
+                        >
+                          <ChevronLeftRounded sx={{ fontSize: 24 }} />
+                        </button>
+                        <p className="text-base font-semibold tracking-[0.18em] text-[var(--mc-text)]">
+                          房間設定
+                        </p>
+                      </div>
+                    ) : null}
+                    <div
+                      className={`flex min-h-0 flex-1 flex-col bg-[var(--mc-surface)]/10 lg:rounded-none lg:border-l lg:border-[var(--mc-border)]/45 lg:pl-5 ${
+                        createLeftTab === "settings"
+                          ? "overflow-y-auto pr-1"
+                          : ""
+                      }`}
+                    >
+                      {createLeftTab === "settings" ? (
+                        <>
+                          <RoomSetupPanel
+                            roomNameInput={roomNameInput}
+                            setRoomNameInput={setRoomNameInput}
+                            roomVisibilityInput={roomVisibilityInput}
+                            setRoomVisibilityInput={setRoomVisibilityInput}
+                            roomPasswordInput={roomPasswordInput}
+                            setRoomPasswordInput={setRoomPasswordInput}
+                            setRoomMaxPlayersInput={setRoomMaxPlayersInput}
+                            parsedMaxPlayers={parsedMaxPlayers}
+                            questionCount={questionCount}
+                            questionMin={questionMin}
+                            questionMaxLimit={questionMaxLimit}
+                            updateQuestionCount={updateQuestionCount}
+                            playDurationSec={playDurationSec}
+                            revealDurationSec={revealDurationSec}
+                            startOffsetSec={startOffsetSec}
+                            allowCollectionClipTiming={allowCollectionClipTiming}
+                            updatePlayDurationSec={updatePlayDurationSec}
+                            updateRevealDurationSec={updateRevealDurationSec}
+                            updateStartOffsetSec={updateStartOffsetSec}
+                            updateAllowCollectionClipTiming={
+                              updateAllowCollectionClipTiming
+                            }
+                            supportsCollectionClipTiming={
+                              supportsCollectionClipTiming
+                            }
+                            selectedCreateSourceSummary={
+                              selectedCreateSourceSummary
+                            }
+                            isSourceSummaryLoading={isCreateSourceSummaryLoading}
+                            createSettingsCards={createSettingsCards}
+                            createRequirementsHintText={
+                              createRequirementsHintText
+                            }
+                            createRecommendationHintText={
+                              createRecommendationHintText
+                            }
+                            canCreateRoom={canCreateRoom}
+                            isCreatingRoom={isCreatingRoom}
+                            onCreateRoom={() => {
+                              void handleCreateRoom();
+                            }}
+                          />
+                          <div className="mt-4 lg:hidden">
+                            <RoomSetupSidebarSummary
+                              roomNameInput={roomNameInput}
+                              roomVisibilityInput={roomVisibilityInput}
+                              parsedMaxPlayers={parsedMaxPlayers}
+                              questionCount={questionCount}
+                              selectedCreateSourceSummary={
+                                selectedCreateSourceSummary
+                              }
+                              isSourceSummaryLoading={
+                                isCreateSourceSummaryLoading
+                              }
+                              createRequirementsHintText={
+                                createRequirementsHintText
+                              }
+                              createRecommendationHintText={
+                                createRecommendationHintText
+                              }
+                              canCreateRoom={canCreateRoom}
+                              isCreatingRoom={isCreatingRoom}
+                              onCreateRoom={() => {
+                                void handleCreateRoom();
+                              }}
+                            />
+                          </div>
+                        </>
                       ) : (
                         <div className="flex min-h-0 flex-1 flex-col">
                           {createLibraryTab !== "link" && (
@@ -1330,6 +1406,9 @@ const RoomsHubPage: React.FC = () => {
                           (createLibraryTab === "personal" ||
                             createLibraryTab === "youtube") ? (
                             <div className="mt-2 rounded-xl border border-dashed border-slate-600/60 bg-slate-900/30 p-3 text-sm text-slate-300 sm:mt-3 sm:p-4">
+                              <p className="text-sm text-slate-200">
+                                私人收藏庫和從 Youtube 匯入清單需先登入，也可以直接點上方已鎖定的來源項目登入。
+                              </p>
                               <div className="mt-1">
                                 <Button
                                   variant="contained"
