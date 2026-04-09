@@ -625,6 +625,7 @@ const RoomLobbyPlaylistPanel = React.memo(function RoomLobbyPlaylistPanel({
 const LOBBY_INTERACTIVE_SELECTOR =
   "button, [role='button'], [role='tab'], .MuiButtonBase-root";
 const ROOM_LOBBY_BGM_PATH = "/room-lobby-bgm.mp3";
+const ROOM_LOBBY_BGM_FADE_IN_MS = 1200;
 
 const noop = () => undefined;
 
@@ -721,6 +722,12 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const lobbyBgmRef = useRef<HTMLAudioElement | null>(null);
+  const lobbyBgmFadeFrameRef = useRef<number | null>(null);
+  const lobbyBgmFadeStartedRef = useRef(false);
+  const lobbyBgmFadeDoneRef = useRef(false);
+  const lobbyBgmTargetVolumeRef = useRef(
+    Math.max(0, Math.min(1, gameVolume / 100)),
+  );
   const [settingsName, setSettingsName] = useState("");
   const [settingsVisibility, setSettingsVisibility] = useState<
     "public" | "private"
@@ -846,14 +853,59 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     const audio = new Audio(ROOM_LOBBY_BGM_PATH);
     audio.loop = true;
     audio.preload = "auto";
-    audio.volume = Math.max(0, Math.min(1, gameVolume / 100));
+    audio.volume = 0;
     lobbyBgmRef.current = audio;
+    lobbyBgmFadeStartedRef.current = false;
+    lobbyBgmFadeDoneRef.current = false;
+    lobbyBgmTargetVolumeRef.current = Math.max(0, Math.min(1, gameVolume / 100));
+
+    const cancelFadeFrame = () => {
+      if (lobbyBgmFadeFrameRef.current !== null) {
+        window.cancelAnimationFrame(lobbyBgmFadeFrameRef.current);
+        lobbyBgmFadeFrameRef.current = null;
+      }
+    };
+
+    const runInitialFadeIn = () => {
+      if (lobbyBgmFadeDoneRef.current) {
+        audio.volume = lobbyBgmTargetVolumeRef.current;
+        return;
+      }
+      if (lobbyBgmFadeStartedRef.current) return;
+      lobbyBgmFadeStartedRef.current = true;
+      cancelFadeFrame();
+      const startedAt = performance.now();
+      const tick = (now: number) => {
+        const progress = Math.min(
+          1,
+          (now - startedAt) / ROOM_LOBBY_BGM_FADE_IN_MS,
+        );
+        audio.volume = lobbyBgmTargetVolumeRef.current * progress;
+        if (progress >= 1) {
+          lobbyBgmFadeDoneRef.current = true;
+          lobbyBgmFadeFrameRef.current = null;
+          return;
+        }
+        lobbyBgmFadeFrameRef.current = window.requestAnimationFrame(tick);
+      };
+      lobbyBgmFadeFrameRef.current = window.requestAnimationFrame(tick);
+    };
 
     const playLobbyBgm = () => {
       if (document.hidden) return;
-      void audio.play().catch(() => {
-        // Browser autoplay policy may block until the next user gesture.
-      });
+      void audio.play()
+        .then(() => {
+          if (lobbyBgmFadeDoneRef.current) {
+            audio.volume = lobbyBgmTargetVolumeRef.current;
+            return;
+          }
+          if (!lobbyBgmFadeStartedRef.current) {
+            runInitialFadeIn();
+          }
+        })
+        .catch(() => {
+          // Browser autoplay policy may block until the next user gesture.
+        });
     };
 
     const handleVisibilityChange = () => {
@@ -880,6 +932,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      cancelFadeFrame();
       window.removeEventListener("pointerdown", playLobbyBgm);
       window.removeEventListener("keydown", playLobbyBgm);
       window.removeEventListener("focus", handleWindowFocus);
@@ -893,8 +946,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!lobbyBgmRef.current) return;
-    lobbyBgmRef.current.volume = Math.max(0, Math.min(1, gameVolume / 100));
+    const nextVolume = Math.max(0, Math.min(1, gameVolume / 100));
+    lobbyBgmTargetVolumeRef.current = nextVolume;
+    if (!lobbyBgmRef.current || !lobbyBgmFadeDoneRef.current) return;
+    lobbyBgmRef.current.volume = nextVolume;
   }, [gameVolume]);
 
   const questionMaxLimit = getQuestionMax(
@@ -1810,6 +1865,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         openConfirmModal={openConfirmModal}
         onMarkSuggestionsSeen={markSuggestionsSeen}
         onRecordSourceApplied={handleRecordSourceApplied}
+        currentSourceType={
+          currentRoom?.playlistSourceType ?? currentRoom?.playlist?.sourceType ?? null
+        }
+        currentSourceIds={[
+          currentRoom?.playlist?.id ?? null,
+          currentRoom?.playlistId ?? null,
+          currentRoom?.playlistCoverSourceId ?? null,
+        ].filter((value): value is string => Boolean(value))}
       />
   );
 

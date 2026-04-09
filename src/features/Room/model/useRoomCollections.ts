@@ -50,6 +50,10 @@ export type UseRoomCollectionsResult = {
     use_count?: number;
     favorite_count?: number;
     is_favorited?: boolean;
+    created_at?: number;
+    updated_at?: number;
+    ai_edited_count?: number;
+    has_ai_edited?: boolean;
   }>;
   collectionsLoading: boolean;
   collectionsLoadingMore: boolean;
@@ -106,6 +110,10 @@ export const useRoomCollections = ({
       use_count?: number;
       favorite_count?: number;
       is_favorited?: boolean;
+      created_at?: number;
+      updated_at?: number;
+      ai_edited_count?: number;
+      has_ai_edited?: boolean;
     }>
   >([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
@@ -200,6 +208,10 @@ export const useRoomCollections = ({
             use_count?: number;
             favorite_count?: number;
             is_favorited?: boolean | number;
+            created_at?: number;
+            updated_at?: number;
+            ai_edited_count?: number;
+            has_ai_edited?: boolean | number;
           }>,
         ) => {
           if (requestId !== latestCollectionsRequestIdRef.current) {
@@ -213,6 +225,10 @@ export const useRoomCollections = ({
               use_count: Math.max(0, Number(item.use_count ?? 0)),
               favorite_count: Math.max(0, Number(item.favorite_count ?? 0)),
               is_favorited: Boolean(item.is_favorited),
+              created_at: Math.max(0, Number(item.created_at ?? 0)),
+              updated_at: Math.max(0, Number(item.updated_at ?? 0)),
+              ai_edited_count: Math.max(0, Number(item.ai_edited_count ?? 0)),
+              has_ai_edited: Boolean(item.has_ai_edited),
             })),
           );
           setCollectionsHasMore(items.length >= DEFAULT_PAGE_SIZE);
@@ -321,6 +337,10 @@ export const useRoomCollections = ({
         use_count?: number;
         favorite_count?: number;
         is_favorited?: boolean | number;
+        created_at?: number;
+        updated_at?: number;
+        ai_edited_count?: number;
+        has_ai_edited?: boolean | number;
       }>,
     ) => {
       const normalizedItems = items.map((item) => ({
@@ -329,6 +349,10 @@ export const useRoomCollections = ({
         use_count: Math.max(0, Number(item.use_count ?? 0)),
         favorite_count: Math.max(0, Number(item.favorite_count ?? 0)),
         is_favorited: Boolean(item.is_favorited),
+        created_at: Math.max(0, Number(item.created_at ?? 0)),
+        updated_at: Math.max(0, Number(item.updated_at ?? 0)),
+        ai_edited_count: Math.max(0, Number(item.ai_edited_count ?? 0)),
+        has_ai_edited: Boolean(item.has_ai_edited),
       }));
       setCollections((prev) => {
         const nextMap = new Map(prev.map((item) => [item.id, item]));

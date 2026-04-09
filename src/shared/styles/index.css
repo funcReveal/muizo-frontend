@@ -23066,33 +23066,11 @@ body {
     flex: 0 0 auto;
     height: calc(84px * 4.5);
     scrollbar-gutter: stable;
-    mask-image: linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 1) 0,
-      rgba(0, 0, 0, 1) calc(100% - 42px),
-      rgba(0, 0, 0, 0.18) calc(100% - 14px),
-      rgba(0, 0, 0, 0) 100%
-    );
+    mask-image: none;
   }
 
   .room-lobby-playlist-shell > div::after {
-    content: "";
-    position: sticky;
-    display: block;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 32px;
-    margin-top: -32px;
-    background: linear-gradient(
-      180deg,
-      rgba(6, 10, 18, 0),
-      rgba(6, 10, 18, 0.78) 72%,
-      rgba(6, 10, 18, 0.94)
-    );
-    border-radius: 0 0 16px 16px;
-    pointer-events: none;
-    z-index: 1;
+    display: none;
   }
 }
 
@@ -25843,17 +25821,12 @@ body {
 
   .room-lobby-current-playlist-list .room-lobby-playlist-shell > div {
     height: calc(84px * 5.5);
-    background: linear-gradient(
-      180deg,
-      rgba(7, 12, 19, 0.2),
-      rgba(7, 12, 19, 0.34)
-    ) !important;
+    background: rgba(7, 12, 19, 0.16) !important;
     box-shadow: none !important;
   }
 
   .room-lobby-current-playlist-list .room-lobby-playlist-shell > div::after {
-    height: 22px;
-    margin-top: -22px;
+    display: none;
   }
 
   .room-lobby-column--social .room-lobby-player-list {

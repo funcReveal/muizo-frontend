@@ -12,6 +12,7 @@ import HistoryReplayCompactView from "../../Settlement/ui/components/HistoryRepl
 import { HistoryReplaySkeleton } from "../../Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 import RoomLobbyPanel from "./components/RoomLobbyPanel";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
+import { LAST_NON_ROOM_ROUTE_STORAGE_KEY } from "../../../shared/analytics/pageTracking";
 import {
   type LobbySettlementStats,
 } from "./components/roomLobbyPanelUtils";
@@ -582,6 +583,9 @@ const RoomLobbyPage: React.FC = () => {
   const [historyDrawerLoadingMore, setHistoryDrawerLoadingMore] =
     useState(false);
   const [loginConfirmOpen, setLoginConfirmOpen] = useState(false);
+  const [backNavigationConfirmOpen, setBackNavigationConfirmOpen] = useState(false);
+  const backNavigationGuardActiveRef = useRef(false);
+  const backNavigationAllowOnceRef = useRef(false);
   const [historyDrawerCursor, setHistoryDrawerCursor] = useState<number | null>(
     null,
   );
@@ -1481,7 +1485,7 @@ const RoomLobbyPage: React.FC = () => {
     [clientId],
   );
 
-  const leaveRoomAndNavigate = useCallback(() => {
+  const leaveRoomWithCleanup = useCallback((onLeft?: () => void) => {
     const targetRoomId =
       currentRoom?.id ?? roomId ?? lastJoinedRoomIdRef.current;
     handleLeaveRoom(() => {
@@ -1490,6 +1494,10 @@ const RoomLobbyPage: React.FC = () => {
         clearSettlementSessionCacheForClient(clientId);
       } else {
         removeSettlementCacheForRoom(targetRoomId ?? null);
+      }
+      if (onLeft) {
+        onLeft();
+        return;
       }
       navigate("/rooms", { replace: true });
     });
@@ -1501,6 +1509,9 @@ const RoomLobbyPage: React.FC = () => {
     removeSettlementCacheForRoom,
     roomId,
   ]);
+  const leaveRoomAndNavigate = useCallback(() => {
+    leaveRoomWithCleanup();
+  }, [leaveRoomWithCleanup]);
 
   // -------------------------------------------------------------------------
   // Stable callbacks passed as props to GameRoomPage / LiveSettlementShowcase
@@ -1520,6 +1531,80 @@ const RoomLobbyPage: React.FC = () => {
     () => setActiveSettlementRoundKey(null),
     [],
   );
+
+  const backNavigationConfirmText = useMemo(() => {
+    if (activeSettlementSnapshot) {
+      return {
+        title: "要離開對戰結算嗎？",
+        description: "返回上一頁前會先離開目前房間，之後若要加入需重新進入房間。",
+      };
+    }
+    if (isGameView || gameState?.status === "playing") {
+      return {
+        title: "要離開對戰嗎？",
+        description: "返回上一頁前會先離開目前房間，離開後會中斷目前的房間連線。",
+      };
+    }
+    return {
+      title: "要離開房間嗎？",
+      description: "返回上一頁前會先離開目前房間；若要再次加入，請重新使用邀請連結。",
+    };
+  }, [activeSettlementSnapshot, gameState?.status, isGameView]);
+
+  const handleCancelBackNavigationConfirm = useCallback(() => {
+    setBackNavigationConfirmOpen(false);
+  }, []);
+
+  const handleConfirmBackNavigationExit = useCallback(() => {
+    setBackNavigationConfirmOpen(false);
+    backNavigationAllowOnceRef.current = true;
+    const fallbackPath =
+      window.sessionStorage.getItem(LAST_NON_ROOM_ROUTE_STORAGE_KEY) || "/rooms";
+    leaveRoomWithCleanup(() => {
+      navigate(fallbackPath, { replace: true });
+    });
+  }, [leaveRoomWithCleanup, navigate]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!currentRoom) {
+      backNavigationGuardActiveRef.current = false;
+      return;
+    }
+    if (!backNavigationGuardActiveRef.current) {
+      window.history.pushState(
+        {
+          ...(window.history.state ?? {}),
+          muizoRoomBackGuard: true,
+        },
+        "",
+        window.location.href,
+      );
+      backNavigationGuardActiveRef.current = true;
+    }
+
+    const handlePopState = () => {
+      if (backNavigationAllowOnceRef.current) {
+        backNavigationAllowOnceRef.current = false;
+        return;
+      }
+      if (!currentRoom) return;
+      window.history.pushState(
+        {
+          ...(window.history.state ?? {}),
+          muizoRoomBackGuard: true,
+        },
+        "",
+        window.location.href,
+      );
+      setBackNavigationConfirmOpen(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [currentRoom]);
 
   /** Open a specific settlement round by key. */
   const handleOpenSettlementByRoundKey = useCallback(
@@ -2334,6 +2419,15 @@ const RoomLobbyPage: React.FC = () => {
         cancelLabel="取消"
         onConfirm={leaveRoomAndLogin}
         onCancel={handleCancelLoginConfirm}
+      />
+      <ConfirmDialog
+        open={backNavigationConfirmOpen}
+        title={backNavigationConfirmText.title}
+        description={backNavigationConfirmText.description}
+        confirmLabel="離開房間"
+        cancelLabel="留在房間"
+        onConfirm={handleConfirmBackNavigationExit}
+        onCancel={handleCancelBackNavigationConfirm}
       />
     </>
   );

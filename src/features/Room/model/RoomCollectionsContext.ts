@@ -15,6 +15,10 @@ export type CollectionEntry = {
   use_count?: number;
   favorite_count?: number;
   is_favorited?: boolean;
+  created_at?: number;
+  updated_at?: number;
+  ai_edited_count?: number;
+  has_ai_edited?: boolean;
 };
 
 export interface RoomCollectionsContextValue {

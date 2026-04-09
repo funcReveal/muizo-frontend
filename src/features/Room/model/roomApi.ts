@@ -106,6 +106,8 @@ export type CollectionSummary = {
   cover_duration_sec?: number | null;
   cover_source_id?: string | null;
   cover_provider?: string | null;
+  ai_edited_count?: number;
+  has_ai_edited?: number | boolean;
   version: number;
   item_count?: number;
   use_count: number;
@@ -131,6 +133,10 @@ export type CollectionItemRecord = {
   start_sec: number;
   end_sec: number | null;
   answer_text: string;
+  answer_status?: "original" | "ai_modified" | "manual_reviewed" | string | null;
+  answer_ai_provider?: "grok" | "perplexity" | "chatgpt" | string | null;
+  answer_ai_updated_at?: number | null;
+  answer_ai_batch_key?: string | null;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;

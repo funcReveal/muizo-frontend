@@ -26,7 +26,6 @@ import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import YouTubeIcon from "@mui/icons-material/YouTube";
-import SellRoundedIcon from "@mui/icons-material/SellRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import ViewAgendaRoundedIcon from "@mui/icons-material/ViewAgendaRounded";
@@ -47,8 +46,8 @@ import { formatDurationLabel } from "../roomsHub/roomsHubViewModels";
 import { normalizeDisplayText } from "./roomLobbyPanelUtils";
 
 type SelectorTab = "suggestions" | "public" | "mine" | "youtube" | "link";
-type ToolDateMode = "all" | "7d" | "30d";
-type ToolPlayMode = "all" | "recent" | "quiet";
+type ToolDateMode = "all" | "7d" | "30d" | "earliest" | "latest";
+type ToolPlayMode = "all" | "recent" | "least";
 type BrowseViewMode = "grid" | "list";
 type CollectionRowProps = {
   items: CollectionEntry[];
@@ -128,9 +127,10 @@ type Props = {
     thumbnailUrl?: string | null;
     itemCount?: number | null;
   }) => void;
+  currentSourceType?: PlaylistSourceType | null;
+  currentSourceIds?: string[];
 };
 
-const FILTER_TAGS = ["動畫", "日文", "OP", "多人", "派對"];
 const MODAL_W = 1180;
 const MODAL_H = 820;
 const GRID_H = 372;
@@ -138,12 +138,13 @@ const LIST_H = 132;
 const SUGGESTION_H = 116;
 const PREVIEW_H = 80;
 const RECOMMENDATION_COOLDOWN_MS = 5000;
+const VIEWPORT_SAFE_GAP = 14;
 
 const sourceType = (visibility?: "private" | "public") =>
   visibility === "private" ? "private_collection" : "public_collection";
 
 const questionChip = (min: number, max: number) =>
-  max >= 500 ? `題數 ${min}-500+` : `題數 ${min}-${max}`;
+  max >= 500 ? `題數 ${min}~500+` : `題數 ${min}~${max}`;
 
 const previewCount = (count: number | null | undefined) => {
   const n = Math.max(0, Number(count ?? 0));
@@ -214,7 +215,7 @@ const EmptyState = ({
   description: string;
   action?: React.ReactNode;
 }) => (
-  <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] px-6 text-center">
+  <div className="flex h-full min-h-[320px] w-full flex-1 flex-col items-center justify-center px-6 text-center">
     <div className="text-base font-semibold text-slate-100">{title}</div>
     <div className="mt-2 max-w-[520px] text-sm leading-6 text-slate-300/74">
       {description}
@@ -264,6 +265,8 @@ const SourceCard = ({
   mode,
   metrics,
   onClick,
+  disabled = false,
+  actionText,
 }: {
   title: string;
   subtitle?: string | null;
@@ -272,18 +275,32 @@ const SourceCard = ({
   mode: BrowseViewMode;
   metrics: React.ReactNode;
   onClick: () => void;
+  disabled?: boolean;
+  actionText?: string | null;
 }) => {
   const list = mode === "list";
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={
         list
-          ? "relative flex h-[120px] w-full items-center gap-4 overflow-hidden rounded-[24px] border border-cyan-300/18 bg-[#060b16] px-3 py-3 text-left transition duration-200 hover:border-cyan-300/36 hover:bg-[#08101e]"
-          : "group relative flex h-[356px] w-full flex-col overflow-hidden rounded-[24px] border border-cyan-300/18 bg-[#060b16] text-left transition duration-200 hover:border-cyan-300/36 hover:bg-[#08101e] hover:shadow-[0_24px_50px_-32px_rgba(34,211,238,0.36)]"
+          ? `relative flex h-[120px] w-full items-center gap-4 overflow-hidden rounded-[24px] border px-3 py-3 text-left transition duration-200 ${
+              disabled
+                ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
+                : "border-cyan-300/18 bg-[#060b16] hover:border-cyan-300/36 hover:bg-[#08101e]"
+            }`
+          : `group relative flex h-[356px] w-full flex-col overflow-hidden rounded-[24px] border text-left transition duration-200 ${
+              disabled
+                ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
+                : "border-cyan-300/18 bg-[#060b16] hover:border-cyan-300/36 hover:bg-[#08101e] hover:shadow-[0_24px_50px_-32px_rgba(34,211,238,0.36)]"
+            }`
       }
     >
+      {disabled ? (
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
+      ) : null}
       <div
         className={
           list
@@ -307,6 +324,17 @@ const SourceCard = ({
             {badge}
           </span>
         ) : null}
+        {actionText ? (
+          <span
+            className={`absolute z-[2] rounded-full border px-3 py-1.5 text-[11px] font-semibold ${
+              disabled
+                ? "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-white/10 bg-black/55 text-slate-100 shadow-[0_14px_34px_-22px_rgba(15,23,42,0.95)]"
+                : "right-3 top-3 border-white/12 bg-white/10 text-slate-100"
+            }`}
+          >
+            {actionText}
+          </span>
+        ) : null}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#060b16]/92 via-[#060b16]/46 to-transparent" />
       </div>
       <div
@@ -317,11 +345,19 @@ const SourceCard = ({
         }
       >
         <div className="space-y-1.5">
-          <div className="line-clamp-2 text-[15px] font-semibold leading-6 text-slate-50">
+          <div
+            className={`line-clamp-2 text-[15px] font-semibold leading-6 ${
+              disabled ? "text-slate-300/80" : "text-slate-50"
+            }`}
+          >
             {title}
           </div>
           {subtitle ? (
-            <div className="line-clamp-1 text-[13px] text-slate-300/78">
+            <div
+              className={`line-clamp-1 text-[13px] ${
+                disabled ? "text-slate-400/70" : "text-slate-300/78"
+              }`}
+            >
               {subtitle}
             </div>
           ) : null}
@@ -367,6 +403,8 @@ const PlaylistSelectorModal = ({
   openConfirmModal,
   onMarkSuggestionsSeen,
   onRecordSourceApplied,
+  currentSourceType,
+  currentSourceIds = [],
 }: Props) => {
   const isSuggestionMode = !isHost;
   const [activeTab, setActiveTab] = useState<SelectorTab>("suggestions");
@@ -379,7 +417,6 @@ const PlaylistSelectorModal = ({
   const [questionRange, setQuestionRange] = useState<number[]>([5, 500]);
   const [createdWindow, setCreatedWindow] = useState<ToolDateMode>("all");
   const [playWindow, setPlayWindow] = useState<ToolPlayMode>("all");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [aiEditedOnly, setAiEditedOnly] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -391,7 +428,15 @@ const PlaylistSelectorModal = ({
   const twoCol = useMediaQuery("(max-width:1260px)");
   const columns = oneCol ? 1 : twoCol ? 2 : 3;
   const viewportH = Math.max(280, MODAL_H - 260);
+  const viewportSafeH = Math.max(248, viewportH - VIEWPORT_SAFE_GAP);
   const modalInteractionLocked = actionRunning;
+  const normalizedCurrentSourceIds = useMemo(
+    () =>
+      currentSourceIds
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean),
+    [currentSourceIds],
+  );
 
   const isCooldownActive =
     typeof cooldownUntil === "number" && cooldownUntil > Date.now();
@@ -466,34 +511,87 @@ const PlaylistSelectorModal = ({
     [debouncedSearch],
   );
 
+  const createdAfterThreshold = useMemo(() => {
+    const now = Math.floor(Date.now() / 1000);
+    if (createdWindow === "7d") return now - 7 * 24 * 60 * 60;
+    if (createdWindow === "30d") return now - 30 * 24 * 60 * 60;
+    return null;
+  }, [createdWindow]);
+
+  const collectionComparator = useCallback(
+    (left: CollectionEntry, right: CollectionEntry) => {
+      if (createdWindow === "earliest") {
+        return (
+          Math.max(0, Number(left.created_at ?? 0)) -
+            Math.max(0, Number(right.created_at ?? 0)) ||
+          Math.max(0, Number(left.use_count ?? 0)) -
+            Math.max(0, Number(right.use_count ?? 0))
+        );
+      }
+      if (createdWindow === "latest") {
+        return (
+          Math.max(0, Number(right.created_at ?? 0)) -
+            Math.max(0, Number(left.created_at ?? 0)) ||
+          Math.max(0, Number(right.use_count ?? 0)) -
+            Math.max(0, Number(left.use_count ?? 0))
+        );
+      }
+      if (playWindow === "recent") {
+        return (
+          Math.max(0, Number(right.use_count ?? 0)) -
+            Math.max(0, Number(left.use_count ?? 0)) ||
+          Math.max(0, Number(right.updated_at ?? 0)) -
+            Math.max(0, Number(left.updated_at ?? 0))
+        );
+      }
+      if (playWindow === "least") {
+        return (
+          Math.max(0, Number(left.use_count ?? 0)) -
+            Math.max(0, Number(right.use_count ?? 0)) ||
+          Math.max(0, Number(left.created_at ?? 0)) -
+            Math.max(0, Number(right.created_at ?? 0))
+        );
+      }
+      return 0;
+    },
+    [createdWindow, playWindow],
+  );
+
+  const filterAndSortCollections = useCallback(
+    (items: CollectionEntry[]) =>
+      [...items]
+        .filter(
+          (item) =>
+            matchCount(item.item_count) &&
+            matchText(
+              item.title,
+              item.description,
+              item.cover_title,
+              item.cover_channel_title,
+            ) &&
+            (createdAfterThreshold === null ||
+              Math.max(0, Number(item.created_at ?? 0)) >=
+                createdAfterThreshold) &&
+            (!aiEditedOnly || Boolean(item.has_ai_edited)),
+        )
+        .sort(collectionComparator),
+    [
+      aiEditedOnly,
+      collectionComparator,
+      createdAfterThreshold,
+      matchCount,
+      matchText,
+    ],
+  );
+
   const ownerCollections = useMemo(
-    () =>
-      collections.filter(
-        (item) =>
-          matchCount(item.item_count) &&
-          matchText(
-            item.title,
-            item.description,
-            item.cover_title,
-            item.cover_channel_title,
-          ),
-      ),
-    [collections, matchCount, matchText],
+    () => filterAndSortCollections(collections),
+    [collections, filterAndSortCollections],
   );
 
   const publicCollections = useMemo(
-    () =>
-      collections.filter(
-        (item) =>
-          matchCount(item.item_count) &&
-          matchText(
-            item.title,
-            item.description,
-            item.cover_title,
-            item.cover_channel_title,
-          ),
-      ),
-    [collections, matchCount, matchText],
+    () => filterAndSortCollections(collections),
+    [collections, filterAndSortCollections],
   );
 
   const youtubeItems = useMemo(
@@ -521,14 +619,40 @@ const PlaylistSelectorModal = ({
       questionChip(questionRange[0], questionRange[1]),
       ...(createdWindow === "all"
         ? []
-        : [createdWindow === "7d" ? "新增 7 天內" : "新增 30 天內"]),
+        : [
+            createdWindow === "7d"
+              ? "最近7天內"
+              : createdWindow === "30d"
+                ? "最近30天內"
+                : createdWindow === "earliest"
+                  ? "較早創立"
+                  : "較晚創立",
+          ]),
       ...(playWindow === "all"
         ? []
-        : [playWindow === "recent" ? "近期常用" : "較少使用"]),
-      ...(selectedTags.length ? [`標籤 ${selectedTags.join(" / ")}`] : []),
+        : [playWindow === "recent" ? "近期常用" : "較少遊玩"]),
       ...(aiEditedOnly ? ["僅顯示 AI 編輯過"] : []),
     ],
-    [aiEditedOnly, createdWindow, playWindow, questionRange, selectedTags],
+    [aiEditedOnly, createdWindow, playWindow, questionRange],
+  );
+
+  const matchesCurrentSource = useCallback(
+    (
+      sourceTypeValue?: PlaylistSourceType | null,
+      ...candidateIds: Array<string | null | undefined>
+    ) => {
+      if (currentSourceType && sourceTypeValue && currentSourceType !== sourceTypeValue) {
+        return false;
+      }
+      const normalizedCandidates = candidateIds
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean);
+      if (normalizedCandidates.length === 0) return false;
+      return normalizedCandidates.some((candidate) =>
+        normalizedCurrentSourceIds.includes(candidate),
+      );
+    },
+    [currentSourceType, normalizedCurrentSourceIds],
   );
 
   const runSuggestion = useCallback(
@@ -569,6 +693,7 @@ const PlaylistSelectorModal = ({
 
   const applyCollection = useCallback(
     async (item: CollectionEntry) => {
+      if (matchesCurrentSource(sourceType(item.visibility), item.id)) return;
       if (actionRunning) return;
       if (isSuggestionMode) {
         const action = () => {
@@ -610,6 +735,7 @@ const PlaylistSelectorModal = ({
     [
       actionRunning,
       isSuggestionMode,
+      matchesCurrentSource,
       onApplyCollectionDirect,
       onClose,
       onRecordSourceApplied,
@@ -619,36 +745,43 @@ const PlaylistSelectorModal = ({
   );
 
   const renderCollectionCard = useCallback(
-    (item: CollectionEntry, mode: BrowseViewMode, badge?: string | null) => (
-      <SourceCard
-        key={item.id}
-        title={normalizeDisplayText(item.title, "未命名題庫")}
-        subtitle={[
-          normalizeDisplayText(item.cover_title, item.description ?? ""),
-          item.cover_duration_sec ? formatDurationLabel(item.cover_duration_sec) : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-        thumbnailUrl={item.cover_thumbnail_url}
-        badge={badge}
-        mode={mode}
-        metrics={
-          <Metrics
-            itemCount={item.item_count}
-            useCount={item.use_count}
-            favoriteCount={item.favorite_count}
-          />
-        }
-        onClick={() => {
-          void applyCollection(item);
-        }}
-      />
-    ),
-    [applyCollection, isSuggestionMode, pendingActionKey],
+    (item: CollectionEntry, mode: BrowseViewMode, badge?: string | null) => {
+      const isCurrent = matchesCurrentSource(sourceType(item.visibility), item.id);
+      return (
+        <SourceCard
+          key={item.id}
+          title={normalizeDisplayText(item.title, "未命名題庫")}
+          subtitle={[
+            normalizeDisplayText(item.cover_title, item.description ?? ""),
+            item.cover_duration_sec ? formatDurationLabel(item.cover_duration_sec) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          thumbnailUrl={item.cover_thumbnail_url}
+          badge={badge}
+          mode={mode}
+          disabled={isCurrent}
+          actionText={isCurrent ? "套用中" : null}
+          metrics={
+            <Metrics
+              itemCount={item.item_count}
+              useCount={item.use_count}
+              favoriteCount={item.favorite_count}
+            />
+          }
+          onClick={() => {
+            void applyCollection(item);
+          }}
+        />
+      );
+    },
+    [applyCollection, matchesCurrentSource],
   );
 
   const renderYoutubeCard = useCallback(
-    (item: YoutubePlaylist, mode: BrowseViewMode) => (
+    (item: YoutubePlaylist, mode: BrowseViewMode) => {
+      const isCurrent = matchesCurrentSource("youtube_google_import", item.id);
+      return (
       <SourceCard
         key={item.id}
         title={normalizeDisplayText(item.title, "未命名 YouTube 播放清單")}
@@ -656,9 +789,12 @@ const PlaylistSelectorModal = ({
         thumbnailUrl={item.thumbnail ?? null}
         badge="YouTube"
         mode={mode}
+        disabled={isCurrent}
+        actionText={isCurrent ? "套用中" : null}
         metrics={<Metrics itemCount={item.itemCount} />}
         onClick={() => {
           void (async () => {
+            if (isCurrent) return;
             if (actionRunning) return;
             if (isSuggestionMode) {
               const action = () => {
@@ -699,10 +835,12 @@ const PlaylistSelectorModal = ({
           })();
         }}
       />
-    ),
+      );
+    },
     [
       actionRunning,
       isSuggestionMode,
+      matchesCurrentSource,
       onApplyYoutubePlaylistDirect,
       onClose,
       onRecordSourceApplied,
@@ -713,12 +851,24 @@ const PlaylistSelectorModal = ({
   );
 
   const renderSuggestion = useCallback(
-    (item: PlaylistSuggestion) => (
-      <button
+    (item: PlaylistSuggestion) => {
+      const matchedCollection = collections.find((entry) => entry.id === item.value);
+      const suggestionSourceType =
+        item.type === "collection"
+          ? sourceType(matchedCollection?.visibility)
+          : currentSourceType ?? "youtube_pasted_link";
+      const isCurrent = matchesCurrentSource(
+        suggestionSourceType,
+        item.sourceId ?? item.value,
+      );
+      return (
+        <button
         key={`${item.clientId}-${item.suggestedAt}`}
         type="button"
+        disabled={isCurrent}
         onClick={() => {
           void (async () => {
+            if (isCurrent) return;
             if (actionRunning) return;
             if (item.items?.length) {
               setActionRunning(true);
@@ -752,21 +902,20 @@ const PlaylistSelectorModal = ({
               }
               return;
             }
-            const matched = collections.find((entry) => entry.id === item.value);
             setActionRunning(true);
             setPendingActionKey(`suggestion:${item.clientId}:${item.suggestedAt}`);
             try {
               const ok = await onApplyCollectionDirect(
                 item.value,
-                item.title ?? matched?.title ?? null,
+                item.title ?? matchedCollection?.title ?? null,
               );
               if (!ok) return;
               onRecordSourceApplied({
-                sourceType: sourceType(matched?.visibility),
-                title: item.title ?? matched?.title ?? item.value,
+                sourceType: sourceType(matchedCollection?.visibility),
+                title: item.title ?? matchedCollection?.title ?? item.value,
                 sourceId: item.value,
-                thumbnailUrl: matched?.cover_thumbnail_url ?? null,
-                itemCount: item.totalCount ?? matched?.item_count ?? null,
+                thumbnailUrl: matchedCollection?.cover_thumbnail_url ?? null,
+                itemCount: item.totalCount ?? matchedCollection?.item_count ?? null,
               });
               onClose();
             } finally {
@@ -775,31 +924,54 @@ const PlaylistSelectorModal = ({
             }
           })();
         }}
-        className="relative flex h-[108px] w-full items-center gap-4 rounded-[24px] border border-white/8 bg-[#060b16] px-4 text-left transition duration-200 hover:border-cyan-300/34 hover:bg-[#08101e]"
+        className={`relative flex h-[108px] w-full items-center gap-4 rounded-[24px] border px-4 text-left transition duration-200 ${
+          isCurrent
+            ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
+            : "border-white/8 bg-[#060b16] hover:border-cyan-300/34 hover:bg-[#08101e]"
+        }`}
       >
+        {isCurrent ? (
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
+        ) : null}
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-cyan-400/8 text-cyan-100">
           <TipsAndUpdatesRoundedIcon sx={{ fontSize: 24 }} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="line-clamp-1 text-[15px] font-semibold text-slate-50">
+          <div
+            className={`line-clamp-1 text-[15px] font-semibold ${
+              isCurrent ? "text-slate-300/80" : "text-slate-50"
+            }`}
+          >
             {normalizeDisplayText(
               item.title,
               item.type === "collection" ? "未命名題庫" : "未命名建議",
             )}
           </div>
-          <div className="mt-1 line-clamp-2 text-[13px] leading-5 text-slate-300/78">
+          <div
+            className={`mt-1 line-clamp-2 text-[13px] leading-5 ${
+              isCurrent ? "text-slate-400/70" : "text-slate-300/78"
+            }`}
+          >
             {[
-              `來自 ${item.username}`,
+              `推薦者 ${item.username}`,
               item.totalCount ? `${Math.max(0, Number(item.totalCount))} 題` : null,
-              item.type === "collection" ? "收藏庫建議" : "播放清單建議",
+              item.type === "collection" ? "收藏庫推薦" : "播放清單推薦",
             ]
               .filter(Boolean)
               .join(" · ")}
           </div>
         </div>
-      </button>
-    ),
+        {isCurrent ? (
+          <span className="absolute right-4 top-4 rounded-full border border-white/12 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-100">
+            套用中
+          </span>
+        ) : null}
+        </button>
+      );
+    },
     [
+      currentSourceType,
+      matchesCurrentSource,
       pendingActionKey,
       collections,
       onApplyCollectionDirect,
@@ -849,61 +1021,69 @@ const PlaylistSelectorModal = ({
     badgeResolver?: (item: CollectionEntry) => string | null,
   ) =>
     viewMode === "grid" ? (
-      <VirtualList<CollectionRowProps>
-        style={{ height: viewportH, width: "100%" }}
-        rowCount={Math.ceil(items.length / columns)}
-        rowHeight={GRID_H}
-        rowProps={{
-          items,
-          columns,
-          render: (item) =>
-            renderCollectionCard(
-              item,
-              "grid",
-              badgeResolver ? badgeResolver(item) : undefined,
-            ),
-        }}
-        rowComponent={GridCollectionRow as never}
-      />
+      <div className="pr-3 pb-3">
+        <VirtualList<CollectionRowProps>
+          style={{ height: viewportSafeH, width: "100%" }}
+          rowCount={Math.ceil(items.length / columns)}
+          rowHeight={GRID_H}
+          rowProps={{
+            items,
+            columns,
+            render: (item) =>
+              renderCollectionCard(
+                item,
+                "grid",
+                badgeResolver ? badgeResolver(item) : undefined,
+              ),
+          }}
+          rowComponent={GridCollectionRow as never}
+        />
+      </div>
     ) : (
-      <VirtualList<GenericRowProps<CollectionEntry>>
-        style={{ height: viewportH, width: "100%" }}
-        rowCount={items.length}
-        rowHeight={LIST_H}
-        rowProps={{
-          items,
-          render: (item) =>
-            renderCollectionCard(
-              item,
-              "list",
-              badgeResolver ? badgeResolver(item) : undefined,
-            ),
-        }}
-        rowComponent={GenericRow as never}
-      />
+      <div className="pr-3 pb-3">
+        <VirtualList<GenericRowProps<CollectionEntry>>
+          style={{ height: viewportSafeH, width: "100%" }}
+          rowCount={items.length}
+          rowHeight={LIST_H}
+          rowProps={{
+            items,
+            render: (item) =>
+              renderCollectionCard(
+                item,
+                "list",
+                badgeResolver ? badgeResolver(item) : undefined,
+              ),
+          }}
+          rowComponent={GenericRow as never}
+        />
+      </div>
     );
 
   const renderYoutubeViewport = (items: YoutubePlaylist[]) =>
     viewMode === "grid" ? (
-      <VirtualList<YoutubeRowProps>
-        style={{ height: viewportH, width: "100%" }}
-        rowCount={Math.ceil(items.length / columns)}
-        rowHeight={GRID_H}
-        rowProps={{
-          items,
-          columns,
-          render: (item) => renderYoutubeCard(item, "grid"),
-        }}
-        rowComponent={GridYoutubeRow as never}
-      />
+      <div className="pr-3 pb-3">
+        <VirtualList<YoutubeRowProps>
+          style={{ height: viewportSafeH, width: "100%" }}
+          rowCount={Math.ceil(items.length / columns)}
+          rowHeight={GRID_H}
+          rowProps={{
+            items,
+            columns,
+            render: (item) => renderYoutubeCard(item, "grid"),
+          }}
+          rowComponent={GridYoutubeRow as never}
+        />
+      </div>
     ) : (
-      <VirtualList<GenericRowProps<YoutubePlaylist>>
-        style={{ height: viewportH, width: "100%" }}
-        rowCount={items.length}
-        rowHeight={LIST_H}
-        rowProps={{ items, render: (item) => renderYoutubeCard(item, "list") }}
-        rowComponent={GenericRow as never}
-      />
+      <div className="pr-3 pb-3">
+        <VirtualList<GenericRowProps<YoutubePlaylist>>
+          style={{ height: viewportSafeH, width: "100%" }}
+          rowCount={items.length}
+          rowHeight={LIST_H}
+          rowProps={{ items, render: (item) => renderYoutubeCard(item, "list") }}
+          rowComponent={GenericRow as never}
+        />
+      </div>
     );
 
   const statusBanner =
@@ -919,6 +1099,29 @@ const PlaylistSelectorModal = ({
       </div>
     ) : null;
 
+  const currentPlaylistIdFromUrl = playlistUrl.trim()
+    ? extractPlaylistId?.(playlistUrl.trim()) ?? null
+    : null;
+  const linkAlreadyApplied = matchesCurrentSource(
+    currentSourceType ?? "youtube_pasted_link",
+    currentPlaylistIdFromUrl,
+  );
+  const showEmptyFrame =
+    (activeTab === "suggestions" && (!isHost || suggestions.length === 0)) ||
+    (activeTab === "public" &&
+      !collectionsLoading &&
+      publicCollections.length === 0) ||
+    (activeTab === "mine" &&
+      (!isGoogleAuthed ||
+        (!collectionsLoading && ownerCollections.length === 0))) ||
+    (activeTab === "youtube" &&
+      (!isGoogleAuthed ||
+        (!youtubePlaylistsLoading && youtubeItems.length === 0))) ||
+    (activeTab === "link" &&
+      !playlistLoading &&
+      playlistItemsForChange.length === 0 &&
+      !playlistUrl.trim());
+
   const content =
     activeTab === "suggestions" ? (
       !isHost ? (
@@ -932,17 +1135,19 @@ const PlaylistSelectorModal = ({
           description="玩家提出題庫建議後，會顯示在這裡供房主快速套用。"
         />
       ) : (
-        <VirtualList<GenericRowProps<PlaylistSuggestion>>
-          style={{ height: viewportH, width: "100%" }}
-          rowCount={suggestions.length}
-          rowHeight={SUGGESTION_H}
-          rowProps={{ items: suggestions, render: renderSuggestion }}
-          rowComponent={GenericRow as never}
-        />
+        <div className="pr-3 pb-3">
+          <VirtualList<GenericRowProps<PlaylistSuggestion>>
+            style={{ height: viewportSafeH, width: "100%" }}
+            rowCount={suggestions.length}
+            rowHeight={SUGGESTION_H}
+            rowProps={{ items: suggestions, render: renderSuggestion }}
+            rowComponent={GenericRow as never}
+          />
+        </div>
       )
     ) : activeTab === "public" ? (
       collectionsLoading && publicCollections.length === 0 ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
+        <div className="flex h-full min-h-[320px] w-full flex-1 items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
           <CircularProgress size={34} sx={{ color: "#67e8f9" }} />
         </div>
       ) : publicCollections.length === 0 ? (
@@ -987,7 +1192,7 @@ const PlaylistSelectorModal = ({
           }
         />
       ) : collectionsLoading && ownerCollections.length === 0 ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
+        <div className="flex h-full min-h-[320px] w-full flex-1 items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
           <CircularProgress size={34} sx={{ color: "#67e8f9" }} />
         </div>
       ) : ownerCollections.length === 0 ? (
@@ -1034,7 +1239,7 @@ const PlaylistSelectorModal = ({
           }
         />
       ) : youtubePlaylistsLoading && youtubeItems.length === 0 ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
+        <div className="flex h-full min-h-[320px] w-full flex-1 items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
           <CircularProgress size={34} sx={{ color: "#facc15" }} />
         </div>
       ) : youtubeItems.length === 0 ? (
@@ -1049,7 +1254,7 @@ const PlaylistSelectorModal = ({
         renderYoutubeViewport(youtubeItems)
       )
     ) : (
-      <div className="space-y-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         {statusBanner}
         <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
           <div className="text-sm font-semibold text-slate-100">
@@ -1067,7 +1272,6 @@ const PlaylistSelectorModal = ({
             <Button
               variant="outlined"
               color="inherit"
-              disabled={!playlistUrl.trim() || playlistLoading}
               disabled={!playlistUrl.trim() || playlistLoading || actionRunning}
               onClick={() => onPreviewPlaylistUrl(playlistUrl.trim())}
             >
@@ -1076,9 +1280,15 @@ const PlaylistSelectorModal = ({
             <Button
               variant="contained"
               color="inherit"
-              disabled={!playlistUrl.trim() || playlistLoading || actionRunning}
+              disabled={
+                !playlistUrl.trim() ||
+                playlistLoading ||
+                actionRunning ||
+                linkAlreadyApplied
+              }
               onClick={() => {
                 void (async () => {
+                  if (linkAlreadyApplied) return;
                   if (actionRunning) return;
                   const trimmed = playlistUrl.trim();
                   if (isSuggestionMode) {
@@ -1128,6 +1338,8 @@ const PlaylistSelectorModal = ({
                 ? isSuggestionMode
                   ? "推薦中..."
                   : "套用中..."
+                : linkAlreadyApplied
+                  ? "套用中"
                 : isSuggestionMode
                   ? "推薦給房主"
                   : "直接套用"}
@@ -1143,11 +1355,11 @@ const PlaylistSelectorModal = ({
           ) : null}
         </div>
         {playlistLoading ? (
-          <div className="flex min-h-[280px] items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
+          <div className="flex h-full min-h-[320px] w-full flex-1 items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
             <CircularProgress size={34} sx={{ color: "#67e8f9" }} />
           </div>
         ) : playlistItemsForChange.length > 0 ? (
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+          <div className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-100">預覽清單</div>
               <div className="text-xs text-slate-400">
@@ -1155,7 +1367,7 @@ const PlaylistSelectorModal = ({
               </div>
             </div>
             <VirtualList<GenericRowProps<PlaylistItem>>
-              style={{ height: Math.min(360, viewportH), width: "100%" }}
+              style={{ height: viewportSafeH, width: "100%" }}
               rowCount={Math.min(playlistItemsForChange.length, 40)}
               rowHeight={PREVIEW_H}
               rowProps={{
@@ -1233,49 +1445,51 @@ const PlaylistSelectorModal = ({
               }}
               className="min-w-[240px] flex-1"
             />
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={(event) =>
-                setToolAnchorEl((current) =>
-                  current ? null : (event.currentTarget as HTMLButtonElement),
-                )
-              }
-              className="!min-h-[40px] !rounded-[14px] !border-white/12 !px-3 !text-slate-100"
-              startIcon={<TuneRoundedIcon fontSize="small" />}
-            >
-              選項
-            </Button>
-            {activeTab === "public" ||
-            activeTab === "mine" ||
-            activeTab === "youtube" ? (
-              <div className="inline-flex items-center gap-1 rounded-[14px] border border-white/10 bg-white/[0.03] p-1">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("grid")}
-                  className={`inline-flex items-center gap-1 rounded-[10px] px-3 py-2 text-xs ${
-                    viewMode === "grid"
-                      ? "bg-cyan-300/14 text-cyan-50"
-                      : "text-slate-300"
-                  }`}
-                >
-                  <GridViewRoundedIcon sx={{ fontSize: 16 }} />
-                  <span>卡片</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                  className={`inline-flex items-center gap-1 rounded-[10px] px-3 py-2 text-xs ${
-                    viewMode === "list"
-                      ? "bg-cyan-300/14 text-cyan-50"
-                      : "text-slate-300"
-                  }`}
-                >
-                  <ViewAgendaRoundedIcon sx={{ fontSize: 16 }} />
-                  <span>清單</span>
-                </button>
-              </div>
-            ) : null}
+            <div className="inline-flex items-center gap-2">
+              <Button
+                variant="outlined"
+                color="inherit"
+                onClick={(event) =>
+                  setToolAnchorEl((current) =>
+                    current ? null : (event.currentTarget as HTMLButtonElement),
+                  )
+                }
+                className="!min-h-[40px] !min-w-[40px] !rounded-[14px] !border-white/12 !px-0 !text-slate-100"
+                aria-label="??"
+              >
+                <TuneRoundedIcon fontSize="small" />
+              </Button>
+              {activeTab === "public" ||
+              activeTab === "mine" ||
+              activeTab === "youtube" ? (
+                <div className="inline-flex items-center gap-1 rounded-[14px] border border-white/10 bg-white/[0.03] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    aria-label="????"
+                    className={`inline-flex items-center justify-center rounded-[10px] px-3 py-2 text-xs ${
+                      viewMode === "grid"
+                        ? "bg-cyan-300/14 text-cyan-50"
+                        : "text-slate-300"
+                    }`}
+                  >
+                    <GridViewRoundedIcon sx={{ fontSize: 16 }} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    aria-label="????"
+                    className={`inline-flex items-center justify-center rounded-[10px] px-3 py-2 text-xs ${
+                      viewMode === "list"
+                        ? "bg-cyan-300/14 text-cyan-50"
+                        : "text-slate-300"
+                    }`}
+                  >
+                    <ViewAgendaRoundedIcon sx={{ fontSize: 16 }} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
           <Popover
             open={Boolean(toolAnchorEl)}
@@ -1328,8 +1542,10 @@ const PlaylistSelectorModal = ({
                     className="mt-3"
                   >
                     <MenuItem value="all">不限</MenuItem>
-                    <MenuItem value="7d">7 天內</MenuItem>
-                    <MenuItem value="30d">30 天內</MenuItem>
+                    <MenuItem value="7d">最近7天內</MenuItem>
+                    <MenuItem value="30d">最近30天內</MenuItem>
+                    <MenuItem value="earliest">較早創立</MenuItem>
+                    <MenuItem value="latest">較晚創立</MenuItem>
                   </TextField>
                 </div>
                 <div className="rounded-[18px] border border-white/8 bg-black/10 p-4">
@@ -1349,58 +1565,27 @@ const PlaylistSelectorModal = ({
                   >
                     <MenuItem value="all">不限</MenuItem>
                     <MenuItem value="recent">近期常用</MenuItem>
-                    <MenuItem value="quiet">較少使用</MenuItem>
+                    <MenuItem value="least">較少遊玩</MenuItem>
                   </TextField>
                 </div>
                 <div className="rounded-[18px] border border-white/8 bg-black/10 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-                    <SellRoundedIcon sx={{ fontSize: 18 }} />
-                    <span>標籤</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                      <AutoAwesomeRoundedIcon sx={{ fontSize: 18 }} />
+                      <span>AI ??</span>
+                    </div>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={aiEditedOnly}
+                          onChange={(_, checked) => setAiEditedOnly(checked)}
+                        />
+                      }
+                      label="??? AI ???"
+                      className="!mr-0"
+                      sx={{ "& .MuiFormControlLabel-label": { fontSize: 13 } }}
+                    />
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {FILTER_TAGS.map((tag) => {
-                      const active = selectedTags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() =>
-                            setSelectedTags((current) =>
-                              active
-                                ? current.filter((item) => item !== tag)
-                                : [...current, tag],
-                            )
-                          }
-                          className={`rounded-full border px-3 py-1.5 text-xs ${
-                            active
-                              ? "border-cyan-300/30 bg-cyan-300/14 text-cyan-50"
-                              : "border-white/10 bg-white/[0.02] text-slate-300"
-                          }`}
-                        >
-                          {tag}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 rounded-[18px] border border-white/8 bg-black/10 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-                    <AutoAwesomeRoundedIcon sx={{ fontSize: 18 }} />
-                    <span>AI 編輯</span>
-                  </div>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={aiEditedOnly}
-                        onChange={(_, checked) => setAiEditedOnly(checked)}
-                      />
-                    }
-                    label="僅顯示 AI 編輯過"
-                    className="!mr-0"
-                    sx={{ "& .MuiFormControlLabel-label": { fontSize: 13 } }}
-                  />
                 </div>
               </div>
             </div>
@@ -1470,7 +1655,15 @@ const PlaylistSelectorModal = ({
         </div>
       </DialogTitle>
       <DialogContent className="!flex !min-h-0 !flex-1 !flex-col !overflow-hidden !p-5 sm:!p-6">
-        {content}
+        <div
+          className={`flex min-h-0 flex-1 flex-col ${
+            showEmptyFrame
+              ? "rounded-[24px] border border-dashed border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+              : ""
+          }`}
+        >
+          {content}
+        </div>
       </DialogContent>
       {modalInteractionLocked ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(8,12,22,0.08),rgba(8,12,22,0.18))] backdrop-blur-[1.5px]">
