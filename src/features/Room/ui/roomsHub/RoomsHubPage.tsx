@@ -246,6 +246,7 @@ const RoomsHubPage: React.FC = () => {
     updateAllowCollectionClipTiming,
   } = useRoomGame();
   const isLibraryGridWide = useMediaQuery("(min-width:640px)");
+  const isLibraryGridThreeColumn = useMediaQuery("(min-width:1536px)");
   const [guideMode, setGuideMode] = useState<"create" | "join">(() => {
     if (typeof window === "undefined") return "create";
     const stored = window.sessionStorage.getItem(GUIDE_MODE_STORAGE_KEY);
@@ -770,7 +771,11 @@ const RoomsHubPage: React.FC = () => {
     (roomCreateSourceMode === "link" || roomCreateSourceMode === "youtube"
       ? playlistLoading
       : collectionItemsLoading);
-  const createLibraryColumns = isLibraryGridWide ? 2 : 1;
+  const createLibraryColumns = isLibraryGridThreeColumn
+    ? 3
+    : isLibraryGridWide
+      ? 2
+      : 1;
   const youtubeListRowHeight = 96;
   const collectionListRowHeight = 92;
   const collectionListRowCount =
