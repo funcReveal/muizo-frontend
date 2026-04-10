@@ -125,6 +125,8 @@ const MOBILE_SCOREBOARD_MAX_HEIGHT_VH = 72;
 const MOBILE_SCOREBOARD_DEFAULT_HEIGHT_VH = 60;
 
 const GAME_ROOM_GUESS_ANCHOR_STORAGE_KEY = "game_room_guess_anchor_enabled";
+const GAME_ROOM_REVEAL_AUTO_OVERLAY_STORAGE_KEY =
+  "game_room_reveal_auto_overlay_enabled";
 
 const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 100;
 
@@ -154,6 +156,13 @@ const normalizeMobileSplitHeights = (scoreboardHeight: number) => {
 const readInitialGameRoomGuessAnchorEnabled = () => {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(GAME_ROOM_GUESS_ANCHOR_STORAGE_KEY) === "1";
+};
+
+const readInitialGameRoomRevealAutoOverlayEnabled = () => {
+  if (typeof window === "undefined") return true;
+  return (
+    window.localStorage.getItem(GAME_ROOM_REVEAL_AUTO_OVERLAY_STORAGE_KEY) !== "0"
+  );
 };
 
 const GAME_ROOM_DRAWER_MODAL_PROPS = {
@@ -303,7 +312,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [mobileScoreboardSwapArmed, setMobileScoreboardSwapArmed] =
     useState(false);
   const [mobileRevealAutoOverlayEnabled, setMobileRevealAutoOverlayEnabled] =
-    useState(true);
+    useState(readInitialGameRoomRevealAutoOverlayEnabled);
   const [mobileAutoOverlayTransition, setMobileAutoOverlayTransition] =
     useState<"idle" | "opening" | "closing">("idle");
   const [mobileGuessAnchorEnabled, setMobileGuessAnchorEnabled] = useState(
@@ -391,6 +400,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     );
   }, []);
   const handleCloseMobileScoreboard = useCallback(() => {
+    if (mobileScoreboardAutoOpenedRef.current) {
+      setMobileRevealAutoOverlayEnabled(false);
+    }
     mobileScoreboardAutoOpenedRef.current = false;
     blurActiveInteractiveElement();
     setMobileScoreboardSwapArmed(false);
@@ -639,7 +651,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const {
     audioUnlocked,
     isPlayerReady,
-    playerVideoId,
     iframeRef,
     silentAudioRef,
     handleGestureOverlayTrigger,
@@ -869,13 +880,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     onSubmitChoice: submitChoiceWithFeedback,
   });
 
-  const effectivePlayerVideoId = playerVideoId ?? videoId;
   const iframeSrc = useMemo(
     () =>
-      effectivePlayerVideoId
-        ? `https://www.youtube-nocookie.com/embed/${effectivePlayerVideoId}?autoplay=0&controls=0&fs=0&disablekb=1&modestbranding=1&iv_load_policy=3&enablejsapi=1&rel=0&playsinline=1`
+      videoId
+        ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&controls=0&fs=0&disablekb=1&modestbranding=1&iv_load_policy=3&enablejsapi=1&rel=0&playsinline=1`
         : null,
-    [effectivePlayerVideoId],
+    [videoId],
   );
 
   const phaseLabel = isEnded
@@ -1048,6 +1058,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       mobileGuessAnchorEnabled ? "1" : "0",
     );
   }, [mobileGuessAnchorEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      GAME_ROOM_REVEAL_AUTO_OVERLAY_STORAGE_KEY,
+      mobileRevealAutoOverlayEnabled ? "1" : "0",
+    );
+  }, [mobileRevealAutoOverlayEnabled]);
 
   useEffect(() => {
     if (!isMobileGameViewport) {

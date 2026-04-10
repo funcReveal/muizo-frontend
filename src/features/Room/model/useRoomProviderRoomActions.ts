@@ -185,6 +185,7 @@ export const useRoomProviderRoomActions = ({
             });
             setGameState(state.gameState ?? null);
             if (state.gameState?.status === "playing") {
+              setGamePlaylist([]);
               setIsGameView(true);
               void fetchCompletePlaylist(state.room.id).then(setGamePlaylist);
             } else {
@@ -395,6 +396,7 @@ export const useRoomProviderRoomActions = ({
         if (!ack) return;
         if (ack.ok) {
           syncServerOffset(ack.data.serverNow);
+          setGamePlaylist([]);
           setGameState(ack.data.gameState);
           setIsGameView(true);
           void fetchCompletePlaylist(currentRoom.id).then(setGamePlaylist);

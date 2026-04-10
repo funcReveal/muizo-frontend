@@ -69,7 +69,6 @@ const useGameRoomPlayerSync = ({
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
   const [loadedTrackKey, setLoadedTrackKey] = useState<string | null>(null);
-  const [playerVideoId, setPlayerVideoId] = useState<string | null>(null);
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -103,6 +102,7 @@ const useGameRoomPlayerSync = ({
   const lastWaitingToStartRef = useRef(waitingToStart);
   const prestartWarmupActiveRef = useRef(false);
   const previousServerOffsetRef = useRef(serverOffsetMs);
+  const previousIframeVideoIdRef = useRef<string | null>(null);
   const trackPreparedRef = useRef(false);
 
   const isSyncDebugEnabled = useCallback(() => {
@@ -159,6 +159,23 @@ const useGameRoomPlayerSync = ({
     audioUnlockedRef.current = true;
     setAudioUnlocked(true);
   }, []);
+
+  useEffect(() => {
+    if (previousIframeVideoIdRef.current === videoId) return;
+    previousIframeVideoIdRef.current = videoId;
+    playerReadyRef.current = false;
+    trackPreparedRef.current = false;
+    lastTrackLoadKeyRef.current = null;
+    lastLoadedVideoIdRef.current = null;
+    clearPlaybackStartTimer();
+    clearPlaybackWarmupTimers();
+    clearPostStartDriftTimers();
+  }, [
+    clearPlaybackStartTimer,
+    clearPlaybackWarmupTimers,
+    clearPostStartDriftTimers,
+    videoId,
+  ]);
 
   useEffect(() => {
     const offsetDelta = serverOffsetMs - previousServerOffsetRef.current;
@@ -1320,9 +1337,6 @@ const useGameRoomPlayerSync = ({
   ]);
 
   const handlePlaybackIframeLoad = useCallback(() => {
-    if (videoId) {
-      setPlayerVideoId((prev) => prev ?? videoId);
-    }
     let attempts = 0;
     const bindPlayerEvents = () => {
       postPlayerMessage({ event: "listening", id: PLAYER_ID }, "player event binding");
@@ -1347,14 +1361,13 @@ const useGameRoomPlayerSync = ({
     bindPlayerEvents();
     listeningRetryTimerRef.current = window.setTimeout(retryBind, 220);
     applyVolume(gameVolume);
-  }, [applyVolume, gameVolume, postPlayerMessage, videoId]);
+  }, [applyVolume, gameVolume, postPlayerMessage]);
 
   return {
     audioUnlocked,
     isPlayerReady,
     isPlayerPlaying,
     loadedTrackKey,
-    playerVideoId,
     iframeRef,
     silentAudioRef,
     handleGestureOverlayTrigger,
