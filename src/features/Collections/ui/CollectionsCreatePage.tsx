@@ -1,18 +1,26 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { List, type RowComponentProps } from "react-window";
+import { AnimatePresence, motion } from "motion/react";
 
 import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 import EditOutlined from "@mui/icons-material/EditOutlined";
+import LockOutlined from "@mui/icons-material/LockOutlined";
 import PlaylistAddRounded from "@mui/icons-material/PlaylistAddRounded";
+import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
   InputAdornment,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
 } from "@mui/material";
@@ -30,6 +38,7 @@ import {
   resolveCollectionItemLimit,
 } from "../model/collectionLimits";
 import { appToast } from "../../../shared/ui/toastApi";
+import { fadeInUp } from "../../../shared/motion/motionPresets";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -52,6 +61,12 @@ type DbCollection = {
 
 const DEFAULT_DURATION_SEC = 30;
 const COLLECTION_ITEMS_CHUNK_SIZE = 200;
+
+type PlaylistIssueTab =
+  | "removed"
+  | "privateRestricted"
+  | "embedBlocked"
+  | "unavailable";
 
 const parseDurationToSeconds = (duration?: string): number | null => {
   if (!duration) return null;
@@ -180,6 +195,10 @@ const CollectionsCreatePage = () => {
     null,
   );
   const [isPlaylistUrlFocused, setIsPlaylistUrlFocused] = useState(false);
+  const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] =
+    useState(false);
+  const [playlistIssueTab, setPlaylistIssueTab] =
+    useState<PlaylistIssueTab>("removed");
   const needsGoogleReauth = isGoogleReauthRequired({
     error: youtubePlaylistsError ?? youtubeActionError,
   });
@@ -384,6 +403,74 @@ const CollectionsCreatePage = () => {
       unknownCount: playlistPreviewMeta?.skippedCount ?? 0,
     };
   }, [playlistPreviewMeta]);
+  const playlistIssueTotal =
+    playlistIssueSummary.removed.length +
+    playlistIssueSummary.privateRestricted.length +
+    playlistIssueSummary.embedBlocked.length +
+    playlistIssueSummary.unavailable.length +
+    playlistIssueSummary.unknown.length +
+    playlistIssueSummary.unknownCount;
+  const playlistIssueGroups = [
+    {
+      key: "removed" as const,
+      label: "已移除",
+      count: playlistIssueSummary.removed.length,
+      items: playlistIssueSummary.removed,
+      className: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+    },
+    {
+      key: "privateRestricted" as const,
+      label: "隱私限制",
+      count: playlistIssueSummary.privateRestricted.length,
+      items: playlistIssueSummary.privateRestricted,
+      className: "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100",
+    },
+    {
+      key: "embedBlocked" as const,
+      label: "嵌入限制",
+      count: playlistIssueSummary.embedBlocked.length,
+      items: playlistIssueSummary.embedBlocked,
+      className: "border-rose-300/30 bg-rose-300/10 text-rose-100",
+    },
+    {
+      key: "unavailable" as const,
+      label: "其他不可用",
+      count:
+        playlistIssueSummary.unavailable.length +
+        playlistIssueSummary.unknown.length +
+        playlistIssueSummary.unknownCount,
+      items: [
+        ...playlistIssueSummary.unavailable,
+        ...playlistIssueSummary.unknown,
+      ],
+      fallback:
+        playlistIssueSummary.unknownCount > 0
+          ? `共 ${playlistIssueSummary.unknownCount} 首，後端未提供明細`
+          : "無",
+      className: "border-red-300/30 bg-red-300/10 text-red-100",
+    },
+  ];
+  const activePlaylistIssueGroup =
+    playlistIssueGroups.find((group) => group.key === playlistIssueTab) ??
+    playlistIssueGroups[0];
+
+  useEffect(() => {
+    if (!playlistIssueDialogOpen) return;
+    const firstGroupWithItems = playlistIssueGroups.find(
+      (group) => group.count > 0,
+    );
+    if (firstGroupWithItems) {
+      setPlaylistIssueTab(firstGroupWithItems.key);
+    }
+  }, [
+    playlistIssueDialogOpen,
+    playlistIssueSummary.embedBlocked.length,
+    playlistIssueSummary.privateRestricted.length,
+    playlistIssueSummary.removed.length,
+    playlistIssueSummary.unavailable.length,
+    playlistIssueSummary.unknown.length,
+    playlistIssueSummary.unknownCount,
+  ]);
 
   useEffect(() => {
     if (playlistSource !== "youtube") return;
@@ -954,7 +1041,14 @@ const CollectionsCreatePage = () => {
 
               <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 text-[var(--mc-accent)]">
+                      {visibility === "public" ? (
+                        <PublicOutlined sx={{ fontSize: 18 }} />
+                      ) : (
+                        <LockOutlined sx={{ fontSize: 18 }} />
+                      )}
+                    </div>
                     <div className="text-sm font-semibold text-[var(--mc-text)]">
                       {visibility === "public" ? "公開收藏" : "私人收藏"}
                     </div>
@@ -1159,62 +1253,16 @@ const CollectionsCreatePage = () => {
                       />
                     </div>
                   </div>
-                  <div className="mt-3 grid gap-2">
-                    <p className="text-xs font-semibold text-[var(--mc-text-muted)]">
-                      未成功匯入原因
-                    </p>
-                    <div className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-2 py-1.5">
-                      <p className="text-xs font-semibold text-amber-100">
-                        已移除：{playlistIssueSummary.removed.length} 首
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] text-amber-100/90">
-                        {playlistIssueSummary.removed.length > 0
-                          ? playlistIssueSummary.removed.join("、")
-                          : "無"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-1.5">
-                      <p className="text-xs font-semibold text-fuchsia-100">
-                        隱私限制：
-                        {playlistIssueSummary.privateRestricted.length} 首
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] text-fuchsia-100/90">
-                        {playlistIssueSummary.privateRestricted.length > 0
-                          ? playlistIssueSummary.privateRestricted.join("、")
-                          : "無"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-rose-300/30 bg-rose-300/10 px-2 py-1.5">
-                      <p className="text-xs font-semibold text-rose-100">
-                        嵌入限制：{playlistIssueSummary.embedBlocked.length} 首
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] text-rose-100/90">
-                        {playlistIssueSummary.embedBlocked.length > 0
-                          ? playlistIssueSummary.embedBlocked.join("、")
-                          : "無"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-red-300/30 bg-red-300/10 px-2 py-1.5">
-                      <p className="text-xs font-semibold text-red-100">
-                        其他不可用：
-                        {playlistIssueSummary.unavailable.length +
-                          playlistIssueSummary.unknown.length +
-                          playlistIssueSummary.unknownCount}{" "}
-                        首
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] text-red-100/90">
-                        {playlistIssueSummary.unavailable.length > 0 ||
-                        playlistIssueSummary.unknown.length > 0
-                          ? [
-                              ...playlistIssueSummary.unavailable,
-                              ...playlistIssueSummary.unknown,
-                            ].join("、")
-                          : playlistIssueSummary.unknownCount > 0
-                            ? `共 ${playlistIssueSummary.unknownCount} 首（後端未提供明細）`
-                            : "無"}
-                      </p>
-                    </div>
-                  </div>
+                  {playlistIssueTotal > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPlaylistIssueDialogOpen(true)}
+                      className="mt-3 flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs text-amber-100 transition hover:border-amber-300/45 hover:bg-amber-300/15"
+                    >
+                      <span className="font-semibold">未成功匯入原因</span>
+                      <span>{playlistIssueTotal} 首，查看明細</span>
+                    </button>
+                  )}
                 </div>
               ) : !(playlistLoading || isImportingYoutubePlaylist) ? (
                 <div className="mt-3 rounded-xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-3 text-[11px] text-[var(--mc-text-muted)]">
@@ -1224,6 +1272,101 @@ const CollectionsCreatePage = () => {
             </div>
           </div>
         </div>
+        <Dialog
+          open={playlistIssueDialogOpen}
+          onClose={() => setPlaylistIssueDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: "1px solid rgba(148, 163, 184, 0.22)",
+              background:
+                "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
+              color: "var(--mc-text)",
+            },
+          }}
+        >
+          <DialogTitle sx={{ pb: 1 }}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold">未成功匯入原因</div>
+                <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                  共 {playlistIssueTotal} 首未能匯入收藏庫
+                </div>
+              </div>
+              <IconButton
+                size="small"
+                onClick={() => setPlaylistIssueDialogOpen(false)}
+                aria-label="關閉未成功匯入原因"
+                sx={{ color: "var(--mc-text-muted)" }}
+              >
+                <CloseRounded fontSize="small" />
+              </IconButton>
+            </div>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 1 }}>
+            <Tabs
+              value={playlistIssueTab}
+              onChange={(_, value: PlaylistIssueTab) =>
+                setPlaylistIssueTab(value)
+              }
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{
+                minHeight: 36,
+                borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
+                "& .MuiTabs-indicator": {
+                  height: 2,
+                  borderRadius: 999,
+                  backgroundColor: "var(--mc-accent)",
+                },
+                "& .MuiTab-root": {
+                  minHeight: 36,
+                  px: 1.5,
+                  color: "var(--mc-text-muted)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: "none",
+                },
+                "& .Mui-selected": {
+                  color: "var(--mc-text)",
+                },
+              }}
+            >
+              {playlistIssueGroups.map((group) => (
+                <Tab
+                  key={group.key}
+                  value={group.key}
+                  label={`${group.label} ${group.count}`}
+                />
+              ))}
+            </Tabs>
+
+            <div className="min-h-[180px] pb-2 pt-3">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activePlaylistIssueGroup.key}
+                  variants={fadeInUp}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className={`rounded-2xl border px-4 py-3 ${activePlaylistIssueGroup.className}`}
+                >
+                  <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+                    <span>{activePlaylistIssueGroup.label}</span>
+                    <span>{activePlaylistIssueGroup.count} 首</span>
+                  </div>
+                  <div className="mt-3 max-h-52 overflow-y-auto pr-1 text-xs leading-relaxed opacity-90">
+                    {activePlaylistIssueGroup.items.length > 0
+                      ? activePlaylistIssueGroup.items.join("、")
+                      : (activePlaylistIssueGroup.fallback ?? "無")}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </DialogContent>
+        </Dialog>
       </Box>
     </Box>
   );
