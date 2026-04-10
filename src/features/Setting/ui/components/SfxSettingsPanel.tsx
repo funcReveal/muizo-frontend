@@ -41,12 +41,9 @@ const sampleButtonClassByTone: Record<
 > = {
   neutral:
     "border-slate-600/70 bg-slate-900/55 text-slate-100 hover:border-cyan-300/40 hover:bg-cyan-400/5",
-  good:
-    "border-emerald-400/25 bg-emerald-500/5 text-emerald-100 hover:border-emerald-300/40 hover:bg-emerald-400/10",
-  warn:
-    "border-rose-400/25 bg-rose-500/5 text-rose-100 hover:border-rose-300/40 hover:bg-rose-400/10",
-  hot:
-    "border-amber-400/25 bg-amber-500/5 text-amber-100 hover:border-amber-300/40 hover:bg-amber-400/10",
+  good: "border-emerald-400/25 bg-emerald-500/5 text-emerald-100 hover:border-emerald-300/40 hover:bg-emerald-400/10",
+  warn: "border-rose-400/25 bg-rose-500/5 text-rose-100 hover:border-rose-300/40 hover:bg-rose-400/10",
+  hot: "border-amber-400/25 bg-amber-500/5 text-amber-100 hover:border-amber-300/40 hover:bg-amber-400/10",
 };
 
 const comboTierEvents = [4, 8, 12, 16, 20].map((comboBonusPoints) => ({
@@ -58,6 +55,8 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
   const {
     gameVolume,
     setGameVolume,
+    bgmVolume,
+    setBgmVolume,
     sfxEnabled,
     setSfxEnabled,
     sfxVolume,
@@ -73,7 +72,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
 
   const { playGameSfx, primeSfxAudio } = useGameSfx({
     enabled: sfxEnabled,
-    volume: Math.round((sfxVolume * gameVolume) / 100),
+    volume: sfxVolume,
     preset: sfxPreset,
   });
 
@@ -127,7 +126,9 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <GraphicEqRounded sx={{ fontSize: 18, color: "#a5f3fc" }} />
-              <p className="text-sm font-semibold text-slate-100">遊玩音量（總音量）</p>
+              <p className="text-sm font-semibold text-slate-100">
+                遊戲歌曲音量
+              </p>
             </div>
             <span className="settings-mobile-plain-badge rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
               {gameVolume}%
@@ -149,7 +150,39 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
             }}
           />
           <p className="mt-2 text-xs text-slate-400">
-            會同時影響房間大廳背景音、遊戲播放音量、結算試聽同步音量，以及提示特效音量基準。
+            控制遊戲中題目歌曲的播放音量；結算試聽同步開啟時也會跟隨此音量。
+          </p>
+        </div>
+
+        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <GraphicEqRounded sx={{ fontSize: 18, color: "#7dd3fc" }} />
+              <p className="text-sm font-semibold text-slate-100">
+                背景音樂音量
+              </p>
+            </div>
+            <span className="settings-mobile-plain-badge rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
+              {bgmVolume}%
+            </span>
+          </div>
+          <Slider
+            value={bgmVolume}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(_, value) =>
+              setBgmVolume(Array.isArray(value) ? value[0] : value)
+            }
+            sx={{
+              color: "#7dd3fc",
+              "& .MuiSlider-thumb": {
+                boxShadow: "0 0 0 4px rgba(125,211,252,0.16)",
+              },
+            }}
+          />
+          <p className="mt-2 text-xs text-slate-400">
+            控制房間大廳與結算總覽背景音樂的音量。
           </p>
         </div>
 
@@ -157,7 +190,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <GraphicEqRounded sx={{ fontSize: 18, color: "#67e8f9" }} />
-              <p className="text-sm font-semibold text-slate-100">音量</p>
+              <p className="text-sm font-semibold text-slate-100">特效音量</p>
             </div>
             <span className="settings-mobile-plain-badge rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
               {sfxVolume}%
@@ -181,7 +214,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <p className="text-xs text-slate-400">
-              建議 35%~60%，避免音效過大影響作答。
+              控制按鈕回饋、答題提示、倒數與結算提示音。
             </p>
             <button
               type="button"
@@ -198,7 +231,9 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <CampaignRounded sx={{ fontSize: 18, color: "#7dd3fc" }} />
-              <p className="text-sm font-semibold text-slate-100">結算試聽音量</p>
+              <p className="text-sm font-semibold text-slate-100">
+                結算試聽音量
+              </p>
             </div>
             <div className="settings-mobile-plain-pill flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-1">
               <span className="text-xs text-slate-300">同步遊玩音量</span>
@@ -206,7 +241,9 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                 size="small"
                 color="info"
                 checked={settlementPreviewSyncGameVolume}
-                onChange={(e) => setSettlementPreviewSyncGameVolume(e.target.checked)}
+                onChange={(e) =>
+                  setSettlementPreviewSyncGameVolume(e.target.checked)
+                }
               />
             </div>
           </div>
@@ -217,7 +254,9 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
             step={1}
             disabled={settlementPreviewSyncGameVolume}
             onChange={(_, value) =>
-              setSettlementPreviewVolume(Array.isArray(value) ? value[0] : value)
+              setSettlementPreviewVolume(
+                Array.isArray(value) ? value[0] : value,
+              )
             }
             sx={{
               color: "#38bdf8",

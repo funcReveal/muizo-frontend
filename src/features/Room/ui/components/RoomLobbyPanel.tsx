@@ -75,6 +75,7 @@ import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 import { useGameSfx } from "../../../../shared/hooks/useGameSfx";
 import {
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
+  DEFAULT_BGM_VOLUME,
   DEFAULT_GAME_VOLUME,
   DEFAULT_SFX_ENABLED,
   DEFAULT_SFX_PRESET,
@@ -700,6 +701,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const isMobileTabletLobbyLayout = useMediaQuery("(max-width:1024px)");
   const settingsModel = React.useContext(SettingsModelContext);
   const gameVolume = settingsModel?.gameVolume ?? DEFAULT_GAME_VOLUME;
+  const bgmVolume = settingsModel?.bgmVolume ?? DEFAULT_BGM_VOLUME;
   const sfxEnabled = settingsModel?.sfxEnabled ?? DEFAULT_SFX_ENABLED;
   const sfxVolume = settingsModel?.sfxVolume ?? DEFAULT_SFX_VOLUME;
   const sfxPreset = settingsModel?.sfxPreset ?? DEFAULT_SFX_PRESET;
@@ -707,7 +709,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     settingsModel?.avatarEffectLevel ?? DEFAULT_AVATAR_EFFECT_LEVEL_VALUE;
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
-    volume: Math.round((sfxVolume * gameVolume) / 100),
+    volume: sfxVolume,
     preset: sfxPreset,
   });
   const [lastSuggestionSeenAt, setLastSuggestionSeenAt] = useState(0);
@@ -726,7 +728,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const lobbyBgmFadeStartedRef = useRef(false);
   const lobbyBgmFadeDoneRef = useRef(false);
   const lobbyBgmTargetVolumeRef = useRef(
-    Math.max(0, Math.min(1, gameVolume / 100)),
+    Math.max(0, Math.min(1, bgmVolume / 100)),
   );
   const [settingsName, setSettingsName] = useState("");
   const [settingsVisibility, setSettingsVisibility] = useState<
@@ -857,7 +859,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     lobbyBgmRef.current = audio;
     lobbyBgmFadeStartedRef.current = false;
     lobbyBgmFadeDoneRef.current = false;
-    lobbyBgmTargetVolumeRef.current = Math.max(0, Math.min(1, gameVolume / 100));
+    lobbyBgmTargetVolumeRef.current = Math.max(0, Math.min(1, bgmVolume / 100));
 
     const cancelFadeFrame = () => {
       if (lobbyBgmFadeFrameRef.current !== null) {
@@ -946,11 +948,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   }, []);
 
   useEffect(() => {
-    const nextVolume = Math.max(0, Math.min(1, gameVolume / 100));
+    const nextVolume = Math.max(0, Math.min(1, bgmVolume / 100));
     lobbyBgmTargetVolumeRef.current = nextVolume;
     if (!lobbyBgmRef.current || !lobbyBgmFadeDoneRef.current) return;
     lobbyBgmRef.current.volume = nextVolume;
-  }, [gameVolume]);
+  }, [bgmVolume]);
 
   const questionMaxLimit = getQuestionMax(
     currentRoom?.playlist.totalCount ?? 0,

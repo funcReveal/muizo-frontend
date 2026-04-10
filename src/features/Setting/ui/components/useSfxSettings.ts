@@ -34,6 +34,8 @@ export const useSfxSettings = () => {
   const {
     gameVolume,
     setGameVolume,
+    bgmVolume,
+    setBgmVolume,
     sfxEnabled,
     setSfxEnabled,
     sfxVolume,
@@ -52,6 +54,8 @@ export const useSfxSettings = () => {
     setSfxEnabled,
     gameVolume,
     setGameVolume,
+    bgmVolume,
+    setBgmVolume,
     sfxVolume,
     setSfxVolume,
     sfxPreset,

@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   parseStoredSfxPreset,
@@ -17,6 +12,7 @@ import {
   DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID,
   DEFAULT_SCOREBOARD_BORDER_THEME_ID,
   DEFAULT_GAME_VOLUME,
+  DEFAULT_BGM_VOLUME,
   DEFAULT_SETTLEMENT_PREVIEW_SYNC,
   DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
   DEFAULT_KEY_BINDINGS,
@@ -25,8 +21,15 @@ import {
   DEFAULT_SFX_VOLUME,
   AVATAR_EFFECT_STORAGE_KEY,
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
+  BGM_VOLUME_STORAGE_KEY,
   GAME_VOLUME_STORAGE_KEY,
   KEY_BINDINGS_STORAGE_KEY,
+  LEGACY_AVATAR_EFFECT_STORAGE_KEY,
+  LEGACY_BGM_VOLUME_STORAGE_KEY,
+  LEGACY_GAME_VOLUME_STORAGE_KEY,
+  LEGACY_KEY_BINDINGS_STORAGE_KEY,
+  LEGACY_SETTLEMENT_PREVIEW_STORAGE_KEYS,
+  LEGACY_SFX_STORAGE_KEYS,
   SETTLEMENT_PREVIEW_STORAGE_KEYS,
   SFX_STORAGE_KEYS,
   SettingsModelContext,
@@ -46,6 +49,7 @@ import {
   parseStoredScoreboardBorderAnimation,
   parseStoredScoreboardBorderLineStyle,
   parseStoredScoreboardBorderTheme,
+  LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS,
   SCOREBOARD_BORDER_STORAGE_KEYS,
   type ScoreboardBorderAnimationId,
   type ScoreboardBorderLineStyleId,
@@ -56,6 +60,19 @@ const clampVolume = (value: number) => {
   if (!Number.isFinite(value)) return DEFAULT_SFX_VOLUME;
   return Math.max(0, Math.min(100, Math.round(value)));
 };
+
+const readStorageValue = (key: string, legacyKey?: string) => {
+  if (typeof window === "undefined") return null;
+  const currentValue = window.localStorage.getItem(key);
+  if (currentValue !== null || !legacyKey) return currentValue;
+  return window.localStorage.getItem(legacyKey);
+};
+
+const isStorageKey = (
+  eventKey: string | null,
+  key: string,
+  legacyKey?: string,
+) => eventKey === key || (Boolean(legacyKey) && eventKey === legacyKey);
 
 const normalizeKey = (value: unknown) =>
   typeof value === "string"
@@ -90,7 +107,10 @@ const sanitizeBindings = (
 const readStoredBindings = (): KeyBindings => {
   if (typeof window === "undefined") return DEFAULT_KEY_BINDINGS;
   try {
-    const saved = window.localStorage.getItem(KEY_BINDINGS_STORAGE_KEY);
+    const saved = readStorageValue(
+      KEY_BINDINGS_STORAGE_KEY,
+      LEGACY_KEY_BINDINGS_STORAGE_KEY,
+    );
     if (saved) {
       return sanitizeBindings(JSON.parse(saved) as KeyBindings);
     }
@@ -100,52 +120,82 @@ const readStoredBindings = (): KeyBindings => {
   return { ...DEFAULT_KEY_BINDINGS };
 };
 
-const readStoredBool = (key: string, fallback: boolean) => {
+const readStoredBool = (key: string, fallback: boolean, legacyKey?: string) => {
   if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
+  const raw = readStorageValue(key, legacyKey);
   if (raw === "0" || raw === "false") return false;
   if (raw === "1" || raw === "true") return true;
   return fallback;
 };
 
-const readStoredNumber = (key: string, fallback: number) => {
+const readStoredNumber = (
+  key: string,
+  fallback: number,
+  legacyKey?: string,
+) => {
   if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
+  const raw = readStorageValue(key, legacyKey);
   if (raw == null) return fallback;
   return clampVolume(Number(raw));
 };
 
-export const SettingsProvider = ({ children }: { children: React.ReactNode }) => {
-  const [keyBindings, setKeyBindingsState] = useState<KeyBindings>(
-    readStoredBindings,
-  );
+export const SettingsProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const [keyBindings, setKeyBindingsState] =
+    useState<KeyBindings>(readStoredBindings);
   const [gameVolume, setGameVolumeState] = useState<number>(() =>
-    readStoredNumber(GAME_VOLUME_STORAGE_KEY, DEFAULT_GAME_VOLUME),
+    readStoredNumber(
+      GAME_VOLUME_STORAGE_KEY,
+      DEFAULT_GAME_VOLUME,
+      LEGACY_GAME_VOLUME_STORAGE_KEY,
+    ),
+  );
+  const [bgmVolume, setBgmVolumeState] = useState<number>(() =>
+    readStoredNumber(
+      BGM_VOLUME_STORAGE_KEY,
+      DEFAULT_BGM_VOLUME,
+      LEGACY_BGM_VOLUME_STORAGE_KEY,
+    ),
   );
   const [sfxEnabled, setSfxEnabledState] = useState<boolean>(() =>
-    readStoredBool(SFX_STORAGE_KEYS.enabled, DEFAULT_SFX_ENABLED),
+    readStoredBool(
+      SFX_STORAGE_KEYS.enabled,
+      DEFAULT_SFX_ENABLED,
+      LEGACY_SFX_STORAGE_KEYS.enabled,
+    ),
   );
   const [sfxVolume, setSfxVolumeState] = useState<number>(() =>
-    readStoredNumber(SFX_STORAGE_KEYS.volume, DEFAULT_SFX_VOLUME),
+    readStoredNumber(
+      SFX_STORAGE_KEYS.volume,
+      DEFAULT_SFX_VOLUME,
+      LEGACY_SFX_STORAGE_KEYS.volume,
+    ),
   );
   const [sfxPreset, setSfxPresetState] = useState<SfxPresetId>(() => {
     if (typeof window === "undefined") return DEFAULT_SFX_PRESET;
     return parseStoredSfxPreset(
-      window.localStorage.getItem(SFX_STORAGE_KEYS.preset),
+      readStorageValue(SFX_STORAGE_KEYS.preset, LEGACY_SFX_STORAGE_KEYS.preset),
     );
   });
-  const [settlementPreviewSyncGameVolume, setSettlementPreviewSyncGameVolumeState] =
-    useState<boolean>(() =>
-      readStoredBool(
-        SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
-        DEFAULT_SETTLEMENT_PREVIEW_SYNC,
-      ),
-    );
+  const [
+    settlementPreviewSyncGameVolume,
+    setSettlementPreviewSyncGameVolumeState,
+  ] = useState<boolean>(() =>
+    readStoredBool(
+      SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+      DEFAULT_SETTLEMENT_PREVIEW_SYNC,
+      LEGACY_SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+    ),
+  );
   const [settlementPreviewVolume, setSettlementPreviewVolumeState] =
     useState<number>(() =>
       readStoredNumber(
         SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
         DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
+        LEGACY_SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
       ),
     );
   const [scoreboardBorderAnimation, setScoreboardBorderAnimationState] =
@@ -154,10 +204,14 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         return DEFAULT_SCOREBOARD_BORDER_ANIMATION_ID;
       }
       const legacyMigration = migrateLegacyScoreboardBorderEffect(
-        window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect),
+        readStorageValue(
+          SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+        ),
       );
-      const storedAnimation = window.localStorage.getItem(
+      const storedAnimation = readStorageValue(
         SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+        LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.animation,
       );
       if (storedAnimation) {
         return parseStoredScoreboardBorderAnimation(storedAnimation);
@@ -170,10 +224,14 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         return DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID;
       }
       const legacyMigration = migrateLegacyScoreboardBorderEffect(
-        window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect),
+        readStorageValue(
+          SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+        ),
       );
-      const storedLineStyle = window.localStorage.getItem(
+      const storedLineStyle = readStorageValue(
         SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
+        LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
       );
       if (storedLineStyle) {
         return parseStoredScoreboardBorderLineStyle(storedLineStyle);
@@ -186,10 +244,14 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         return DEFAULT_SCOREBOARD_BORDER_THEME_ID;
       }
       const legacyMigration = migrateLegacyScoreboardBorderEffect(
-        window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect),
+        readStorageValue(
+          SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+        ),
       );
-      const storedTheme = window.localStorage.getItem(
+      const storedTheme = readStorageValue(
         SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+        LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.theme,
       );
       if (storedTheme) {
         return parseStoredScoreboardBorderTheme(storedTheme);
@@ -201,14 +263,18 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       if (typeof window === "undefined") {
         return DEFAULT_SCOREBOARD_BORDER_ENABLED_VALUE;
       }
-      const storedEnabled = window.localStorage.getItem(
+      const storedEnabled = readStorageValue(
         SCOREBOARD_BORDER_STORAGE_KEYS.enabled,
+        LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.enabled,
       );
       if (storedEnabled !== null) {
         return parseStoredScoreboardBorderEnabled(storedEnabled);
       }
       return migrateLegacyScoreboardBorderEffect(
-        window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect),
+        readStorageValue(
+          SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.legacyEffect,
+        ),
       ).enabled;
     });
   const [scoreboardBorderMaskEnabled, setScoreboardBorderMaskEnabledState] =
@@ -216,8 +282,9 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       if (typeof window === "undefined") {
         return DEFAULT_SCOREBOARD_BORDER_MASK_ENABLED_VALUE;
       }
-      const storedMaskEnabled = window.localStorage.getItem(
+      const storedMaskEnabled = readStorageValue(
         SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled,
+        LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled,
       );
       if (storedMaskEnabled !== null) {
         return parseStoredScoreboardBorderMaskEnabled(storedMaskEnabled);
@@ -231,8 +298,9 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       }
       return clampScoreboardBorderParticleCount(
         Number(
-          window.localStorage.getItem(
+          readStorageValue(
             SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
+            LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
           ),
         ),
       );
@@ -243,7 +311,10 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         return DEFAULT_AVATAR_EFFECT_LEVEL_VALUE;
       }
       return parseAvatarEffectLevel(
-        window.localStorage.getItem(AVATAR_EFFECT_STORAGE_KEY),
+        readStorageValue(
+          AVATAR_EFFECT_STORAGE_KEY,
+          LEGACY_AVATAR_EFFECT_STORAGE_KEY,
+        ),
       );
     });
 
@@ -266,7 +337,15 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(SFX_STORAGE_KEYS.enabled, sfxEnabled ? "1" : "0");
+    window.localStorage.setItem(BGM_VOLUME_STORAGE_KEY, String(bgmVolume));
+  }, [bgmVolume]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SFX_STORAGE_KEYS.enabled,
+      sfxEnabled ? "1" : "0",
+    );
   }, [sfxEnabled]);
 
   useEffect(() => {
@@ -352,7 +431,14 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     if (typeof window === "undefined") return;
     const onStorage = (event: StorageEvent) => {
       if (event.storageArea !== window.localStorage) return;
-      if (event.key === KEY_BINDINGS_STORAGE_KEY && event.newValue) {
+      if (
+        isStorageKey(
+          event.key,
+          KEY_BINDINGS_STORAGE_KEY,
+          LEGACY_KEY_BINDINGS_STORAGE_KEY,
+        ) &&
+        event.newValue
+      ) {
         try {
           setKeyBindingsState(
             sanitizeBindings(JSON.parse(event.newValue) as KeyBindings),
@@ -362,102 +448,236 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         }
         return;
       }
-      if (event.key === SFX_STORAGE_KEYS.enabled) {
-        setSfxEnabledState(readStoredBool(SFX_STORAGE_KEYS.enabled, DEFAULT_SFX_ENABLED));
-        return;
-      }
-      if (event.key === GAME_VOLUME_STORAGE_KEY) {
-        setGameVolumeState(
-          readStoredNumber(GAME_VOLUME_STORAGE_KEY, DEFAULT_GAME_VOLUME),
-        );
-        return;
-      }
-      if (event.key === SFX_STORAGE_KEYS.volume) {
-        setSfxVolumeState(readStoredNumber(SFX_STORAGE_KEYS.volume, DEFAULT_SFX_VOLUME));
-        return;
-      }
-      if (event.key === SFX_STORAGE_KEYS.preset) {
-        setSfxPresetState(
-          parseStoredSfxPreset(window.localStorage.getItem(SFX_STORAGE_KEYS.preset)),
-        );
-        return;
-      }
-      if (event.key === SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume) {
-        setSettlementPreviewSyncGameVolumeState(
+      if (
+        isStorageKey(
+          event.key,
+          SFX_STORAGE_KEYS.enabled,
+          LEGACY_SFX_STORAGE_KEYS.enabled,
+        )
+      ) {
+        setSfxEnabledState(
           readStoredBool(
-            SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
-            DEFAULT_SETTLEMENT_PREVIEW_SYNC,
+            SFX_STORAGE_KEYS.enabled,
+            DEFAULT_SFX_ENABLED,
+            LEGACY_SFX_STORAGE_KEYS.enabled,
           ),
         );
         return;
       }
-      if (event.key === SETTLEMENT_PREVIEW_STORAGE_KEYS.volume) {
-        setSettlementPreviewVolumeState(
+      if (
+        isStorageKey(
+          event.key,
+          GAME_VOLUME_STORAGE_KEY,
+          LEGACY_GAME_VOLUME_STORAGE_KEY,
+        )
+      ) {
+        setGameVolumeState(
           readStoredNumber(
-            SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
-            DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
+            GAME_VOLUME_STORAGE_KEY,
+            DEFAULT_GAME_VOLUME,
+            LEGACY_GAME_VOLUME_STORAGE_KEY,
           ),
         );
         return;
       }
-      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.animation) {
-        setScoreboardBorderAnimationState(
-          parseStoredScoreboardBorderAnimation(
-            window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.animation),
+      if (
+        isStorageKey(
+          event.key,
+          BGM_VOLUME_STORAGE_KEY,
+          LEGACY_BGM_VOLUME_STORAGE_KEY,
+        )
+      ) {
+        setBgmVolumeState(
+          readStoredNumber(
+            BGM_VOLUME_STORAGE_KEY,
+            DEFAULT_BGM_VOLUME,
+            LEGACY_BGM_VOLUME_STORAGE_KEY,
           ),
         );
         return;
       }
-      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.enabled) {
-        setScoreboardBorderEnabledState(
-          parseStoredScoreboardBorderEnabled(
-            window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.enabled),
+      if (
+        isStorageKey(
+          event.key,
+          SFX_STORAGE_KEYS.volume,
+          LEGACY_SFX_STORAGE_KEYS.volume,
+        )
+      ) {
+        setSfxVolumeState(
+          readStoredNumber(
+            SFX_STORAGE_KEYS.volume,
+            DEFAULT_SFX_VOLUME,
+            LEGACY_SFX_STORAGE_KEYS.volume,
           ),
         );
         return;
       }
-      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled) {
-        setScoreboardBorderMaskEnabledState(
-          parseStoredScoreboardBorderMaskEnabled(
-            window.localStorage.getItem(
-              SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled,
+      if (
+        isStorageKey(
+          event.key,
+          SFX_STORAGE_KEYS.preset,
+          LEGACY_SFX_STORAGE_KEYS.preset,
+        )
+      ) {
+        setSfxPresetState(
+          parseStoredSfxPreset(
+            readStorageValue(
+              SFX_STORAGE_KEYS.preset,
+              LEGACY_SFX_STORAGE_KEYS.preset,
             ),
           ),
         );
         return;
       }
-      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle) {
+      if (
+        isStorageKey(
+          event.key,
+          SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+          LEGACY_SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+        )
+      ) {
+        setSettlementPreviewSyncGameVolumeState(
+          readStoredBool(
+            SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+            DEFAULT_SETTLEMENT_PREVIEW_SYNC,
+            LEGACY_SETTLEMENT_PREVIEW_STORAGE_KEYS.syncWithGameVolume,
+          ),
+        );
+        return;
+      }
+      if (
+        isStorageKey(
+          event.key,
+          SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
+          LEGACY_SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
+        )
+      ) {
+        setSettlementPreviewVolumeState(
+          readStoredNumber(
+            SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
+            DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
+            LEGACY_SETTLEMENT_PREVIEW_STORAGE_KEYS.volume,
+          ),
+        );
+        return;
+      }
+      if (
+        isStorageKey(
+          event.key,
+          SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+        )
+      ) {
+        setScoreboardBorderAnimationState(
+          parseStoredScoreboardBorderAnimation(
+            readStorageValue(
+              SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+              LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+            ),
+          ),
+        );
+        return;
+      }
+      if (
+        isStorageKey(
+          event.key,
+          SCOREBOARD_BORDER_STORAGE_KEYS.enabled,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.enabled,
+        )
+      ) {
+        setScoreboardBorderEnabledState(
+          parseStoredScoreboardBorderEnabled(
+            readStorageValue(
+              SCOREBOARD_BORDER_STORAGE_KEYS.enabled,
+              LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.enabled,
+            ),
+          ),
+        );
+        return;
+      }
+      if (
+        isStorageKey(
+          event.key,
+          SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled,
+        )
+      ) {
+        setScoreboardBorderMaskEnabledState(
+          parseStoredScoreboardBorderMaskEnabled(
+            readStorageValue(
+              SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled,
+              LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.maskEnabled,
+            ),
+          ),
+        );
+        return;
+      }
+      if (
+        isStorageKey(
+          event.key,
+          SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
+        )
+      ) {
         setScoreboardBorderLineStyleState(
           parseStoredScoreboardBorderLineStyle(
-            window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle),
+            readStorageValue(
+              SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
+              LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
+            ),
           ),
         );
         return;
       }
-      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.theme) {
+      if (
+        isStorageKey(
+          event.key,
+          SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+        )
+      ) {
         setScoreboardBorderThemeState(
           parseStoredScoreboardBorderTheme(
-            window.localStorage.getItem(SCOREBOARD_BORDER_STORAGE_KEYS.theme),
+            readStorageValue(
+              SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+              LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+            ),
           ),
         );
         return;
       }
-      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.particleCount) {
+      if (
+        isStorageKey(
+          event.key,
+          SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
+          LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
+        )
+      ) {
         setScoreboardBorderParticleCountState(
           clampScoreboardBorderParticleCount(
             Number(
-              window.localStorage.getItem(
+              readStorageValue(
                 SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
+                LEGACY_SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
               ),
             ),
           ),
         );
         return;
       }
-      if (event.key === AVATAR_EFFECT_STORAGE_KEY) {
+      if (
+        isStorageKey(
+          event.key,
+          AVATAR_EFFECT_STORAGE_KEY,
+          LEGACY_AVATAR_EFFECT_STORAGE_KEY,
+        )
+      ) {
         setAvatarEffectLevelState(
           parseAvatarEffectLevel(
-            window.localStorage.getItem(AVATAR_EFFECT_STORAGE_KEY),
+            readStorageValue(
+              AVATAR_EFFECT_STORAGE_KEY,
+              LEGACY_AVATAR_EFFECT_STORAGE_KEY,
+            ),
           ),
         );
       }
@@ -480,6 +700,10 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   const setGameVolume = useCallback((next: number) => {
     setGameVolumeState(clampVolume(next));
+  }, []);
+
+  const setBgmVolume = useCallback((next: number) => {
+    setBgmVolumeState(clampVolume(next));
   }, []);
 
   const setSfxVolume = useCallback((next: number) => {
@@ -508,14 +732,18 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   const setScoreboardBorderAnimation = useCallback(
     (next: ScoreboardBorderAnimationId) => {
-      setScoreboardBorderAnimationState(parseStoredScoreboardBorderAnimation(next));
+      setScoreboardBorderAnimationState(
+        parseStoredScoreboardBorderAnimation(next),
+      );
     },
     [],
   );
 
   const setScoreboardBorderLineStyle = useCallback(
     (next: ScoreboardBorderLineStyleId) => {
-      setScoreboardBorderLineStyleState(parseStoredScoreboardBorderLineStyle(next));
+      setScoreboardBorderLineStyleState(
+        parseStoredScoreboardBorderLineStyle(next),
+      );
     },
     [],
   );
@@ -539,6 +767,7 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   const resetSfxSettings = useCallback(() => {
     setGameVolumeState(DEFAULT_GAME_VOLUME);
+    setBgmVolumeState(DEFAULT_BGM_VOLUME);
     setSfxEnabledState(DEFAULT_SFX_ENABLED);
     setSfxVolumeState(DEFAULT_SFX_VOLUME);
     setSfxPresetState(DEFAULT_SFX_PRESET);
@@ -550,6 +779,8 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setKeyBindings,
       gameVolume,
       setGameVolume,
+      bgmVolume,
+      setBgmVolume,
       sfxEnabled,
       setSfxEnabled,
       sfxVolume,
@@ -581,6 +812,8 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setKeyBindings,
       gameVolume,
       setGameVolume,
+      bgmVolume,
+      setBgmVolume,
       sfxEnabled,
       setSfxEnabled,
       sfxVolume,
