@@ -1,6 +1,11 @@
 import type { PlaylistItem } from "../../../Room/model/types";
 
 export type AnswerStatus = "original" | "ai_modified" | "manual_reviewed";
+export type AnswerAiProvider =
+  | "grok"
+  | "perplexity"
+  | "chatgpt"
+  | "gemini";
 
 export type EditableItem = PlaylistItem & {
   localId: string;
@@ -11,7 +16,7 @@ export type EditableItem = PlaylistItem & {
   endSec: number;
   answerText: string;
   answerStatus?: AnswerStatus;
-  answerAiProvider?: "grok" | "perplexity" | "chatgpt" | null;
+  answerAiProvider?: AnswerAiProvider | null;
   answerAiUpdatedAt?: number | null;
   answerAiBatchKey?: string | null;
 };
@@ -41,7 +46,7 @@ export type DbCollectionItem = {
   end_sec: number | null;
   answer_text: string;
   answer_status?: AnswerStatus;
-  answer_ai_provider?: "grok" | "perplexity" | "chatgpt" | null;
+  answer_ai_provider?: AnswerAiProvider | null;
   answer_ai_updated_at?: number | null;
   answer_ai_batch_key?: string | null;
 };

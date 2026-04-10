@@ -92,6 +92,7 @@ type JoinRoomPanelProps = {
   setJoinSortMode: (value: JoinSortMode) => void;
   filteredJoinRooms: RoomSummary[];
   filteredJoinPlayerTotal: number;
+  siteOnlineCount: number | null;
   joinRoomsView: JoinRoomsView;
   setJoinRoomsView: (value: JoinRoomsView) => void;
   handleJoinRoomEntry: (room: RoomSummary) => void;
@@ -137,6 +138,7 @@ const JoinRoomPanel = ({
   setJoinSortMode,
   filteredJoinRooms,
   filteredJoinPlayerTotal,
+  siteOnlineCount,
   joinRoomsView,
   setJoinRoomsView,
   handleJoinRoomEntry,
@@ -789,7 +791,9 @@ const JoinRoomPanel = ({
           <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3">
             <div className="flex min-h-12 flex-wrap items-center justify-between gap-3">
               <p className="text-[13px] text-[var(--mc-text-muted)]">
-                目前共 {filteredJoinRooms.length} 間房，{filteredJoinPlayerTotal} 人在線
+                目前共 {filteredJoinRooms.length} 間房，房內{" "}
+                {filteredJoinPlayerTotal} 人， 
+                {siteOnlineCount ?? "--"} 人在線
               </p>
               <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-0.5">
                 <button

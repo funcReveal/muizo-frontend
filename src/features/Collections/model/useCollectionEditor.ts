@@ -48,6 +48,7 @@ type UseCollectionEditorParams = {
   collectionTitle: string;
   collectionVisibility: "private" | "public";
   activeCollectionId: string | null;
+  activeCollectionStoredTitle?: string | null;
   activeCollectionStoredVisibility?: "private" | "public" | null;
   activeCollectionItemLimitOverride?: number | null;
   collectionsCount: number;
@@ -83,6 +84,7 @@ export const useCollectionEditor = ({
   collectionTitle,
   collectionVisibility,
   activeCollectionId,
+  activeCollectionStoredTitle,
   activeCollectionStoredVisibility,
   activeCollectionItemLimitOverride,
   collectionsCount,
@@ -349,10 +351,16 @@ export const useCollectionEditor = ({
             collectionId = created.id;
           } else {
             try {
-              await collectionsApi.updateCollection(token, collectionId, {
-                title: collectionTitle.trim(),
-                visibility: collectionVisibility,
-              });
+              const nextTitle = collectionTitle.trim();
+              const shouldUpdateCollection =
+                nextTitle !== (activeCollectionStoredTitle ?? "").trim() ||
+                collectionVisibility !== activeCollectionStoredVisibility;
+              if (shouldUpdateCollection) {
+                await collectionsApi.updateCollection(token, collectionId, {
+                  title: nextTitle,
+                  visibility: collectionVisibility,
+                });
+              }
             } catch (error) {
               if (allowRetry && isAuthError(error)) {
                 const refreshed = await refreshAuthToken();
@@ -426,10 +434,11 @@ export const useCollectionEditor = ({
         }
         return true;
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         setSaveStatus("error");
-        setSaveError(error instanceof Error ? error.message : String(error));
+        setSaveError(message);
         if (mode === "auto") {
-          showAutoSaveNotice("error", "自動儲存失敗，請稍後再試。");
+          showAutoSaveNotice("error", `自動儲存失敗：${message}`);
         }
         return false;
       } finally {
@@ -438,6 +447,7 @@ export const useCollectionEditor = ({
     },
     [
       activeCollectionId,
+      activeCollectionStoredTitle,
       activeCollectionStoredVisibility,
       authExpired,
       authToken,

@@ -1,4 +1,11 @@
-import { Dialog, DialogContent, DialogTitle } from "@mui/material";
+import CloseRounded from "@mui/icons-material/CloseRounded";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  TextField,
+} from "@mui/material";
 
 type SourceMode = "playlist" | "single";
 
@@ -33,6 +40,45 @@ const tabButtonClass = (active: boolean) =>
       : "border-[var(--mc-border)] bg-[var(--mc-surface)]/55 text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
   }`;
 
+const textFieldSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "0.75rem",
+    backgroundColor: "var(--mc-surface-strong)",
+    color: "var(--mc-text)",
+    fontSize: "0.875rem",
+    "& fieldset": {
+      borderColor: "var(--mc-border)",
+    },
+    "&:hover fieldset": {
+      borderColor: "rgba(251, 191, 36, 0.45)",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "var(--mc-accent)",
+    },
+    "&.Mui-disabled": {
+      cursor: "not-allowed",
+      opacity: 0.6,
+    },
+  },
+  "& .MuiInputBase-input::placeholder": {
+    color: "var(--mc-text-muted)",
+    opacity: 0.75,
+  },
+  "& .MuiInputLabel-root": {
+    color: "var(--mc-text-muted)",
+  },
+  "& .MuiInputLabel-root.Mui-focused": {
+    color: "var(--mc-accent)",
+  },
+  "& .MuiFormHelperText-root": {
+    marginLeft: 0,
+  },
+};
+
+const shrinkLabelSlotProps = {
+  inputLabel: { shrink: true },
+};
+
 const PlaylistSourceModal = ({
   open,
   mode,
@@ -62,31 +108,44 @@ const PlaylistSourceModal = ({
       onClose={onClose}
       fullWidth
       maxWidth="sm"
+      sx={{
+        "& .MuiDialog-container": {
+          alignItems: "flex-start",
+        },
+      }}
       PaperProps={{
         className:
           "!rounded-3xl !border !border-[var(--mc-border)] !bg-[#08111f] !text-[var(--mc-text)]",
+        sx: {
+          mt: { xs: 14, sm: 16 },
+        },
       }}
     >
       <DialogTitle className="!px-6 !pt-6 !pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
-              Source Manager
-            </div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <div className="mt-1 text-xl font-semibold text-[var(--mc-text)]">
               新增題目來源
             </div>
             <div className="mt-1 text-sm text-[var(--mc-text-muted)]">
-              用播放清單整批匯入，或補一首單曲進收藏庫。
+              匯入 YouTube 播放清單，或插入單首歌曲到目前收藏庫。
             </div>
           </div>
-          <button
-            type="button"
+          <IconButton
+            aria-label="關閉新增題目來源"
             onClick={onClose}
-            className="rounded-full border border-[var(--mc-border)] px-3 py-1 text-xs text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
+            size="small"
+            sx={{
+              border: "1px solid var(--mc-border)",
+              color: "var(--mc-text-muted)",
+              "&:hover": {
+                color: "var(--mc-text)",
+                backgroundColor: "rgba(255,255,255,0.06)",
+              },
+            }}
           >
-            關閉
-          </button>
+            <CloseRounded fontSize="small" />
+          </IconButton>
         </div>
       </DialogTitle>
 
@@ -97,21 +156,21 @@ const PlaylistSourceModal = ({
             onClick={() => onModeChange("playlist")}
             className={tabButtonClass(mode === "playlist")}
           >
-            播放清單匯入
+            匯入播放清單
           </button>
           <button
             type="button"
             onClick={() => onModeChange("single")}
             className={tabButtonClass(mode === "single")}
           >
-            單曲插入
+            插入單曲
           </button>
         </div>
 
         {mode === "playlist" ? (
           <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/40 p-4">
             <div className="text-[11px] text-[var(--mc-text-muted)]">
-              貼上 YouTube 播放清單網址，會把可用影片匯入目前收藏庫。
+              貼上 YouTube 播放清單連結，系統會將可用歌曲加入目前收藏庫。
             </div>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
@@ -122,7 +181,7 @@ const PlaylistSourceModal = ({
                   e.preventDefault();
                   onImportPlaylist();
                 }}
-                placeholder="貼上 YouTube 播放清單網址"
+                placeholder="貼上 YouTube 播放清單連結"
                 className="min-w-0 flex-1 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)] px-3 py-2 text-sm text-[var(--mc-text)]"
               />
               <button
@@ -131,7 +190,7 @@ const PlaylistSourceModal = ({
                 disabled={playlistLoading}
                 className="rounded-xl bg-[var(--mc-accent)] px-4 py-2 text-sm font-semibold text-[#1a1207] hover:bg-[var(--mc-accent-2)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {playlistLoading ? "載入中..." : "匯入播放清單"}
+                {playlistLoading ? "匯入中..." : "匯入播放清單"}
               </button>
             </div>
             {playlistAddError && (
@@ -146,42 +205,48 @@ const PlaylistSourceModal = ({
         ) : (
           <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/40 p-4">
             <div className="text-[11px] text-[var(--mc-text-muted)]">
-              貼上 YouTube 連結後可補充單首題目，並手動調整標題與答案。
+              貼上單首 YouTube 影片連結，確認歌曲資訊後插入收藏庫。
             </div>
             <div className="mt-3 space-y-3">
-              <div className="relative">
-                <input
-                  value={singleTrackUrl}
-                  onChange={(event) => onSingleTrackUrlChange(event.target.value)}
-                  placeholder="YouTube link"
-                  aria-invalid={isDuplicate}
-                  className={`w-full rounded-xl border bg-[var(--mc-surface-strong)] px-3 py-2 text-sm text-[var(--mc-text)] transition-colors ${
-                    isDuplicate
-                      ? "border-rose-400/70 text-rose-100 placeholder:text-rose-200/70"
-                      : "border-[var(--mc-border)]"
-                  }`}
-                />
-                {isDuplicate && (
-                  <div className="absolute left-0 top-full z-20 mt-1 rounded-md border border-rose-400/40 bg-rose-950/90 px-2 py-1 text-[10px] text-rose-100 shadow">
-                    This video is already in the list.
-                  </div>
-                )}
-              </div>
-              <input
-                value={singleTrackTitle}
-                onChange={(event) => onSingleTrackTitleChange(event.target.value)}
-                placeholder="Track title"
-                disabled={!canEditSingleMeta}
-                className="w-full rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)] px-3 py-2 text-sm text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-60"
+              <TextField
+                fullWidth
+                size="small"
+                label="YouTube 影片連結"
+                value={singleTrackUrl}
+                onChange={(event) =>
+                  onSingleTrackUrlChange(event.target.value)
+                }
+                placeholder="貼上 YouTube 影片連結"
+                error={isDuplicate}
+                helperText={isDuplicate ? "這首影片已在清單中。" : " "}
+                slotProps={shrinkLabelSlotProps}
+                sx={textFieldSx}
               />
-              <input
+              <TextField
+                fullWidth
+                size="small"
+                label="歌曲名稱"
+                value={singleTrackTitle}
+                onChange={(event) =>
+                  onSingleTrackTitleChange(event.target.value)
+                }
+                placeholder="輸入歌曲名稱，可自動帶入"
+                disabled={!canEditSingleMeta}
+                slotProps={shrinkLabelSlotProps}
+                sx={textFieldSx}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="答案文字"
                 value={singleTrackAnswer}
                 onChange={(event) =>
                   onSingleTrackAnswerChange(event.target.value)
                 }
-                placeholder="Answer"
+                placeholder="輸入答案文字，預設使用曲名"
                 disabled={!canEditSingleMeta}
-                className="w-full rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)] px-3 py-2 text-sm text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-60"
+                slotProps={shrinkLabelSlotProps}
+                sx={textFieldSx}
               />
             </div>
             {singleTrackError && (
@@ -191,7 +256,9 @@ const PlaylistSourceModal = ({
             )}
             <div className="mt-4 flex items-center justify-between gap-2">
               <div className="text-[11px] text-[var(--mc-text-muted)]">
-                {singleTrackLoading ? "正在解析影片資料..." : "準備好後可直接插入清單。"}
+                {singleTrackLoading
+                  ? "正在讀取歌曲資訊..."
+                  : "可先貼上連結，系統會嘗試自動帶入歌曲資訊。"}
               </div>
               <button
                 type="button"

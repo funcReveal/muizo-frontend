@@ -24,6 +24,7 @@ import type {
   RoomState,
   RoomSummary,
   SessionProgressPayload,
+  SitePresencePayload,
 } from "./types";
 
 const SYNC_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
@@ -74,6 +75,7 @@ interface SocketLifecycleSetters {
   setServerOffsetMs: Dispatch<SetStateAction<number>>;
   setRooms: Dispatch<SetStateAction<RoomSummary[]>>;
   setInviteNotFound: Dispatch<SetStateAction<boolean>>;
+  setSitePresence: (payload: SitePresencePayload | null) => void;
 }
 
 interface SocketLifecycleHandlers {
@@ -191,6 +193,7 @@ export const useRoomProviderSocketLifecycle = ({
     setServerOffsetMs,
     setRooms,
     setInviteNotFound,
+    setSitePresence,
   } = setters;
   const {
     fetchRooms,
@@ -412,6 +415,7 @@ export const useRoomProviderSocketLifecycle = ({
           }
         },
         onDisconnect: () => {
+          setSitePresence(null);
           setSessionProgress(null);
           if (createRoomInFlightRef.current) {
             releaseCreateRoomLockRef.current?.();
@@ -455,6 +459,9 @@ export const useRoomProviderSocketLifecycle = ({
               setStatusText("找不到邀請房間，可能已關閉或邀請失效。");
             }
           }
+        },
+        onSitePresenceUpdated: (payload) => {
+          setSitePresence(payload);
         },
         onRoomCreated: ({ room }) => {
           applyIncomingRoomSummary(room);
@@ -748,6 +755,7 @@ export const useRoomProviderSocketLifecycle = ({
     serverOffsetRef,
     setRooms,
     setInviteNotFound,
+    setSitePresence,
     appendPresenceSystemMessage,
     presenceParticipantNamesRef,
     presenceSeededRoomIdRef,

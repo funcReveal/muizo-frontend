@@ -1277,6 +1277,11 @@ const CollectionsCreatePage = () => {
           onClose={() => setPlaylistIssueDialogOpen(false)}
           maxWidth="sm"
           fullWidth
+          sx={{
+            "& .MuiDialog-container": {
+              alignItems: "flex-start",
+            },
+          }}
           PaperProps={{
             sx: {
               borderRadius: 3,
@@ -1284,6 +1289,7 @@ const CollectionsCreatePage = () => {
               background:
                 "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
               color: "var(--mc-text)",
+              mt: { xs: 12, sm: 14 },
             },
           }}
         >
@@ -1351,16 +1357,42 @@ const CollectionsCreatePage = () => {
                   initial="initial"
                   animate="animate"
                   exit="exit"
+                  layout
+                  style={{ originY: 0 }}
+                  transition={{
+                    layout: {
+                      duration: 0.2,
+                      ease: [0.22, 1, 0.36, 1],
+                    },
+                  }}
                   className={`rounded-2xl border px-4 py-3 ${activePlaylistIssueGroup.className}`}
                 >
                   <div className="flex items-center justify-between gap-3 text-sm font-semibold">
                     <span>{activePlaylistIssueGroup.label}</span>
                     <span>{activePlaylistIssueGroup.count} 首</span>
                   </div>
-                  <div className="mt-3 max-h-52 overflow-y-auto pr-1 text-xs leading-relaxed opacity-90">
-                    {activePlaylistIssueGroup.items.length > 0
-                      ? activePlaylistIssueGroup.items.join("、")
-                      : (activePlaylistIssueGroup.fallback ?? "無")}
+                  <div className="mt-3 max-h-64 overflow-y-auto pr-1">
+                    {activePlaylistIssueGroup.items.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {activePlaylistIssueGroup.items.map((item, index) => (
+                          <div
+                            key={`${activePlaylistIssueGroup.key}-${item}-${index}`}
+                            className="flex items-center gap-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2"
+                          >
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8 text-[11px] font-semibold">
+                              {index + 1}
+                            </div>
+                            <div className="min-w-0 flex-1 truncate text-xs leading-5">
+                              {item}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-white/8 bg-black/15 px-3 py-3 text-xs opacity-90">
+                        {activePlaylistIssueGroup.fallback ?? "無"}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </AnimatePresence>

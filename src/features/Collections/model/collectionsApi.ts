@@ -35,6 +35,19 @@ const buildJsonHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
 });
 
+const readErrorMessage = async (res: Response, fallback: string) => {
+  const text = await res.text().catch(() => "");
+  if (!text) return `${fallback} (${res.status})`;
+  try {
+    const json = JSON.parse(text) as { error?: unknown };
+    return typeof json.error === "string"
+      ? `${json.error} (${res.status})`
+      : `${fallback} (${res.status})`;
+  } catch {
+    return `${fallback} (${res.status}): ${text.slice(0, 160)}`;
+  }
+};
+
 export const collectionsApi = {
   buildAuthHeaders,
   buildJsonHeaders,
@@ -47,8 +60,9 @@ export const collectionsApi = {
       { headers: buildAuthHeaders(token) },
     );
     if (!res.ok) {
-      const payload = await res.json().catch(() => null);
-      throw new Error(payload?.error ?? "Failed to load collections");
+      throw new Error(
+        await readErrorMessage(res, "Failed to load collections"),
+      );
     }
     const payload = await res.json().catch(() => null);
     const data = payload?.data ?? payload?.items ?? payload;
@@ -65,8 +79,7 @@ export const collectionsApi = {
       { headers: buildAuthHeaders(token) },
     );
     if (!res.ok) {
-      const payload = await res.json().catch(() => null);
-      throw new Error(payload?.error ?? "Failed to load items");
+      throw new Error(await readErrorMessage(res, "Failed to load items"));
     }
     const payload = await res.json().catch(() => null);
     const data = payload?.data ?? payload?.items ?? payload;
@@ -84,7 +97,11 @@ export const collectionsApi = {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
-      throw new Error(json?.error ?? "Failed to create collection read token");
+      throw new Error(
+        typeof json?.error === "string"
+          ? `${json.error} (${res.status})`
+          : `Failed to create collection read token (${res.status})`,
+      );
     }
     return json?.data ?? null;
   },
@@ -107,7 +124,11 @@ export const collectionsApi = {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
-      throw new Error(json?.error ?? "Failed to create collection");
+      throw new Error(
+        typeof json?.error === "string"
+          ? `${json.error} (${res.status})`
+          : `Failed to create collection (${res.status})`,
+      );
     }
     return json?.data ?? null;
   },
@@ -125,8 +146,9 @@ export const collectionsApi = {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      throw new Error(json?.error ?? "Failed to update collection");
+      throw new Error(
+        await readErrorMessage(res, "Failed to update collection"),
+      );
     }
     return null;
   },
@@ -147,8 +169,7 @@ export const collectionsApi = {
       },
     );
     if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      throw new Error(json?.error ?? "Failed to insert items");
+      throw new Error(await readErrorMessage(res, "Failed to insert items"));
     }
     return null;
   },
@@ -166,8 +187,7 @@ export const collectionsApi = {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      throw new Error(json?.error ?? "Failed to update items");
+      throw new Error(await readErrorMessage(res, "Failed to update items"));
     }
     return null;
   },
@@ -180,8 +200,7 @@ export const collectionsApi = {
       headers: buildAuthHeaders(token),
     });
     if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      throw new Error(json?.error ?? "Failed to delete items");
+      throw new Error(await readErrorMessage(res, "Failed to delete items"));
     }
     return null;
   },

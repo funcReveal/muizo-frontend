@@ -310,6 +310,11 @@ export interface RoomState {
   serverNow: number;
 }
 
+export type SitePresencePayload = {
+  onlineCount: number;
+  updatedAt: number;
+};
+
 // Client -> Server
 export interface ClientToServerEvents {
   createRoom: (
@@ -494,6 +499,7 @@ export interface ClientToServerEvents {
 
 // Server -> Client
 export interface ServerToClientEvents {
+  sitePresenceUpdated: (payload: SitePresencePayload) => void;
   roomsUpdated: (rooms: RoomSummary[]) => void;
   roomCreated: (payload: { room: RoomSummary }) => void;
   roomRemoved: (payload: { roomId: string }) => void;

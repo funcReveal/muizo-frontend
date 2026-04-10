@@ -27,6 +27,14 @@ type LibrarySourceToolbarProps = {
   setPublicCollectionsSort: (value: PublicCollectionsSort) => void;
 };
 
+const publicSortOptions: Array<{
+  key: Exclude<PublicCollectionsSort, "favorites_first">;
+  label: string;
+}> = [
+  { key: "popular", label: "最多收藏" },
+  { key: "updated", label: "最近更新" },
+];
+
 const viewToggle = (
   createLibraryView: CreateLibraryView,
   setCreateLibraryView: (value: CreateLibraryView) => void,
@@ -34,7 +42,7 @@ const viewToggle = (
   <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
     <button
       type="button"
-      aria-label="切換為圖示檢視"
+      aria-label="圖示檢視"
       className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
         createLibraryView === "grid"
           ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
@@ -42,11 +50,11 @@ const viewToggle = (
       }`}
       onClick={() => setCreateLibraryView("grid")}
     >
-        <GridViewRounded sx={{ fontSize: 17 }} />
-      </button>
+      <GridViewRounded sx={{ fontSize: 17 }} />
+    </button>
     <button
       type="button"
-      aria-label="切換為清單檢視"
+      aria-label="清單檢視"
       className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
         createLibraryView === "list"
           ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
@@ -91,6 +99,11 @@ const LibrarySourceToolbar = ({
   publicCollectionsSort,
   setPublicCollectionsSort,
 }: LibrarySourceToolbarProps) => {
+  const currentPublicSort =
+    publicCollectionsSort === "favorites_first"
+      ? "updated"
+      : publicCollectionsSort;
+
   if (createLibraryTab === "public") {
     return (
       <div
@@ -110,7 +123,7 @@ const LibrarySourceToolbar = ({
               size="small"
               value={createLibrarySearch}
               onChange={(event) => setCreateLibrarySearch(event.target.value)}
-              placeholder="搜尋收藏庫名稱、曲目與建立者"
+              placeholder="搜尋收藏庫名稱、曲目或建立者"
               autoComplete="off"
               slotProps={{
                 input: {
@@ -129,7 +142,7 @@ const LibrarySourceToolbar = ({
                       <IconButton
                         edge="end"
                         size="small"
-                        aria-label="開啟收藏庫排序設定"
+                        aria-label="開啟收藏庫篩選"
                         onClick={togglePublicLibrarySearch}
                         sx={{
                           color: publicLibrarySearchActive
@@ -161,21 +174,17 @@ const LibrarySourceToolbar = ({
               <div className="absolute left-0 right-0 top-full z-30 mt-2">
                 <div className="rounded-[0_0_22px_22px] border border-cyan-300/24 border-t-0 bg-slate-950 px-3 pb-3 pt-4 shadow-[0_24px_48px_rgba(2,6,23,0.48)] sm:px-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    {[
-                      { key: "favorites_first" as const, label: "近期熱門" },
-                      { key: "popular" as const, label: "最受歡迎" },
-                      { key: "updated" as const, label: "最近建立" },
-                    ].map((option) => (
+                    {publicSortOptions.map((option) => (
                       <button
                         key={option.key}
                         type="button"
-                        aria-pressed={publicCollectionsSort === option.key}
+                        aria-pressed={currentPublicSort === option.key}
                         onMouseDown={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
                         }}
                         className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.08em] ${
-                          publicCollectionsSort === option.key
+                          currentPublicSort === option.key
                             ? "bg-cyan-500/20 text-cyan-100 ring-1 ring-cyan-300/32"
                             : "bg-slate-900 text-[var(--mc-text-muted)] ring-1 ring-white/10 hover:bg-slate-800 hover:text-slate-100"
                         }`}
@@ -193,16 +202,12 @@ const LibrarySourceToolbar = ({
             )}
           </div>
           <div className="flex items-center justify-between gap-3 sm:justify-end">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] text-cyan-100/90">
-                {collectionsLoading
-                  ? "載入中"
-                  : `共 ${filteredCreateCollectionsLength} 筆`}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {viewToggle(createLibraryView, setCreateLibraryView)}
-            </div>
+            <span className="rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] text-cyan-100/90">
+              {collectionsLoading
+                ? "載入中"
+                : `共 ${filteredCreateCollectionsLength} 筆`}
+            </span>
+            {viewToggle(createLibraryView, setCreateLibraryView)}
           </div>
         </div>
       </div>
@@ -219,8 +224,8 @@ const LibrarySourceToolbar = ({
           onChange={(event) => setCreateLibrarySearch(event.target.value)}
           placeholder={
             createLibraryTab === "youtube"
-              ? "搜尋 YouTube 清單名稱"
-              : "搜尋收藏庫名稱、曲目與建立者"
+              ? "搜尋 YouTube 播放清單名稱"
+              : "搜尋收藏庫名稱、曲目或建立者"
           }
           slotProps={{
             input: {
@@ -240,13 +245,11 @@ const LibrarySourceToolbar = ({
         />
       </div>
       <div className="flex items-center justify-between gap-3 sm:justify-end">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] text-cyan-100/90">
-            {createLibraryTab === "youtube"
-              ? `共 ${filteredCreateYoutubePlaylistsLength} 筆`
-              : `共 ${filteredCreateCollectionsLength} 筆`}
-          </span>
-        </div>
+        <span className="rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] text-cyan-100/90">
+          {createLibraryTab === "youtube"
+            ? `共 ${filteredCreateYoutubePlaylistsLength} 筆`
+            : `共 ${filteredCreateCollectionsLength} 筆`}
+        </span>
         {viewToggle(createLibraryView, setCreateLibraryView)}
       </div>
     </div>

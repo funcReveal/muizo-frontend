@@ -14,6 +14,7 @@ import { useRoomCreate } from "../../model/RoomCreateContext";
 import { useRoomCollections } from "../../model/RoomCollectionsContext";
 import { useRoomPlaylist } from "../../model/RoomPlaylistContext";
 import { useRoomGame } from "../../model/RoomGameContext";
+import { useSitePresence } from "../../model/SitePresenceContext";
 import { apiFetchRoomById } from "../../model/roomApi";
 import {
   API_URL,
@@ -186,6 +187,7 @@ const RoomsHubPage: React.FC = () => {
     authLoading,
     authUser,
   } = useAuth();
+  const { siteOnlineCount } = useSitePresence();
   const { rooms, currentRoom } = useRoomSession();
   const {
     collections,
@@ -198,8 +200,10 @@ const RoomsHubPage: React.FC = () => {
     collectionScope,
     publicCollectionsSort,
     setPublicCollectionsSort,
+    collectionFavoriteUpdatingId,
     fetchCollections,
     loadMoreCollections,
+    toggleCollectionFavorite,
     loadCollectionItems,
   } = useRoomCollections();
   const {
@@ -815,10 +819,16 @@ const RoomsHubPage: React.FC = () => {
         view={view}
         selected={selectedCreateCollectionId === collection.id}
         isPublicLibraryTab={createLibraryTab === "public"}
+        isFavoriteUpdating={collectionFavoriteUpdatingId === collection.id}
         formatDurationLabel={formatDurationLabel}
         onSelect={() => {
           void handlePickCollectionSource(collection.id, scope);
         }}
+        onToggleFavorite={
+          createLibraryTab === "public"
+            ? () => toggleCollectionFavorite(collection.id)
+            : undefined
+        }
       />
     );
   };
@@ -1236,9 +1246,14 @@ const RoomsHubPage: React.FC = () => {
                   >
                     <MeetingRoomRounded fontSize="small" />
                   </span>
-                  <p className="text-base font-semibold text-[var(--mc-text)]">
-                    加入房間
-                  </p>
+                  <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+                    <p className="text-base font-semibold text-[var(--mc-text)]">
+                      加入房間
+                    </p>
+                    <span className="text-[11px] font-medium leading-none text-[var(--mc-text-muted)] sm:translate-y-[1px]">
+                      {siteOnlineCount ?? "--"} 人在線
+                    </span>
+                  </div>
                 </div>
               </button>
             </div>
@@ -1580,6 +1595,7 @@ const RoomsHubPage: React.FC = () => {
                   setJoinSortMode={setJoinSortMode}
                   filteredJoinRooms={filteredJoinRooms}
                   filteredJoinPlayerTotal={filteredJoinPlayerTotal}
+                  siteOnlineCount={siteOnlineCount}
                   joinRoomsView={joinRoomsView}
                   setJoinRoomsView={setJoinRoomsView}
                   handleJoinRoomEntry={handleJoinRoomEntry}

@@ -1,4 +1,12 @@
-﻿import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { Button, Drawer, IconButton, Typography } from "@mui/material";
@@ -12,10 +20,8 @@ import HistoryReplayCompactView from "../../Settlement/ui/components/HistoryRepl
 import { HistoryReplaySkeleton } from "../../Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 import RoomLobbyPanel from "./components/RoomLobbyPanel";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
-import { LAST_NON_ROOM_ROUTE_STORAGE_KEY } from "../../../shared/analytics/pageTracking";
-import {
-  type LobbySettlementStats,
-} from "./components/roomLobbyPanelUtils";
+import LAST_NON_ROOM_ROUTE_STORAGE_KEY from "../../../shared/analytics/pageTracking";
+import { type LobbySettlementStats } from "./components/roomLobbyPanelUtils";
 import type {
   RoomSettlementQuestionRecap,
   RoomSettlementHistorySummary,
@@ -54,7 +60,6 @@ const HISTORY_DRAWER_PAGE_SIZE = 24;
 type RoomHistoryLocationState = {
   roomHistoryDrawerKey?: number;
 };
-
 
 type SelfSettlementStats = LobbySettlementStats & {
   maxCombo: number | null;
@@ -366,13 +371,13 @@ const readSettlementSessionCache = (
       replays:
         parsed.replays && typeof parsed.replays === "object"
           ? pruneSettlementReplayByRoundKey(
-            parsed.replays as Record<string, RoomSettlementSnapshot>,
-            {},
-          )
+              parsed.replays as Record<string, RoomSettlementSnapshot>,
+              {},
+            )
           : {},
       updatedAt:
         typeof parsed.updatedAt === "number" &&
-          Number.isFinite(parsed.updatedAt)
+        Number.isFinite(parsed.updatedAt)
           ? parsed.updatedAt
           : undefined,
     };
@@ -488,12 +493,7 @@ const RoomLobbyPage: React.FC = () => {
   const { roomId } = useParams<{ roomId?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const {
-    username,
-    authUser,
-    loginWithGoogle,
-    clientId,
-  } = useAuth();
+  const { username, authUser, loginWithGoogle, clientId } = useAuth();
   const {
     currentRoom,
     participants,
@@ -583,7 +583,8 @@ const RoomLobbyPage: React.FC = () => {
   const [historyDrawerLoadingMore, setHistoryDrawerLoadingMore] =
     useState(false);
   const [loginConfirmOpen, setLoginConfirmOpen] = useState(false);
-  const [backNavigationConfirmOpen, setBackNavigationConfirmOpen] = useState(false);
+  const [backNavigationConfirmOpen, setBackNavigationConfirmOpen] =
+    useState(false);
   const backNavigationGuardActiveRef = useRef(false);
   const backNavigationAllowOnceRef = useRef(false);
   const [historyDrawerCursor, setHistoryDrawerCursor] = useState<number | null>(
@@ -594,9 +595,8 @@ const RoomLobbyPage: React.FC = () => {
     useState<RoomSettlementHistorySummary | null>(null);
   const [historyReplayLoadingRoundKey, setHistoryReplayLoadingRoundKey] =
     useState<string | null>(null);
-  const [settlementStartBroadcastNowMs, setSettlementStartBroadcastNowMs] = useState(
-    () => Date.now() + serverOffsetMs,
-  );
+  const [settlementStartBroadcastNowMs, setSettlementStartBroadcastNowMs] =
+    useState(() => Date.now() + serverOffsetMs);
   const isTabletOrMobileLobby = useMediaQuery("(max-width:1024px)");
   const autoOpenedEndedRoundRef = useRef<string | null>(null);
   const prevGameStatusRef = useRef<"playing" | "ended" | null>(null);
@@ -809,8 +809,8 @@ const RoomLobbyPage: React.FC = () => {
     () =>
       currentRoom?.id
         ? settlementHistorySummaries.filter(
-          (item) => item.roomId === currentRoom.id,
-        )
+            (item) => item.roomId === currentRoom.id,
+          )
         : [],
     [currentRoom?.id, settlementHistorySummaries],
   );
@@ -983,7 +983,8 @@ const RoomLobbyPage: React.FC = () => {
       setActiveSettlementRoundKey(roundKey);
       const cachedReplaySnapshot =
         roomScopedSettlementReplayByRoundKey[roundKey] ?? null;
-      const cachedLiveSnapshot = liveSettlementSnapshotByRoundKey[roundKey] ?? null;
+      const cachedLiveSnapshot =
+        liveSettlementSnapshotByRoundKey[roundKey] ?? null;
       const hasReplayRecaps = hasCompleteSettlementRecaps(cachedReplaySnapshot);
       const hasLiveRecaps = hasCompleteSettlementRecaps(cachedLiveSnapshot);
       if (hasReplayRecaps || hasLiveRecaps) {
@@ -1188,7 +1189,8 @@ const RoomLobbyPage: React.FC = () => {
     useMemo<RoomSettlementSnapshot | null>(() => {
       if (!resolvedActiveSettlementRoundKey) return null;
       const liveSnapshot =
-        liveSettlementSnapshotByRoundKey[resolvedActiveSettlementRoundKey] ?? null;
+        liveSettlementSnapshotByRoundKey[resolvedActiveSettlementRoundKey] ??
+        null;
       const replaySnapshot =
         roomScopedSettlementReplayByRoundKey[
           resolvedActiveSettlementRoundKey
@@ -1267,13 +1269,17 @@ const RoomLobbyPage: React.FC = () => {
       mergedByRoundKey.set(item.roundKey, item);
     });
     if (latestSettlementSummary) {
-      mergedByRoundKey.set(latestSettlementSummary.roundKey, latestSettlementSummary);
+      mergedByRoundKey.set(
+        latestSettlementSummary.roundKey,
+        latestSettlementSummary,
+      );
     }
-    const mergedSettlementSummaries = Array.from(mergedByRoundKey.values()).sort(
-      (a, b) => a.endedAt - b.endedAt || a.roundNo - b.roundNo,
-    );
+    const mergedSettlementSummaries = Array.from(
+      mergedByRoundKey.values(),
+    ).sort((a, b) => a.endedAt - b.endedAt || a.roundNo - b.roundNo);
     const latestSettlementRoundKey =
-      mergedSettlementSummaries[mergedSettlementSummaries.length - 1]?.roundKey ?? null;
+      mergedSettlementSummaries[mergedSettlementSummaries.length - 1]
+        ?.roundKey ?? null;
     const historyDrawerSummaries = [...mergedSettlementSummaries].sort(
       (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
     );
@@ -1305,7 +1311,9 @@ const RoomLobbyPage: React.FC = () => {
       let correctCount = summary.selfPlayer?.correctCount ?? null;
 
       if (snapshot && clientId) {
-        const sortedParticipants = sortSettlementParticipants(snapshot.participants);
+        const sortedParticipants = sortSettlementParticipants(
+          snapshot.participants,
+        );
         const selfParticipant =
           sortedParticipants.find((item) => item.clientId === clientId) ?? null;
         if (selfParticipant) {
@@ -1485,30 +1493,33 @@ const RoomLobbyPage: React.FC = () => {
     [clientId],
   );
 
-  const leaveRoomWithCleanup = useCallback((onLeft?: () => void) => {
-    const targetRoomId =
-      currentRoom?.id ?? roomId ?? lastJoinedRoomIdRef.current;
-    handleLeaveRoom(() => {
-      setActiveSettlementRoundKey(null);
-      if (clientId) {
-        clearSettlementSessionCacheForClient(clientId);
-      } else {
-        removeSettlementCacheForRoom(targetRoomId ?? null);
-      }
-      if (onLeft) {
-        onLeft();
-        return;
-      }
-      navigate("/rooms", { replace: true });
-    });
-  }, [
-    clientId,
-    currentRoom?.id,
-    handleLeaveRoom,
-    navigate,
-    removeSettlementCacheForRoom,
-    roomId,
-  ]);
+  const leaveRoomWithCleanup = useCallback(
+    (onLeft?: () => void) => {
+      const targetRoomId =
+        currentRoom?.id ?? roomId ?? lastJoinedRoomIdRef.current;
+      handleLeaveRoom(() => {
+        setActiveSettlementRoundKey(null);
+        if (clientId) {
+          clearSettlementSessionCacheForClient(clientId);
+        } else {
+          removeSettlementCacheForRoom(targetRoomId ?? null);
+        }
+        if (onLeft) {
+          onLeft();
+          return;
+        }
+        navigate("/rooms", { replace: true });
+      });
+    },
+    [
+      clientId,
+      currentRoom?.id,
+      handleLeaveRoom,
+      navigate,
+      removeSettlementCacheForRoom,
+      roomId,
+    ],
+  );
   const leaveRoomAndNavigate = useCallback(() => {
     leaveRoomWithCleanup();
   }, [leaveRoomWithCleanup]);
@@ -1536,18 +1547,21 @@ const RoomLobbyPage: React.FC = () => {
     if (activeSettlementSnapshot) {
       return {
         title: "要離開對戰結算嗎？",
-        description: "返回上一頁前會先離開目前房間，之後若要加入需重新進入房間。",
+        description:
+          "返回上一頁前會先離開目前房間，之後若要加入需重新進入房間。",
       };
     }
     if (isGameView || gameState?.status === "playing") {
       return {
         title: "要離開對戰嗎？",
-        description: "返回上一頁前會先離開目前房間，離開後會中斷目前的房間連線。",
+        description:
+          "返回上一頁前會先離開目前房間，離開後會中斷目前的房間連線。",
       };
     }
     return {
       title: "要離開房間嗎？",
-      description: "返回上一頁前會先離開目前房間；若要再次加入，請重新使用邀請連結。",
+      description:
+        "返回上一頁前會先離開目前房間；若要再次加入，請重新使用邀請連結。",
     };
   }, [activeSettlementSnapshot, gameState?.status, isGameView]);
 
@@ -1559,7 +1573,8 @@ const RoomLobbyPage: React.FC = () => {
     setBackNavigationConfirmOpen(false);
     backNavigationAllowOnceRef.current = true;
     const fallbackPath =
-      window.sessionStorage.getItem(LAST_NON_ROOM_ROUTE_STORAGE_KEY) || "/rooms";
+      window.sessionStorage.getItem(LAST_NON_ROOM_ROUTE_STORAGE_KEY) ||
+      "/rooms";
     leaveRoomWithCleanup(() => {
       navigate(fallbackPath, { replace: true });
     });
@@ -1641,9 +1656,7 @@ const RoomLobbyPage: React.FC = () => {
       await openSettlementReviewByRoundKey(latest.roundKey);
     })().catch((error) => {
       setStatusText(
-        error instanceof Error
-          ? error.message
-          : "開啟最新結算失敗，請稍後再試",
+        error instanceof Error ? error.message : "開啟最新結算失敗，請稍後再試",
       );
     });
   }, [
@@ -1729,7 +1742,8 @@ const RoomLobbyPage: React.FC = () => {
     [navigate],
   );
   const hasLastSettlement = useMemo(
-    () => Boolean(latestSettlementSnapshot || mergedSettlementSummaries.length > 0),
+    () =>
+      Boolean(latestSettlementSnapshot || mergedSettlementSummaries.length > 0),
     [latestSettlementSnapshot, mergedSettlementSummaries],
   );
   const lastHistoryDrawerRequestKeyRef = useRef<number | null>(null);
@@ -1756,7 +1770,10 @@ const RoomLobbyPage: React.FC = () => {
     let timerId: number | null = null;
     const tick = () => {
       setSettlementStartBroadcastNowMs(Date.now() + serverOffsetMs);
-      const remainingMs = Math.max(0, gameState.startedAt - (Date.now() + serverOffsetMs));
+      const remainingMs = Math.max(
+        0,
+        gameState.startedAt - (Date.now() + serverOffsetMs),
+      );
       if (remainingMs <= 0) return;
       timerId = window.setTimeout(tick, remainingMs <= 5000 ? 250 : 1000);
     };
@@ -1764,11 +1781,21 @@ const RoomLobbyPage: React.FC = () => {
     return () => {
       if (timerId !== null) window.clearTimeout(timerId);
     };
-  }, [activeSettlementSnapshot, gameState?.startedAt, gameState?.status, serverOffsetMs]);
+  }, [
+    activeSettlementSnapshot,
+    gameState?.startedAt,
+    gameState?.status,
+    serverOffsetMs,
+  ]);
 
   const settlementStartBroadcastRemainingSec =
     gameState?.status === "playing"
-      ? Math.max(0, Math.ceil((gameState.startedAt - settlementStartBroadcastNowMs) / 1000))
+      ? Math.max(
+          0,
+          Math.ceil(
+            (gameState.startedAt - settlementStartBroadcastNowMs) / 1000,
+          ),
+        )
       : 0;
   const shouldShowSettlementStartBroadcast =
     Boolean(activeSettlementSnapshot) &&
@@ -1776,27 +1803,27 @@ const RoomLobbyPage: React.FC = () => {
     typeof document !== "undefined";
   const settlementStartBroadcastOverlay = shouldShowSettlementStartBroadcast
     ? createPortal(
-      <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
-        <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
-            Match Settlement
-          </div>
-          <p className="mt-3 text-sm text-slate-200">
-            對戰即將開始結算，{settlementStartBroadcastRemainingSec}{" "}
-            秒後自動切換。
-          </p>
-          <div className="mt-4 flex items-center justify-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
-              {settlementStartBroadcastRemainingSec}
+        <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
+              Match Settlement
             </div>
+            <p className="mt-3 text-sm text-slate-200">
+              對戰即將開始結算，{settlementStartBroadcastRemainingSec}{" "}
+              秒後自動切換。
+            </p>
+            <div className="mt-4 flex items-center justify-center">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
+                {settlementStartBroadcastRemainingSec}
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-300">
+              倒數期間會暫時鎖定操作，避免切換畫面時發生誤觸。
+            </p>
           </div>
-          <p className="mt-3 text-xs text-slate-300">
-            倒數期間會暫時鎖定操作，避免切換畫面時發生誤觸。
-          </p>
-        </div>
-      </div>,
-      document.body,
-    )
+        </div>,
+        document.body,
+      )
     : null;
   const battleHistoryDrawer = (
     <Drawer
@@ -1882,8 +1909,9 @@ const RoomLobbyPage: React.FC = () => {
               return (
                 <div
                   key={summary.roundKey}
-                  className={`room-battle-history-item ${isLatest ? "is-latest" : ""
-                    }`}
+                  className={`room-battle-history-item ${
+                    isLatest ? "is-latest" : ""
+                  }`}
                 >
                   <div className="room-battle-history-item-head">
                     <div>
@@ -2004,8 +2032,8 @@ const RoomLobbyPage: React.FC = () => {
       }
     >
       {historyReplaySummary &&
-        historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
-        !historyReplaySnapshot ? (
+      historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
+      !historyReplaySnapshot ? (
         <HistoryReplaySkeleton />
       ) : historyReplaySnapshot ? (
         <HistoryReplayCompactView
@@ -2160,16 +2188,18 @@ const RoomLobbyPage: React.FC = () => {
                     連線進度
                   </div>
                   <div
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${waitingChecklist.isError
-                      ? "border border-rose-300/30 bg-rose-300/10 text-rose-100"
-                      : "border border-emerald-300/20 bg-emerald-300/10 text-emerald-100/90"
-                      }`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${
+                      waitingChecklist.isError
+                        ? "border border-rose-300/30 bg-rose-300/10 text-rose-100"
+                        : "border border-emerald-300/20 bg-emerald-300/10 text-emerald-100/90"
+                    }`}
                   >
                     <span
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${waitingChecklist.isError
-                        ? "bg-rose-300"
-                        : "animate-pulse bg-emerald-300"
-                        }`}
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${
+                        waitingChecklist.isError
+                          ? "bg-rose-300"
+                          : "animate-pulse bg-emerald-300"
+                      }`}
                     />
                     {waitingChecklist.isError ? "同步失敗" : "同步中"}
                   </div>
@@ -2177,10 +2207,11 @@ const RoomLobbyPage: React.FC = () => {
 
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
                   <div
-                    className={`h-full rounded-full ${waitingChecklist.isError
-                      ? "bg-[linear-gradient(90deg,rgba(251,113,133,0.7),rgba(244,63,94,0.9))]"
-                      : "animate-pulse bg-[linear-gradient(90deg,rgba(245,158,11,0.75),rgba(250,204,21,0.95),rgba(251,191,36,0.7))]"
-                      }`}
+                    className={`h-full rounded-full ${
+                      waitingChecklist.isError
+                        ? "bg-[linear-gradient(90deg,rgba(251,113,133,0.7),rgba(244,63,94,0.9))]"
+                        : "animate-pulse bg-[linear-gradient(90deg,rgba(245,158,11,0.75),rgba(250,204,21,0.95),rgba(251,191,36,0.7))]"
+                    }`}
                     style={{
                       width: `${Math.max(8, Math.round(waitingChecklist.ratio * 100))}%`,
                     }}
@@ -2197,30 +2228,32 @@ const RoomLobbyPage: React.FC = () => {
                   {waitingChecklist.rows.map((step, index) => (
                     <div
                       key={step.key}
-                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${step.state === "done"
-                        ? "border-emerald-300/15 bg-emerald-300/[0.03]"
-                        : step.state === "active"
-                          ? "border-amber-300/15 bg-amber-300/[0.03]"
-                          : step.state === "error"
-                            ? "border-rose-300/15 bg-rose-300/[0.03]"
-                            : "border-white/5 bg-white/[0.02]"
-                        }`}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
+                        step.state === "done"
+                          ? "border-emerald-300/15 bg-emerald-300/[0.03]"
+                          : step.state === "active"
+                            ? "border-amber-300/15 bg-amber-300/[0.03]"
+                            : step.state === "error"
+                              ? "border-rose-300/15 bg-rose-300/[0.03]"
+                              : "border-white/5 bg-white/[0.02]"
+                      }`}
                     >
                       <span
-                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${step.state === "done"
-                          ? "border border-emerald-200/25 bg-emerald-300/12 text-emerald-100"
-                          : step.state === "active"
-                            ? "border border-amber-200/20 bg-amber-300/10 text-amber-100"
-                            : step.state === "error"
-                              ? "border border-rose-200/20 bg-rose-300/10 text-rose-100"
-                              : "border border-slate-300/15 bg-slate-300/5 text-slate-300/80"
-                          }`}
+                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                          step.state === "done"
+                            ? "border border-emerald-200/25 bg-emerald-300/12 text-emerald-100"
+                            : step.state === "active"
+                              ? "border border-amber-200/20 bg-amber-300/10 text-amber-100"
+                              : step.state === "error"
+                                ? "border border-rose-200/20 bg-rose-300/10 text-rose-100"
+                                : "border border-slate-300/15 bg-slate-300/5 text-slate-300/80"
+                        }`}
                         style={
                           step.state === "active"
                             ? {
-                              animation: "pulse 1.6s ease-in-out infinite",
-                              animationDelay: `${index * 0.18}s`,
-                            }
+                                animation: "pulse 1.6s ease-in-out infinite",
+                                animationDelay: `${index * 0.18}s`,
+                              }
                             : undefined
                         }
                       >
@@ -2299,7 +2332,9 @@ const RoomLobbyPage: React.FC = () => {
               onBackToLobby={handleBackToLobby}
               onExitGame={leaveRoomAndNavigate}
               onSubmitChoice={handleSubmitChoice}
-              onRequestPlaybackExtensionVote={handleRequestPlaybackExtensionVote}
+              onRequestPlaybackExtensionVote={
+                handleRequestPlaybackExtensionVote
+              }
               onCastPlaybackExtensionVote={handleCastPlaybackExtensionVote}
               onKickPlayer={handleKickPlayer}
               onTransferHost={handleTransferHost}

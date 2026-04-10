@@ -51,7 +51,7 @@ type PlaylistItemView = {
   endSec: number;
   thumbnail?: string;
   answerStatus?: "original" | "ai_modified" | "manual_reviewed";
-  answerAiProvider?: "grok" | "perplexity" | "chatgpt" | null;
+  answerAiProvider?: "grok" | "perplexity" | "chatgpt" | "gemini" | null;
   answerAiUpdatedAt?: number | null;
   answerAiBatchKey?: string | null;
 };
@@ -834,7 +834,7 @@ const PlaylistListPanel = ({
           items={visibleItemIds}
           strategy={verticalListSortingStrategy}
         >
-          <div className="h-[calc(100svh-420px)] lg:h-[calc(100vh-300px)]">
+          <div className="h-[calc(100svh-466px)] lg:h-[calc(100vh-346px)]">
             {visibleItems.length > 0 ? (
               <List<VirtualRowProps>
                 listRef={setListApi}

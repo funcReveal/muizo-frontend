@@ -14,9 +14,12 @@ import {
 } from "@mui/material";
 import DeleteOutline from "@mui/icons-material/DeleteOutline";
 import CheckRounded from "@mui/icons-material/CheckRounded";
+import BarChartRounded from "@mui/icons-material/BarChartRounded";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
+import QuizRounded from "@mui/icons-material/QuizRounded";
 import ShareRounded from "@mui/icons-material/ShareRounded";
+import StarBorderRounded from "@mui/icons-material/StarBorderRounded";
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { isAdminRole } from "../../../shared/auth/roles";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
@@ -26,6 +29,7 @@ import {
   MAX_PRIVATE_COLLECTIONS_PER_USER,
 } from "../model/collectionLimits";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
+import { appToast } from "../../../shared/ui/toastApi";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -43,6 +47,9 @@ type DbCollection = {
   cover_duration_sec?: number | null;
   cover_source_id?: string | null;
   cover_provider?: string | null;
+  item_count?: number | null;
+  use_count?: number | null;
+  favorite_count?: number | null;
 };
 
 const TEXT = {
@@ -269,8 +276,9 @@ const CollectionsPage = () => {
       targetCollection?.visibility !== "private" &&
       privateCollectionsCount >= MAX_PRIVATE_COLLECTIONS_PER_USER
     ) {
-      setError(
-        `一般使用者最多只能建立 ${MAX_PRIVATE_COLLECTIONS_PER_USER} 個私人收藏庫`,
+      appToast.warning(
+        `私人收藏最多只能建立 ${MAX_PRIVATE_COLLECTIONS_PER_USER} 個，請改為公開收藏或先整理現有私人收藏。`,
+        { id: "private-collection-limit" },
       );
       return;
     }
@@ -357,9 +365,7 @@ const CollectionsPage = () => {
             <div className="flex items-center gap-1 text-sm text-[var(--mc-text-muted)]">
               <span>{collections.length}</span>
               <span className="opacity-50">/</span>
-              <span>
-                {MAX_COLLECTIONS_PER_USER}
-              </span>
+              <span>{MAX_COLLECTIONS_PER_USER}</span>
               <span className="px-1 opacity-35">·</span>
               <span>私人</span>
               <span>{privateCollectionsCount}</span>
@@ -419,6 +425,12 @@ const CollectionsPage = () => {
                 collection.cover_source_id
                   ? `https://i.ytimg.com/vi/${collection.cover_source_id}/hqdefault.jpg`
                   : "");
+              const itemCount = Math.max(0, Number(collection.item_count ?? 0));
+              const useCount = Math.max(0, Number(collection.use_count ?? 0));
+              const favoriteCount = Math.max(
+                0,
+                Number(collection.favorite_count ?? 0),
+              );
               return (
                 <Card
                   key={collection.id}
@@ -446,10 +458,11 @@ const CollectionsPage = () => {
                     <CardContent className="flex h-full flex-col justify-between">
                       <Box className="flex items-center justify-between">
                         <Typography
-                          variant="caption"
-                          className="text-[var(--mc-text-muted)]"
+                          variant="h6"
+                          className="min-w-0 truncate pr-3 font-semibold text-white"
+                          title={collection.title || collection.id}
                         >
-                          {TEXT.open}
+                          {collection.title || collection.id}
                         </Typography>
                         <Box
                           className="flex items-center gap-1"
@@ -561,13 +574,39 @@ const CollectionsPage = () => {
                         </Box>
                       </Box>
                       <Box>
-                        <Typography variant="h6" className="mt-1 text-white">
-                          {collection.title || collection.id}
-                        </Typography>
+                        <div className="flex flex-wrap gap-3 text-[14px] font-semibold leading-none text-slate-100/92">
+                          <span className="inline-flex items-center gap-1.5">
+                            <QuizRounded
+                              sx={{
+                                fontSize: 17,
+                                color: "rgba(103, 232, 249, 0.94)",
+                              }}
+                            />
+                            <span>{itemCount} 題</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <BarChartRounded
+                              sx={{
+                                fontSize: 18,
+                                color: "rgba(125, 211, 252, 0.92)",
+                              }}
+                            />
+                            <span>{useCount}</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <StarBorderRounded
+                              sx={{
+                                fontSize: 17,
+                                color: "rgba(250, 204, 21, 0.9)",
+                              }}
+                            />
+                            <span>{favoriteCount}</span>
+                          </span>
+                        </div>
                         {collection.description && (
                           <Typography
                             variant="body2"
-                            className="mt-2 text-white/70"
+                            className="mt-3 line-clamp-2 text-white/70"
                           >
                             {collection.description}
                           </Typography>

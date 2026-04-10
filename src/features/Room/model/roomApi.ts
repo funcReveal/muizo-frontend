@@ -134,7 +134,13 @@ export type CollectionItemRecord = {
   end_sec: number | null;
   answer_text: string;
   answer_status?: "original" | "ai_modified" | "manual_reviewed" | string | null;
-  answer_ai_provider?: "grok" | "perplexity" | "chatgpt" | string | null;
+  answer_ai_provider?:
+    | "grok"
+    | "perplexity"
+    | "chatgpt"
+    | "gemini"
+    | string
+    | null;
   answer_ai_updated_at?: number | null;
   answer_ai_batch_key?: string | null;
   created_at: number;

@@ -132,7 +132,7 @@ export const useRoomCollections = ({
   >(null);
   const [publicCollectionsSort, setPublicCollectionsSort] = useState<
     "updated" | "popular" | "favorites_first"
-  >("favorites_first");
+  >("updated");
   const [collectionFavoriteUpdatingId, setCollectionFavoriteUpdatingId] =
     useState<string | null>(null);
   const [collectionsLastFetchedAt, setCollectionsLastFetchedAt] = useState<
@@ -242,7 +242,14 @@ export const useRoomCollections = ({
         };
 
         if (resolvedScope === "public") {
+          const publicToken = authToken
+            ? await ensureFreshAuthToken({
+                token: authToken,
+                refreshAuthToken,
+              })
+            : null;
           const { ok, payload } = await apiFetchCollections(apiUrl, {
+            token: publicToken,
             visibility: "public",
             sort: publicCollectionsSort,
             q: normalizedQuery || undefined,
@@ -368,7 +375,14 @@ export const useRoomCollections = ({
 
     try {
       if (resolvedScope === "public") {
+        const publicToken = authToken
+          ? await ensureFreshAuthToken({
+              token: authToken,
+              refreshAuthToken,
+            })
+          : null;
         const { ok, payload } = await apiFetchCollections(apiUrl, {
+          token: publicToken,
           visibility: "public",
           sort: publicCollectionsSort,
           q: publicCollectionsQueryRef.current || undefined,

@@ -32,6 +32,7 @@ import type {
   SessionProgressPayload,
 } from "../types";
 import { useAuth } from "../../../../shared/auth/AuthContext";
+import { useSitePresenceWrite } from "../SitePresenceContext";
 import { useRoomAuthInternal } from "./RoomAuthInternalContext";
 import { useStatusRead, useStatusWrite } from "./RoomStatusContexts";
 import {
@@ -107,6 +108,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     nicknameDraft,
     refreshAuthToken,
   } = useAuth();
+  const { setSitePresence } = useSitePresenceWrite();
 
   const {
     confirmNicknameRef,
@@ -440,6 +442,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setServerOffsetMs,
       setRooms,
       setInviteNotFound,
+      setSitePresence,
     },
     handlers: {
       fetchRooms,

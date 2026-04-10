@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 
 import { RoomProvider } from "../features/Room/model/RoomProvider";
+import { SitePresenceProvider } from "../features/Room/model/providers/SitePresenceProvider";
 import { SettingsProvider } from "../features/Setting/model/settingsModel";
 import { AppToaster } from "../shared/ui/toast";
 
@@ -30,10 +31,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <SettingsProvider>
-          <RoomProvider>
-            {children}
-            <AppToaster />
-          </RoomProvider>
+          <SitePresenceProvider>
+            <RoomProvider>
+              {children}
+              <AppToaster />
+            </RoomProvider>
+          </SitePresenceProvider>
         </SettingsProvider>
       </QueryClientProvider>
     </ThemeProvider>

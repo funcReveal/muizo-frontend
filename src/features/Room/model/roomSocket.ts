@@ -11,11 +11,13 @@ import type {
   RoomState,
   RoomSummary,
   SessionProgressPayload,
+  SitePresencePayload,
 } from "./types";
 
 type RoomSocketHandlers = {
   onConnect?: (socket: ClientSocket) => void;
   onDisconnect?: () => void;
+  onSitePresenceUpdated?: (payload: SitePresencePayload) => void;
   onRoomsUpdated?: (rooms: RoomSummary[]) => void;
   onRoomCreated?: (payload: { room: RoomSummary }) => void;
   onRoomRemoved?: (payload: { roomId: string }) => void;
@@ -82,6 +84,9 @@ export const connectRoomSocket = (
 
   socket.on("connect", () => handlers.onConnect?.(socket));
   socket.on("disconnect", () => handlers.onDisconnect?.());
+  socket.on("sitePresenceUpdated", (payload) =>
+    handlers.onSitePresenceUpdated?.(payload),
+  );
   socket.on("roomsUpdated", (rooms) => handlers.onRoomsUpdated?.(rooms));
   socket.on("roomCreated", (payload) => handlers.onRoomCreated?.(payload));
   socket.on("roomRemoved", (payload) => handlers.onRoomRemoved?.(payload));
