@@ -302,12 +302,15 @@ export const resolveRecapTrack = (
 export const clampMs = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const YOUTUBE_VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+
 export const extractYouTubeId = (
   sourceId?: string | null,
   videoId?: string | null,
   url?: string | null,
 ): string | null => {
-  if (sourceId?.trim()) return sourceId.trim();
+  const trimmedSourceId = sourceId?.trim();
+  if (trimmedSourceId && YOUTUBE_VIDEO_ID_RE.test(trimmedSourceId)) return trimmedSourceId;
   if (videoId?.trim()) return videoId.trim();
   if (!url) return null;
   const raw = url.trim();

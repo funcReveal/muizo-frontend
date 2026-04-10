@@ -312,7 +312,7 @@ const FloatingChatWindow: React.FC = () => {
                     onClick={handleSend}
                     disabled={isChatCooldownActive || !messageInput.trim()}
                   >
-                    {isChatCooldownActive ? `${chatCooldownLeft}s` : "送出"}
+                    送出
                   </button>
                 </div>
               </div>
