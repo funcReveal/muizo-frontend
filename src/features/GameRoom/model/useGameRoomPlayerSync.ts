@@ -21,6 +21,7 @@ interface UseGameRoomPlayerSyncParams {
   isReveal: boolean;
   trackLoadKey: string;
   trackSessionKey: string;
+  audioGestureSessionKey: string;
   videoId: string | null;
   currentTrackIndex: number;
   primeSfxAudio: () => void;
@@ -60,12 +61,17 @@ const useGameRoomPlayerSync = ({
   isReveal,
   trackLoadKey,
   trackSessionKey,
+  audioGestureSessionKey,
   videoId,
   currentTrackIndex,
   primeSfxAudio,
 }: UseGameRoomPlayerSyncParams) => {
-  const [audioUnlocked, setAudioUnlocked] = useState(() => !requiresAudioGesture);
-  const audioUnlockedRef = useRef(!requiresAudioGesture);
+  const [audioUnlockSessionKey, setAudioUnlockSessionKey] = useState<string | null>(
+    () => (!requiresAudioGesture ? audioGestureSessionKey : null),
+  );
+  const audioUnlocked =
+    !requiresAudioGesture || audioUnlockSessionKey === audioGestureSessionKey;
+  const audioUnlockedRef = useRef(audioUnlocked);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
   const [loadedTrackKey, setLoadedTrackKey] = useState<string | null>(null);
@@ -156,9 +162,12 @@ const useGameRoomPlayerSync = ({
 
   const markAudioUnlocked = useCallback(() => {
     if (audioUnlockedRef.current) return;
-    audioUnlockedRef.current = true;
-    setAudioUnlocked(true);
-  }, []);
+    setAudioUnlockSessionKey(audioGestureSessionKey);
+  }, [audioGestureSessionKey]);
+
+  useEffect(() => {
+    audioUnlockedRef.current = audioUnlocked;
+  }, [audioUnlocked]);
 
   useEffect(() => {
     const offsetDelta = serverOffsetMs - previousServerOffsetRef.current;
@@ -635,14 +644,15 @@ const useGameRoomPlayerSync = ({
   );
 
   const unlockAudioAndStart = useCallback(() => {
-    if (!playerReadyRef.current) {
-      return false;
-    }
     primeSfxAudio();
     if (!audioUnlockedRef.current) {
       markAudioUnlocked();
     }
     startSilentAudio();
+    if (!playerReadyRef.current) {
+      resumeNeedsSyncRef.current = true;
+      return true;
+    }
     const serverNow = getServerNowMs();
     if (serverNow < startedAt) {
       debugSync("seekTo", {

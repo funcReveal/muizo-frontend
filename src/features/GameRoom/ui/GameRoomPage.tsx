@@ -602,6 +602,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     trackSessionKey,
     trackLoadKey,
   } = useGameRoomPlaybackState({ gameState, playlist, room, showVideoOverride });
+  const audioGestureSessionKeyRef = useRef<string>("");
+  if (trackCursor === 0 || !audioGestureSessionKeyRef.current) {
+    audioGestureSessionKeyRef.current = `${room.id}:${gameState.startedAt}:${currentTrackIndex}`;
+  }
+  const audioGestureSessionKey = audioGestureSessionKeyRef.current;
   const {
     liveParticipantCount,
     liveAnsweredCount,
@@ -672,6 +677,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     isReveal,
     trackLoadKey,
     trackSessionKey,
+    audioGestureSessionKey,
     videoId,
     currentTrackIndex,
     primeSfxAudio,
