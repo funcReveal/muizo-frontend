@@ -390,6 +390,7 @@ export const useRoomProviderSocketLifecycle = ({
                   });
                   setGameState(state.gameState ?? null);
                   if (state.gameState?.status === "playing") {
+                    setGamePlaylist([]);
                     setIsGameView(true);
                     void fetchCompletePlaylist(state.room.id).then(setGamePlaylist);
                   } else {
@@ -497,6 +498,7 @@ export const useRoomProviderSocketLifecycle = ({
           });
           setGameState(state.gameState ?? null);
           if (state.gameState?.status === "playing") {
+            setGamePlaylist([]);
             setIsGameView(true);
             void fetchCompletePlaylist(state.room.id).then(setGamePlaylist);
           } else {
@@ -630,6 +632,7 @@ export const useRoomProviderSocketLifecycle = ({
             startedAt: gameState.startedAt,
             nextServerOffsetMs: serverNow - Date.now(),
           });
+          setGamePlaylist([]);
           setGameState(gameState);
           const preStartRemainingSec = Math.max(
             0,

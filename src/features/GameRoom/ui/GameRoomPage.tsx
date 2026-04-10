@@ -125,6 +125,8 @@ const MOBILE_SCOREBOARD_MAX_HEIGHT_VH = 72;
 const MOBILE_SCOREBOARD_DEFAULT_HEIGHT_VH = 60;
 
 const GAME_ROOM_GUESS_ANCHOR_STORAGE_KEY = "game_room_guess_anchor_enabled";
+const GAME_ROOM_REVEAL_AUTO_OVERLAY_STORAGE_KEY =
+  "game_room_reveal_auto_overlay_enabled";
 
 const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 100;
 
@@ -154,6 +156,13 @@ const normalizeMobileSplitHeights = (scoreboardHeight: number) => {
 const readInitialGameRoomGuessAnchorEnabled = () => {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(GAME_ROOM_GUESS_ANCHOR_STORAGE_KEY) === "1";
+};
+
+const readInitialGameRoomRevealAutoOverlayEnabled = () => {
+  if (typeof window === "undefined") return true;
+  return (
+    window.localStorage.getItem(GAME_ROOM_REVEAL_AUTO_OVERLAY_STORAGE_KEY) !== "0"
+  );
 };
 
 const GAME_ROOM_DRAWER_MODAL_PROPS = {
@@ -303,7 +312,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [mobileScoreboardSwapArmed, setMobileScoreboardSwapArmed] =
     useState(false);
   const [mobileRevealAutoOverlayEnabled, setMobileRevealAutoOverlayEnabled] =
-    useState(true);
+    useState(readInitialGameRoomRevealAutoOverlayEnabled);
   const [mobileAutoOverlayTransition, setMobileAutoOverlayTransition] =
     useState<"idle" | "opening" | "closing">("idle");
   const [mobileGuessAnchorEnabled, setMobileGuessAnchorEnabled] = useState(
@@ -593,6 +602,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     trackSessionKey,
     trackLoadKey,
   } = useGameRoomPlaybackState({ gameState, playlist, room, showVideoOverride });
+  const audioGestureSessionKeyRef = useRef<string>("");
+  if (trackCursor === 0 || !audioGestureSessionKeyRef.current) {
+    audioGestureSessionKeyRef.current = `${room.id}:${gameState.startedAt}:${currentTrackIndex}`;
+  }
+  const audioGestureSessionKey = audioGestureSessionKeyRef.current;
   const {
     liveParticipantCount,
     liveAnsweredCount,
@@ -663,6 +677,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     isReveal,
     trackLoadKey,
     trackSessionKey,
+    audioGestureSessionKey,
     videoId,
     currentTrackIndex,
     primeSfxAudio,
@@ -869,7 +884,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     onSubmitChoice: submitChoiceWithFeedback,
   });
 
-  const effectivePlayerVideoId = playerVideoId ?? videoId;
+  const effectivePlayerVideoId =
+    trackCursor === 0 ? videoId : playerVideoId ?? videoId;
   const iframeSrc = useMemo(
     () =>
       effectivePlayerVideoId
@@ -1048,6 +1064,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       mobileGuessAnchorEnabled ? "1" : "0",
     );
   }, [mobileGuessAnchorEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      GAME_ROOM_REVEAL_AUTO_OVERLAY_STORAGE_KEY,
+      mobileRevealAutoOverlayEnabled ? "1" : "0",
+    );
+  }, [mobileRevealAutoOverlayEnabled]);
 
   useEffect(() => {
     if (!isMobileGameViewport) {
