@@ -338,7 +338,6 @@ const RoomsHubPage: React.FC = () => {
   const roomsHubBgmTargetVolumeRef = useRef(
     Math.max(0, Math.min(1, bgmVolume / 100)),
   );
-  const [roomsHubBgmBlocked, setRoomsHubBgmBlocked] = useState(false);
 
   useEffect(() => {
     if (currentRoom?.id) {
@@ -400,7 +399,6 @@ const RoomsHubPage: React.FC = () => {
       void audio
         .play()
         .then(() => {
-          setRoomsHubBgmBlocked(false);
           if (roomsHubBgmFadeDoneRef.current) {
             audio.volume = roomsHubBgmTargetVolumeRef.current;
             return;
@@ -411,9 +409,6 @@ const RoomsHubPage: React.FC = () => {
         })
         .catch(() => {
           // Browser autoplay policy may block until the next user gesture.
-          if (roomsHubBgmTargetVolumeRef.current > 0) {
-            setRoomsHubBgmBlocked(true);
-          }
         });
     };
 
@@ -469,7 +464,6 @@ const RoomsHubPage: React.FC = () => {
     roomsHubBgmTargetVolumeRef.current = nextVolume;
     if (nextVolume <= 0) {
       roomsHubBgmRef.current?.pause();
-      setRoomsHubBgmBlocked(false);
       return;
     }
     if (!roomsHubBgmRef.current) return;
@@ -1214,15 +1208,6 @@ const RoomsHubPage: React.FC = () => {
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full flex-1 flex-col text-[var(--mc-text)]">
-      {roomsHubBgmBlocked && bgmVolume > 0 ? (
-        <button
-          type="button"
-          onClick={() => playRoomsHubBgmRef.current()}
-          className="fixed bottom-5 right-5 z-50 rounded-lg border border-cyan-300/45 bg-slate-950/90 px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[0_18px_40px_-24px_rgba(34,211,238,0.85)] transition hover:border-cyan-200/70 hover:bg-slate-900"
-        >
-          播放背景音
-        </button>
-      ) : null}
       {!currentRoom?.id && !username && (
         <section className="relative w-full overflow-hidden rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 p-5 sm:p-6">
           <div className="pointer-events-none absolute inset-0">
