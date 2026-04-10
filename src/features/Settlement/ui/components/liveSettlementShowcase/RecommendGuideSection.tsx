@@ -280,7 +280,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
     : -1;
   const mobileListProgressLabel =
     allRecommendationCards.length === 0
-      ? "0 / 0"
+      ? "0/0"
       : `${Math.min(
         allRecommendationCards.length,
         Math.max(
@@ -289,7 +289,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
             ? mobileCurrentRecommendationIndex
             : safeRecommendIndex) + 1,
         ),
-      )} / ${allRecommendationCards.length}`;
+      )}/${allRecommendationCards.length}`;
 
   React.useEffect(() => {
     if (!mobileQuestionDrawerOpen) setMobileCategorySelectOpen(false);
@@ -467,15 +467,15 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
     isMobileView && typeof document !== "undefined"
       ? createPortal(
         <>
-          <div className="fixed right-1 top-[85dvh] z-[1650] flex -translate-y-1/2 justify-end">
+          <div className="fixed right-0.5 top-[85dvh] z-[1650] flex -translate-y-1/2 justify-end">
             <button
               type="button"
               aria-label="開啟推薦題目清單"
               onClick={() => setMobileQuestionDrawerOpen(true)}
-              className="inline-flex h-10 w-[6.25rem] cursor-pointer items-center justify-center gap-2 rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-3 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
+              className="inline-flex h-10 w-[7rem] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-2.5 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
             >
-              <QueueMusicRoundedIcon className="text-[1rem]" />
-              <span className="rounded-full border border-cyan-200/28 bg-cyan-400/14 px-2 py-0.5 text-[10px] font-black tabular-nums text-cyan-100">
+              <QueueMusicRoundedIcon className="shrink-0 text-[1rem]" />
+              <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center px-1 text-[10px] font-black leading-none tabular-nums text-cyan-100">
                 {mobileListProgressLabel}
               </span>
             </button>
@@ -492,9 +492,9 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
             <div className="flex h-full flex-col overflow-hidden">
               <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
                 <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
-                  <QueueMusicRoundedIcon className="text-[1rem] text-cyan-200" />
+                  <QueueMusicRoundedIcon className="shrink-0 text-[1rem] text-cyan-200" />
                   題目清單
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-black tabular-nums text-slate-300">
+                  <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center whitespace-nowrap px-1 text-[10px] font-black leading-none tabular-nums text-slate-300">
                     {mobileListProgressLabel}
                   </span>
                 </span>

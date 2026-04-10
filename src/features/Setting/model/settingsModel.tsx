@@ -48,6 +48,7 @@ import {
   parseStoredScoreboardBorderAnimation,
   parseStoredScoreboardBorderLineStyle,
   parseStoredScoreboardBorderTheme,
+  parseStoredScoreboardBorderParticleCount,
   SCOREBOARD_BORDER_STORAGE_KEYS,
   type ScoreboardBorderAnimationId,
   type ScoreboardBorderLineStyleId,
@@ -117,6 +118,23 @@ const readStoredNumber = (key: string, fallback: number) => {
   return clampVolume(Number(raw));
 };
 
+const readStoredScoreboardBorderParticleCount = () => {
+  if (typeof window === "undefined") {
+    return DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT_VALUE;
+  }
+  const raw = window.localStorage.getItem(
+    SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
+  );
+  const userTouchedParticleCount =
+    window.localStorage.getItem(
+      SCOREBOARD_BORDER_STORAGE_KEYS.particleCountTouched,
+    ) === "1";
+  return parseStoredScoreboardBorderParticleCount(raw, {
+    // Older builds wrote `0` on first load because `Number(null) === 0`.
+    treatZeroAsDefault: !userTouchedParticleCount,
+  });
+};
+
 export const SettingsProvider = ({ children }: { children: React.ReactNode }) => {
   const [keyBindings, setKeyBindingsState] = useState<KeyBindings>(
     readStoredBindings,
@@ -181,6 +199,19 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         SCOREBOARD_BORDER_STORAGE_KEYS.lineStyle,
       );
       if (storedLineStyle) {
+        const storedAnimation = window.localStorage.getItem(
+          SCOREBOARD_BORDER_STORAGE_KEYS.animation,
+        );
+        const storedTheme = window.localStorage.getItem(
+          SCOREBOARD_BORDER_STORAGE_KEYS.theme,
+        );
+        const looksLikeOldDefault =
+          storedLineStyle === "snow-white" &&
+          (storedAnimation == null || storedAnimation === "single-beam") &&
+          (storedTheme == null || storedTheme === "dual-water-fire");
+        if (looksLikeOldDefault) {
+          return DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID;
+        }
         return parseStoredScoreboardBorderLineStyle(storedLineStyle);
       }
       return legacyMigration.lineStyle;
@@ -230,18 +261,7 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       return DEFAULT_SCOREBOARD_BORDER_MASK_ENABLED_VALUE;
     });
   const [scoreboardBorderParticleCount, setScoreboardBorderParticleCountState] =
-    useState<number>(() => {
-      if (typeof window === "undefined") {
-        return DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT_VALUE;
-      }
-      return clampScoreboardBorderParticleCount(
-        Number(
-          window.localStorage.getItem(
-            SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
-          ),
-        ),
-      );
-    });
+    useState<number>(readStoredScoreboardBorderParticleCount);
   const [avatarEffectLevel, setAvatarEffectLevelState] =
     useState<AvatarEffectLevel>(() => {
       if (typeof window === "undefined") {
@@ -458,15 +478,12 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         );
         return;
       }
-      if (event.key === SCOREBOARD_BORDER_STORAGE_KEYS.particleCount) {
+      if (
+        event.key === SCOREBOARD_BORDER_STORAGE_KEYS.particleCount ||
+        event.key === SCOREBOARD_BORDER_STORAGE_KEYS.particleCountTouched
+      ) {
         setScoreboardBorderParticleCountState(
-          clampScoreboardBorderParticleCount(
-            Number(
-              window.localStorage.getItem(
-                SCOREBOARD_BORDER_STORAGE_KEYS.particleCount,
-              ),
-            ),
-          ),
+          readStoredScoreboardBorderParticleCount(),
         );
         return;
       }
@@ -548,6 +565,12 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
   );
 
   const setScoreboardBorderParticleCount = useCallback((next: number) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        SCOREBOARD_BORDER_STORAGE_KEYS.particleCountTouched,
+        "1",
+      );
+    }
     setScoreboardBorderParticleCountState(
       clampScoreboardBorderParticleCount(next),
     );

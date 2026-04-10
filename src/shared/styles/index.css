@@ -3951,6 +3951,12 @@ body {
   color: #fef9c3;
 }
 
+.game-room-score-row--unanswered {
+  background: rgba(100, 116, 139, 0.13);
+  border-color: rgba(148, 163, 184, 0.24);
+  color: rgba(203, 213, 225, 0.78);
+}
+
 .game-room-score-row--correct {
   background: rgba(16, 185, 129, 0.2);
   border-color: rgba(16, 185, 129, 0.52);
@@ -13706,6 +13712,18 @@ body {
   box-shadow: none;
 }
 
+.game-room-score-row--unanswered {
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    radial-gradient(
+      160px 40px at 4% 50%,
+      rgba(148, 163, 184, 0.08),
+      transparent 74%
+    ),
+    rgba(30, 41, 59, 0.18);
+  color: rgba(203, 213, 225, 0.78);
+}
+
 .game-room-score-row--combo-flare {
   --gr-row-hot: rgba(45, 212, 191, 0.52);
   --gr-row-hot-soft: rgba(45, 212, 191, 0.18);
@@ -17670,6 +17688,18 @@ body {
   .game-room-mobile-scoreboard-shell .game-room-score-row--answered {
     border-color: rgba(100, 116, 139, 0.24);
     color: #e2e8f0;
+  }
+
+  .game-room-mobile-scoreboard-shell .game-room-score-row--unanswered {
+    border-color: rgba(148, 163, 184, 0.16);
+    background:
+      radial-gradient(
+        300px 78px at 0% 50%,
+        rgba(148, 163, 184, 0.05),
+        transparent 76%
+      ),
+      linear-gradient(128deg, rgba(30, 41, 59, 0.32), rgba(15, 23, 42, 0.72));
+    color: rgba(203, 213, 225, 0.72);
   }
 
   .game-room-mobile-scoreboard-shell .game-room-score-row--correct {
@@ -24711,16 +24741,21 @@ body {
 
 .floating-chat-msg--presence {
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  align-self: center;
+  gap: 8px;
+  width: 100%;
   font-size: 10px;
   color: rgba(148, 163, 184, 0.46);
   padding: 1px 0;
+  text-align: center;
 }
 
 .floating-chat-msg-meta {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
@@ -24734,9 +24769,24 @@ body {
   color: rgba(148, 163, 184, 0.5);
 }
 
+.floating-chat-msg--mine .floating-chat-msg-name {
+  color: rgba(207, 250, 254, 0.96);
+}
+
 .floating-chat-msg-time {
   font-size: 10px;
   color: rgba(148, 163, 184, 0.38);
+}
+
+.floating-chat-msg-progress {
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.68);
+  padding: 1px 6px;
+  color: rgba(203, 213, 225, 0.82);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .floating-chat-msg-body {
@@ -25205,6 +25255,10 @@ body {
 }
 
 .player-avatar--scoreboard .player-avatar__rank-mark {
+  display: none;
+}
+
+.player-avatar--scoreboard .player-avatar__combo-mark {
   display: none;
 }
 

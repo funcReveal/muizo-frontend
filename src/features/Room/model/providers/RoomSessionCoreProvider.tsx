@@ -848,8 +848,10 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       handleSendMessage,
       isChatCooldownActive,
       chatCooldownLeft,
+      currentClientId: clientId,
     }),
     [
+      clientId,
       messageInput,
       setMessageInput,
       handleSendMessage,

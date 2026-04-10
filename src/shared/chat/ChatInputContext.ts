@@ -6,6 +6,7 @@ export interface ChatInputContextValue {
   handleSendMessage: () => void;
   isChatCooldownActive: boolean;
   chatCooldownLeft: number;
+  currentClientId: string;
 }
 
 export const ChatInputContext = createContext<ChatInputContextValue | null>(

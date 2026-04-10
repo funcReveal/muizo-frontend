@@ -49,6 +49,7 @@ export const SCOREBOARD_BORDER_STORAGE_KEYS = {
   lineStyle: "scoreboard_border_line_style",
   theme: "scoreboard_border_theme",
   particleCount: "scoreboard_border_particle_count",
+  particleCountTouched: "scoreboard_border_particle_count_touched",
   legacyEffect: "scoreboard_border_effect",
 } as const;
 
@@ -224,6 +225,23 @@ export const clampScoreboardBorderParticleCount = (value: number) => {
   );
 };
 
+export const parseStoredScoreboardBorderParticleCount = (
+  value: unknown,
+  options?: { treatZeroAsDefault?: boolean },
+) => {
+  if (value == null) return DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT;
+  if (typeof value === "string" && value.trim() === "") {
+    return DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT;
+  }
+  const parsed =
+    typeof value === "number" ? value : Number(String(value).trim());
+  const clamped = clampScoreboardBorderParticleCount(parsed);
+  if (options?.treatZeroAsDefault && clamped === 0) {
+    return DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT;
+  }
+  return clamped;
+};
+
 export const migrateLegacyScoreboardBorderEffect = (
   value: unknown,
 ): {
@@ -254,10 +272,10 @@ export const migrateLegacyScoreboardBorderEffect = (
       };
     default:
       return {
-        enabled: true,
-        animation: "single-beam",
-        lineStyle: "snow-white",
-        theme: "dual-water-fire",
+        enabled: DEFAULT_SCOREBOARD_BORDER_ENABLED,
+        animation: DEFAULT_SCOREBOARD_BORDER_ANIMATION,
+        lineStyle: DEFAULT_SCOREBOARD_BORDER_LINE_STYLE,
+        theme: DEFAULT_SCOREBOARD_BORDER_THEME,
       };
   }
 };
