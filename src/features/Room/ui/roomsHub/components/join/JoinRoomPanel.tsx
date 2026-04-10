@@ -157,7 +157,6 @@ const JoinRoomPanel = ({
   handleConfirmJoinWithPassword,
 }: JoinRoomPanelProps) => {
   const JOIN_ROOM_BATCH_SIZE = 12;
-  const JOIN_ROOM_LIST_HEIGHT = 440;
   const JOIN_ROOM_LIST_ROW_HEIGHT = 204;
   const joinStatusOptions: Array<{
     key: JoinStatusFilter;
@@ -497,8 +496,8 @@ const JoinRoomPanel = ({
 
   return (
     <>
-      <div className="space-y-3">
-        <div>
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="shrink-0">
           <div className="flex flex-col gap-3">
             <div className="rounded-2xl border border-[var(--mc-border)] bg-slate-950/22 p-1">
               <Tabs
@@ -788,8 +787,8 @@ const JoinRoomPanel = ({
           </>
         )}
         {joinEntryTab === "browser" && (
-          <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3">
-            <div className="flex min-h-12 flex-wrap items-center justify-between gap-3">
+          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3">
+            <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-3">
               <p className="text-[13px] text-[var(--mc-text-muted)]">
                 目前共 {filteredJoinRooms.length} 間房，房內{" "}
                 {filteredJoinPlayerTotal} 人， 
@@ -823,7 +822,7 @@ const JoinRoomPanel = ({
               </div>
             </div>
 
-            <div className="mt-3 flex flex-nowrap gap-2">
+            <div className="mt-3 flex shrink-0 flex-nowrap gap-2">
               <button
                 type="button"
                 onClick={() =>
@@ -960,7 +959,7 @@ const JoinRoomPanel = ({
             </div>
 
             {filteredJoinRooms.length === 0 ? (
-              <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] px-4 text-center">
+              <div className="mt-4 flex min-h-[200px] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] px-4 text-center">
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
                   <MeetingRoomRounded
                     sx={{ fontSize: 22, color: "rgba(148, 163, 184, 0.9)" }}
@@ -975,7 +974,7 @@ const JoinRoomPanel = ({
               </div>
             ) : joinRoomsView === "grid" ? (
               <div
-                className="mt-4 max-h-[440px] overflow-y-auto pr-1"
+                className="mt-4 min-h-0 flex-1 overflow-y-auto pb-4 pr-1"
                 onScroll={handleJoinRoomGridScroll}
               >
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -986,10 +985,10 @@ const JoinRoomPanel = ({
                 </div>
               </div>
             ) : (
-              <div className="mt-4">
+              <div className="mt-4 min-h-0 flex-1">
                 <List<VirtualJoinRoomRowProps>
                   style={{
-                    height: JOIN_ROOM_LIST_HEIGHT,
+                    height: "100%",
                     width: "100%",
                   }}
                   rowCount={

@@ -13,7 +13,7 @@ const LibraryEmptyState = ({
   description,
   actions,
 }: LibraryEmptyStateProps) => (
-  <div className="flex h-full min-h-[420px] flex-col justify-center rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(2,6,23,0.46),rgba(15,23,42,0.28))] px-5 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] lg:min-h-0">
+  <div className="flex h-full min-h-[240px] flex-col justify-center rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(2,6,23,0.46),rgba(15,23,42,0.28))] px-5 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:min-h-[420px] lg:min-h-0">
     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-slate-100 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.8)]">
       {icon}
     </div>

@@ -766,7 +766,7 @@ export const useRoomCollections = ({
     setCollectionsHasMore(false);
     setCollectionsError(null);
     setCollectionScope(null);
-    setPublicCollectionsSort("favorites_first");
+    setPublicCollectionsSort("updated");
     setCollectionFavoriteUpdatingId(null);
     setCollectionsLastFetchedAt(null);
     collectionPageRef.current = 1;

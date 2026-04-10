@@ -31,8 +31,8 @@ const publicSortOptions: Array<{
   key: Exclude<PublicCollectionsSort, "favorites_first">;
   label: string;
 }> = [
-  { key: "popular", label: "最多收藏" },
-  { key: "updated", label: "最近更新" },
+  { key: "popular", label: "最受歡迎" },
+  { key: "updated", label: "近期更新" },
 ];
 
 const viewToggle = (

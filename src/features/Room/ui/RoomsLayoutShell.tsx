@@ -325,7 +325,7 @@ const RoomsLayoutShell: React.FC = () => {
         />
 
         {isRoomsHubPage ? (
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-2">
+          <div className="min-h-0 flex-1 overflow-hidden pb-2">
             <Outlet />
           </div>
         ) : (

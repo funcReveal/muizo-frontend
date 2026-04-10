@@ -86,8 +86,8 @@ const LibrarySourcePanel = ({
   };
 
   return (
-    <div className="grid min-h-0 min-w-0 gap-2 lg:flex-1 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-3">
-      <aside className="min-w-0 px-0 py-1 lg:flex lg:min-h-0 lg:flex-col lg:pr-2 lg:pb-2 lg:pl-0 lg:pt-2">
+    <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-2 lg:grid-cols-[220px_minmax(0,1fr)] lg:grid-rows-none lg:gap-3">
+      <aside className="min-w-0 self-start px-0 py-1 lg:flex lg:min-h-0 lg:self-stretch lg:flex-col lg:pr-2 lg:pb-2 lg:pl-0 lg:pt-2">
         <div className="mb-2 hidden items-center gap-1 lg:mb-0 lg:flex">
           {createLeftTab === "settings" ? (
             <button
@@ -169,8 +169,8 @@ const LibrarySourcePanel = ({
                     boxShadow:
                       "inset 0 1px 0 rgba(255,255,255,0.04), 0 16px 30px -24px rgba(14,165,233,0.55)",
                     "& .MuiSelect-select": {
-                      px: 1.5,
-                      py: 1.25,
+                      px: 1.25,
+                      py: 0.75,
                     },
                     "& .MuiOutlinedInput-notchedOutline": {
                       borderColor: "rgba(148, 163, 184, 0.2)",

@@ -1637,7 +1637,7 @@ const RoomsHubPage: React.FC = () => {
                               PlaylistIssueRow={PlaylistIssueRow}
                             />
                           ) : createLibraryTab === "youtube" ? (
-                            <div className="mt-2 flex min-h-[420px] flex-1 flex-col sm:mt-3 lg:min-h-0">
+                            <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
                               <YoutubeSourceContent
                                 youtubePlaylistsLoading={
                                   youtubePlaylistsLoading
@@ -1663,7 +1663,7 @@ const RoomsHubPage: React.FC = () => {
                               />
                             </div>
                           ) : (
-                            <div className="mt-2 flex min-h-[420px] flex-1 flex-col sm:mt-3 lg:min-h-0">
+                            <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
                               <CollectionsSourceContent
                                 createLibraryTab={createLibraryTab}
                                 createLibraryView={createLibraryView}
