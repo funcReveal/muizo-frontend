@@ -1,4 +1,10 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Button,
@@ -263,7 +269,7 @@ const RoomsLayoutShell: React.FC = () => {
   }, [setStatusText, statusText]);
 
   const isGameMode = Boolean(currentRoom && gameState);
-  const isRoomsHubPage = location.pathname === "/" || location.pathname === "/rooms";
+  const isRoomsHubPage = location.pathname === "/rooms";
 
   const settingsDialogPaperProps = useMemo(
     () => ({
@@ -462,6 +468,3 @@ const RoomsLayoutShell: React.FC = () => {
 };
 
 export default RoomsLayoutShell;
-
-
-
