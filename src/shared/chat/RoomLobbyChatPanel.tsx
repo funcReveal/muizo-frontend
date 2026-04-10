@@ -32,7 +32,13 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
   onOpenHistoryDrawer,
   onOpenSettlementByRoundKey,
 }) => {
-  const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
+  const {
+    messageInput,
+    setMessageInput,
+    handleSendMessage,
+    isChatCooldownActive,
+    chatCooldownLeft,
+  } = useChatInput();
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -75,7 +81,7 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
               const isPresenceSystemMessage = msg.userId === "system:presence";
               const settlementRoundKey =
                 msg.userId === "system:settlement-review" &&
-                msg.id.startsWith(SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX)
+                  msg.id.startsWith(SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX)
                   ? msg.id.slice(SETTLEMENT_REVIEW_MESSAGE_ID_PREFIX.length)
                   : null;
               const isLatestSettlement =
@@ -84,13 +90,13 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
                 settlementRoundKey === latestSettlementRoundKey;
               const canOpenSettlementReview = Boolean(
                 settlementRoundKey &&
-                  onOpenSettlementByRoundKey &&
-                  isLatestSettlement,
+                onOpenSettlementByRoundKey &&
+                isLatestSettlement,
               );
               const canOpenHistoryDrawer = Boolean(
                 settlementRoundKey &&
-                  !isLatestSettlement &&
-                  onOpenHistoryDrawer,
+                !isLatestSettlement &&
+                onOpenHistoryDrawer,
               );
 
               if (isPresenceSystemMessage) {
@@ -205,21 +211,49 @@ const RoomLobbyChatPanel: React.FC<RoomLobbyChatPanelProps> = ({
       </Box>
 
       <Stack direction="row" spacing={1} className="room-lobby-chat-input">
-        <TextField
-          autoComplete="off"
-          fullWidth
-          size="small"
-          placeholder="輸入訊息，按 Enter 送出"
-          value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
-        />
-        <Button variant="contained" onClick={handleSendMessage}>
+        {isChatCooldownActive ? (
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              px: 1.5,
+              py: 1,
+              borderRadius: 1,
+              border: "1px solid rgba(245,158,11,0.28)",
+              background: "rgba(245,158,11,0.05)",
+              fontSize: 12,
+              fontWeight: 500,
+              color: "rgba(251,191,36,0.95)",
+              textAlign: "center",
+            }}
+          >
+            輸入過於頻繁，請於 <Box component="strong" sx={{ fontWeight: 700, mx: 0.4 }}>{chatCooldownLeft}</Box> 秒後重試
+          </Box>
+        ) : (
+          <TextField
+            autoComplete="off"
+            fullWidth
+            size="small"
+            placeholder="輸入訊息，按 Enter 送出"
+            value={messageInput}
+            onChange={(e) => {
+              setMessageInput(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+          />
+        )}
+        <Button
+          variant="contained"
+          onClick={handleSendMessage}
+          disabled={isChatCooldownActive || !messageInput.trim()}
+        >
           送出
         </Button>
       </Stack>

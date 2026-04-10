@@ -54,6 +54,9 @@ interface UseRoomProviderRoomActionsParams {
       kickedAt: number;
     } | null>
   >;
+  chatCooldownLeft: number;
+  setChatCooldownUntil: Dispatch<SetStateAction<number | null>>;
+  setChatCooldownLeft: Dispatch<SetStateAction<number>>;
   syncServerOffset: (serverNow: number) => void;
   mergeCachedParticipantPing: (
     nextParticipants: RoomParticipant[],
@@ -108,6 +111,9 @@ export const useRoomProviderRoomActions = ({
   playlistProgressReady,
   messageInput,
   setMessageInput,
+  chatCooldownLeft,
+  setChatCooldownUntil,
+  setChatCooldownLeft,
   setStatusText,
   setKickedNotice,
   syncServerOffset,
@@ -158,9 +164,12 @@ export const useRoomProviderRoomActions = ({
           if (ack.ok) {
             const state = ack.data;
             const submittedPin = (pinOverride ?? joinPasswordInput).trim();
-            const serverPin = (state.room.pin ?? state.room.password ?? "").trim();
-            const resolvedRoomPassword =
-              submittedPin || serverPin || null;
+            const serverPin = (
+              state.room.pin ??
+              state.room.password ??
+              ""
+            ).trim();
+            const resolvedRoomPassword = submittedPin || serverPin || null;
             syncServerOffset(state.serverNow);
             setCurrentRoom(applyGameSettingsPatch(state.room, {}));
             setParticipants((prev) =>
@@ -295,23 +304,69 @@ export const useRoomProviderRoomActions = ({
   );
 
   const handleSendMessage = useCallback(() => {
+    if (chatCooldownLeft > 0) return;
+
     const socket = getSocket();
     if (!socket || !currentRoom) {
       setStatusText("發送訊息失敗");
       return;
     }
+
     const trimmed = messageInput.trim();
     if (!trimmed) return;
 
     socket.emit("sendMessage", { content: trimmed }, (ack) => {
-      if (!ack) return;
-      if (!ack.ok) {
-        setStatusText(formatAckError("發送訊息失敗", ack.error));
-      }
-    });
+      console.log("sendMessage ack:", ack);
 
-    setMessageInput("");
-  }, [currentRoom, getSocket, messageInput, setMessageInput, setStatusText]);
+      if (!ack) return;
+
+      if (!ack.ok) {
+        let retryAfterMs: number | null =
+          typeof ack.retryAfterMs === "number" && ack.retryAfterMs > 0
+            ? ack.retryAfterMs
+            : null;
+
+        if (!retryAfterMs) {
+          const matchedSeconds = ack.error.match(/請\s*(\d+)\s*秒後再試/);
+          if (matchedSeconds) {
+            retryAfterMs = Number(matchedSeconds[1]) * 1000;
+          }
+        }
+
+        if (!retryAfterMs) {
+          if (
+            ack.error === "RATE_LIMITED" ||
+            ack.error.includes("頻繁") ||
+            ack.error.includes("過快")
+          ) {
+            retryAfterMs = 10_000;
+          }
+        }
+
+        if (retryAfterMs) {
+          const cooldownSeconds = Math.ceil(retryAfterMs / 1000);
+          setChatCooldownLeft(cooldownSeconds);
+          setChatCooldownUntil(Date.now() + retryAfterMs);
+          setStatusText(`請稍候 ${cooldownSeconds} 秒後再發送訊息`);
+          return;
+        }
+
+        setStatusText(formatAckError("發送訊息失敗", ack.error));
+        return;
+      }
+
+      setMessageInput("");
+    });
+  }, [
+    chatCooldownLeft,
+    currentRoom,
+    getSocket,
+    messageInput,
+    setChatCooldownLeft,
+    setChatCooldownUntil,
+    setMessageInput,
+    setStatusText,
+  ]);
 
   const handleStartGame = useCallback(() => {
     const socket = getSocket();
@@ -453,8 +508,8 @@ export const useRoomProviderRoomActions = ({
     ],
   );
 
-  const handleRequestPlaybackExtensionVote =
-    useCallback(async (remainingMs?: number): Promise<boolean> => {
+  const handleRequestPlaybackExtensionVote = useCallback(
+    async (remainingMs?: number): Promise<boolean> => {
       const socket = getSocket();
       if (!socket || !currentRoom) {
         setStatusText("目前不在房間內");
@@ -490,7 +545,9 @@ export const useRoomProviderRoomActions = ({
           },
         );
       });
-    }, [currentRoom, getSocket, setGameState, setStatusText, syncServerOffset]);
+    },
+    [currentRoom, getSocket, setGameState, setStatusText, syncServerOffset],
+  );
 
   const handleCastPlaybackExtensionVote = useCallback(
     async (vote: "approve" | "reject"): Promise<boolean> => {

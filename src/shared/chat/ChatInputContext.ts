@@ -4,9 +4,13 @@ export interface ChatInputContextValue {
   messageInput: string;
   setMessageInput: (value: string) => void;
   handleSendMessage: () => void;
+  isChatCooldownActive: boolean;
+  chatCooldownLeft: number;
 }
 
-export const ChatInputContext = createContext<ChatInputContextValue | null>(null);
+export const ChatInputContext = createContext<ChatInputContextValue | null>(
+  null,
+);
 
 export const useChatInput = (): ChatInputContextValue => {
   const ctx = useContext(ChatInputContext);

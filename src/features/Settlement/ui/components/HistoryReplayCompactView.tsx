@@ -1175,7 +1175,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                                 />
                               </div>
                             </div>
-                            <span className="shrink-0 px-2.5 py-0.5 text-xs font-semibold text-cyan-100">
+                            <span className="shrink-0 min-w-[34px] px-2.5 py-0.5 text-right text-xs font-semibold tabular-nums text-cyan-100">
                               {previewVolume}%
                             </span>
                           </div>
@@ -1565,7 +1565,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                           />
                         </div>
                       </div>
-                      <span className="shrink-0 px-2.5 py-0.5 text-xs font-semibold text-cyan-100">{previewVolume}%</span>
+                      <span className="shrink-0 min-w-[34px] px-2.5 py-0.5 text-right text-xs font-semibold tabular-nums text-cyan-100">{previewVolume}%</span>
                     </div>
                   </div>
                 </div>

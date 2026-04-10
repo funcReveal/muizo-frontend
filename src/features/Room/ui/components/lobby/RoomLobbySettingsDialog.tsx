@@ -596,6 +596,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                       arrow
                       placement="top"
                       title="延長功能只影響猜歌階段；目前提供延長播放時間，不會直接重播整首歌曲。"
+                      slotProps={{ popper: { style: { zIndex: 1510 } } }}
                     >
                       <IconButton
                         size="small"

@@ -1057,7 +1057,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                       />
                     </div>
                   </div>
-                  <span ref={previewTextRef} className="shrink-0 text-xs font-semibold text-cyan-100">{previewVolume}%</span>
+                  <span ref={previewTextRef} className="shrink-0 min-w-[34px] text-right text-xs font-semibold tabular-nums text-cyan-100">{previewVolume}%</span>
                 </div>
               </div>
               )}

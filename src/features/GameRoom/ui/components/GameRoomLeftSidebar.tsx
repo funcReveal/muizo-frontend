@@ -203,7 +203,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
             variant="filled"
           />
         ) : (
-          <Chip label="待答" size="small" variant="outlined" />
+          <Chip label={isReveal ? "未作答" : "待答"} size="small" variant="outlined" />
         )}
         <span className="font-semibold text-emerald-300 tabular-nums">
           {player.score.toLocaleString()}

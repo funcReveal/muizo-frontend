@@ -639,7 +639,7 @@ const YouTubePlayerArea: React.FC<{
           />
         </div>
       </div>
-      <span className="shrink-0 text-xs font-semibold text-cyan-100">{volume}%</span>
+      <span className="shrink-0 min-w-[34px] text-right text-xs font-semibold tabular-nums text-cyan-100">{volume}%</span>
     </div>
   ) : null;
 

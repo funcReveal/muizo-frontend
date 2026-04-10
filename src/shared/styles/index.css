@@ -2051,6 +2051,24 @@ body {
   align-items: stretch;
 }
 
+.room-lobby-chat-input .MuiInputBase-root.Mui-disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.room-lobby-chat-input .MuiInputBase-input.Mui-disabled {
+  -webkit-text-fill-color: rgba(226, 232, 240, 0.72);
+}
+
+.room-lobby-chat-input .MuiInputBase-input.Mui-disabled::placeholder {
+  -webkit-text-fill-color: rgba(251, 191, 36, 0.92);
+  color: rgba(251, 191, 36, 0.92);
+}
+
+.room-lobby-chat-input .MuiButton-root:disabled {
+  opacity: 0.5;
+}
+
 .room-lobby-chat-input .MuiInputBase-root {
   min-height: 46px;
   border-radius: 15px;
@@ -4519,7 +4537,6 @@ body {
     border-color 300ms ease,
     background-color 300ms ease;
 }
-
 
 .game-room-choice-button.MuiButton-root::before,
 .game-room-choice-button.MuiButton-root::after {
@@ -10538,6 +10555,20 @@ body {
   border-bottom-color: rgba(56, 189, 248, 0.36) !important;
 }
 
+.game-room-chat-input-field:disabled,
+.game-room-chat-input-field--cooldown {
+  opacity: 0.68;
+  cursor: not-allowed;
+  border-color: rgba(245, 158, 11, 0.38);
+  background: rgba(15, 23, 42, 0.88);
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.game-room-chat-input-field:disabled::placeholder,
+.game-room-chat-input-field--cooldown::placeholder {
+  color: rgba(251, 191, 36, 0.92);
+}
+
 .game-room-choice-button.MuiButton-root {
   background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
@@ -16314,6 +16345,8 @@ body {
 }
 
 .game-room-playback-volume-panel__value {
+  display: inline-block;
+  min-width: 3.2em;
   font-size: 15px;
   font-weight: 800;
   line-height: 1;
@@ -18098,12 +18131,11 @@ body {
   /* Unanswered idle state: subtle dark-navy border + muted background */
   .game-room-choice-button--mobile-idle.MuiButton-outlined.MuiButton-outlinedInfo {
     border-color: rgba(71, 107, 160, 0.45) !important;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(18, 28, 52, 0.72) 0%,
-        rgba(10, 17, 36, 0.80) 100%
-      ) !important;
+    background: linear-gradient(
+      180deg,
+      rgba(18, 28, 52, 0.72) 0%,
+      rgba(10, 17, 36, 0.8) 100%
+    ) !important;
     box-shadow:
       inset 0 1px 0 rgba(148, 163, 184, 0.05),
       0 2px 8px -4px rgba(10, 20, 50, 0.5) !important;
@@ -18113,7 +18145,9 @@ body {
     transform: scale(0.985);
   }
 
-  .game-room-choice-button--mobile.MuiButton-root:not(.pointer-events-none):hover {
+  .game-room-choice-button--mobile.MuiButton-root:not(
+      .pointer-events-none
+    ):hover {
     border-color: rgba(125, 211, 252, 0.38) !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.075),
@@ -24737,6 +24771,64 @@ body {
   transition: border-color 0.15s;
 }
 
+.floating-chat-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.floating-chat-cooldown-tip {
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgba(251, 191, 36, 0.95);
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.16);
+}
+
+.floating-chat-cooldown-inline {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.06);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(251, 191, 36, 0.96);
+  text-align: center;
+  cursor: default;
+  user-select: none;
+}
+
+.floating-chat-cooldown-inline strong {
+  font-weight: 700;
+  margin: 0 2px;
+}
+
+.floating-chat-input:disabled,
+.floating-chat-input--cooldown {
+  opacity: 0.68;
+  cursor: not-allowed;
+  border-color: rgba(245, 158, 11, 0.38);
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.floating-chat-input:disabled::placeholder,
+.floating-chat-input--cooldown::placeholder {
+  color: rgba(251, 191, 36, 0.92);
+}
+
+.floating-chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .floating-chat-input:focus {
   border-color: rgba(245, 158, 11, 0.5);
 }
@@ -24746,7 +24838,9 @@ body {
 }
 
 .floating-chat-send-btn {
-  padding: 7px 11px;
+  flex: 0 0 auto;
+  width: 44px;
+  padding: 7px 4px;
   background: rgba(245, 158, 11, 0.14);
   border: 1px solid rgba(245, 158, 11, 0.28);
   border-radius: 6px;
@@ -24755,6 +24849,7 @@ body {
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
+  text-align: center;
   transition:
     background 0.15s,
     border-color 0.15s;

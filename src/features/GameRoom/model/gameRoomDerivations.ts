@@ -338,6 +338,10 @@ type BuildSettlementQuestionRecapParams = {
   channelId: string | null | undefined;
   duration: string | null | undefined;
   thumbnail: string | null | undefined;
+  url?: string;
+  videoId?: string;
+  sourceId?: string | null;
+  provider?: string;
   myChoiceIndex: number | null;
   correctChoiceIndex: number;
   choices: Array<{ index: number; title?: string | null }>;
@@ -368,6 +372,10 @@ export const buildSettlementQuestionRecap = ({
   channelId,
   duration,
   thumbnail,
+  url,
+  videoId,
+  sourceId,
+  provider,
   myChoiceIndex,
   correctChoiceIndex,
   choices,
@@ -400,6 +408,10 @@ export const buildSettlementQuestionRecap = ({
     channelId: channelId?.trim() || null,
     duration: duration?.trim() || null,
     thumbnail: thumbnail || null,
+    url: url ?? undefined,
+    videoId: videoId ?? undefined,
+    sourceId: sourceId ?? undefined,
+    provider: provider ?? undefined,
     myResult,
     myChoiceIndex,
     correctChoiceIndex,

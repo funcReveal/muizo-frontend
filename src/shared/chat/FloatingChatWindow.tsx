@@ -53,7 +53,13 @@ const FloatingChatWindow: React.FC = () => {
     clientId,
     gameState,
   } = useRoomRealtime();
-  const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
+  const {
+    messageInput,
+    setMessageInput,
+    handleSendMessage,
+    isChatCooldownActive,
+    chatCooldownLeft,
+  } = useChatInput();
 
   const danmuCtx = React.useContext(DanmuContext);
   const [open, setOpen] = useState(false);
@@ -124,9 +130,10 @@ const FloatingChatWindow: React.FC = () => {
   }, [handleClose, handleOpen, open]);
 
   const handleSend = useCallback(() => {
+    if (isChatCooldownActive) return;
     if (!messageInput.trim()) return;
     handleSendMessage();
-  }, [handleSendMessage, messageInput]);
+  }, [handleSendMessage, isChatCooldownActive, messageInput]);
 
   const mobileChatDragDismiss = useMobileDrawerDragDismiss({
     open: isMobileRoomMode && open,
@@ -217,11 +224,10 @@ const FloatingChatWindow: React.FC = () => {
           onClose={handleClose}
           ModalProps={GAME_ROOM_DRAWER_MODAL_PROPS}
           PaperProps={{
-            className: `game-room-mobile-chat-drawer ${
-              open
-                ? "game-room-mobile-chat-drawer--open"
-                : "game-room-mobile-chat-drawer--closed"
-            }`,
+            className: `game-room-mobile-chat-drawer ${open
+              ? "game-room-mobile-chat-drawer--open"
+              : "game-room-mobile-chat-drawer--closed"
+              }`,
             style: mobileChatDragDismiss.paperStyle,
           }}
         >
@@ -276,28 +282,39 @@ const FloatingChatWindow: React.FC = () => {
                 {renderMessages()}
               </div>
 
-              <div className="floating-chat-input-row">
-                <input
-                  ref={inputRef}
-                  className="floating-chat-input"
-                  placeholder="輸入訊息"
-                  value={messageInput}
-                  onChange={(event) => setMessageInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  autoComplete="off"
-                />
-                <button
-                  type="button"
-                  className="floating-chat-send-btn"
-                  onClick={handleSend}
-                >
-                  送出
-                </button>
+              <div className="floating-chat-input-wrap">
+                <div className="floating-chat-input-row">
+                  {isChatCooldownActive ? (
+                    <div className="floating-chat-cooldown-inline">
+                      輸入過於頻繁，請於 <strong>{chatCooldownLeft}</strong> 秒後重試
+                    </div>
+                  ) : (
+                    <input
+                      ref={inputRef}
+                      className="floating-chat-input"
+                      placeholder="輸入訊息"
+                      value={messageInput}
+                      onChange={(event) => {
+                        setMessageInput(event.target.value);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      autoComplete="off"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className="floating-chat-send-btn"
+                    onClick={handleSend}
+                    disabled={isChatCooldownActive || !messageInput.trim()}
+                  >
+                    送出
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -379,24 +396,39 @@ const FloatingChatWindow: React.FC = () => {
             {renderMessages()}
           </div>
 
-          <div className="floating-chat-input-row">
-            <input
-              ref={inputRef}
-              className="floating-chat-input"
-              placeholder="輸入訊息"
-              value={messageInput}
-              onChange={(event) => setMessageInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  handleSend();
-                }
-              }}
-              autoComplete="off"
-            />
-            <button type="button" className="floating-chat-send-btn" onClick={handleSend}>
-              送出
-            </button>
+          <div className="floating-chat-input-wrap">
+            <div className="floating-chat-input-row">
+              {isChatCooldownActive ? (
+                <div className="floating-chat-cooldown-inline">
+                  輸入過於頻繁，請於 <strong>{chatCooldownLeft}</strong> 秒後重試
+                </div>
+              ) : (
+                <input
+                  ref={inputRef}
+                  className="floating-chat-input"
+                  placeholder="輸入訊息"
+                  value={messageInput}
+                  onChange={(event) => {
+                    setMessageInput(event.target.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  autoComplete="off"
+                />
+              )}
+              <button
+                type="button"
+                className="floating-chat-send-btn"
+                onClick={handleSend}
+                disabled={isChatCooldownActive || !messageInput.trim()}
+              >
+                {isChatCooldownActive ? `${chatCooldownLeft}s` : "送出"}
+              </button>
+            </div>
           </div>
         </div>
       )}

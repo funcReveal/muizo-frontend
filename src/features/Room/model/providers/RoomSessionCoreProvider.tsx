@@ -178,6 +178,9 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     RoomSettlementSnapshot[]
   >([]);
   const [messageInput, setMessageInput] = useState("");
+  const [chatCooldownUntil, setChatCooldownUntil] = useState<number | null>(null);
+  const [chatCooldownLeft, setChatCooldownLeft] = useState(0);
+  const isChatCooldownActive = chatCooldownLeft > 0;
   const [joinPasswordInput, setJoinPasswordInput] = useState("");
   const [sessionProgress, setSessionProgress] =
     useState<SessionProgressPayload | null>(null);
@@ -219,10 +222,10 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
         const next =
           typeof value === "function"
             ? (
-                value as (
-                  prev: RoomSettlementSnapshot[],
-                ) => RoomSettlementSnapshot[]
-              )(previous)
+              value as (
+                prev: RoomSettlementSnapshot[],
+              ) => RoomSettlementSnapshot[]
+            )(previous)
             : value;
         return capSettlementHistory(next);
       });
@@ -482,6 +485,9 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     playlistProgressReady: basePlaylistCtx.playlistProgress.ready,
     messageInput,
     setMessageInput,
+    chatCooldownLeft,
+    setChatCooldownUntil,
+    setChatCooldownLeft,
     setStatusText,
     setKickedNotice,
     syncServerOffset,
@@ -565,6 +571,28 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   }, [confirmNicknameRef, confirmNicknameWithSocket]);
 
   useEffect(() => {
+    if (!chatCooldownUntil) return;
+
+    const updateCooldown = () => {
+      const diff = chatCooldownUntil - Date.now();
+
+      if (diff <= 0) {
+        setChatCooldownLeft(0);
+        setChatCooldownUntil(null);
+        return;
+      }
+
+      setChatCooldownLeft(Math.ceil(diff / 1000));
+    };
+
+    updateCooldown();
+
+    const timer = window.setInterval(updateCooldown, 250);
+
+    return () => window.clearInterval(timer);
+  }, [chatCooldownUntil]);
+
+  useEffect(() => {
     if (!inviteRoomId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setInviteNotFound(false);
@@ -620,10 +648,10 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     );
     const inferredRevealDurationSec = clampRevealDurationSec(
       currentRoom.gameSettings?.revealDurationSec ??
-        (typeof gameState?.revealDurationMs === "number" &&
-          gameState.revealDurationMs > 0
-          ? gameState.revealDurationMs / 1000
-          : DEFAULT_REVEAL_DURATION_SEC),
+      (typeof gameState?.revealDurationMs === "number" &&
+        gameState.revealDurationMs > 0
+        ? gameState.revealDurationMs / 1000
+        : DEFAULT_REVEAL_DURATION_SEC),
     );
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentRoom((prev) => {
@@ -814,8 +842,20 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const chatInputCtxValue = useMemo(
-    () => ({ messageInput, setMessageInput, handleSendMessage }),
-    [messageInput, handleSendMessage],
+    () => ({
+      messageInput,
+      setMessageInput,
+      handleSendMessage,
+      isChatCooldownActive,
+      chatCooldownLeft,
+    }),
+    [
+      messageInput,
+      setMessageInput,
+      handleSendMessage,
+      isChatCooldownActive,
+      chatCooldownLeft,
+    ],
   );
 
   const internalCtxValue = useMemo<RoomSessionInternalContextValue>(

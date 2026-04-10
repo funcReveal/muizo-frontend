@@ -19,7 +19,13 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
   chatScrollRef,
   variant = "sidebar",
 }) => {
-  const { messageInput, setMessageInput, handleSendMessage } = useChatInput();
+  const {
+    messageInput,
+    setMessageInput,
+    handleSendMessage,
+    isChatCooldownActive,
+    chatCooldownLeft,
+  } = useChatInput();
   const isSheet = variant === "sheet";
 
   const handleDanmuChange = React.useCallback(
@@ -27,17 +33,21 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
     [onDanmuEnabledChange],
   );
   const handleInputChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setMessageInput(e.target.value),
-    [setMessageInput],
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (isChatCooldownActive) return;
+      setMessageInput(e.target.value);
+    },
+    [isChatCooldownActive, setMessageInput],
   );
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        if (isChatCooldownActive) return;
         handleSendMessage();
       }
     },
-    [handleSendMessage],
+    [handleSendMessage, isChatCooldownActive],
   );
   const renderedMessages = React.useMemo(() => {
     return recentMessages.map((msg) => {
@@ -52,9 +62,8 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
 
   return (
     <div
-      className={`game-room-chat flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3 ${
-        isSheet ? "game-room-chat--sheet h-full" : "min-h-[240px]"
-      }`}
+      className={`game-room-chat flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3 ${isSheet ? "game-room-chat--sheet h-full" : "min-h-[240px]"
+        }`}
     >
       <div className="game-room-chat-header flex items-center justify-between text-sm font-semibold text-slate-200">
         <div className="flex items-center gap-2">
@@ -74,9 +83,8 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
       <div className="game-room-chat-divider h-px" />
       <div
         ref={chatScrollRef}
-        className={`game-room-chat-list flex-1 space-y-3 overflow-y-auto overflow-x-hidden pr-1 ${
-          isSheet ? "" : "md:max-h-80"
-        }`}
+        className={`game-room-chat-list flex-1 space-y-3 overflow-y-auto overflow-x-hidden pr-1 ${isSheet ? "" : "md:max-h-80"
+          }`}
       >
         {renderedMessages.length === 0 ? (
           <div className="game-room-chat-empty-state">
@@ -122,19 +130,26 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
         )}
       </div>
       <div className="flex items-center gap-2">
-        <input
-          className="game-room-chat-input-field flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100 focus:border-sky-500 focus:outline-none"
-          placeholder="輸入訊息..."
-          value={messageInput}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-        />
+        {isChatCooldownActive ? (
+          <div className="flex-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-2 text-center text-xs font-medium text-amber-300/95">
+            輸入過於頻繁，請於 <strong>{chatCooldownLeft}</strong> 秒後重試
+          </div>
+        ) : (
+          <input
+            className="game-room-chat-input-field flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-100 focus:border-sky-500 focus:outline-none"
+            placeholder="輸入訊息..."
+            value={messageInput}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+          />
+        )}
         <Button
           variant="contained"
           color="info"
           size="small"
           className="game-room-chat-send"
           onClick={handleSendMessage}
+          disabled={isChatCooldownActive || !messageInput.trim()}
         >
           送出
         </Button>

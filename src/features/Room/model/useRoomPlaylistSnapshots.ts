@@ -60,7 +60,7 @@ export const useRoomPlaylistSnapshots = ({
               return {
                 ...item,
                 ...(resolvedVideoId ? { videoId: resolvedVideoId } : {}),
-                sourceId: data.playlistId ?? playlistId,
+                sourceId: resolvedVideoId ?? item.sourceId ?? null,
                 provider: "youtube",
               };
             }),
@@ -117,7 +117,7 @@ export const useRoomPlaylistSnapshots = ({
           return {
             ...item,
             ...(resolvedVideoId ? { videoId: resolvedVideoId } : {}),
-            sourceId: data.playlistId ?? playlistId,
+            sourceId: resolvedVideoId ?? item.sourceId ?? null,
             provider: "youtube",
           };
         }),

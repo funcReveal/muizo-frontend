@@ -33,6 +33,10 @@ interface UseGameRoomRecapsParams {
     channelId?: string | null;
     duration?: string;
     thumbnail?: string;
+    url?: string;
+    videoId?: string;
+    sourceId?: string | null;
+    provider?: string;
   } | null;
   playlist: PlaylistItem[];
   onSettlementRecapChange?: (recaps: SettlementQuestionRecap[]) => void;
@@ -144,6 +148,10 @@ const useGameRoomRecaps = ({
       channelId: item?.channelId ?? null,
       duration: item?.duration,
       thumbnail: item?.thumbnail,
+      url: item?.url,
+      videoId: item?.videoId,
+      sourceId: item?.sourceId,
+      provider: item?.provider,
       myChoiceIndex,
       correctChoiceIndex,
       choices,
@@ -180,6 +188,10 @@ const useGameRoomRecaps = ({
     item?.thumbnail,
     item?.uploader,
     item?.channelId,
+    item?.url,
+    item?.videoId,
+    item?.sourceId,
+    item?.provider,
     liveAnsweredCount,
     liveCorrectCount,
     liveParticipantCount,

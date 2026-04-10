@@ -1,6 +1,12 @@
 import { Socket } from "socket.io-client";
 
-export type Ack<T> = { ok: true; data: T } | { ok: false; error: string };
+export type Ack<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      error: string;
+      retryAfterMs?: number;
+    };
 
 export interface PlaylistItem {
   title: string;
