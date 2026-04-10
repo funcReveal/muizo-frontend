@@ -917,6 +917,10 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   const selectedRecapFilteredIndex = selectedRecapKey
     ? filteredRecaps.findIndex((r) => r.key === selectedRecapKey)
     : -1;
+  const mobileRecapProgressLabel =
+    filteredRecaps.length > 0
+      ? `${selectedRecapFilteredIndex >= 0 ? selectedRecapFilteredIndex + 1 : 1}/${filteredRecaps.length}`
+      : "0/0";
 
   React.useEffect(() => { setExpandedChoiceParticipantsKey(null); }, [selectedRecap?.key]);
 
@@ -1023,17 +1027,17 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
     const floatingDrawerTrigger =
       typeof document !== "undefined"
         ? createPortal(
-          <div className="fixed right-1 top-[85dvh] z-[1650] flex -translate-y-1/2 justify-end">
+          <div className="fixed right-0.5 top-[85dvh] z-[1650] flex -translate-y-1/2 justify-end">
             <button
               type="button"
               aria-label="開啟題目清單"
               onClick={() => setDrawerOpen(true)}
-              className="inline-flex h-10 w-[6.25rem] cursor-pointer items-center justify-center gap-2 rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-3 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
+              className="inline-flex h-10 w-[7rem] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-2.5 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
             >
-              <QueueMusicRoundedIcon className="text-[1rem]" />
+              <QueueMusicRoundedIcon className="shrink-0 text-[1rem]" />
               {filteredRecaps.length > 0 && (
-                <span className="rounded-full border border-cyan-200/28 bg-cyan-400/14 px-2 py-0.5 text-[10px] font-black tabular-nums text-cyan-100">
-                  {selectedRecapFilteredIndex >= 0 ? selectedRecapFilteredIndex + 1 : 1} / {filteredRecaps.length}
+                <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center px-1 text-[10px] font-black leading-none tabular-nums text-cyan-100">
+                  {mobileRecapProgressLabel}
                 </span>
               )}
             </button>
@@ -1086,11 +1090,11 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
           <div className="flex h-full flex-col overflow-hidden">
             {/* drawer header */}
             <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
-              <span className="text-sm font-semibold text-white">
+              <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
                 題目清單
                 {filteredRecaps.length > 0 && (
-                  <span className="ml-2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-black tabular-nums text-slate-300">
-                    {selectedRecapFilteredIndex >= 0 ? selectedRecapFilteredIndex + 1 : 1} / {filteredRecaps.length}
+                  <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-black leading-none tabular-nums text-slate-300">
+                    {mobileRecapProgressLabel}
                   </span>
                 )}
               </span>

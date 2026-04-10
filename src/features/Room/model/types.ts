@@ -170,6 +170,12 @@ export interface ChatMessage {
   username: string;
   content: string;
   timestamp: number;
+  questionContext?: ChatMessageQuestionContext;
+}
+
+export interface ChatMessageQuestionContext {
+  questionNo: number;
+  totalQuestions: number;
 }
 
 export interface SessionProgressPayload {
@@ -375,7 +381,7 @@ export interface ClientToServerEvents {
     callback?: (ack: Ack<null>) => void,
   ) => void;
   sendMessage: (
-    payload: { content: string },
+    payload: { content: string; questionContext?: ChatMessageQuestionContext },
     callback?: (ack: Ack<ChatMessage>) => void,
   ) => void;
   listRooms: (callback?: (ack: Ack<RoomSummary[]>) => void) => void;

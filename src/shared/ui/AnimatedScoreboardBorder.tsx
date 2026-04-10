@@ -1,5 +1,6 @@
 import React from "react";
 
+import { DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT } from "../../features/Setting/model/scoreboardBorderEffects";
 import type {
   ScoreboardBorderAnimationId,
   ScoreboardBorderLineStyleId,
@@ -127,7 +128,7 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
   lineStyleId,
   themeId,
   maskEnabled = true,
-  particleCount = 24,
+  particleCount = DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT,
   intensity = 1,
   variant = "attached",
   className,

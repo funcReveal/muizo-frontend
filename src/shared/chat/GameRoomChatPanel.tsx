@@ -3,6 +3,12 @@ import { Button, Switch } from "@mui/material";
 
 import type { ChatMessage } from "../../features/Room/model/types";
 import { useChatInput } from "./ChatInputContext";
+import {
+  formatChatMessageFullTime,
+  formatChatMessageTime,
+  formatChatQuestionProgress,
+  getChatDisplayName,
+} from "./chatMessagePresentation";
 
 interface GameRoomChatPanelProps {
   danmuEnabled: boolean;
@@ -25,6 +31,7 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
     handleSendMessage,
     isChatCooldownActive,
     chatCooldownLeft,
+    currentClientId,
   } = useChatInput();
   const isSheet = variant === "sheet";
 
@@ -51,14 +58,16 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
   );
   const renderedMessages = React.useMemo(() => {
     return recentMessages.map((msg) => {
-      const date = new Date(msg.timestamp);
       return {
         ...msg,
-        shortTime: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        fullTime: date.toLocaleTimeString(),
+        shortTime: formatChatMessageTime(msg.timestamp),
+        fullTime: formatChatMessageFullTime(msg.timestamp),
+        questionProgress: formatChatQuestionProgress(msg),
+        displayName: getChatDisplayName(msg),
+        isMine: msg.userId === currentClientId,
       };
     });
-  }, [recentMessages]);
+  }, [currentClientId, recentMessages]);
 
   return (
     <div
@@ -116,9 +125,21 @@ const GameRoomChatPanel: React.FC<GameRoomChatPanelProps> = ({
             return (
               <div key={msg.id} className="flex">
                 <div className="game-room-chat-bubble game-room-chat-message max-w-full px-2.5 py-1.5 text-xs">
-                  <div className="flex items-center gap-4 text-[11px] text-slate-300">
-                    <span className="font-semibold">{msg.username}</span>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-300">
+                    <span
+                      className={`font-semibold ${msg.isMine
+                        ? "text-cyan-100"
+                        : "text-amber-100/90"
+                      }`}
+                    >
+                      {msg.displayName}
+                    </span>
                     <span className="text-slate-500">{msg.fullTime}</span>
+                    {msg.questionProgress ? (
+                      <span className="rounded-full border border-slate-600/55 bg-slate-900/65 px-1.5 py-0.5 font-semibold tabular-nums text-slate-300">
+                        {msg.questionProgress}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-1 whitespace-pre-wrap wrap-anywhere leading-relaxed">
                     {msg.content}

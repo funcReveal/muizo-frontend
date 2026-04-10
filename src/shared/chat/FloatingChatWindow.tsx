@@ -10,6 +10,11 @@ import type { ChatMessage } from "../../features/Room/model/types";
 import { DanmuContext } from "../../features/GameRoom/model/DanmuContext";
 import useMobileDrawerDragDismiss from "../../features/GameRoom/ui/lib/useMobileDrawerDragDismiss";
 import { blurActiveInteractiveElement } from "../utils/dom";
+import {
+  formatChatMessageTime,
+  formatChatQuestionProgress,
+  getChatDisplayName,
+} from "./chatMessagePresentation";
 
 const LAST_READ_KEY_PREFIX = "room_chat_last_read_message:";
 const MOBILE_CHAT_MIN_HEIGHT_VH = 26;
@@ -39,9 +44,6 @@ const writeLastReadId = (roomId: string | null, id: string | null) => {
   }
   window.sessionStorage.setItem(key, id);
 };
-
-const formatTime = (ts: number) =>
-  new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 const isFromOther = (msg: ChatMessage, clientId: string) =>
   !msg.userId.startsWith("system:") && msg.userId !== clientId;
@@ -168,17 +170,27 @@ const FloatingChatWindow: React.FC = () => {
         return (
           <div key={msg.id} className="floating-chat-msg floating-chat-msg--presence">
             <span className="floating-chat-msg-name">{msg.content}</span>
-            <span className="floating-chat-msg-time">{formatTime(msg.timestamp)}</span>
+            <span className="floating-chat-msg-time">
+              {formatChatMessageTime(msg.timestamp)}
+            </span>
           </div>
         );
       }
+      const isMine = msg.userId === clientId;
+      const questionProgress = formatChatQuestionProgress(msg);
       return (
-        <div key={msg.id} className="floating-chat-msg">
+        <div
+          key={msg.id}
+          className={`floating-chat-msg${isMine ? " floating-chat-msg--mine" : ""}`}
+        >
           <div className="floating-chat-msg-meta">
-            <span className="floating-chat-msg-name">
-              {msg.username || (msg.userId.startsWith("system:") ? "系統" : "玩家")}
+            <span className="floating-chat-msg-name">{getChatDisplayName(msg)}</span>
+            <span className="floating-chat-msg-time">
+              {formatChatMessageTime(msg.timestamp)}
             </span>
-            <span className="floating-chat-msg-time">{formatTime(msg.timestamp)}</span>
+            {questionProgress ? (
+              <span className="floating-chat-msg-progress">{questionProgress}</span>
+            ) : null}
           </div>
           <p className="floating-chat-msg-body">{msg.content}</p>
         </div>

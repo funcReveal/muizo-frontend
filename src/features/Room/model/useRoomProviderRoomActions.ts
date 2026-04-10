@@ -17,6 +17,7 @@ import { clampPlayDurationSec, clampRevealDurationSec } from "./roomUtils";
 import type {
   Ack,
   ChatMessage,
+  ChatMessageQuestionContext,
   ClientSocket,
   GameState,
   PlaylistItem,
@@ -31,6 +32,25 @@ type PlaylistProgressState = {
   received: number;
   total: number;
   ready: boolean;
+};
+
+const resolveChatQuestionContext = (
+  currentRoom: RoomState["room"] | null,
+  gameState: GameState | null,
+): ChatMessageQuestionContext | undefined => {
+  if (!gameState || gameState.status !== "playing") return undefined;
+  const questionNo = Math.max(1, Math.round((gameState.trackCursor ?? 0) + 1));
+  const totalQuestions = Math.max(
+    questionNo,
+    Math.round(
+      gameState.trackOrder.length ||
+        currentRoom?.gameSettings?.questionCount ||
+        currentRoom?.totalQuestionCount ||
+        0,
+    ),
+  );
+  if (!Number.isFinite(totalQuestions) || totalQuestions <= 0) return undefined;
+  return { questionNo: Math.min(questionNo, totalQuestions), totalQuestions };
 };
 
 interface UseRoomProviderRoomActionsParams {
@@ -316,12 +336,18 @@ export const useRoomProviderRoomActions = ({
     const trimmed = messageInput.trim();
     if (!trimmed) return;
 
-    socket.emit("sendMessage", { content: trimmed }, (ack) => {
-      console.log("sendMessage ack:", ack);
+    socket.emit(
+      "sendMessage",
+      {
+        content: trimmed,
+        questionContext: resolveChatQuestionContext(currentRoom, gameState),
+      },
+      (ack) => {
+        console.log("sendMessage ack:", ack);
 
-      if (!ack) return;
+        if (!ack) return;
 
-      if (!ack.ok) {
+        if (!ack.ok) {
         let retryAfterMs: number | null =
           typeof ack.retryAfterMs === "number" && ack.retryAfterMs > 0
             ? ack.retryAfterMs
@@ -356,11 +382,13 @@ export const useRoomProviderRoomActions = ({
         return;
       }
 
-      setMessageInput("");
-    });
+        setMessageInput("");
+      },
+    );
   }, [
     chatCooldownLeft,
     currentRoom,
+    gameState,
     getSocket,
     messageInput,
     setChatCooldownLeft,
