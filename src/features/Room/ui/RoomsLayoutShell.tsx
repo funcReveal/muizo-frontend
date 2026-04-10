@@ -325,7 +325,7 @@ const RoomsLayoutShell: React.FC = () => {
         />
 
         {isRoomsHubPage ? (
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-2">
             <Outlet />
           </div>
         ) : (
@@ -333,7 +333,7 @@ const RoomsLayoutShell: React.FC = () => {
         )}
 
         <footer
-          className={`flex m-0 items-center justify-center gap-4 text-xs text-[var(--mc-text-muted)] ${
+          className={`flex m-0 shrink-0 items-center justify-center gap-4 pb-[env(safe-area-inset-bottom)] text-xs text-[var(--mc-text-muted)] ${
             isGameMode && isMobileViewport
               ? "game-room-mobile-legal-footer"
               : ""
