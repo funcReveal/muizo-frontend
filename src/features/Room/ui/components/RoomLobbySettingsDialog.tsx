@@ -116,7 +116,8 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   const isMobileDialog = useMediaQuery("(max-width:900px)");
   const isWideDialog = useMediaQuery("(min-width:1180px)");
   const settingsLocked = settingsDisabled || settingsSaving;
-  const [mobileSummaryExpanded, setMobileSummaryExpanded] = React.useState(false);
+  const [mobileSummaryExpanded, setMobileSummaryExpanded] =
+    React.useState(false);
 
   const playbackModeCopy: Record<
     PlaybackExtensionMode,
@@ -279,11 +280,8 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
             alignItems={{ xs: "flex-start", md: "center" }}
           >
             <Stack spacing={0.55}>
-              <Typography variant="caption" className="room-lobby-settings-kicker">
-                ROOM CONFIG
-              </Typography>
               <Typography variant="h5" className="font-semibold text-slate-50">
-                房主設定
+                房間設定
               </Typography>
               <Typography variant="caption" className="text-slate-400">
                 調整後會立即同步到房間，建議在開局前完成設定。
@@ -450,7 +448,9 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                     label="房間名稱"
                     className="room-lobby-settings-field"
                     value={settingsName}
-                    onChange={(event) => onSettingsNameChange(event.target.value)}
+                    onChange={(event) =>
+                      onSettingsNameChange(event.target.value)
+                    }
                     disabled={settingsLocked}
                     fullWidth
                   />
@@ -544,7 +544,9 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                             settingsQuestionCount === count ? "is-active" : ""
                           }`}
                           onClick={() => onSettingsQuestionCountChange(count)}
-                          disabled={settingsLocked || settingsQuestionCount === count}
+                          disabled={
+                            settingsLocked || settingsQuestionCount === count
+                          }
                         >
                           {count} 題
                         </button>
@@ -566,7 +568,8 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
 
                   {questionMaxLimit < QUESTION_MAX ? (
                     <Typography variant="caption" className="text-slate-500">
-                      目前房間可用曲目較少，題數會先依可用上限收斂到 {questionMaxLimit} 題。
+                      目前房間可用曲目較少，題數會先依可用上限收斂到{" "}
+                      {questionMaxLimit} 題。
                     </Typography>
                   ) : null}
                 </Stack>
@@ -584,7 +587,10 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                     spacing={1}
                   >
                     <div className="room-lobby-settings-section-head">
-                      <Typography variant="subtitle2" className="text-slate-100">
+                      <Typography
+                        variant="subtitle2"
+                        className="text-slate-100"
+                      >
                         延長播放模式
                       </Typography>
                       <Typography variant="caption" className="text-slate-400">
@@ -619,7 +625,9 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                           className={`room-lobby-settings-mode-card ${
                             selected ? "is-selected" : ""
                           }`}
-                          onClick={() => onSettingsPlaybackExtensionModeChange(mode)}
+                          onClick={() =>
+                            onSettingsPlaybackExtensionModeChange(mode)
+                          }
                           disabled={settingsLocked}
                           aria-pressed={selected}
                         >
@@ -720,7 +728,10 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                       />
 
                       {useCollectionTimingForSettings ? (
-                        <Typography variant="caption" className="text-cyan-200/90">
+                        <Typography
+                          variant="caption"
+                          className="text-cyan-200/90"
+                        >
                           已啟用收藏庫時間，作答片段與起始時間將依歌曲片段設定帶入。
                         </Typography>
                       ) : null}
@@ -729,7 +740,10 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
 
                   {!useCollectionTimingForSettings ? (
                     <Stack spacing={1}>
-                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                      >
                         <TextField
                           label="作答播放時間（秒）"
                           type="number"
@@ -786,8 +800,9 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                       </Stack>
 
                       <Typography variant="caption" className="text-slate-400">
-                        作答時間範圍：{PLAY_DURATION_MIN} - {PLAY_DURATION_MAX} 秒 ·
-                        起始時間範圍：{START_OFFSET_MIN} - {START_OFFSET_MAX} 秒
+                        作答時間範圍：{PLAY_DURATION_MIN} - {PLAY_DURATION_MAX}{" "}
+                        秒 · 起始時間範圍：{START_OFFSET_MIN} -{" "}
+                        {START_OFFSET_MAX} 秒
                       </Typography>
 
                       <Typography variant="caption" className="text-slate-400">
