@@ -57,7 +57,7 @@ interface UseSettlementRecommendationInsightsParams<
   previewPlaybackMode: "idle" | "auto" | "manual";
   previewPlayerState: "idle" | "playing" | "paused";
   pausedCountdownRemainingMs: number | null;
-  activeTab: "overview" | "recommend";
+  activeTab: "overview" | "recommend" | "review";
   autoPreviewEnabled: boolean;
   effectiveSelectedReviewParticipantClientId: string | null;
   meClientId?: string;
@@ -201,7 +201,7 @@ const useSettlementRecommendationInsights = <
   TRecommendationCard
 >): UseSettlementRecommendationInsightsResult<TRecap, TRecommendationCard> => {
   const shouldResolveRecommendData =
-    activeTab === "recommend" || autoPreviewEnabled;
+    activeTab === "recommend" || activeTab === "review" || autoPreviewEnabled;
   const defaultParticipantCount = Math.max(1, participantsLength);
   const participantNameByClientId = useMemo(() => {
     const next = new Map<string, string>();

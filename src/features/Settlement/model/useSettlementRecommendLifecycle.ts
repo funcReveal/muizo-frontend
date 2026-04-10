@@ -9,7 +9,7 @@ import {
 type PreviewPlaybackMode = "idle" | "auto" | "manual";
 
 interface UseSettlementRecommendLifecycleParams {
-  activeTab: "overview" | "recommend";
+  activeTab: "overview" | "recommend" | "review";
   autoPreviewEnabled: boolean;
   previewPlaybackMode: PreviewPlaybackMode;
   autoAdvanceAtMs: number | null;

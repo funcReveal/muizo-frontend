@@ -10,7 +10,7 @@ import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { Button } from "@mui/material";
 import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 
-type LiveSettlementTab = "overview" | "recommend";
+type LiveSettlementTab = "overview" | "recommend" | "review";
 
 interface SettlementStageHeaderProps {
   isMobileView?: boolean;
@@ -175,7 +175,7 @@ const SettlementStageHeader: React.FC<SettlementStageHeaderProps> = ({
 
       <nav className="game-settlement-stage-tab-nav flex flex-wrap items-center justify-between gap-2">
         <div className="game-settlement-stage-tab-list flex min-w-0 flex-wrap items-center gap-2">
-          {tabOrder.map((tab) => (
+          {!isMobileView && tabOrder.map((tab) => (
             <RoomUiTooltip key={tab} title={tabHints[tab]}>
               <button
                 type="button"

@@ -6,8 +6,6 @@
   useState,
 } from "react";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import UnfoldLessRoundedIcon from "@mui/icons-material/UnfoldLessRounded";
-import UnfoldMoreRoundedIcon from "@mui/icons-material/UnfoldMoreRounded";
 
 import { trackEvent } from "../../../../shared/analytics/track";
 import { useSettingsModel } from "../../../Setting/model/settingsContext";
@@ -58,7 +56,7 @@ import SettlementStageHeader from "./liveSettlementShowcase/SettlementStageHeade
 import SettlementMobileFooter from "./liveSettlementShowcase/SettlementMobileFooter";
 import SettlementExitDialog from "./liveSettlementShowcase/SettlementExitDialog";
 
-type LiveSettlementTab = "overview" | "recommend";
+type LiveSettlementTab = "overview" | "recommend" | "review";
 type PreviewPlaybackMode = "idle" | "auto" | "manual";
 
 type ExtendedRecap = SettlementExtendedRecap;
@@ -83,16 +81,31 @@ interface LiveSettlementShowcaseProps {
   onRequestExit?: () => void;
 }
 
-const TAB_ORDER: LiveSettlementTab[] = ["overview", "recommend"];
+const TAB_ORDER: LiveSettlementTab[] = ["overview", "recommend", "review"];
+const DESKTOP_TAB_ORDER: LiveSettlementTab[] = ["overview", "recommend"];
 
 const TAB_LABELS: Record<LiveSettlementTab, string> = {
   overview: "總覽",
+  recommend: "推薦",
+  review: "題目回顧",
+};
+
+const DESKTOP_TAB_LABELS: Record<LiveSettlementTab, string> = {
+  overview: "總覽",
   recommend: "推薦 + 題目回顧",
+  review: "題目回顧",
 };
 
 const TAB_HINTS: Record<LiveSettlementTab, string> = {
   overview: "查看 podium、排行榜與本場關鍵表現",
+  recommend: "查看推薦導覽與推薦分類",
+  review: "查看題目清單與回顧詳情",
+};
+
+const DESKTOP_TAB_HINTS: Record<LiveSettlementTab, string> = {
+  overview: "查看 podium、排行榜與本場關鍵表現",
   recommend: "查看推薦導覽、題目清單與回顧詳情",
+  review: "查看題目清單與回顧詳情",
 };
 
 const SETTLEMENT_OVERVIEW_BGM_PATH = "/Muizo_result_bgm.mp3";
@@ -299,7 +312,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const [autoPreviewEnabled, setAutoPreviewEnabled] = useState(() =>
     readStoredBoolean(AUTO_PREVIEW_STORAGE_KEY, true),
   );
-  const [reviewDoubleClickPlayEnabled, setReviewDoubleClickPlayEnabled] = useState(() =>
+  const [reviewDoubleClickPlayEnabled] = useState(() =>
     readStoredBoolean(REVIEW_DOUBLE_PLAY_STORAGE_KEY, true),
   );
   const [previewCountdownSec, setPreviewCountdownSec] = useState(
@@ -334,33 +347,11 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const previewCommandTimersRef = useRef<number[]>([]);
   const settlementOverviewBgmRef = useRef<HTMLAudioElement | null>(null);
 
-  const stepIndex = TAB_ORDER.indexOf(activeTab);
-  const areAllMobileRecommendSectionsExpanded =
-    isMobileRecommendCategoryOpen &&
-    isMobileRecommendInsightOpen &&
-    isMobileRecommendPanelOpen &&
-    isMobileReviewListOpen &&
-    isMobileReviewDetailTopOpen;
-  const areAnyMobileRecommendSectionsExpanded =
-    isMobileRecommendCategoryOpen ||
-    isMobileRecommendInsightOpen ||
-    isMobileRecommendPanelOpen ||
-    isMobileReviewListOpen ||
-    isMobileReviewDetailTopOpen;
-  const expandAllMobileRecommendSections = useCallback(() => {
-    setIsMobileRecommendCategoryOpen(true);
-    setIsMobileRecommendInsightOpen(true);
-    setIsMobileRecommendPanelOpen(true);
-    setIsMobileReviewListOpen(true);
-    setIsMobileReviewDetailTopOpen(true);
-  }, []);
-  const collapseAllMobileRecommendSections = useCallback(() => {
-    setIsMobileRecommendCategoryOpen(false);
-    setIsMobileRecommendInsightOpen(false);
-    setIsMobileRecommendPanelOpen(false);
-    setIsMobileReviewListOpen(false);
-    setIsMobileReviewDetailTopOpen(false);
-  }, []);
+  const effectiveTabOrder = isMobileSettlementViewport ? TAB_ORDER : DESKTOP_TAB_ORDER;
+  const effectiveTabLabels = isMobileSettlementViewport ? TAB_LABELS : DESKTOP_TAB_LABELS;
+  const effectiveTabHints = isMobileSettlementViewport ? TAB_HINTS : DESKTOP_TAB_HINTS;
+  const rawStepIndex = effectiveTabOrder.indexOf(activeTab);
+  const stepIndex = rawStepIndex === -1 ? effectiveTabOrder.length - 1 : rawStepIndex;
   const settlementParticipants = useMemo(() => {
     const fallbackByClientId = new Map(
       participantAvatarFallbacks.map((participant) => [
@@ -1141,7 +1132,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   ]);
 
   useEffect(() => {
-    if (activeTab !== "recommend") return;
+    if (activeTab !== "recommend" && activeTab !== "review") return;
     if (typeof window === "undefined") return;
     const media = window.matchMedia("(max-width: 1023px)");
     if (!media.matches) return;
@@ -1206,15 +1197,15 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
             elapsedLabel={elapsedLabel}
             settlementTimeChipLabel={settlementTimeChipLabel}
             activeTab={activeTab}
-            tabOrder={TAB_ORDER}
-            tabLabels={TAB_LABELS}
-            tabHints={TAB_HINTS}
+            tabOrder={effectiveTabOrder}
+            tabLabels={effectiveTabLabels}
+            tabHints={effectiveTabHints}
             onGoToTab={goToTab}
             onGoPrevStep={goPrevStep}
             onGoNextStep={goNextStep}
             onOpenExitConfirm={onRequestExit ? openExitConfirm : undefined}
             canGoPrev={stepIndex > 0}
-            hasNextStep={stepIndex < TAB_ORDER.length - 1}
+            hasNextStep={stepIndex < effectiveTabOrder.length - 1}
             canFinish={Boolean(onBackToLobby)}
           />
 
@@ -1271,36 +1262,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
             {activeTab === "recommend" && (
               <>
-                {isMobileSettlementViewport && (
-                  <div className="mb-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={expandAllMobileRecommendSections}
-                      disabled={areAllMobileRecommendSectionsExpanded}
-                      className={`inline-flex min-h-[3rem] w-full cursor-pointer items-center justify-center gap-2 rounded-[16px] border px-4 py-3 text-sm font-semibold transition ${
-                        areAllMobileRecommendSectionsExpanded
-                          ? "cursor-not-allowed border-cyan-300/20 bg-cyan-500/8 text-cyan-100/45"
-                          : "border-cyan-300/40 bg-cyan-500/14 text-cyan-50 active:scale-[0.985] active:border-cyan-200/70"
-                      }`}
-                      >
-                        <UnfoldMoreRoundedIcon className="text-[1.1rem]" />
-                        完整展開
-                      </button>
-                    <button
-                      type="button"
-                      onClick={collapseAllMobileRecommendSections}
-                      disabled={!areAnyMobileRecommendSectionsExpanded}
-                      className={`inline-flex min-h-[3rem] w-full cursor-pointer items-center justify-center gap-2 rounded-[16px] border px-4 py-3 text-sm font-semibold transition ${
-                        !areAnyMobileRecommendSectionsExpanded
-                          ? "cursor-not-allowed border-slate-500/30 bg-slate-900/45 text-slate-400/55"
-                          : "border-slate-500/65 bg-slate-900/78 text-slate-100 active:scale-[0.985] active:border-slate-300/75"
-                      }`}
-                      >
-                        <UnfoldLessRoundedIcon className="text-[1.1rem]" />
-                        最小展示
-                      </button>
-                  </div>
-                )}
               <RecommendGuideSection
                 isMobileView={isMobileSettlementViewport}
                 recommendSectionRef={recommendSectionRef}
@@ -1402,7 +1363,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
               </>
             )}
 
-            {activeTab === "recommend" && (
+            {(activeTab === "review" || (!isMobileSettlementViewport && activeTab === "recommend")) && (
                 <ReviewRecapSection
                   isMobileView={isMobileSettlementViewport}
                 activeCategoryTheme={activeCategoryTheme}
@@ -1438,10 +1399,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 formatMs={formatMs}
                 selectedRecapRating={selectedRecapRating}
                 multilineEllipsis2Style={MULTILINE_ELLIPSIS_2}
-                reviewDoubleClickPlayEnabled={reviewDoubleClickPlayEnabled}
-                onToggleReviewDoubleClickPlay={() =>
-                  setReviewDoubleClickPlayEnabled((current) => !current)
-                }
                 isMobileListOpen={isMobileReviewListOpen}
                 onToggleMobileListOpen={() =>
                   setIsMobileReviewListOpen((current) => !current)
@@ -1460,7 +1417,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         onGoNextStep={goNextStep}
         onOpenExitConfirm={onRequestExit ? openExitConfirm : undefined}
         canGoPrev={stepIndex > 0}
-        hasNextStep={stepIndex < TAB_ORDER.length - 1}
+        hasNextStep={stepIndex < effectiveTabOrder.length - 1}
         canFinish={Boolean(onBackToLobby)}
       />
       <SettlementExitDialog
