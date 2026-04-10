@@ -642,6 +642,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   const showMyChoiceTag = isReveal && isMyChoice;
                   const showMyCorrectTag = isReveal && isMyChoice && isCorrect;
                   const showGuessLockTag = !isReveal && isMyChoice;
+                  const hasChoiceStatusTag =
+                    showGuessLockTag ||
+                    (isMyChoice && myComboTier > 0) ||
+                    showCorrectTag ||
+                    showMyChoiceTag;
                   const showComboFocusStyle =
                     !isReveal && isMyChoice && myComboTier > 0 && myComboNow > 0;
                   const comboFocusTierClass = showComboFocusStyle
@@ -708,7 +713,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                           } ${isLocked || waitingToStart || shouldShowGestureOverlay
                             ? "pointer-events-none"
                             : ""
-                          } ${isMobileView ? "game-room-choice-button--mobile" : ""}`}
+                          } ${isMobileView && hasChoiceStatusTag
+                            ? "game-room-choice-button--mobile-has-tags"
+                            : ""
+                          } ${isMobileView ? "game-room-choice-button--mobile" : ""
+                          } ${isMobileView && !isReveal && !isSelected ? "game-room-choice-button--mobile-idle" : ""}`}
                         disabled={false}
                         onClick={() => handleChoiceClick(choice.index)}
                       >

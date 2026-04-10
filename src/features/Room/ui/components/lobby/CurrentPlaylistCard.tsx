@@ -9,8 +9,8 @@ import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
 import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
 
-import type { PlaylistSourceType, RoomState } from "../../model/types";
-import { normalizeDisplayText } from "./roomLobbyPanelUtils";
+import type { PlaylistSourceType, RoomState } from "../../../model/types";
+import { normalizeDisplayText } from "../../lib/roomLobbyPanelUtils";
 
 type CurrentPlaylistCardProps = {
   room: RoomState["room"] | null;
