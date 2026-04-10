@@ -288,7 +288,6 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 }) => {
   const {
     gameVolume,
-    bgmVolume,
     setGameVolume,
     sfxEnabled,
     sfxVolume,
@@ -349,11 +348,18 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const previewCommandTimersRef = useRef<number[]>([]);
   const settlementOverviewBgmRef = useRef<HTMLAudioElement | null>(null);
 
-  const effectiveTabOrder = isMobileSettlementViewport ? TAB_ORDER : DESKTOP_TAB_ORDER;
-  const effectiveTabLabels = isMobileSettlementViewport ? TAB_LABELS : DESKTOP_TAB_LABELS;
-  const effectiveTabHints = isMobileSettlementViewport ? TAB_HINTS : DESKTOP_TAB_HINTS;
+  const effectiveTabOrder = isMobileSettlementViewport
+    ? TAB_ORDER
+    : DESKTOP_TAB_ORDER;
+  const effectiveTabLabels = isMobileSettlementViewport
+    ? TAB_LABELS
+    : DESKTOP_TAB_LABELS;
+  const effectiveTabHints = isMobileSettlementViewport
+    ? TAB_HINTS
+    : DESKTOP_TAB_HINTS;
   const rawStepIndex = effectiveTabOrder.indexOf(activeTab);
-  const stepIndex = rawStepIndex === -1 ? effectiveTabOrder.length - 1 : rawStepIndex;
+  const stepIndex =
+    rawStepIndex === -1 ? effectiveTabOrder.length - 1 : rawStepIndex;
   const settlementParticipants = useMemo(() => {
     const fallbackByClientId = new Map(
       participantAvatarFallbacks.map((participant) => [
@@ -454,7 +460,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     if (!AudioContextCtor) return;
     const ctx = new AudioContextCtor();
     const gain = ctx.createGain();
-    gain.gain.value = Math.max(0, Math.min(1, sfxVolume / 100)) * 0.06;
+    gain.gain.value =
+      Math.max(0, Math.min(1, sfxVolume / 100)) *
+      Math.max(0, Math.min(1, gameVolume / 100)) *
+      0.06;
     gain.connect(ctx.destination);
     const now = ctx.currentTime;
     const notes = [587.33, 783.99, 1046.5];
@@ -475,7 +484,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       window.clearTimeout(closeTimer);
       void ctx.close().catch(() => undefined);
     };
-  }, [room.id, startedAt, sfxEnabled, sfxVolume]);
+  }, [gameVolume, room.id, startedAt, sfxEnabled, sfxVolume]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof Audio === "undefined") return;
@@ -483,7 +492,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     const audio = new Audio(SETTLEMENT_OVERVIEW_BGM_PATH);
     audio.loop = true;
     audio.preload = "auto";
-    audio.volume = Math.max(0, Math.min(1, bgmVolume / 100));
+    audio.volume = Math.max(0, Math.min(1, gameVolume / 100));
     settlementOverviewBgmRef.current = audio;
 
     return () => {
@@ -498,9 +507,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     if (!settlementOverviewBgmRef.current) return;
     settlementOverviewBgmRef.current.volume = Math.max(
       0,
-      Math.min(1, bgmVolume / 100),
+      Math.min(1, gameVolume / 100),
     );
-  }, [bgmVolume]);
+  }, [gameVolume]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1097,23 +1106,25 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   );
 
   const goNextStep = useCallback(() => {
-    if (stepIndex < TAB_ORDER.length - 1) {
-      goToTab(TAB_ORDER[stepIndex + 1]);
+    if (stepIndex < effectiveTabOrder.length - 1) {
+      goToTab(effectiveTabOrder[stepIndex + 1]);
       return;
     }
+
     if (onBackToLobby) {
       onBackToLobby();
       return;
     }
+
     if (onRequestExit) {
       setExitConfirmOpen(true);
     }
-  }, [stepIndex, goToTab, onBackToLobby, onRequestExit]);
+  }, [stepIndex, effectiveTabOrder, goToTab, onBackToLobby, onRequestExit]);
 
   const goPrevStep = useCallback(() => {
     if (stepIndex <= 0) return;
-    goToTab(TAB_ORDER[stepIndex - 1]);
-  }, [stepIndex, goToTab]);
+    goToTab(effectiveTabOrder[stepIndex - 1]);
+  }, [stepIndex, effectiveTabOrder, goToTab]);
 
   const openExitConfirm = useCallback(() => {
     exitConfirmLockedRef.current = false;

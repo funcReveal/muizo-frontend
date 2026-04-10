@@ -477,7 +477,7 @@ const CollectionsPage = () => {
                                   : "私人"
                               }
                             >
-                              <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-white/80">
+                              <span className="inline-flex items-center gap-1 text-[11px] text-white/80">
                                 {collection.visibility === "public" ? (
                                   <PublicOutlined fontSize="inherit" />
                                 ) : (

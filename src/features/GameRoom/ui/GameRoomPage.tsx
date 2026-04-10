@@ -329,7 +329,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const mobilePlaybackPanelRef = useRef<HTMLDivElement | null>(null);
   const { primeSfxAudio, playGameSfx } = useGameSfx({
     enabled: sfxEnabled,
-    volume: sfxVolume,
+    volume: Math.round((sfxVolume * gameVolume) / 100),
     preset: sfxPreset,
   });
   const isHostInGame = useMemo(
