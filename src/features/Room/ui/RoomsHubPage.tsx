@@ -171,8 +171,8 @@ const renderCollectionSkeletonCard = (idx: number, view: "grid" | "list") => {
   );
 };
 
-const GUIDE_MODE_STORAGE_KEY = "mq_room_guide_mode";
-const JOIN_ENTRY_TAB_STORAGE_KEY = "mq_room_join_entry_tab";
+const GUIDE_MODE_STORAGE_KEY = "room_guide_mode";
+const JOIN_ENTRY_TAB_STORAGE_KEY = "room_join_entry_tab";
 
 const RoomsHubPage: React.FC = () => {
   const navigate = useNavigate();

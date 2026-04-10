@@ -173,11 +173,11 @@ export const PERFORMANCE_GRADE_META: Record<
   },
 };
 
-export const AUTO_PREVIEW_STORAGE_KEY = "mq_settlement_auto_preview";
+export const AUTO_PREVIEW_STORAGE_KEY = "settlement_auto_preview";
 export const REVIEW_DOUBLE_PLAY_STORAGE_KEY =
-  "mq_settlement_review_double_click_play";
+  "settlement_review_double_click_play";
 export const RECOMMEND_CONTROLS_HINT_STORAGE_KEY =
-  "mq_settlement_recommend_controls_hint_seen";
+  "settlement_recommend_controls_hint_seen";
 
 export const readStoredBoolean = (key: string, fallback: boolean) => {
   if (typeof window === "undefined") return fallback;

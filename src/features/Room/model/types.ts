@@ -373,6 +373,7 @@ export interface ClientToServerEvents {
     callback?: (ack: Ack<ChatMessage>) => void,
   ) => void;
   listRooms: (callback?: (ack: Ack<RoomSummary[]>) => void) => void;
+  getSitePresence: (callback?: (ack: Ack<SitePresencePayload>) => void) => void;
   uploadPlaylistChunk: (
     payload: {
       roomId: string;

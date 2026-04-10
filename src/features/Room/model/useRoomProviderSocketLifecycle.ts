@@ -324,10 +324,11 @@ export const useRoomProviderSocketLifecycle = ({
   );
 
   useEffect(() => {
-    if (!username || authLoading) return;
+    if (authLoading) return;
     if (!shouldConnectSocket) {
       socketSuspendedRef.current = true;
       setIsConnected(false);
+      setSitePresence(null);
       setRouteRoomResolved(true);
       return;
     }
@@ -336,15 +337,17 @@ export const useRoomProviderSocketLifecycle = ({
       socketSuspendedRef.current = false;
       let token = authToken;
       if (token) {
-        token = await ensureFreshAuthToken({
+        const freshToken = await ensureFreshAuthToken({
           token,
           refreshAuthToken,
         });
-        if (!token) {
+        if (!freshToken) {
           if (!cancelled) {
             setStatusText("登入狀態已失效，請重新登入。");
           }
-          return;
+          token = null;
+        } else {
+          token = freshToken;
         }
       }
       if (cancelled) return;
@@ -359,7 +362,12 @@ export const useRoomProviderSocketLifecycle = ({
           }
           shouldAnnounceReconnectRef.current = false;
           void fetchRooms();
-          if (storedRoomId) {
+          socket.emit("getSitePresence", (ack: Ack<SitePresencePayload>) => {
+            if (ack?.ok) {
+              setSitePresence(ack.data);
+            }
+          });
+          if (storedRoomId && username) {
             socket.emit(
               "resumeSession",
               { roomId: storedRoomId, username },

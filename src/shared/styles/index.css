@@ -25027,6 +25027,18 @@ body {
   text-shadow: 0 1px 0 rgba(2, 6, 23, 0.25);
 }
 
+.player-avatar--review-choice {
+  vertical-align: middle;
+}
+
+.player-avatar--review-choice .player-avatar__image {
+  display: block;
+}
+
+.player-avatar--review-choice.player-avatar--text .player-avatar__monogram {
+  transform: translateY(0.5px);
+}
+
 .player-avatar__rank-mark {
   position: absolute;
   right: -4px;

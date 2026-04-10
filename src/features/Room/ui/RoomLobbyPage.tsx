@@ -52,7 +52,7 @@ const RoomPageLoader = () => (
   </div>
 );
 
-const SETTLEMENT_SESSION_CACHE_KEY_PREFIX = "mq:settlement-cache:v1:";
+const SETTLEMENT_SESSION_CACHE_KEY_PREFIX = "settlement-cache:v1:";
 const SETTLEMENT_SUMMARY_CACHE_LIMIT = 80;
 const SETTLEMENT_REPLAY_CACHE_LIMIT = 1;
 const SETTLEMENT_RECAP_CACHE_LIMIT = 1;

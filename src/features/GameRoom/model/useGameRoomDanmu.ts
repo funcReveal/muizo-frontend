@@ -10,7 +10,7 @@ import {
   toDanmuText,
 } from "./gameRoomUtils";
 
-const DANMU_ENABLED_STORAGE_KEY = "mq_danmu_enabled";
+const DANMU_ENABLED_STORAGE_KEY = "danmu_enabled";
 const DANMU_MAX_VISIBLE_ITEMS = 24;
 const DANMU_MOBILE_MAX_VISIBLE_ITEMS = 12;
 const DANMU_BATCH_SIZE = 4;

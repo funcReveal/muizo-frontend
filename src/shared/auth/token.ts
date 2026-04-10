@@ -1,4 +1,4 @@
-const AUTH_EXP_STORAGE_KEY = "mq_authExp";
+const AUTH_EXP_STORAGE_KEY = "authExp";
 
 const decodeBase64Url = (value: string) => {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");

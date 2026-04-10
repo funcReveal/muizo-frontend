@@ -70,10 +70,10 @@ const buildHistoryHeaders = (token: string | null) => ({
 });
 
 const buildHistoryListCacheKey = (clientId: string | null) =>
-  `mq_history_list_v1:${clientId ?? "guest"}`;
+  `history_list_v1:${clientId ?? "guest"}`;
 
 const buildHistoryGuardKey = (clientId: string | null) =>
-  `mq_history_guard_v1:${clientId ?? "guest"}`;
+  `history_guard_v1:${clientId ?? "guest"}`;
 
 const getHistoryGroupKeyFromSummary = (summary: RoomSettlementHistorySummary) =>
   summary.roomId || summary.roomName || summary.matchId;

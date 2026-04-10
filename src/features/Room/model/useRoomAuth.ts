@@ -12,7 +12,7 @@ import { isProfileConfirmed, setProfileConfirmed } from "./roomStorage";
 import { clearTokenExpiry, persistTokenExpiry } from "../../../shared/auth/token";
 import { trackEvent } from "../../../shared/analytics/track";
 
-const AUTH_SESSION_HINT_KEY = "mq_hasAuthSession";
+const AUTH_SESSION_HINT_KEY = "hasAuthSession";
 
 type UseRoomAuthOptions = {
   apiUrl: string;
@@ -62,8 +62,8 @@ export const useRoomAuth = ({
   const lastRefreshFailAtRef = useRef<number | null>(null);
 
   useEffect(() => {
-    localStorage.removeItem("mq_authToken");
-    localStorage.removeItem("mq_authUser");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("authUser");
   }, []);
 
   const hasStoredAuthSessionHint = useCallback(() => {

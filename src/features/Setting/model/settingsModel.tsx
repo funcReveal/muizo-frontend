@@ -17,6 +17,7 @@ import {
   DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID,
   DEFAULT_SCOREBOARD_BORDER_THEME_ID,
   DEFAULT_GAME_VOLUME,
+  DEFAULT_BGM_VOLUME,
   DEFAULT_SETTLEMENT_PREVIEW_SYNC,
   DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
   DEFAULT_KEY_BINDINGS,
@@ -26,6 +27,7 @@ import {
   AVATAR_EFFECT_STORAGE_KEY,
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   GAME_VOLUME_STORAGE_KEY,
+  BGM_VOLUME_STORAGE_KEY,
   KEY_BINDINGS_STORAGE_KEY,
   SETTLEMENT_PREVIEW_STORAGE_KEYS,
   SFX_STORAGE_KEYS,
@@ -121,6 +123,9 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
   );
   const [gameVolume, setGameVolumeState] = useState<number>(() =>
     readStoredNumber(GAME_VOLUME_STORAGE_KEY, DEFAULT_GAME_VOLUME),
+  );
+  const [bgmVolume, setBgmVolumeState] = useState<number>(() =>
+    readStoredNumber(BGM_VOLUME_STORAGE_KEY, DEFAULT_BGM_VOLUME),
   );
   const [sfxEnabled, setSfxEnabledState] = useState<boolean>(() =>
     readStoredBool(SFX_STORAGE_KEYS.enabled, DEFAULT_SFX_ENABLED),
@@ -266,6 +271,11 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    window.localStorage.setItem(BGM_VOLUME_STORAGE_KEY, String(bgmVolume));
+  }, [bgmVolume]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     window.localStorage.setItem(SFX_STORAGE_KEYS.enabled, sfxEnabled ? "1" : "0");
   }, [sfxEnabled]);
 
@@ -369,6 +379,12 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       if (event.key === GAME_VOLUME_STORAGE_KEY) {
         setGameVolumeState(
           readStoredNumber(GAME_VOLUME_STORAGE_KEY, DEFAULT_GAME_VOLUME),
+        );
+        return;
+      }
+      if (event.key === BGM_VOLUME_STORAGE_KEY) {
+        setBgmVolumeState(
+          readStoredNumber(BGM_VOLUME_STORAGE_KEY, DEFAULT_BGM_VOLUME),
         );
         return;
       }
@@ -482,6 +498,10 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     setGameVolumeState(clampVolume(next));
   }, []);
 
+  const setBgmVolume = useCallback((next: number) => {
+    setBgmVolumeState(clampVolume(next));
+  }, []);
+
   const setSfxVolume = useCallback((next: number) => {
     setSfxVolumeState(clampVolume(next));
   }, []);
@@ -539,6 +559,7 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   const resetSfxSettings = useCallback(() => {
     setGameVolumeState(DEFAULT_GAME_VOLUME);
+    setBgmVolumeState(DEFAULT_BGM_VOLUME);
     setSfxEnabledState(DEFAULT_SFX_ENABLED);
     setSfxVolumeState(DEFAULT_SFX_VOLUME);
     setSfxPresetState(DEFAULT_SFX_PRESET);
@@ -550,6 +571,8 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setKeyBindings,
       gameVolume,
       setGameVolume,
+      bgmVolume,
+      setBgmVolume,
       sfxEnabled,
       setSfxEnabled,
       sfxVolume,
@@ -581,6 +604,8 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       setKeyBindings,
       gameVolume,
       setGameVolume,
+      bgmVolume,
+      setBgmVolume,
       sfxEnabled,
       setSfxEnabled,
       sfxVolume,

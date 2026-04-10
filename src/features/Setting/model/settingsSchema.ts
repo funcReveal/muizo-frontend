@@ -7,19 +7,19 @@
 export const SETTINGS_PAGE_COPY: SettingsPageCopy = {
   badge: "Control Deck",
   title: "設定",
-  description: "管理按鍵與音效偏好。所有調整會即時套用到目前裝置。",
+  description: "管理按鍵與音訊偏好。所有調整會即時套用到目前裝置。",
 };
 
 export const SETTINGS_CATEGORIES: SettingsCategoryMeta[] = [
   {
+    id: "audio",
+    title: "音訊",
+    subtitle: "歌曲、背景音與提示音",
+  },
+  {
     id: "controls",
     title: "操作",
     subtitle: "調整按鍵與作答手感",
-  },
-  {
-    id: "audio",
-    title: "音效",
-    subtitle: "提示音、音量與預設",
   },
 ];
 
@@ -41,8 +41,8 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   {
     id: "sfx",
     categoryId: "audio",
-    title: "音效設定",
-    description: "調整提示音啟用、音量與風格，並可直接試聽。",
+    title: "音訊設定",
+    description: "分開調整遊戲歌曲、背景音樂、提示音與結算試聽音量。",
     status: "ready",
   },
   {

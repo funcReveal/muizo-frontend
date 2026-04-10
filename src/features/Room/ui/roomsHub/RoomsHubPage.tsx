@@ -1,12 +1,6 @@
-﻿import {
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type UIEvent,
-} from "react";
+﻿import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useContext } from "react";
 import { Button, TextField, useMediaQuery } from "@mui/material";
 import {
   AddCircleOutlineRounded,
@@ -183,8 +177,8 @@ const renderCollectionSkeletonCard = (idx: number, view: "grid" | "list") => {
   );
 };
 
-const GUIDE_MODE_STORAGE_KEY = "mq_room_guide_mode";
-const JOIN_ENTRY_TAB_STORAGE_KEY = "mq_room_join_entry_tab";
+const GUIDE_MODE_STORAGE_KEY = "room_guide_mode";
+const JOIN_ENTRY_TAB_STORAGE_KEY = "room_join_entry_tab";
 const ROOMS_HUB_BGM_PATH = "/rooms-hub-bgm.mp3";
 const ROOMS_HUB_BGM_FADE_IN_MS = 1200;
 
@@ -203,7 +197,8 @@ const RoomsHubPage: React.FC = () => {
     authUser,
   } = useAuth();
   const { siteOnlineCount } = useSitePresence();
-  const { rooms, currentRoom } = useRoomSession();
+  const { rooms, currentRoom, isConnected } = useRoomSession();
+  const displayedSiteOnlineCount = siteOnlineCount ?? (isConnected ? 1 : null);
   const {
     collections,
     collectionsLoading,
@@ -339,9 +334,11 @@ const RoomsHubPage: React.FC = () => {
   const roomsHubBgmFadeFrameRef = useRef<number | null>(null);
   const roomsHubBgmFadeStartedRef = useRef(false);
   const roomsHubBgmFadeDoneRef = useRef(false);
+  const playRoomsHubBgmRef = useRef<() => void>(() => undefined);
   const roomsHubBgmTargetVolumeRef = useRef(
     Math.max(0, Math.min(1, bgmVolume / 100)),
   );
+  const [roomsHubBgmBlocked, setRoomsHubBgmBlocked] = useState(false);
 
   useEffect(() => {
     if (currentRoom?.id) {
@@ -399,9 +396,11 @@ const RoomsHubPage: React.FC = () => {
 
     const playRoomsHubBgm = () => {
       if (document.hidden) return;
+      if (roomsHubBgmTargetVolumeRef.current <= 0) return;
       void audio
         .play()
         .then(() => {
+          setRoomsHubBgmBlocked(false);
           if (roomsHubBgmFadeDoneRef.current) {
             audio.volume = roomsHubBgmTargetVolumeRef.current;
             return;
@@ -412,6 +411,9 @@ const RoomsHubPage: React.FC = () => {
         })
         .catch(() => {
           // Browser autoplay policy may block until the next user gesture.
+          if (roomsHubBgmTargetVolumeRef.current > 0) {
+            setRoomsHubBgmBlocked(true);
+          }
         });
     };
 
@@ -431,17 +433,27 @@ const RoomsHubPage: React.FC = () => {
       playRoomsHubBgm();
     };
 
+    playRoomsHubBgmRef.current = playRoomsHubBgm;
     playRoomsHubBgm();
     window.addEventListener("pointerdown", playRoomsHubBgm, { passive: true });
+    window.addEventListener("mousedown", playRoomsHubBgm, { passive: true });
+    window.addEventListener("click", playRoomsHubBgm, { passive: true });
+    window.addEventListener("touchstart", playRoomsHubBgm, { passive: true });
     window.addEventListener("keydown", playRoomsHubBgm);
+    window.addEventListener("pageshow", playRoomsHubBgm);
     window.addEventListener("focus", handleWindowFocus);
     window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       cancelFadeFrame();
+      playRoomsHubBgmRef.current = () => undefined;
       window.removeEventListener("pointerdown", playRoomsHubBgm);
+      window.removeEventListener("mousedown", playRoomsHubBgm);
+      window.removeEventListener("click", playRoomsHubBgm);
+      window.removeEventListener("touchstart", playRoomsHubBgm);
       window.removeEventListener("keydown", playRoomsHubBgm);
+      window.removeEventListener("pageshow", playRoomsHubBgm);
       window.removeEventListener("focus", handleWindowFocus);
       window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -455,7 +467,16 @@ const RoomsHubPage: React.FC = () => {
   useEffect(() => {
     const nextVolume = Math.max(0, Math.min(1, bgmVolume / 100));
     roomsHubBgmTargetVolumeRef.current = nextVolume;
-    if (!roomsHubBgmRef.current || !roomsHubBgmFadeDoneRef.current) return;
+    if (nextVolume <= 0) {
+      roomsHubBgmRef.current?.pause();
+      setRoomsHubBgmBlocked(false);
+      return;
+    }
+    if (!roomsHubBgmRef.current) return;
+    if (roomsHubBgmRef.current.paused) {
+      playRoomsHubBgmRef.current();
+    }
+    if (!roomsHubBgmFadeDoneRef.current) return;
     roomsHubBgmRef.current.volume = nextVolume;
   }, [bgmVolume]);
 
@@ -1193,6 +1214,15 @@ const RoomsHubPage: React.FC = () => {
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full flex-1 flex-col text-[var(--mc-text)]">
+      {roomsHubBgmBlocked && bgmVolume > 0 ? (
+        <button
+          type="button"
+          onClick={() => playRoomsHubBgmRef.current()}
+          className="fixed bottom-5 right-5 z-50 rounded-lg border border-cyan-300/45 bg-slate-950/90 px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[0_18px_40px_-24px_rgba(34,211,238,0.85)] transition hover:border-cyan-200/70 hover:bg-slate-900"
+        >
+          播放背景音
+        </button>
+      ) : null}
       {!currentRoom?.id && !username && (
         <section className="relative w-full overflow-hidden rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 p-5 sm:p-6">
           <div className="pointer-events-none absolute inset-0">
@@ -1201,9 +1231,6 @@ const RoomsHubPage: React.FC = () => {
           </div>
 
           <div className="relative">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-cyan-300/90">
-              Room Access
-            </p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--mc-text)]">
               選擇進入方式，開始遊戲
             </h2>
@@ -1224,6 +1251,7 @@ const RoomsHubPage: React.FC = () => {
                 </p>
                 <div className="mt-3 space-y-3">
                   <TextField
+                    className="mb-2 "
                     fullWidth
                     size="small"
                     label="訪客暱稱"
@@ -1378,7 +1406,7 @@ const RoomsHubPage: React.FC = () => {
                       加入房間
                     </p>
                     <span className="text-[11px] font-medium leading-none text-[var(--mc-text-muted)] sm:translate-y-[1px]">
-                      {siteOnlineCount ?? "--"} 人在線
+                      {displayedSiteOnlineCount ?? "--"} 人在線
                     </span>
                   </div>
                 </div>
@@ -1722,7 +1750,7 @@ const RoomsHubPage: React.FC = () => {
                   setJoinSortMode={setJoinSortMode}
                   filteredJoinRooms={filteredJoinRooms}
                   filteredJoinPlayerTotal={filteredJoinPlayerTotal}
-                  siteOnlineCount={siteOnlineCount}
+                  siteOnlineCount={displayedSiteOnlineCount}
                   joinRoomsView={joinRoomsView}
                   setJoinRoomsView={setJoinRoomsView}
                   handleJoinRoomEntry={handleJoinRoomEntry}

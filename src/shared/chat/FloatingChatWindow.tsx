@@ -11,7 +11,7 @@ import { DanmuContext } from "../../features/GameRoom/model/DanmuContext";
 import useMobileDrawerDragDismiss from "../../features/GameRoom/ui/lib/useMobileDrawerDragDismiss";
 import { blurActiveInteractiveElement } from "../utils/dom";
 
-const LAST_READ_KEY_PREFIX = "mq_room_chat_last_read_message:";
+const LAST_READ_KEY_PREFIX = "room_chat_last_read_message:";
 const MOBILE_CHAT_MIN_HEIGHT_VH = 26;
 const MOBILE_CHAT_MAX_HEIGHT_VH = 62;
 const MOBILE_CHAT_DEFAULT_HEIGHT_VH = 38;

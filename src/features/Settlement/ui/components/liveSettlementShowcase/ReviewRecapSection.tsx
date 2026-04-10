@@ -145,7 +145,7 @@ const renderParticipantMiniAvatar = (
       avatarUrl={avatarUrl ?? undefined}
       size={size}
       effectLevel={avatarEffectLevel}
-      className={sizeClass}
+      className={`${sizeClass} player-avatar--review-choice`}
     />
   );
 };
@@ -265,8 +265,8 @@ const RecapTitleMarquee: React.FC<{ text: string; className?: string }> = ({ tex
 // ─── YouTube preview hook (extracted from HistoryReplayCompactView pattern) ──
 
 const PREVIEW_BRIDGE_ID = "settlement-review-preview";
-const PREVIEW_VOLUME_KEY = "mq_settlement_review_volume";
-const PREVIEW_AUTOPLAY_KEY = "mq_settlement_review_autoplay";
+const PREVIEW_VOLUME_KEY = "settlement_review_volume";
+const PREVIEW_AUTOPLAY_KEY = "settlement_review_autoplay";
 
 const readStoredVolume = () => {
   if (typeof window === "undefined") return 50;

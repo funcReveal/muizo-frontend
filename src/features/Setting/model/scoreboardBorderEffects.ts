@@ -43,13 +43,13 @@ export interface ScoreboardBorderThemePreset {
 }
 
 export const SCOREBOARD_BORDER_STORAGE_KEYS = {
-  enabled: "mq_scoreboard_border_enabled",
-  maskEnabled: "mq_scoreboard_border_mask_enabled",
-  animation: "mq_scoreboard_border_animation",
-  lineStyle: "mq_scoreboard_border_line_style",
-  theme: "mq_scoreboard_border_theme",
-  particleCount: "mq_scoreboard_border_particle_count",
-  legacyEffect: "mq_scoreboard_border_effect",
+  enabled: "scoreboard_border_enabled",
+  maskEnabled: "scoreboard_border_mask_enabled",
+  animation: "scoreboard_border_animation",
+  lineStyle: "scoreboard_border_line_style",
+  theme: "scoreboard_border_theme",
+  particleCount: "scoreboard_border_particle_count",
+  legacyEffect: "scoreboard_border_effect",
 } as const;
 
 export const DEFAULT_SCOREBOARD_BORDER_ENABLED = true;

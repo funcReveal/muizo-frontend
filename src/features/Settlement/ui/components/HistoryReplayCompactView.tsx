@@ -46,8 +46,8 @@ interface HistoryReplayCompactViewProps {
   questionRecaps?: SettlementQuestionRecap[];
 }
 
-const HISTORY_PREVIEW_AUTOPLAY_STORAGE_KEY = "mq_history_preview_autoplay";
-const HISTORY_PREVIEW_VOLUME_STORAGE_KEY = "mq_history_preview_volume";
+const HISTORY_PREVIEW_AUTOPLAY_STORAGE_KEY = "history_preview_autoplay";
+const HISTORY_PREVIEW_VOLUME_STORAGE_KEY = "history_preview_volume";
 const PREVIEW_OVERLAY_COPY = "如果喜歡這首音樂，別忘了到 YouTube 支持創作者喲！";
 const HISTORY_PREVIEW_BRIDGE_ID = "history-replay-preview";
 

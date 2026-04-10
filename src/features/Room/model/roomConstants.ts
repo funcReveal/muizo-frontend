@@ -29,12 +29,12 @@ export const PLAYER_MAX = 12;
 export const USERNAME_MAX = 16;
 
 export const STORAGE_KEYS = {
-  clientId: "mq_clientId",
-  sessionClientId: "mq_sessionClientId",
-  username: "mq_username",
-  roomId: "mq_roomId",
-  questionCount: "mq_questionCount",
-  roomPasswordPrefix: "mq_roomPassword:",
-  profileConfirmedPrefix: "mq_profileConfirmed:",
-  showVideoPreference: "mq_showVideoPreference",
+  clientId: "clientId",
+  sessionClientId: "sessionClientId",
+  username: "username",
+  roomId: "roomId",
+  questionCount: "questionCount",
+  roomPasswordPrefix: "roomPassword:",
+  profileConfirmedPrefix: "profileConfirmed:",
+  showVideoPreference: "showVideoPreference",
 } as const;

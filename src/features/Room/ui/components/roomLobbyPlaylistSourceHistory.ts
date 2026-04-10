@@ -1,6 +1,6 @@
 import type { PlaylistSourceType } from "../../model/types";
 
-const STORAGE_KEY = "mq:room-playlist-source-history:v1";
+const STORAGE_KEY = "room-playlist-source-history:v1";
 const MAX_RECENT_SOURCES = 12;
 
 export type RoomLobbyPlaylistSourceHistoryEntry = {

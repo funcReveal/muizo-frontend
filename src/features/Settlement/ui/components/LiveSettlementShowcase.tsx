@@ -289,6 +289,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   const {
     gameVolume,
     setGameVolume,
+    bgmVolume,
     sfxEnabled,
     sfxVolume,
     settlementPreviewSyncGameVolume,
@@ -492,7 +493,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     const audio = new Audio(SETTLEMENT_OVERVIEW_BGM_PATH);
     audio.loop = true;
     audio.preload = "auto";
-    audio.volume = Math.max(0, Math.min(1, gameVolume / 100));
+    audio.volume = 0;
     settlementOverviewBgmRef.current = audio;
 
     return () => {
@@ -507,9 +508,9 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     if (!settlementOverviewBgmRef.current) return;
     settlementOverviewBgmRef.current.volume = Math.max(
       0,
-      Math.min(1, gameVolume / 100),
+      Math.min(1, bgmVolume / 100),
     );
-  }, [gameVolume]);
+  }, [bgmVolume]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
