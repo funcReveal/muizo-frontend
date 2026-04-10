@@ -18,8 +18,8 @@ import {
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
-import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
+import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import LibraryMusicRoundedIcon from "@mui/icons-material/LibraryMusicRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
@@ -32,15 +32,15 @@ import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 
-import type { CollectionEntry } from "../../model/RoomCollectionsContext";
+import type { CollectionEntry } from "../../../model/RoomCollectionsContext";
 import type {
   PlaylistItem,
   PlaylistSourceType,
   PlaylistSuggestion,
-} from "../../model/types";
-import type { YoutubePlaylist } from "../../model/RoomContext";
-import { formatDurationLabel } from "../roomsHub/roomsHubViewModels";
-import { normalizeDisplayText } from "./roomLobbyPanelUtils";
+} from "../../../model/types";
+import type { YoutubePlaylist } from "../../../model/RoomContext";
+import { formatDurationLabel } from "../../lib/roomsHubViewModels";
+import { normalizeDisplayText } from "../../lib/roomLobbyPanelUtils";
 
 type SelectorTab = "suggestions" | "public" | "mine" | "youtube" | "link";
 type ToolDateMode = "all" | "7d" | "30d" | "earliest" | "latest";
@@ -66,6 +66,7 @@ type Props = {
   onClose: () => void;
   isHost: boolean;
   isGoogleAuthed: boolean;
+  selfClientId?: string;
   playlistUrl: string;
   playlistItemsForChange: PlaylistItem[];
   playlistError?: string | null;
@@ -131,7 +132,7 @@ type Props = {
 const MODAL_W = 1180;
 const MODAL_H = 820;
 const GRID_H = 372;
-const LIST_H = 132;
+const LIST_H = 112;
 const SUGGESTION_H = 116;
 const PREVIEW_H = 80;
 const RECOMMENDATION_COOLDOWN_MS = 5000;
@@ -178,7 +179,6 @@ const GridCollectionRow = ({
   columns,
 }: RowComponentProps<CollectionRowProps>) => {
   const start = index * columns;
-
   return (
     <div style={style} className="pb-4">
       <div
@@ -291,7 +291,7 @@ const SourceCard = ({
   title: string;
   subtitle?: string | null;
   thumbnailUrl?: string | null;
-  badge?: React.ReactNode;
+  badge?: string | null;
   mode: BrowseViewMode;
   metrics: React.ReactNode;
   onClick: () => void;
@@ -299,35 +299,83 @@ const SourceCard = ({
   actionText?: string | null;
 }) => {
   const list = mode === "list";
+  if (list) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`relative flex h-[96px] w-full flex-col justify-center gap-1.5 overflow-hidden rounded-[20px] border px-3 py-2.5 text-left transition duration-200 ${
+          disabled
+            ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
+            : "border-cyan-300/18 bg-[#060b16] hover:border-cyan-300/36 hover:bg-[#08101e]"
+        }`}
+      >
+        {disabled ? (
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
+        ) : null}
+        {/* Title row */}
+        <div className="flex min-w-0 items-center gap-2">
+          <div
+            className={`line-clamp-1 min-w-0 flex-1 text-[14px] font-semibold leading-snug ${
+              disabled ? "text-slate-300/80" : "text-slate-50"
+            }`}
+          >
+            {title}
+          </div>
+          {actionText ? (
+            <span className="shrink-0 rounded-full border border-white/12 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-100">
+              {actionText}
+            </span>
+          ) : null}
+        </div>
+        {/* Thumbnail + info row */}
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative h-[46px] w-[76px] shrink-0 overflow-hidden rounded-[10px] bg-slate-950/70">
+            {thumbnailUrl ? (
+              <img src={thumbnailUrl} alt={title} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(180deg,rgba(30,41,59,0.86),rgba(15,23,42,0.96))] text-cyan-100">
+                <LibraryMusicRoundedIcon sx={{ fontSize: 18 }} />
+              </div>
+            )}
+            {badge ? (
+              <span className="absolute left-1 top-1 rounded-sm border border-white/12 bg-slate-950/78 px-1 py-0.5 text-[9px] font-semibold leading-none text-slate-100">
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+            {subtitle ? (
+              <div
+                className={`line-clamp-1 text-[12px] ${
+                  disabled ? "text-slate-400/70" : "text-slate-300/78"
+                }`}
+              >
+                {subtitle}
+              </div>
+            ) : null}
+            {metrics}
+          </div>
+        </div>
+      </button>
+    );
+  }
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={
-        list
-          ? `relative flex h-[120px] w-full items-center gap-4 overflow-hidden rounded-[24px] border px-3 py-3 text-left transition duration-200 ${
-              disabled
-                ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
-                : "border-cyan-300/18 bg-[#060b16] hover:border-cyan-300/36 hover:bg-[#08101e]"
-            }`
-          : `group relative flex h-[356px] w-full flex-col overflow-hidden rounded-[24px] border text-left transition duration-200 ${
-              disabled
-                ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
-                : "border-cyan-300/18 bg-[#060b16] hover:border-cyan-300/36 hover:bg-[#08101e] hover:shadow-[0_24px_50px_-32px_rgba(34,211,238,0.36)]"
-            }`
-      }
+      className={`group relative flex h-[356px] w-full flex-col overflow-hidden rounded-[24px] border text-left transition duration-200 ${
+        disabled
+          ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
+          : "border-cyan-300/18 bg-[#060b16] hover:border-cyan-300/36 hover:bg-[#08101e] hover:shadow-[0_24px_50px_-32px_rgba(34,211,238,0.36)]"
+      }`}
     >
       {disabled ? (
         <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
       ) : null}
-      <div
-        className={
-          list
-            ? "relative h-[94px] w-[156px] shrink-0 overflow-hidden rounded-[18px] bg-slate-950/70"
-            : "relative aspect-[16/9] w-full overflow-hidden bg-slate-950/70"
-        }
-      >
+      <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-950/70">
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -336,11 +384,11 @@ const SourceCard = ({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(56,189,248,0.18),transparent_42%),linear-gradient(180deg,rgba(30,41,59,0.86),rgba(15,23,42,0.96))] text-cyan-100">
-            <LibraryMusicRoundedIcon sx={{ fontSize: list ? 28 : 34 }} />
+            <LibraryMusicRoundedIcon sx={{ fontSize: 34 }} />
           </div>
         )}
         {badge ? (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/12 bg-slate-950/78 px-2.5 py-1 text-[11px] font-semibold text-slate-100">
+          <span className="absolute left-3 top-3 rounded-full border border-white/12 bg-slate-950/78 px-2.5 py-1 text-[11px] font-semibold text-slate-100">
             {badge}
           </span>
         ) : null}
@@ -357,13 +405,7 @@ const SourceCard = ({
         ) : null}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#060b16]/92 via-[#060b16]/46 to-transparent" />
       </div>
-      <div
-        className={
-          list
-            ? "flex min-w-0 flex-1 flex-col justify-between py-1"
-            : "flex min-h-0 flex-1 flex-col justify-between px-4 pb-4 pt-3"
-        }
-      >
+      <div className="flex min-h-0 flex-1 flex-col justify-between px-4 pb-4 pt-3">
         <div className="space-y-1.5">
           <div
             className={`line-clamp-2 text-[15px] font-semibold leading-6 ${
@@ -393,6 +435,7 @@ const PlaylistSelectorModal = ({
   onClose,
   isHost,
   isGoogleAuthed,
+  selfClientId,
   playlistUrl,
   playlistItemsForChange,
   playlistError,
@@ -456,19 +499,24 @@ const PlaylistSelectorModal = ({
     [currentSourceIds],
   );
 
+  // Local tracking — updates immediately on success, before server echo
+  const [localSuggestedIds, setLocalSuggestedIds] = React.useState<Set<string>>(new Set());
+
+  // Merged set: server-reflected + locally tracked
+  const selfSuggestedIds = useMemo(() => {
+    if (!isSuggestionMode) return new Set<string>();
+    const serverIds = selfClientId
+      ? playlistSuggestions
+          .filter((s) => s.clientId === selfClientId)
+          .flatMap((s) => [s.value, s.sourceId].filter((v): v is string => Boolean(v)))
+      : [];
+    return new Set<string>([...serverIds, ...localSuggestedIds]);
+  }, [selfClientId, isSuggestionMode, playlistSuggestions, localSuggestedIds]);
+
   const isCooldownActive =
     typeof cooldownUntil === "number" && cooldownUntil > Date.now();
   const cooldownSeconds = cooldownUntil
     ? Math.max(0, Math.ceil((cooldownUntil - cooldownNow) / 1000))
-    : 0;
-  const cooldownProgress = cooldownUntil
-    ? Math.max(
-        0,
-        Math.min(
-          100,
-          ((cooldownUntil - cooldownNow) / RECOMMENDATION_COOLDOWN_MS) * 100,
-        ),
-      )
     : 0;
 
   useEffect(() => {
@@ -639,31 +687,6 @@ const PlaylistSelectorModal = ({
     [playlistSuggestions, matchCount, matchText],
   );
 
-  const hasSuggestedSource = useCallback(
-    (
-      type: "collection" | "playlist",
-      value: string,
-      sourceId?: string | null,
-    ) => {
-      const normalizedValue = String(value ?? "").trim();
-      const normalizedSourceId = String(sourceId ?? "").trim();
-      return playlistSuggestions.some((suggestion) => {
-        if (suggestion.type !== type) return false;
-        const suggestionValue = String(suggestion.value ?? "").trim();
-        const suggestionSourceId = String(suggestion.sourceId ?? "").trim();
-        return Boolean(
-          (normalizedSourceId &&
-            (suggestionSourceId === normalizedSourceId ||
-              suggestionValue === normalizedSourceId)) ||
-            (normalizedValue &&
-              (suggestionValue === normalizedValue ||
-                suggestionSourceId === normalizedValue)),
-        );
-      });
-    },
-    [playlistSuggestions],
-  );
-
   const chips = useMemo(
     () => [
       questionChip(questionRange[0], questionRange[1]),
@@ -704,11 +727,6 @@ const PlaylistSelectorModal = ({
     ) => {
       if (!onSuggestPlaylist) return;
       if (actionRunning) return;
-      if (hasSuggestedSource(type, value, options?.sourceId)) {
-        setActionError(null);
-        setActionNotice("這個題庫已經推薦過了，請等下一局再推薦相同內容。");
-        return;
-      }
       if (isCooldownActive) {
         setActionNotice(
           `請在 ${Math.max(1, cooldownSeconds)} 秒後再推薦下一個題庫。`,
@@ -724,6 +742,14 @@ const PlaylistSelectorModal = ({
           setActionError(result?.error ?? "推薦題庫失敗。");
           return;
         }
+        // Track locally so the card is immediately marked as 已推薦
+        const suggestedKey = options?.sourceId ?? value;
+        setLocalSuggestedIds((prev) => {
+          const next = new Set(prev);
+          if (suggestedKey) next.add(suggestedKey);
+          next.add(value);
+          return next;
+        });
         setCooldownUntil(Date.now() + RECOMMENDATION_COOLDOWN_MS);
         setCooldownNow(Date.now());
         setActionNotice("題庫推薦已送出。");
@@ -732,13 +758,7 @@ const PlaylistSelectorModal = ({
         setPendingActionKey(null);
       }
     },
-    [
-      actionRunning,
-      cooldownSeconds,
-      hasSuggestedSource,
-      isCooldownActive,
-      onSuggestPlaylist,
-    ],
+    [actionRunning, cooldownSeconds, isCooldownActive, onSuggestPlaylist],
   );
 
   const applyCollection = useCallback(
@@ -746,6 +766,14 @@ const PlaylistSelectorModal = ({
       if (matchesCurrentSource(sourceType(item.visibility), item.id)) return;
       if (actionRunning) return;
       if (isSuggestionMode) {
+        if (isCooldownActive) {
+          setActionNotice(`請等 ${Math.max(1, cooldownSeconds)} 秒冷卻結束後再推薦下一個題庫。`);
+          return;
+        }
+        if (selfSuggestedIds.has(item.id)) {
+          setActionNotice("你已推薦過這個題庫了。");
+          return;
+        }
         const action = () => {
           void runSuggestion("collection", item.id, {
             useSnapshot: item.visibility === "private",
@@ -784,6 +812,8 @@ const PlaylistSelectorModal = ({
     },
     [
       actionRunning,
+      cooldownSeconds,
+      isCooldownActive,
       isSuggestionMode,
       matchesCurrentSource,
       onApplyCollectionDirect,
@@ -791,14 +821,14 @@ const PlaylistSelectorModal = ({
       onRecordSourceApplied,
       openConfirmModal,
       runSuggestion,
+      selfSuggestedIds,
     ],
   );
 
   const renderCollectionCard = useCallback(
-    (item: CollectionEntry, mode: BrowseViewMode, badge?: React.ReactNode) => {
+    (item: CollectionEntry, mode: BrowseViewMode, badge?: string | null) => {
       const isCurrent = matchesCurrentSource(sourceType(item.visibility), item.id);
-      const alreadySuggested =
-        isSuggestionMode && hasSuggestedSource("collection", item.id, item.id);
+      const isSelfSuggested = isSuggestionMode && selfSuggestedIds.has(item.id);
       return (
         <SourceCard
           key={item.id}
@@ -812,8 +842,8 @@ const PlaylistSelectorModal = ({
           thumbnailUrl={item.cover_thumbnail_url}
           badge={badge}
           mode={mode}
-          disabled={isCurrent || alreadySuggested}
-          actionText={isCurrent ? "已套用" : alreadySuggested ? "已推薦" : null}
+          disabled={isCurrent || isSelfSuggested}
+          actionText={isCurrent ? "已套用" : isSelfSuggested ? "已推薦" : null}
           metrics={
             <Metrics
               itemCount={item.item_count}
@@ -827,14 +857,13 @@ const PlaylistSelectorModal = ({
         />
       );
     },
-    [applyCollection, hasSuggestedSource, isSuggestionMode, matchesCurrentSource],
+    [applyCollection, isSuggestionMode, matchesCurrentSource, selfSuggestedIds],
   );
 
   const renderYoutubeCard = useCallback(
     (item: YoutubePlaylist, mode: BrowseViewMode) => {
       const isCurrent = matchesCurrentSource("youtube_google_import", item.id);
-      const alreadySuggested =
-        isSuggestionMode && hasSuggestedSource("playlist", item.id, item.id);
+      const isSelfSuggested = isSuggestionMode && selfSuggestedIds.has(item.id);
       return (
       <SourceCard
         key={item.id}
@@ -843,14 +872,18 @@ const PlaylistSelectorModal = ({
         thumbnailUrl={item.thumbnail ?? null}
         badge="YouTube"
         mode={mode}
-        disabled={isCurrent || alreadySuggested}
-        actionText={isCurrent ? "已套用" : alreadySuggested ? "已推薦" : null}
+        disabled={isCurrent || isSelfSuggested}
+        actionText={isCurrent ? "已套用" : isSelfSuggested ? "已推薦" : null}
         metrics={<Metrics itemCount={item.itemCount} />}
         onClick={() => {
           void (async () => {
-            if (isCurrent) return;
+            if (isCurrent || isSelfSuggested) return;
             if (actionRunning) return;
             if (isSuggestionMode) {
+              if (isCooldownActive) {
+                setActionNotice(`請等 ${Math.max(1, cooldownSeconds)} 秒冷卻結束後再推薦下一個題庫。`);
+                return;
+              }
               const action = () => {
                 void runSuggestion("playlist", item.id, {
                   useSnapshot: true,
@@ -893,7 +926,8 @@ const PlaylistSelectorModal = ({
     },
     [
       actionRunning,
-      hasSuggestedSource,
+      cooldownSeconds,
+      isCooldownActive,
       isSuggestionMode,
       matchesCurrentSource,
       onApplyYoutubePlaylistDirect,
@@ -902,6 +936,7 @@ const PlaylistSelectorModal = ({
       openConfirmModal,
       pendingActionKey,
       runSuggestion,
+      selfSuggestedIds,
     ],
   );
 
@@ -988,10 +1023,10 @@ const PlaylistSelectorModal = ({
             ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
             : "border-white/8 bg-[#060b16] hover:border-cyan-300/34 hover:bg-[#08101e]"
         }`}
-      >
-        {isCurrent ? (
-          <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
-        ) : null}
+        >
+          {isCurrent ? (
+            <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
+          ) : null}
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-cyan-400/8 text-cyan-100">
           {suggestionThumbnailUrl ? (
             <img
@@ -1023,12 +1058,12 @@ const PlaylistSelectorModal = ({
             }`}
           >
             {[
-              `推薦者 ${item.username}`,
+              `推薦者 ${item.username}`, 
               item.totalCount ? `${Math.max(0, Number(item.totalCount))} 題` : null,
               item.type === "collection" ? "題庫推薦" : "播放清單推薦",
             ]
               .filter(Boolean)
-              .join(" · ")}
+              .join(" 繚 ")}
           </div>
         </div>
         {isCurrent ? (
@@ -1088,7 +1123,7 @@ const PlaylistSelectorModal = ({
 
   const renderCollectionViewport = (
     items: CollectionEntry[],
-    badgeResolver?: (item: CollectionEntry) => React.ReactNode,
+    badgeResolver?: (item: CollectionEntry) => string | null,
   ) =>
     viewMode === "grid" ? (
       <div className="pr-3 pb-3">
@@ -1156,21 +1191,12 @@ const PlaylistSelectorModal = ({
       </div>
     );
 
-  const renderVisibilityBadge = (item: CollectionEntry) =>
-    item.visibility === "public" ? (
-      <>
-        <PublicRoundedIcon sx={{ fontSize: 13 }} />
-        <span>公開</span>
-      </>
-    ) : (
-      <>
-        <BookmarkBorderRoundedIcon sx={{ fontSize: 13 }} />
-        <span>私人</span>
-      </>
-    );
+  const cooldownProgress = cooldownUntil
+    ? Math.max(0, Math.min(100, ((cooldownUntil - cooldownNow) / RECOMMENDATION_COOLDOWN_MS) * 100))
+    : 0;
 
   const statusBanner =
-    actionError || actionNotice || (isSuggestionMode && isCooldownActive) ? (
+    actionError || actionNotice ? (
       <div
         className={`mb-4 overflow-hidden rounded-[18px] border px-4 py-3 text-sm ${
           actionError
@@ -1178,30 +1204,31 @@ const PlaylistSelectorModal = ({
             : "border-cyan-300/20 bg-cyan-400/10 text-cyan-50"
         }`}
       >
-        <div>
-          {actionError ??
-            (isSuggestionMode && isCooldownActive
-              ? `推薦冷卻中，${cooldownSeconds} 秒後可再次推薦。`
-              : actionNotice)}
+        <div className="flex items-center justify-between gap-3">
+          <span>{actionError ?? actionNotice}</span>
+          {!actionError && isCooldownActive && (
+            <span className="shrink-0 text-xs font-semibold tabular-nums text-cyan-200/80">
+              {cooldownSeconds}s
+            </span>
+          )}
         </div>
-        {isSuggestionMode && isCooldownActive ? (
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-cyan-950/70">
+        {!actionError && isCooldownActive && (
+          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full rounded-full bg-cyan-300 transition-[width] duration-300 ease-linear"
-              style={{ width: `${cooldownProgress}%` }}
+              className="h-full rounded-full bg-cyan-400/60"
+              style={{
+                width: `${cooldownProgress}%`,
+                transition: "width 1s linear",
+              }}
             />
           </div>
-        ) : null}
+        )}
       </div>
     ) : null;
 
   const currentPlaylistIdFromUrl = playlistUrl.trim()
     ? extractPlaylistId?.(playlistUrl.trim()) ?? null
     : null;
-  const linkAlreadySuggested =
-    isSuggestionMode &&
-    Boolean(playlistUrl.trim()) &&
-    hasSuggestedSource("playlist", playlistUrl.trim(), currentPlaylistIdFromUrl);
   const linkAlreadyApplied = matchesCurrentSource(
     currentSourceType ?? "youtube_pasted_link",
     currentPlaylistIdFromUrl,
@@ -1279,7 +1306,7 @@ const PlaylistSelectorModal = ({
     ) : activeTab === "mine" ? (
       !isGoogleAuthed ? (
         <EmptyState
-          title="連線 Google 以查看私人題庫"
+          title="連線 Google 以查看個人題庫"
           description="完成 Google 連線後，就能瀏覽自己的收藏庫與匯入來源。"
           action={
             <Button
@@ -1305,7 +1332,9 @@ const PlaylistSelectorModal = ({
         />
       ) : (
         <div className="space-y-4">
-          {renderCollectionViewport(ownerCollections, renderVisibilityBadge)}
+          {renderCollectionViewport(ownerCollections, (item) =>
+            item.visibility === "public" ? "公開" : "個人",
+          )}
           {collectionsHasMore ? (
             <div className="flex justify-center">
               <Button
@@ -1353,7 +1382,6 @@ const PlaylistSelectorModal = ({
       )
     ) : (
       <div className="flex min-h-0 flex-1 flex-col gap-4">
-        {statusBanner}
         <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
           <div className="text-sm font-semibold text-slate-100">
             貼上 YouTube 播放清單連結
@@ -1382,12 +1410,11 @@ const PlaylistSelectorModal = ({
                 !playlistUrl.trim() ||
                 playlistLoading ||
                 actionRunning ||
-                linkAlreadyApplied ||
-                linkAlreadySuggested
+                linkAlreadyApplied
               }
               onClick={() => {
                 void (async () => {
-                  if (linkAlreadyApplied || linkAlreadySuggested) return;
+                  if (linkAlreadyApplied) return;
                   if (actionRunning) return;
                   const trimmed = playlistUrl.trim();
                   if (isSuggestionMode) {
@@ -1439,8 +1466,6 @@ const PlaylistSelectorModal = ({
                   : "套用中..."
                 : linkAlreadyApplied
                   ? "已套用"
-                : linkAlreadySuggested
-                  ? "已推薦"
                 : isSuggestionMode
                   ? "推薦此清單"
                   : "套用此清單"}
@@ -1817,6 +1842,7 @@ const PlaylistSelectorModal = ({
         </div>
       </DialogTitle>
       <DialogContent className="!flex !min-h-0 !flex-1 !flex-col !overflow-hidden !p-5 max-sm:!p-4 sm:!p-6">
+        {statusBanner}
         <div
           className={`flex min-h-0 flex-1 flex-col ${
             showEmptyFrame
@@ -1840,3 +1866,5 @@ const PlaylistSelectorModal = ({
 };
 
 export default React.memo(PlaylistSelectorModal);
+
+

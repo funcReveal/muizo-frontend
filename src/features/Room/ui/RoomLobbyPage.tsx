@@ -12,7 +12,7 @@ import HistoryReplayCompactView from "../../Settlement/ui/components/HistoryRepl
 import { HistoryReplaySkeleton } from "../../Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 import RoomLobbyPanel from "./components/RoomLobbyPanel";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
-import { LAST_NON_ROOM_ROUTE_STORAGE_KEY } from "../../../shared/analytics/pageTracking";
+import { LAST_NON_ROOM_ROUTE_STORAGE_KEY } from "../../../shared/analytics/constants";
 import {
   type LobbySettlementStats,
 } from "./components/roomLobbyPanelUtils";
