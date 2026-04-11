@@ -1440,7 +1440,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   return (
     <DanmuContext.Provider value={danmuContextValue}>
       <div className="game-room-shell">
-        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-20 lg:grid-cols-[minmax(274px,318px)_minmax(0,1fr)] lg:pb-8 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] lg:h-[calc(100vh-124px)] lg:items-stretch">
+        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 lg:grid-cols-[minmax(274px,318px)_minmax(0,1fr)] lg:pb-8 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] lg:h-[calc(100vh-124px)] lg:items-stretch">
           {!isMobileGameViewport && (
             <div className="hidden lg:block lg:h-full">
               <GameRoomLeftSidebar

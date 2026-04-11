@@ -334,7 +334,7 @@ const RoomsLayoutShell: React.FC = () => {
 
         <footer
           className={`flex m-0 shrink-0 items-center justify-center gap-4 pb-[env(safe-area-inset-bottom)] text-xs text-[var(--mc-text-muted)] ${
-            isGameMode && isMobileViewport
+            currentRoom && isMobileViewport
               ? "game-room-mobile-legal-footer"
               : ""
           }`}

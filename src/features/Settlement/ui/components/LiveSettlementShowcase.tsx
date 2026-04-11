@@ -1215,7 +1215,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
 
   return (
     <div
-      className={`game-settlement-mobile-shell mx-auto w-full max-w-[1456px] min-w-0 px-0 pb-20 lg:pb-4 ${
+      className={`game-settlement-mobile-shell mx-auto w-full max-w-[1456px] min-w-0 px-0 pb-12 lg:pb-4 ${
         isMobileSettlementViewport
           ? "game-settlement-mobile-shell--immersive"
           : ""
