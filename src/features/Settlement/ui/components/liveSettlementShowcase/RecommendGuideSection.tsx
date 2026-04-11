@@ -236,6 +236,10 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   onPreviewVolumeChange,
 }) => {
   const recommendationListRef = useAutoHideScrollbar<HTMLDivElement>();
+  const mobileDrawerListNodeRef = React.useRef<HTMLDivElement | null>(null);
+  const mobileDrawerScrollbarRef = useAutoHideScrollbar<HTMLDivElement>();
+  const mobileDrawerItemRefs = React.useRef(new Map<string, HTMLDivElement>());
+  const mobileDrawerAutoScrollFrameRef = React.useRef<number | null>(null);
 
   const [autoPreviewHelpAnchor, setAutoPreviewHelpAnchor] =
     React.useState<HTMLElement | null>(null);
@@ -306,6 +310,66 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
   const closeMobileQuestionDrawer = React.useCallback(() => {
     setMobileQuestionDrawerOpen(false);
   }, []);
+
+  const registerMobileDrawerItemRef = React.useCallback(
+    (recapKey: string) => (node: HTMLDivElement | null) => {
+      if (node) {
+        mobileDrawerItemRefs.current.set(recapKey, node);
+        return;
+      }
+      mobileDrawerItemRefs.current.delete(recapKey);
+    },
+    [],
+  );
+
+  const setMobileDrawerListRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      mobileDrawerListNodeRef.current = node;
+      mobileDrawerScrollbarRef(node);
+    },
+    [mobileDrawerScrollbarRef],
+  );
+
+  const scrollMobileDrawerToSelected = React.useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      if (!isMobileView || !mobileQuestionDrawerOpen || !currentCard) return;
+      const row = mobileDrawerItemRefs.current.get(currentCard.recap.key);
+      if (!row) return;
+
+      row.scrollIntoView({
+        block: "center",
+        inline: "nearest",
+        behavior,
+      });
+    },
+    [currentCard, isMobileView, mobileQuestionDrawerOpen],
+  );
+
+  const handleMobileDrawerEntered = React.useCallback(() => {
+    scrollMobileDrawerToSelected("auto");
+  }, [scrollMobileDrawerToSelected]);
+
+  React.useEffect(() => {
+    if (!isMobileView || !mobileQuestionDrawerOpen || !currentCard) return;
+
+    if (mobileDrawerAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(mobileDrawerAutoScrollFrameRef.current);
+    }
+
+    mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+      mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+        mobileDrawerAutoScrollFrameRef.current = null;
+        scrollMobileDrawerToSelected("auto");
+      });
+    });
+
+    return () => {
+      if (mobileDrawerAutoScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(mobileDrawerAutoScrollFrameRef.current);
+        mobileDrawerAutoScrollFrameRef.current = null;
+      }
+    };
+  }, [currentCard, isMobileView, mobileQuestionDrawerOpen, scrollMobileDrawerToSelected]);
 
   const renderCategorySelect = () => {
     const activeMeta = CATEGORY_META.find((item) => item.key === activeRecommendCategory) ?? CATEGORY_META[0];
@@ -407,6 +471,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           return (
             <div
               key={card.recap.key}
+              ref={closeOnSelect ? registerMobileDrawerItemRef(card.recap.key) : undefined}
               role="button"
               tabIndex={0}
               className={`block w-full cursor-pointer rounded-[22px] border px-4 py-4 text-left transition ${
@@ -494,6 +559,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
             anchor="right"
             open={mobileQuestionDrawerOpen}
             onClose={closeMobileQuestionDrawer}
+            TransitionProps={{ onEntered: handleMobileDrawerEntered }}
             PaperProps={{
               className: "!w-[min(92vw,380px)] !bg-[linear-gradient(180deg,rgba(8,14,26,0.98),rgba(4,8,18,0.99))] !border-l !border-slate-700/25",
             }}
@@ -541,7 +607,10 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+              <div
+                ref={setMobileDrawerListRef}
+                className="mq-autohide-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-4"
+              >
                 {renderRecommendationList(true)}
               </div>
               <div className="shrink-0 border-t border-white/7 px-4 py-3">

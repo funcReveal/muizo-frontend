@@ -1,5 +1,4 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import { IconButton, Drawer } from "@mui/material";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
@@ -16,6 +15,7 @@ import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import KeyboardDoubleArrowRightRoundedIcon from "@mui/icons-material/KeyboardDoubleArrowRightRounded";
 
 import type { SettlementTrackLink } from "../../../model/settlementLinks";
 import type { RoomParticipant } from "../../../../Room/model/types";
@@ -34,6 +34,7 @@ import {
 import {
   resolvePreviewEmbedUrl,
 } from "./showcasePrimitives";
+import MobileDrawerEdgeControls from "./MobileDrawerEdgeControls";
 
 type RecapAnswerResult = "correct" | "wrong" | "unanswered";
 type ReviewListFilter = "all" | "correct" | "wrong" | "unanswered";
@@ -472,9 +473,8 @@ const CollapsibleSection: React.FC<{
       {summary ? (
         <div
           aria-hidden={!shouldShowSummary}
-          className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-            shouldShowSummary ? "max-h-[34rem] opacity-100" : "max-h-0 opacity-0"
-          }`}
+          className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${shouldShowSummary ? "max-h-[34rem] opacity-100" : "max-h-0 opacity-0"
+            }`}
         >
           <div className="px-4 pb-3">
             {summary}
@@ -603,11 +603,10 @@ const YouTubePlayerArea: React.FC<{
             return next;
           });
         }}
-        className={`inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition ${
-          autoplayEnabled
+        className={`inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition ${autoplayEnabled
             ? "border-cyan-300/45 bg-cyan-500/14 text-cyan-50"
             : "border-slate-700/70 bg-slate-900/60 text-slate-300 hover:border-cyan-300/35"
-        }`}
+          }`}
       >
         <PlayCircleOutlineRoundedIcon className="text-[1.15rem]" />
       </button>
@@ -733,7 +732,7 @@ const YouTubePlayerArea: React.FC<{
                     </span>
                     <span className="text-sm font-black text-white">已暫停</span>
                     <span className="text-xs leading-relaxed text-slate-200/88">
-                      如果喜歡該作者請至 YouTube 支持作者
+                      如果喜歡該影片請至 YouTube 支持作者
                     </span>
                   </span>
                 </button>
@@ -804,10 +803,13 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [expandedChoiceParticipantsKey, setExpandedChoiceParticipantsKey] = React.useState<number | null>(null);
   const detailTopRef = React.useRef<HTMLDivElement | null>(null);
+  const mobileDrawerListNodeRef = React.useRef<HTMLDivElement | null>(null);
+  const mobileDrawerItemRefs = React.useRef(new Map<string, HTMLDivElement>());
+  const mobileDrawerAutoScrollFrameRef = React.useRef<number | null>(null);
   const mobileParticipantStripRef = useAutoHideScrollbar<HTMLDivElement>();
   const desktopParticipantStripRef = useAutoHideScrollbar<HTMLDivElement>();
   const desktopReviewListRef = useAutoHideScrollbar<HTMLDivElement>();
-  const mobileDrawerListRef = useAutoHideScrollbar<HTMLDivElement>();
+  const mobileDrawerScrollbarRef = useAutoHideScrollbar<HTMLDivElement>();
 
   const filteredRecaps = React.useMemo(() => {
     if (filter === "all") return reviewRecaps;
@@ -929,6 +931,68 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
 
   React.useEffect(() => { setExpandedChoiceParticipantsKey(null); }, [selectedRecap?.key]);
 
+  const registerMobileDrawerItemRef = React.useCallback(
+    (recapKey: string) => (node: HTMLDivElement | null) => {
+      if (node) {
+        mobileDrawerItemRefs.current.set(recapKey, node);
+        return;
+      }
+      mobileDrawerItemRefs.current.delete(recapKey);
+    },
+    [],
+  );
+
+  const setMobileDrawerListRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      mobileDrawerListNodeRef.current = node;
+      mobileDrawerScrollbarRef(node);
+    },
+    [mobileDrawerScrollbarRef],
+  );
+
+  const scrollMobileDrawerToSelected = React.useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      if (!isMobileView || !drawerOpen || !selectedRecapKey) return;
+      const container = mobileDrawerListNodeRef.current;
+      const row = mobileDrawerItemRefs.current.get(selectedRecapKey);
+      if (!container || !row) return;
+
+      const rowTop = row.offsetTop;
+      const rowHeight = row.offsetHeight;
+      const containerHeight = container.clientHeight;
+      const targetScrollTop = Math.max(0, rowTop - (containerHeight - rowHeight) / 2);
+
+      container.scrollTo({ top: targetScrollTop, behavior });
+    },
+    [drawerOpen, isMobileView, selectedRecapKey],
+  );
+
+  const handleMobileDrawerEntered = React.useCallback(() => {
+    scrollMobileDrawerToSelected("auto");
+  }, [scrollMobileDrawerToSelected]);
+
+  React.useEffect(() => {
+    if (!isMobileView || !drawerOpen) return;
+
+    if (mobileDrawerAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(mobileDrawerAutoScrollFrameRef.current);
+    }
+
+    mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+      mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+        mobileDrawerAutoScrollFrameRef.current = null;
+        scrollMobileDrawerToSelected("auto");
+      });
+    });
+
+    return () => {
+      if (mobileDrawerAutoScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(mobileDrawerAutoScrollFrameRef.current);
+        mobileDrawerAutoScrollFrameRef.current = null;
+      }
+    };
+  }, [drawerOpen, filteredRecaps, isMobileView, scrollMobileDrawerToSelected, selectedRecapKey]);
+
   const goToRecapIndex = React.useCallback((nextIndex: number) => {
     const target = filteredRecaps[nextIndex];
     if (!target) return;
@@ -1007,16 +1071,20 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
         const result = resolveParticipantResult(recap, effectiveSelectedReviewParticipantClientId, meClientId);
         const rating = performanceRatingByRecapKey.get(recap.key) ?? null;
         return (
-          <RecapListItem
+          <div
             key={recap.key}
-            recap={recap}
-            result={result}
-            isActive={selectedRecapKey === recap.key}
-            resultMeta={resultMeta}
-            rating={rating}
-            performanceGradeMeta={performanceGradeMeta}
-            onClick={() => handleRecapCardClick(recap, fromDrawer)}
-          />
+            ref={fromDrawer ? registerMobileDrawerItemRef(recap.key) : undefined}
+          >
+            <RecapListItem
+              recap={recap}
+              result={result}
+              isActive={selectedRecapKey === recap.key}
+              resultMeta={resultMeta}
+              rating={rating}
+              performanceGradeMeta={performanceGradeMeta}
+              onClick={() => handleRecapCardClick(recap, fromDrawer)}
+            />
+          </div>
         );
       })}
       {filteredRecaps.length === 0 && (
@@ -1029,377 +1097,390 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
 
   // ── mobile layout ──────────────────────────────────────────────────────────
   if (isMobileView) {
-    const floatingDrawerTrigger =
-      typeof document !== "undefined"
-        ? createPortal(
-          <div className="fixed right-0.5 top-[85dvh] z-[1650] flex -translate-y-1/2 justify-end">
-            <button
-              type="button"
-              aria-label="開啟題目清單"
-              onClick={() => setDrawerOpen(true)}
-              className="inline-flex h-10 w-[7rem] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-2.5 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
-            >
-              <QueueMusicRoundedIcon className="shrink-0 text-[1rem]" />
-              {filteredRecaps.length > 0 && (
-                <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center px-1 text-[10px] font-black leading-none tabular-nums text-cyan-100">
-                  {mobileRecapProgressLabel}
-                </span>
-              )}
-            </button>
-          </div>,
-          document.body,
-        )
-        : null;
+    const floatingDrawerTrigger = null;
+    /* legacy trigger replaced by MobileDrawerEdgeControls
+    typeof document !== "undefined"
+      ? createPortal(
+        <div className="fixed right-0.5 top-[85dvh] z-[1650] flex -translate-y-1/2 justify-end">
+          <button
+            type="button"
+            aria-label="開啟題目清單"
+            onClick={() => setDrawerOpen(true)}
+            className="inline-flex h-10 w-[7rem] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-2.5 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
+          >
+            <QueueMusicRoundedIcon className="shrink-0 text-[1rem]" />
+            {filteredRecaps.length > 0 && (
+              <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center px-1 text-[10px] font-black leading-none tabular-nums text-cyan-100">
+                {mobileRecapProgressLabel}
+              </span>
+            )}
+          </button>
+        </div>,
+        document.body,
+      )
+      : null;
+    */
 
     return (
       <>
-      {floatingDrawerTrigger}
-      <section className={`mt-4 ${reviewSurfaceClass}`}>
-        {/* header row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <HistoryRoundedIcon className="text-amber-100" />
-            <h3 className="text-[1.6rem] font-black tracking-tight text-white">題目回顧</h3>
-          </div>
-        </div>
-
-        {/* participant selector */}
-        {sortedParticipants.length > 0 && (
-          <div
-            ref={mobileParticipantStripRef}
-            className="mq-autohide-scrollbar mt-4 overflow-x-auto pb-1"
-          >
-            <div className="inline-flex min-w-max items-center gap-2">
-              {sortedParticipants.map((p, index) => {
-                const isActive = p.clientId === effectiveSelectedReviewParticipantClientId;
-                return (
-                  <button key={p.clientId} type="button" onClick={() => onSelectReviewParticipantClientId(p.clientId)}
-                    className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${isActive ? "bg-sky-500/16 text-sky-50" : "border border-slate-600/70 bg-slate-900/68 text-slate-300 hover:border-slate-400"}`}
-                  >
-                    <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-current/35 px-1 text-[10px] leading-none">{index + 1}</span>
-                    <span className="max-w-[9rem] truncate">{p.username}{p.clientId === meClientId ? "（你）" : ""}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* right-side drawer */}
-        <Drawer
-          anchor="right"
+        <MobileDrawerEdgeControls
           open={drawerOpen}
+          progressLabel={mobileRecapProgressLabel}
+          openAriaLabel="開啟題目清單"
+          closeAriaLabel="關閉題目清單"
+          onOpen={() => setDrawerOpen(true)}
           onClose={() => setDrawerOpen(false)}
-          PaperProps={{
-            className: "!w-[min(92vw,360px)] !bg-[linear-gradient(180deg,rgba(8,14,26,0.98),rgba(4,8,18,0.99))] !border-l !border-slate-700/25",
-          }}
-          sx={{ zIndex: 1700 }}
-        >
-          <div className="flex h-full flex-col overflow-hidden">
-            {/* drawer header */}
-            <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
-              <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
-                題目清單
-                {filteredRecaps.length > 0 && (
-                  <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-black leading-none tabular-nums text-slate-300">
-                    {mobileRecapProgressLabel}
-                  </span>
-                )}
-              </span>
-              <IconButton size="small" onClick={() => setDrawerOpen(false)} className="!text-slate-300">
-                <CloseRoundedIcon fontSize="small" />
-              </IconButton>
-            </div>
-
-            {/* filter bar inside drawer */}
-            <div className="shrink-0 px-4 pb-3 pt-1">
-              {filterBar}
-            </div>
-
-            {/* scrollable list */}
-            <div
-              ref={mobileDrawerListRef}
-              className="mq-autohide-scrollbar flex-1 overflow-y-auto px-3 pb-4 pt-1"
-            >
-              {questionListItems(true)}
+          openIcon={<QueueMusicRoundedIcon className="shrink-0 text-[1rem]" />}
+          closeIcon={<KeyboardDoubleArrowRightRoundedIcon className="text-[1.35rem]" />}
+          drawerWidthCss="min(92vw, 360px)"
+        />
+        <section className={`mt-4 ${reviewSurfaceClass}`}>
+          {/* header row */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <HistoryRoundedIcon className="text-amber-100" />
+              <h3 className="text-[1.6rem] font-black tracking-tight text-white">題目回顧</h3>
             </div>
           </div>
-        </Drawer>
 
-        {/* single question detail area */}
-        <div ref={detailTopRef} className="mt-4">
-          {selectedRecap ? (
+          {/* participant selector */}
+          {sortedParticipants.length > 0 && (
             <div
-              key={reviewDetailTransitionKey}
-              style={{ animation: "settlementSwapIn 240ms ease-out both" }}
+              ref={mobileParticipantStripRef}
+              className="mq-autohide-scrollbar mt-4 overflow-x-auto pb-1"
             >
-              {/* question meta */}
-              <div className="relative z-10 flex flex-col gap-4">
-                {/* glow */}
-                <div className="pointer-events-none absolute rounded-br-[6.25rem] rounded-tl-[20px] -left-3 -top-3 h-[11.75rem] w-[13.5rem]">
-                  <div className={`absolute rounded-full opacity-70 ${scoreVisualTone.statusGlowClass} -left-[4.4rem] -top-[4.6rem] h-[9.8rem] w-[12.8rem] blur-[58px]`} />
-                </div>
-
-                <div className="relative flex min-w-0 flex-1 flex-col items-start pr-2">
-                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-                    題目 {selectedRecap.order}
-                    {selectedReviewParticipant ? ` ・ ${selectedReviewParticipant.username}` : ""}
-                    {answerOrderLabel ? ` ・ ${answerOrderLabel}` : ""}
-                  </p>
-                  <button
-                    type="button"
-                    className={`mq-title-link mq-title-link--hero mt-3 inline-grid max-w-full place-items-start text-left align-top text-[1.5rem] font-black leading-tight transition ${selectedRecapLink?.href ? "cursor-pointer text-white underline-offset-4 hover:text-cyan-50 hover:underline" : "cursor-default text-white"}`}
-                    onClick={() => { if (selectedRecapLink?.href) onOpenTrackLink(selectedRecapLink, selectedRecap); }}
-                    disabled={!selectedRecapLink?.href}
-                  >
-                    <ChoiceMarqueeTitle text={selectedRecap.title} className="w-full text-[1.5rem] font-black leading-tight text-current" />
-                  </button>
-                  {selectedRecapLink?.authorHref ? (
-                    <a href={selectedRecapLink.authorHref} target="_blank" rel="noopener noreferrer" className="mq-author-link mq-author-link--hero mt-2 block max-w-full self-start text-lg text-slate-300">
-                      <span className="truncate">{selectedRecap.uploader || "未知作者"}</span>
-                    </a>
-                  ) : (
-                    <p className="mt-2 block max-w-full self-start text-lg text-slate-300">{selectedRecap.uploader || "未知作者"}</p>
-                  )}
-                </div>
-
-                {/* score ring + stats — collapsible on mobile */}
-                <CollapsibleSection
-                  label="題目數據"
-                  defaultOpen={false}
-                  summary={(
-                    <div className="flex items-center justify-between gap-4 overflow-visible rounded-[16px] border border-white/5 bg-white/[0.025] px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold tracking-[0.22em] text-slate-500">GRADE</p>
-                        <p className={`mt-1 text-[3.2rem] font-black leading-none ${scoreVisualTone.gradeClass}`}>
-                          {selectedRecapRating?.grade ?? "E"}
-                        </p>
-                      </div>
-                      <div className="group/score relative isolate flex h-24 w-24 shrink-0 items-center justify-center overflow-visible rounded-full" style={{ background: scoreRingGradient }}>
-                        <div className={`pointer-events-none absolute -inset-4 rounded-full opacity-55 blur-[22px] ${scoreVisualTone.statusGlowClass}`} />
-                        <div className={`absolute inset-[17px] rounded-full ${scoreVisualTone.ringBaseClass} bg-slate-950/100`} />
-                        <div className="relative z-10 flex h-[4.3rem] w-[4.3rem] flex-col items-center justify-center rounded-full bg-slate-950/100">
-                          <span className="text-[8px] font-semibold tracking-[0.2em] text-slate-500">SCORE</span>
-                          <span className={`mt-0.5 text-[1.55rem] font-black leading-none ${scoreVisualTone.scoreClass}`}>{displayScore}</span>
-                          <span className="mt-0.5 text-[8px] font-semibold tracking-[0.16em] text-slate-500">{scoreRankLabel}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                >
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
-                      <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-slate-400"><EmojiEventsRoundedIcon className="text-[1rem] text-amber-200" />全場最快</div>
-                      <p className="mt-2 text-sm font-black text-white">{selectedRecapFastestCorrectMeta ? selectedRecapFastestCorrectMeta.username : "--"}</p>
-                      <p className="mt-1 text-xs text-slate-300">{selectedRecapFastestCorrectMeta ? formatMs(selectedRecapFastestCorrectMeta.answeredAtMs) : "--"}</p>
-                    </div>
-                    <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
-                      <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-slate-400"><TimerRoundedIcon className="text-[1rem] text-cyan-200" />中位作答</div>
-                      <p className="mt-2 text-sm font-black text-white">{typeof medianMs === "number" ? formatMs(medianMs) : "--"}</p>
-                    </div>
-                    <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
-                      <div className="text-[11px] tracking-[0.16em] text-slate-400">你的作答</div>
-                      <div className="mt-2 text-sm font-black text-white">{answeredAtMs !== null ? formatMs(answeredAtMs) : "--"}</div>
-                    </div>
-                    <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
-                      <div className="text-[11px] tracking-[0.16em] text-slate-400">比中位快慢</div>
-                      <div className={`mt-2 text-sm font-black ${speedDeltaMs === null ? "text-white" : speedDeltaMs >= 0 ? "text-emerald-100" : "text-rose-100"}`}>
-                        {speedDeltaMs === null ? "--" : `${speedDeltaMs >= 0 ? "+" : "-"}${formatMs(Math.abs(speedDeltaMs))}`}
-                      </div>
-                    </div>
-                    <div className="col-span-2 rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
-                      <div className="text-[11px] tracking-[0.16em] text-slate-400">贏過比例</div>
-                      <div className="mt-2 text-sm font-black text-white">{beatPercent > 0 ? `${beatPercent}%` : "--"}</div>
-                    </div>
-                  </div>
-
-                  {/* result bar */}
-                  <div className="mt-4 overflow-hidden rounded-[16px]">
-                    <div className="flex h-8 w-full overflow-hidden rounded-[16px]">
-                      {(selectedRecap.correctCount ?? 0) > 0 && (
-                        <div className="flex items-center justify-center bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))] px-3 text-sm font-black text-emerald-50"
-                          style={{ width: `${globalResultTotal > 0 ? ((selectedRecap.correctCount ?? 0) / globalResultTotal) * 100 : 0}%` }}>
-                          {selectedRecap.correctCount ?? 0}
-                        </div>
-                      )}
-                      {(selectedRecap.wrongCount ?? 0) > 0 && (
-                        <div className="flex items-center justify-center bg-[linear-gradient(90deg,rgba(244,63,94,0.95),rgba(251,113,133,0.92))] px-3 text-sm font-black text-rose-50"
-                          style={{ width: `${globalResultTotal > 0 ? ((selectedRecap.wrongCount ?? 0) / globalResultTotal) * 100 : 0}%` }}>
-                          {selectedRecap.wrongCount ?? 0}
-                        </div>
-                      )}
-                      {(selectedRecap.unansweredCount ?? 0) > 0 && (
-                        <div className="flex items-center justify-center bg-[linear-gradient(90deg,rgba(100,116,139,0.92),rgba(148,163,184,0.88))] px-3 text-sm font-black text-slate-100"
-                          style={{ width: `${globalResultTotal > 0 ? ((selectedRecap.unansweredCount ?? 0) / globalResultTotal) * 100 : 0}%` }}>
-                          {selectedRecap.unansweredCount ?? 0}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CollapsibleSection>
-
-                {/* choices — collapsible */}
-                <CollapsibleSection
-                  label="選項分析"
-                  defaultOpen={false}
-                  hideSummaryWhenOpen
-                  summary={(() => {
-                    const myChoiceIdx = selectedRecapAnswer.choiceIndex;
-                    const correctIdx = selectedRecap.correctChoiceIndex;
-                    const myChoice = myChoiceIdx !== null ? selectedRecap.choices.find((c) => c.index === myChoiceIdx) : null;
-                    const correctChoice = selectedRecap.choices.find((c) => c.index === correctIdx);
-                    if (!correctChoice) return null;
-                    const summaryChoices = [
-                      ...(myChoice && myChoice.index !== correctChoice.index ? [myChoice] : []),
-                      correctChoice,
-                    ];
-                    return (
-                      <div className="space-y-2.5">
-                        {summaryChoices.map((choice) => {
-                          const isCorrect = choice.index === correctChoice.index;
-                          const isMine = myChoice?.index === choice.index;
-                          const pickedCount = countChoiceVotes(selectedRecap, choice.index);
-                          const totalAnswers = Math.max(1, Object.keys(selectedRecap.answersByClientId ?? {}).length);
-                          const pickedPercent = clampPercent((pickedCount / totalAnswers) * 100);
-                          const choiceCardClass = `relative overflow-visible rounded-[22px] px-5 py-4 ${isCorrect ? "border border-emerald-300/34 bg-[linear-gradient(180deg,rgba(6,42,34,0.7),rgba(4,18,20,0.66))]" : isMine ? "border border-rose-300/30 bg-[linear-gradient(180deg,rgba(64,16,28,0.68),rgba(26,10,18,0.62))]" : "bg-black/18"}`;
-                          return (
-                            <div
-                              key={`summary-${selectedRecap.key}-${choice.index}`}
-                              className={choiceCardClass}
-                            >
-                              <div className="space-y-3.5">
-                                <div className="flex flex-col items-start justify-between gap-2">
-                                  <div className="min-w-0 flex-1 pr-2">
-                                    <ChoiceMarqueeTitle text={choice.title} disableMarquee className="text-[1.02rem] font-semibold text-white leading-[1.38]" staticStyle={multilineEllipsis2Style} />
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    {isCorrect && <span className={`${reviewStatusBadgeBaseClass} h-6 border-emerald-300/45 bg-emerald-400/15 px-2.5 text-[10px] text-emerald-100`}>正確答案</span>}
-                                    {isMine && <span className={`${reviewStatusBadgeBaseClass} h-6 border-rose-300/45 bg-rose-400/18 px-2.5 text-[10px] text-rose-100`}>你的選擇</span>}
-                                    <span className="inline-flex h-6 items-center justify-center rounded-full border border-slate-500/65 bg-slate-900/75 px-2.5 text-[10px] font-semibold text-slate-200">{pickedCount} 票</span>
-                                    <span className="inline-flex h-6 items-center justify-center rounded-full border border-white/10 bg-black/20 px-2.5 text-[10px] font-semibold text-slate-200">{pickedPercent}%</span>
-                                  </div>
-                                </div>
-                                <div className="h-3 w-full overflow-hidden rounded-full bg-black/25">
-                                  <div className={`h-full rounded-full ${isCorrect ? "bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))]" : isMine ? "bg-[linear-gradient(90deg,rgba(56,189,248,0.95),rgba(96,165,250,0.95))]" : "bg-[linear-gradient(90deg,rgba(100,116,139,0.9),rgba(148,163,184,0.85))]"}`}
-                                    style={{ width: `${pickedPercent}%` }} />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                >
-                  <div className="space-y-3.5">
-                    {selectedRecap.choices.map((choice) => {
-                      const isCorrect = choice.index === selectedRecap.correctChoiceIndex;
-                      const isMine = selectedRecapAnswer.choiceIndex === choice.index;
-                      const pickedCount = countChoiceVotes(selectedRecap, choice.index);
-                      const totalAnswers = Math.max(1, Object.keys(selectedRecap.answersByClientId ?? {}).length);
-                      const pickedPercent = clampPercent((pickedCount / totalAnswers) * 100);
-                      const pickedParticipants = Object.entries(selectedRecap.answersByClientId ?? {})
-                        .filter(([, a]) => a.choiceIndex === choice.index)
-                        .sort(([, la], [, ra]) => {
-                          const lMs = typeof la.answeredAtMs === "number" ? la.answeredAtMs : Number.MAX_SAFE_INTEGER;
-                          const rMs = typeof ra.answeredAtMs === "number" ? ra.answeredAtMs : Number.MAX_SAFE_INTEGER;
-                          return lMs !== rMs ? lMs - rMs : 0;
-                        })
-                        .map(([cid]) => participantByClientId.get(cid))
-                        .filter((p): p is RoomParticipant => Boolean(p));
-                      const visiblePicked = pickedParticipants.slice(0, 4);
-                      const hiddenPicked = pickedParticipants.slice(4);
-                      const isExpanded = expandedChoiceParticipantsKey === choice.index;
-                      const choiceCardClass = `relative overflow-visible rounded-[22px] px-5 py-4 ${isCorrect ? "border border-emerald-300/34 bg-[linear-gradient(180deg,rgba(6,42,34,0.7),rgba(4,18,20,0.66))]" : isMine ? "border border-rose-300/30 bg-[linear-gradient(180deg,rgba(64,16,28,0.68),rgba(26,10,18,0.62))]" : "bg-black/18"}`;
-                      return (
-                        <div key={`${selectedRecap.key}-${choice.index}`} className={choiceCardClass}>
-                          {pickedParticipants.length > 0 && (
-                            <div className="pointer-events-auto absolute right-4 top-0 flex -translate-y-[66%] items-center z-10">
-                              {visiblePicked.map((p, idx) => (
-                                <RoomUiTooltip key={`${choice.index}-${p.clientId}`} title={p.username}>
-                                  <div className="relative" style={{ marginLeft: idx === 0 ? 0 : -9 }}>
-                                    {renderParticipantMiniAvatar(p, "h-8 w-8", avatarEffectLevel)}
-                                  </div>
-                                </RoomUiTooltip>
-                              ))}
-                              {hiddenPicked.length > 0 && (
-                                <RoomUiTooltip title={<ExtraParticipantsTooltipContent participants={hiddenPicked} avatarEffectLevel={avatarEffectLevel} />} placement="top">
-                                  <button type="button"
-                                    onClick={() => setExpandedChoiceParticipantsKey((c) => c === choice.index ? null : choice.index)}
-                                    className="relative ml-2 inline-flex h-8 min-w-[1.9rem] items-center justify-center rounded-full border border-slate-700/38 bg-[linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] px-2 text-[9px] font-black text-slate-100/92 transition hover:border-slate-500/60"
-                                  >
-                                    +{hiddenPicked.length}
-                                  </button>
-                                </RoomUiTooltip>
-                              )}
-                            </div>
-                          )}
-                          <div className="space-y-3.5">
-                            <div className="flex flex-col items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1 pr-2">
-                                <ChoiceMarqueeTitle text={choice.title} disableMarquee className="text-[1.02rem] font-semibold text-white leading-[1.38]" staticStyle={multilineEllipsis2Style} />
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                {isCorrect && <span className={`${reviewStatusBadgeBaseClass} h-6 border-emerald-300/45 bg-emerald-400/15 px-2.5 text-[10px] text-emerald-100`}>正確答案</span>}
-                                {isMine && <span className={`${reviewStatusBadgeBaseClass} h-6 border-rose-300/45 bg-rose-400/18 px-2.5 text-[10px] text-rose-100`}>你的選擇</span>}
-                                <span className="inline-flex h-6 items-center justify-center rounded-full border border-slate-500/65 bg-slate-900/75 px-2.5 text-[10px] font-semibold text-slate-200">{pickedCount} 票</span>
-                                <span className="inline-flex h-6 items-center justify-center rounded-full border border-white/10 bg-black/20 px-2.5 text-[10px] font-semibold text-slate-200">{pickedPercent}%</span>
-                              </div>
-                            </div>
-                            <div className="h-3 w-full overflow-hidden rounded-full bg-black/25">
-                              <div className={`h-full rounded-full ${isCorrect ? "bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))]" : isMine ? "bg-[linear-gradient(90deg,rgba(56,189,248,0.95),rgba(96,165,250,0.95))]" : "bg-[linear-gradient(90deg,rgba(100,116,139,0.9),rgba(148,163,184,0.85))]"}`}
-                                style={{ width: `${pickedPercent}%` }} />
-                            </div>
-                            {isExpanded && hiddenPicked.length > 0 && (
-                              <div className="flex flex-wrap items-center justify-end gap-2">
-                                {hiddenPicked.map((p) => (
-                                  <div key={`${choice.index}-expanded-${p.clientId}`} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/18 px-2.5 py-1.5 text-xs text-slate-100">
-                                    {renderParticipantMiniAvatar(p, "h-7 w-7", avatarEffectLevel)}
-                                    <span className="max-w-[9rem] truncate">{p.username}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CollapsibleSection>
-
-                {/* prev / next navigation */}
-                {filteredRecaps.length > 0 && (
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={goPrevRecap}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-full border border-slate-600/70 bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-400">
-                      <ChevronLeftRoundedIcon className="text-[1.1rem]" />上一題
+              <div className="inline-flex min-w-max items-center gap-2">
+                {sortedParticipants.map((p, index) => {
+                  const isActive = p.clientId === effectiveSelectedReviewParticipantClientId;
+                  return (
+                    <button key={p.clientId} type="button" onClick={() => onSelectReviewParticipantClientId(p.clientId)}
+                      className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${isActive ? "bg-sky-500/16 text-sky-50" : "border border-slate-600/70 bg-slate-900/68 text-slate-300 hover:border-slate-400"}`}
+                    >
+                      <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-current/35 px-1 text-[10px] leading-none">{index + 1}</span>
+                      <span className="max-w-[9rem] truncate">{p.username}{p.clientId === meClientId ? "（你）" : ""}</span>
                     </button>
-                    <span className="shrink-0 rounded-full border border-white/10 bg-black/18 px-4 py-3 text-sm font-semibold tabular-nums text-white">
-                      {selectedRecapFilteredIndex >= 0 ? selectedRecapFilteredIndex + 1 : 1} / {filteredRecaps.length}
-                    </span>
-                    <button type="button" onClick={goNextRecap}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-full border border-cyan-300/28 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/44">
-                      下一題<ChevronRightRoundedIcon className="text-[1.1rem]" />
-                    </button>
-                  </div>
-                )}
-
-                {/* YouTube preview */}
-                <YouTubePlayerArea
-                  recap={selectedRecap}
-                  selectedRecapLink={selectedRecapLink}
-                  onOpenTrackLink={onOpenTrackLink}
-                  isMobileView
-                />
+                  );
+                })}
               </div>
             </div>
-          ) : (
-            <div className="flex min-h-[180px] items-center justify-center rounded-[22px] border border-dashed border-slate-700/70 bg-slate-950/55 px-4 text-sm text-slate-400">
-              點擊題目清單選擇一題後即可查看回顧
-            </div>
           )}
-        </div>
-      </section>
+
+          {/* right-side drawer */}
+          <Drawer
+            anchor="right"
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            TransitionProps={{ onEntered: handleMobileDrawerEntered }}
+            PaperProps={{
+              className: "!w-[min(92vw,360px)] !bg-[linear-gradient(180deg,rgba(8,14,26,0.98),rgba(4,8,18,0.99))] !border-l !border-slate-700/25",
+            }}
+            sx={{ zIndex: 1700 }}
+          >
+            <div className="flex h-full flex-col overflow-hidden">
+              {/* drawer header */}
+              <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
+                <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
+                  題目清單
+                  {filteredRecaps.length > 0 && (
+                    <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-black leading-none tabular-nums text-slate-300">
+                      {mobileRecapProgressLabel}
+                    </span>
+                  )}
+                </span>
+                <IconButton size="small" onClick={() => setDrawerOpen(false)} className="!text-slate-300">
+                  <CloseRoundedIcon fontSize="small" />
+                </IconButton>
+              </div>
+
+              {/* filter bar inside drawer */}
+              <div className="shrink-0 px-4 pb-3 pt-1">
+                {filterBar}
+              </div>
+
+              {/* scrollable list */}
+              <div
+                ref={setMobileDrawerListRef}
+                className="mq-autohide-scrollbar flex-1 overflow-y-auto px-3 pb-4 pt-1"
+              >
+                {questionListItems(true)}
+              </div>
+            </div>
+          </Drawer>
+
+          {/* single question detail area */}
+          <div ref={detailTopRef} className="mt-4">
+            {selectedRecap ? (
+              <div
+                key={reviewDetailTransitionKey}
+                style={{ animation: "settlementSwapIn 240ms ease-out both" }}
+              >
+                {/* question meta */}
+                <div className="relative z-10 flex flex-col gap-4">
+                  {/* glow */}
+                  <div className="pointer-events-none absolute rounded-br-[6.25rem] rounded-tl-[20px] -left-3 -top-3 h-[11.75rem] w-[13.5rem]">
+                    <div className={`absolute rounded-full opacity-70 ${scoreVisualTone.statusGlowClass} -left-[4.4rem] -top-[4.6rem] h-[9.8rem] w-[12.8rem] blur-[58px]`} />
+                  </div>
+
+                  <div className="relative flex min-w-0 flex-1 flex-col items-start pr-2">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                      題目 {selectedRecap.order}
+                      {selectedReviewParticipant ? ` ・ ${selectedReviewParticipant.username}` : ""}
+                      {answerOrderLabel ? ` ・ ${answerOrderLabel}` : ""}
+                    </p>
+                    <button
+                      type="button"
+                      className={`mq-title-link mq-title-link--hero mt-3 inline-grid max-w-full place-items-start text-left align-top text-[1.5rem] font-black leading-tight transition ${selectedRecapLink?.href ? "cursor-pointer text-white underline-offset-4 hover:text-cyan-50 hover:underline" : "cursor-default text-white"}`}
+                      onClick={() => { if (selectedRecapLink?.href) onOpenTrackLink(selectedRecapLink, selectedRecap); }}
+                      disabled={!selectedRecapLink?.href}
+                    >
+                      <ChoiceMarqueeTitle text={selectedRecap.title} className="w-full text-[1.5rem] font-black leading-tight text-current" />
+                    </button>
+                    {selectedRecapLink?.authorHref ? (
+                      <a href={selectedRecapLink.authorHref} target="_blank" rel="noopener noreferrer" className="mq-author-link mq-author-link--hero mt-2 block max-w-full self-start text-lg text-slate-300">
+                        <span className="truncate">{selectedRecap.uploader || "未知作者"}</span>
+                      </a>
+                    ) : (
+                      <p className="mt-2 block max-w-full self-start text-lg text-slate-300">{selectedRecap.uploader || "未知作者"}</p>
+                    )}
+                  </div>
+
+                  {/* score ring + stats — collapsible on mobile */}
+                  <CollapsibleSection
+                    label="題目數據"
+                    defaultOpen={false}
+                    summary={(
+                      <div className="flex items-center justify-between gap-4 overflow-visible rounded-[16px] border border-white/5 bg-white/[0.025] px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold tracking-[0.22em] text-slate-500">GRADE</p>
+                          <p className={`mt-1 text-[3.2rem] font-black leading-none ${scoreVisualTone.gradeClass}`}>
+                            {selectedRecapRating?.grade ?? "E"}
+                          </p>
+                        </div>
+                        <div className="group/score relative isolate flex h-24 w-24 shrink-0 items-center justify-center overflow-visible rounded-full" style={{ background: scoreRingGradient }}>
+                          <div className={`pointer-events-none absolute -inset-4 rounded-full opacity-55 blur-[22px] ${scoreVisualTone.statusGlowClass}`} />
+                          <div className={`absolute inset-[17px] rounded-full ${scoreVisualTone.ringBaseClass} bg-slate-950/100`} />
+                          <div className="relative z-10 flex h-[4.3rem] w-[4.3rem] flex-col items-center justify-center rounded-full bg-slate-950/100">
+                            <span className="text-[8px] font-semibold tracking-[0.2em] text-slate-500">SCORE</span>
+                            <span className={`mt-0.5 text-[1.55rem] font-black leading-none ${scoreVisualTone.scoreClass}`}>{displayScore}</span>
+                            <span className="mt-0.5 text-[8px] font-semibold tracking-[0.16em] text-slate-500">{scoreRankLabel}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  >
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-slate-400"><EmojiEventsRoundedIcon className="text-[1rem] text-amber-200" />全場最快</div>
+                        <p className="mt-2 text-sm font-black text-white">{selectedRecapFastestCorrectMeta ? selectedRecapFastestCorrectMeta.username : "--"}</p>
+                        <p className="mt-1 text-xs text-slate-300">{selectedRecapFastestCorrectMeta ? formatMs(selectedRecapFastestCorrectMeta.answeredAtMs) : "--"}</p>
+                      </div>
+                      <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-slate-400"><TimerRoundedIcon className="text-[1rem] text-cyan-200" />中位作答</div>
+                        <p className="mt-2 text-sm font-black text-white">{typeof medianMs === "number" ? formatMs(medianMs) : "--"}</p>
+                      </div>
+                      <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
+                        <div className="text-[11px] tracking-[0.16em] text-slate-400">你的作答</div>
+                        <div className="mt-2 text-sm font-black text-white">{answeredAtMs !== null ? formatMs(answeredAtMs) : "--"}</div>
+                      </div>
+                      <div className="rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
+                        <div className="text-[11px] tracking-[0.16em] text-slate-400">比中位快慢</div>
+                        <div className={`mt-2 text-sm font-black ${speedDeltaMs === null ? "text-white" : speedDeltaMs >= 0 ? "text-emerald-100" : "text-rose-100"}`}>
+                          {speedDeltaMs === null ? "--" : `${speedDeltaMs >= 0 ? "+" : "-"}${formatMs(Math.abs(speedDeltaMs))}`}
+                        </div>
+                      </div>
+                      <div className="col-span-2 rounded-[16px] border border-white/6 bg-white/[0.03] px-3 py-3">
+                        <div className="text-[11px] tracking-[0.16em] text-slate-400">贏過比例</div>
+                        <div className="mt-2 text-sm font-black text-white">{beatPercent > 0 ? `${beatPercent}%` : "--"}</div>
+                      </div>
+                    </div>
+
+                    {/* result bar */}
+                    <div className="mt-4 overflow-hidden rounded-[16px]">
+                      <div className="flex h-8 w-full overflow-hidden rounded-[16px]">
+                        {(selectedRecap.correctCount ?? 0) > 0 && (
+                          <div className="flex items-center justify-center bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))] px-3 text-sm font-black text-emerald-50"
+                            style={{ width: `${globalResultTotal > 0 ? ((selectedRecap.correctCount ?? 0) / globalResultTotal) * 100 : 0}%` }}>
+                            {selectedRecap.correctCount ?? 0}
+                          </div>
+                        )}
+                        {(selectedRecap.wrongCount ?? 0) > 0 && (
+                          <div className="flex items-center justify-center bg-[linear-gradient(90deg,rgba(244,63,94,0.95),rgba(251,113,133,0.92))] px-3 text-sm font-black text-rose-50"
+                            style={{ width: `${globalResultTotal > 0 ? ((selectedRecap.wrongCount ?? 0) / globalResultTotal) * 100 : 0}%` }}>
+                            {selectedRecap.wrongCount ?? 0}
+                          </div>
+                        )}
+                        {(selectedRecap.unansweredCount ?? 0) > 0 && (
+                          <div className="flex items-center justify-center bg-[linear-gradient(90deg,rgba(100,116,139,0.92),rgba(148,163,184,0.88))] px-3 text-sm font-black text-slate-100"
+                            style={{ width: `${globalResultTotal > 0 ? ((selectedRecap.unansweredCount ?? 0) / globalResultTotal) * 100 : 0}%` }}>
+                            {selectedRecap.unansweredCount ?? 0}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CollapsibleSection>
+
+                  {/* choices — collapsible */}
+                  <CollapsibleSection
+                    label="選項分析"
+                    defaultOpen={false}
+                    hideSummaryWhenOpen
+                    summary={(() => {
+                      const myChoiceIdx = selectedRecapAnswer.choiceIndex;
+                      const correctIdx = selectedRecap.correctChoiceIndex;
+                      const myChoice = myChoiceIdx !== null ? selectedRecap.choices.find((c) => c.index === myChoiceIdx) : null;
+                      const correctChoice = selectedRecap.choices.find((c) => c.index === correctIdx);
+                      if (!correctChoice) return null;
+                      const summaryChoices = [
+                        ...(myChoice && myChoice.index !== correctChoice.index ? [myChoice] : []),
+                        correctChoice,
+                      ];
+                      return (
+                        <div className="space-y-2.5">
+                          {summaryChoices.map((choice) => {
+                            const isCorrect = choice.index === correctChoice.index;
+                            const isMine = myChoice?.index === choice.index;
+                            const pickedCount = countChoiceVotes(selectedRecap, choice.index);
+                            const totalAnswers = Math.max(1, Object.keys(selectedRecap.answersByClientId ?? {}).length);
+                            const pickedPercent = clampPercent((pickedCount / totalAnswers) * 100);
+                            const choiceCardClass = `relative overflow-visible rounded-[22px] px-5 py-4 ${isCorrect ? "border border-emerald-300/34 bg-[linear-gradient(180deg,rgba(6,42,34,0.7),rgba(4,18,20,0.66))]" : isMine ? "border border-rose-300/30 bg-[linear-gradient(180deg,rgba(64,16,28,0.68),rgba(26,10,18,0.62))]" : "bg-black/18"}`;
+                            return (
+                              <div
+                                key={`summary-${selectedRecap.key}-${choice.index}`}
+                                className={choiceCardClass}
+                              >
+                                <div className="space-y-3.5">
+                                  <div className="flex flex-col items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1 pr-2">
+                                      <ChoiceMarqueeTitle text={choice.title} disableMarquee className="text-[1.02rem] font-semibold text-white leading-[1.38]" staticStyle={multilineEllipsis2Style} />
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {isCorrect && <span className={`${reviewStatusBadgeBaseClass} h-6 border-emerald-300/45 bg-emerald-400/15 px-2.5 text-[10px] text-emerald-100`}>正確答案</span>}
+                                      {isMine && <span className={`${reviewStatusBadgeBaseClass} h-6 border-rose-300/45 bg-rose-400/18 px-2.5 text-[10px] text-rose-100`}>你的選擇</span>}
+                                      <span className="inline-flex h-6 items-center justify-center rounded-full border border-slate-500/65 bg-slate-900/75 px-2.5 text-[10px] font-semibold text-slate-200">{pickedCount} 票</span>
+                                      <span className="inline-flex h-6 items-center justify-center rounded-full border border-white/10 bg-black/20 px-2.5 text-[10px] font-semibold text-slate-200">{pickedPercent}%</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-3 w-full overflow-hidden rounded-full bg-black/25">
+                                    <div className={`h-full rounded-full ${isCorrect ? "bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))]" : isMine ? "bg-[linear-gradient(90deg,rgba(56,189,248,0.95),rgba(96,165,250,0.95))]" : "bg-[linear-gradient(90deg,rgba(100,116,139,0.9),rgba(148,163,184,0.85))]"}`}
+                                      style={{ width: `${pickedPercent}%` }} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  >
+                    <div className="space-y-3.5">
+                      {selectedRecap.choices.map((choice) => {
+                        const isCorrect = choice.index === selectedRecap.correctChoiceIndex;
+                        const isMine = selectedRecapAnswer.choiceIndex === choice.index;
+                        const pickedCount = countChoiceVotes(selectedRecap, choice.index);
+                        const totalAnswers = Math.max(1, Object.keys(selectedRecap.answersByClientId ?? {}).length);
+                        const pickedPercent = clampPercent((pickedCount / totalAnswers) * 100);
+                        const pickedParticipants = Object.entries(selectedRecap.answersByClientId ?? {})
+                          .filter(([, a]) => a.choiceIndex === choice.index)
+                          .sort(([, la], [, ra]) => {
+                            const lMs = typeof la.answeredAtMs === "number" ? la.answeredAtMs : Number.MAX_SAFE_INTEGER;
+                            const rMs = typeof ra.answeredAtMs === "number" ? ra.answeredAtMs : Number.MAX_SAFE_INTEGER;
+                            return lMs !== rMs ? lMs - rMs : 0;
+                          })
+                          .map(([cid]) => participantByClientId.get(cid))
+                          .filter((p): p is RoomParticipant => Boolean(p));
+                        const visiblePicked = pickedParticipants.slice(0, 4);
+                        const hiddenPicked = pickedParticipants.slice(4);
+                        const isExpanded = expandedChoiceParticipantsKey === choice.index;
+                        const choiceCardClass = `relative overflow-visible rounded-[22px] px-5 py-4 ${isCorrect ? "border border-emerald-300/34 bg-[linear-gradient(180deg,rgba(6,42,34,0.7),rgba(4,18,20,0.66))]" : isMine ? "border border-rose-300/30 bg-[linear-gradient(180deg,rgba(64,16,28,0.68),rgba(26,10,18,0.62))]" : "bg-black/18"}`;
+                        return (
+                          <div key={`${selectedRecap.key}-${choice.index}`} className={choiceCardClass}>
+                            {pickedParticipants.length > 0 && (
+                              <div className="pointer-events-auto absolute right-4 top-0 flex -translate-y-[66%] items-center z-10">
+                                {visiblePicked.map((p, idx) => (
+                                  <RoomUiTooltip key={`${choice.index}-${p.clientId}`} title={p.username}>
+                                    <div className="relative" style={{ marginLeft: idx === 0 ? 0 : -9 }}>
+                                      {renderParticipantMiniAvatar(p, "h-8 w-8", avatarEffectLevel)}
+                                    </div>
+                                  </RoomUiTooltip>
+                                ))}
+                                {hiddenPicked.length > 0 && (
+                                  <RoomUiTooltip title={<ExtraParticipantsTooltipContent participants={hiddenPicked} avatarEffectLevel={avatarEffectLevel} />} placement="top">
+                                    <button type="button"
+                                      onClick={() => setExpandedChoiceParticipantsKey((c) => c === choice.index ? null : choice.index)}
+                                      className="relative ml-2 inline-flex h-8 min-w-[1.9rem] items-center justify-center rounded-full border border-slate-700/38 bg-[linear-gradient(180deg,rgba(24,34,52,0.66),rgba(10,15,28,0.78))] px-2 text-[9px] font-black text-slate-100/92 transition hover:border-slate-500/60"
+                                    >
+                                      +{hiddenPicked.length}
+                                    </button>
+                                  </RoomUiTooltip>
+                                )}
+                              </div>
+                            )}
+                            <div className="space-y-3.5">
+                              <div className="flex flex-col items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1 pr-2">
+                                  <ChoiceMarqueeTitle text={choice.title} disableMarquee className="text-[1.02rem] font-semibold text-white leading-[1.38]" staticStyle={multilineEllipsis2Style} />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {isCorrect && <span className={`${reviewStatusBadgeBaseClass} h-6 border-emerald-300/45 bg-emerald-400/15 px-2.5 text-[10px] text-emerald-100`}>正確答案</span>}
+                                  {isMine && <span className={`${reviewStatusBadgeBaseClass} h-6 border-rose-300/45 bg-rose-400/18 px-2.5 text-[10px] text-rose-100`}>你的選擇</span>}
+                                  <span className="inline-flex h-6 items-center justify-center rounded-full border border-slate-500/65 bg-slate-900/75 px-2.5 text-[10px] font-semibold text-slate-200">{pickedCount} 票</span>
+                                  <span className="inline-flex h-6 items-center justify-center rounded-full border border-white/10 bg-black/20 px-2.5 text-[10px] font-semibold text-slate-200">{pickedPercent}%</span>
+                                </div>
+                              </div>
+                              <div className="h-3 w-full overflow-hidden rounded-full bg-black/25">
+                                <div className={`h-full rounded-full ${isCorrect ? "bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))]" : isMine ? "bg-[linear-gradient(90deg,rgba(56,189,248,0.95),rgba(96,165,250,0.95))]" : "bg-[linear-gradient(90deg,rgba(100,116,139,0.9),rgba(148,163,184,0.85))]"}`}
+                                  style={{ width: `${pickedPercent}%` }} />
+                              </div>
+                              {isExpanded && hiddenPicked.length > 0 && (
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  {hiddenPicked.map((p) => (
+                                    <div key={`${choice.index}-expanded-${p.clientId}`} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/18 px-2.5 py-1.5 text-xs text-slate-100">
+                                      {renderParticipantMiniAvatar(p, "h-7 w-7", avatarEffectLevel)}
+                                      <span className="max-w-[9rem] truncate">{p.username}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CollapsibleSection>
+
+                  {/* prev / next navigation */}
+                  {filteredRecaps.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={goPrevRecap}
+                        className="flex flex-1 items-center justify-center gap-1 rounded-full border border-slate-600/70 bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-400">
+                        <ChevronLeftRoundedIcon className="text-[1.1rem]" />上一題
+                      </button>
+                      <span className="shrink-0 rounded-full border border-white/10 bg-black/18 px-4 py-3 text-sm font-semibold tabular-nums text-white">
+                        {selectedRecapFilteredIndex >= 0 ? selectedRecapFilteredIndex + 1 : 1} / {filteredRecaps.length}
+                      </span>
+                      <button type="button" onClick={goNextRecap}
+                        className="flex flex-1 items-center justify-center gap-1 rounded-full border border-cyan-300/28 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/44">
+                        下一題<ChevronRightRoundedIcon className="text-[1.1rem]" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* YouTube preview */}
+                  <YouTubePlayerArea
+                    recap={selectedRecap}
+                    selectedRecapLink={selectedRecapLink}
+                    onOpenTrackLink={onOpenTrackLink}
+                    isMobileView
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-[180px] items-center justify-center rounded-[22px] border border-dashed border-slate-700/70 bg-slate-950/55 px-4 text-sm text-slate-400">
+                點擊題目清單選擇一題後即可查看回顧
+              </div>
+            )}
+          </div>
+        </section>
       </>
     );
   }

@@ -1,6 +1,5 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 
 type MobileDrawerEdgeControlsProps = {
   open: boolean;
@@ -15,8 +14,8 @@ type MobileDrawerEdgeControlsProps = {
   closedTopClassName?: string;
 };
 
-// Tab width in px — must match the w-7 (28px) on the button below
-const TAB_W = 28;
+const TAB_W = 40;
+const SWIPE_CLOSE_THRESHOLD_PX = 36;
 
 const MobileDrawerEdgeControls: React.FC<MobileDrawerEdgeControlsProps> = ({
   open,
@@ -29,13 +28,45 @@ const MobileDrawerEdgeControls: React.FC<MobileDrawerEdgeControlsProps> = ({
   drawerWidthCss,
   closedTopClassName = "top-[85dvh]",
 }) => {
+  const swipeStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const swipeDeltaRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const resetSwipe = React.useCallback(() => {
+    swipeStartRef.current = null;
+    swipeDeltaRef.current = { x: 0, y: 0 };
+  }, []);
+
+  const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLButtonElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+    swipeDeltaRef.current = { x: 0, y: 0 };
+  }, []);
+
+  const handleTouchMove = React.useCallback((event: React.TouchEvent<HTMLButtonElement>) => {
+    const start = swipeStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+
+    swipeDeltaRef.current = {
+      x: touch.clientX - start.x,
+      y: touch.clientY - start.y,
+    };
+  }, []);
+
+  const handleTouchEnd = React.useCallback(() => {
+    const { x, y } = swipeDeltaRef.current;
+    resetSwipe();
+
+    if (x >= SWIPE_CLOSE_THRESHOLD_PX && Math.abs(x) > Math.abs(y)) {
+      onClose();
+    }
+  }, [onClose, resetSwipe]);
+
   if (typeof document === "undefined") return null;
 
-  // Floating pill that appears when drawer is closed
   const openTrigger = (
-    <div
-      className={`fixed right-2 z-[1750] -translate-y-1/2 ${closedTopClassName}`}
-    >
+    <div className={`fixed right-2 z-[1750] -translate-y-1/2 ${closedTopClassName}`}>
       <button
         type="button"
         aria-label={openAriaLabel}
@@ -52,48 +83,40 @@ const MobileDrawerEdgeControls: React.FC<MobileDrawerEdgeControlsProps> = ({
     </div>
   );
 
-  // Handle tab that hugs the left edge of the drawer
-  // left: max(4px, drawerLeftEdge - TAB_W) ensures tab never clips off screen
   const closeHandle = (
     <div
       className="fixed top-1/2 z-[1750] -translate-y-1/2"
       style={{
-        left: `max(4px, calc(100vw - ${drawerWidthCss} - ${TAB_W}px))`,
+        left: `max(2px, calc(100vw - ${drawerWidthCss} - ${TAB_W}px + 8px))`,
       }}
     >
       <button
         type="button"
         aria-label={closeAriaLabel}
         onClick={onClose}
-        style={{ width: TAB_W }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={resetSwipe}
+        style={{ width: TAB_W, touchAction: "pan-y" }}
         className={[
-          // shape — left corners rounded, right edge flat (merges with drawer)
-          "group relative flex h-14 cursor-pointer flex-col items-center justify-center gap-[5px]",
-          "rounded-l-[10px] rounded-r-none",
-          // background matches drawer: dark glass, gradient goes lighter→ toward drawer
+          "group relative flex h-16 cursor-pointer items-center justify-center",
+          "rounded-l-[12px] rounded-r-none",
           "bg-[linear-gradient(to_right,rgba(3,7,16,0.98),rgba(8,15,28,0.95))]",
           "backdrop-blur-md",
-          // border: left/top/bottom only, no right (seamless join with drawer)
           "border border-r-0 border-slate-600/40",
-          // subtle left-edge glow
           "shadow-[-5px_0_18px_-4px_rgba(34,211,238,0.18)]",
-          // text & transitions
           "text-slate-400 transition-all duration-150",
           "hover:border-cyan-400/35 hover:text-cyan-300",
           "hover:shadow-[-6px_0_22px_-4px_rgba(34,211,238,0.28)]",
           "active:scale-95",
         ].join(" ")}
       >
-        {/* grip mark — top dash */}
-        <span className="block h-px w-3 rounded-full bg-current opacity-50 transition-opacity duration-150 group-hover:opacity-80" />
-
-        {/* chevron points right = collapse / dismiss drawer */}
-        <ChevronRightRoundedIcon
-          className="text-[1rem] transition-transform duration-150 group-hover:translate-x-0.5"
-        />
-
-        {/* grip mark — bottom dash */}
-        <span className="block h-px w-3 rounded-full bg-current opacity-50 transition-opacity duration-150 group-hover:opacity-80" />
+        <span className="pointer-events-none flex h-10 w-3 flex-col items-center justify-center gap-1.5">
+          <span className="block h-1 w-1 rounded-full bg-current opacity-55 transition-opacity duration-150 group-hover:opacity-90" />
+          <span className="block h-4 w-[2px] rounded-full bg-current opacity-75 transition-[height,opacity] duration-150 group-hover:h-5 group-hover:opacity-100" />
+          <span className="block h-1 w-1 rounded-full bg-current opacity-55 transition-opacity duration-150 group-hover:opacity-90" />
+        </span>
       </button>
     </div>
   );
