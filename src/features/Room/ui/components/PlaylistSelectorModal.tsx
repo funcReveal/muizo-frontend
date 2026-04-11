@@ -624,7 +624,7 @@ const PlaylistSelectorModal = ({
       youtubePlaylists.filter(
         (item) =>
           matchCount(item.itemCount) &&
-          matchText(item.title, item.description ?? ""),
+          matchText(item.title, ""),
       ),
     [youtubePlaylists, matchCount, matchText],
   );
@@ -839,7 +839,7 @@ const PlaylistSelectorModal = ({
       <SourceCard
         key={item.id}
         title={normalizeDisplayText(item.title, "未命名 YouTube 播放清單")}
-        subtitle={item.description ?? null}
+        subtitle={null}
         thumbnailUrl={item.thumbnail ?? null}
         badge="YouTube"
         mode={mode}
@@ -900,7 +900,6 @@ const PlaylistSelectorModal = ({
       onClose,
       onRecordSourceApplied,
       openConfirmModal,
-      pendingActionKey,
       runSuggestion,
     ],
   );
@@ -1040,9 +1039,9 @@ const PlaylistSelectorModal = ({
       );
     },
     [
+      actionRunning,
       currentSourceType,
       matchesCurrentSource,
-      pendingActionKey,
       collections,
       onApplyCollectionDirect,
       onApplyPlaylistUrlDirect,

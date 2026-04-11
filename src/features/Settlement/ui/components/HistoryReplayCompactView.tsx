@@ -187,14 +187,17 @@ const HoverMarqueeText: React.FC<{
     return () => media.removeEventListener?.("change", update);
   }, []);
 
+  const handleMouseEnter = useCallback(() => setHovered(true), []);
+  const handleMouseLeave = useCallback(() => setHovered(false), []);
+
   const running = canMarquee && (hovered || (autoRunOnTouch && coarsePointer));
 
   return (
     <span
       ref={wrapRef}
       className={`game-settlement-title-marquee block overflow-hidden ${className}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       title={text}
     >
       <span

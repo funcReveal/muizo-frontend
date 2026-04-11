@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import type {
   PlaylistIssueSummary,
   PlaylistPreviewItem,
-} from "../components/hub/source/PlaylistPreviewRows";
+} from "../roomsHub/components/source/PlaylistPreviewRows";
 
 type UsePlaylistImportUiArgs = {
   createLibraryTab: "public" | "personal" | "youtube" | "link";

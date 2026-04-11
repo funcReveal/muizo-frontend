@@ -17767,7 +17767,7 @@ body {
   .game-room-mobile-scoreboard-shell .game-room-score-row--me-locate {
     border-color: rgba(96, 165, 250, 0.14) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.02) !important,
+      inset 0 1px 0 rgba(255, 255, 255, 0.02),
       inset 0 0 0 1px rgba(96, 165, 250, 0.08) !important;
   }
 
@@ -17825,10 +17825,9 @@ body {
       rgba(96, 165, 250, 0.24)
     ) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.02) !important,
+      inset 0 1px 0 rgba(255, 255, 255, 0.02),
       inset 0 0 0 1px
-        color-mix(in srgb, rgba(96, 165, 250, 0.26) 100%, transparent)
-        !important,
+        color-mix(in srgb, rgba(96, 165, 250, 0.26) 100%, transparent),
       0 0 0 1px color-mix(in srgb, var(--gr-row-hot) 26%, transparent),
       0 0 32px -16px color-mix(in srgb, var(--gr-row-hot) 56%, transparent),
       0 0 66px -30px color-mix(in srgb, var(--gr-row-hot-soft) 72%, transparent) !important;

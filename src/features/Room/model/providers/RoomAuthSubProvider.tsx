@@ -101,7 +101,7 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
   }, [authUser?.display_name, username]);
 
   const displayUsername = useMemo(
-    () => activeUsername ?? "(\u672a\u8a2d\u5b9a\u540d\u7a31)",
+    () => activeUsername ?? "(未設定名稱)",
     [activeUsername],
   );
 

@@ -15,6 +15,7 @@ import { useRoomCollections } from "../model/RoomCollectionsContext";
 import { useRoomPlaylist } from "../model/RoomPlaylistContext";
 import { useRoomGame } from "../model/RoomGameContext";
 import { apiFetchRoomById } from "../model/roomApi";
+import { useSitePresence } from "../model/SitePresenceContext";
 import {
   API_URL,
   PLAYER_MAX,
@@ -25,26 +26,26 @@ import {
   PlaylistIssueRow,
   PlaylistPreviewRow,
   type PlaylistIssueListItem,
-} from "./components/hub/source/PlaylistPreviewRows";
+} from "./roomsHub/components/source/PlaylistPreviewRows";
 import RoomSetupPanel from "./components/hub/setup/RoomSetupPanel";
 import RoomSetupSidebarSummary from "./components/hub/setup/RoomSetupSidebarSummary";
-import JoinRoomPanel from "./components/hub/join/JoinRoomPanel";
-import LibrarySourcePanel from "./components/hub/source/LibrarySourcePanel";
-import LibrarySourceToolbar from "./components/hub/source/LibrarySourceToolbar";
-import CollectionsSourceContent from "./components/hub/source/CollectionsSourceContent";
-import CollectionCard from "./components/hub/source/CollectionCard";
-import YoutubeSourceContent from "./components/hub/source/YoutubeSourceContent";
-import YoutubePlaylistCard from "./components/hub/source/YoutubePlaylistCard";
-import PlaylistLinkSourceContent from "./components/hub/source/PlaylistLinkSourceContent";
-import VirtualLibraryListRow from "./components/hub/source/VirtualLibraryListRow";
+import JoinRoomPanel from "./roomsHub/components/join/JoinRoomPanel";
+import LibrarySourcePanel from "./roomsHub/components/source/LibrarySourcePanel";
+import LibrarySourceToolbar from "./roomsHub/components/source/LibrarySourceToolbar";
+import CollectionsSourceContent from "./roomsHub/components/source/CollectionsSourceContent";
+import CollectionCard from "./roomsHub/components/source/CollectionCard";
+import YoutubeSourceContent from "./roomsHub/components/source/YoutubeSourceContent";
+import YoutubePlaylistCard from "./roomsHub/components/source/YoutubePlaylistCard";
+import PlaylistLinkSourceContent from "./roomsHub/components/source/PlaylistLinkSourceContent";
+import VirtualLibraryListRow from "./roomsHub/components/source/VirtualLibraryListRow";
 import { useJoinRoomPanelState } from "./hooks/useJoinRoomPanelState";
-import { useLibrarySourceUiState } from "./hooks/useLibrarySourceUiState";
+import { useLibrarySourceUiState } from "./roomsHub/hooks/useLibrarySourceUiState";
 import {
   canAttemptPlaylistPreview,
   usePlaylistImportUi,
 } from "./hooks/usePlaylistImportUi";
-import { usePublicCollectionsSearchUi } from "./hooks/usePublicCollectionsSearchUi";
-import { useSharedCollectionEntry } from "./hooks/useSharedCollectionEntry";
+import { usePublicCollectionsSearchUi } from "./roomsHub/hooks/usePublicCollectionsSearchUi";
+import { useSharedCollectionEntry } from "./roomsHub/hooks/useSharedCollectionEntry";
 import {
   buildCreateSettingsCards,
   buildSelectedCreateSourceSummary,
@@ -186,7 +187,9 @@ const RoomsHubPage: React.FC = () => {
     authLoading,
     authUser,
   } = useAuth();
-  const { rooms, currentRoom } = useRoomSession();
+  const { siteOnlineCount } = useSitePresence();
+  const { rooms, currentRoom, isConnected } = useRoomSession();
+  const displayedSiteOnlineCount = siteOnlineCount ?? (isConnected ? 1 : null);
   const {
     collections,
     collectionsLoading,
@@ -1591,6 +1594,7 @@ const RoomsHubPage: React.FC = () => {
                   passwordDraft={passwordDraft}
                   setPasswordDraft={setPasswordDraft}
                   handleConfirmJoinWithPassword={handleConfirmJoinWithPassword}
+                  siteOnlineCount={displayedSiteOnlineCount}
                 />
               )}
             </div>

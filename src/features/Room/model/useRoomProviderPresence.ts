@@ -1,10 +1,10 @@
-import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 
 import type { ChatMessage, RoomParticipant } from "./types";
 
 interface UseRoomProviderPresenceParams {
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
-  serverOffsetRef: MutableRefObject<number>;
+  serverOffsetRef: RefObject<number>;
 }
 
 export const useRoomProviderPresence = ({

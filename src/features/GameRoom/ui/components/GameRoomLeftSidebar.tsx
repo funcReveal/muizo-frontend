@@ -631,7 +631,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 </button>
               )}
               <Chip
-                label={`\u5df2\u7b54 ${answeredCount}/${playerRowCount}`}
+                label={`已答 ${answeredCount}/${playerRowCount}`}
                 size="small"
                 color="success"
                 variant="outlined"

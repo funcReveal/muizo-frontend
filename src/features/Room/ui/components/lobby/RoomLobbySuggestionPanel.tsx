@@ -17,11 +17,11 @@ import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded
 import React, { useEffect, useRef, useState } from "react";
 
 import type { YoutubePlaylist } from "../../../model/RoomContext";
-import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
+import RoomLobbyStatusStrip from "../RoomLobbyStatusStrip";
 import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 import type { CollectionOption } from "../../lib/roomLobbyPanelTypes";
 import { normalizeDisplayText } from "../../lib/roomLobbyPanelUtils";
-import SuggestionStatusMessages from "./suggestion/SuggestionStatusMessages";
+import SuggestionStatusMessages from "../roomLobbySuggestionPanel/SuggestionStatusMessages";
 
 type SuggestType = "playlist" | "collection" | "youtube";
 

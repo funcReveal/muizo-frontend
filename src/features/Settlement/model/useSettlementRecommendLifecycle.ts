@@ -2,7 +2,7 @@ import {
   useCallback,
   useEffect,
   type Dispatch,
-  type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 
@@ -18,10 +18,10 @@ interface UseSettlementRecommendLifecycleParams {
   isCurrentRecommendationPreviewOpen: boolean;
   currentRecommendationPreviewUrl: string | null;
   recommendPreviewSeconds: number;
-  autoAdvanceAtMsRef: MutableRefObject<number | null>;
-  pausedCountdownRemainingMsRef: MutableRefObject<number | null>;
-  previewPlayerStateRef: MutableRefObject<"idle" | "playing" | "paused">;
-  previewLastProgressAtMsRef: MutableRefObject<number | null>;
+  autoAdvanceAtMsRef: RefObject<number | null>;
+  pausedCountdownRemainingMsRef: RefObject<number | null>;
+  previewPlayerStateRef: RefObject<"idle" | "playing" | "paused">;
+  previewLastProgressAtMsRef: RefObject<number | null>;
   postYouTubeCommand: (func: string, args?: unknown[]) => void;
   pushPreviewSwitchNotice: (text: string) => void;
   setPreviewPlaybackMode: Dispatch<SetStateAction<PreviewPlaybackMode>>;

@@ -1,13 +1,13 @@
-import { createContext, useContext, type MutableRefObject } from "react";
+import { createContext, useContext, type RefObject } from "react";
 
 export interface RoomAuthInternalContextValue {
-  confirmNicknameRef: MutableRefObject<() => Promise<boolean>>;
+  confirmNicknameRef: RefObject<() => Promise<boolean>>;
   activeUsername: string | null;
   getDefaultRoomName: (username: string | null) => string;
   lockSessionClientId: (nextClientId: string) => void;
   resetSessionClientId: () => void;
   persistUsername: (name: string) => void;
-  previousUsernameRef: MutableRefObject<string | null>;
+  previousUsernameRef: RefObject<string | null>;
 }
 
 export const RoomAuthInternalContext =

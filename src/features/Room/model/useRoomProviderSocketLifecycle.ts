@@ -4,7 +4,7 @@
   useEffect,
   useRef,
   type Dispatch,
-  type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 
@@ -36,15 +36,15 @@ type PlaylistProgressState = {
 };
 
 interface SocketLifecycleRefs {
-  socketRef: MutableRefObject<ClientSocket | null>;
-  socketSuspendedRef: MutableRefObject<boolean>;
-  currentRoomIdRef: MutableRefObject<string | null>;
-  serverOffsetRef: MutableRefObject<number>;
-  createRoomInFlightRef: MutableRefObject<boolean>;
-  releaseCreateRoomLockRef: MutableRefObject<(() => void) | null>;
-  lastLatencyProbeRoomIdRef: MutableRefObject<string | null>;
-  presenceParticipantNamesRef: MutableRefObject<Map<string, string>>;
-  presenceSeededRoomIdRef: MutableRefObject<string | null>;
+  socketRef: RefObject<ClientSocket | null>;
+  socketSuspendedRef: RefObject<boolean>;
+  currentRoomIdRef: RefObject<string | null>;
+  serverOffsetRef: RefObject<number>;
+  createRoomInFlightRef: RefObject<boolean>;
+  releaseCreateRoomLockRef: RefObject<(() => void) | null>;
+  lastLatencyProbeRoomIdRef: RefObject<string | null>;
+  presenceParticipantNamesRef: RefObject<Map<string, string>>;
+  presenceSeededRoomIdRef: RefObject<string | null>;
 }
 
 interface SocketLifecycleSetters {

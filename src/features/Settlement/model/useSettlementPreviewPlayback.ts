@@ -3,7 +3,6 @@ import {
   useEffect,
   useRef,
   type Dispatch,
-  type MutableRefObject,
   type RefObject,
   type SetStateAction,
 } from "react";
@@ -31,10 +30,10 @@ interface UseSettlementPreviewPlaybackResult {
   registerYouTubeBridge: () => void;
   syncPreviewVolume: () => void;
   pushPreviewSwitchNotice: (text: string) => void;
-  autoAdvanceAtMsRef: MutableRefObject<number | null>;
-  pausedCountdownRemainingMsRef: MutableRefObject<number | null>;
-  previewPlayerStateRef: MutableRefObject<"idle" | "playing" | "paused">;
-  previewLastProgressAtMsRef: MutableRefObject<number | null>;
+  autoAdvanceAtMsRef: RefObject<number | null>;
+  pausedCountdownRemainingMsRef: RefObject<number | null>;
+  previewPlayerStateRef: RefObject<"idle" | "playing" | "paused">;
+  previewLastProgressAtMsRef: RefObject<number | null>;
 }
 
 const useSettlementPreviewPlayback = ({
@@ -68,19 +67,22 @@ const useSettlementPreviewPlayback = ({
   const canAutoGuideLoopRef = useRef(canAutoGuideLoop);
   const previewVolumeUpdateSourceRef = useRef<"app" | "iframe" | null>(null);
 
-  const postYouTubeCommand = useCallback((func: string, args: unknown[] = []) => {
-    const contentWindow = previewIframeRef.current?.contentWindow;
-    if (!contentWindow) return;
-    if (func === "playVideo") {
-      playCommandGraceUntilMsRef.current = Date.now() + 2200;
-    } else if (func === "pauseVideo") {
-      playCommandGraceUntilMsRef.current = null;
-    }
-    contentWindow.postMessage(
-      JSON.stringify({ event: "command", func, args }),
-      "*",
-    );
-  }, []);
+  const postYouTubeCommand = useCallback(
+    (func: string, args: unknown[] = []) => {
+      const contentWindow = previewIframeRef.current?.contentWindow;
+      if (!contentWindow) return;
+      if (func === "playVideo") {
+        playCommandGraceUntilMsRef.current = Date.now() + 2200;
+      } else if (func === "pauseVideo") {
+        playCommandGraceUntilMsRef.current = null;
+      }
+      contentWindow.postMessage(
+        JSON.stringify({ event: "command", func, args }),
+        "*",
+      );
+    },
+    [],
+  );
 
   const clearPreviewBridgeRetryTimers = useCallback(() => {
     previewBridgeRetryTimersRef.current.forEach((timerId) =>
@@ -154,16 +156,19 @@ const useSettlementPreviewPlayback = ({
     [setPreviewSwitchNotice],
   );
 
-  const normalizePlayerNumeric = useCallback((value: unknown): number | null => {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      const parsed = Number(trimmed);
-      if (Number.isFinite(parsed)) return parsed;
-    }
-    return null;
-  }, []);
+  const normalizePlayerNumeric = useCallback(
+    (value: unknown): number | null => {
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        const parsed = Number(trimmed);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return null;
+    },
+    [],
+  );
 
   const readYouTubePlayerSnapshot = useCallback(
     (
@@ -274,7 +279,10 @@ const useSettlementPreviewPlayback = ({
         Date.now() < playCommandGraceUntilMsRef.current;
       if (snapshot.volume !== null) {
         const nextVolume = snapshot.muted ? 0 : snapshot.volume;
-        const normalizedVolume = Math.max(0, Math.min(100, Math.round(nextVolume)));
+        const normalizedVolume = Math.max(
+          0,
+          Math.min(100, Math.round(nextVolume)),
+        );
         if (previewVolumeUpdateSourceRef.current === "app") {
           if (Math.abs(normalizedVolume - effectivePreviewVolume) <= 1) {
             previewVolumeUpdateSourceRef.current = null;
@@ -309,7 +317,10 @@ const useSettlementPreviewPlayback = ({
             autoAdvanceAtMsRef.current === null &&
             pausedCountdownRemainingMsRef.current !== null
           ) {
-            const remainingMs = Math.max(0, pausedCountdownRemainingMsRef.current);
+            const remainingMs = Math.max(
+              0,
+              pausedCountdownRemainingMsRef.current,
+            );
             const nextAutoAdvanceAtMs = Date.now() + remainingMs;
             autoAdvanceAtMsRef.current = nextAutoAdvanceAtMs;
             pausedCountdownRemainingMsRef.current = null;
@@ -340,7 +351,10 @@ const useSettlementPreviewPlayback = ({
           autoAdvanceAtMsRef.current === null &&
           pausedCountdownRemainingMsRef.current !== null
         ) {
-          const remainingMs = Math.max(0, pausedCountdownRemainingMsRef.current);
+          const remainingMs = Math.max(
+            0,
+            pausedCountdownRemainingMsRef.current,
+          );
           const nextAutoAdvanceAtMs = Date.now() + remainingMs;
           autoAdvanceAtMsRef.current = nextAutoAdvanceAtMs;
           pausedCountdownRemainingMsRef.current = null;
@@ -365,8 +379,14 @@ const useSettlementPreviewPlayback = ({
         if (!wasPaused) {
           setPreviewPlayerState("paused");
         }
-        if (canAutoGuideLoopRef.current && autoAdvanceAtMsRef.current !== null) {
-          const remainingMs = Math.max(0, autoAdvanceAtMsRef.current - Date.now());
+        if (
+          canAutoGuideLoopRef.current &&
+          autoAdvanceAtMsRef.current !== null
+        ) {
+          const remainingMs = Math.max(
+            0,
+            autoAdvanceAtMsRef.current - Date.now(),
+          );
           autoAdvanceAtMsRef.current = null;
           pausedCountdownRemainingMsRef.current = remainingMs;
           setPausedCountdownRemainingMs(remainingMs);
@@ -421,11 +441,7 @@ const useSettlementPreviewPlayback = ({
       }
       clearPreviewBridgeRetryTimers();
     };
-  }, [
-    clearPreviewBridgeRetryTimers,
-    previewRecapKey,
-    registerYouTubeBridge,
-  ]);
+  }, [clearPreviewBridgeRetryTimers, previewRecapKey, registerYouTubeBridge]);
 
   useEffect(() => {
     previewCurrentTimeSecRef.current = null;

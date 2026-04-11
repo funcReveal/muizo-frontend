@@ -294,7 +294,7 @@ function useYouTubePreview(selectedRecapPreviewUrl: string | null) {
   const volumeTimers = React.useRef<number[]>([]);
   const playTimers = React.useRef<number[]>([]);
 
-  const clearTimers = React.useCallback((ref: React.MutableRefObject<number[]>) => {
+  const clearTimers = React.useCallback((ref: React.RefObject<number[]>) => {
     ref.current.forEach((id) => window.clearTimeout(id));
     ref.current = [];
   }, []);

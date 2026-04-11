@@ -2,7 +2,7 @@ import {
   createContext,
   useContext,
   type Dispatch,
-  type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 
@@ -37,9 +37,9 @@ export interface RoomSessionInternalContextValue {
     pageSize?: number,
     opts?: { reset?: boolean },
   ) => void;
-  currentRoomIdRef: MutableRefObject<string | null>;
-  createRoomInFlightRef: MutableRefObject<boolean>;
-  releaseCreateRoomLockRef: MutableRefObject<(() => void) | null>;
+  currentRoomIdRef: RefObject<string | null>;
+  createRoomInFlightRef: RefObject<boolean>;
+  releaseCreateRoomLockRef: RefObject<(() => void) | null>;
   setCurrentRoom: Dispatch<SetStateAction<RoomState["room"] | null>>;
   setParticipants: Dispatch<SetStateAction<RoomParticipant[]>>;
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;

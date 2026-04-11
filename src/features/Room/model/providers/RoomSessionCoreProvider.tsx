@@ -385,7 +385,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
         { roomId: currentRoom.id, username: nextUsername },
         (ack) => {
           if (!ack?.ok) {
-            setStatusText(formatAckError("\u66f4\u65b0\u540d\u7a31\u5931\u6557", ack?.error));
+            setStatusText(formatAckError("更新名稱失敗", ack?.error));
           }
         },
       );
@@ -600,13 +600,13 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     }
     void fetchRoomById(inviteRoomId).then((room) => {
       setInviteNotFound(!room);
-      if (!room) setStatusText("\u627e\u4e0d\u5230\u9080\u8acb\u623f\u9593\uff0c\u8acb\u78ba\u8a8d\u9023\u7d50\u662f\u5426\u6b63\u78ba\u3002");
+      if (!room) setStatusText("找不到邀請房間，請確認連結是否正確。");
     });
   }, [fetchRoomById, inviteRoomId, setStatusText]);
 
   useEffect(() => {
     if (gameState?.status === "ended") {
-      setStatusText("\u904a\u6232\u5df2\u7d50\u675f\uff0c\u8acb\u7b49\u5f85\u672c\u5c40\u7d50\u7b97\u5b8c\u6210\u3002");
+      setStatusText("遊戲已結束，請等待本局結算完成。");
     }
   }, [gameState?.status, setStatusText]);
 

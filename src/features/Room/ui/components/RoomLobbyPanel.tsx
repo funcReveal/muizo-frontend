@@ -702,9 +702,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [shareActionRunning, setShareActionRunning] = useState(false);
   const [showRoomPassword, setShowRoomPassword] = useState(false);
   const [selectorModalOpen, setSelectorModalOpen] = useState(false);
-  const [collectionScope, setCollectionScope] = useState<"public" | "owner">(
-    "public",
-  );
   const lastRequestedScopeRef = useRef<"public" | "owner" | null>(null);
   const lastFetchedScopeRef = useRef<"public" | "owner" | null>(null);
   const lastRequestedYoutubeRef = useRef(false);
@@ -1042,25 +1039,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     }
   }, [collectionsError, collectionsLoading, isCollectionsEmptyNotice]);
 
-  const shouldFetchCollections = React.useCallback(
-    (scope: "public" | "owner") => {
-      if (collectionsLoading) return false;
-      if (collectionsError && !isCollectionsEmptyNotice) return true;
-      if (lastFetchedScopeRef.current !== scope) return true;
-      return false;
-    },
-    [collectionsError, collectionsLoading, isCollectionsEmptyNotice],
-  );
-
-  const requestCollections = React.useCallback(
-    (scope: "public" | "owner") => {
-      if (!shouldFetchCollections(scope)) return;
-      lastRequestedScopeRef.current = scope;
-      onFetchCollections(scope);
-    },
-    [onFetchCollections, shouldFetchCollections],
-  );
-
   useEffect(() => {
     if (youtubePlaylistsLoading) return;
     if (!lastRequestedYoutubeRef.current) return;
@@ -1266,11 +1244,6 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       onLeave,
     );
   }, [onLeave, openConfirmModal]);
-
-  const suggestionResetKey =
-    gameState?.status === "ended"
-      ? `ended-${gameState?.startedAt ?? 0}`
-      : "not-ended";
 
   const handleToggleShowRoomPassword = React.useCallback(
     () => setShowRoomPassword((prev) => !prev),
@@ -2502,4 +2475,4 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   );
 };
 
-export default RoomLobbyPanel;
+export default React.memo(RoomLobbyPanel);

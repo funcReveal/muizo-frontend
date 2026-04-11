@@ -2,7 +2,7 @@ import {
   useCallback,
   useEffect,
   type Dispatch,
-  type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 
@@ -109,14 +109,14 @@ interface UseRoomProviderRoomActionsParams {
   setPlaylistHasMore: Dispatch<SetStateAction<boolean>>;
   setPlaylistLoadingMore: Dispatch<SetStateAction<boolean>>;
   setPlaylistSuggestions: Dispatch<SetStateAction<PlaylistSuggestion[]>>;
-  pendingAnswerSubmitRef: MutableRefObject<{
+  pendingAnswerSubmitRef: RefObject<{
     roomId: string;
     trackKey: string;
     choiceIndex: number;
     requestId: number;
   } | null>;
-  answerSubmitRequestSeqRef: MutableRefObject<number>;
-  serverOffsetRef: MutableRefObject<number>;
+  answerSubmitRequestSeqRef: RefObject<number>;
+  serverOffsetRef: RefObject<number>;
 }
 
 export const useRoomProviderRoomActions = ({
@@ -343,8 +343,6 @@ export const useRoomProviderRoomActions = ({
         questionContext: resolveChatQuestionContext(currentRoom, gameState),
       },
       (ack) => {
-        console.log("sendMessage ack:", ack);
-
         if (!ack) return;
 
         if (!ack.ok) {

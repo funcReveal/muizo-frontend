@@ -23,7 +23,7 @@ const SuggestionStatusMessages: React.FC<SuggestionStatusMessagesProps> = ({
       suggestError
         ? suggestError
         : isCooldownActive
-          ? `\u51b7\u537b\u4e2d ${remainingCooldownSeconds}s`
+          ? `冷卻中 ${remainingCooldownSeconds}s`
           : suggestNotice
     }
     tone={

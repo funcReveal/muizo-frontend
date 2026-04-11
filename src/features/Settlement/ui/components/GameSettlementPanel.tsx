@@ -1515,6 +1515,6 @@ const GameSettlementPanel: React.FC<GameSettlementPanelProps> = ({
   );
 };
 
-export default GameSettlementPanel;
+export default React.memo(GameSettlementPanel);
 
 

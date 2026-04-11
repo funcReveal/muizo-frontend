@@ -1,7 +1,7 @@
 import {
   useCallback,
   type Dispatch,
-  type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 
@@ -58,8 +58,8 @@ interface UseRoomProviderCreateRoomActionParams {
   authToken: string | null;
   refreshAuthToken: () => Promise<string | null>;
   setStatusText: (value: string | null) => void;
-  createRoomInFlightRef: MutableRefObject<boolean>;
-  releaseCreateRoomLockRef: MutableRefObject<(() => void) | null>;
+  createRoomInFlightRef: RefObject<boolean>;
+  releaseCreateRoomLockRef: RefObject<(() => void) | null>;
   setIsCreatingRoom: Dispatch<SetStateAction<boolean>>;
   roomNameInput: string;
   roomVisibilityInput: "public" | "private";
@@ -93,7 +93,7 @@ interface UseRoomProviderCreateRoomActionParams {
   ) => RoomParticipant[];
   syncServerOffset: (serverNow: number) => void;
   saveRoomPassword: (roomId: string, password: string | null) => void;
-  currentRoomIdRef: MutableRefObject<string | null>;
+  currentRoomIdRef: RefObject<string | null>;
   setCurrentRoom: Dispatch<SetStateAction<RoomState["room"] | null>>;
   setParticipants: Dispatch<SetStateAction<RoomParticipant[]>>;
   setMessages: Dispatch<SetStateAction<RoomState["messages"]>>;
@@ -693,6 +693,7 @@ export const useRoomProviderCreateRoomAction = ({
     playDurationSec,
     playlistItems,
     questionCount,
+    questionMin,
     refreshAuthToken,
     releaseCreateRoomLockRef,
     revealDurationSec,

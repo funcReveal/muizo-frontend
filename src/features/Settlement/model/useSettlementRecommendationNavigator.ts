@@ -2,7 +2,7 @@ import {
   useCallback,
   useMemo,
   type Dispatch,
-  type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 
@@ -38,8 +38,8 @@ interface UseSettlementRecommendationNavigatorParams<
   previewPlaybackMode: PreviewPlaybackMode;
   canAutoGuideLoop: boolean;
   recommendPreviewSeconds: number;
-  pausedCountdownRemainingMsRef: MutableRefObject<number | null>;
-  previewPlayerStateRef: MutableRefObject<"idle" | "playing" | "paused">;
+  pausedCountdownRemainingMsRef: RefObject<number | null>;
+  previewPlayerStateRef: RefObject<"idle" | "playing" | "paused">;
   pushPreviewSwitchNotice: (text: string) => void;
   setRecommendCategory: Dispatch<SetStateAction<RecommendCategory>>;
   setRecommendIndex: Dispatch<SetStateAction<number>>;

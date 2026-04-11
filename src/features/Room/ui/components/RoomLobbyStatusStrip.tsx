@@ -42,7 +42,7 @@ const RoomLobbyStatusStrip: React.FC<RoomLobbyStatusStripProps> = ({
       className={classes}
       role={loading ? "status" : undefined}
       aria-live={loading ? "polite" : undefined}
-      aria-label={loading ? message ?? "\u8b80\u53d6\u4e2d" : undefined}
+      aria-label={loading ? message ?? "讀取中" : undefined}
     >
       {loading ? (
         <span className="room-lobby-status-strip__rail" aria-hidden="true">
@@ -52,7 +52,7 @@ const RoomLobbyStatusStrip: React.FC<RoomLobbyStatusStripProps> = ({
         <span className="room-lobby-status-strip__text">{message}</span>
       ) : (
         <span className="room-lobby-status-strip__text" aria-hidden="true">
-          {"\u00A0"}
+          {" "}
         </span>
       )}
     </div>

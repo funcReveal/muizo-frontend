@@ -410,46 +410,56 @@ const CollectionsCreatePage = () => {
     playlistIssueSummary.unavailable.length +
     playlistIssueSummary.unknown.length +
     playlistIssueSummary.unknownCount;
-  const playlistIssueGroups = [
-    {
-      key: "removed" as const,
-      label: "已移除",
-      count: playlistIssueSummary.removed.length,
-      items: playlistIssueSummary.removed,
-      className: "border-amber-300/30 bg-amber-300/10 text-amber-100",
-    },
-    {
-      key: "privateRestricted" as const,
-      label: "隱私限制",
-      count: playlistIssueSummary.privateRestricted.length,
-      items: playlistIssueSummary.privateRestricted,
-      className: "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100",
-    },
-    {
-      key: "embedBlocked" as const,
-      label: "嵌入限制",
-      count: playlistIssueSummary.embedBlocked.length,
-      items: playlistIssueSummary.embedBlocked,
-      className: "border-rose-300/30 bg-rose-300/10 text-rose-100",
-    },
-    {
-      key: "unavailable" as const,
-      label: "其他不可用",
-      count:
-        playlistIssueSummary.unavailable.length +
-        playlistIssueSummary.unknown.length +
-        playlistIssueSummary.unknownCount,
-      items: [
-        ...playlistIssueSummary.unavailable,
-        ...playlistIssueSummary.unknown,
-      ],
-      fallback:
-        playlistIssueSummary.unknownCount > 0
-          ? `共 ${playlistIssueSummary.unknownCount} 首，後端未提供明細`
-          : "無",
-      className: "border-red-300/30 bg-red-300/10 text-red-100",
-    },
-  ];
+  const playlistIssueGroups = useMemo(
+    () => [
+      {
+        key: "removed" as const,
+        label: "已移除",
+        count: playlistIssueSummary.removed.length,
+        items: playlistIssueSummary.removed,
+        className: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+      },
+      {
+        key: "privateRestricted" as const,
+        label: "隱私限制",
+        count: playlistIssueSummary.privateRestricted.length,
+        items: playlistIssueSummary.privateRestricted,
+        className: "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100",
+      },
+      {
+        key: "embedBlocked" as const,
+        label: "嵌入限制",
+        count: playlistIssueSummary.embedBlocked.length,
+        items: playlistIssueSummary.embedBlocked,
+        className: "border-rose-300/30 bg-rose-300/10 text-rose-100",
+      },
+      {
+        key: "unavailable" as const,
+        label: "其他不可用",
+        count:
+          playlistIssueSummary.unavailable.length +
+          playlistIssueSummary.unknown.length +
+          playlistIssueSummary.unknownCount,
+        items: [
+          ...playlistIssueSummary.unavailable,
+          ...playlistIssueSummary.unknown,
+        ],
+        fallback:
+          playlistIssueSummary.unknownCount > 0
+            ? `共 ${playlistIssueSummary.unknownCount} 首，後端未提供明細`
+            : "無",
+        className: "border-red-300/30 bg-red-300/10 text-red-100",
+      },
+    ],
+    [
+      playlistIssueSummary.removed,
+      playlistIssueSummary.privateRestricted,
+      playlistIssueSummary.embedBlocked,
+      playlistIssueSummary.unavailable,
+      playlistIssueSummary.unknown,
+      playlistIssueSummary.unknownCount,
+    ],
+  );
   const activePlaylistIssueGroup =
     playlistIssueGroups.find((group) => group.key === playlistIssueTab) ??
     playlistIssueGroups[0];
@@ -464,6 +474,7 @@ const CollectionsCreatePage = () => {
     }
   }, [
     playlistIssueDialogOpen,
+    playlistIssueGroups,
     playlistIssueSummary.embedBlocked.length,
     playlistIssueSummary.privateRestricted.length,
     playlistIssueSummary.removed.length,

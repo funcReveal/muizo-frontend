@@ -3,13 +3,13 @@
  * and server-returned strings that may contain garbled or escaped Unicode.
  */
 
-const GARBLED_TEXT_RE = /\uFFFD|\uFFFE|\uFFFF/;
+const GARBLED_TEXT_RE = /�|￾|￿/;
 const ESCAPED_UNICODE_RE = /\\[uU][0-9a-fA-F]{4}/;
 const DOUBLY_ESCAPED_UNICODE_RE = /\\\\[uU]/g;
 
 const looksBrokenText = (value: string) => {
   if (GARBLED_TEXT_RE.test(value)) return true;
-  const replacementCount = (value.match(/\uFFFD/g) ?? []).length;
+  const replacementCount = (value.match(/�/g) ?? []).length;
   const questionCount = (value.match(/\?/g) ?? []).length;
   return (
     replacementCount > 0 ||

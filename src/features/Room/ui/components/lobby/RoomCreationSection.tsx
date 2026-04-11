@@ -34,8 +34,8 @@ import {
   START_OFFSET_MAX,
   START_OFFSET_MIN,
 } from "../../../model/roomConstants";
-import QuestionCountControls from "./QuestionCountControls";
-import RoomAccessSettingsFields from "./RoomAccessSettingsFields";
+import QuestionCountControls from "../QuestionCountControls";
+import RoomAccessSettingsFields from "../RoomAccessSettingsFields";
 
 interface RoomCreationSectionProps {
   roomName: string;

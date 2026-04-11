@@ -35,8 +35,8 @@ import {
   START_OFFSET_MIN,
 } from "../../../model/roomConstants";
 import type { PlaybackExtensionMode } from "../../../model/types";
-import QuestionCountControls from "./QuestionCountControls";
-import RoomAccessSettingsFields from "./RoomAccessSettingsFields";
+import QuestionCountControls from "../QuestionCountControls";
+import RoomAccessSettingsFields from "../RoomAccessSettingsFields";
 
 interface RoomLobbySettingsDialogProps {
   open: boolean;

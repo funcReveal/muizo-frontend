@@ -63,7 +63,6 @@ const CollectionsSourceContent = ({
   handleCollectionGridScroll,
   createLibraryColumns,
   renderCollectionCard,
-  collectionsLoading,
   collectionsLoadingMore,
   collectionListRowCount,
   collectionListRowHeight,

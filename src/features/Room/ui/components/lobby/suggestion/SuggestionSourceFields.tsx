@@ -2,10 +2,10 @@ import React from "react";
 import { MenuItem, TextField, Typography } from "@mui/material";
 
 import type { YoutubePlaylist } from "../../../../model/RoomContext";
-import RoomLobbyLoadingState from "../RoomLobbyLoadingState";
+import RoomLobbyLoadingState from "../../RoomLobbyLoadingState";
 import type { CollectionOption } from "../../../lib/roomLobbyPanelTypes";
 import { normalizeDisplayText } from "../../../lib/roomLobbyPanelUtils";
-import type { SuggestType } from "./types";
+import type { SuggestType } from "../../roomLobbySuggestionPanel/types";
 
 interface SuggestionSourceFieldsProps {
   suggestType: SuggestType;

@@ -66,8 +66,8 @@ type UseCollectionEditorParams = {
   setSaveError: (value: string | null) => void;
   showAutoSaveNotice: (type: "success" | "error", message: string) => void;
   setHasUnsavedChanges: (value: boolean) => void;
-  dirtyCounterRef: React.MutableRefObject<number>;
-  saveInFlightRef: React.MutableRefObject<boolean>;
+  dirtyCounterRef: React.RefObject<number>;
+  saveInFlightRef: React.RefObject<boolean>;
   navigateToEdit: (id: string) => void;
   markDirty: () => void;
   refreshAuthToken: () => Promise<string | null>;
@@ -289,8 +289,8 @@ export const useCollectionEditor = ({
       }
       if (effectiveItemLimit !== null && playlistItems.length > effectiveItemLimit) {
         const limitMessage =
-          `\u4e00\u822c\u4f7f\u7528\u8005\u6bcf\u500b\u6536\u85cf\u5eab\u6700\u591a\u53ea\u80fd\u4fdd\u7559 ${effectiveItemLimit}` +
-          ` \u984c`;
+          `一般使用者每個收藏庫最多只能保留 ${effectiveItemLimit}` +
+          ` 題`;
         if (mode === "auto") {
           showAutoSaveNotice("error", limitMessage);
         } else {

@@ -1,5 +1,4 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import { Drawer, IconButton, Popover, Tooltip } from "@mui/material";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
@@ -17,9 +16,11 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import KeyboardDoubleArrowRightRoundedIcon from "@mui/icons-material/KeyboardDoubleArrowRightRounded";
 
 import type { RecommendCategory } from "../../lib/settlementUtils";
 import useAutoHideScrollbar from "../../../../../shared/hooks/useAutoHideScrollbar";
+import MobileDrawerEdgeControls from "./MobileDrawerEdgeControls";
 
 type RecommendationCardItem = {
   recap: {
@@ -298,6 +299,14 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
     if (!mobileQuestionDrawerOpen) setMobileCategorySelectOpen(false);
   }, [mobileQuestionDrawerOpen]);
 
+  const openMobileQuestionDrawer = React.useCallback(() => {
+    setMobileQuestionDrawerOpen(true);
+  }, []);
+
+  const closeMobileQuestionDrawer = React.useCallback(() => {
+    setMobileQuestionDrawerOpen(false);
+  }, []);
+
   const renderCategorySelect = () => {
     const activeMeta = CATEGORY_META.find((item) => item.key === activeRecommendCategory) ?? CATEGORY_META[0];
     const ActiveIcon = activeMeta.icon;
@@ -468,25 +477,23 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
 
   const mobileQuestionDrawer =
     isMobileView && typeof document !== "undefined"
-      ? createPortal(
+      ? (
         <>
-          <div className="fixed right-0.5 top-[85dvh] z-[1650] flex -translate-y-1/2 justify-end">
-            <button
-              type="button"
-              aria-label="開啟推薦題目清單"
-              onClick={() => setMobileQuestionDrawerOpen(true)}
-              className="inline-flex h-10 w-[7rem] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-2.5 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
-            >
-              <QueueMusicRoundedIcon className="shrink-0 text-[1rem]" />
-              <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center px-1 text-[10px] font-black leading-none tabular-nums text-cyan-100">
-                {mobileListProgressLabel}
-              </span>
-            </button>
-          </div>
+          <MobileDrawerEdgeControls
+            open={mobileQuestionDrawerOpen}
+            progressLabel={mobileListProgressLabel}
+            openAriaLabel="開啟推薦題目清單"
+            closeAriaLabel="關閉推薦題目清單"
+            onOpen={openMobileQuestionDrawer}
+            onClose={closeMobileQuestionDrawer}
+            openIcon={<QueueMusicRoundedIcon className="shrink-0 text-[1rem]" />}
+            closeIcon={<KeyboardDoubleArrowRightRoundedIcon className="text-[1.35rem]" />}
+            drawerWidthCss="min(92vw, 380px)"
+          />
           <Drawer
             anchor="right"
             open={mobileQuestionDrawerOpen}
-            onClose={() => setMobileQuestionDrawerOpen(false)}
+            onClose={closeMobileQuestionDrawer}
             PaperProps={{
               className: "!w-[min(92vw,380px)] !bg-[linear-gradient(180deg,rgba(8,14,26,0.98),rgba(4,8,18,0.99))] !border-l !border-slate-700/25",
             }}
@@ -501,7 +508,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
                     {mobileListProgressLabel}
                   </span>
                 </span>
-                <IconButton size="small" onClick={() => setMobileQuestionDrawerOpen(false)} className="!text-slate-300">
+                <IconButton size="small" onClick={closeMobileQuestionDrawer} className="!text-slate-300">
                   <CloseRoundedIcon fontSize="small" />
                 </IconButton>
               </div>
@@ -559,8 +566,7 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
               </div>
             </div>
           </Drawer>
-        </>,
-        document.body,
+        </>
       )
       : null;
 

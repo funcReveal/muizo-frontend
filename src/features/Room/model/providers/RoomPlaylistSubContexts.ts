@@ -2,7 +2,7 @@ import {
   createContext,
   useContext,
   type Dispatch,
-  type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 
@@ -81,9 +81,9 @@ export const usePlaylistInputControl =
   };
 
 export interface PlaylistSocketBridgeContextValue {
-  getSocketRef: MutableRefObject<() => ClientSocket | null>;
-  loadMorePlaylistRef: MutableRefObject<() => void>;
-  onResetCollectionRef: MutableRefObject<() => void>;
+  getSocketRef: RefObject<() => ClientSocket | null>;
+  loadMorePlaylistRef: RefObject<() => void>;
+  onResetCollectionRef: RefObject<() => void>;
 }
 
 export const PlaylistSocketBridgeContext =

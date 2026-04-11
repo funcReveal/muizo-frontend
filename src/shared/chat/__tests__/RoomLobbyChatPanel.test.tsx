@@ -12,6 +12,9 @@ const chatInputValue = {
   messageInput: "",
   setMessageInput: () => {},
   handleSendMessage: () => {},
+  isChatCooldownActive: false,
+  chatCooldownLeft: 0,
+  currentClientId: "test-client",
 };
 
 const messages: ChatMessage[] = [

@@ -20,7 +20,7 @@ import { useEffect, useState } from "react";
 
 import type { GameState, PlaylistSuggestion } from "../../../model/types";
 import type { YoutubePlaylist } from "../../../model/RoomContext";
-import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
+import RoomLobbyStatusStrip from "../RoomLobbyStatusStrip";
 import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 import type { CollectionOption } from "../../lib/roomLobbyPanelTypes";
 import { normalizeDisplayText } from "../../lib/roomLobbyPanelUtils";
