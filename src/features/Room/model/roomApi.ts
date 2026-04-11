@@ -195,7 +195,11 @@ const fetchJson = async <T>(
 export const apiRefreshAuthToken = (apiUrl: string) =>
   fetchJson<AuthPayload>(`${apiUrl}/api/auth/refresh`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
+    body: JSON.stringify({
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
+    }),
   });
 
 export const apiUpsertCurrentUser = (
@@ -256,7 +260,11 @@ export const apiAuthGoogle = (
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ code, redirectUri }),
+    body: JSON.stringify({
+      code,
+      redirectUri,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
+    }),
   });
 
 export const apiLogout = (apiUrl: string) =>
