@@ -201,6 +201,47 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   );
   const [hostRoomPassword, setHostRoomPassword] = useState<string | null>(null);
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  const isRecoveringConnection = useMemo(() => {
+    const hasTargetRoom = Boolean(currentRoomId || currentRoom?.id);
+    if (!hasTargetRoom) return false;
+
+    if (!isConnected) return true;
+
+    return (
+      sessionProgress?.flow === "resume" && sessionProgress.status === "active"
+    );
+  }, [currentRoom?.id, currentRoomId, isConnected, sessionProgress]);
+
+  const recoveryStatusText = useMemo(() => {
+    const hasTargetRoom = Boolean(currentRoomId || currentRoom?.id);
+    if (!hasTargetRoom) return null;
+
+    if (!isConnected) {
+      return "正在恢復連線...";
+    }
+
+    if (
+      sessionProgress?.flow === "resume" &&
+      sessionProgress.status === "active"
+    ) {
+      switch (sessionProgress.stage) {
+        case "server_validating":
+          return "正在驗證連線...";
+        case "room_lookup":
+          return "正在尋找房間...";
+        case "membership_restore":
+          return "正在恢復房間成員狀態...";
+        case "state_build":
+          return "正在同步遊戲狀態...";
+        case "ready_to_send":
+          return "即將完成同步...";
+        default:
+          return "正在同步房間狀態...";
+      }
+    }
+
+    return null;
+  }, [currentRoom?.id, currentRoomId, isConnected, sessionProgress]);
   // Game settings (backfilled from room/playlist on join)
   const [playDurationSec, setPlayDurationSec] = useState(
     DEFAULT_PLAY_DURATION_SEC,
@@ -778,6 +819,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setKickedNotice,
       sessionProgress,
       isConnected,
+      isRecoveringConnection,
+      recoveryStatusText,
       serverOffsetMs,
       syncServerOffset,
       hostRoomPassword,
@@ -808,6 +851,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setKickedNotice,
       sessionProgress,
       isConnected,
+      isRecoveringConnection,
+      recoveryStatusText,
       serverOffsetMs,
       syncServerOffset,
       hostRoomPassword,

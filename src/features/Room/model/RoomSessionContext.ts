@@ -1,4 +1,9 @@
-import { createContext, useContext, type Dispatch, type SetStateAction } from "react";
+import {
+  createContext,
+  useContext,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 import type {
   ChatMessage,
@@ -32,6 +37,8 @@ export interface RoomSessionContextValue {
   sessionProgress: SessionProgressPayload | null;
   // 連線
   isConnected: boolean;
+  isRecoveringConnection: boolean;
+  recoveryStatusText: string | null;
   serverOffsetMs: number;
   syncServerOffset: (serverNow: number) => void;
   hostRoomPassword: string | null;
@@ -48,18 +55,25 @@ export interface RoomSessionContextValue {
   setRouteRoomId: (value: string | null) => void;
   // 房間操作
   handleLeaveRoom: (onLeft?: () => void) => void;
-  handleKickPlayer: (targetClientId: string, durationMs?: number | null) => void;
+  handleKickPlayer: (
+    targetClientId: string,
+    durationMs?: number | null,
+  ) => void;
   handleTransferHost: (targetClientId: string) => void;
   // 結算歷史
   fetchSettlementHistorySummaries: (options?: {
     limit?: number;
     beforeEndedAt?: number | null;
-  }) => Promise<{ items: RoomSettlementHistorySummary[]; nextCursor: number | null }>;
+  }) => Promise<{
+    items: RoomSettlementHistorySummary[];
+    nextCursor: number | null;
+  }>;
   fetchSettlementReplay: (matchId: string) => Promise<RoomSettlementSnapshot>;
 }
 
-export const RoomSessionContext =
-  createContext<RoomSessionContextValue | null>(null);
+export const RoomSessionContext = createContext<RoomSessionContextValue | null>(
+  null,
+);
 
 export const useRoomSession = (): RoomSessionContextValue => {
   const ctx = useContext(RoomSessionContext);
