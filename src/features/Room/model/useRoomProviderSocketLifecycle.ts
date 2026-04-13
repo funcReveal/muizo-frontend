@@ -52,6 +52,15 @@ interface SocketLifecycleRefs {
   roomSessionTokenRef: RefObject<string | null>;
 }
 
+/**
+ * Minimal shape shared between RoomSessionCoreProvider and this hook.
+ * Kept local to avoid a cross-file type import cycle.
+ */
+type PostResumeGate = {
+  resumeStartedAt: number;
+  resumePhase: "guess" | "reveal";
+} | null;
+
 interface SocketLifecycleSetters {
   setIsConnected: Dispatch<SetStateAction<boolean>>;
   setRouteRoomResolved: Dispatch<SetStateAction<boolean>>;
@@ -81,6 +90,7 @@ interface SocketLifecycleSetters {
   setRooms: Dispatch<SetStateAction<RoomSummary[]>>;
   setInviteNotFound: Dispatch<SetStateAction<boolean>>;
   setSitePresence: (payload: SitePresencePayload | null) => void;
+  setPostResumeGate: Dispatch<SetStateAction<PostResumeGate>>;
 }
 
 interface SocketLifecycleHandlers {
@@ -201,6 +211,7 @@ export const useRoomProviderSocketLifecycle = ({
     setRooms,
     setInviteNotFound,
     setSitePresence,
+    setPostResumeGate,
   } = setters;
   const {
     fetchRooms,
@@ -270,6 +281,7 @@ export const useRoomProviderSocketLifecycle = ({
       setPlaylistHasMore(false);
       setPlaylistLoadingMore(false);
       setPlaylistSuggestions([]);
+      setPostResumeGate(null);
       persistRoomId(null);
       resetSessionClientId();
       persistRoomSessionToken(null);
@@ -291,6 +303,7 @@ export const useRoomProviderSocketLifecycle = ({
       setPlaylistLoadingMore,
       setPlaylistSuggestions,
       setPlaylistViewItems,
+      setPostResumeGate,
       setRouteRoomResolved,
       setSettlementHistory,
       setStatusText,
@@ -419,7 +432,33 @@ export const useRoomProviderSocketLifecycle = ({
                       void fetchCompletePlaylist(state.room.id).then(
                         setGamePlaylist,
                       );
+                      // ── Post-resume recovery gate ─────────────────────────────
+                      // Only hold the gate when the current phase has already
+                      // expired (remainingMs ≤ 0). In that situation the client
+                      // would paint a frozen "0 s" countdown, so we keep
+                      // isRecoveringConnection=true until onGameUpdated arrives
+                      // with a NEW startedAt, meaning the server has pushed the
+                      // next phase and the UI will show a live countdown again.
+                      //
+                      // When there is still time left in the phase we restore
+                      // immediately — no need to block the player.
+                      const gs = state.gameState;
+                      const phaseEndsAt =
+                        gs.phase === "guess"
+                          ? gs.startedAt + gs.guessDurationMs + (gs.playbackExtensionMs ?? 0)
+                          : gs.revealEndsAt;
+                      const remainingMs = phaseEndsAt - state.serverNow;
+                      if (remainingMs <= 0) {
+                        setPostResumeGate({
+                          resumeStartedAt: gs.startedAt,
+                          resumePhase: gs.phase,
+                        });
+                      } else {
+                        setPostResumeGate(null);
+                      }
                     } else {
+                      // Game ended or not started — no gate needed.
+                      setPostResumeGate(null);
                       setIsGameView(false);
                       setGamePlaylist([]);
                     }
@@ -483,6 +522,8 @@ export const useRoomProviderSocketLifecycle = ({
           if (hasRecoverableSession) {
             setStatusText("連線中斷，正在恢復房間狀態...");
             // routeRoomResolved stays true → game page keeps rendering.
+            // Clear any leftover post-resume gate so the next resume starts fresh.
+            setPostResumeGate(null);
             // Ephemeral non-game state is still cleared below.
             setPlaylistSuggestions([]);
             return;
@@ -686,6 +727,8 @@ export const useRoomProviderSocketLifecycle = ({
             startedAt: gameState.startedAt,
             nextServerOffsetMs: serverNow - Date.now(),
           });
+          // A fresh game start always clears any lingering post-resume gate.
+          setPostResumeGate(null);
           setGamePlaylist([]);
           setGameState(gameState);
           const preStartRemainingSec = Math.max(
@@ -713,6 +756,19 @@ export const useRoomProviderSocketLifecycle = ({
           if (gameState?.status === "playing") {
             setIsGameView(true);
           }
+          // ── Post-resume gate: clear when the server has pushed a new phase ─
+          // Using the functional update form so we always compare against the
+          // live gate value, not a stale closure snapshot.
+          setPostResumeGate((gate) => {
+            if (gate === null) return null;
+            // Game ended → always safe to release.
+            if (gameState.status === "ended") return null;
+            // A different startedAt means the server has advanced to a new
+            // phase (guess→reveal or reveal→guess). The UI will now be live.
+            if (gameState.startedAt !== gate.resumeStartedAt) return null;
+            // Same startedAt → still the stale phase snapshot, hold the gate.
+            return gate;
+          });
         },
         onRoomUpdated: ({ room }) => {
           applyIncomingRoomSummary(room);
@@ -732,6 +788,7 @@ export const useRoomProviderSocketLifecycle = ({
           setPlaylistHasMore(false);
           setPlaylistLoadingMore(false);
           setPlaylistSuggestions([]);
+          setPostResumeGate(null);
           persistRoomId(null);
           persistRoomSessionToken(null);
           resetSessionClientId();
@@ -835,6 +892,7 @@ export const useRoomProviderSocketLifecycle = ({
     applyIncomingRoomSummary,
     clearActiveRoomState,
     removeRoomSummary,
+    setPostResumeGate,
   ]);
 
   const requestLatencyProbe = useCallback(

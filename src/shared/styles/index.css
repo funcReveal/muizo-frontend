@@ -6806,6 +6806,15 @@ body {
   }
 }
 
+/* Recovery overlay animations */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes game-room-recovery-bar {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .game-room-choice-button--selected-live,
   .game-room-choice-button--combo-live,

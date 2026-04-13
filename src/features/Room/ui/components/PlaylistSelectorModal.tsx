@@ -116,6 +116,8 @@ type Props = {
     action: () => void,
   ) => void;
   onMarkSuggestionsSeen: () => void;
+  /** Tab to activate when the modal opens. Defaults to "public". */
+  initialTab?: SelectorTab;
   onRecordSourceApplied: (entry: {
     sourceType: PlaylistSourceType;
     title: string;
@@ -421,6 +423,7 @@ const PlaylistSelectorModal = ({
   extractPlaylistId,
   openConfirmModal,
   onMarkSuggestionsSeen,
+  initialTab = "public",
   onRecordSourceApplied,
   currentSourceType,
   currentSourceIds = [],
@@ -472,15 +475,18 @@ const PlaylistSelectorModal = ({
     : 0;
 
   useEffect(() => {
-    if (open) onMarkSuggestionsSeen();
-  }, [open, onMarkSuggestionsSeen]);
+    // Mark suggestions as seen only when the modal is explicitly opened to the
+    // "suggestions" tab (i.e. the host clicked the "推薦 N" chip). Opening via
+    // the "更換題庫" button goes to "public" and should NOT dismiss the badge.
+    if (open && initialTab === "suggestions") onMarkSuggestionsSeen();
+  }, [open, initialTab, onMarkSuggestionsSeen]);
 
   useEffect(() => {
     if (!open) return;
-    setActiveTab(isSuggestionMode ? "public" : "suggestions");
+    setActiveTab(initialTab);
     setActionError(null);
     setActionNotice(null);
-  }, [isSuggestionMode, open]);
+  }, [initialTab, open]);
 
   useEffect(() => {
     if (!open) return;

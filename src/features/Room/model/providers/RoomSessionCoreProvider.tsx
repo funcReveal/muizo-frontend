@@ -168,6 +168,26 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     pathname.startsWith("/rooms") || pathname.startsWith("/invited");
   const socketSuspendedRef = useRef(false);
 
+  /**
+   * Post-resume recovery gate.
+   *
+   * Why resumeSession ack ≠ "ready to show game UI":
+   * The ack gives us a snapshot of the server's last-known game state, but the
+   * server's phase clock is still running. If we resumed mid-guess with 2 s
+   * left, by the time the ack arrives those 2 s may already be gone — the
+   * client would paint a frozen "0 s" countdown. We must keep isRecovering=true
+   * until the server itself pushes an onGameUpdated with a NEW phase startedAt,
+   * which proves the rhythm has advanced and the UI will be live again.
+   */
+  type PostResumeGate = {
+    /** startedAt from the gameState inside the resumeSession ack */
+    resumeStartedAt: number;
+    /** phase at resume time — used for richer status text */
+    resumePhase: "guess" | "reveal";
+  };
+  const [postResumeGate, setPostResumeGate] =
+    useState<PostResumeGate | null>(null);
+
   const [isConnected, setIsConnected] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [currentRoom, setCurrentRoom] = useState<RoomState["room"] | null>(
@@ -205,12 +225,19 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     const hasTargetRoom = Boolean(currentRoomId || currentRoom?.id);
     if (!hasTargetRoom) return false;
 
+    // Socket not yet reconnected.
     if (!isConnected) return true;
 
-    return (
-      sessionProgress?.flow === "resume" && sessionProgress.status === "active"
-    );
-  }, [currentRoom?.id, currentRoomId, isConnected, sessionProgress]);
+    // resumeSession handshake still in-flight (server-side stages).
+    if (sessionProgress?.flow === "resume" && sessionProgress.status === "active")
+      return true;
+
+    // resumeSession ack arrived but the server hasn't pushed a new phase yet.
+    // We hold this gate until onGameUpdated confirms the rhythm has advanced.
+    if (postResumeGate !== null) return true;
+
+    return false;
+  }, [currentRoom?.id, currentRoomId, isConnected, postResumeGate, sessionProgress]);
 
   const recoveryStatusText = useMemo(() => {
     const hasTargetRoom = Boolean(currentRoomId || currentRoom?.id);
@@ -240,8 +267,15 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       }
     }
 
+    // resumeSession ack received, waiting for server to push the next phase.
+    if (postResumeGate !== null) {
+      return postResumeGate.resumePhase === "guess"
+        ? "等待伺服器推進遊戲節奏..."
+        : "等待下一題開始...";
+    }
+
     return null;
-  }, [currentRoom?.id, currentRoomId, isConnected, sessionProgress]);
+  }, [currentRoom?.id, currentRoomId, isConnected, postResumeGate, sessionProgress]);
   // Game settings (backfilled from room/playlist on join)
   const [playDurationSec, setPlayDurationSec] = useState(
     DEFAULT_PLAY_DURATION_SEC,
@@ -512,6 +546,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setRooms,
       setInviteNotFound,
       setSitePresence,
+      setPostResumeGate,
     },
     handlers: {
       fetchRooms,
@@ -677,6 +712,18 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setStatusText("遊戲已結束，請等待本局結算完成。");
     }
   }, [gameState?.status, setStatusText]);
+
+  // Safety timeout: if the post-resume gate is still active after 8 s, force-
+  // clear it. The gate normally clears the moment onGameUpdated arrives with a
+  // new startedAt. This timer is a last-resort guard against the server being
+  // slow, or the phase advancing without emitting an update in time.
+  useEffect(() => {
+    if (postResumeGate === null) return;
+    const timer = window.setTimeout(() => {
+      setPostResumeGate(null);
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [postResumeGate]);
 
   // questionCount auto-clamp to playlist size
   useEffect(() => {

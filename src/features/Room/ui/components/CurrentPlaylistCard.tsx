@@ -17,7 +17,7 @@ type CurrentPlaylistCardProps = {
   playlistCount: number;
   isHost: boolean;
   pendingSuggestionCount: number;
-  onChange: () => void;
+  onChange: (initialTab?: "suggestions" | "public") => void;
   changeDisabled?: boolean;
   actionLabel?: string;
 };
@@ -90,13 +90,13 @@ const CurrentPlaylistCard = ({
   const canOpenSelector = !changeDisabled;
   const handleCardClick = () => {
     if (!isMobileCard || !canOpenSelector) return;
-    onChange();
+    onChange("public");
   };
   const handleCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!isMobileCard || !canOpenSelector) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    onChange();
+    onChange("public");
   };
 
   return (
@@ -165,7 +165,10 @@ const CurrentPlaylistCard = ({
                 <Chip
                   size="small"
                   clickable={!changeDisabled}
-                  onClick={changeDisabled ? undefined : onChange}
+                  onClick={changeDisabled ? undefined : (e) => {
+                    e.stopPropagation();
+                    onChange("suggestions");
+                  }}
                   icon={<TipsAndUpdatesRoundedIcon sx={{ fontSize: 15 }} />}
                   label={`推薦 ${pendingSuggestionCount}`}
                   sx={{
@@ -204,7 +207,7 @@ const CurrentPlaylistCard = ({
             disabled={changeDisabled}
             onClick={(event) => {
               event.stopPropagation();
-              onChange();
+              onChange("public");
             }}
             className="!min-h-[42px] !shrink-0 !rounded-full !border-white/10 !bg-white/[0.02] !px-4 !font-medium !text-slate-200 hover:!border-amber-300/30 hover:!bg-amber-300/[0.08] hover:!text-amber-50 disabled:!border-white/8 disabled:!bg-white/[0.02] disabled:!text-slate-500 max-sm:!min-h-[38px] max-sm:!w-full max-sm:!justify-center max-sm:!border-cyan-300/20 max-sm:!bg-cyan-300/[0.06]"
             startIcon={<SwapHorizRoundedIcon fontSize="small" />}

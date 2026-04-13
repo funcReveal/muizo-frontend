@@ -702,6 +702,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const [shareActionRunning, setShareActionRunning] = useState(false);
   const [showRoomPassword, setShowRoomPassword] = useState(false);
   const [selectorModalOpen, setSelectorModalOpen] = useState(false);
+  const [selectorInitialTab, setSelectorInitialTab] = useState<"suggestions" | "public">("public");
   const lastRequestedScopeRef = useRef<"public" | "owner" | null>(null);
   const lastFetchedScopeRef = useRef<"public" | "owner" | null>(null);
   const lastRequestedYoutubeRef = useRef(false);
@@ -1787,8 +1788,11 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         playlistCount={playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
         isHost={isHost}
         pendingSuggestionCount={newSuggestionCount}
-        onChange={() => {
-          markSuggestionsSeen();
+        onChange={(initialTab = "public") => {
+          // Only mark suggestions seen when the host explicitly opens the
+          // "推薦" tab via the suggestion chip — not on every modal open.
+          if (initialTab === "suggestions") markSuggestionsSeen();
+          setSelectorInitialTab(initialTab);
           setSelectorModalOpen(true);
         }}
         changeDisabled={gameState?.status === "playing"}
@@ -1803,7 +1807,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         playlistCount={playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
         isHost={false}
         pendingSuggestionCount={0}
-        onChange={() => {
+        onChange={(initialTab = "public") => {
+          setSelectorInitialTab(initialTab);
           setSelectorModalOpen(true);
         }}
         changeDisabled={gameState?.status === "playing"}
@@ -1850,6 +1855,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         extractPlaylistId={extractPlaylistId}
         openConfirmModal={openConfirmModal}
         onMarkSuggestionsSeen={markSuggestionsSeen}
+        initialTab={selectorInitialTab}
         onRecordSourceApplied={handleRecordSourceApplied}
         currentSourceType={
           currentRoom?.playlistSourceType ?? currentRoom?.playlist?.sourceType ?? null

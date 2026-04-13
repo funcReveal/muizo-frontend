@@ -246,9 +246,13 @@ interface GameRoomScorePlayerRowProps {
   scoreboardBorderParticleCount: number;
   avatarEffectLevel: "off" | "simple" | "full";
   enableFloatingScoreBursts: boolean;
-  /** Scoreboard position index (0-based). Used to assign each player their own
-   * horizontal burst lane so bursts from different players don't overlap. */
-  rowIndex: number;
+  /**
+   * Additional delay (ms) before showing the floating score burst.
+   * Set to `rowSwapDelayMs + rowSwapDurationMs + buffer` when the row is
+   * undergoing a rank-swap animation so the burst fires at the new position
+   * after the row has finished moving, not at the old position.
+   */
+  burstDelayMs: number;
 }
 
 const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
@@ -274,12 +278,20 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   scoreboardBorderParticleCount,
   avatarEffectLevel,
   enableFloatingScoreBursts,
-  rowIndex,
+  burstDelayMs,
 }: GameRoomScorePlayerRowProps) {
   const [floatingBursts, setFloatingBursts] = React.useState<FloatingScoreBurst[]>([]);
   const burstSequenceRef = React.useRef(0);
   const activeBurstKeyRef = React.useRef<string | null>(null);
   const removalTimerIdsRef = React.useRef<number[]>([]);
+  /**
+   * Timer that defers burst creation until after a rank-swap animation
+   * finishes. Cleared on every effect re-run and on unmount.
+   */
+  const swapPendingTimerRef = React.useRef<number | null>(null);
+  /** Ref that always holds the latest burstDelayMs without being a dep */
+  const burstDelayMsRef = React.useRef(burstDelayMs);
+  burstDelayMsRef.current = burstDelayMs;
   /** ref to the shell div — fallback anchor for portal bursts */
   const shellRef = React.useRef<HTMLDivElement>(null);
   /**
@@ -300,6 +312,10 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
 
   React.useEffect(() => {
     if (enableFloatingScoreBursts) return;
+    if (swapPendingTimerRef.current !== null) {
+      window.clearTimeout(swapPendingTimerRef.current);
+      swapPendingTimerRef.current = null;
+    }
     setFloatingBursts([]);
     setAnimatedDisplayScore(null);
     activeBurstKeyRef.current = null;
@@ -310,6 +326,10 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   }, [enableFloatingScoreBursts]);
 
   React.useEffect(() => () => {
+    if (swapPendingTimerRef.current !== null) {
+      window.clearTimeout(swapPendingTimerRef.current);
+      swapPendingTimerRef.current = null;
+    }
     removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
     removalTimerIdsRef.current = [];
     scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
@@ -343,93 +363,105 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
     activeBurstKeyRef.current = burstKey;
 
     const combo = Math.max(0, player.combo ?? 0);
-    // ─── Per-player anchor: score text right edge ────────────────────────────
-    // Each player's bursts are anchored to the right of their own score text
-    // span (scoreRef), not to the sidebar's shared right edge.
-    //
-    // Why this eliminates cross-player overlap:
-    //   • Different players are at different viewport Y positions (separate rows).
-    //   • Bursts rise UPWARD from the anchor, so player N's bursts move away
-    //     from player N+1's anchor — they can never collide.
-    //   • No horizontal lane hack needed; isolation is structural.
-    const scoreRect = scoreRef.current?.getBoundingClientRect();
-    const shellRect = shellRef.current?.getBoundingClientRect();
-    const anchorRect = scoreRect ?? shellRect;
-    const burstFixedTop = anchorRect
-      ? anchorRect.top + anchorRect.height * 0.5
-      : 0;
-    const burstFixedLeft = scoreRect
-      ? scoreRect.right + 8
-      : shellRect
-        ? shellRect.right + 10
+
+    // Capture values used inside the deferred callback so they're not stale.
+    const capturedClientId = player.clientId;
+    const capturedBase = scoreParts.base;
+    const capturedGain = scoreParts.gain;
+    const capturedCombo = combo;
+    const capturedBreakdown = scoreBreakdown;
+
+    // Cancel any previously pending swap-delay timer for this player.
+    if (swapPendingTimerRef.current !== null) {
+      window.clearTimeout(swapPendingTimerRef.current);
+      swapPendingTimerRef.current = null;
+    }
+
+    const fireBursts = () => {
+      // ─── Per-player anchor: score text right edge ──────────────────────
+      // Measured HERE (inside the deferred callback) so that when the row
+      // is undergoing a rank-swap animation we capture the NEW position
+      // after the row has finished moving.
+      const scoreRect = scoreRef.current?.getBoundingClientRect();
+      const shellRect = shellRef.current?.getBoundingClientRect();
+      const anchorRect = scoreRect ?? shellRect;
+      const burstFixedTop = anchorRect
+        ? anchorRect.top + anchorRect.height * 0.5
         : 0;
+      const burstFixedLeft = scoreRect
+        ? scoreRect.right + 8
+        : shellRect
+          ? shellRect.right + 10
+          : 0;
 
-    const segments = resolveFloatingScoreSegments(
-      scoreParts.gain,
-      combo,
-      scoreBreakdown,
-    );
-    const nextBursts = segments.map((segment, index) => {
-      burstSequenceRef.current += 1;
-      return {
-        id: `${player.clientId}-${burstSequenceRef.current}`,
-        amount: segment.amount,
-        combo,
-        kind: segment.kind,
-        tier: segment.tier,
-        part: segment.part,
-        // ─── Within-player segment separation ──────────────────────────────
-        // ALL segments start from the exact same base Y (offsetY: 0).
-        // They appear strictly one-at-a-time via delayMs so each one has
-        // time to visibly rise before the next pops in.
-        //
-        // Why no vertical pre-stacking:
-        //   • Pre-stacking with a large offsetY sends the topmost segment
-        //     far above the row, drifting into the header or another player's
-        //     area when there are 4-5 breakdown parts.
-        //   • Pure time-sequencing keeps every segment within a tight band
-        //     (~40 px above the anchor) regardless of how many parts exist.
-        //
-        // 700 ms gap: at that point the previous segment has risen ~20 px
-        // into its hold phase, giving clear vertical clearance before the
-        // next one appears from the same base.
-        delayMs: index * 700,
-        fixedTop: burstFixedTop,
-        fixedLeft: burstFixedLeft,
-        offsetY: 0,
-      } satisfies FloatingScoreBurst;
-    });
-    if (nextBursts.length === 0) return;
+      const segments = resolveFloatingScoreSegments(
+        capturedGain,
+        capturedCombo,
+        capturedBreakdown,
+      );
+      const nextBursts = segments.map((segment, index) => {
+        burstSequenceRef.current += 1;
+        return {
+          id: `${capturedClientId}-${burstSequenceRef.current}`,
+          amount: segment.amount,
+          combo: capturedCombo,
+          kind: segment.kind,
+          tier: segment.tier,
+          part: segment.part,
+          // ─── Within-player segment separation ──────────────────────────
+          // ALL segments start from the exact same base Y (offsetY: 0).
+          // They appear strictly one-at-a-time via delayMs so each one has
+          // time to visibly rise before the next pops in.
+          delayMs: index * 700,
+          fixedTop: burstFixedTop,
+          fixedLeft: burstFixedLeft,
+          offsetY: 0,
+        } satisfies FloatingScoreBurst;
+      });
+      if (nextBursts.length === 0) return;
 
-    setFloatingBursts((current) => [...current.slice(-2), ...nextBursts].slice(-6));
-    nextBursts.forEach((nextBurst) => {
-      const timerId = window.setTimeout(() => {
-        setFloatingBursts((current) => current.filter((burst) => burst.id !== nextBurst.id));
-        removalTimerIdsRef.current = removalTimerIdsRef.current.filter((id) => id !== timerId);
-      }, FLOATING_SCORE_BURST_LIFETIME_MS + nextBurst.delayMs);
-      removalTimerIdsRef.current.push(timerId);
-    });
+      setFloatingBursts((current) => [...current.slice(-2), ...nextBursts].slice(-6));
+      nextBursts.forEach((nextBurst) => {
+        const timerId = window.setTimeout(() => {
+          setFloatingBursts((current) => current.filter((burst) => burst.id !== nextBurst.id));
+          removalTimerIdsRef.current = removalTimerIdsRef.current.filter((id) => id !== timerId);
+        }, FLOATING_SCORE_BURST_LIFETIME_MS + nextBurst.delayMs);
+        removalTimerIdsRef.current.push(timerId);
+      });
 
-    // — Animated displayed score: tick up one segment at a time.
-    // Start from the base (pre-reveal) score then add each segment's amount
-    // 60 ms after its floating label appears, so the user sees the label first.
-    scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
-    scoreIncrementTimerIdsRef.current = [];
-    setAnimatedDisplayScore(scoreParts.base);
-    let runningScore = scoreParts.base;
-    nextBursts.forEach((burst) => {
-      runningScore += burst.amount;
-      const targetScore = runningScore;
-      const incrTimerId = window.setTimeout(() => {
-        setAnimatedDisplayScore(targetScore);
-        scoreIncrementTimerIdsRef.current = scoreIncrementTimerIdsRef.current.filter(
-          (id) => id !== incrTimerId,
-        );
-        // 180 ms after the burst appears → lands inside the hold phase where the
-        // floating label is fully visible, so the score tick and "+XX" feel in sync.
-      }, burst.delayMs + 180);
-      scoreIncrementTimerIdsRef.current.push(incrTimerId);
-    });
+      // — Animated displayed score: tick up one segment at a time.
+      // Start from the base (pre-reveal) score then add each segment's amount
+      // 60 ms after its floating label appears, so the user sees the label first.
+      scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
+      scoreIncrementTimerIdsRef.current = [];
+      setAnimatedDisplayScore(capturedBase);
+      let runningScore = capturedBase;
+      nextBursts.forEach((burst) => {
+        runningScore += burst.amount;
+        const targetScore = runningScore;
+        const incrTimerId = window.setTimeout(() => {
+          setAnimatedDisplayScore(targetScore);
+          scoreIncrementTimerIdsRef.current = scoreIncrementTimerIdsRef.current.filter(
+            (id) => id !== incrTimerId,
+          );
+          // 180 ms after the burst appears → lands inside the hold phase where the
+          // floating label is fully visible, so the score tick and "+XX" feel in sync.
+        }, burst.delayMs + 180);
+        scoreIncrementTimerIdsRef.current.push(incrTimerId);
+      });
+    };
+
+    const delay = burstDelayMsRef.current;
+    if (delay > 0) {
+      // Row is mid-animation. Defer until the swap finishes so we measure the
+      // score element's new viewport position, not its old one.
+      swapPendingTimerRef.current = window.setTimeout(() => {
+        swapPendingTimerRef.current = null;
+        fireBursts();
+      }, delay);
+    } else {
+      fireBursts();
+    }
   }, [
     enableFloatingScoreBursts,
     isReveal,
@@ -1209,7 +1241,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   player={p}
                   isReveal={isReveal}
                   answerRank={answerRank}
-                  rowIndex={idx}
                   scoreParts={scoreParts}
                   scoreBreakdown={scoreBreakdown}
                   isMeRow={isMeRow}
@@ -1229,6 +1260,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   scoreboardBorderParticleCount={scoreboardBorderParticleCount}
                   avatarEffectLevel={avatarEffectLevel}
                   enableFloatingScoreBursts={enableDesktopFloatingScoreBursts}
+                  burstDelayMs={
+                    hasRowSwapAnimation
+                      ? rowSwapDelayMs + rowSwapDurationMs + 80
+                      : 0
+                  }
                 />
               </div>
             );
