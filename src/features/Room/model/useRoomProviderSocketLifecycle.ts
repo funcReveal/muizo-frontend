@@ -48,6 +48,7 @@ interface SocketLifecycleRefs {
   createRoomInFlightRef: RefObject<boolean>;
   releaseCreateRoomLockRef: RefObject<(() => void) | null>;
   lastLatencyProbeRoomIdRef: RefObject<string | null>;
+  roomSelfClientIdRef: RefObject<string | null>;
   presenceParticipantNamesRef: RefObject<Map<string, string>>;
   presenceSeededRoomIdRef: RefObject<string | null>;
   roomSessionTokenRef: RefObject<string | null>;
@@ -169,6 +170,7 @@ export const useRoomProviderSocketLifecycle = ({
     createRoomInFlightRef,
     releaseCreateRoomLockRef,
     lastLatencyProbeRoomIdRef,
+    roomSelfClientIdRef,
     presenceParticipantNamesRef,
     presenceSeededRoomIdRef,
     roomSessionTokenRef,
@@ -280,6 +282,7 @@ export const useRoomProviderSocketLifecycle = ({
       setSettlementHistory([]);
       setGameState(null);
       resetGameSyncVersion();
+      roomSelfClientIdRef.current = null;
       setGamePlaylist([]);
       setIsGameView(false);
       setRouteRoomResolved(true);
@@ -480,7 +483,8 @@ export const useRoomProviderSocketLifecycle = ({
                         reset: true,
                       },
                     );
-                    lockSessionClientId(clientId);
+                    lockSessionClientId(state.selfClientId);
+                    roomSelfClientIdRef.current = state.selfClientId;
                     persistRoomId(state.room.id);
                     persistRoomSessionToken(state.roomSessionToken ?? null);
                     setStatusText(`已恢復房間：${state.room.name}`);
@@ -549,6 +553,7 @@ export const useRoomProviderSocketLifecycle = ({
           setSettlementHistory([]);
           setGameState(null);
           resetGameSyncVersion();
+          roomSelfClientIdRef.current = null;
           setGamePlaylist([]);
           setIsGameView(false);
           setPlaylistViewItems([]);
@@ -610,7 +615,8 @@ export const useRoomProviderSocketLifecycle = ({
           fetchPlaylistPage(state.room.id, 1, state.room.playlist.pageSize, {
             reset: true,
           });
-          lockSessionClientId(clientId);
+          lockSessionClientId(state.selfClientId);
+          roomSelfClientIdRef.current = state.selfClientId;
           persistRoomId(state.room.id);
           persistRoomSessionToken(state.roomSessionToken ?? null);
           setStatusText(null);
@@ -649,7 +655,8 @@ export const useRoomProviderSocketLifecycle = ({
             seedPresenceParticipants(roomId, participants);
           }
           const selfStillInRoom = participants.some(
-            (participant) => participant.clientId === clientId,
+            (participant) =>
+              participant.clientId === (roomSelfClientIdRef.current ?? clientId),
           );
           if (!selfStillInRoom) {
             clearActiveRoomState({
@@ -813,6 +820,7 @@ export const useRoomProviderSocketLifecycle = ({
           setSettlementHistory([]);
           setGameState(null);
           resetGameSyncVersion();
+          roomSelfClientIdRef.current = null;
           setGamePlaylist([]);
           setIsGameView(false);
           setPlaylistViewItems([]);
@@ -905,6 +913,7 @@ export const useRoomProviderSocketLifecycle = ({
     releaseCreateRoomLockRef,
     socketSuspendedRef,
     lastLatencyProbeRoomIdRef,
+    roomSelfClientIdRef,
     resetPresenceParticipants,
     setPlaylistViewItems,
     setPlaylistHasMore,

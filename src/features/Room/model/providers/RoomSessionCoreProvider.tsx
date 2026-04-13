@@ -336,6 +336,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const serverOffsetRef = useRef(0);
   const lastLatencyProbeRoomIdRef = useRef<string | null>(null);
   const lastGameSyncVersionRef = useRef<GameSyncVersion | null>(null);
+  const roomSelfClientIdRef = useRef<string | null>(null);
 
   const getSocket = useCallback(() => socketRef.current, []);
 
@@ -550,6 +551,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       createRoomInFlightRef,
       releaseCreateRoomLockRef,
       lastLatencyProbeRoomIdRef,
+      roomSelfClientIdRef,
       presenceParticipantNamesRef,
       presenceSeededRoomIdRef,
       roomSessionTokenRef,

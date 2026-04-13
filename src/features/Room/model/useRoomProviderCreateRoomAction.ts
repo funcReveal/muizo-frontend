@@ -360,7 +360,7 @@ export const useRoomProviderCreateRoomAction = ({
       setSettlementHistory(state.settlementHistory ?? []);
       persistRoomSessionToken(state.roomSessionToken ?? null);
       persistRoomId(state.room.id);
-      lockSessionClientId(clientId);
+      lockSessionClientId(state.selfClientId);
       setPlaylistProgress({
         received: state.room.playlist.receivedCount,
         total: state.room.playlist.totalCount,

@@ -329,6 +329,7 @@ export interface RoomState {
     hostClientId: string;
     playlist: PlaylistState;
   };
+  selfClientId: string;
   participants: RoomParticipant[];
   messages: ChatMessage[];
   gameState?: GameState | null;

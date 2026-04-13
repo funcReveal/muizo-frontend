@@ -226,7 +226,7 @@ export const useRoomProviderRoomActions = ({
             if (state.room.hasPin ?? state.room.hasPassword) {
               saveRoomPassword(state.room.id, resolvedRoomPassword);
             }
-            lockSessionClientId(clientId);
+            lockSessionClientId(state.selfClientId);
             persistRoomSessionToken(state.roomSessionToken ?? null);
             persistRoomId(state.room.id);
             setJoinPasswordInput("");
