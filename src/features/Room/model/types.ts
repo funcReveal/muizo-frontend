@@ -84,6 +84,20 @@ export interface SubmitAnswerAckData {
   changedAnswerCount: number;
 }
 
+export interface GameSyncVersion {
+  gameSessionId: number;
+  phaseVersion: number;
+  questionSubmitSeq: number;
+  roomVersion: number;
+}
+
+export interface GameLiveUpdatePayload {
+  roomId: string;
+  gameState: GameState;
+  serverNow: number;
+  syncVersion: GameSyncVersion;
+}
+
 export type SubmitAnswerResult =
   | {
       ok: true;
@@ -421,7 +435,7 @@ export interface ClientToServerEvents {
       revealDurationMs?: number;
       showVideo?: boolean;
     },
-    callback?: (ack: Ack<{ gameState: GameState; serverNow: number }>) => void,
+    callback?: (ack: Ack<GameLiveUpdatePayload>) => void,
   ) => void;
   submitAnswer: (
     payload: { roomId: string; choiceIndex: number },
@@ -429,11 +443,11 @@ export interface ClientToServerEvents {
   ) => void;
   requestPlaybackExtensionVote: (
     payload: { roomId: string; remainingMs?: number },
-    callback?: (ack: Ack<{ gameState: GameState; serverNow: number }>) => void,
+    callback?: (ack: Ack<GameLiveUpdatePayload>) => void,
   ) => void;
   castPlaybackExtensionVote: (
     payload: { roomId: string; vote: "approve" | "reject" },
-    callback?: (ack: Ack<{ gameState: GameState; serverNow: number }>) => void,
+    callback?: (ack: Ack<GameLiveUpdatePayload>) => void,
   ) => void;
   latencyProbe: (
     payload: { roomId: string },
@@ -545,16 +559,8 @@ export interface ServerToClientEvents {
   }) => void;
   userLeft: (payload: { roomId: string; clientId: string }) => void;
   messageAdded: (payload: { roomId: string; message: ChatMessage }) => void;
-  gameStarted: (payload: {
-    roomId: string;
-    gameState: GameState;
-    serverNow: number;
-  }) => void;
-  gameUpdated: (payload: {
-    roomId: string;
-    gameState: GameState;
-    serverNow: number;
-  }) => void;
+  gameStarted: (payload: GameLiveUpdatePayload) => void;
+  gameUpdated: (payload: GameLiveUpdatePayload) => void;
   roomUpdated: (payload: { room: RoomSummary }) => void;
   kicked: (payload: {
     roomId: string;

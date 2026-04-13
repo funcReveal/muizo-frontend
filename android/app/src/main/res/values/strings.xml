@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Muizo</string>
+    <string name="title_activity_main">Muizo</string>
+    <string name="package_name">org.muizo.app</string>
+    <string name="custom_url_scheme">org.muizo.app</string>
+</resources>

@@ -19,6 +19,7 @@ import type {
   ChatMessage,
   ChatMessageQuestionContext,
   ClientSocket,
+  GameLiveUpdatePayload,
   GameState,
   PlaylistItem,
   PlaylistSuggestion,
@@ -104,6 +105,7 @@ interface UseRoomProviderRoomActionsParams {
   setSettlementHistory: Dispatch<SetStateAction<RoomSettlementSnapshot[]>>;
   setPlaylistProgress: Dispatch<SetStateAction<PlaylistProgressState>>;
   setGameState: Dispatch<SetStateAction<GameState | null>>;
+  resetGameSyncVersion: () => void;
   setIsGameView: Dispatch<SetStateAction<boolean>>;
   setGamePlaylist: Dispatch<SetStateAction<PlaylistItem[]>>;
   setPlaylistViewItems: Dispatch<SetStateAction<PlaylistItem[]>>;
@@ -118,6 +120,7 @@ interface UseRoomProviderRoomActionsParams {
   } | null>;
   answerSubmitRequestSeqRef: RefObject<number>;
   serverOffsetRef: RefObject<number>;
+  applyGameLiveUpdate: (payload: GameLiveUpdatePayload) => boolean;
 }
 
 export const useRoomProviderRoomActions = ({
@@ -153,6 +156,7 @@ export const useRoomProviderRoomActions = ({
   setSettlementHistory,
   setPlaylistProgress,
   setGameState,
+  resetGameSyncVersion,
   setIsGameView,
   setGamePlaylist,
   setPlaylistViewItems,
@@ -162,6 +166,7 @@ export const useRoomProviderRoomActions = ({
   pendingAnswerSubmitRef,
   answerSubmitRequestSeqRef,
   serverOffsetRef,
+  applyGameLiveUpdate,
 }: UseRoomProviderRoomActionsParams) => {
   const handleJoinRoom = useCallback(
     (roomReference: string, hasPin: boolean, pinOverride?: string) => {
@@ -205,6 +210,7 @@ export const useRoomProviderRoomActions = ({
               total: state.room.playlist.totalCount,
               ready: state.room.playlist.ready,
             });
+            resetGameSyncVersion();
             setGameState(state.gameState ?? null);
             if (state.gameState?.status === "playing") {
               setGamePlaylist([]);
@@ -273,6 +279,7 @@ export const useRoomProviderRoomActions = ({
       syncServerOffset,
       username,
       persistRoomSessionToken,
+      resetGameSyncVersion,
     ],
   );
 
@@ -290,6 +297,7 @@ export const useRoomProviderRoomActions = ({
           setMessages([]);
           setSettlementHistory([]);
           setGameState(null);
+          resetGameSyncVersion();
           setGamePlaylist([]);
           setIsGameView(false);
           setPlaylistViewItems([]);
@@ -314,6 +322,7 @@ export const useRoomProviderRoomActions = ({
       persistRoomSessionToken,
       resetPresenceParticipants,
       resetSessionClientId,
+      resetGameSyncVersion,
       setCurrentRoom,
       setGamePlaylist,
       setGameState,
@@ -424,12 +433,12 @@ export const useRoomProviderRoomActions = ({
     socket.emit(
       "startGame",
       { roomId: currentRoom.id, guessDurationMs, revealDurationMs },
-      (ack: Ack<{ gameState: GameState; serverNow: number }>) => {
+      (ack: Ack<GameLiveUpdatePayload>) => {
         if (!ack) return;
         if (ack.ok) {
           syncServerOffset(ack.data.serverNow);
           setGamePlaylist([]);
-          setGameState(ack.data.gameState);
+          applyGameLiveUpdate(ack.data);
           setIsGameView(true);
           void fetchCompletePlaylist(currentRoom.id).then(setGamePlaylist);
         } else {
@@ -443,10 +452,10 @@ export const useRoomProviderRoomActions = ({
     getSocket,
     playlistProgressReady,
     setGamePlaylist,
-    setGameState,
     setIsGameView,
     setStatusText,
     syncServerOffset,
+    applyGameLiveUpdate,
   ]);
 
   const handleSubmitChoice = useCallback(
@@ -562,7 +571,7 @@ export const useRoomProviderRoomActions = ({
               ? { remainingMs: normalizedRemainingMs }
               : {}),
           },
-          (ack: Ack<{ gameState: GameState; serverNow: number }>) => {
+          (ack: Ack<GameLiveUpdatePayload>) => {
             if (!ack) {
               setStatusText("發起延長投票失敗，請稍後再試");
               resolve(false);
@@ -574,13 +583,13 @@ export const useRoomProviderRoomActions = ({
               return;
             }
             syncServerOffset(ack.data.serverNow);
-            setGameState(ack.data.gameState);
+            applyGameLiveUpdate(ack.data);
             resolve(true);
           },
         );
       });
     },
-    [currentRoom, getSocket, setGameState, setStatusText, syncServerOffset],
+    [currentRoom, getSocket, setStatusText, syncServerOffset, applyGameLiveUpdate],
   );
 
   const handleCastPlaybackExtensionVote = useCallback(
@@ -594,7 +603,7 @@ export const useRoomProviderRoomActions = ({
         socket.emit(
           "castPlaybackExtensionVote",
           { roomId: currentRoom.id, vote },
-          (ack: Ack<{ gameState: GameState; serverNow: number }>) => {
+          (ack: Ack<GameLiveUpdatePayload>) => {
             if (!ack) {
               setStatusText("送出投票失敗，請稍後再試");
               resolve(false);
@@ -606,13 +615,13 @@ export const useRoomProviderRoomActions = ({
               return;
             }
             syncServerOffset(ack.data.serverNow);
-            setGameState(ack.data.gameState);
+            applyGameLiveUpdate(ack.data);
             resolve(true);
           },
         );
       });
     },
-    [currentRoom, getSocket, setGameState, setStatusText, syncServerOffset],
+    [currentRoom, getSocket, setStatusText, syncServerOffset, applyGameLiveUpdate],
   );
 
   useEffect(() => {

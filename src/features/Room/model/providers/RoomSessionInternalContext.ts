@@ -9,6 +9,7 @@ import {
 import type {
   ChatMessage,
   ClientSocket,
+  GameLiveUpdatePayload,
   GameState,
   PlaylistItem,
   RoomParticipant,
@@ -49,6 +50,7 @@ export interface RoomSessionInternalContextValue {
     SetStateAction<{ received: number; total: number; ready: boolean }>
   >;
   setGameState: Dispatch<SetStateAction<GameState | null>>;
+  resetGameSyncVersion: () => void;
   setIsGameView: Dispatch<SetStateAction<boolean>>;
   setGamePlaylist: Dispatch<SetStateAction<PlaylistItem[]>>;
   setRooms: Dispatch<SetStateAction<RoomSummary[]>>;
@@ -62,6 +64,7 @@ export interface RoomSessionInternalContextValue {
     pinOverride?: string,
   ) => void;
   resetGameSettingsDefaults: () => void;
+  applyGameLiveUpdate: (payload: GameLiveUpdatePayload) => boolean;
 }
 
 export const RoomSessionInternalContext =
