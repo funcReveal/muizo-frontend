@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import type {
   ChatMessage,
   ClientSocket,
-  GameState,
+  GameLiveUpdatePayload,
   PlaylistState,
   RoomSettlementSnapshot,
   PlaylistSuggestion,
@@ -42,16 +42,8 @@ type RoomSocketHandlers = {
   }) => void;
   onPlaylistUpdated?: (payload: { roomId: string; playlist: PlaylistState }) => void;
   onMessageAdded?: (payload: { roomId: string; message: ChatMessage }) => void;
-  onGameStarted?: (payload: {
-    roomId: string;
-    gameState: GameState;
-    serverNow: number;
-  }) => void;
-  onGameUpdated?: (payload: {
-    roomId: string;
-    gameState: GameState;
-    serverNow: number;
-  }) => void;
+  onGameStarted?: (payload: GameLiveUpdatePayload) => void;
+  onGameUpdated?: (payload: GameLiveUpdatePayload) => void;
   onRoomUpdated?: (payload: { room: RoomSummary }) => void;
   onKicked?: (payload: {
     roomId: string;

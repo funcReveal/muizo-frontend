@@ -20,6 +20,7 @@ import type {
   Ack,
   ChatMessage,
   ClientSocket,
+  GameLiveUpdatePayload,
   GameState,
   PlaylistItem,
   PlaylistSuggestion,
@@ -122,6 +123,8 @@ interface SocketLifecycleHandlers {
   ) => RoomParticipant[];
   saveRoomPassword: (roomId: string, password: string | null) => void;
   persistRoomSessionToken: (token: string | null) => void;
+  resetGameSyncVersion: () => void;
+  applyGameLiveUpdate: (payload: GameLiveUpdatePayload) => boolean;
 }
 
 interface UseRoomProviderSocketLifecycleParams {
@@ -227,6 +230,8 @@ export const useRoomProviderSocketLifecycle = ({
     mergeCachedParticipantPing,
     saveRoomPassword,
     persistRoomSessionToken,
+    resetGameSyncVersion,
+    applyGameLiveUpdate,
   } = handlers;
   const upsertRoomSummary = useCallback(
     (room: RoomSummary) => {
@@ -274,6 +279,7 @@ export const useRoomProviderSocketLifecycle = ({
       setMessages([]);
       setSettlementHistory([]);
       setGameState(null);
+      resetGameSyncVersion();
       setGamePlaylist([]);
       setIsGameView(false);
       setRouteRoomResolved(true);
@@ -290,6 +296,7 @@ export const useRoomProviderSocketLifecycle = ({
       lastLatencyProbeRoomIdRef,
       persistRoomId,
       persistRoomSessionToken,
+      resetGameSyncVersion,
       resetPresenceParticipants,
       resetSessionClientId,
       setCurrentRoom,
@@ -425,6 +432,7 @@ export const useRoomProviderSocketLifecycle = ({
                       total: state.room.playlist.totalCount,
                       ready: state.room.playlist.ready,
                     });
+                    resetGameSyncVersion();
                     setGameState(state.gameState ?? null);
                     if (state.gameState?.status === "playing") {
                       setGamePlaylist([]);
@@ -445,7 +453,9 @@ export const useRoomProviderSocketLifecycle = ({
                       const gs = state.gameState;
                       const phaseEndsAt =
                         gs.phase === "guess"
-                          ? gs.startedAt + gs.guessDurationMs + (gs.playbackExtensionMs ?? 0)
+                          ? gs.startedAt +
+                            gs.guessDurationMs +
+                            (gs.playbackExtensionMs ?? 0)
                           : gs.revealEndsAt;
                       const remainingMs = phaseEndsAt - state.serverNow;
                       if (remainingMs <= 0) {
@@ -538,6 +548,7 @@ export const useRoomProviderSocketLifecycle = ({
           setMessages([]);
           setSettlementHistory([]);
           setGameState(null);
+          resetGameSyncVersion();
           setGamePlaylist([]);
           setIsGameView(false);
           setPlaylistViewItems([]);
@@ -586,6 +597,7 @@ export const useRoomProviderSocketLifecycle = ({
             total: state.room.playlist.totalCount,
             ready: state.room.playlist.ready,
           });
+          resetGameSyncVersion();
           setGameState(state.gameState ?? null);
           if (state.gameState?.status === "playing") {
             setGamePlaylist([]);
@@ -718,7 +730,7 @@ export const useRoomProviderSocketLifecycle = ({
             setMessages((prev) => [...prev, message]);
           });
         },
-        onGameStarted: ({ roomId, gameState, serverNow }) => {
+        onGameStarted: ({ roomId, gameState, serverNow, syncVersion }) => {
           if (roomId !== currentRoomIdRef.current) return;
           syncServerOffset(serverNow);
           debugSync("gameStarted", {
@@ -726,11 +738,19 @@ export const useRoomProviderSocketLifecycle = ({
             serverNow,
             startedAt: gameState.startedAt,
             nextServerOffsetMs: serverNow - Date.now(),
+            syncVersion,
           });
-          // A fresh game start always clears any lingering post-resume gate.
-          setPostResumeGate(null);
+          if (
+            !applyGameLiveUpdate({
+              roomId,
+              gameState,
+              serverNow,
+              syncVersion,
+            })
+          ) {
+            return;
+          }
           setGamePlaylist([]);
-          setGameState(gameState);
           const preStartRemainingSec = Math.max(
             0,
             Math.ceil((gameState.startedAt - serverNow) / 1000),
@@ -741,7 +761,7 @@ export const useRoomProviderSocketLifecycle = ({
           setIsGameView(true);
           void fetchCompletePlaylist(roomId).then(setGamePlaylist);
         },
-        onGameUpdated: ({ roomId, gameState, serverNow }) => {
+        onGameUpdated: ({ roomId, gameState, serverNow, syncVersion }) => {
           if (roomId !== currentRoomIdRef.current) return;
           syncServerOffset(serverNow);
           debugSync("gameUpdated", {
@@ -751,8 +771,18 @@ export const useRoomProviderSocketLifecycle = ({
             nextServerOffsetMs: serverNow - Date.now(),
             phase: gameState.phase,
             status: gameState.status,
+            syncVersion,
           });
-          setGameState(gameState);
+          if (
+            !applyGameLiveUpdate({
+              roomId,
+              gameState,
+              serverNow,
+              syncVersion,
+            })
+          ) {
+            return;
+          }
           if (gameState?.status === "playing") {
             setIsGameView(true);
           }
@@ -782,6 +812,7 @@ export const useRoomProviderSocketLifecycle = ({
           setMessages([]);
           setSettlementHistory([]);
           setGameState(null);
+          resetGameSyncVersion();
           setGamePlaylist([]);
           setIsGameView(false);
           setPlaylistViewItems([]);
@@ -863,6 +894,8 @@ export const useRoomProviderSocketLifecycle = ({
     lockSessionClientId,
     persistRoomId,
     persistRoomSessionToken,
+    resetGameSyncVersion,
+    applyGameLiveUpdate,
     setStatusText,
     setKickedNotice,
     setRouteRoomResolved,

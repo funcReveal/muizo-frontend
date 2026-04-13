@@ -23,7 +23,9 @@ import { useLocation } from "react-router-dom";
 import type {
   ChatMessage,
   ClientSocket,
+  GameLiveUpdatePayload,
   GameState,
+  GameSyncVersion,
   PlaylistItem,
   RoomParticipant,
   RoomSettlementSnapshot,
@@ -31,6 +33,7 @@ import type {
   RoomSummary,
   SessionProgressPayload,
 } from "../types";
+import { shouldApplyGameSyncVersion } from "../gameSyncVersion";
 import { useAuth } from "../../../../shared/auth/AuthContext";
 import { useSitePresenceWrite } from "../SitePresenceContext";
 import { useRoomAuthInternal } from "./RoomAuthInternalContext";
@@ -214,6 +217,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const [inviteNotFound, setInviteNotFound] = useState(false);
   const isInviteMode = Boolean(inviteRoomId);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [, setLastGameSyncVersion] =
+    useState<GameSyncVersion | null>(null);
   const [gamePlaylist, setGamePlaylist] = useState<PlaylistItem[]>([]);
   const [isGameView, setIsGameView] = useState(false);
   const [routeRoomResolved, setRouteRoomResolved] = useState<boolean>(() =>
@@ -330,6 +335,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const currentRoomIdRef = useRef<string | null>(getStoredRoomId());
   const serverOffsetRef = useRef(0);
   const lastLatencyProbeRoomIdRef = useRef<string | null>(null);
+  const lastGameSyncVersionRef = useRef<GameSyncVersion | null>(null);
 
   const getSocket = useCallback(() => socketRef.current, []);
 
@@ -338,6 +344,30 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     serverOffsetRef.current = offset;
     setServerOffsetMs(offset);
   }, []);
+
+  const resetGameSyncVersion = useCallback(() => {
+    lastGameSyncVersionRef.current = null;
+    setLastGameSyncVersion(null);
+  }, []);
+
+  const applyGameLiveUpdate = useCallback(
+    (payload: GameLiveUpdatePayload) => {
+      if (
+        !shouldApplyGameSyncVersion(
+          payload.syncVersion,
+          lastGameSyncVersionRef.current,
+        )
+      ) {
+        return false;
+      }
+
+      lastGameSyncVersionRef.current = payload.syncVersion;
+      setLastGameSyncVersion(payload.syncVersion);
+      setGameState(payload.gameState);
+      return true;
+    },
+    [],
+  );
 
   const initialStoredRoomSessionToken = getStoredRoomSessionToken();
 
@@ -562,6 +592,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       mergeCachedParticipantPing,
       saveRoomPassword,
       persistRoomSessionToken,
+      resetGameSyncVersion,
+      applyGameLiveUpdate,
     },
   });
 
@@ -617,6 +649,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     answerSubmitRequestSeqRef,
     serverOffsetRef,
     persistRoomSessionToken,
+    resetGameSyncVersion,
+    applyGameLiveUpdate,
   });
 
   const {
@@ -1008,6 +1042,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setSettlementHistory: setSettlementHistoryWithCap,
       setPlaylistProgress,
       setGameState,
+      resetGameSyncVersion,
       setIsGameView,
       setGamePlaylist,
       setRooms,
@@ -1018,6 +1053,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       handleJoinRoom,
       resetGameSettingsDefaults,
       persistRoomSessionToken,
+      resetGameSyncVersion,
     }),
     [
       getSocket,
@@ -1036,6 +1072,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       handleJoinRoom,
       resetGameSettingsDefaults,
       persistRoomSessionToken,
+      resetGameSyncVersion,
     ],
   );
 

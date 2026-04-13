@@ -39,6 +39,8 @@ import {
 } from "../model/collectionLimits";
 import { appToast } from "../../../shared/ui/toastApi";
 import { fadeInUp } from "../../../shared/motion/motionPresets";
+import { DUPLICATE_SONG_ERROR } from "./lib/editConstants";
+import { getPlaylistItemKey } from "./lib/editUtils";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -86,6 +88,19 @@ const parseDurationToSeconds = (duration?: string): number | null => {
 const createServerId = () =>
   crypto.randomUUID?.() ??
   `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
+
+const findDuplicatePlaylistItemKey = (
+  items: Array<{ url?: string; title?: string }>,
+) => {
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = getPlaylistItemKey(item);
+    if (!key) continue;
+    if (seen.has(key)) return key;
+    seen.add(key);
+  }
+  return null;
+};
 
 const buildJsonHeaders = (token: string) => ({
   "Content-Type": "application/json",
@@ -225,6 +240,10 @@ const CollectionsCreatePage = () => {
     plan: authUser?.plan,
   });
   const hasPlaylistItems = playlistItems.length > 0;
+  const duplicatePlaylistItemKey = useMemo(
+    () => findDuplicatePlaylistItemKey(playlistItems),
+    [playlistItems],
+  );
   const trimmedPlaylistUrl = playlistUrl.trim();
   const playlistUrlLooksValid = useMemo(() => {
     if (!trimmedPlaylistUrl) return false;
@@ -562,6 +581,12 @@ const CollectionsCreatePage = () => {
     }
     if (!hasPlaylistItems) {
       setCreateError("請先匯入播放清單");
+      return;
+    }
+    if (duplicatePlaylistItemKey) {
+      setCreateError(
+        `${DUPLICATE_SONG_ERROR}：播放清單內有重複歌曲，請先移除重複項目後再建立收藏庫。`,
+      );
       return;
     }
     if (reachedCollectionLimit) {
