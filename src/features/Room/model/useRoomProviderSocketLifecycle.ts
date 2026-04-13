@@ -474,11 +474,33 @@ export const useRoomProviderSocketLifecycle = ({
           }
           setIsConnected(false);
           shouldAnnounceReconnectRef.current = true;
+          lastLatencyProbeRoomIdRef.current = null;
+          setServerOffsetMs(0);
+          serverOffsetRef.current = 0;
+
+          // ─── Recoverable session: keep game state visible ────────────────
+          // If we have a stored roomSessionToken and a room id, we can attempt
+          // resumeSession on reconnect. In that case we keep the last-known
+          // currentRoom / gameState / isGameView / participants / gamePlaylist
+          // intact so GameRoomPage can render a "reconnecting" overlay instead
+          // of going blank. All of these will be refreshed by the resumeSession
+          // ack once the socket comes back up.
+          const hasRecoverableSession = Boolean(
+            roomSessionTokenRef.current && currentRoomIdRef.current,
+          );
+          if (hasRecoverableSession) {
+            setStatusText("連線中斷，正在恢復房間狀態...");
+            // routeRoomResolved stays true → game page keeps rendering.
+            // Ephemeral non-game state is still cleared below.
+            setPlaylistSuggestions([]);
+            return;
+          }
+
+          // ─── Non-recoverable: full teardown ──────────────────────────────
           setStatusText("房間連線已中斷，正在等待重新連線。");
           setRouteRoomResolved(false);
           setCurrentRoom(null);
           setParticipants([]);
-          lastLatencyProbeRoomIdRef.current = null;
           resetPresenceParticipants();
           setMessages([]);
           setSettlementHistory([]);
@@ -490,8 +512,6 @@ export const useRoomProviderSocketLifecycle = ({
           setPlaylistHasMore(false);
           setPlaylistLoadingMore(false);
           setPlaylistSuggestions([]);
-          setServerOffsetMs(0);
-          serverOffsetRef.current = 0;
         },
         onRoomsUpdated: (updatedRooms: RoomSummary[]) => {
           startTransition(() => {

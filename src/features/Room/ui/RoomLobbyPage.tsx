@@ -503,6 +503,8 @@ const RoomLobbyPage: React.FC = () => {
     isConnected,
     routeRoomResolved,
     sessionProgress,
+    isRecoveringConnection,
+    recoveryStatusText,
     setStatusText,
     kickedNotice,
     setKickedNotice,
@@ -2349,6 +2351,8 @@ const RoomLobbyPage: React.FC = () => {
               username={username}
               serverOffsetMs={serverOffsetMs}
               onSettlementRecapChange={handleSettlementRecapChange}
+              isRecoveringConnection={isRecoveringConnection}
+              recoveryStatusText={recoveryStatusText}
             />
           </Suspense>
         </div>

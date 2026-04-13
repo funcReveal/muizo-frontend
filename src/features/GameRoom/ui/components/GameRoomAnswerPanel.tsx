@@ -55,6 +55,12 @@ interface GameRoomAnswerPanelProps {
   liveCorrectCount: number | null;
   liveWrongCount: number | null;
   liveUnansweredCount: number | null;
+  /** True while the socket is disconnected and resumeSession is in-flight.
+   *  Suppresses the normal countdown / progress bar and shows a reconnecting
+   *  indicator so players don't think the game is stuck at 0 seconds. */
+  isRecoveringConnection?: boolean;
+  /** Human-readable text describing the current recovery stage. */
+  recoveryStatusText?: string | null;
 }
 
 type InlineStatusSegmentTone =
@@ -324,6 +330,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   liveCorrectCount,
   liveWrongCount,
   liveUnansweredCount,
+  isRecoveringConnection = false,
+  recoveryStatusText = null,
 }) => {
   const getLocalNowMs = React.useCallback(
     () => Date.now() + serverOffsetMs,
@@ -398,6 +406,16 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   React.useLayoutEffect(() => {
     const fill = progressBarFillRef.current;
     if (!fill) return;
+
+    // During reconnection the server clock is unreliable and we don't want
+    // the bar to animate (it would race to 0 and look like the game froze).
+    // Hide the custom bar entirely — the recovery overlay takes over.
+    if (isRecoveringConnection) {
+      fill.style.transition = "none";
+      fill.style.transform = "scaleX(0)";
+      return;
+    }
+
     if (isInitialCountdown || isInterTrackWait || activePhaseDurationMs <= 0) {
       fill.style.transition = "none";
       fill.style.transform = "scaleX(0)";
@@ -430,6 +448,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     getLocalNowMs,
     isInitialCountdown,
     isInterTrackWait,
+    isRecoveringConnection,
     phaseEndsAt,
     trackSessionKey,
   ]);
@@ -487,10 +506,10 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
 
   const handleChoiceClick = React.useCallback(
     (choiceIndex: number) => {
-      if (isReveal || isEnded || !canAnswerNow) return;
+      if (isReveal || isEnded || !canAnswerNow || isRecoveringConnection) return;
       onSubmitChoice(choiceIndex);
     },
-    [canAnswerNow, isEnded, isReveal, onSubmitChoice],
+    [canAnswerNow, isEnded, isRecoveringConnection, isReveal, onSubmitChoice],
   );
 
   return (
@@ -499,7 +518,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
       className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${isMobileView ? "game-room-answer-panel--mobile" : ""
         } ${!isMobileView ? "game-room-answer-panel--desktop" : ""} flex min-h-0 flex-col p-3 text-slate-50 lg:flex-1`}
     >
-      {isInitialCountdown ? (
+      {isInitialCountdown && !isRecoveringConnection ? (
         <GameRoomStartCountdownDisplay
           startedAt={startedAt}
           countdownTone={countdownTone}
@@ -522,20 +541,39 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
               <div className="game-room-answer-head__main min-w-0 flex-1">
-                <GameRoomPhaseStatusChip
-                  isInterTrackWait={isInterTrackWait}
-                  allAnsweredReadyForReveal={allAnsweredReadyForReveal}
-                  gamePhase={gamePhase}
-                  startedAt={startedAt}
-                  phaseEndsAt={phaseEndsAt}
-                  getLocalNowMs={getLocalNowMs}
-                  isGuessUrgency={isGuessUrgency}
-                  urgentChipPingActive={urgentChipPingActive}
-                />
+                {isRecoveringConnection ? (
+                  /* ── Recovery chip: replaces the normal countdown chip ──── */
+                  <Chip
+                    label={
+                      <span className="game-room-phase-chip-label">
+                        重新連線中
+                      </span>
+                    }
+                    size="small"
+                    color="default"
+                    variant="outlined"
+                    className="game-room-chip"
+                  />
+                ) : (
+                  <GameRoomPhaseStatusChip
+                    isInterTrackWait={isInterTrackWait}
+                    allAnsweredReadyForReveal={allAnsweredReadyForReveal}
+                    gamePhase={gamePhase}
+                    startedAt={startedAt}
+                    phaseEndsAt={phaseEndsAt}
+                    getLocalNowMs={getLocalNowMs}
+                    isGuessUrgency={isGuessUrgency}
+                    urgentChipPingActive={urgentChipPingActive}
+                  />
+                )}
                 <p className="game-room-title">
-                  {isInterTrackWait ? "下一題準備中" : phaseLabel}
+                  {isRecoveringConnection
+                    ? (recoveryStatusText ?? "正在恢復房間狀態...")
+                    : isInterTrackWait
+                      ? "下一題準備中"
+                      : phaseLabel}
                 </p>
-                {shouldShowInlinePhaseStatus && !isMobileView ? (
+                {shouldShowInlinePhaseStatus && !isMobileView && !isRecoveringConnection ? (
                   <div className="game-room-guess-inline-status">
                     <span
                       className={`game-room-guess-status-pill game-room-guess-status-pill--${myFeedback.tone}`}
@@ -581,9 +619,17 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             </div>
 
             <div
-              className={`game-room-phase-progress ${isGuessUrgency ? "game-room-phase-progress--urgent" : ""}`}
+              className={`game-room-phase-progress ${isGuessUrgency && !isRecoveringConnection ? "game-room-phase-progress--urgent" : ""}`}
             >
-              {isInterTrackWait ? (
+              {/* Recovery: indeterminate bar shows the system is working */}
+              {isRecoveringConnection ? (
+                <LinearProgress
+                  variant="indeterminate"
+                  color="inherit"
+                  className="game-room-phase-progress-bar"
+                  sx={{ opacity: 0.45 }}
+                />
+              ) : isInterTrackWait ? (
                 <LinearProgress
                   variant="indeterminate"
                   color="info"
@@ -674,9 +720,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                         fullWidth
                         size="large"
                         disableRipple
-                        aria-disabled={isLocked || waitingToStart || shouldShowGestureOverlay}
+                        aria-disabled={isLocked || waitingToStart || shouldShowGestureOverlay || isRecoveringConnection}
                         tabIndex={
-                          isLocked || waitingToStart || shouldShowGestureOverlay ? -1 : 0
+                          isLocked || waitingToStart || shouldShowGestureOverlay || isRecoveringConnection ? -1 : 0
                         }
                         variant={
                           isReveal

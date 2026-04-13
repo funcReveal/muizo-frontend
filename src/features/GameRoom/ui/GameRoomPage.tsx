@@ -109,6 +109,12 @@ interface GameRoomPageProps {
   username?: string | null;
   serverOffsetMs?: number;
   onSettlementRecapChange?: (recaps: SettlementQuestionRecap[]) => void;
+  /** True while socket is disconnected and a resumeSession is in-flight.
+   *  GameRoomPage keeps the frozen game UI visible but overlays it with a
+   *  recovery indicator so players don't see a stuck 0-second countdown. */
+  isRecoveringConnection?: boolean;
+  /** Human-readable text describing the current recovery stage. */
+  recoveryStatusText?: string | null;
 }
 
 type MobileBottomPanel = "scoreboard" | null;
@@ -272,6 +278,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   messages = [],
   serverOffsetMs = 0,
   onSettlementRecapChange,
+  isRecoveringConnection = false,
+  recoveryStatusText = null,
 }) => {
   const { setStatusText, authUser } = useRoomUi();
   const { danmuEnabled, setDanmuEnabled, danmuItems } = useGameRoomDanmu({
@@ -1560,6 +1568,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   : null
               }
               liveUnansweredCount={displayUnansweredCount}
+              isRecoveringConnection={isRecoveringConnection}
+              recoveryStatusText={recoveryStatusText}
             />
             {isMobileGameViewport && (
               <div

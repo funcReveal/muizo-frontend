@@ -94,6 +94,7 @@ type FloatingScoreBurst = {
   fixedTop: number;
   /** viewport-fixed X (left) coordinate — just outside the row's right edge */
   fixedLeft: number;
+  offsetY: number;
 };
 
 /** Short Chinese label for each score breakdown part shown under the amount. */
@@ -225,7 +226,6 @@ type RankSwapState = {
 interface GameRoomScorePlayerRowProps {
   player: RoomParticipant;
   isReveal: boolean;
-  hasAnswered: boolean;
   answerRank?: number;
   scoreParts: { base: number; gain: number };
   scoreBreakdown?: QuestionScoreBreakdown;
@@ -246,12 +246,14 @@ interface GameRoomScorePlayerRowProps {
   scoreboardBorderParticleCount: number;
   avatarEffectLevel: "off" | "simple" | "full";
   enableFloatingScoreBursts: boolean;
+  /** Scoreboard position index (0-based). Used to assign each player their own
+   * horizontal burst lane so bursts from different players don't overlap. */
+  rowIndex: number;
 }
 
 const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   player,
   isReveal,
-  hasAnswered,
   answerRank,
   scoreParts,
   scoreBreakdown,
@@ -272,13 +274,22 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   scoreboardBorderParticleCount,
   avatarEffectLevel,
   enableFloatingScoreBursts,
+  rowIndex,
 }: GameRoomScorePlayerRowProps) {
   const [floatingBursts, setFloatingBursts] = React.useState<FloatingScoreBurst[]>([]);
   const burstSequenceRef = React.useRef(0);
   const activeBurstKeyRef = React.useRef<string | null>(null);
   const removalTimerIdsRef = React.useRef<number[]>([]);
-  /** ref to the shell div — used to measure viewport position for portal bursts */
+  /** ref to the shell div — fallback anchor for portal bursts */
   const shellRef = React.useRef<HTMLDivElement>(null);
+  /**
+   * ref to the score text span — primary anchor for portal bursts.
+   * Anchoring to the score text (rather than the sidebar's right edge) means
+   * each player's bursts start from their own row's X/Y position, so bursts
+   * from different players can never visually overlap — they're in separate
+   * vertical bands of the viewport.
+   */
+  const scoreRef = React.useRef<HTMLSpanElement>(null);
   /**
    * Desktop-only animated score display.
    * null  → show player.score directly (mobile, pre-reveal, or no gain).
@@ -332,15 +343,26 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
     activeBurstKeyRef.current = burstKey;
 
     const combo = Math.max(0, player.combo ?? 0);
-    // Stable anchor: capture the row's viewport position once for all segments.
-    // All segments in this reveal share the same (fixedTop, fixedLeft) so they
-    // rise from a consistent, predictable point in the black area to the right
-    // of the scoreboard. Time-delay alone creates the vertical stacking chain.
+    // ─── Per-player anchor: score text right edge ────────────────────────────
+    // Each player's bursts are anchored to the right of their own score text
+    // span (scoreRef), not to the sidebar's shared right edge.
+    //
+    // Why this eliminates cross-player overlap:
+    //   • Different players are at different viewport Y positions (separate rows).
+    //   • Bursts rise UPWARD from the anchor, so player N's bursts move away
+    //     from player N+1's anchor — they can never collide.
+    //   • No horizontal lane hack needed; isolation is structural.
+    const scoreRect = scoreRef.current?.getBoundingClientRect();
     const shellRect = shellRef.current?.getBoundingClientRect();
-    const burstFixedTop = shellRect
-      ? shellRect.top + shellRect.height * 0.5
+    const anchorRect = scoreRect ?? shellRect;
+    const burstFixedTop = anchorRect
+      ? anchorRect.top + anchorRect.height * 0.5
       : 0;
-    const burstFixedLeft = shellRect ? shellRect.right + 10 : 0;
+    const burstFixedLeft = scoreRect
+      ? scoreRect.right + 8
+      : shellRect
+        ? shellRect.right + 10
+        : 0;
 
     const segments = resolveFloatingScoreSegments(
       scoreParts.gain,
@@ -356,11 +378,25 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
         kind: segment.kind,
         tier: segment.tier,
         part: segment.part,
-        // 480 ms between each segment — gives enough time to read each value
-        // before the next one appears; segments still form a natural rising chain.
-        delayMs: index * 480,
+        // ─── Within-player segment separation ──────────────────────────────
+        // ALL segments start from the exact same base Y (offsetY: 0).
+        // They appear strictly one-at-a-time via delayMs so each one has
+        // time to visibly rise before the next pops in.
+        //
+        // Why no vertical pre-stacking:
+        //   • Pre-stacking with a large offsetY sends the topmost segment
+        //     far above the row, drifting into the header or another player's
+        //     area when there are 4-5 breakdown parts.
+        //   • Pure time-sequencing keeps every segment within a tight band
+        //     (~40 px above the anchor) regardless of how many parts exist.
+        //
+        // 700 ms gap: at that point the previous segment has risen ~20 px
+        // into its hold phase, giving clear vertical clearance before the
+        // next one appears from the same base.
+        delayMs: index * 700,
         fixedTop: burstFixedTop,
         fixedLeft: burstFixedLeft,
+        offsetY: 0,
       } satisfies FloatingScoreBurst;
     });
     if (nextBursts.length === 0) return;
@@ -389,9 +425,9 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
         scoreIncrementTimerIdsRef.current = scoreIncrementTimerIdsRef.current.filter(
           (id) => id !== incrTimerId,
         );
-        // 360 ms after the burst appears → lands inside the hold phase where the
+        // 180 ms after the burst appears → lands inside the hold phase where the
         // floating label is fully visible, so the score tick and "+XX" feel in sync.
-      }, burst.delayMs + 360);
+      }, burst.delayMs + 180);
       scoreIncrementTimerIdsRef.current.push(incrTimerId);
     });
   }, [
@@ -436,7 +472,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
               />
               <RoomUiTooltip title={answerDotTitle}>
                 <span
-                  className={`game-room-score-row-answer-dot-badge ${hasAnswered ? answerDotClass : "game-room-score-row-answer-dot-badge--pending"}`}
+                  className={`game-room-score-row-answer-dot-badge ${answerDotClass}`}
                 />
               </RoomUiTooltip>
             </span>
@@ -464,7 +500,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
                 className="game-room-chip game-room-chip--scoreboard-state"
               />
             )}
-            <span className="relative font-semibold text-emerald-300 tabular-nums">
+            <span ref={scoreRef} className="relative font-semibold text-emerald-300 tabular-nums">
               {(enableFloatingScoreBursts && animatedDisplayScore !== null
                 ? animatedDisplayScore
                 : player.score
@@ -492,29 +528,37 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
             const label = burst.kind === "loss"
               ? "扣分"
               : (FLOATING_SCORE_PART_LABEL[burst.part] ?? "");
+            // combo parts get the slam-down entrance animation for extra impact
+            const isCombo = burst.part === "combo";
             return (
               <span
                 key={burst.id}
                 aria-hidden="true"
                 style={{
                   position: "fixed",
-                  top: burst.fixedTop,
+                  top: burst.fixedTop + burst.offsetY,
                   left: burst.fixedLeft,
-                  // No horizontal drift — all segments rise from the same anchor.
                   "--gr-floating-score-x": "0px",
-                  // Drives continuous font-size & brightness scaling in CSS.
                   "--gr-fs-combo-ratio": Math.min(1, Math.max(0, burst.combo) / 10).toFixed(3),
                   animationDelay: `${burst.delayMs}ms`,
                   zIndex: 9999,
                   pointerEvents: "none",
                 } as React.CSSProperties}
-                className={`game-room-floating-score game-room-floating-score--desktop-portal game-room-floating-score--${burst.kind} game-room-floating-score--tier-${burst.tier}`}
+                className={[
+                  "game-room-floating-score",
+                  "game-room-floating-score--desktop-portal",
+                  `game-room-floating-score--${burst.kind}`,
+                  `game-room-floating-score--tier-${burst.tier}`,
+                  // combo segment: slam-down entrance instead of normal pop-in
+                  isCombo ? "game-room-floating-score--combo-slam" : "",
+                ].filter(Boolean).join(" ")}
               >
+                {/* amount + label on one line so the text is compact and readable */}
                 <span className="game-room-floating-score__amount">
                   {burst.amount > 0 ? `+${burst.amount}` : burst.amount}
                 </span>
                 {label && (
-                  <span className="game-room-floating-score__label">{label}</span>
+                  <span className="game-room-floating-score__label-inline">{label}</span>
                 )}
               </span>
             );
@@ -1003,22 +1047,11 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               : hasAnswered
                 ? "answered"
                 : "pending";
-            const answerDotClass =
-              rowAnswerState === "correct"
-                ? "bg-emerald-400"
-                : rowAnswerState === "wrong"
-                  ? "bg-rose-400"
-                  : rowAnswerState === "answered"
-                    ? "bg-amber-300"
-                    : "bg-slate-500";
-            const answerDotTitle =
-              rowAnswerState === "correct"
-                ? "答對"
-                : rowAnswerState === "wrong"
-                  ? "答錯"
-                  : rowAnswerState === "answered"
-                    ? "已作答"
-                    : "尚未作答";
+            // The dot badge now shows only online/offline status, NOT answer state.
+            // Answer state (correct/wrong/answered) is still tracked via rowAnswerState
+            // for the chip color and row CSS class — just no longer on the dot.
+            const answerDotClass = p.isOnline ? "bg-emerald-400" : "bg-slate-500";
+            const answerDotTitle = p.isOnline ? "在線" : "離線";
             const answerChipColor: "default" | "success" | "error" | "warning" =
               rowAnswerState === "correct"
                 ? "success"
@@ -1175,8 +1208,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 <GameRoomScorePlayerRow
                   player={p}
                   isReveal={isReveal}
-                  hasAnswered={hasAnswered}
                   answerRank={answerRank}
+                  rowIndex={idx}
                   scoreParts={scoreParts}
                   scoreBreakdown={scoreBreakdown}
                   isMeRow={isMeRow}

@@ -4544,10 +4544,11 @@ body {
   position: absolute;
   right: 0;
   bottom: 0;
-  /* Column layout: amount on top, label below — both float together */
+  /* Row layout: amount + label on one line for compact, readable display */
   display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 3px;
   min-width: max-content;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -4564,14 +4565,13 @@ body {
   line-height: 1;
 }
 
-/* Label: secondary — smaller, slightly dimmer, right-aligned under the amount */
-.game-room-floating-score__label {
-  font-size: 0.6em;
+/* Label inline: secondary — smaller, dimmer, sits right of the amount */
+.game-room-floating-score__label-inline {
+  font-size: 0.62em;
   font-weight: 700;
   letter-spacing: 0.06em;
-  opacity: 0.78;
+  opacity: 0.82;
   line-height: 1;
-  margin-top: 3px;
 }
 
 .game-room-floating-score--lane-0 {
@@ -4591,10 +4591,11 @@ body {
 }
 
 .game-room-floating-score--gain {
-  color: #d9fbff;
+  color: #e8feff;
   text-shadow:
-    0 0 10px rgba(34, 211, 238, 0.52),
-    0 0 22px rgba(34, 211, 238, 0.24);
+    0 0 8px rgba(34, 211, 238, 0.75),
+    0 0 18px rgba(34, 211, 238, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.55);
 }
 
 .game-room-floating-score--loss {
@@ -4611,47 +4612,49 @@ body {
 }
 
 .game-room-floating-score--tier-boost {
-  --gr-floating-score-y-end: -50px;
+  /* y-end intentionally not overridden here — portal sets the master cap (-42px) */
   --gr-fs-size-base: 1.02rem;
   font-size: 1.02rem;
   filter: brightness(1.08);
 }
 
 .game-room-floating-score--tier-hot {
-  --gr-floating-score-y-end: -56px;
   --gr-fs-size-base: 1.16rem;
   font-size: 1.16rem;
   filter: brightness(1.15);
 }
 
 .game-room-floating-score--tier-legend {
-  --gr-floating-score-y-end: -62px;
   --gr-fs-size-base: 1.28rem;
   font-size: 1.28rem;
   filter: brightness(1.24);
 }
 
 .game-room-floating-score--gain.game-room-floating-score--tier-boost {
-  color: #bffaff;
+  color: #e0fcff;
   text-shadow:
-    0 0 12px rgba(56, 189, 248, 0.62),
-    0 0 24px rgba(34, 211, 238, 0.28);
+    0 0 8px rgba(56, 189, 248, 0.9),
+    0 0 20px rgba(34, 211, 238, 0.5),
+    0 1px 0 rgba(0, 0, 0, 0.6);
 }
 
 .game-room-floating-score--gain.game-room-floating-score--tier-hot {
-  color: #f4feff;
+  color: #ffffff;
   text-shadow:
-    0 0 14px rgba(125, 211, 252, 0.76),
-    0 0 30px rgba(34, 211, 238, 0.34),
-    0 0 44px rgba(59, 130, 246, 0.18);
+    0 0 10px rgba(125, 211, 252, 1),
+    0 0 24px rgba(34, 211, 238, 0.65),
+    0 0 40px rgba(59, 130, 246, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.7);
 }
 
 .game-room-floating-score--gain.game-room-floating-score--tier-legend {
-  color: #fff5bc;
+  color: #fff0a0;
   text-shadow:
-    0 0 14px rgba(253, 224, 71, 0.78),
-    0 0 32px rgba(250, 204, 21, 0.34),
-    0 0 54px rgba(56, 189, 248, 0.22);
+    0 0 10px rgba(253, 224, 71, 1),
+    0 0 24px rgba(250, 204, 21, 0.7),
+    0 0 44px rgba(245, 158, 11, 0.45),
+    0 0 64px rgba(56, 189, 248, 0.25),
+    0 1px 0 rgba(0, 0, 0, 0.7);
 }
 
 .game-room-floating-score--loss.game-room-floating-score--tier-boost,
@@ -4683,9 +4686,23 @@ body {
 .game-room-floating-score--desktop-portal {
   right: auto;
   bottom: auto;
-  --gr-floating-score-y-end: -80px;
+  /* Keep the rise within ~40 px above the score text so bursts never drift
+   * into the header or another player's row region. */
+  --gr-floating-score-y-end: -42px;
   font-size: calc(var(--gr-fs-size-base, 0.92rem) + var(--gr-fs-combo-ratio, 0) * 0.34rem);
   filter: brightness(calc(1 + var(--gr-fs-combo-ratio, 0) * 0.48));
+}
+
+/*
+ * Combo segments use a "slam down" entrance instead of the normal pop-in.
+ * The element dives from ABOVE the anchor, slams into position with overshoot,
+ * bounces once (giving the "砸下去" feel the user requested), then rises and fades
+ * like any other burst. The animation-duration is slightly longer (2100ms) so
+ * the bounce phase is clearly visible before the rise begins.
+ */
+.game-room-floating-score--combo-slam {
+  animation-name: game-room-floating-score-combo-slam;
+  animation-duration: 2100ms;
 }
 
 .game-room-chat {
@@ -6678,32 +6695,82 @@ body {
 @keyframes game-room-floating-score-rise {
   /* ① Quick pop-in from just below the anchor */
   0% {
-    transform: translate3d(var(--gr-floating-score-x), 10px, 0) scale(0.82);
+    transform: translate3d(var(--gr-floating-score-x), 0px, 0) scale(0.82);
     opacity: 0;
     filter: brightness(0.92);
   }
-  /* ② Settle at near-peak — burst is fully readable here (~190ms in) */
+  /* ② Settle at peak — fully readable (~190ms in) */
   10% {
     transform: translate3d(var(--gr-floating-score-x), -4px, 0) scale(1.1);
     opacity: 1;
   }
-  /* ③ Hold: barely moving for ~340ms so the user can read "+XX" clearly */
-  28% {
-    transform: translate3d(var(--gr-floating-score-x), -9px, 0) scale(1.05);
+  /* ③ Hold: barely moving for ~360ms so the user can read "+XX" clearly */
+  30% {
+    transform: translate3d(var(--gr-floating-score-x), -12px, 0) scale(1.04);
     opacity: 1;
   }
-  /* ④ Slow rise — drifts upward over ~760ms while still legible */
-  68% {
-    transform: translate3d(var(--gr-floating-score-x), calc(var(--gr-floating-score-y-end) * 0.62), 0)
-      scale(1.01);
-    opacity: 0.82;
+  /* ④ Slow rise — drifts to y-end over ~700ms while fading */
+  72% {
+    transform: translate3d(var(--gr-floating-score-x), -22px, 0) scale(1.01);
+    opacity: 0.72;
   }
-  /* ⑤ Gentle fade-out at the top */
+  /* ⑤ Fade-out at the top (y-end is now -42px max in portal mode) */
   100% {
     transform: translate3d(var(--gr-floating-score-x), var(--gr-floating-score-y-end), 0)
       scale(0.96);
     opacity: 0;
     filter: brightness(1.1);
+  }
+}
+
+/*
+ * Combo slam-down entrance animation.
+ *
+ * Phase breakdown (total 2100ms):
+ *   ①  0–12%  (0–252ms)  : dive in from above — element drops from -22px to +5px
+ *                           at slight overshoot (scale 1.28), giving the 砸 impact
+ *   ② 12–22%  (252–462ms): rebound up — bounces back to -10px (scale 1.08)
+ *   ③ 22–32%  (462–672ms): settle hold — lands at -14px (scale 1.04), fully readable
+ *   ④ 32–68%  (672–1428ms): slow rise — drifts upward to -30px, fading to 0.82
+ *   ⑤ 68–100% (1428–2100ms): fade-out — rises to y-end, fully transparent
+ *
+ * The dive+bounce in phases ①–② creates the "slam down" feel.
+ * Phases ③–⑤ match the normal rise animation so the combo value is readable.
+ */
+@keyframes game-room-floating-score-combo-slam {
+  /* ① Dive in from above */
+  0% {
+    transform: translate3d(var(--gr-floating-score-x), -22px, 0) scale(0.65);
+    opacity: 0;
+    filter: brightness(1.8);
+  }
+  /* ② Slam — overshoot below the anchor */
+  12% {
+    transform: translate3d(var(--gr-floating-score-x), 5px, 0) scale(1.28);
+    opacity: 1;
+    filter: brightness(1.5);
+  }
+  /* ③ Rebound — bounce back up */
+  22% {
+    transform: translate3d(var(--gr-floating-score-x), -10px, 0) scale(1.08);
+    opacity: 1;
+    filter: brightness(1.2);
+  }
+  /* ④ Hold — settle, fully readable */
+  32% {
+    transform: translate3d(var(--gr-floating-score-x), -14px, 0) scale(1.04);
+    opacity: 1;
+  }
+  /* ⑤ Rise — begin drifting upward (capped at y-end set by portal, -42px) */
+  68% {
+    transform: translate3d(var(--gr-floating-score-x), -20px, 0) scale(1.01);
+    opacity: 0.72;
+  }
+  /* ⑥ Fade out */
+  100% {
+    transform: translate3d(var(--gr-floating-score-x), var(--gr-floating-score-y-end), 0) scale(0.96);
+    opacity: 0;
+    filter: brightness(1.15);
   }
 }
 
@@ -6759,6 +6826,7 @@ body {
   .game-room-reveal-card--result-burst::before,
   .game-room-score-gain-pop,
   .game-room-score-loss-pop,
+  .game-room-floating-score--combo-slam,
   .game-room-floating-score,
   .game-room-score-row--rank-swap-up,
   .game-room-score-row--rank-swap-down {
