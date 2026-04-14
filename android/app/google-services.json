@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "778301714962",
+    "project_id": "guess-it-480709",
+    "storage_bucket": "guess-it-480709.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:778301714962:android:fd43474d12c8ec1dfedecb",
+        "android_client_info": {
+          "package_name": "org.muizo.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "778301714962-n1mjk88ni6noe6b5e5tun7nbus9gtq5v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKImAdCnK_SP0z4H2ekvUOSFI7Bic_wGQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "778301714962-n1mjk88ni6noe6b5e5tun7nbus9gtq5v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
