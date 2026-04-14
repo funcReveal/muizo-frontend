@@ -66,9 +66,9 @@ const useGameRoomPlayerSync = ({
   currentTrackIndex,
   primeSfxAudio,
 }: UseGameRoomPlayerSyncParams) => {
-  const [audioUnlockSessionKey, setAudioUnlockSessionKey] = useState<string | null>(
-    () => (!requiresAudioGesture ? audioGestureSessionKey : null),
-  );
+  const [audioUnlockSessionKey, setAudioUnlockSessionKey] = useState<
+    string | null
+  >(() => (!requiresAudioGesture ? audioGestureSessionKey : null));
   const audioUnlocked =
     !requiresAudioGesture || audioUnlockSessionKey === audioGestureSessionKey;
   const audioUnlockedRef = useRef(audioUnlocked);
@@ -156,7 +156,9 @@ const useGameRoomPlayerSync = ({
   }, []);
 
   const clearPostStartDriftTimers = useCallback(() => {
-    postStartDriftTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    postStartDriftTimersRef.current.forEach((timerId) =>
+      window.clearTimeout(timerId),
+    );
     postStartDriftTimersRef.current = [];
   }, []);
 
@@ -197,7 +199,11 @@ const useGameRoomPlayerSync = ({
       clearPlaybackWarmupTimers();
       clearPostStartDriftTimers();
     };
-  }, [clearPlaybackStartTimer, clearPlaybackWarmupTimers, clearPostStartDriftTimers]);
+  }, [
+    clearPlaybackStartTimer,
+    clearPlaybackWarmupTimers,
+    clearPostStartDriftTimers,
+  ]);
 
   const postPlayerMessage = useCallback(
     (payload: Record<string, unknown>, logLabel: string) => {
@@ -331,8 +337,11 @@ const useGameRoomPlayerSync = ({
         artist: "Music Quiz",
         album: "Competitive Audio Mode",
       });
-      navigator.mediaSession.playbackState =
-        hasSilentAudioSession ? "playing" : isEnded ? "paused" : "playing";
+      navigator.mediaSession.playbackState = hasSilentAudioSession
+        ? "playing"
+        : isEnded
+          ? "paused"
+          : "playing";
     } catch (err) {
       console.error("mediaSession setup failed", err);
     }
@@ -383,17 +392,23 @@ const useGameRoomPlayerSync = ({
     applyVolume(gameVolume);
   }, [applyVolume, clearInitialAudioHoldReleaseTimer, gameVolume, postCommand]);
 
-  const scheduleInitialAudioHoldRelease = useCallback((delayMs = INITIAL_AUDIO_HOLD_RELEASE_MS) => {
-    clearInitialAudioHoldReleaseTimer();
-    initialAudioHoldReleaseTimerRef.current = window.setTimeout(() => {
-      releaseInitialAudioHold();
-    }, delayMs);
-  }, [clearInitialAudioHoldReleaseTimer, releaseInitialAudioHold]);
+  const scheduleInitialAudioHoldRelease = useCallback(
+    (delayMs = INITIAL_AUDIO_HOLD_RELEASE_MS) => {
+      clearInitialAudioHoldReleaseTimer();
+      initialAudioHoldReleaseTimerRef.current = window.setTimeout(() => {
+        releaseInitialAudioHold();
+      }, delayMs);
+    },
+    [clearInitialAudioHoldReleaseTimer, releaseInitialAudioHold],
+  );
 
-  const armInitialAudioSync = useCallback((holdDelayMs = INITIAL_AUDIO_HOLD_RELEASE_MS) => {
-    initialAudioSyncPendingRef.current = true;
-    scheduleInitialAudioHoldRelease(holdDelayMs);
-  }, [scheduleInitialAudioHoldRelease]);
+  const armInitialAudioSync = useCallback(
+    (holdDelayMs = INITIAL_AUDIO_HOLD_RELEASE_MS) => {
+      initialAudioSyncPendingRef.current = true;
+      scheduleInitialAudioHoldRelease(holdDelayMs);
+    },
+    [scheduleInitialAudioHoldRelease],
+  );
 
   const loadTrack = useCallback(
     (
@@ -444,10 +459,15 @@ const useGameRoomPlayerSync = ({
       const serverNowMs = getServerNowMs();
       if (serverNowMs < startedAt) return;
       const rawStartPos = forcedPosition ?? getDesiredPositionSec();
-      const startPos = Math.min(clipEndSec, Math.max(clipStartSec, rawStartPos));
+      const startPos = Math.min(
+        clipEndSec,
+        Math.max(clipStartSec, rawStartPos),
+      );
       const estimated = getEstimatedLocalPositionSec();
-      const needsSeek = forceSeek || Math.abs(estimated - startPos) > DRIFT_TOLERANCE_SEC;
-      const holdAudio = options?.holdAudio ?? initialAudioSyncPendingRef.current;
+      const needsSeek =
+        forceSeek || Math.abs(estimated - startPos) > DRIFT_TOLERANCE_SEC;
+      const holdAudio =
+        options?.holdAudio ?? initialAudioSyncPendingRef.current;
       if (Math.abs(playerStartRef.current - startPos) > 0.01) {
         playerStartRef.current = startPos;
       }
@@ -510,7 +530,13 @@ const useGameRoomPlayerSync = ({
 
   const startPrestartWarmup = useCallback(() => {
     clearPlaybackWarmupTimers();
-    if (!playerReadyRef.current || !trackPreparedRef.current || !videoId || isEnded) return;
+    if (
+      !playerReadyRef.current ||
+      !trackPreparedRef.current ||
+      !videoId ||
+      isEnded
+    )
+      return;
     if (requiresAudioGesture && !audioUnlockedRef.current) return;
     if (isStartedByServerTime()) return;
     prestartWarmupActiveRef.current = true;
@@ -558,7 +584,12 @@ const useGameRoomPlayerSync = ({
   const schedulePlaybackStart = useCallback(() => {
     clearPlaybackStartTimer();
     clearPlaybackWarmupTimers();
-    if (!playerReadyRef.current || !trackPreparedRef.current || !videoId || isEnded) {
+    if (
+      !playerReadyRef.current ||
+      !trackPreparedRef.current ||
+      !videoId ||
+      isEnded
+    ) {
       debugSync("schedulePlaybackStart-deferred", {
         hasPlayerReady: playerReadyRef.current,
         trackPrepared: trackPreparedRef.current,
@@ -579,10 +610,13 @@ const useGameRoomPlayerSync = ({
       return;
     }
     if (delayMs > PRESTART_ALIGNMENT_LEAD_MS) {
-      playbackWarmupTimerRef.current = window.setTimeout(() => {
-        playbackWarmupTimerRef.current = null;
-        startPrestartWarmup();
-      }, Math.max(0, delayMs - PRESTART_ALIGNMENT_LEAD_MS));
+      playbackWarmupTimerRef.current = window.setTimeout(
+        () => {
+          playbackWarmupTimerRef.current = null;
+          startPrestartWarmup();
+        },
+        Math.max(0, delayMs - PRESTART_ALIGNMENT_LEAD_MS),
+      );
     }
     playbackStartTimerRef.current = window.setTimeout(() => {
       playbackStartTimerRef.current = null;
@@ -590,7 +624,9 @@ const useGameRoomPlayerSync = ({
       const warmupWasActive = prestartWarmupActiveRef.current;
       prestartWarmupActiveRef.current = false;
       armInitialAudioSync(
-        warmupWasActive ? PRESTART_FINAL_HOLD_MS : INITIAL_AUDIO_HOLD_RELEASE_MS,
+        warmupWasActive
+          ? PRESTART_FINAL_HOLD_MS
+          : INITIAL_AUDIO_HOLD_RELEASE_MS,
       );
       startPlayback(undefined, warmupWasActive, {
         holdAudio: true,
@@ -693,12 +729,15 @@ const useGameRoomPlayerSync = ({
     startedAt,
   ]);
 
-  const handleGestureOverlayTrigger = useCallback((event?: React.SyntheticEvent) => {
-    event?.preventDefault();
-    event?.stopPropagation();
-    primeSfxAudio();
-    unlockAudioAndStart();
-  }, [primeSfxAudio, unlockAudioAndStart]);
+  const handleGestureOverlayTrigger = useCallback(
+    (event?: React.SyntheticEvent) => {
+      event?.preventDefault();
+      event?.stopPropagation();
+      primeSfxAudio();
+      unlockAudioAndStart();
+    },
+    [primeSfxAudio, unlockAudioAndStart],
+  );
 
   const syncToServerPosition = useCallback(
     (
@@ -722,7 +761,8 @@ const useGameRoomPlayerSync = ({
       }
       const estimated = playerTime ?? getEstimatedLocalPositionSec();
       const drift = Math.abs(estimated - serverPosition);
-      const shouldSeek = drift > toleranceSec || (forceSeek && playerTime === null);
+      const shouldSeek =
+        drift > toleranceSec || (forceSeek && playerTime === null);
       if (shouldSeek) {
         startPlayback(serverPosition, true, {
           holdAudio: initialAudioSyncPendingRef.current,
@@ -801,7 +841,9 @@ const useGameRoomPlayerSync = ({
       if (resumeResyncTimerRef.current !== null) {
         window.clearTimeout(resumeResyncTimerRef.current);
       }
-      resyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      resyncTimersRef.current.forEach((timerId) =>
+        window.clearTimeout(timerId),
+      );
       stopSilentAudio();
     },
     [
@@ -824,9 +866,14 @@ const useGameRoomPlayerSync = ({
     let timerId: number | null = null;
     const tick = () => {
       const visibilityHidden =
-        typeof document !== "undefined" && document.visibilityState !== "visible";
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible";
       const now = getServerNowMs();
-      if (resumeNeedsSyncRef.current && playerReadyRef.current && now >= startedAt) {
+      if (
+        resumeNeedsSyncRef.current &&
+        playerReadyRef.current &&
+        now >= startedAt
+      ) {
         resumeNeedsSyncRef.current = false;
         requestPlayerTime("interval-resume");
         timerId = window.setTimeout(tick, 420);
@@ -835,18 +882,18 @@ const useGameRoomPlayerSync = ({
       if (!visibilityHidden) {
         const playerState = lastPlayerStateRef.current;
         const canAutoResumeNow =
-          now - lastAutoResumeAttemptAtMsRef.current >= AUTO_RESUME_MIN_INTERVAL_MS;
-        if (
-          playerReadyRef.current &&
-          now >= startedAt &&
-          !isEnded
-        ) {
+          now - lastAutoResumeAttemptAtMsRef.current >=
+          AUTO_RESUME_MIN_INTERVAL_MS;
+        if (playerReadyRef.current && now >= startedAt && !isEnded) {
           if (playerState === 2 && canAutoResumeNow) {
             lastAutoResumeAttemptAtMsRef.current = now;
             postCommand("playVideo");
             postCommand("unMute");
             applyVolume(gameVolume);
-          } else if ((playerState === null || playerState === -1) && canAutoResumeNow) {
+          } else if (
+            (playerState === null || playerState === -1) &&
+            canAutoResumeNow
+          ) {
             lastAutoResumeAttemptAtMsRef.current = now;
             startPlayback();
           }
@@ -861,11 +908,24 @@ const useGameRoomPlayerSync = ({
           requestPlayerTime("watchdog");
         }
       }
+      const playerState = lastPlayerStateRef.current;
+      const recentlyStarted = now >= startedAt && now - startedAt < 2500;
+
+      const needsAggressiveSync =
+        waitingToStart ||
+        !playerReadyRef.current ||
+        isEnded ||
+        resumeNeedsSyncRef.current ||
+        recentlyStarted ||
+        playerState === 2 ||
+        playerState === null ||
+        playerState === -1;
+
       const nextDelay = visibilityHidden
-        ? 1400
-        : waitingToStart || !playerReadyRef.current || isEnded
-          ? 900
-          : 420;
+        ? 2000
+        : needsAggressiveSync
+          ? 500
+          : 1400;
       timerId = window.setTimeout(tick, nextDelay);
     };
     tick();
@@ -902,7 +962,14 @@ const useGameRoomPlayerSync = ({
     if (isEnded) return;
     if (requiresAudioGesture && !audioUnlockedRef.current) return;
     startSilentAudio();
-  }, [currentTrackIndex, isEnded, phase, requiresAudioGesture, startedAt, startSilentAudio]);
+  }, [
+    currentTrackIndex,
+    isEnded,
+    phase,
+    requiresAudioGesture,
+    startedAt,
+    startSilentAudio,
+  ]);
 
   useEffect(() => {
     applyVolume(gameVolume);
@@ -934,7 +1001,11 @@ const useGameRoomPlayerSync = ({
       ];
       actions.forEach((action) => {
         try {
-          if (action === "seekbackward" || action === "seekforward" || action === "seekto") {
+          if (
+            action === "seekbackward" ||
+            action === "seekforward" ||
+            action === "seekto"
+          ) {
             navigator.mediaSession.setActionHandler(action, handleMediaSeek);
           } else {
             navigator.mediaSession.setActionHandler(action, noop);
@@ -962,7 +1033,8 @@ const useGameRoomPlayerSync = ({
     const handleMessage = (event: MessageEvent) => {
       const origin = event.origin || "";
       const isYouTube =
-        origin.includes("youtube.com") || origin.includes("youtube-nocookie.com");
+        origin.includes("youtube.com") ||
+        origin.includes("youtube-nocookie.com");
       if (!isYouTube || typeof event.data !== "string") return;
 
       let data: { event?: string; info?: number; id?: string };
@@ -985,7 +1057,9 @@ const useGameRoomPlayerSync = ({
         if (!currentId) return;
         if (lastTrackLoadKeyRef.current === trackLoadKey) return;
         const beforeStart = !isStartedByServerTime();
-        const startSec = beforeStart ? clipStartSec : computeServerPositionSec();
+        const startSec = beforeStart
+          ? clipStartSec
+          : computeServerPositionSec();
         playerStartRef.current = startSec;
         loadTrack(
           currentId,
@@ -1002,29 +1076,37 @@ const useGameRoomPlayerSync = ({
       }
 
       if (data.event === "onStateChange") {
-        lastPlayerStateRef.current = typeof data.info === "number" ? data.info : null;
+        lastPlayerStateRef.current =
+          typeof data.info === "number" ? data.info : null;
         if (data.info === 5 || data.info === 3 || data.info === 1) {
           handleTrackPrepared(data.info);
         }
         if (data.info === 1) {
-            setIsPlayerPlaying(true);
-            hasStartedPlaybackRef.current = true;
-            lastSyncMsRef.current = getServerNowMs();
-            setLoadedTrackKey(trackLoadKey);
-            debugSync("player-state-playing");
-            if (initialAudioSyncPendingRef.current) {
-              scheduleInitialAudioHoldRelease(220);
-            }
-            requestPlayerTime("state-playing");
-            schedulePostStartDriftChecks();
-            startSilentAudio();
+          setIsPlayerPlaying(true);
+          hasStartedPlaybackRef.current = true;
+          lastSyncMsRef.current = getServerNowMs();
+          setLoadedTrackKey(trackLoadKey);
+          debugSync("player-state-playing");
+          if (initialAudioSyncPendingRef.current) {
+            scheduleInitialAudioHoldRelease(220);
           }
+          requestPlayerTime("state-playing");
+          schedulePostStartDriftChecks();
+          startSilentAudio();
+        }
         if (data.info === 2 || data.info === 0) {
           setIsPlayerPlaying(false);
         }
-        if (data.info === 2 && hasStartedPlaybackRef.current && isStartedByServerTime()) {
+        if (
+          data.info === 2 &&
+          hasStartedPlaybackRef.current &&
+          isStartedByServerTime()
+        ) {
           const now = Date.now();
-          if (now - lastPassiveResumeRef.current > AUTO_RESUME_MIN_INTERVAL_MS) {
+          if (
+            now - lastPassiveResumeRef.current >
+            AUTO_RESUME_MIN_INTERVAL_MS
+          ) {
             lastPassiveResumeRef.current = now;
             postCommand("playVideo");
             postCommand("unMute");
@@ -1046,9 +1128,15 @@ const useGameRoomPlayerSync = ({
               typeof latestPlayerTime === "number" &&
               latestPlayerTime > clipStartSec + 0.05
             ) {
-              guessLoopSpanRef.current = Math.max(0.25, latestPlayerTime - clipStartSec);
+              guessLoopSpanRef.current = Math.max(
+                0.25,
+                latestPlayerTime - clipStartSec,
+              );
             } else if (!guessLoopSpanRef.current) {
-              guessLoopSpanRef.current = Math.max(0.5, Math.min(5, fallbackDurationSec));
+              guessLoopSpanRef.current = Math.max(
+                0.5,
+                Math.min(5, fallbackDurationSec),
+              );
             }
             startPlayback(computeServerPositionSec(), true, {
               reason: "guess-loop",
@@ -1089,7 +1177,9 @@ const useGameRoomPlayerSync = ({
                 : WATCHDOG_DRIFT_TOLERANCE_SEC,
             });
           }
-          if (lastTimeRequestReasonRef.current.startsWith("post-start-drift-")) {
+          if (
+            lastTimeRequestReasonRef.current.startsWith("post-start-drift-")
+          ) {
             const expected = getDesiredPositionSec();
             const drift = Math.abs(info.currentTime - expected);
             const didSeek = syncToServerPosition(
@@ -1281,7 +1371,9 @@ const useGameRoomPlayerSync = ({
     const handleVisibility = () => {
       if (document.visibilityState !== "visible") {
         resumeNeedsSyncRef.current = true;
-        resyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+        resyncTimersRef.current.forEach((timerId) =>
+          window.clearTimeout(timerId),
+        );
         resyncTimersRef.current = [];
         return;
       }
@@ -1345,7 +1437,10 @@ const useGameRoomPlayerSync = ({
     }
     let attempts = 0;
     const bindPlayerEvents = () => {
-      postPlayerMessage({ event: "listening", id: PLAYER_ID }, "player event binding");
+      postPlayerMessage(
+        { event: "listening", id: PLAYER_ID },
+        "player event binding",
+      );
     };
     const retryBind = () => {
       if (playerReadyRef.current) {
