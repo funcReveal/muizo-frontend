@@ -186,7 +186,6 @@ const GameRoomSettlementLoader = () => (
   </div>
 );
 
-
 const useGameRoomUiClock = ({
   getServerNowMs,
   startedAt,
@@ -1046,8 +1045,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => buildScoreboardRows(sortedParticipants, meClientId, 12, room.maxPlayers),
     [meClientId, room.maxPlayers, sortedParticipants],
   );
-
-  const recentMessages = useMemo(() => messages.slice(-80), [messages]);
   const { settlementSnapshot } = useSettlementSnapshot({
     room,
     participants,
@@ -1065,8 +1062,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => ({ danmuEnabled, onDanmuEnabledChange: setDanmuEnabled }),
     [danmuEnabled, setDanmuEnabled],
   );
-  const desktopChatScrollRef = useRef<HTMLDivElement | null>(null);
-  const mobileChatScrollRef = useRef<HTMLDivElement | null>(null);
   const handleShowVideoChange = useCallback((show: boolean) => {
     setShowVideoOverride(show);
     setStoredShowVideoPreference(show);
@@ -1467,11 +1462,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 isReveal={isReveal}
                 meClientId={meClientId}
                 topTwoSwapState={topTwoSwapState}
-                danmuEnabled={danmuEnabled}
-                onDanmuEnabledChange={setDanmuEnabled}
-                recentMessages={recentMessages}
-                chatScrollRef={desktopChatScrollRef}
-                showChat={false}
                 avatarEffectLevel={avatarEffectLevel}
                 scoreboardBorderEnabled={scoreboardBorderEnabled}
                 scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
@@ -1734,12 +1724,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     isReveal={isReveal}
                     meClientId={meClientId}
                     topTwoSwapState={topTwoSwapState}
-                    danmuEnabled={danmuEnabled}
-                    onDanmuEnabledChange={setDanmuEnabled}
-                    recentMessages={recentMessages}
-                    chatScrollRef={mobileChatScrollRef}
                     className="game-room-mobile-scoreboard-shell !h-full"
-                    showChat={false}
                     mobileOverlayMode
                     mobileMinimalHeader
                     swapAnimationEnabled={

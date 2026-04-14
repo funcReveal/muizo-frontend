@@ -26,7 +26,6 @@ import AnimatedScoreboardBorder from "../../../../shared/ui/AnimatedScoreboardBo
 import RoomUiTooltip from "../../../../shared/ui/RoomUiTooltip";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 import type {
-  ChatMessage,
   QuestionScoreBreakdown,
   RoomParticipant,
 } from "../../../Room/model/types";
@@ -35,7 +34,6 @@ import type { TopTwoSwapState } from "../../model/gameRoomTypes";
 import { resolveComboTier } from "../lib/gameRoomUiUtils";
 import type { ScoreboardRow } from "../../model/gameRoomDerivations";
 import type { AvatarEffectLevel } from "../../../../shared/ui/playerAvatar/playerAvatarTheme";
-import GameRoomChatPanel from "../../../../shared/chat/GameRoomChatPanel";
 
 interface GameRoomLeftSidebarProps {
   scoreboardRows: ScoreboardRow[];
@@ -46,12 +44,7 @@ interface GameRoomLeftSidebarProps {
   isReveal: boolean;
   meClientId?: string;
   topTwoSwapState: TopTwoSwapState | null;
-  danmuEnabled: boolean;
-  onDanmuEnabledChange: (enabled: boolean) => void;
-  recentMessages: ChatMessage[];
-  chatScrollRef: React.RefObject<HTMLDivElement | null>;
   className?: string;
-  showChat?: boolean;
   onOpenMobileChat?: () => void;
   mobileChatUnread?: number;
   mobileOverlayMode?: boolean;
@@ -291,7 +284,9 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   const swapPendingTimerRef = React.useRef<number | null>(null);
   /** Ref that always holds the latest burstDelayMs without being a dep */
   const burstDelayMsRef = React.useRef(burstDelayMs);
-  burstDelayMsRef.current = burstDelayMs;
+  React.useEffect(() => {
+    burstDelayMsRef.current = burstDelayMs;
+  }, [burstDelayMs]);
   /** ref to the shell div — fallback anchor for portal bursts */
   const shellRef = React.useRef<HTMLDivElement>(null);
   /**
@@ -624,12 +619,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   isReveal,
   meClientId,
   topTwoSwapState,
-  danmuEnabled,
-  onDanmuEnabledChange,
-  recentMessages,
-  chatScrollRef,
   className,
-  showChat = true,
   onOpenMobileChat,
   mobileChatUnread = 0,
   mobileOverlayMode = false,
@@ -986,7 +976,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               <p className="game-room-title">排行榜</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              {!showChat && onOpenMobileChat && (
+              {onOpenMobileChat && (
                 <button
                   type="button"
                   onClick={onOpenMobileChat}
@@ -1272,18 +1262,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         )}
       </div>
 
-      {showChat && (
-        <>
-          <div className="h-px bg-white/[0.06]" />
-          <GameRoomChatPanel
-            danmuEnabled={danmuEnabled}
-            onDanmuEnabledChange={onDanmuEnabledChange}
-            recentMessages={recentMessages}
-            chatScrollRef={chatScrollRef}
-            variant="sidebar"
-          />
-        </>
-      )}
     </aside>
   );
 };
