@@ -99,6 +99,17 @@ const createServerId = () =>
   crypto.randomUUID?.() ??
   `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
 
+const toPreviewItems = (
+  items: DraftPlaylistItem[],
+): PreviewVirtualRowProps["items"] =>
+  items.map((item) => ({
+    title: item.title || item.answerText || "未命名歌曲",
+    answerText: item.answerText,
+    uploader: item.uploader,
+    duration: item.duration,
+    thumbnail: item.thumbnail,
+  }));
+
 const PreviewVirtualRow = ({
   index,
   style,
@@ -425,12 +436,12 @@ const CollectionsCreatePage = () => {
   );
 
   const normalPreviewRowProps = useMemo<PreviewVirtualRowProps>(
-    () => ({ items: normalDraftPlaylistItems }),
+    () => ({ items: toPreviewItems(normalDraftPlaylistItems) }),
     [normalDraftPlaylistItems],
   );
 
   const longPreviewRowProps = useMemo<PreviewVirtualRowProps>(
-    () => ({ items: longDraftPlaylistItems }),
+    () => ({ items: toPreviewItems(longDraftPlaylistItems) }),
     [longDraftPlaylistItems],
   );
 
