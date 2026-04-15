@@ -1,14 +1,10 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { List, type RowComponentProps } from "react-window";
 import { AnimatePresence, motion } from "motion/react";
 
 import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
 import CloseRounded from "@mui/icons-material/CloseRounded";
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import LockOutlined from "@mui/icons-material/LockOutlined";
 import PlaylistAddRounded from "@mui/icons-material/PlaylistAddRounded";
-import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import {
   Box,
   Button,
@@ -17,12 +13,8 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  InputAdornment,
-  Switch,
   Tab,
   Tabs,
-  TextField,
-  Tooltip,
 } from "@mui/material";
 import { useAuth } from "../../../../shared/auth/AuthContext";
 import { isAdminRole } from "../../../../shared/auth/roles";
@@ -36,88 +28,23 @@ import {
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
 } from "../../shared/model/collectionLimits";
-import CollectionItemLimitDialog from "./../components/CollectionItemLimitDialog";
-import { useCollectionCreateDraft } from "./../hooks/useCollectionCreateDraft";
-import { useCollectionCreateSubmit } from "./../hooks/useCollectionCreateSubmit";
-import type { DraftPlaylistItem } from "./../utils/createCollectionImport";
+import CollectionCreatePreviewPanel from "../components/CollectionCreatePreviewPanel";
+import CollectionCreateSourcePanel from "../components/CollectionCreateSourcePanel";
+import CollectionItemLimitDialog from "../components/CollectionItemLimitDialog";
+import { useCollectionCreateDraft } from "../hooks/useCollectionCreateDraft";
+import { useCollectionCreateSubmit } from "../hooks/useCollectionCreateSubmit";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
-const PUBLIC_SWITCH_ICON = encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0f172a"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm6.93 9h-3.1a15.9 15.9 0 0 0-1.38-5.02A8.02 8.02 0 0 1 18.93 11ZM12 4.04c.83 1.2 1.86 3.63 2.16 6.96H9.84C10.14 7.67 11.17 5.24 12 4.04ZM4.07 13h3.1a15.9 15.9 0 0 0 1.38 5.02A8.02 8.02 0 0 1 4.07 13Zm3.1-2h-3.1a8.02 8.02 0 0 1 4.48-5.02A15.9 15.9 0 0 0 7.17 11Zm4.83 8.96c-.83-1.2-1.86-3.63-2.16-6.96h4.32c-.3 3.33-1.33 5.76-2.16 6.96ZM14.45 18.02A15.9 15.9 0 0 0 15.83 13h3.1a8.02 8.02 0 0 1-4.48 5.02Z"/></svg>',
-);
-const PRIVATE_SWITCH_ICON = encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0f172a"><path d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-6 8.73V17a1 1 0 1 0 2 0v-.27a2 2 0 1 0-2 0ZM10 8V6a2 2 0 0 1 4 0v2Z"/></svg>',
-);
-
 const LONG_DURATION_THRESHOLD_SEC = 600;
-const PREVIEW_ROW_HEIGHT = 60;
 
 type PlaylistIssueTab =
   | "removed"
   | "privateRestricted"
   | "embedBlocked"
   | "unavailable";
-
-type PreviewVirtualRowProps = {
-  items: Array<{
-    title: string;
-    answerText?: string;
-    uploader?: string;
-    duration?: string;
-    thumbnail?: string;
-  }>;
-};
-
-const toPreviewItems = (
-  items: DraftPlaylistItem[],
-): PreviewVirtualRowProps["items"] =>
-  items.map((item) => ({
-    title: item.title || item.answerText || "未命名歌曲",
-    answerText: item.answerText,
-    uploader: item.uploader,
-    duration: item.duration,
-    thumbnail: item.thumbnail,
-  }));
-
-const PreviewVirtualRow = ({
-  index,
-  style,
-  items,
-}: RowComponentProps<PreviewVirtualRowProps>) => {
-  const item = items[index];
-  if (!item) return <div style={style} />;
-
-  return (
-    <div style={style} className="px-2">
-      <div className="flex items-center gap-3 px-1">
-        {item.thumbnail ? (
-          <img
-            src={item.thumbnail}
-            alt={item.title || item.answerText || "歌曲封面"}
-            loading="lazy"
-            className="h-9 w-16 shrink-0 rounded-md border border-[var(--mc-border)] object-cover"
-          />
-        ) : (
-          <div className="flex h-9 w-16 shrink-0 items-center justify-center rounded-md border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.18),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)]">
-            No Cover
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-xs font-medium text-[var(--mc-text)]">
-            {item.title || item.answerText || "未命名歌曲"}
-          </div>
-          <div className="mt-0.5 truncate text-[11px] text-[var(--mc-text-muted)]">
-            {item.uploader || "未知上傳者"}
-            {item.duration ? ` ． ${item.duration}` : ""}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const CollectionCreatePage = () => {
   const navigate = useNavigate();
@@ -259,9 +186,11 @@ const CollectionCreatePage = () => {
       return false;
     }
   }, [trimmedPlaylistUrl]);
+
   const showPlaylistUrlError = Boolean(
     trimmedPlaylistUrl && !playlistUrlLooksValid,
   );
+
   const playlistUrlTooltipMessage = showPlaylistUrlError
     ? "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。"
     : "";
@@ -339,29 +268,6 @@ const CollectionCreatePage = () => {
     lastFetchedPlaylistTitle,
     draftPlaylistItems,
   ]);
-
-  const buildPreviewListHeight = (count: number) =>
-    Math.min(240, Math.max(PREVIEW_ROW_HEIGHT * 2, count * PREVIEW_ROW_HEIGHT));
-
-  const normalPreviewListHeight = useMemo(
-    () => buildPreviewListHeight(normalDraftPlaylistItems.length),
-    [normalDraftPlaylistItems.length],
-  );
-
-  const longPreviewListHeight = useMemo(
-    () => buildPreviewListHeight(longDraftPlaylistItems.length),
-    [longDraftPlaylistItems.length],
-  );
-
-  const normalPreviewRowProps = useMemo<PreviewVirtualRowProps>(
-    () => ({ items: toPreviewItems(normalDraftPlaylistItems) }),
-    [normalDraftPlaylistItems],
-  );
-
-  const longPreviewRowProps = useMemo<PreviewVirtualRowProps>(
-    () => ({ items: toPreviewItems(longDraftPlaylistItems) }),
-    [longDraftPlaylistItems],
-  );
 
   const importProgressPercent = useMemo(() => {
     if (playlistProgress.total <= 0) return null;
@@ -655,6 +561,7 @@ const CollectionCreatePage = () => {
                 建立收藏庫
               </div>
             </div>
+
             <Button
               variant="contained"
               onClick={() => void handleCreateCollection()}
@@ -679,557 +586,77 @@ const CollectionCreatePage = () => {
           )}
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="grid gap-3 lg:grid-rows-[auto_auto_1fr]">
-              <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3">
-                <div className="flex items-center justify-between">
-                  <div className="inline-flex rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setPlaylistSource("url")}
-                      className={`rounded-full px-3 py-1 transition ${
-                        playlistSource === "url"
-                          ? "bg-[var(--mc-accent)]/15 text-[var(--mc-text)]"
-                          : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-                      }`}
-                    >
-                      連結
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPlaylistSource("youtube")}
-                      className={`rounded-full px-3 py-1 transition ${
-                        playlistSource === "youtube"
-                          ? "bg-[var(--mc-accent-2)]/15 text-[var(--mc-text)]"
-                          : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-                      }`}
-                    >
-                      YouTube 清單
-                    </button>
-                  </div>
-                </div>
+            <CollectionCreateSourcePanel
+              authUserExists={Boolean(authUser)}
+              needsGoogleReauth={needsGoogleReauth}
+              onLoginWithGoogle={loginWithGoogle}
+              playlistSource={playlistSource}
+              onPlaylistSourceChange={setPlaylistSource}
+              playlistUrl={playlistUrl}
+              trimmedPlaylistUrl={trimmedPlaylistUrl}
+              showPlaylistUrlError={showPlaylistUrlError}
+              playlistUrlTooltipMessage={playlistUrlTooltipMessage}
+              isPlaylistUrlFocused={isPlaylistUrlFocused}
+              onPlaylistUrlFocusChange={setIsPlaylistUrlFocused}
+              onPlaylistUrlChange={setPlaylistUrl}
+              onFetchPlaylist={() => {
+                void handleFetchPlaylist();
+              }}
+              onClearPlaylistUrl={handleClearPlaylistUrl}
+              playlistLoading={playlistLoading}
+              playlistError={playlistError}
+              youtubePlaylistsLoading={youtubePlaylistsLoading}
+              youtubePlaylistsError={youtubePlaylistsError}
+              youtubePlaylists={youtubePlaylists}
+              selectedYoutubePlaylistId={selectedYoutubePlaylistId}
+              onSelectedYoutubePlaylistIdChange={setSelectedYoutubePlaylistId}
+              youtubeActionError={youtubeActionError}
+              isImportingYoutubePlaylist={isImportingYoutubePlaylist}
+              onEnsureYoutubePlaylists={ensureYoutubePlaylists}
+              onImportSelectedYoutubePlaylist={
+                handleImportSelectedYoutubePlaylist
+              }
+              visibility={visibility}
+              onVisibilityChange={handleVisibilityChange}
+              isAdmin={isAdmin}
+              collectionsCount={collections.length}
+              privateCollectionsCount={privateCollectionsCount}
+              remainingCollectionSlots={remainingCollectionSlots}
+              remainingPrivateCollectionSlots={remainingPrivateCollectionSlots}
+              maxCollectionsPerUser={MAX_COLLECTIONS_PER_USER}
+              maxPrivateCollectionsPerUser={MAX_PRIVATE_COLLECTIONS_PER_USER}
+              reachedCollectionLimit={reachedCollectionLimit}
+              reachedPrivateCollectionLimit={reachedPrivateCollectionLimit}
+              createError={createError}
+            />
 
-                <div className="relative mt-3 min-h-[120px]">
-                  <div
-                    className={`space-y-3 transition-all duration-200 ${
-                      playlistSource === "url"
-                        ? "opacity-100 translate-x-0"
-                        : "pointer-events-none opacity-0 -translate-x-2"
-                    }`}
-                    hidden={playlistSource !== "url"}
-                  >
-                    <div className="rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(2,6,23,0.34),rgba(15,23,42,0.22))] p-4 sm:p-5">
-                      <div>
-                        <Tooltip
-                          title={playlistUrlTooltipMessage}
-                          placement="top"
-                          arrow
-                          open={Boolean(
-                            isPlaylistUrlFocused && trimmedPlaylistUrl,
-                          )}
-                          disableFocusListener
-                          disableHoverListener
-                          disableTouchListener
-                        >
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="YouTube 播放清單網址"
-                            placeholder="https://www.youtube.com/playlist?list=..."
-                            value={playlistUrl}
-                            autoComplete="off"
-                            error={showPlaylistUrlError}
-                            onFocus={() => setIsPlaylistUrlFocused(true)}
-                            onBlur={() => setIsPlaylistUrlFocused(false)}
-                            onChange={(e) => setPlaylistUrl(e.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key !== "Enter" || playlistLoading) {
-                                return;
-                              }
-                              event.preventDefault();
-                              void handleFetchPlaylist();
-                            }}
-                            slotProps={{
-                              inputLabel: { shrink: true },
-                              input: {
-                                endAdornment: trimmedPlaylistUrl ? (
-                                  <InputAdornment position="end">
-                                    <IconButton
-                                      size="small"
-                                      onClick={handleClearPlaylistUrl}
-                                      edge="end"
-                                      aria-label="清除播放清單網址"
-                                      sx={{ color: "rgba(148,163,184,0.92)" }}
-                                    >
-                                      <CloseRounded fontSize="small" />
-                                    </IconButton>
-                                  </InputAdornment>
-                                ) : undefined,
-                              },
-                              htmlInput: {
-                                lang: "en",
-                                autoComplete: "off",
-                                autoCorrect: "off",
-                                autoCapitalize: "off",
-                                inputMode: "url",
-                                spellCheck: "false",
-                                style: { imeMode: "disabled" },
-                              },
-                            }}
-                            sx={{
-                              "& .MuiInputLabel-root": {
-                                color: "rgba(248, 250, 252, 0.72)",
-                              },
-                              "& .MuiInputLabel-root.Mui-focused": {
-                                color: showPlaylistUrlError
-                                  ? "rgba(251, 113, 133, 0.96)"
-                                  : "rgba(251, 191, 36, 0.96)",
-                              },
-                              "& .MuiOutlinedInput-root": {
-                                borderRadius: "20px",
-                                backgroundColor: "rgba(2, 6, 23, 0.32)",
-                                boxShadow:
-                                  "0 0 0 1px rgba(148, 163, 184, 0.12), 0 10px 28px rgba(2, 6, 23, 0.18)",
-                                transition:
-                                  "background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
-                                "& fieldset": {
-                                  borderColor: showPlaylistUrlError
-                                    ? "rgba(248, 113, 113, 0.5)"
-                                    : "rgba(148, 163, 184, 0.2)",
-                                },
-                                "&:hover": {
-                                  backgroundColor: "rgba(15, 23, 42, 0.52)",
-                                  boxShadow: showPlaylistUrlError
-                                    ? "0 0 0 1px rgba(248, 113, 113, 0.26), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                                    : "0 0 0 1px rgba(34, 211, 238, 0.16), 0 16px 34px rgba(8, 47, 73, 0.2)",
-                                },
-                                "&:hover fieldset": {
-                                  borderColor: showPlaylistUrlError
-                                    ? "rgba(248, 113, 113, 0.66)"
-                                    : "rgba(34, 211, 238, 0.34)",
-                                },
-                                "&.Mui-focused": {
-                                  backgroundColor: "rgba(15, 23, 42, 0.62)",
-                                  boxShadow: showPlaylistUrlError
-                                    ? "0 0 0 1px rgba(248, 113, 113, 0.28), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                                    : "0 0 0 1px rgba(251, 191, 36, 0.28), 0 18px 38px rgba(120, 53, 15, 0.18)",
-                                },
-                                "&.Mui-focused fieldset": {
-                                  borderColor: showPlaylistUrlError
-                                    ? "rgba(248, 113, 113, 0.72)"
-                                    : "rgba(251, 191, 36, 0.72)",
-                                },
-                              },
-                            }}
-                          />
-                        </Tooltip>
-                      </div>
-
-                      {playlistLoading ? (
-                        <div className="mt-4 flex justify-end">
-                          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/8 px-3 py-1.5 text-xs text-cyan-100/90">
-                            <CircularProgress
-                              size={14}
-                              thickness={5}
-                              sx={{ color: "#38bdf8" }}
-                            />
-                            載入中...
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {playlistError && (
-                        <div className="mt-3 rounded-2xl border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
-                          {playlistError}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div
-                    className={`space-y-3 transition-all duration-200 ${
-                      playlistSource === "youtube"
-                        ? "opacity-100 translate-x-0"
-                        : "pointer-events-none opacity-0 translate-x-2"
-                    }`}
-                    hidden={playlistSource !== "youtube"}
-                  >
-                    <div className="text-[11px] text-[var(--mc-text-muted)]">
-                      {(!authUser || needsGoogleReauth) && (
-                        <>
-                          登入 Google 後可直接載入你的 YouTube 播放清單
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={loginWithGoogle}
-                          >
-                            登入 Google
-                          </Button>
-                        </>
-                      )}
-                      {youtubePlaylistsError && (
-                        <span className="text-[11px] text-rose-300">
-                          {youtubePlaylistsError}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <select
-                        value={selectedYoutubePlaylistId}
-                        onFocus={ensureYoutubePlaylists}
-                        onChange={async (e) => {
-                          const nextId = e.target.value;
-                          setSelectedYoutubePlaylistId(nextId);
-                          setYoutubeActionError(null);
-                          if (!nextId) return;
-                          await handleImportSelectedYoutubePlaylist(nextId);
-                        }}
-                        disabled={
-                          youtubePlaylistsLoading || isImportingYoutubePlaylist
-                        }
-                        className="w-full rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/75 px-3 py-2 text-sm text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-65"
-                      >
-                        <option value="">
-                          {youtubePlaylistsLoading
-                            ? "載入播放清單中..."
-                            : "請選擇 YouTube 播放清單"}
-                        </option>
-                        {youtubePlaylists.map((playlist) => (
-                          <option key={playlist.id} value={playlist.id}>
-                            {`${playlist.title}（${playlist.itemCount} 首）`}
-                          </option>
-                        ))}
-                      </select>
-
-                      {youtubePlaylistsLoading && (
-                        <div className="rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 px-3 py-2 text-xs text-[var(--mc-text-muted)] animate-pulse">
-                          正在載入你的播放清單...
-                        </div>
-                      )}
-
-                      {youtubeActionError && (
-                        <div className="rounded-lg border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
-                          {youtubeActionError}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 text-[var(--mc-accent)]">
-                      {visibility === "public" ? (
-                        <PublicOutlined sx={{ fontSize: 18 }} />
-                      ) : (
-                        <LockOutlined sx={{ fontSize: 18 }} />
-                      )}
-                    </div>
-                    <div className="text-sm font-semibold text-[var(--mc-text)]">
-                      {visibility === "public" ? "公開收藏" : "私人收藏"}
-                    </div>
-                  </div>
-                  <Tooltip title={visibility === "public" ? "公開中" : "私人"}>
-                    <Switch
-                      size="small"
-                      checked={visibility === "public"}
-                      onChange={(_, checked) =>
-                        handleVisibilityChange(checked ? "public" : "private")
-                      }
-                      inputProps={{
-                        "aria-label": "切換收藏庫可見性",
-                      }}
-                      sx={{
-                        width: 52,
-                        height: 32,
-                        padding: 0,
-                        "& .MuiSwitch-switchBase": {
-                          padding: "4px",
-                          transitionDuration: "200ms",
-                        },
-                        "& .MuiSwitch-switchBase.Mui-checked": {
-                          transform: "translateX(20px)",
-                          color: "#fff",
-                        },
-                        "& .MuiSwitch-thumb": {
-                          position: "relative",
-                          width: 24,
-                          height: 24,
-                          boxShadow: "none",
-                          backgroundColor: "var(--mc-text)",
-                          "&::before": {
-                            content: '""',
-                            position: "absolute",
-                            inset: 0,
-                            backgroundRepeat: "no-repeat",
-                            backgroundPosition: "center",
-                            backgroundSize: "16px 16px",
-                            backgroundImage: `url("data:image/svg+xml,${visibility === "public" ? PUBLIC_SWITCH_ICON : PRIVATE_SWITCH_ICON}")`,
-                          },
-                        },
-                        "& .MuiSwitch-track": {
-                          borderRadius: 999,
-                          backgroundColor: "rgba(148, 163, 184, 0.28)",
-                          opacity: 1,
-                        },
-                        "& .Mui-checked + .MuiSwitch-track": {
-                          backgroundColor: "var(--mc-accent)",
-                          opacity: 0.65,
-                        },
-                      }}
-                    />
-                  </Tooltip>
-                </div>
-                <div className="mt-2 text-[12px] text-[var(--mc-text-muted)]">
-                  私人收藏僅自己可見，公開收藏可讓其他玩家瀏覽與使用
-                </div>
-                {!isAdmin && (
-                  <>
-                    <div className="mt-2 text-[12px] text-[var(--mc-text-muted)]">
-                      目前已建立 {collections.length} /{" "}
-                      {MAX_COLLECTIONS_PER_USER} 個收藏庫，還能再建立{" "}
-                      {remainingCollectionSlots} 個。
-                    </div>
-                    <div className="mt-1 text-[12px] text-[var(--mc-text-muted)]">
-                      私人收藏目前 {privateCollectionsCount} /{" "}
-                      {MAX_PRIVATE_COLLECTIONS_PER_USER} 個，還能再建立{" "}
-                      {remainingPrivateCollectionSlots} 個。
-                    </div>
-                    {reachedCollectionLimit && (
-                      <div className="mt-2 rounded-lg border border-amber-400/35 bg-amber-950/35 px-2.5 py-2 text-[12px] text-amber-200">
-                        已達收藏庫建立上限，請先整理現有收藏後再建立新的收藏庫。
-                      </div>
-                    )}
-                    {!reachedCollectionLimit &&
-                      reachedPrivateCollectionLimit && (
-                        <div className="mt-2 rounded-lg border border-amber-400/35 bg-amber-950/35 px-2.5 py-2 text-[12px] text-amber-200">
-                          私人收藏已達上限，目前只能建立公開收藏。
-                        </div>
-                      )}
-                  </>
-                )}
-              </div>
-
-              {createError && (
-                <div className="rounded-xl border border-rose-500/40 bg-rose-950/50 px-3 py-2 text-xs text-rose-200">
-                  {createError}
-                </div>
-              )}
-            </div>
-
-            <div className="h-full rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 p-3">
-              {(playlistLoading || isImportingYoutubePlaylist) && (
-                <div className="rounded-xl border border-cyan-400/25 bg-cyan-500/8 px-3 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="relative inline-flex h-12 w-12 items-center justify-center">
-                      <CircularProgress
-                        size={44}
-                        thickness={4}
-                        variant={
-                          importProgressPercent === null
-                            ? "indeterminate"
-                            : "determinate"
-                        }
-                        value={importProgressPercent ?? undefined}
-                        sx={{ color: "#38bdf8" }}
-                      />
-                      <span className="absolute text-[10px] font-semibold text-[var(--mc-text)]">
-                        {importProgressPercent === null
-                          ? "..."
-                          : `${importProgressPercent}%`}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-[var(--mc-text)]">
-                        {playlistSource === "youtube"
-                          ? "正在匯入 YouTube 清單"
-                          : "正在匯入播放清單"}
-                      </div>
-                      <div className="mt-0.5 text-xs text-[var(--mc-text-muted)]">
-                        {importProgressLabel ?? "正在準備匯入內容..."}
-                      </div>
-                      {playlistProgress.total > 0 && (
-                        <div className="mt-1 text-[11px] text-cyan-100/90">
-                          完成後會自動更新右側清單預覽
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {collectionPreview ? (
-                <div
-                  className={
-                    playlistLoading || isImportingYoutubePlaylist ? "mt-3" : ""
-                  }
-                >
-                  <div className="mt-1 flex items-center justify-between text-xs text-[var(--mc-text-muted)]">
-                    {isTitleEditing ? (
-                      <input
-                        ref={titleInputRef}
-                        value={titleDraft}
-                        onChange={(e) => setTitleDraft(e.target.value)}
-                        onBlur={handleTitleSave}
-                        onKeyDown={(event) => {
-                          if (event.key === "Escape") {
-                            event.preventDefault();
-                            handleTitleCancel();
-                            return;
-                          }
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            handleTitleSave();
-                          }
-                        }}
-                        placeholder="請輸入收藏標題"
-                        className="min-w-0 flex-1 rounded-none border-0 border-b border-[var(--mc-border)] bg-transparent px-0 py-1 text-base font-semibold text-[var(--mc-text)] outline-none"
-                      />
-                    ) : (
-                      <div className="flex min-w-0 items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setIsTitleEditing(true)}
-                          className="min-w-0 cursor-pointer text-left"
-                          aria-label="編輯收藏標題"
-                        >
-                          <div className="truncate text-base font-semibold text-[var(--mc-text)]">
-                            {collectionPreview.title}
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsTitleEditing(true)}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-[var(--mc-surface)]/60 hover:text-[var(--mc-text)]"
-                          aria-label="編輯收藏標題"
-                        >
-                          <EditOutlined sx={{ fontSize: 16 }} />
-                        </button>
-                      </div>
-                    )}
-                    <span>{`${collectionPreview.count} 首歌曲`}</span>
-                  </div>
-
-                  {!isAdmin && (
-                    <div className="mt-2 text-[11px] text-[var(--mc-text-muted)]">
-                      一般使用者每個收藏庫最多可收錄{" "}
-                      {collectionItemLimit === null
-                        ? "無上限"
-                        : collectionItemLimit}{" "}
-                      題。
-                    </div>
-                  )}
-
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-3 py-2">
-                      <div className="text-[11px] text-[var(--mc-text-muted)]">
-                        一般曲目
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
-                        {normalDraftPlaylistItems.length} 首
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-3 py-2">
-                      <div className="text-[11px] text-[var(--mc-text-muted)]">
-                        超長曲目（&gt; 10:00）
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
-                        {longDraftPlaylistItems.length} 首
-                      </div>
-                    </div>
-                  </div>
-
-                  {removedDuplicateCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setDuplicateDialogOpen(true)}
-                      className="mt-3 flex w-full cursor-pointer items-center justify-between rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-left text-xs text-emerald-100 transition hover:border-emerald-300/45 hover:bg-emerald-300/15"
-                    >
-                      <span className="font-semibold">已自動移除重複歌曲</span>
-                      <span>{removedDuplicateCount} 首，查看明細</span>
-                    </button>
-                  )}
-
-                  {isDraftOverflow && (
-                    <button
-                      type="button"
-                      onClick={() => setLimitDialogOpen(true)}
-                      className="mt-3 flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs text-amber-100 transition hover:border-amber-300/45 hover:bg-amber-300/15"
-                    >
-                      <span className="font-semibold">已超過收藏上限</span>
-                      <span>還需移除 {draftOverflowCount} 首</span>
-                    </button>
-                  )}
-
-                  <div className="mt-3 space-y-4 border-t border-[var(--mc-border)]/70 pt-3">
-                    <div>
-                      <div className="mb-2 text-[11px] font-semibold text-[var(--mc-text-muted)]">
-                        一般曲目
-                      </div>
-                      {normalDraftPlaylistItems.length > 0 ? (
-                        <div className="h-full w-full overflow-hidden rounded-lg">
-                          <List<PreviewVirtualRowProps>
-                            style={{
-                              height: normalPreviewListHeight,
-                              width: "100%",
-                            }}
-                            rowCount={normalDraftPlaylistItems.length}
-                            rowHeight={PREVIEW_ROW_HEIGHT}
-                            rowProps={normalPreviewRowProps}
-                            rowComponent={PreviewVirtualRow}
-                          />
-                        </div>
-                      ) : (
-                        <div className="rounded-lg border border-dashed border-[var(--mc-border)] px-3 py-2 text-[11px] text-[var(--mc-text-muted)]">
-                          沒有一般曲目
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="mb-2 text-[11px] font-semibold text-[var(--mc-text-muted)]">
-                        超長曲目（&gt; 10:00）
-                      </div>
-                      {longDraftPlaylistItems.length > 0 ? (
-                        <div className="h-full w-full overflow-hidden rounded-lg">
-                          <List<PreviewVirtualRowProps>
-                            style={{
-                              height: longPreviewListHeight,
-                              width: "100%",
-                            }}
-                            rowCount={longDraftPlaylistItems.length}
-                            rowHeight={PREVIEW_ROW_HEIGHT}
-                            rowProps={longPreviewRowProps}
-                            rowComponent={PreviewVirtualRow}
-                          />
-                        </div>
-                      ) : (
-                        <div className="rounded-lg border border-dashed border-[var(--mc-border)] px-3 py-2 text-[11px] text-[var(--mc-text-muted)]">
-                          沒有超長曲目
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {playlistIssueTotal > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setPlaylistIssueDialogOpen(true)}
-                      className="mt-3 flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs text-amber-100 transition hover:border-amber-300/45 hover:bg-amber-300/15"
-                    >
-                      <span className="font-semibold">未成功匯入原因</span>
-                      <span>{playlistIssueTotal} 首，查看明細</span>
-                    </button>
-                  )}
-                </div>
-              ) : !(playlistLoading || isImportingYoutubePlaylist) ? (
-                <div className="mt-3 rounded-xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-3 text-[11px] text-[var(--mc-text-muted)]">
-                  匯入播放清單後，這裡會顯示收藏內容預覽
-                </div>
-              ) : null}
-            </div>
+            <CollectionCreatePreviewPanel
+              playlistLoading={playlistLoading}
+              isImportingYoutubePlaylist={isImportingYoutubePlaylist}
+              importProgressPercent={importProgressPercent}
+              importProgressLabel={importProgressLabel}
+              playlistSource={playlistSource}
+              playlistProgressTotal={playlistProgress.total}
+              collectionPreview={collectionPreview}
+              isTitleEditing={isTitleEditing}
+              titleDraft={titleDraft}
+              titleInputRef={titleInputRef}
+              onTitleDraftChange={setTitleDraft}
+              onStartEditTitle={() => setIsTitleEditing(true)}
+              onSaveTitle={handleTitleSave}
+              onCancelTitle={handleTitleCancel}
+              isAdmin={isAdmin}
+              collectionItemLimit={collectionItemLimit}
+              normalDraftPlaylistItems={normalDraftPlaylistItems}
+              longDraftPlaylistItems={longDraftPlaylistItems}
+              removedDuplicateCount={removedDuplicateCount}
+              onOpenDuplicateDialog={() => setDuplicateDialogOpen(true)}
+              isDraftOverflow={isDraftOverflow}
+              draftOverflowCount={draftOverflowCount}
+              onOpenLimitDialog={() => setLimitDialogOpen(true)}
+              playlistIssueTotal={playlistIssueTotal}
+              onOpenPlaylistIssueDialog={() => setPlaylistIssueDialogOpen(true)}
+            />
           </div>
         </div>
 
