@@ -1,18 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
-import ContentCopyRounded from "@mui/icons-material/ContentCopyRounded";
-import MoreHorizRounded from "@mui/icons-material/MoreHorizRounded";
-import {
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  TextField,
-} from "@mui/material";
+import { Button } from "@mui/material";
 import ConfirmDialog from "../../../../shared/ui/ConfirmDialog";
 import LoadingPage from "../../../../shared/ui/LoadingPage";
 import { useAuth } from "../../../../shared/auth/AuthContext";
@@ -25,6 +13,7 @@ import {
 } from "../utils/editMappers";
 import { useCollectionEditor } from "../hooks/useCollectionEditor";
 import { useCollectionLoader } from "../hooks/useCollectionLoader";
+import { useCollectionEditAiBatch } from "../hooks/useCollectionEditAiBatch";
 import { collectionsApi } from "../../shared/api/collectionsApi";
 import {
   MAX_PRIVATE_COLLECTIONS_PER_USER,
@@ -38,6 +27,7 @@ import EditHeader from "../components/header/EditHeader";
 import PlaylistListPanel from "../components/playlist/PlaylistListPanel";
 import PlaylistSourceModal from "../components/playlist/PlaylistSourceModal";
 import PlayerPanel from "../components/player/PlayerPanel";
+import CollectionEditAiBatchDialog from "../components/ai/CollectionEditAiBatchDialog";
 import {
   DEFAULT_DURATION_SEC,
   createLocalId,
@@ -76,38 +66,6 @@ import {
 type YTPlayer = YT.Player;
 type YTPlayerEvent = YT.PlayerEvent;
 type YTPlayerStateEvent = YT.OnStateChangeEvent;
-const AI_BATCH_PAGE_SIZE = 100;
-const MAX_AI_ASSISTANT_URL_LENGTH = 45000;
-const AI_PROVIDER = "gemini";
-const AI_PROVIDER_LABEL = "Gemini";
-const AI_PROVIDER_BASE_URL = "https://gemini.google.com/app";
-type AiAnswerUpdate = {
-  id: string;
-  answerText: string;
-};
-type AiBatchWriteState =
-  | { status: "idle" }
-  | {
-      status: "applying" | "saving";
-      pageIndex: number;
-      count: number;
-      totalPages: number;
-    }
-  | {
-      status: "success";
-      pageIndex: number;
-      count: number;
-      totalPages: number;
-      hasNextPage: boolean;
-    }
-  | {
-      status: "error";
-      pageIndex: number;
-      count: number;
-      totalPages: number;
-      message: string;
-    };
-
 const CollectionEditPage = () => {
   const navigate = useNavigate();
   const { collectionId } = useParams<{ collectionId?: string }>();
@@ -179,17 +137,6 @@ const CollectionEditPage = () => {
   const [sourceModalMode, setSourceModalMode] = useState<"playlist" | "single">(
     "playlist",
   );
-  const [aiBatchModalOpen, setAiBatchModalOpen] = useState(false);
-  const [aiBatchPageIndex, setAiBatchPageIndex] = useState(0);
-  const [aiJsonDrafts, setAiJsonDrafts] = useState<Record<number, string>>({});
-  const [aiAppliedPages, setAiAppliedPages] = useState<Record<number, boolean>>(
-    {},
-  );
-  const [aiHelperNotice, setAiHelperNotice] = useState<string | null>(null);
-  const [aiBatchWriteState, setAiBatchWriteState] = useState<AiBatchWriteState>(
-    { status: "idle" },
-  );
-  const aiBatchSuccessTimerRef = useRef<number | null>(null);
   const [collectionAnchor, setCollectionAnchor] = useState<HTMLElement | null>(
     null,
   );
@@ -575,402 +522,49 @@ const CollectionEditPage = () => {
   const selectedClipDurationSec = selectedItem
     ? Math.max(0, selectedItem.endSec - selectedItem.startSec)
     : 0;
-  const aiPromptPages = useMemo(() => {
-    const pages: Array<{
-      pageIndex: number;
-      start: number;
-      end: number;
-      items: Array<{
-        id: string;
-        title: string;
-        uploader: string;
-        answerText: string;
-      }>;
-    }> = [];
 
-    for (
-      let start = 0;
-      start < playlistItems.length;
-      start += AI_BATCH_PAGE_SIZE
-    ) {
-      const end = Math.min(start + AI_BATCH_PAGE_SIZE, playlistItems.length);
-      pages.push({
-        pageIndex: pages.length,
-        start,
-        end,
-        items: playlistItems.slice(start, end).map((item) => ({
-          id: item.dbId ?? item.localId,
-          title: item.title ?? "",
-          uploader: item.uploader ?? "",
-          answerText: item.answerText ?? "",
-        })),
-      });
-    }
-
-    return pages;
-  }, [playlistItems]);
-  const currentAiPromptPage =
-    aiPromptPages[aiBatchPageIndex] ??
-    aiPromptPages[Math.max(0, aiPromptPages.length - 1)] ??
-    null;
-  const currentAiJsonDraft = aiJsonDrafts[aiBatchPageIndex] ?? "";
-  const aiPromptPayload = useMemo(
-    () =>
-      JSON.stringify(
-        {
-          items: currentAiPromptPage?.items ?? [],
-        },
-        null,
-        2,
-      ),
-    [currentAiPromptPage],
-  );
-  const aiPromptText = useMemo(
-    () =>
-      [
-        "You are a music quiz answer normalization assistant.",
-        "Use each item's song title and uploader to revise answerText into the most official and commonly recognized song title.",
-        "",
-        "Rules:",
-        "1. Return exactly one ```json``` code block and nothing else.",
-        "2. Keep every original id. Do not add or remove items.",
-        "3. Return only answerText for each item. Do not output any other fields.",
-        "4. Preserve the song title's original dominant language whenever possible. Do not translate the title unless the translated form is clearly the official/common primary title.",
-        "5. If the title is mixed-language, prefer the most official and widely recognized primary form.",
-        "6. If you are uncertain, keep the original answerText unchanged.",
-        '7. The output format must be {"items":[{"id":"...","answerText":"..."}]}.',
-        "",
-        "Items to normalize:",
-        aiPromptPayload,
-      ].join("\n"),
-    [aiPromptPayload],
-  );
-  const aiPromptUrl = useMemo(() => {
-    const encoded = encodeURIComponent(aiPromptText);
-    return `${AI_PROVIDER_BASE_URL}?q=${encoded}`;
-  }, [aiPromptText]);
-  const aiParsedResult = useMemo(() => {
-    if (!currentAiJsonDraft.trim()) {
-      return {
-        error: null as string | null,
-        updates: [] as AiAnswerUpdate[],
-      };
-    }
-
-    try {
-      const normalizedDraft = currentAiJsonDraft
-        .trim()
-        .replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, "$1");
-      const parsed = JSON.parse(normalizedDraft) as { items?: unknown };
-      if (
-        !parsed ||
-        typeof parsed !== "object" ||
-        !Array.isArray(parsed.items)
-      ) {
-        return {
-          error: "JSON 格式不正確，請確認最外層包含 items 陣列。",
-          updates: [] as AiAnswerUpdate[],
-        };
-      }
-
-      const seenIds = new Set<string>();
-      const updates: AiAnswerUpdate[] = [];
-
-      for (const rawItem of parsed.items) {
-        if (!rawItem || typeof rawItem !== "object") {
-          return {
-            error: "items 內每一筆都必須是物件。",
-            updates: [] as AiAnswerUpdate[],
-          };
-        }
-        const candidateId = "id" in rawItem ? rawItem.id : null;
-        const candidateAnswer =
-          "answerText" in rawItem ? rawItem.answerText : null;
-        const id = typeof candidateId === "string" ? candidateId.trim() : "";
-        const answerText =
-          typeof candidateAnswer === "string" ? candidateAnswer.trim() : "";
-
-        if (!id || !answerText) {
-          return {
-            error: "每一筆都需要有效的 id 與 answerText。",
-            updates: [] as AiAnswerUpdate[],
-          };
-        }
-        if (seenIds.has(id)) {
-          return {
-            error: `JSON 內出現重複 id：${id}`,
-            updates: [] as AiAnswerUpdate[],
-          };
-        }
-        seenIds.add(id);
-        updates.push({ id, answerText });
-      }
-
-      return {
-        error: null as string | null,
-        updates,
-      };
-    } catch {
-      return {
-        error: "JSON 解析失敗，請確認格式正確。",
-        updates: [] as AiAnswerUpdate[],
-      };
-    }
-  }, [currentAiJsonDraft]);
-  const aiPreview = useMemo(() => {
-    const lookup = new Map(
-      (currentAiPromptPage?.items ?? []).map(
-        (item) => [item.id, item] as const,
-      ),
-    );
-    const missingIds: string[] = [];
-    const unchangedIds: string[] = [];
-    const changedItems: Array<{
-      id: string;
-      title: string;
-      oldAnswer: string;
-      newAnswer: string;
-    }> = [];
-
-    for (const update of aiParsedResult.updates) {
-      const target = lookup.get(update.id);
-      if (!target) {
-        missingIds.push(update.id);
-        continue;
-      }
-      const currentAnswer = (target.answerText ?? "").trim();
-      if (currentAnswer === update.answerText) {
-        unchangedIds.push(update.id);
-        continue;
-      }
-      changedItems.push({
-        id: update.id,
-        title: target.title ?? "未命名題目",
-        oldAnswer: target.answerText ?? "",
-        newAnswer: update.answerText,
-      });
-    }
-
-    return {
-      missingIds,
-      unchangedIds,
-      changedItems,
-    };
-  }, [aiParsedResult.updates, currentAiPromptPage]);
-  const aiPageStatuses = useMemo(
-    () =>
-      aiPromptPages.map((page) => {
-        const completedCount = playlistItems
-          .slice(page.start, page.end)
-          .filter((item) => item.answerAiBatchKey !== null).length;
-        return {
-          pageIndex: page.pageIndex,
-          completedCount,
-          totalCount: page.items.length,
-          isComplete:
-            page.items.length > 0 && completedCount === page.items.length,
-          isPartial: completedCount > 0 && completedCount < page.items.length,
-        };
-      }),
-    [aiPromptPages, playlistItems],
-  );
-  const canApplyAiBatch =
-    !aiParsedResult.error && aiPreview.changedItems.length > 0;
-  const pendingAiBatchSave =
-    aiBatchWriteState.status === "idle" ? null : aiBatchWriteState;
-  const canCloseAiBatchModal =
-    aiBatchWriteState.status === "idle" ||
-    aiBatchWriteState.status === "error" ||
-    (aiBatchWriteState.status === "success" && !aiBatchWriteState.hasNextPage);
-  const aiBatchSaveProgressLabel = pendingAiBatchSave
-    ? `第 ${pendingAiBatchSave.pageIndex + 1} / ${pendingAiBatchSave.totalPages} 批`
-    : "";
-  const aiBatchSaveStepLabel =
-    aiBatchWriteState.status === "applying"
-      ? "正在套用答案變更"
-      : aiBatchWriteState.status === "saving"
-        ? "正在寫入收藏庫"
-        : aiBatchWriteState.status === "success"
-          ? aiBatchWriteState.hasNextPage
-            ? "寫入完成，正在切換下一批"
-            : "全部寫入完成"
-          : aiBatchWriteState.status === "error"
-            ? "寫入失敗"
-            : "";
-
-  useEffect(() => {
-    if (aiPromptPages.length === 0) {
-      if (aiBatchPageIndex !== 0) {
-        setAiBatchPageIndex(0);
-      }
-      return;
-    }
-    if (aiBatchPageIndex > aiPromptPages.length - 1) {
-      setAiBatchPageIndex(aiPromptPages.length - 1);
-    }
-  }, [aiBatchPageIndex, aiPromptPages.length]);
+  const {
+    aiProviderLabel,
+    aiBatchModalOpen,
+    openAiBatchModal,
+    closeAiBatchModal,
+    aiBatchPageIndex,
+    setAiBatchPageIndex,
+    aiJsonDrafts,
+    aiAppliedPages,
+    aiHelperNotice,
+    currentAiJsonDraft,
+    setCurrentAiJsonDraft,
+    aiBatchWriteState,
+    resetAiBatchWriteState,
+    aiPromptPages,
+    aiPromptText,
+    aiParsedResult,
+    aiPreview,
+    aiPageStatuses,
+    canApplyAiBatch,
+    pendingAiBatchSave,
+    canCloseAiBatchModal,
+    aiBatchSaveProgressLabel,
+    aiBatchSaveStepLabel,
+    handleCopyAiPrompt,
+    handleOpenAiAssistant,
+    handleApplyAiBatch,
+    handleRetryAiBatchWrite,
+  } = useCollectionEditAiBatch({
+    playlistItems,
+    setPlaylistItems,
+    selectedItem,
+    setAnswerText,
+    markDirty,
+    handleSaveCollection,
+    saveError,
+  });
 
   const confirmLeave = () => {
     if (!hasUnsavedChanges) return true;
     return window.confirm(UNSAVED_PROMPT);
   };
-
-  const handleCopyAiPrompt = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(aiPromptText);
-      setAiHelperNotice("Prompt 已複製，可以直接貼到 AI。");
-    } catch {
-      setAiHelperNotice("無法自動複製，請手動複製下方內容。");
-    }
-  }, [aiPromptText]);
-
-  const handleOpenAiAssistant = useCallback(async () => {
-    if (aiPromptUrl && aiPromptUrl.length <= MAX_AI_ASSISTANT_URL_LENGTH) {
-      window.open(aiPromptUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(aiPromptText);
-      setAiHelperNotice(
-        `Prompt 過長，這次不會自動帶入 ${AI_PROVIDER_LABEL}，已改為複製內容並開啟首頁，請直接貼上。`,
-      );
-    } catch {
-      setAiHelperNotice(
-        `Prompt 過長，這次不會自動帶入 ${AI_PROVIDER_LABEL}。若未自動複製，請手動複製下方內容。`,
-      );
-    }
-
-    window.open(AI_PROVIDER_BASE_URL, "_blank", "noopener,noreferrer");
-  }, [aiPromptText, aiPromptUrl]);
-  const handleApplyAiBatch = useCallback(() => {
-    if (!canApplyAiBatch || aiBatchWriteState.status !== "idle") return;
-    const changedCount = aiPreview.changedItems.length;
-    const appliedPageIndex = aiBatchPageIndex;
-    const batchKey = `ai_${AI_PROVIDER}_${Date.now()}_p${appliedPageIndex + 1}`;
-    const updatedAt = Math.floor(Date.now() / 1000);
-    const updates = new Map(
-      aiPreview.changedItems.map((item) => [item.id, item.newAnswer] as const),
-    );
-    setPlaylistItems((prev) =>
-      prev.map((item) => {
-        const key = item.dbId ?? item.localId;
-        const nextAnswer = updates.get(key);
-        if (!nextAnswer) return item;
-        return {
-          ...item,
-          answerText: nextAnswer,
-          answerStatus: "ai_modified",
-          answerAiProvider: AI_PROVIDER,
-          answerAiUpdatedAt: updatedAt,
-          answerAiBatchKey: batchKey,
-        };
-      }),
-    );
-    if (selectedItem) {
-      const selectedKey = selectedItem.dbId ?? selectedItem.localId;
-      const selectedNextAnswer = updates.get(selectedKey);
-      if (selectedNextAnswer !== undefined) {
-        setAnswerText(selectedNextAnswer);
-      }
-    }
-    markDirty();
-    setSaveStatus("saving");
-    setAiJsonDrafts((prev) => ({
-      ...prev,
-      [aiBatchPageIndex]: "",
-    }));
-    setAiAppliedPages((prev) => ({
-      ...prev,
-      [aiBatchPageIndex]: true,
-    }));
-    setAiHelperNotice(
-      `已套用第 ${appliedPageIndex + 1} 批的 ${changedCount} 筆答案，正在自動寫入。`,
-    );
-    setAiBatchWriteState({
-      status: "applying",
-      pageIndex: appliedPageIndex,
-      count: changedCount,
-      totalPages: aiPromptPages.length,
-    });
-  }, [
-    aiBatchWriteState.status,
-    aiBatchPageIndex,
-    aiPreview.changedItems,
-    aiPromptPages.length,
-    canApplyAiBatch,
-    markDirty,
-    selectedItem,
-  ]);
-
-  useEffect(() => {
-    if (aiBatchWriteState.status !== "applying") return;
-    const currentWrite = aiBatchWriteState;
-
-    const persistAiBatchUpdates = async () => {
-      setAiBatchWriteState({ ...currentWrite, status: "saving" });
-      const saved = await handleSaveCollection("auto");
-      if (saved) {
-        setAiHelperNotice(
-          `已套用第 ${currentWrite.pageIndex + 1} 批的 ${currentWrite.count} 筆答案，已送出寫入。`,
-        );
-        const hasNextPage = currentWrite.pageIndex < aiPromptPages.length - 1;
-        setAiBatchWriteState({
-          ...currentWrite,
-          status: "success",
-          hasNextPage,
-        });
-        if (hasNextPage) {
-          if (aiBatchSuccessTimerRef.current) {
-            window.clearTimeout(aiBatchSuccessTimerRef.current);
-          }
-          aiBatchSuccessTimerRef.current = window.setTimeout(() => {
-            setAiBatchPageIndex(currentWrite.pageIndex + 1);
-            setAiBatchWriteState({ status: "idle" });
-            aiBatchSuccessTimerRef.current = null;
-          }, 700);
-        }
-      } else {
-        setAiHelperNotice(
-          `已套用第 ${currentWrite.pageIndex + 1} 批的 ${currentWrite.count} 筆答案，但自動寫入失敗，請檢查右上角儲存錯誤後重試。`,
-        );
-        setAiBatchWriteState({
-          ...currentWrite,
-          status: "error",
-          message: saveError ?? "自動寫入失敗，請稍後再試。",
-        });
-      }
-    };
-
-    void persistAiBatchUpdates();
-  }, [
-    aiBatchWriteState,
-    aiPromptPages.length,
-    handleSaveCollection,
-    saveError,
-  ]);
-
-  useEffect(
-    () => () => {
-      if (aiBatchSuccessTimerRef.current) {
-        window.clearTimeout(aiBatchSuccessTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  const handleRetryAiBatchWrite = useCallback(() => {
-    setAiBatchWriteState((prev) =>
-      prev.status === "error"
-        ? {
-            status: "applying",
-            pageIndex: prev.pageIndex,
-            count: prev.count,
-            totalPages: prev.totalPages,
-          }
-        : prev,
-    );
-  }, []);
 
   const applyVisibilityChange = useCallback(
     async (value: "private" | "public") => {
@@ -2376,11 +1970,7 @@ const CollectionEditPage = () => {
           setCollectionAnchor(event.currentTarget);
           setCollectionMenuOpen((prev) => !prev);
         }}
-        onAiBatchEditClick={() => {
-          setAiHelperNotice(null);
-          setAiBatchPageIndex(0);
-          setAiBatchModalOpen(true);
-        }}
+        onAiBatchEditClick={openAiBatchModal}
         aiBatchDisabled={playlistItems.length === 0}
         collectionMenuOpen={collectionMenuOpen}
       />
@@ -2602,392 +2192,37 @@ const CollectionEditPage = () => {
           </div>
         </div>
       </div>
-      <Dialog
+
+      <CollectionEditAiBatchDialog
         open={aiBatchModalOpen}
-        onClose={(_, reason) => {
-          if (!canCloseAiBatchModal) return;
-          if (reason === "backdropClick" || reason === "escapeKeyDown") {
-            setAiBatchModalOpen(false);
-            return;
-          }
-          setAiBatchModalOpen(false);
-        }}
-        fullWidth
-        maxWidth="md"
-        PaperProps={{
-          className:
-            "!rounded-3xl !border !border-[var(--mc-border)] !bg-[#08111f] !text-[var(--mc-text)]",
-        }}
-      >
-        <DialogTitle className="!px-6 !pt-6 !pb-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="mt-1 text-lg font-semibold text-[var(--mc-text)]">
-                AI 批次修正答案
-              </div>
-            </div>
+        onClose={closeAiBatchModal}
+        aiProviderLabel={aiProviderLabel}
+        playlistItemsCount={playlistItems.length}
+        aiPromptPages={aiPromptPages}
+        aiBatchPageIndex={aiBatchPageIndex}
+        onAiBatchPageChange={setAiBatchPageIndex}
+        aiJsonDrafts={aiJsonDrafts}
+        aiAppliedPages={aiAppliedPages}
+        currentAiJsonDraft={currentAiJsonDraft}
+        onCurrentAiJsonDraftChange={setCurrentAiJsonDraft}
+        aiHelperNotice={aiHelperNotice}
+        aiParsedResult={aiParsedResult}
+        aiPreview={aiPreview}
+        aiPageStatuses={aiPageStatuses}
+        aiPromptText={aiPromptText}
+        onCopyAiPrompt={handleCopyAiPrompt}
+        onOpenAiAssistant={handleOpenAiAssistant}
+        canApplyAiBatch={canApplyAiBatch}
+        onApplyAiBatch={handleApplyAiBatch}
+        aiBatchWriteState={aiBatchWriteState}
+        pendingAiBatchSave={pendingAiBatchSave}
+        canCloseAiBatchModal={canCloseAiBatchModal}
+        aiBatchSaveProgressLabel={aiBatchSaveProgressLabel}
+        aiBatchSaveStepLabel={aiBatchSaveStepLabel}
+        onRetryAiBatchWrite={handleRetryAiBatchWrite}
+        onBackToPreview={resetAiBatchWriteState}
+      />
 
-            <div className="mt-1 text-xl font-semibold text-[var(--mc-text)]">
-              {playlistItems.length} 題
-            </div>
-          </div>
-        </DialogTitle>
-        <DialogContent className="!px-6 !pb-4">
-          {aiBatchWriteState.status === "idle" ? (
-            <div className="space-y-4">
-              <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4">
-                <div className="mb-4">
-                  <div className="text-sm font-semibold text-[var(--mc-text)]">
-                    批次分頁
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {aiPromptPages.map((page) => {
-                      const active = page.pageIndex === aiBatchPageIndex;
-                      const hasDraft = Boolean(
-                        aiJsonDrafts[page.pageIndex]?.trim(),
-                      );
-                      const isApplied = aiAppliedPages[page.pageIndex] === true;
-                      const pageStatus = aiPageStatuses[page.pageIndex];
-                      return (
-                        <button
-                          key={`${page.start}-${page.end}`}
-                          type="button"
-                          disabled={pendingAiBatchSave !== null}
-                          onClick={() => {
-                            setAiHelperNotice(null);
-                            setAiBatchPageIndex(page.pageIndex);
-                          }}
-                          className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                            active
-                              ? "border-[var(--mc-accent)] bg-[var(--mc-accent)]/12 text-[var(--mc-text)]"
-                              : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 text-[var(--mc-text-muted)] hover:border-[var(--mc-accent)]/50 hover:text-[var(--mc-text)]"
-                          }`}
-                        >
-                          第 {page.pageIndex + 1} 批
-                          <span className="ml-2 text-[10px] opacity-75">
-                            {page.start + 1}-{page.end}
-                          </span>
-                          {isApplied || pageStatus?.isComplete ? (
-                            <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-emerald-300">
-                              <CheckCircleOutlineRounded
-                                sx={{ fontSize: 14 }}
-                              />
-                              已套用
-                            </span>
-                          ) : pageStatus?.isPartial ? (
-                            <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-cyan-200">
-                              <MoreHorizRounded sx={{ fontSize: 14 }} />
-                              {pageStatus.completedCount}/
-                              {pageStatus.totalCount}
-                            </span>
-                          ) : hasDraft ? (
-                            <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-amber-200">
-                              <MoreHorizRounded sx={{ fontSize: 14 }} />
-                              已貼回
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-[var(--mc-text)]">
-                      Step 1. 產生 Prompt
-                    </div>
-                  </div>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={handleOpenAiAssistant}
-                    disabled={pendingAiBatchSave !== null}
-                    className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90"
-                  >
-                    複製，並在 {AI_PROVIDER_LABEL} 開啟
-                  </Button>
-                </div>
-                <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[#050b14]">
-                  <div className="flex items-center justify-between gap-3 border-b border-[var(--mc-border)] px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
-                    <span>Prompt Preview</span>
-                    <IconButton
-                      size="small"
-                      aria-label="複製 Prompt"
-                      onClick={() => void handleCopyAiPrompt()}
-                      disabled={pendingAiBatchSave !== null}
-                      className="!text-[var(--mc-text-muted)] hover:!text-[var(--mc-accent)]"
-                    >
-                      <ContentCopyRounded sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto px-4 py-4">
-                    <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-slate-200">
-                      {aiPromptText}
-                    </pre>
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4">
-                <div className="text-sm font-semibold text-[var(--mc-text)]">
-                  Step 2. 貼回 JSON 並預覽
-                </div>
-                <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                  請貼上 AI 回傳內容。支援純 JSON，也支援包在 ```json code block
-                  內的格式。
-                </div>
-                <TextField
-                  value={currentAiJsonDraft}
-                  disabled={pendingAiBatchSave !== null}
-                  onChange={(event) => {
-                    setAiHelperNotice(null);
-                    setAiJsonDrafts((prev) => ({
-                      ...prev,
-                      [aiBatchPageIndex]: event.target.value,
-                    }));
-                    setAiAppliedPages((prev) => ({
-                      ...prev,
-                      [aiBatchPageIndex]: false,
-                    }));
-                  }}
-                  multiline
-                  minRows={8}
-                  maxRows={14}
-                  fullWidth
-                  margin="normal"
-                  placeholder={
-                    '```json\n{"items":[{"id":"item-id","answerText":"正式答案"}]}\n```'
-                  }
-                />
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
-                      會更新
-                    </div>
-                    <div className="mt-1 text-2xl font-semibold text-[var(--mc-text)]">
-                      {aiPreview.changedItems.length}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
-                      無變更
-                    </div>
-                    <div className="mt-1 text-2xl font-semibold text-[var(--mc-text)]">
-                      {aiPreview.unchangedIds.length}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
-                      對不到 ID
-                    </div>
-                    <div className="mt-1 text-2xl font-semibold text-[var(--mc-text)]">
-                      {aiPreview.missingIds.length}
-                    </div>
-                  </div>
-                </div>
-                {aiParsedResult.error && (
-                  <div className="mt-3 rounded-2xl border border-rose-500/40 bg-rose-950/30 px-3 py-2 text-sm text-rose-200">
-                    {aiParsedResult.error}
-                  </div>
-                )}
-                {aiHelperNotice && (
-                  <div className="mt-3 rounded-2xl border border-emerald-500/30 bg-emerald-950/25 px-3 py-2 text-sm text-emerald-200">
-                    {aiHelperNotice}
-                  </div>
-                )}
-                {aiPreview.missingIds.length > 0 && !aiParsedResult.error && (
-                  <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-100">
-                    以下 id 在目前題庫中找不到：
-                    {aiPreview.missingIds.slice(0, 8).join(", ")}
-                    {aiPreview.missingIds.length > 8 ? " ..." : ""}
-                  </div>
-                )}
-                <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
-                  {aiPreview.changedItems.length === 0 &&
-                  !aiParsedResult.error ? (
-                    <div className="rounded-2xl border border-dashed border-[var(--mc-border)] px-3 py-4 text-sm text-[var(--mc-text-muted)]">
-                      貼上有效 JSON 後，這裡會顯示即將更新的答案差異。
-                    </div>
-                  ) : (
-                    aiPreview.changedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3"
-                      >
-                        <div className="text-sm font-semibold text-[var(--mc-text)]">
-                          {item.title}
-                        </div>
-                        <div className="mt-2 grid gap-2 md:grid-cols-2">
-                          <div className="rounded-xl border border-[var(--mc-border)]/80 bg-[var(--mc-surface)]/60 px-3 py-2">
-                            <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
-                              原答案
-                            </div>
-                            <div className="mt-1 text-sm text-[var(--mc-text)]">
-                              {item.oldAnswer || "未填寫"}
-                            </div>
-                          </div>
-                          <div className="rounded-xl border border-[var(--mc-accent)]/35 bg-[var(--mc-accent)]/8 px-3 py-2">
-                            <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--mc-text-muted)]">
-                              新答案
-                            </div>
-                            <div className="mt-1 text-sm text-[var(--mc-text)]">
-                              {item.newAnswer}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-            </div>
-          ) : (
-            <div className="flex min-h-[520px] items-center justify-center py-8">
-              <div className="w-full max-w-xl rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-6 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/50">
-                  {aiBatchWriteState.status === "success" ? (
-                    <CheckCircleOutlineRounded
-                      className="text-emerald-300"
-                      sx={{ fontSize: 34 }}
-                    />
-                  ) : aiBatchWriteState.status === "error" ? (
-                    <MoreHorizRounded
-                      className="text-rose-200"
-                      sx={{ fontSize: 34 }}
-                    />
-                  ) : (
-                    <CircularProgress
-                      size={34}
-                      className="!text-[var(--mc-accent)]"
-                    />
-                  )}
-                </div>
-                <div className="mt-5 text-lg font-semibold text-[var(--mc-text)]">
-                  {aiBatchWriteState.status === "error"
-                    ? "寫入失敗"
-                    : aiBatchWriteState.status === "success"
-                      ? aiBatchWriteState.hasNextPage
-                        ? "本批寫入完成"
-                        : "全部批次已完成"
-                      : "正在套用並寫入變更"}
-                </div>
-                <div className="mt-2 text-sm text-[var(--mc-text-muted)]">
-                  {aiBatchSaveProgressLabel}
-                </div>
-                <div className="mt-1 text-sm text-[var(--mc-text)]">
-                  {aiBatchSaveStepLabel}
-                </div>
-                <div className="mt-5 grid gap-2 text-left text-sm">
-                  <div
-                    className={`rounded-xl border px-3 py-2 ${
-                      aiBatchWriteState.status === "applying"
-                        ? "border-[var(--mc-accent)]/45 bg-[var(--mc-accent)]/10 text-[var(--mc-text)]"
-                        : "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
-                    }`}
-                  >
-                    1. 套用答案到本地狀態
-                  </div>
-                  <div
-                    className={`rounded-xl border px-3 py-2 ${
-                      aiBatchWriteState.status === "saving"
-                        ? "border-[var(--mc-accent)]/45 bg-[var(--mc-accent)]/10 text-[var(--mc-text)]"
-                        : aiBatchWriteState.status === "success"
-                          ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
-                          : aiBatchWriteState.status === "error"
-                            ? "border-rose-500/35 bg-rose-950/25 text-rose-100"
-                            : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 text-[var(--mc-text-muted)]"
-                    }`}
-                  >
-                    2. 寫入收藏庫
-                  </div>
-                  <div
-                    className={`rounded-xl border px-3 py-2 ${
-                      aiBatchWriteState.status === "success"
-                        ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
-                        : "border-(--mc-border) bg-(--mc-surface-strong)/30 text-(--mc-text-muted)"
-                    }`}
-                  >
-                    3. 準備下一批
-                  </div>
-                </div>
-                {pendingAiBatchSave ? (
-                  <div className="mt-5 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 px-4 py-3 text-sm text-[var(--mc-text-muted)]">
-                    本批共 {pendingAiBatchSave.count}{" "}
-                    筆變更。完成前請勿關閉視窗或切換批次。
-                  </div>
-                ) : null}
-                {aiBatchWriteState.status === "error" ? (
-                  <div className="mt-4 rounded-2xl border border-rose-500/35 bg-rose-950/25 px-4 py-3 text-left text-sm text-rose-100">
-                    {saveError ?? aiBatchWriteState.message}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-        <DialogActions className="!px-6 !pb-5 !pt-0">
-          {aiBatchWriteState.status === "idle" ? (
-            <>
-              <Button
-                onClick={() => setAiBatchModalOpen(false)}
-                className="!text-[var(--mc-text-muted)]"
-              >
-                關閉
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleApplyAiBatch}
-                disabled={!canApplyAiBatch}
-                className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90 disabled:!bg-slate-700 disabled:!text-slate-300"
-              >
-                {`套用並寫入 ${aiPreview.changedItems.length} 筆變更`}
-              </Button>
-            </>
-          ) : aiBatchWriteState.status === "error" ? (
-            <>
-              <Button
-                onClick={() => setAiBatchWriteState({ status: "idle" })}
-                className="!text-[var(--mc-text-muted)]"
-              >
-                回到預覽
-              </Button>
-              <Button
-                onClick={() => setAiBatchModalOpen(false)}
-                className="!text-[var(--mc-text-muted)]"
-              >
-                關閉
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleRetryAiBatchWrite}
-                className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90"
-              >
-                重試寫入
-              </Button>
-            </>
-          ) : aiBatchWriteState.status === "success" &&
-            !aiBatchWriteState.hasNextPage ? (
-            <Button
-              variant="contained"
-              onClick={() => {
-                setAiBatchWriteState({ status: "idle" });
-                setAiBatchModalOpen(false);
-              }}
-              className="!bg-[var(--mc-accent)] !text-slate-950 hover:!bg-[var(--mc-accent)]/90"
-            >
-              完成
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              disabled
-              className="disabled:!bg-slate-700 disabled:!text-slate-300"
-            >
-              寫入中...
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
       {autoSaveNotice && (
         <div
           className={`fixed bottom-4 right-4 z-50 rounded-md px-3 py-2 text-xs text-white shadow ${
