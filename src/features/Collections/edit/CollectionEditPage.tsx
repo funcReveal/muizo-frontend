@@ -23,21 +23,21 @@ import {
   buildEditableItems,
   buildEditableItemsFromDb,
 } from "./utils/editMappers";
-import { useCollectionEditor } from "../model/useCollectionEditor";
-import { useCollectionLoader } from "../model/useCollectionLoader";
-import { collectionsApi } from "../model/collectionsApi";
+import { useCollectionEditor } from "./hooks/useCollectionEditor";
+import { useCollectionLoader } from "./hooks/useCollectionLoader";
+import { collectionsApi } from "../shared/api/collectionsApi";
 import {
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
-} from "../model/collectionLimits";
+} from "../shared/model/collectionLimits";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
-import CollectionPopover from "../ui/components/playlist/CollectionPopover";
-import ClipEditorPanel from "../ui/components/player/ClipEditorPanel";
-import AnswerPanel from "../ui/components/answer/AnswerPanel";
-import EditHeader from "../ui/components/header/EditHeader";
-import PlaylistListPanel from "../ui/components/playlist/PlaylistListPanel";
-import PlaylistSourceModal from "../ui/components/playlist/PlaylistSourceModal";
-import PlayerPanel from "../ui/components/player/PlayerPanel";
+import CollectionPopover from "./components/playlist/CollectionPopover";
+import ClipEditorPanel from "./components/player/ClipEditorPanel";
+import AnswerPanel from "./components/answer/AnswerPanel";
+import EditHeader from "./components/header/EditHeader";
+import PlaylistListPanel from "./components/playlist/PlaylistListPanel";
+import PlaylistSourceModal from "./components/playlist/PlaylistSourceModal";
+import PlayerPanel from "./components/player/PlayerPanel";
 import {
   DEFAULT_DURATION_SEC,
   createLocalId,

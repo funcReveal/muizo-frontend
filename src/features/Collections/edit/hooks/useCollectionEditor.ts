@@ -1,15 +1,15 @@
 ﻿import { useCallback, type Dispatch, type SetStateAction } from "react";
 
-import type { DbCollection, EditableItem } from "../ui/lib/editTypes";
-import { collectionsApi } from "./collectionsApi";
-import { isAdminRole } from "../../../shared/auth/roles";
-import { ensureFreshAuthToken } from "../../../shared/auth/token";
-import { trackEvent } from "../../../shared/analytics/track";
+import type { DbCollection, EditableItem } from "../utils/editTypes";
+import { collectionsApi } from "../../shared/api/collectionsApi";
+import { isAdminRole } from "../../../../shared/auth/roles";
+import { ensureFreshAuthToken } from "../../../../shared/auth/token";
+import { trackEvent } from "../../../../shared/analytics/track";
 import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
-} from "./collectionLimits";
+} from "../../shared/model/collectionLimits";
 
 const resolveItemSource = (
   item: EditableItem,
@@ -262,8 +262,7 @@ export const useCollectionEditor = ({
         !activeCollectionId &&
         collectionsCount >= MAX_COLLECTIONS_PER_USER
       ) {
-        const limitMessage =
-          `一般使用者最多只能建立 ${MAX_COLLECTIONS_PER_USER} 個收藏庫`;
+        const limitMessage = `一般使用者最多只能建立 ${MAX_COLLECTIONS_PER_USER} 個收藏庫`;
         if (mode === "auto") {
           showAutoSaveNotice("error", limitMessage);
         } else {
@@ -275,7 +274,8 @@ export const useCollectionEditor = ({
       if (
         !isAdmin &&
         collectionVisibility === "private" &&
-        (!activeCollectionId || activeCollectionStoredVisibility !== "private") &&
+        (!activeCollectionId ||
+          activeCollectionStoredVisibility !== "private") &&
         privateCollectionsCount >= MAX_PRIVATE_COLLECTIONS_PER_USER
       ) {
         const message = `一般使用者最多只能建立 ${MAX_PRIVATE_COLLECTIONS_PER_USER} 個私人收藏庫`;
@@ -287,10 +287,12 @@ export const useCollectionEditor = ({
         }
         return false;
       }
-      if (effectiveItemLimit !== null && playlistItems.length > effectiveItemLimit) {
+      if (
+        effectiveItemLimit !== null &&
+        playlistItems.length > effectiveItemLimit
+      ) {
         const limitMessage =
-          `一般使用者每個收藏庫最多只能保留 ${effectiveItemLimit}` +
-          ` 題`;
+          `一般使用者每個收藏庫最多只能保留 ${effectiveItemLimit}` + ` 題`;
         if (mode === "auto") {
           showAutoSaveNotice("error", limitMessage);
         } else {
@@ -403,7 +405,8 @@ export const useCollectionEditor = ({
         if (createdCollection) {
           trackEvent("collection_create_success", {
             collection_id: createdCollection.id,
-            collection_visibility: createdCollection.visibility ?? collectionVisibility,
+            collection_visibility:
+              createdCollection.visibility ?? collectionVisibility,
             item_count: playlistItems.length,
             import_source: "editor",
           });
@@ -477,4 +480,3 @@ export const useCollectionEditor = ({
 
   return { handleSaveCollection, syncItemsToDb };
 };
-

@@ -5,9 +5,9 @@ import type {
   DbCollection,
   DbCollectionItem,
   EditableItem,
-} from "../ui/lib/editTypes";
-import { collectionsApi } from "./collectionsApi";
-import { ensureFreshAuthToken } from "../../../shared/auth/token";
+} from "../utils/editTypes";
+import { collectionsApi } from "../../shared/api/collectionsApi";
+import { ensureFreshAuthToken } from "../../../../shared/auth/token";
 
 type UseCollectionLoaderParams = {
   authToken: string | null;

@@ -23,11 +23,11 @@ import StarBorderRounded from "@mui/icons-material/StarBorderRounded";
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { isAdminRole } from "../../../shared/auth/roles";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
-import { collectionsApi } from "../model/collectionsApi";
+import { collectionsApi } from "../shared/api/collectionsApi";
 import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
-} from "../model/collectionLimits";
+} from "../shared/model/collectionLimits";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import { appToast } from "../../../shared/ui/toastApi";
 

@@ -27,7 +27,7 @@ import {
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { useRoomPlaylist } from "../../Room/model/RoomPlaylistContext";
 import { useRoomCollections } from "../../Room/model/RoomCollectionsContext";
-import { collectionsApi } from "../model/collectionsApi";
+import { collectionsApi } from "../shared/api/collectionsApi";
 import { isAdminRole } from "../../../shared/auth/roles";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { isGoogleReauthRequired } from "../../../shared/auth/providerAuth";
@@ -37,7 +37,7 @@ import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
-} from "../model/collectionLimits";
+} from "../shared/model/collectionLimits";
 import { appToast } from "../../../shared/ui/toastApi";
 import { fadeInUp } from "../../../shared/motion/motionPresets";
 import {
