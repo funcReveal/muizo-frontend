@@ -24,30 +24,22 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import { useAuth } from "../../../shared/auth/AuthContext";
-import { useRoomPlaylist } from "../../Room/model/RoomPlaylistContext";
-import { useRoomCollections } from "../../Room/model/RoomCollectionsContext";
-import { collectionsApi } from "../shared/api/collectionsApi";
-import { isAdminRole } from "../../../shared/auth/roles";
-import { ensureFreshAuthToken } from "../../../shared/auth/token";
-import { isGoogleReauthRequired } from "../../../shared/auth/providerAuth";
-import { trackEvent } from "../../../shared/analytics/track";
-import { extractVideoId } from "../../../shared/utils/youtube";
+import { useAuth } from "../../../../shared/auth/AuthContext";
+import { isAdminRole } from "../../../../shared/auth/roles";
+import { isGoogleReauthRequired } from "../../../../shared/auth/providerAuth";
+import { fadeInUp } from "../../../../shared/motion/motionPresets";
+import { appToast } from "../../../../shared/ui/toastApi";
+import { useRoomPlaylist } from "../../../Room/model/RoomPlaylistContext";
+import { useRoomCollections } from "../../../Room/model/RoomCollectionsContext";
 import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
-} from "../shared/model/collectionLimits";
-import { appToast } from "../../../shared/ui/toastApi";
-import { fadeInUp } from "../../../shared/motion/motionPresets";
-import {
-  buildOverflowSelection,
-  dedupePlaylistItems,
-  splitLongDurationItems,
-  type DraftPlaylistItem,
-  type RemovedDuplicateGroup,
-} from "./utils/createCollectionImport";
-import CollectionItemLimitDialog from "./components/CollectionItemLimitDialog";
+} from "../../shared/model/collectionLimits";
+import CollectionItemLimitDialog from "./../components/CollectionItemLimitDialog";
+import { useCollectionCreateDraft } from "./../hooks/useCollectionCreateDraft";
+import { useCollectionCreateSubmit } from "./../hooks/useCollectionCreateSubmit";
+import type { DraftPlaylistItem } from "./../utils/createCollectionImport";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -60,7 +52,6 @@ const PRIVATE_SWITCH_ICON = encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0f172a"><path d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-6 8.73V17a1 1 0 1 0 2 0v-.27a2 2 0 1 0-2 0ZM10 8V6a2 2 0 0 1 4 0v2Z"/></svg>',
 );
 
-const DEFAULT_DURATION_SEC = 30;
 const LONG_DURATION_THRESHOLD_SEC = 600;
 const PREVIEW_ROW_HEIGHT = 60;
 
@@ -79,25 +70,6 @@ type PreviewVirtualRowProps = {
     thumbnail?: string;
   }>;
 };
-
-const parseDurationToSeconds = (duration?: string): number | null => {
-  if (!duration) return null;
-  const parts = duration.split(":").map((part) => Number(part));
-  if (parts.some((value) => Number.isNaN(value))) return null;
-  if (parts.length === 2) {
-    const [m, s] = parts;
-    return m * 60 + s;
-  }
-  if (parts.length === 3) {
-    const [h, m, s] = parts;
-    return h * 3600 + m * 60 + s;
-  }
-  return null;
-};
-
-const createServerId = () =>
-  crypto.randomUUID?.() ??
-  `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
 
 const toPreviewItems = (
   items: DraftPlaylistItem[],
@@ -147,7 +119,7 @@ const PreviewVirtualRow = ({
   );
 };
 
-const CollectionsCreatePage = () => {
+const CollectionCreatePage = () => {
   const navigate = useNavigate();
   const {
     authToken,
@@ -178,13 +150,6 @@ const CollectionsCreatePage = () => {
 
   const [collectionTitle, setCollectionTitle] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [createStageLabel, setCreateStageLabel] = useState<string | null>(null);
-  const [createProgress, setCreateProgress] = useState<{
-    completed: number;
-    total: number;
-  } | null>(null);
   const [playlistSource, setPlaylistSource] = useState<"url" | "youtube">(
     "url",
   );
@@ -205,16 +170,6 @@ const CollectionsCreatePage = () => {
   const [playlistIssueTab, setPlaylistIssueTab] =
     useState<PlaylistIssueTab>("removed");
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
-  const [draftPlaylistItems, setDraftPlaylistItems] = useState<
-    DraftPlaylistItem[]
-  >([]);
-  const [removedDuplicateGroups, setRemovedDuplicateGroups] = useState<
-    RemovedDuplicateGroup[]
-  >([]);
-  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
-  const [selectedRemovalKeys, setSelectedRemovalKeys] = useState<string[]>([]);
-  const [hasAutoOpenedLimitDialog, setHasAutoOpenedLimitDialog] =
-    useState(false);
 
   const needsGoogleReauth = isGoogleReauthRequired({
     error: youtubePlaylistsError ?? youtubeActionError,
@@ -242,46 +197,57 @@ const CollectionsCreatePage = () => {
     plan: authUser?.plan,
   });
 
-  const removedDuplicateCount = removedDuplicateGroups.reduce(
-    (sum, group) => sum + group.removedCount,
-    0,
-  );
-  const hasDraftPlaylistItems = draftPlaylistItems.length > 0;
+  const {
+    draftPlaylistItems,
+    removedDuplicateGroups,
+    removedDuplicateCount,
+    hasDraftPlaylistItems,
+    normalDraftPlaylistItems,
+    longDraftPlaylistItems,
+    isDraftOverflow,
+    draftOverflowCount,
+    limitDialogOpen,
+    setLimitDialogOpen,
+    selectedRemovalKeys,
+    remainingAfterRemovalCount,
+    canApplyRemoval,
+    toggleRemovalKey,
+    handleApplySelectedRemovals,
+    handleReselectOverflowItems,
+    handleSelectLongTracksOnly,
+    handleClearRemovalSelection,
+  } = useCollectionCreateDraft({
+    playlistItems,
+    collectionItemLimit,
+    longDurationThresholdSec: LONG_DURATION_THRESHOLD_SEC,
+  });
 
   const {
-    normalItems: normalDraftPlaylistItems,
-    longItems: longDraftPlaylistItems,
-  } = useMemo(
-    () =>
-      splitLongDurationItems(draftPlaylistItems, {
-        thresholdSec: LONG_DURATION_THRESHOLD_SEC,
-      }),
-    [draftPlaylistItems],
-  );
-
-  const draftOverflowInfo = useMemo(() => {
-    if (collectionItemLimit === null) {
-      return {
-        overflowCount: 0,
-        isOverflow: false,
-        suggestedRemovalKeys: [] as string[],
-      };
-    }
-
-    return buildOverflowSelection(draftPlaylistItems, collectionItemLimit, {
-      thresholdSec: LONG_DURATION_THRESHOLD_SEC,
-    });
-  }, [draftPlaylistItems, collectionItemLimit]);
-
-  const isDraftOverflow = draftOverflowInfo.isOverflow;
-  const draftOverflowCount = draftOverflowInfo.overflowCount;
-  const remainingAfterRemovalCount = Math.max(
-    0,
-    draftPlaylistItems.length - selectedRemovalKeys.length,
-  );
-  const canApplyRemoval =
-    collectionItemLimit === null ||
-    remainingAfterRemovalCount <= collectionItemLimit;
+    createError,
+    isCreating,
+    createStageLabel,
+    createProgress,
+    handleCreateCollection,
+  } = useCollectionCreateSubmit({
+    apiUrl: API_URL,
+    authToken,
+    ownerId,
+    refreshAuthToken,
+    collectionTitle,
+    visibility,
+    draftPlaylistItems,
+    reachedCollectionLimit,
+    reachedPrivateCollectionLimit,
+    maxCollectionsPerUser: MAX_COLLECTIONS_PER_USER,
+    maxPrivateCollectionsPerUser: MAX_PRIVATE_COLLECTIONS_PER_USER,
+    isDraftOverflow,
+    draftOverflowCount,
+    playlistSource,
+    onDraftOverflow: () => setLimitDialogOpen(true),
+    onCreated: (collectionId) => {
+      navigate(`/collections/${collectionId}/edit`, { replace: true });
+    },
+  });
 
   const trimmedPlaylistUrl = playlistUrl.trim();
   const playlistUrlLooksValid = useMemo(() => {
@@ -340,66 +306,18 @@ const CollectionsCreatePage = () => {
   }, [isTitleEditing]);
 
   useEffect(() => {
-    if (!playlistItems.length) {
-      setDraftPlaylistItems([]);
-      setRemovedDuplicateGroups([]);
-      setSelectedRemovalKeys([]);
-      setHasAutoOpenedLimitDialog(false);
-      return;
-    }
-
-    const { items: dedupedItems, removedGroups } =
-      dedupePlaylistItems(playlistItems);
-
-    setDraftPlaylistItems(dedupedItems);
-    setRemovedDuplicateGroups(removedGroups);
-
-    if (removedGroups.length > 0) {
-      setDuplicateDialogOpen(true);
-    }
-
-    if (collectionItemLimit === null) {
-      setSelectedRemovalKeys([]);
-      setHasAutoOpenedLimitDialog(false);
-      return;
-    }
-
-    const overflow = buildOverflowSelection(dedupedItems, collectionItemLimit, {
-      thresholdSec: LONG_DURATION_THRESHOLD_SEC,
-    });
-
-    setSelectedRemovalKeys(overflow.suggestedRemovalKeys);
-
-    if (overflow.isOverflow && !hasAutoOpenedLimitDialog) {
-      setLimitDialogOpen(true);
-      setHasAutoOpenedLimitDialog(true);
-    }
-
-    if (!overflow.isOverflow) {
-      setHasAutoOpenedLimitDialog(false);
-    }
-  }, [playlistItems, collectionItemLimit, hasAutoOpenedLimitDialog]);
-
-  useEffect(() => {
-    if (removedDuplicateGroups.length === 0 && duplicateDialogOpen) {
-      setDuplicateDialogOpen(false);
-    }
-    if (removedDuplicateGroups.length === 0 && createError?.includes("重複")) {
-      setCreateError(null);
-    }
-  }, [removedDuplicateGroups, duplicateDialogOpen, createError]);
-
-  useEffect(() => {
     if (playlistSource !== "url") return;
     if (!playlistUrlLooksValid) return;
     if (playlistLoading) return;
     if (trimmedPlaylistUrl === lastAutoImportUrlRef.current) return;
+
     const timer = window.setTimeout(() => {
       lastAutoImportUrlRef.current = trimmedPlaylistUrl;
       void handleFetchPlaylist({ url: trimmedPlaylistUrl }).catch(() => {
         // Errors are surfaced through playlistError in room state.
       });
     }, 450);
+
     return () => window.clearTimeout(timer);
   }, [
     handleFetchPlaylist,
@@ -483,8 +401,10 @@ const CollectionsCreatePage = () => {
       const embedBlocked: string[] = [];
       const unavailable: string[] = [];
       const unknown: string[] = [];
+
       playlistPreviewMeta.skippedItems.forEach((item) => {
         const label = item.title?.trim() || item.videoId || "未知項目";
+
         if (item.status === "removed") {
           removed.push(label);
           return;
@@ -501,8 +421,10 @@ const CollectionsCreatePage = () => {
           unavailable.push(label);
           return;
         }
+
         unknown.push(label);
       });
+
       return {
         removed,
         privateRestricted,
@@ -512,6 +434,7 @@ const CollectionsCreatePage = () => {
         unknownCount: 0,
       };
     }
+
     return {
       removed: [] as string[],
       privateRestricted: [] as string[],
@@ -615,8 +538,10 @@ const CollectionsCreatePage = () => {
       setYoutubeActionError("請先選擇 YouTube 播放清單");
       return;
     }
+
     setYoutubeActionError(null);
     setIsImportingYoutubePlaylist(true);
+
     try {
       await importYoutubePlaylist(playlistId);
     } catch {
@@ -657,153 +582,6 @@ const CollectionsCreatePage = () => {
       return;
     }
     setVisibility(nextVisibility);
-  };
-
-  const handleApplySelectedRemovals = () => {
-    if (selectedRemovalKeys.length === 0) return;
-
-    const removalKeySet = new Set(selectedRemovalKeys);
-    setDraftPlaylistItems((prev) =>
-      prev.filter((item) => !removalKeySet.has(item.draftKey)),
-    );
-
-    setSelectedRemovalKeys([]);
-    setLimitDialogOpen(false);
-    setCreateError(null);
-  };
-
-  const handleReselectOverflowItems = () => {
-    if (collectionItemLimit === null) return;
-    const overflow = buildOverflowSelection(
-      draftPlaylistItems,
-      collectionItemLimit,
-      {
-        thresholdSec: LONG_DURATION_THRESHOLD_SEC,
-      },
-    );
-    setSelectedRemovalKeys(overflow.suggestedRemovalKeys);
-  };
-
-  const handleSelectLongTracksOnly = () => {
-    setSelectedRemovalKeys(longDraftPlaylistItems.map((item) => item.draftKey));
-  };
-
-  const handleClearRemovalSelection = () => {
-    setSelectedRemovalKeys([]);
-  };
-
-  const handleCreateCollection = async () => {
-    if (!API_URL) {
-      setCreateError("尚未設定收藏 API 位址（VITE_API_URL）");
-      return;
-    }
-    if (!authToken || !ownerId) {
-      setCreateError("請先使用 Google 登入後再建立收藏");
-      return;
-    }
-    if (!collectionTitle.trim()) {
-      setCreateError("請輸入收藏標題");
-      return;
-    }
-    if (!hasDraftPlaylistItems) {
-      setCreateError("請先匯入播放清單");
-      return;
-    }
-    if (reachedCollectionLimit) {
-      setCreateError(
-        `你目前最多只能建立 ${MAX_COLLECTIONS_PER_USER} 個收藏庫，請先刪除或整理現有收藏。`,
-      );
-      return;
-    }
-    if (visibility === "private" && reachedPrivateCollectionLimit) {
-      setCreateError(
-        `私人收藏最多只能建立 ${MAX_PRIVATE_COLLECTIONS_PER_USER} 個，請改為公開收藏或先整理現有私人收藏。`,
-      );
-      return;
-    }
-    if (isDraftOverflow) {
-      setCreateError(
-        `目前超過收藏庫上限，請先移除 ${draftOverflowCount} 首歌曲後再建立。`,
-      );
-      setLimitDialogOpen(true);
-      return;
-    }
-
-    setCreateError(null);
-    setIsCreating(true);
-    setCreateStageLabel("正在建立收藏庫");
-    setCreateProgress({ completed: 0, total: 3 });
-
-    try {
-      const token = await ensureFreshAuthToken({
-        token: authToken,
-        refreshAuthToken,
-      });
-      if (!token) {
-        throw new Error("Unauthorized");
-      }
-
-      setCreateStageLabel("正在整理歌曲資料");
-      setCreateProgress({ completed: 1, total: 3 });
-
-      const insertItems = draftPlaylistItems.map((item, idx) => {
-        const durationSec =
-          parseDurationToSeconds(item.duration) ?? DEFAULT_DURATION_SEC;
-        const safeDuration = Math.max(1, durationSec);
-        const endSec = Math.min(DEFAULT_DURATION_SEC, safeDuration);
-        const id = createServerId();
-        const videoId = extractVideoId(item.url ?? "");
-        const provider = videoId ? "youtube" : "manual";
-        const sourceId = videoId ?? id;
-
-        return {
-          id,
-          sort: idx,
-          provider,
-          source_id: sourceId,
-          title: item.title || item.answerText || "Untitled",
-          channel_title: item.uploader ?? null,
-          channel_id: item.channelId ?? null,
-          start_sec: 0,
-          end_sec: Math.max(1, endSec),
-          answer_text: item.answerText || item.title || "Untitled",
-          ...(durationSec ? { duration_sec: durationSec } : {}),
-        };
-      });
-
-      setCreateStageLabel("正在建立收藏庫並寫入歌曲資料");
-      setCreateProgress({ completed: 2, total: 3 });
-
-      const created = await collectionsApi.createCollectionWithItems(token, {
-        owner_id: ownerId,
-        title: collectionTitle.trim(),
-        description: null,
-        visibility,
-        items: insertItems,
-      });
-
-      if (!created?.id) {
-        throw new Error("Missing collection id");
-      }
-
-      setCreateStageLabel("正在開啟收藏編輯頁");
-      setCreateProgress({ completed: 3, total: 3 });
-
-      trackEvent("collection_create_success", {
-        collection_id: created.id,
-        collection_visibility: visibility,
-        item_count: insertItems.length,
-        import_source: playlistSource,
-      });
-
-      navigate(`/collections/${created.id}/edit`, { replace: true });
-    } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "建立收藏失敗");
-    } finally {
-      setIsCreating(false);
-      setCreateStageLabel(null);
-      setCreateProgress(null);
-    }
   };
 
   return (
@@ -1333,6 +1111,7 @@ const CollectionsCreatePage = () => {
                     )}
                     <span>{`${collectionPreview.count} 首歌曲`}</span>
                   </div>
+
                   {!isAdmin && (
                     <div className="mt-2 text-[11px] text-[var(--mc-text-muted)]">
                       一般使用者每個收藏庫最多可收錄{" "}
@@ -1384,7 +1163,7 @@ const CollectionsCreatePage = () => {
                     </button>
                   )}
 
-                  <div className="mt-3 border-t border-[var(--mc-border)]/70 pt-3 space-y-4">
+                  <div className="mt-3 space-y-4 border-t border-[var(--mc-border)]/70 pt-3">
                     <div>
                       <div className="mb-2 text-[11px] font-semibold text-[var(--mc-text-muted)]">
                         一般曲目
@@ -1668,13 +1447,7 @@ const CollectionsCreatePage = () => {
           normalItems={normalDraftPlaylistItems}
           longItems={longDraftPlaylistItems}
           selectedRemovalKeys={selectedRemovalKeys}
-          onToggleItem={(draftKey) => {
-            setSelectedRemovalKeys((prev) =>
-              prev.includes(draftKey)
-                ? prev.filter((key) => key !== draftKey)
-                : [...prev, draftKey],
-            );
-          }}
+          onToggleItem={toggleRemovalKey}
           onApply={handleApplySelectedRemovals}
           onReselectSuggested={handleReselectOverflowItems}
           onSelectLongOnly={handleSelectLongTracksOnly}
@@ -1685,4 +1458,4 @@ const CollectionsCreatePage = () => {
   );
 };
 
-export default CollectionsCreatePage;
+export default CollectionCreatePage;

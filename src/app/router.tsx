@@ -29,9 +29,11 @@ const CollectionsPage = lazy(
   () => import("../features/Collections/ui/CollectionsPage"),
 );
 const CollectionsCreatePage = lazy(
-  () => import("../features/Collections/create/CollectionCreatePage"),
+  () => import("../features/Collections/create/page/CollectionCreatePage"),
 );
-const EditPage = lazy(() => import("../features/Collections/edit/EditPage"));
+const EditPage = lazy(
+  () => import("../features/Collections/edit/page/CollectionEditPage"),
+);
 
 /** Minimal spinner used as the Suspense fallback for route transitions. */
 const PageLoader = () => (

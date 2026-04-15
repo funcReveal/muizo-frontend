@@ -13,31 +13,31 @@ import {
   IconButton,
   TextField,
 } from "@mui/material";
-import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
-import LoadingPage from "../../../shared/ui/LoadingPage";
-import { useAuth } from "../../../shared/auth/AuthContext";
-import { useRoomPlaylist } from "../../Room/model/RoomPlaylistContext";
-import { isAdminRole } from "../../../shared/auth/roles";
-import type { DbCollection, EditableItem } from "./utils/editTypes";
+import ConfirmDialog from "../../../../shared/ui/ConfirmDialog";
+import LoadingPage from "../../../../shared/ui/LoadingPage";
+import { useAuth } from "../../../../shared/auth/AuthContext";
+import { useRoomPlaylist } from "../../../Room/model/RoomPlaylistContext";
+import { isAdminRole } from "../../../../shared/auth/roles";
+import type { DbCollection, EditableItem } from "../utils/editTypes";
 import {
   buildEditableItems,
   buildEditableItemsFromDb,
-} from "./utils/editMappers";
-import { useCollectionEditor } from "./hooks/useCollectionEditor";
-import { useCollectionLoader } from "./hooks/useCollectionLoader";
-import { collectionsApi } from "../shared/api/collectionsApi";
+} from "../utils/editMappers";
+import { useCollectionEditor } from "../hooks/useCollectionEditor";
+import { useCollectionLoader } from "../hooks/useCollectionLoader";
+import { collectionsApi } from "../../shared/api/collectionsApi";
 import {
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
-} from "../shared/model/collectionLimits";
-import { ensureFreshAuthToken } from "../../../shared/auth/token";
-import CollectionPopover from "./components/playlist/CollectionPopover";
-import ClipEditorPanel from "./components/player/ClipEditorPanel";
-import AnswerPanel from "./components/answer/AnswerPanel";
-import EditHeader from "./components/header/EditHeader";
-import PlaylistListPanel from "./components/playlist/PlaylistListPanel";
-import PlaylistSourceModal from "./components/playlist/PlaylistSourceModal";
-import PlayerPanel from "./components/player/PlayerPanel";
+} from "../../shared/model/collectionLimits";
+import { ensureFreshAuthToken } from "../../../../shared/auth/token";
+import CollectionPopover from "../components/playlist/CollectionPopover";
+import ClipEditorPanel from "../components/player/ClipEditorPanel";
+import AnswerPanel from "../components/answer/AnswerPanel";
+import EditHeader from "../components/header/EditHeader";
+import PlaylistListPanel from "../components/playlist/PlaylistListPanel";
+import PlaylistSourceModal from "../components/playlist/PlaylistSourceModal";
+import PlayerPanel from "../components/player/PlayerPanel";
 import {
   DEFAULT_DURATION_SEC,
   createLocalId,
@@ -49,7 +49,7 @@ import {
   parseDurationToSeconds,
   parseTimeInput,
   thumbnailFromId,
-} from "./utils/editUtils";
+} from "../utils/editUtils";
 import {
   ANSWER_MAX_LENGTH,
   CLIP_DURATION_LABEL,
@@ -72,7 +72,7 @@ import {
   TEXT,
   UNSAVED_PROMPT,
   VOLUME_LABEL,
-} from "./utils/editConstants";
+} from "../utils/editConstants";
 type YTPlayer = YT.Player;
 type YTPlayerEvent = YT.PlayerEvent;
 type YTPlayerStateEvent = YT.OnStateChangeEvent;
@@ -108,7 +108,7 @@ type AiBatchWriteState =
       message: string;
     };
 
-const EditPage = () => {
+const CollectionEditPage = () => {
   const navigate = useNavigate();
   const { collectionId } = useParams<{ collectionId?: string }>();
 
@@ -3004,4 +3004,4 @@ const EditPage = () => {
   );
 };
 
-export default EditPage;
+export default CollectionEditPage;

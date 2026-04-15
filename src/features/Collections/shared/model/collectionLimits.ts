@@ -1,4 +1,4 @@
-import { isAdminRole } from "../../../shared/auth/roles";
+import { isAdminRole } from "../../../../shared/auth/roles";
 
 export const MAX_COLLECTIONS_PER_USER = 5;
 export const MAX_COLLECTION_ITEMS_PER_COLLECTION = 500;
