@@ -18,11 +18,11 @@ import LoadingPage from "../../../shared/ui/LoadingPage";
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { useRoomPlaylist } from "../../Room/model/RoomPlaylistContext";
 import { isAdminRole } from "../../../shared/auth/roles";
-import type { DbCollection, EditableItem } from "./lib/editTypes";
+import type { DbCollection, EditableItem } from "./utils/editTypes";
 import {
   buildEditableItems,
   buildEditableItemsFromDb,
-} from "./lib/editMappers";
+} from "./utils/editMappers";
 import { useCollectionEditor } from "../model/useCollectionEditor";
 import { useCollectionLoader } from "../model/useCollectionLoader";
 import { collectionsApi } from "../model/collectionsApi";
@@ -31,13 +31,13 @@ import {
   resolveCollectionItemLimit,
 } from "../model/collectionLimits";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
-import CollectionPopover from "./components/playlist/CollectionPopover";
-import ClipEditorPanel from "./components/player/ClipEditorPanel";
-import AnswerPanel from "./components/answer/AnswerPanel";
-import EditHeader from "./components/header/EditHeader";
-import PlaylistListPanel from "./components/playlist/PlaylistListPanel";
-import PlaylistSourceModal from "./components/playlist/PlaylistSourceModal";
-import PlayerPanel from "./components/player/PlayerPanel";
+import CollectionPopover from "../ui/components/playlist/CollectionPopover";
+import ClipEditorPanel from "../ui/components/player/ClipEditorPanel";
+import AnswerPanel from "../ui/components/answer/AnswerPanel";
+import EditHeader from "../ui/components/header/EditHeader";
+import PlaylistListPanel from "../ui/components/playlist/PlaylistListPanel";
+import PlaylistSourceModal from "../ui/components/playlist/PlaylistSourceModal";
+import PlayerPanel from "../ui/components/player/PlayerPanel";
 import {
   DEFAULT_DURATION_SEC,
   createLocalId,
@@ -49,7 +49,7 @@ import {
   parseDurationToSeconds,
   parseTimeInput,
   thumbnailFromId,
-} from "./lib/editUtils";
+} from "./utils/editUtils";
 import {
   ANSWER_MAX_LENGTH,
   CLIP_DURATION_LABEL,
@@ -72,7 +72,7 @@ import {
   TEXT,
   UNSAVED_PROMPT,
   VOLUME_LABEL,
-} from "./lib/editConstants";
+} from "./utils/editConstants";
 type YTPlayer = YT.Player;
 type YTPlayerEvent = YT.PlayerEvent;
 type YTPlayerStateEvent = YT.OnStateChangeEvent;

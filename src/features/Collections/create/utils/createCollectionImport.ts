@@ -1,4 +1,4 @@
-import { getPlaylistItemKey } from "./editUtils";
+import { getPlaylistItemKey } from "../../edit/utils/editUtils";
 
 type BasePlaylistItem = {
   title?: string;

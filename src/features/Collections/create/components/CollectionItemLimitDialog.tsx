@@ -7,7 +7,7 @@ import {
   DialogTitle,
   IconButton,
 } from "@mui/material";
-import type { DraftPlaylistItem } from "../lib/createCollectionImport";
+import type { DraftPlaylistItem } from "../utils/createCollectionImport";
 
 type Props = {
   open: boolean;

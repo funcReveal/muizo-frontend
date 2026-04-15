@@ -13,12 +13,21 @@ interface HistoryArchiveHeaderProps {
   historyDisplayMode: HistoryListDisplayMode;
   onHistoryDisplayModeChange: (mode: HistoryListDisplayMode) => void;
   recentTopScoreEntry: RoomSettlementHistorySummary | null;
-  recentBestRankEntry: { item: RoomSettlementHistorySummary; rank: number } | null;
+  recentBestRankEntry: {
+    item: RoomSettlementHistorySummary;
+    rank: number;
+  } | null;
   recentBestComboEntry: RoomSettlementHistorySummary | null;
-  recentBestAccuracyEntry: { item: RoomSettlementHistorySummary; rate: number } | null;
+  recentBestAccuracyEntry: {
+    item: RoomSettlementHistorySummary;
+    rate: number;
+  } | null;
   onOpenReplay: (summary: RoomSettlementHistorySummary) => void;
   onBackToRooms: () => void;
-  formatRankFraction: (rank: number | null, playerCount: number | null | undefined) => string;
+  formatRankFraction: (
+    rank: number | null,
+    playerCount: number | null | undefined,
+  ) => string;
 }
 
 const metricButtonBase =
@@ -42,21 +51,16 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
     <section className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.96),rgba(8,7,5,0.98))] p-3.5 shadow-[0_18px_38px_-28px_rgba(0,0,0,0.72)] sm:rounded-[28px] sm:p-5">
       <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 max-w-3xl">
-          <div className="inline-flex items-center rounded-2xl border border-amber-300/18 bg-[color-mix(in_srgb,var(--mc-surface-strong)_88%,black_12%)] px-3.5 py-2.5 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.08)] sm:px-4 sm:py-3">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.28em] text-[var(--mc-text-muted)]">
-                Match Archive
-              </div>
-              <h1 className="mt-1 text-base font-semibold text-[var(--mc-text)] sm:text-xl">
-                對戰歷史
-              </h1>
-            </div>
+          <div className="inline-flex items-center">
+            <h1 className="font-semibold text-[var(--mc-text)] sm:text-xl">
+              對戰歷史
+            </h1>
           </div>
 
           <p className="mt-4 hidden max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)] sm:block sm:text-[15px]">
-            依房間整理最近 {historyPageLimit} 場對戰快照，展開房間後可直接切換局次並打開回放。
+            依房間整理最近 {historyPageLimit}{" "}
+            場對戰快照，展開房間後可直接切換局次並打開回放。
           </p>
-
         </div>
 
         <div className="flex items-center justify-end">
@@ -89,10 +93,16 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
               近期最高分
             </div>
             <div className="mt-1.5 text-[1.95rem] font-semibold leading-none text-[var(--mc-text)] sm:mt-2 sm:text-4xl">
-              {loadingList ? "-" : (recentTopScoreEntry?.selfPlayer?.finalScore ?? "-")}
+              {loadingList
+                ? "-"
+                : (recentTopScoreEntry?.selfPlayer?.finalScore ?? "-")}
             </div>
             <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
-              <span>{recentTopScoreEntry ? `第 ${recentTopScoreEntry.roundNo} 場` : "尚無資料"}</span>
+              <span>
+                {recentTopScoreEntry
+                  ? `第 ${recentTopScoreEntry.roundNo} 場`
+                  : "尚無資料"}
+              </span>
               {recentTopScoreEntry && (
                 <span className="rounded-full border border-emerald-300/35 bg-emerald-300/12 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-emerald-100">
                   查看
@@ -131,7 +141,9 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
             </div>
             <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
               <span>
-                {recentBestRankEntry ? `第 ${recentBestRankEntry.item.roundNo} 場` : "尚無資料"}
+                {recentBestRankEntry
+                  ? `第 ${recentBestRankEntry.item.roundNo} 場`
+                  : "尚無資料"}
               </span>
               {recentBestRankEntry && (
                 <span className="rounded-full border border-amber-300/38 bg-amber-300/14 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-amber-50">
@@ -167,7 +179,11 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
                   : "-"}
             </div>
             <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
-              <span>{recentBestComboEntry ? `第 ${recentBestComboEntry.roundNo} 場` : "尚無資料"}</span>
+              <span>
+                {recentBestComboEntry
+                  ? `第 ${recentBestComboEntry.roundNo} 場`
+                  : "尚無資料"}
+              </span>
               {recentBestComboEntry && (
                 <span className="rounded-full border border-fuchsia-300/35 bg-fuchsia-300/12 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-fuchsia-100">
                   查看

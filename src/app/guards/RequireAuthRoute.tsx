@@ -76,11 +76,13 @@ const RequireAuthRoute: React.FC<RequireAuthRouteProps> = ({
               使用 Google 登入
             </Button>
             <Button component={Link} to="/rooms" variant="outlined">
-              先回房間列表
+              房間列表
             </Button>
-            <Button component={Link} to="/" variant="text">
-              回首頁
-            </Button>
+            {!username && (
+              <Button component={Link} to="/" variant="outlined">
+                回首頁
+              </Button>
+            )}
           </div>
         </div>
       </div>

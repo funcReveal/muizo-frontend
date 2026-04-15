@@ -46,7 +46,7 @@ import {
   splitLongDurationItems,
   type DraftPlaylistItem,
   type RemovedDuplicateGroup,
-} from "./lib/createCollectionImport";
+} from "./utils/createCollectionImport";
 import CollectionItemLimitDialog from "./components/CollectionItemLimitDialog";
 
 const API_URL =
