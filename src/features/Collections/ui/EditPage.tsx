@@ -2904,7 +2904,7 @@ const EditPage = () => {
                     className={`rounded-xl border px-3 py-2 ${
                       aiBatchWriteState.status === "success"
                         ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
-                        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 text-[var(--mc-text-muted)]"
+                        : "border-(--mc-border) bg-(--mc-surface-strong)/30 text-(--mc-text-muted)"
                     }`}
                   >
                     3. 準備下一批

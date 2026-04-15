@@ -40,8 +40,14 @@ import {
 } from "../model/collectionLimits";
 import { appToast } from "../../../shared/ui/toastApi";
 import { fadeInUp } from "../../../shared/motion/motionPresets";
-import { DUPLICATE_SONG_ERROR } from "./lib/editConstants";
-import { getPlaylistItemKey } from "./lib/editUtils";
+import {
+  buildOverflowSelection,
+  dedupePlaylistItems,
+  splitLongDurationItems,
+  type DraftPlaylistItem,
+  type RemovedDuplicateGroup,
+} from "./lib/createCollectionImport";
+import CollectionItemLimitDialog from "./components/CollectionItemLimitDialog";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -55,22 +61,14 @@ const PRIVATE_SWITCH_ICON = encodeURIComponent(
 );
 
 const DEFAULT_DURATION_SEC = 30;
+const LONG_DURATION_THRESHOLD_SEC = 600;
+const PREVIEW_ROW_HEIGHT = 60;
 
 type PlaylistIssueTab =
   | "removed"
   | "privateRestricted"
   | "embedBlocked"
   | "unavailable";
-
-type DuplicatePlaylistGroup = {
-  key: string;
-  title: string;
-  uploader: string | null;
-  url: string | null;
-  videoId: string | null;
-  indexes: number[];
-  count: number;
-};
 
 type PreviewVirtualRowProps = {
   items: Array<{
@@ -100,57 +98,6 @@ const parseDurationToSeconds = (duration?: string): number | null => {
 const createServerId = () =>
   crypto.randomUUID?.() ??
   `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-
-const collectDuplicatePlaylistGroups = (
-  items: Array<{
-    url?: string;
-    title?: string;
-    uploader?: string;
-  }>,
-): DuplicatePlaylistGroup[] => {
-  const groups = new Map<
-    string,
-    {
-      title: string;
-      uploader: string | null;
-      url: string | null;
-      videoId: string | null;
-      indexes: number[];
-    }
-  >();
-
-  items.forEach((item, index) => {
-    const key = getPlaylistItemKey(item);
-    if (!key) return;
-
-    const existing = groups.get(key);
-    const videoId = extractVideoId(item.url ?? "");
-
-    if (existing) {
-      existing.indexes.push(index);
-      return;
-    }
-
-    groups.set(key, {
-      title: item.title?.trim() || "未命名影片",
-      uploader: item.uploader?.trim() || null,
-      url: item.url?.trim() || null,
-      videoId,
-      indexes: [index],
-    });
-  });
-
-  return Array.from(groups.entries())
-    .map(([key, value]) => ({
-      key,
-      ...value,
-      count: value.indexes.length,
-    }))
-    .filter((group) => group.count > 1)
-    .sort((a, b) => a.indexes[0] - b.indexes[0]);
-};
-
-const PREVIEW_ROW_HEIGHT = 60;
 
 const PreviewVirtualRow = ({
   index,
@@ -247,6 +194,16 @@ const CollectionsCreatePage = () => {
   const [playlistIssueTab, setPlaylistIssueTab] =
     useState<PlaylistIssueTab>("removed");
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [draftPlaylistItems, setDraftPlaylistItems] = useState<
+    DraftPlaylistItem[]
+  >([]);
+  const [removedDuplicateGroups, setRemovedDuplicateGroups] = useState<
+    RemovedDuplicateGroup[]
+  >([]);
+  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
+  const [selectedRemovalKeys, setSelectedRemovalKeys] = useState<string[]>([]);
+  const [hasAutoOpenedLimitDialog, setHasAutoOpenedLimitDialog] =
+    useState(false);
 
   const needsGoogleReauth = isGoogleReauthRequired({
     error: youtubePlaylistsError ?? youtubeActionError,
@@ -273,17 +230,47 @@ const CollectionsCreatePage = () => {
     role: authUser?.role,
     plan: authUser?.plan,
   });
-  const hasPlaylistItems = playlistItems.length > 0;
 
-  const duplicatePlaylistGroups = useMemo(
-    () => collectDuplicatePlaylistGroups(playlistItems),
-    [playlistItems],
-  );
-  const hasDuplicatePlaylistItems = duplicatePlaylistGroups.length > 0;
-  const duplicatePlaylistItemsCount = duplicatePlaylistGroups.reduce(
-    (sum, group) => sum + (group.count - 1),
+  const removedDuplicateCount = removedDuplicateGroups.reduce(
+    (sum, group) => sum + group.removedCount,
     0,
   );
+  const hasDraftPlaylistItems = draftPlaylistItems.length > 0;
+
+  const {
+    normalItems: normalDraftPlaylistItems,
+    longItems: longDraftPlaylistItems,
+  } = useMemo(
+    () =>
+      splitLongDurationItems(draftPlaylistItems, {
+        thresholdSec: LONG_DURATION_THRESHOLD_SEC,
+      }),
+    [draftPlaylistItems],
+  );
+
+  const draftOverflowInfo = useMemo(() => {
+    if (collectionItemLimit === null) {
+      return {
+        overflowCount: 0,
+        isOverflow: false,
+        suggestedRemovalKeys: [] as string[],
+      };
+    }
+
+    return buildOverflowSelection(draftPlaylistItems, collectionItemLimit, {
+      thresholdSec: LONG_DURATION_THRESHOLD_SEC,
+    });
+  }, [draftPlaylistItems, collectionItemLimit]);
+
+  const isDraftOverflow = draftOverflowInfo.isOverflow;
+  const draftOverflowCount = draftOverflowInfo.overflowCount;
+  const remainingAfterRemovalCount = Math.max(
+    0,
+    draftPlaylistItems.length - selectedRemovalKeys.length,
+  );
+  const canApplyRemoval =
+    collectionItemLimit === null ||
+    remainingAfterRemovalCount <= collectionItemLimit;
 
   const trimmedPlaylistUrl = playlistUrl.trim();
   const playlistUrlLooksValid = useMemo(() => {
@@ -342,13 +329,54 @@ const CollectionsCreatePage = () => {
   }, [isTitleEditing]);
 
   useEffect(() => {
-    if (!hasDuplicatePlaylistItems && createError?.includes("重複")) {
-      setCreateError(null);
+    if (!playlistItems.length) {
+      setDraftPlaylistItems([]);
+      setRemovedDuplicateGroups([]);
+      setSelectedRemovalKeys([]);
+      setHasAutoOpenedLimitDialog(false);
+      return;
     }
-    if (!hasDuplicatePlaylistItems && duplicateDialogOpen) {
+
+    const { items: dedupedItems, removedGroups } =
+      dedupePlaylistItems(playlistItems);
+
+    setDraftPlaylistItems(dedupedItems);
+    setRemovedDuplicateGroups(removedGroups);
+
+    if (removedGroups.length > 0) {
+      setDuplicateDialogOpen(true);
+    }
+
+    if (collectionItemLimit === null) {
+      setSelectedRemovalKeys([]);
+      setHasAutoOpenedLimitDialog(false);
+      return;
+    }
+
+    const overflow = buildOverflowSelection(dedupedItems, collectionItemLimit, {
+      thresholdSec: LONG_DURATION_THRESHOLD_SEC,
+    });
+
+    setSelectedRemovalKeys(overflow.suggestedRemovalKeys);
+
+    if (overflow.isOverflow && !hasAutoOpenedLimitDialog) {
+      setLimitDialogOpen(true);
+      setHasAutoOpenedLimitDialog(true);
+    }
+
+    if (!overflow.isOverflow) {
+      setHasAutoOpenedLimitDialog(false);
+    }
+  }, [playlistItems, collectionItemLimit, hasAutoOpenedLimitDialog]);
+
+  useEffect(() => {
+    if (removedDuplicateGroups.length === 0 && duplicateDialogOpen) {
       setDuplicateDialogOpen(false);
     }
-  }, [hasDuplicatePlaylistItems, createError, duplicateDialogOpen]);
+    if (removedDuplicateGroups.length === 0 && createError?.includes("重複")) {
+      setCreateError(null);
+    }
+  }, [removedDuplicateGroups, duplicateDialogOpen, createError]);
 
   useEffect(() => {
     if (playlistSource !== "url") return;
@@ -371,33 +399,39 @@ const CollectionsCreatePage = () => {
   ]);
 
   const collectionPreview = useMemo(() => {
-    if (!hasPlaylistItems) return null;
+    if (!hasDraftPlaylistItems) return null;
     return {
       title: collectionTitle || lastFetchedPlaylistTitle || "未命名收藏",
-      count: playlistItems.length,
+      count: draftPlaylistItems.length,
     };
   }, [
     collectionTitle,
-    hasPlaylistItems,
+    hasDraftPlaylistItems,
     lastFetchedPlaylistTitle,
-    playlistItems,
+    draftPlaylistItems,
   ]);
 
-  const previewListHeight = useMemo(
-    () =>
-      Math.min(
-        320,
-        Math.max(
-          PREVIEW_ROW_HEIGHT * 3,
-          playlistItems.length * PREVIEW_ROW_HEIGHT,
-        ),
-      ),
-    [playlistItems.length],
+  const buildPreviewListHeight = (count: number) =>
+    Math.min(240, Math.max(PREVIEW_ROW_HEIGHT * 2, count * PREVIEW_ROW_HEIGHT));
+
+  const normalPreviewListHeight = useMemo(
+    () => buildPreviewListHeight(normalDraftPlaylistItems.length),
+    [normalDraftPlaylistItems.length],
   );
 
-  const previewRowProps = useMemo<PreviewVirtualRowProps>(
-    () => ({ items: playlistItems }),
-    [playlistItems],
+  const longPreviewListHeight = useMemo(
+    () => buildPreviewListHeight(longDraftPlaylistItems.length),
+    [longDraftPlaylistItems.length],
+  );
+
+  const normalPreviewRowProps = useMemo<PreviewVirtualRowProps>(
+    () => ({ items: normalDraftPlaylistItems }),
+    [normalDraftPlaylistItems],
+  );
+
+  const longPreviewRowProps = useMemo<PreviewVirtualRowProps>(
+    () => ({ items: longDraftPlaylistItems }),
+    [longDraftPlaylistItems],
   );
 
   const importProgressPercent = useMemo(() => {
@@ -548,16 +582,7 @@ const CollectionsCreatePage = () => {
     if (firstGroupWithItems) {
       setPlaylistIssueTab(firstGroupWithItems.key);
     }
-  }, [
-    playlistIssueDialogOpen,
-    playlistIssueGroups,
-    playlistIssueSummary.embedBlocked.length,
-    playlistIssueSummary.privateRestricted.length,
-    playlistIssueSummary.removed.length,
-    playlistIssueSummary.unavailable.length,
-    playlistIssueSummary.unknown.length,
-    playlistIssueSummary.unknownCount,
-  ]);
+  }, [playlistIssueDialogOpen, playlistIssueGroups]);
 
   useEffect(() => {
     if (playlistSource !== "youtube") return;
@@ -623,6 +648,39 @@ const CollectionsCreatePage = () => {
     setVisibility(nextVisibility);
   };
 
+  const handleApplySelectedRemovals = () => {
+    if (selectedRemovalKeys.length === 0) return;
+
+    const removalKeySet = new Set(selectedRemovalKeys);
+    setDraftPlaylistItems((prev) =>
+      prev.filter((item) => !removalKeySet.has(item.draftKey)),
+    );
+
+    setSelectedRemovalKeys([]);
+    setLimitDialogOpen(false);
+    setCreateError(null);
+  };
+
+  const handleReselectOverflowItems = () => {
+    if (collectionItemLimit === null) return;
+    const overflow = buildOverflowSelection(
+      draftPlaylistItems,
+      collectionItemLimit,
+      {
+        thresholdSec: LONG_DURATION_THRESHOLD_SEC,
+      },
+    );
+    setSelectedRemovalKeys(overflow.suggestedRemovalKeys);
+  };
+
+  const handleSelectLongTracksOnly = () => {
+    setSelectedRemovalKeys(longDraftPlaylistItems.map((item) => item.draftKey));
+  };
+
+  const handleClearRemovalSelection = () => {
+    setSelectedRemovalKeys([]);
+  };
+
   const handleCreateCollection = async () => {
     if (!API_URL) {
       setCreateError("尚未設定收藏 API 位址（VITE_API_URL）");
@@ -636,15 +694,8 @@ const CollectionsCreatePage = () => {
       setCreateError("請輸入收藏標題");
       return;
     }
-    if (!hasPlaylistItems) {
+    if (!hasDraftPlaylistItems) {
       setCreateError("請先匯入播放清單");
-      return;
-    }
-    if (hasDuplicatePlaylistItems) {
-      setCreateError(
-        `${DUPLICATE_SONG_ERROR}：播放清單內有重複影片，請先處理後再建立收藏庫。`,
-      );
-      setDuplicateDialogOpen(true);
       return;
     }
     if (reachedCollectionLimit) {
@@ -659,13 +710,11 @@ const CollectionsCreatePage = () => {
       );
       return;
     }
-    if (
-      collectionItemLimit !== null &&
-      playlistItems.length > collectionItemLimit
-    ) {
+    if (isDraftOverflow) {
       setCreateError(
-        `一般使用者每個收藏庫最多只能保留 ${collectionItemLimit} 題`,
+        `目前超過收藏庫上限，請先移除 ${draftOverflowCount} 首歌曲後再建立。`,
       );
+      setLimitDialogOpen(true);
       return;
     }
 
@@ -686,7 +735,7 @@ const CollectionsCreatePage = () => {
       setCreateStageLabel("正在整理歌曲資料");
       setCreateProgress({ completed: 1, total: 3 });
 
-      const insertItems = playlistItems.map((item, idx) => {
+      const insertItems = draftPlaylistItems.map((item, idx) => {
         const durationSec =
           parseDurationToSeconds(item.duration) ?? DEFAULT_DURATION_SEC;
         const safeDuration = Math.max(1, durationSec);
@@ -825,7 +874,7 @@ const CollectionsCreatePage = () => {
                 authLoading ||
                 !authToken ||
                 reachedCollectionLimit ||
-                hasDuplicatePlaylistItems
+                isDraftOverflow
               }
               size="small"
               className="shrink-0"
@@ -1282,15 +1331,95 @@ const CollectionsCreatePage = () => {
                       題。
                     </div>
                   )}
-                  <div className="mt-3 border-t border-[var(--mc-border)]/70 pt-3">
-                    <div className="h-full w-full overflow-hidden rounded-lg">
-                      <List<PreviewVirtualRowProps>
-                        style={{ height: previewListHeight, width: "100%" }}
-                        rowCount={playlistItems.length}
-                        rowHeight={PREVIEW_ROW_HEIGHT}
-                        rowProps={previewRowProps}
-                        rowComponent={PreviewVirtualRow}
-                      />
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-3 py-2">
+                      <div className="text-[11px] text-[var(--mc-text-muted)]">
+                        一般曲目
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                        {normalDraftPlaylistItems.length} 首
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-3 py-2">
+                      <div className="text-[11px] text-[var(--mc-text-muted)]">
+                        超長曲目（&gt; 10:00）
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
+                        {longDraftPlaylistItems.length} 首
+                      </div>
+                    </div>
+                  </div>
+
+                  {removedDuplicateCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDuplicateDialogOpen(true)}
+                      className="mt-3 flex w-full cursor-pointer items-center justify-between rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-left text-xs text-emerald-100 transition hover:border-emerald-300/45 hover:bg-emerald-300/15"
+                    >
+                      <span className="font-semibold">已自動移除重複歌曲</span>
+                      <span>{removedDuplicateCount} 首，查看明細</span>
+                    </button>
+                  )}
+
+                  {isDraftOverflow && (
+                    <button
+                      type="button"
+                      onClick={() => setLimitDialogOpen(true)}
+                      className="mt-3 flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs text-amber-100 transition hover:border-amber-300/45 hover:bg-amber-300/15"
+                    >
+                      <span className="font-semibold">已超過收藏上限</span>
+                      <span>還需移除 {draftOverflowCount} 首</span>
+                    </button>
+                  )}
+
+                  <div className="mt-3 border-t border-[var(--mc-border)]/70 pt-3 space-y-4">
+                    <div>
+                      <div className="mb-2 text-[11px] font-semibold text-[var(--mc-text-muted)]">
+                        一般曲目
+                      </div>
+                      {normalDraftPlaylistItems.length > 0 ? (
+                        <div className="h-full w-full overflow-hidden rounded-lg">
+                          <List<PreviewVirtualRowProps>
+                            style={{
+                              height: normalPreviewListHeight,
+                              width: "100%",
+                            }}
+                            rowCount={normalDraftPlaylistItems.length}
+                            rowHeight={PREVIEW_ROW_HEIGHT}
+                            rowProps={normalPreviewRowProps}
+                            rowComponent={PreviewVirtualRow}
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-[var(--mc-border)] px-3 py-2 text-[11px] text-[var(--mc-text-muted)]">
+                          沒有一般曲目
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="mb-2 text-[11px] font-semibold text-[var(--mc-text-muted)]">
+                        超長曲目（&gt; 10:00）
+                      </div>
+                      {longDraftPlaylistItems.length > 0 ? (
+                        <div className="h-full w-full overflow-hidden rounded-lg">
+                          <List<PreviewVirtualRowProps>
+                            style={{
+                              height: longPreviewListHeight,
+                              width: "100%",
+                            }}
+                            rowCount={longDraftPlaylistItems.length}
+                            rowHeight={PREVIEW_ROW_HEIGHT}
+                            rowProps={longPreviewRowProps}
+                            rowComponent={PreviewVirtualRow}
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-[var(--mc-border)] px-3 py-2 text-[11px] text-[var(--mc-text-muted)]">
+                          沒有超長曲目
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1302,19 +1431,6 @@ const CollectionsCreatePage = () => {
                     >
                       <span className="font-semibold">未成功匯入原因</span>
                       <span>{playlistIssueTotal} 首，查看明細</span>
-                    </button>
-                  )}
-
-                  {hasDuplicatePlaylistItems && (
-                    <button
-                      type="button"
-                      onClick={() => setDuplicateDialogOpen(true)}
-                      className="mt-3 flex w-full cursor-pointer items-center justify-between rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-2 text-left text-xs text-rose-100 transition hover:border-rose-300/45 hover:bg-rose-300/15"
-                    >
-                      <span className="font-semibold">偵測到重複影片</span>
-                      <span>
-                        {duplicatePlaylistItemsCount} 首重複，查看明細
-                      </span>
                     </button>
                   )}
                 </div>
@@ -1345,15 +1461,18 @@ const CollectionsCreatePage = () => {
           <DialogTitle sx={{ pb: 1 }}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-base font-semibold">重複影片明細</div>
+                <div className="text-base font-semibold">
+                  已自動移除的重複歌曲
+                </div>
                 <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                  共 {duplicatePlaylistItemsCount} 首重複項目，建立前必須先排除
+                  共自動移除 {removedDuplicateCount}{" "}
+                  首重複項目，建立時不會再被重複擋下
                 </div>
               </div>
               <IconButton
                 size="small"
                 onClick={() => setDuplicateDialogOpen(false)}
-                aria-label="關閉重複影片明細"
+                aria-label="關閉重複歌曲明細"
                 sx={{ color: "var(--mc-text-muted)" }}
               >
                 <CloseRounded fontSize="small" />
@@ -1362,10 +1481,10 @@ const CollectionsCreatePage = () => {
           </DialogTitle>
           <DialogContent>
             <div className="space-y-3">
-              {duplicatePlaylistGroups.map((group) => (
+              {removedDuplicateGroups.map((group) => (
                 <div
                   key={group.key}
-                  className="rounded-xl border border-rose-400/25 bg-rose-950/20 px-3 py-3"
+                  className="rounded-xl border border-emerald-400/25 bg-emerald-950/20 px-3 py-3"
                 >
                   <div className="text-sm font-semibold text-[var(--mc-text)]">
                     {group.title}
@@ -1373,13 +1492,14 @@ const CollectionsCreatePage = () => {
                   <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
                     {group.uploader || "未知上傳者"}
                   </div>
-                  {group.videoId && (
-                    <div className="mt-1 text-[11px] text-rose-200">
-                      videoId: {group.videoId}
-                    </div>
-                  )}
-                  <div className="mt-2 text-xs text-rose-100">
-                    出現在第 {group.indexes.map((i) => i + 1).join("、")} 首
+                  <div className="mt-2 text-xs text-emerald-100">
+                    原清單共出現 {group.totalCount} 次，已保留第{" "}
+                    {group.keptIndex + 1} 首，另外移除 {group.removedCount} 首
+                  </div>
+                  <div className="mt-1 text-[11px] text-emerald-200">
+                    已移除位置：第{" "}
+                    {group.removedIndexes.map((index) => index + 1).join("、")}{" "}
+                    首
                   </div>
                   {group.url && (
                     <a
@@ -1524,6 +1644,31 @@ const CollectionsCreatePage = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        <CollectionItemLimitDialog
+          open={limitDialogOpen}
+          onClose={() => setLimitDialogOpen(false)}
+          limit={collectionItemLimit}
+          totalCount={draftPlaylistItems.length}
+          overflowCount={draftOverflowCount}
+          selectedRemovalCount={selectedRemovalKeys.length}
+          remainingCount={remainingAfterRemovalCount}
+          canApply={canApplyRemoval}
+          normalItems={normalDraftPlaylistItems}
+          longItems={longDraftPlaylistItems}
+          selectedRemovalKeys={selectedRemovalKeys}
+          onToggleItem={(draftKey) => {
+            setSelectedRemovalKeys((prev) =>
+              prev.includes(draftKey)
+                ? prev.filter((key) => key !== draftKey)
+                : [...prev, draftKey],
+            );
+          }}
+          onApply={handleApplySelectedRemovals}
+          onReselectSuggested={handleReselectOverflowItems}
+          onSelectLongOnly={handleSelectLongTracksOnly}
+          onClearSelection={handleClearRemovalSelection}
+        />
       </Box>
     </Box>
   );
