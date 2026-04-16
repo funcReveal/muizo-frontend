@@ -464,7 +464,7 @@ const CollectionEditPage = () => {
     previewFromStart,
     previewBeforeEnd,
   } = useCollectionEditPlayer({
-    selectedVideoId: extractVideoId(selectedItem?.url),
+    selectedVideoId,
     selectedItemLocalId: selectedItem?.localId ?? null,
     selectedItemStartSec: selectedItem?.startSec ?? 0,
     itemsLoading,
@@ -833,7 +833,11 @@ const CollectionEditPage = () => {
   }, [handleSaveCollection]);
 
   const saveTitleImmediately = useCallback(
-    async (nextTitle: string, previousTitle: string) => {
+    async (
+      nextTitle: string,
+      previousTitle: string,
+      wasCleanBeforeTitleSave: boolean,
+    ) => {
       if (!authToken || !activeCollectionId) {
         setCollectionTitle(previousTitle);
         setTitleDraft(previousTitle);
@@ -865,6 +869,14 @@ const CollectionEditPage = () => {
               : item,
           ),
         );
+
+        if (wasCleanBeforeTitleSave) {
+          window.setTimeout(() => {
+            resetBaseline();
+            setHasUnsavedChanges(false);
+          }, 0);
+        }
+
         setSaveStatus("saved");
       } catch (error) {
         setCollectionTitle(previousTitle);
@@ -873,7 +885,7 @@ const CollectionEditPage = () => {
         setSaveError(error instanceof Error ? error.message : String(error));
       }
     },
-    [activeCollectionId, authToken, refreshAuthToken],
+    [activeCollectionId, authToken, refreshAuthToken, resetBaseline],
   );
 
   const toggleItemNoChange = useCallback(
@@ -1095,13 +1107,21 @@ const CollectionEditPage = () => {
             setTitleDraft(collectionTitle);
             return;
           }
+
           const previousTitle = collectionTitle;
+          const wasCleanBeforeTitleSave = !hasUnsavedChanges;
+
           setCollectionTitle(nextTitle);
           if (!collectionTitleTouched) {
             setCollectionTitleTouched(true);
           }
           setIsTitleEditing(false);
-          void saveTitleImmediately(nextTitle, previousTitle);
+
+          void saveTitleImmediately(
+            nextTitle,
+            previousTitle,
+            wasCleanBeforeTitleSave,
+          );
         }}
         onTitleCancel={() => {
           setTitleDraft(collectionTitle);
