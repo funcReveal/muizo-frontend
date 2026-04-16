@@ -131,7 +131,7 @@ interface SocketLifecycleHandlers {
 interface UseRoomProviderSocketLifecycleParams {
   username: string | null;
   authLoading: boolean;
-  shouldConnectSocket: boolean;
+  shouldConnectRoomSocket: boolean;
   authToken: string | null;
   refreshAuthToken: () => Promise<string | null>;
   clientId: string;
@@ -148,7 +148,7 @@ interface UseRoomProviderSocketLifecycleParams {
 export const useRoomProviderSocketLifecycle = ({
   username,
   authLoading,
-  shouldConnectSocket,
+  shouldConnectRoomSocket,
   authToken,
   refreshAuthToken,
   clientId,
@@ -359,10 +359,14 @@ export const useRoomProviderSocketLifecycle = ({
 
   useEffect(() => {
     if (authLoading) return;
-    if (!shouldConnectSocket) {
+
+    if (!shouldConnectRoomSocket) {
       socketSuspendedRef.current = true;
+      disconnectRoomSocket(socketRef.current);
+      socketRef.current = null;
       setIsConnected(false);
       setSitePresence(null);
+      setSessionProgress(null);
       setRouteRoomResolved(true);
       return;
     }
@@ -879,7 +883,7 @@ export const useRoomProviderSocketLifecycle = ({
   }, [
     username,
     authLoading,
-    shouldConnectSocket,
+    shouldConnectRoomSocket,
     authToken,
     refreshAuthToken,
     clientId,
