@@ -399,12 +399,6 @@ export const useRoomProviderSocketLifecycle = ({
             setStatusText("已重新連線到房間伺服器");
           }
           shouldAnnounceReconnectRef.current = false;
-          void fetchRooms();
-          socket.emit("getSitePresence", (ack: Ack<SitePresencePayload>) => {
-            if (ack?.ok) {
-              setSitePresence(ack.data);
-            }
-          });
           if (storedRoomId && username) {
             const storedRoomSessionToken = roomSessionTokenRef.current;
             if (!storedRoomSessionToken) {
@@ -579,9 +573,6 @@ export const useRoomProviderSocketLifecycle = ({
               setStatusText("找不到邀請房間，可能已關閉或邀請失效。");
             }
           }
-        },
-        onSitePresenceUpdated: (payload) => {
-          setSitePresence(payload);
         },
         onRoomCreated: ({ room }) => {
           applyIncomingRoomSummary(room);

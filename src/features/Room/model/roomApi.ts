@@ -167,6 +167,12 @@ export type WorkerListPayload<TItem> = {
   error_code?: string;
 };
 
+export type SitePresenceHttpPayload = {
+  onlineCount?: number;
+  updatedAt?: number;
+  error?: string;
+};
+
 const API_REQUEST_TIMEOUT_MS = 15_000;
 
 const fetchJson = async <T>(
@@ -244,6 +250,9 @@ export const apiFetchRooms = (apiUrl: string) =>
 
 export const apiFetchRoomById = (apiUrl: string, roomId: string) =>
   fetchJson<RoomByIdPayload>(`${apiUrl}/api/rooms/${roomId}`);
+
+export const apiFetchSitePresence = (apiUrl: string) =>
+  fetchJson<SitePresenceHttpPayload>(`${apiUrl}/api/site-presence`);
 
 export const apiFetchYoutubePlaylists = (apiUrl: string, token: string) =>
   fetchJson<YoutubePlaylistsPayload>(`${apiUrl}/api/youtube/playlists`, {

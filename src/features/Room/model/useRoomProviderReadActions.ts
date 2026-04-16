@@ -1,6 +1,10 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 
-import { apiFetchRoomById, apiFetchRooms } from "./roomApi";
+import {
+  apiFetchRoomById,
+  apiFetchRooms,
+  apiFetchSitePresence,
+} from "./roomApi";
 import type {
   Ack,
   ClientSocket,
@@ -19,6 +23,9 @@ type UseRoomProviderReadActionsParams = {
   setRooms: Dispatch<SetStateAction<RoomSummary[]>>;
   setInviteNotFound: Dispatch<SetStateAction<boolean>>;
   setStatusText: (value: string | null) => void;
+  setSitePresence: (
+    payload: { onlineCount: number; updatedAt: number } | null,
+  ) => void;
 };
 
 const READ_ACK_TIMEOUT_MS = 6000;
@@ -29,9 +36,10 @@ export const useRoomProviderReadActions = ({
   currentRoom,
   setRooms,
   setStatusText,
+  setSitePresence,
 }: UseRoomProviderReadActionsParams) => {
   const withSocketAckTimeout = useCallback(
-    <T,>(
+    <T>(
       label: string,
       executor: (
         resolve: (value: T) => void,
@@ -102,6 +110,28 @@ export const useRoomProviderReadActions = ({
     },
     [apiUrl, setStatusText],
   );
+
+  const fetchSitePresence = useCallback(async () => {
+    if (!apiUrl) {
+      setStatusText("尚未設定 API 位置 (API_URL)");
+      return;
+    }
+
+    try {
+      const { ok, payload } = await apiFetchSitePresence(apiUrl);
+      if (!ok) {
+        throw new Error(payload?.error ?? "讀取線上狀態失敗");
+      }
+
+      setSitePresence({
+        onlineCount: Number(payload?.onlineCount ?? 0),
+        updatedAt: Number(payload?.updatedAt ?? Date.now()),
+      });
+    } catch (error) {
+      console.error(error);
+      setSitePresence(null);
+    }
+  }, [apiUrl, setSitePresence, setStatusText]);
 
   const fetchSettlementHistorySummaries = useCallback(
     async (options?: { limit?: number; beforeEndedAt?: number | null }) => {
@@ -178,6 +208,7 @@ export const useRoomProviderReadActions = ({
   return {
     fetchRooms,
     fetchRoomById,
+    fetchSitePresence,
     fetchSettlementHistorySummaries,
     fetchSettlementReplay,
   };

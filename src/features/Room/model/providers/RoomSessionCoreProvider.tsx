@@ -501,6 +501,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const {
     fetchRooms,
     fetchRoomById,
+    fetchSitePresence,
     fetchSettlementHistorySummaries,
     fetchSettlementReplay,
   } = useRoomProviderReadActions({
@@ -512,6 +513,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     setRooms,
     setInviteNotFound,
     setStatusText,
+    setSitePresence,
   });
 
   const { handleUpdateRoomSettings } = useRoomProviderSettingsActions({
@@ -627,6 +629,36 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       applyGameLiveUpdate,
     },
   });
+
+  useEffect(() => {
+    const routeNeedsRoomBrowse =
+      pathname.startsWith("/rooms") || pathname.startsWith("/invited");
+
+    if (!routeNeedsRoomBrowse) return;
+
+    void fetchRooms();
+
+    const timer = window.setInterval(() => {
+      void fetchRooms();
+    }, 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [fetchRooms, pathname]);
+
+  useEffect(() => {
+    const routeNeedsRoomBrowse =
+      pathname.startsWith("/rooms") || pathname.startsWith("/invited");
+
+    if (!routeNeedsRoomBrowse) return;
+
+    void fetchSitePresence();
+
+    const timer = window.setInterval(() => {
+      void fetchSitePresence();
+    }, 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [fetchSitePresence, pathname]);
 
   const {
     handleJoinRoom,
