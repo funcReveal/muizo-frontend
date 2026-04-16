@@ -1,6 +1,9 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
-import type { GameState, PlaybackExtensionVoteState } from "../../Room/model/types";
+import type {
+  GameState,
+  PlaybackExtensionVoteState,
+} from "../../Room/model/types";
 
 interface UseGameRoomVoteDialogEffectsInput {
   trackSessionKey: string;
@@ -17,7 +20,9 @@ interface UseGameRoomVoteDialogEffectsInput {
   gameStatus: GameState["status"];
   setPlaybackVoteDialogOpen: Dispatch<SetStateAction<boolean>>;
   setPlaybackVoteRequestPending: Dispatch<SetStateAction<boolean>>;
-  setPlaybackVoteSubmitPending: Dispatch<SetStateAction<"approve" | "reject" | null>>;
+  setPlaybackVoteSubmitPending: Dispatch<
+    SetStateAction<"approve" | "reject" | null>
+  >;
   setStatusText: (text: string) => void;
 }
 
@@ -76,7 +81,8 @@ export function useGameRoomVoteDialogEffects({
   useEffect(() => {
     setPlaybackVoteDialogOpen(false);
     if (!isManualPlaybackExtensionMode) return;
-    if (!playbackExtensionVote || playbackExtensionVote.status !== "active") return;
+    if (!playbackExtensionVote || playbackExtensionVote.status !== "active")
+      return;
     if (!meClientId || myPlaybackVote !== null) return;
     const promptKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}`;
     if (lastPlaybackVotePromptKeyRef.current === promptKey) return;
@@ -92,7 +98,8 @@ export function useGameRoomVoteDialogEffects({
 
   // Show "active vote" status text once per vote session
   useEffect(() => {
-    if (!playbackExtensionVote || playbackExtensionVote.status !== "active") return;
+    if (!playbackExtensionVote || playbackExtensionVote.status !== "active")
+      return;
     if (!isManualPlaybackExtensionMode) return;
     const activeKey = `${trackSessionKey}:${playbackExtensionVote.startedAt}:active`;
     if (lastPlaybackVoteActiveKeyRef.current === activeKey) return;
@@ -125,7 +132,9 @@ export function useGameRoomVoteDialogEffects({
       playbackExtensionVote.status === "approved" &&
       playbackVoteResolvedSeconds > 0
     ) {
-      setStatusText(`延長播放投票通過，本題已延長 ${playbackVoteResolvedSeconds} 秒`);
+      setStatusText(
+        `延長播放投票通過，本題已延長 ${playbackVoteResolvedSeconds} 秒`,
+      );
       return;
     }
     setStatusText("延長播放投票未通過，本題維持原播放長度");
@@ -144,7 +153,9 @@ export function useGameRoomVoteDialogEffects({
     const autoNoticeKey = `${trackSessionKey}:${playbackExtensionSeconds}`;
     if (lastAutoPlaybackExtensionNoticeRef.current === autoNoticeKey) return;
     lastAutoPlaybackExtensionNoticeRef.current = autoNoticeKey;
-    setStatusText(`仍有玩家未作答，系統已自動延長 ${playbackExtensionSeconds} 秒`);
+    setStatusText(
+      `仍有玩家未作答，系統已自動延長 ${playbackExtensionSeconds} 秒`,
+    );
   }, [
     gamePhase,
     gameStatus,
