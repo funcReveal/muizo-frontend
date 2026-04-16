@@ -19,7 +19,7 @@ interface UseGameRoomSfxEffectsInput {
   isInterTrackWait: boolean;
   waitingToStart: boolean;
   preStartCountdownSfxSec: number;
-  phaseCountdownSec: number | null;
+  phaseEndsAt: number;
   meClientId?: string;
   // Reveal result fields
   selectedChoice: number | null;
@@ -54,7 +54,7 @@ export function useGameRoomSfxEffects({
   isInterTrackWait,
   waitingToStart,
   preStartCountdownSfxSec,
-  phaseCountdownSec,
+  phaseEndsAt,
   meClientId,
   selectedChoice,
   myHasAnswered,
@@ -91,25 +91,51 @@ export function useGameRoomSfxEffects({
     waitingToStart,
   ]);
 
-  // Guess urgency countdown beeps (last 3 seconds)
+  // Guess urgency countdown beeps (schedule 3 / 2 / 1 locally)
   useEffect(() => {
     if (
       gamePhase !== "guess" ||
       isEnded ||
       waitingToStart ||
-      phaseCountdownSec === null ||
-      phaseCountdownSec > 3
+      isInterTrackWait
     ) {
       return;
     }
-    const sfxKey = `${trackSessionKey}:${gamePhase}:countdown:${phaseCountdownSec}`;
-    if (lastGuessUrgencySfxKeyRef.current === sfxKey) return;
-    lastGuessUrgencySfxKeyRef.current = sfxKey;
-    playGameSfx(resolveGuessDeadlineSfxEvent(phaseCountdownSec));
+
+    const nowMs = getServerNowMs();
+    const remainingMs = phaseEndsAt - nowMs;
+    if (remainingMs <= 0) return;
+
+    const timerIds: number[] = [];
+
+    [3, 2, 1].forEach((sec) => {
+      const fireInMs = remainingMs - sec * 1000;
+
+      // 已經錯過太多就不要補播
+      if (fireInMs < -220) return;
+
+      const timerId = window.setTimeout(
+        () => {
+          const sfxKey = `${trackSessionKey}:${gamePhase}:countdown:${sec}`;
+          if (lastGuessUrgencySfxKeyRef.current === sfxKey) return;
+          lastGuessUrgencySfxKeyRef.current = sfxKey;
+          playGameSfx(resolveGuessDeadlineSfxEvent(sec));
+        },
+        Math.max(0, fireInMs),
+      );
+
+      timerIds.push(timerId);
+    });
+
+    return () => {
+      timerIds.forEach((timerId) => window.clearTimeout(timerId));
+    };
   }, [
     gamePhase,
+    getServerNowMs,
     isEnded,
-    phaseCountdownSec,
+    isInterTrackWait,
+    phaseEndsAt,
     playGameSfx,
     trackSessionKey,
     waitingToStart,

@@ -33,7 +33,6 @@ import PersonRemoveRoundedIcon from "@mui/icons-material/PersonRemoveRounded";
 import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import HowToVoteRoundedIcon from "@mui/icons-material/HowToVoteRounded";
 import type {
-  ChatMessage,
   GameState,
   PlaylistItem,
   RoomState,
@@ -73,15 +72,12 @@ import {
   sortParticipantsByScore,
 } from "../model/gameRoomDerivations";
 import GameRoomExitDialog from "./components/GameRoomExitDialog";
-import { DanmuContext, DanmuItemsContext } from "../model/DanmuContext";
 import useGameRoomPlayerSync from "../model/useGameRoomPlayerSync";
 import useGameRoomAnswerFlow from "../model/useGameRoomAnswerFlow";
 import useGameRoomQuestionDerivedState from "../model/useGameRoomQuestionDerivedState";
 import useGameRoomRecaps from "../model/useGameRoomRecaps";
 import useGameRoomStats from "../model/useGameRoomStats";
-import useSettlementSnapshot from "../model/useSettlementSnapshot";
 import useTopTwoSwapState from "../model/useTopTwoSwapState";
-import useGameRoomDanmu from "../model/useGameRoomDanmu";
 import PlayerAvatar from "../../../shared/ui/playerAvatar/PlayerAvatar";
 import useGameRoomChoiceHotkeys from "./lib/useGameRoomChoiceHotkeys";
 import useGameRoomAnswerPanelAutoScroll from "./lib/useGameRoomAnswerPanelAutoScroll";
@@ -92,7 +88,7 @@ import { useRoomUi } from "../../Room/model/useRoomUi";
 import { useGameRoomPlaybackState } from "../model/useGameRoomPlaybackState";
 import { useGameRoomVoteState } from "../model/useGameRoomVoteState";
 import FloatingChatWindow from "../../../shared/chat/FloatingChatWindow";
-
+import GameRoomDanmuProviderBridge from "./components/GameRoomDanmuProviderBridge";
 interface GameRoomPageProps {
   room: RoomState["room"];
   gameState: GameState;
@@ -108,7 +104,6 @@ interface GameRoomPageProps {
   onTransferHost?: (clientId: string) => void;
   participants?: RoomState["participants"];
   meClientId?: string;
-  messages?: ChatMessage[];
   username?: string | null;
   serverOffsetMs?: number;
   onSettlementRecapChange?: (recaps: SettlementQuestionRecap[]) => void;
@@ -206,22 +201,90 @@ const GameRoomSettlementLoader = () => (
   </div>
 );
 
+const useGameRoomGuessUrgencyFlag = ({
+  getServerNowMs,
+  phase,
+  phaseEndsAt,
+  isEnded,
+  waitingToStart,
+  allAnsweredReadyForReveal,
+  trackSessionKey,
+}: {
+  getServerNowMs: () => number;
+  phase: GameState["phase"];
+  phaseEndsAt: number;
+  isEnded: boolean;
+  waitingToStart: boolean;
+  allAnsweredReadyForReveal: boolean;
+  trackSessionKey: string;
+}) => {
+  const [, forceUrgencyTick] = useState(0);
+
+  const nowMs = getServerNowMs();
+  const remainingMs = phaseEndsAt - nowMs;
+
+  const isUrgent =
+    !isEnded &&
+    !waitingToStart &&
+    phase === "guess" &&
+    !allAnsweredReadyForReveal &&
+    remainingMs > 0 &&
+    remainingMs <= 3000;
+
+  useEffect(() => {
+    if (
+      isEnded ||
+      waitingToStart ||
+      phase !== "guess" ||
+      allAnsweredReadyForReveal
+    ) {
+      return;
+    }
+
+    const currentNowMs = getServerNowMs();
+    const currentRemainingMs = phaseEndsAt - currentNowMs;
+    if (currentRemainingMs <= 0) return;
+
+    const timerIds: number[] = [];
+
+    if (currentRemainingMs > 3000) {
+      timerIds.push(
+        window.setTimeout(() => {
+          forceUrgencyTick((value) => value + 1);
+        }, currentRemainingMs - 3000),
+      );
+    }
+
+    timerIds.push(
+      window.setTimeout(() => {
+        forceUrgencyTick((value) => value + 1);
+      }, currentRemainingMs),
+    );
+
+    return () => {
+      timerIds.forEach((timerId) => window.clearTimeout(timerId));
+    };
+  }, [
+    allAnsweredReadyForReveal,
+    getServerNowMs,
+    isEnded,
+    phase,
+    phaseEndsAt,
+    trackSessionKey,
+    waitingToStart,
+  ]);
+
+  return isUrgent;
+};
+
 const useGameRoomUiClock = ({
   getServerNowMs,
   startedAt,
-  phase,
-  phaseEndsAt,
   playbackVoteEndsAt,
-  isEnded,
-  allAnsweredReadyForReveal,
 }: {
   getServerNowMs: () => number;
   startedAt: number;
-  phase: GameState["phase"];
-  phaseEndsAt: number;
   playbackVoteEndsAt: number | null;
-  isEnded: boolean;
-  allAnsweredReadyForReveal: boolean;
 }) => {
   const [nowMs, setNowMs] = useState(getServerNowMs);
   const renderNowMs = Math.max(nowMs, getServerNowMs());
@@ -229,6 +292,7 @@ const useGameRoomUiClock = ({
   useEffect(() => {
     const currentNowMs = renderNowMs;
     let timerId: number | null = null;
+
     const scheduleTick = (delayMs: number) => {
       timerId = window.setTimeout(() => {
         startTransition(() => {
@@ -237,28 +301,27 @@ const useGameRoomUiClock = ({
       }, Math.max(40, delayMs));
     };
 
+    // 只保留開局前倒數
     if (currentNowMs < startedAt) {
-      scheduleTick(250);
-    } else if (
+      const remainingMs = startedAt - currentNowMs;
+
+      // 只在秒數邊界更新，不要最後 4.2 秒切成 125ms
+      const nextDelay =
+        remainingMs > 1000
+          ? ((remainingMs % 1000) || 1000)
+          : remainingMs;
+
+      scheduleTick(nextDelay);
+    }
+    // 只保留投票 dialog 倒數
+    else if (
       playbackVoteEndsAt !== null &&
       playbackVoteEndsAt > currentNowMs
     ) {
-      const nextBoundaryMs = playbackVoteEndsAt - currentNowMs > 1000
-        ? ((currentNowMs % 1000) || 1000)
-        : 160;
-      scheduleTick(nextBoundaryMs);
-    } else if (
-      !isEnded &&
-      phase === "guess" &&
-      !allAnsweredReadyForReveal
-    ) {
-      const remainingMs = phaseEndsAt - currentNowMs;
-      if (remainingMs > 0 && remainingMs <= 4200) {
-        scheduleTick(125);
-      } else if (remainingMs > 4200) {
-        const nextBoundaryMs = (currentNowMs % 1000) || 1000;
-        scheduleTick(nextBoundaryMs);
-      }
+      const remainingMs = playbackVoteEndsAt - currentNowMs;
+      const nextDelay =
+        remainingMs <= 1200 ? 160 : ((currentNowMs % 1000) || 1000);
+      scheduleTick(nextDelay);
     }
 
     return () => {
@@ -266,17 +329,7 @@ const useGameRoomUiClock = ({
         window.clearTimeout(timerId);
       }
     };
-  }, [
-    allAnsweredReadyForReveal,
-    getServerNowMs,
-    isEnded,
-    nowMs,
-    phase,
-    phaseEndsAt,
-    playbackVoteEndsAt,
-    renderNowMs,
-    startedAt,
-  ]);
+  }, [getServerNowMs, playbackVoteEndsAt, renderNowMs, startedAt]);
 
   return renderNowMs;
 };
@@ -294,17 +347,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   onTransferHost,
   participants = [],
   meClientId,
-  messages = [],
   serverOffsetMs = 0,
   onSettlementRecapChange,
   isRecoveringConnection = false,
   recoveryStatusText = null,
 }) => {
   const { setStatusText, authUser } = useRoomUi();
-  const { danmuEnabled, setDanmuEnabled, danmuItems } = useGameRoomDanmu({
-    roomId: room.id,
-    messages,
-  });
   const { gameVolume, setGameVolume, sfxEnabled, sfxVolume, sfxPreset } =
     useSfxSettings();
   const {
@@ -650,12 +698,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const uiNowMs = useGameRoomUiClock({
     getServerNowMs,
     startedAt: gameState.startedAt,
-    phase: gameState.phase,
-    phaseEndsAt,
-    playbackVoteEndsAt,
-    isEnded,
-    allAnsweredReadyForReveal: allAnsweredByServer,
+    playbackVoteEndsAt: playbackVoteDialogOpen ? playbackVoteEndsAt : null,
   });
+
   const waitingToStart = gameState.startedAt > uiNowMs;
   const remainingToStartMs = Math.max(0, gameState.startedAt - uiNowMs);
   const startCountdownSec = Math.max(
@@ -668,12 +713,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const countdownTone = isFinalCountdown
     ? "border-rose-400/70 bg-rose-500/20 text-rose-100 shadow-[0_0_35px_rgba(244,63,94,0.45)]"
     : "border-amber-400/60 bg-amber-400/15 text-amber-100 shadow-[0_0_28px_rgba(251,191,36,0.35)]";
-  const phaseRemainingMs = Math.max(0, phaseEndsAt - uiNowMs);
-  const phaseRemainingMsRef = useRef(phaseRemainingMs);
 
-  useEffect(() => {
-    phaseRemainingMsRef.current = phaseRemainingMs;
-  }, [phaseRemainingMs]);
   const playbackVoteRemainingMs =
     playbackVoteEndsAt !== null
       ? Math.max(0, playbackVoteEndsAt - uiNowMs)
@@ -750,9 +790,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     gameState.phase === "guess" &&
     requiredAnswerCount > 0 &&
     answeredCount >= requiredAnswerCount;
+
   const allAnsweredReadyForReveal =
     gameState.phase === "guess" &&
     (allAnsweredByServer || (requiredAnswerCount === 1 && allAnsweredByLocalSnapshot));
+
   const isRevealPendingServerSync = allAnsweredReadyForReveal && !isReveal;
   const isRevealPendingOptimisticSync =
     gameState.phase === "guess" &&
@@ -760,6 +802,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     !isReveal &&
     allAnsweredByLocalSnapshot &&
     !allAnsweredByServer;
+  const isGuessUrgency = useGameRoomGuessUrgencyFlag({
+    getServerNowMs,
+    phase: gameState.phase,
+    phaseEndsAt,
+    isEnded,
+    waitingToStart,
+    allAnsweredReadyForReveal,
+    trackSessionKey,
+  });
   const displayAnsweredCount =
     gameState.phase === "guess"
       ? Math.max(liveAnsweredCount, answeredCount)
@@ -936,21 +987,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     gameState.phase === "guess"
       ? effectiveGuessDurationMs
       : gameState.revealDurationMs;
-  const isGuessUrgency =
-    gameState.phase === "guess" &&
-    !allAnsweredReadyForReveal &&
-    !isInterTrackWait &&
-    !isEnded &&
-    phaseRemainingMs > 0 &&
-    phaseRemainingMs <= 3000;
-  const phaseCountdownSec =
-    !isInterTrackWait &&
-      !isEnded &&
-      !allAnsweredReadyForReveal &&
-      phaseRemainingMs > 0 &&
-      phaseRemainingMs <= 3999
-      ? Math.min(3, Math.ceil(phaseRemainingMs / 1000))
-      : null;
+
   const preStartCountdownSfxSec = startCountdownSec;
 
   const handleRequestPlaybackVote = useCallback(async () => {
@@ -959,12 +996,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       return;
     }
     if (!canRequestPlaybackExtensionVote || !onRequestPlaybackExtensionVote) return;
+
     setPlaybackVoteRequestPending(true);
     try {
+      const latestRemainingMs = Math.max(0, phaseEndsAt - getServerNowMs());
       await onRequestPlaybackExtensionVote(
-        phaseRemainingMsRef.current > 0
-          ? phaseRemainingMsRef.current
-          : undefined,
+        latestRemainingMs > 0 ? latestRemainingMs : undefined,
       );
     } finally {
       setPlaybackVoteRequestPending(false);
@@ -972,7 +1009,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [
     canOpenPlaybackVotePrompt,
     canRequestPlaybackExtensionVote,
+    getServerNowMs,
     onRequestPlaybackExtensionVote,
+    phaseEndsAt,
   ]);
 
   const handleCastPlaybackVote = useCallback(
@@ -1050,7 +1089,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     isInterTrackWait,
     waitingToStart,
     preStartCountdownSfxSec,
-    phaseCountdownSec,
+    phaseEndsAt,
     meClientId,
     selectedChoice,
     myHasAnswered,
@@ -1071,25 +1110,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => buildScoreboardRows(sortedParticipants, meClientId, 12, room.maxPlayers),
     [meClientId, room.maxPlayers, sortedParticipants],
   );
-  const { settlementSnapshot } = useSettlementSnapshot({
-    room,
-    participants,
-    messages,
-    playlist,
-    trackOrder: gameState.trackOrder,
-    playedQuestionCount,
-    startedAt: gameState.startedAt,
-    isEnded,
-    questionRecaps,
-    serverOffsetMs,
-  });
 
-  const danmuContextValue = useMemo(
-    () => ({ danmuEnabled, onDanmuEnabledChange: setDanmuEnabled }),
-    [danmuEnabled, setDanmuEnabled],
-  );
-
-  const danmuItemsValue = useMemo(() => danmuItems, [danmuItems]);
   const handleShowVideoChange = useCallback((show: boolean) => {
     setShowVideoOverride(show);
     setStoredShowVideoPreference(show);
@@ -1481,450 +1502,414 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     hostManagementOpen,
   ]);
 
-  if (isEnded) {
-    return (
-      <DanmuContext.Provider value={danmuContextValue}>
-        <DanmuItemsContext.Provider value={danmuItemsValue}>
-          <div className="game-room-shell">
-            <Suspense fallback={<GameRoomSettlementLoader />}>
-              <LiveSettlementShowcase
-                room={settlementSnapshot?.room ?? room}
-                participants={settlementSnapshot?.participants ?? participants}
-                participantAvatarFallbacks={participants}
-                messages={settlementSnapshot?.messages ?? messages}
-                playlistItems={settlementSnapshot?.playlistItems ?? playlist}
-                trackOrder={settlementSnapshot?.trackOrder ?? gameState.trackOrder}
-                playedQuestionCount={
-                  settlementSnapshot?.playedQuestionCount ?? playedQuestionCount
-                }
-                startedAt={settlementSnapshot?.startedAt ?? gameState.startedAt}
-                endedAt={settlementSnapshot?.endedAt}
-                meClientId={meClientId}
-                questionRecaps={settlementSnapshot?.questionRecaps ?? questionRecaps}
-                selfAvatarUrl={authUser?.avatar_url ?? null}
-                onBackToLobby={onBackToLobby}
-                onRequestExit={openExitConfirm}
-              />
-            </Suspense>
-
-            {!isMobileGameViewport ? <FloatingChatWindow /> : null}
-            {exitGameDialog}
-          </div>
-        </DanmuItemsContext.Provider>
-      </DanmuContext.Provider>
-    );
-  }
-
   return (
-    <DanmuContext.Provider value={danmuContextValue}>
-      <DanmuItemsContext.Provider value={danmuItemsValue}>
-        <div className="game-room-shell">
-          <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 lg:grid-cols-[minmax(274px,318px)_minmax(0,1fr)] lg:pb-8 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] lg:h-[calc(100vh-124px)] lg:items-stretch">
-            {!isMobileGameViewport && (
-              <div className="hidden lg:block lg:h-full">
-                <GameRoomLeftSidebar
-                  scoreboardRows={scoreboardRows}
-                  answeredClientIdSet={answeredClientIdSet}
-                  answeredRankByClientId={answeredRankByClientId}
-                  scorePartsByClientId={scorePartsByClientId}
-                  scoreBreakdownByClientId={scoreBreakdownByClientId}
-                  isReveal={isReveal}
-                  meClientId={meClientId}
-                  topTwoSwapState={topTwoSwapState}
-                  avatarEffectLevel={avatarEffectLevel}
-                  scoreboardBorderEnabled={scoreboardBorderEnabled}
-                  scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
-                  scoreboardBorderAnimation={scoreboardBorderAnimation}
-                  scoreboardBorderLineStyle={scoreboardBorderLineStyle}
-                  scoreboardBorderTheme={scoreboardBorderTheme}
-                  scoreboardBorderParticleCount={scoreboardBorderParticleCount}
-                />
-              </div>
-            )}
-            <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-visible">
-              <GameRoomPlaybackPanel
-                rootRef={isMobileGameViewport ? mobilePlaybackPanelRef : undefined}
-                isMobileView={isMobileGameViewport}
-                isCompactMobile={isMobileGameViewport}
-                isRevealPhase={isReveal}
-                revealAnswerTitle={resolvedAnswerTitle}
-                roomName={resolvedRoomName}
-                boundedCursor={boundedCursor}
-                trackOrderLength={trackOrderLength}
-                onOpenExitConfirm={openExitConfirm}
-                headerActions={playbackHeaderActions}
-                iframeSrc={iframeSrc}
-                shouldHideVideoFrame={shouldHideVideoFrame}
-                shouldShowVideo={showVideo}
-                iframeRef={iframeRef}
-                onIframeLoad={handlePlaybackIframeLoad}
-                silentAudioRef={silentAudioRef}
-                silentAudioSrc={SILENT_AUDIO_SRC}
-                showGuessMask={showGuessMask}
-                showPreStartMask={showPreStartMask}
-                showLoadingMask={showLoadingMask}
-                showAudioOnlyMask={showAudioOnlyMask}
-                reduceGuessVideoDisplayCost={reduceGuessVideoDisplayCost}
-                showVideo={showVideo}
-                onShowVideoChange={handleShowVideoChange}
-                gameVolume={gameVolume}
-                onGameVolumeChange={setGameVolume}
-                videoId={videoId}
-              />
-              <GameRoomAnswerPanel
-                isMobileView={isMobileGameViewport}
-                answerPanelRef={answerPanelRef}
-                isInitialCountdown={isInitialCountdown}
-                countdownTone={countdownTone}
+    <GameRoomDanmuProviderBridge roomId={room.id}>
+      <div className="game-room-shell">
+        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 lg:grid-cols-[minmax(274px,318px)_minmax(0,1fr)] lg:pb-8 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] lg:h-[calc(100vh-124px)] lg:items-stretch">
+          {!isMobileGameViewport && (
+            <div className="hidden lg:block lg:h-full">
+              <GameRoomLeftSidebar
+                scoreboardRows={scoreboardRows}
+                answeredClientIdSet={answeredClientIdSet}
+                answeredRankByClientId={answeredRankByClientId}
+                scorePartsByClientId={scorePartsByClientId}
+                scoreBreakdownByClientId={scoreBreakdownByClientId}
                 isReveal={isReveal}
-                revealTone={revealTone}
-                isInterTrackWait={isInterTrackWait}
-                phaseLabel={phaseLabel}
-                activePhaseDurationMs={activePhaseDurationMs}
-                phaseEndsAt={phaseEndsAt}
-                gamePhase={gameState.phase}
-                startedAt={gameState.startedAt}
-                choices={gameState.choices}
-                selectedChoice={selectedChoice}
-                correctChoiceIndex={correctChoiceIndex}
-                isEnded={isEnded}
-                playlist={playlist}
-                trackSessionKey={trackSessionKey}
-                myComboTier={myComboTier}
-                myComboNow={myComboNow}
-                isComboBreakThisQuestion={isComboBreakThisQuestion}
-                comboBreakTier={comboBreakTier}
-                waitingToStart={waitingToStart}
-                shouldShowGestureOverlay={shouldShowGestureOverlay}
-                canAnswerNow={canAnswerNow}
-                onSubmitChoice={submitChoiceWithFeedback}
-                keyBindings={keyBindings}
-                myHasChangedAnswer={myHasChangedAnswer}
-                myFeedback={myFeedback}
-                gameStatus={gameState.status}
-                revealEndsAt={gameState.revealEndsAt}
-                resolvedAnswerTitle={resolvedAnswerTitle}
-                onOpenExitConfirm={openExitConfirm}
-                isPendingFeedbackCard={isPendingFeedbackCard}
-                allAnsweredReadyForReveal={allAnsweredReadyForReveal}
-                isRevealPendingServerSync={isRevealPendingServerSync}
-                isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
-                revealChoicePickMap={revealChoicePickMap}
-                serverOffsetMs={serverOffsetMs}
-                mobileHeaderAction={mobilePlaybackVoteAction}
-                liveParticipantCount={liveParticipantCount}
-                liveAnsweredCount={displayAnsweredCount}
-                liveCorrectCount={
-                  typeof gameState.questionStats?.correctCount === "number"
-                    ? Math.max(0, Math.floor(gameState.questionStats.correctCount))
-                    : null
-                }
-                liveWrongCount={
-                  typeof gameState.questionStats?.wrongCount === "number"
-                    ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
-                    : null
-                }
-                liveUnansweredCount={displayUnansweredCount}
-                isRecoveringConnection={isRecoveringConnection}
-                recoveryStatusText={recoveryStatusText}
+                meClientId={meClientId}
+                topTwoSwapState={topTwoSwapState}
+                avatarEffectLevel={avatarEffectLevel}
+                scoreboardBorderEnabled={scoreboardBorderEnabled}
+                scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
+                scoreboardBorderAnimation={scoreboardBorderAnimation}
+                scoreboardBorderLineStyle={scoreboardBorderLineStyle}
+                scoreboardBorderTheme={scoreboardBorderTheme}
+                scoreboardBorderParticleCount={scoreboardBorderParticleCount}
               />
-              {isMobileGameViewport && (
+            </div>
+          )}
+          <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-visible">
+            <GameRoomPlaybackPanel
+              rootRef={isMobileGameViewport ? mobilePlaybackPanelRef : undefined}
+              isMobileView={isMobileGameViewport}
+              isCompactMobile={isMobileGameViewport}
+              isRevealPhase={isReveal}
+              revealAnswerTitle={resolvedAnswerTitle}
+              roomName={resolvedRoomName}
+              boundedCursor={boundedCursor}
+              trackOrderLength={trackOrderLength}
+              onOpenExitConfirm={openExitConfirm}
+              headerActions={playbackHeaderActions}
+              iframeSrc={iframeSrc}
+              shouldHideVideoFrame={shouldHideVideoFrame}
+              shouldShowVideo={showVideo}
+              iframeRef={iframeRef}
+              onIframeLoad={handlePlaybackIframeLoad}
+              silentAudioRef={silentAudioRef}
+              silentAudioSrc={SILENT_AUDIO_SRC}
+              showGuessMask={showGuessMask}
+              showPreStartMask={showPreStartMask}
+              showLoadingMask={showLoadingMask}
+              showAudioOnlyMask={showAudioOnlyMask}
+              reduceGuessVideoDisplayCost={reduceGuessVideoDisplayCost}
+              showVideo={showVideo}
+              onShowVideoChange={handleShowVideoChange}
+              gameVolume={gameVolume}
+              onGameVolumeChange={setGameVolume}
+              videoId={videoId}
+            />
+            <GameRoomAnswerPanel
+              isMobileView={isMobileGameViewport}
+              answerPanelRef={answerPanelRef}
+              isInitialCountdown={isInitialCountdown}
+              countdownTone={countdownTone}
+              isReveal={isReveal}
+              revealTone={revealTone}
+              isInterTrackWait={isInterTrackWait}
+              phaseLabel={phaseLabel}
+              activePhaseDurationMs={activePhaseDurationMs}
+              phaseEndsAt={phaseEndsAt}
+              gamePhase={gameState.phase}
+              startedAt={gameState.startedAt}
+              choices={gameState.choices}
+              selectedChoice={selectedChoice}
+              correctChoiceIndex={correctChoiceIndex}
+              isEnded={isEnded}
+              playlist={playlist}
+              trackSessionKey={trackSessionKey}
+              myComboTier={myComboTier}
+              myComboNow={myComboNow}
+              isComboBreakThisQuestion={isComboBreakThisQuestion}
+              comboBreakTier={comboBreakTier}
+              waitingToStart={waitingToStart}
+              shouldShowGestureOverlay={shouldShowGestureOverlay}
+              canAnswerNow={canAnswerNow}
+              onSubmitChoice={submitChoiceWithFeedback}
+              keyBindings={keyBindings}
+              myHasChangedAnswer={myHasChangedAnswer}
+              myFeedback={myFeedback}
+              gameStatus={gameState.status}
+              revealEndsAt={gameState.revealEndsAt}
+              resolvedAnswerTitle={resolvedAnswerTitle}
+              onOpenExitConfirm={openExitConfirm}
+              isPendingFeedbackCard={isPendingFeedbackCard}
+              allAnsweredReadyForReveal={allAnsweredReadyForReveal}
+              isRevealPendingServerSync={isRevealPendingServerSync}
+              isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
+              revealChoicePickMap={revealChoicePickMap}
+              serverOffsetMs={serverOffsetMs}
+              mobileHeaderAction={mobilePlaybackVoteAction}
+              liveParticipantCount={liveParticipantCount}
+              liveAnsweredCount={displayAnsweredCount}
+              liveCorrectCount={
+                typeof gameState.questionStats?.correctCount === "number"
+                  ? Math.max(0, Math.floor(gameState.questionStats.correctCount))
+                  : null
+              }
+              liveWrongCount={
+                typeof gameState.questionStats?.wrongCount === "number"
+                  ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
+                  : null
+              }
+              liveUnansweredCount={displayUnansweredCount}
+              isRecoveringConnection={isRecoveringConnection}
+              recoveryStatusText={recoveryStatusText}
+            />
+            {isMobileGameViewport && (
+              <div
+                className={`game-room-mobile-action-dock lg:hidden ${mobileAutoOverlayTransition !== "idle"
+                  ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
+                  : ""
+                  }`}
+              >
+                <button
+                  type="button"
+                  className="game-room-mobile-action-btn game-room-mobile-action-btn--icon col-span-2"
+                  onClick={handleToggleMobileScoreboard}
+                >
+                  <span className="game-room-mobile-action-icon" aria-hidden>
+                    <LeaderboardRoundedIcon fontSize="inherit" />
+                  </span>
+                  <span className="game-room-mobile-action-label">排行榜</span>
+                  <span className="game-room-mobile-action-meta">
+                    已答 {answeredCount}/{participants.length || 0}
+                  </span>
+                </button>
                 <div
-                  className={`game-room-mobile-action-dock lg:hidden ${mobileAutoOverlayTransition !== "idle"
-                    ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
+                  className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
+                    ? "game-room-mobile-action-subdock--compact"
                     : ""
                     }`}
                 >
+                  {isHostInGame && (
+                    <button
+                      type="button"
+                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--wide game-room-mobile-toggle-chip--host ${hostManagementOpen ? "game-room-mobile-toggle-chip--active" : ""
+                        }`}
+                      onClick={handleOpenHostManagement}
+                    >
+                      <span className="game-room-mobile-action-icon" aria-hidden>
+                        <ManageAccountsRoundedIcon fontSize="inherit" />
+                      </span>
+                      <span>房主管理</span>
+                      <span className="game-room-mobile-action-meta">
+                        {`${hostManageParticipants.length} 人`}
+                      </span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="game-room-mobile-action-btn game-room-mobile-action-btn--icon col-span-2"
-                    onClick={handleToggleMobileScoreboard}
-                  >
-                    <span className="game-room-mobile-action-icon" aria-hidden>
-                      <LeaderboardRoundedIcon fontSize="inherit" />
-                    </span>
-                    <span className="game-room-mobile-action-label">排行榜</span>
-                    <span className="game-room-mobile-action-meta">
-                      已答 {answeredCount}/{participants.length || 0}
-                    </span>
-                  </button>
-                  <div
-                    className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
-                      ? "game-room-mobile-action-subdock--compact"
+                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor ${isHostInGame ? "game-room-mobile-toggle-chip--half" : ""} game-room-mobile-toggle-chip--overlay ${mobileRevealAutoOverlayEnabled
+                      ? "game-room-mobile-toggle-chip--active"
                       : ""
                       }`}
-                  >
-                    {isHostInGame && (
-                      <button
-                        type="button"
-                        className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--wide game-room-mobile-toggle-chip--host ${hostManagementOpen ? "game-room-mobile-toggle-chip--active" : ""
-                          }`}
-                        onClick={handleOpenHostManagement}
-                      >
-                        <span className="game-room-mobile-action-icon" aria-hidden>
-                          <ManageAccountsRoundedIcon fontSize="inherit" />
-                        </span>
-                        <span>房主管理</span>
-                        <span className="game-room-mobile-action-meta">
-                          {`${hostManageParticipants.length} 人`}
-                        </span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor ${isHostInGame ? "game-room-mobile-toggle-chip--half" : ""} game-room-mobile-toggle-chip--overlay ${mobileRevealAutoOverlayEnabled
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
-                        }`}
-                      onClick={handleToggleMobileRevealAutoOverlay}
-                      aria-pressed={mobileRevealAutoOverlayEnabled}
-                    >
-                      <span className="game-room-mobile-action-icon" aria-hidden>
-                        <AutoAwesomeRoundedIcon fontSize="inherit" />
-                      </span>
-                      <span>{"自動彈出分數榜"}</span>
-                      <span className="game-room-mobile-action-meta">
-                        {mobileRevealAutoOverlayEnabled ? "ON" : "OFF"}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor ${isHostInGame ? "game-room-mobile-toggle-chip--half" : ""} game-room-mobile-toggle-chip--anchor ${mobileGuessAnchorEnabled
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
-                        }`}
-                      onClick={handleToggleMobileGuessAnchor}
-                      aria-pressed={mobileGuessAnchorEnabled}
-                    >
-                      <span className="game-room-mobile-action-icon" aria-hidden>
-                        <MyLocationRoundedIcon fontSize="inherit" />
-                      </span>
-                      <span>{"猜歌時自動對齊"}</span>
-                      <span className="game-room-mobile-action-meta">
-                        {mobileGuessAnchorEnabled ? "ON" : "OFF"}
-                      </span>
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className="game-room-mobile-toggle-chip game-room-mobile-toggle-chip--leave col-span-2"
-                    onClick={openExitConfirm}
+                    onClick={handleToggleMobileRevealAutoOverlay}
+                    aria-pressed={mobileRevealAutoOverlayEnabled}
                   >
                     <span className="game-room-mobile-action-icon" aria-hidden>
-                      <LogoutRoundedIcon fontSize="inherit" />
+                      <AutoAwesomeRoundedIcon fontSize="inherit" />
                     </span>
-                    <span>離開房間</span>
+                    <span>{"自動彈出分數榜"}</span>
+                    <span className="game-room-mobile-action-meta">
+                      {mobileRevealAutoOverlayEnabled ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor ${isHostInGame ? "game-room-mobile-toggle-chip--half" : ""} game-room-mobile-toggle-chip--anchor ${mobileGuessAnchorEnabled
+                      ? "game-room-mobile-toggle-chip--active"
+                      : ""
+                      }`}
+                    onClick={handleToggleMobileGuessAnchor}
+                    aria-pressed={mobileGuessAnchorEnabled}
+                  >
+                    <span className="game-room-mobile-action-icon" aria-hidden>
+                      <MyLocationRoundedIcon fontSize="inherit" />
+                    </span>
+                    <span>{"猜歌時自動對齊"}</span>
+                    <span className="game-room-mobile-action-meta">
+                      {mobileGuessAnchorEnabled ? "ON" : "OFF"}
+                    </span>
                   </button>
                 </div>
-              )}
-            </section>
-            {shouldMountMobileScoreboardDrawer ? (
-              <>
-                {mobileBottomPanel !== null && isMobileDrawerGestureActive && (
-                  <div
-                    className="game-room-mobile-overlay-blocker"
-                    aria-hidden="true"
-                  />
-                )}
-                <Drawer
-                  className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${mobileAutoOverlayTransition !== "idle"
-                    ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
-                    : ""
-                    }`}
-                  anchor="bottom"
-                  open={mobileScoreboardOpen}
-                  onClose={handleCloseMobileScoreboard}
-                  ModalProps={GAME_ROOM_SCOREBOARD_DRAWER_MODAL_PROPS}
-                  PaperProps={mobileScoreboardDrawerPaperProps}
+                <button
+                  type="button"
+                  className="game-room-mobile-toggle-chip game-room-mobile-toggle-chip--leave col-span-2"
+                  onClick={openExitConfirm}
                 >
-                  <div
-                    className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard"
-                    role="presentation"
-                    aria-label="Drag down to collapse scoreboard"
-                  >
-                    <div
-                      className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${mobileScoreboardDismissState}`}
-                      aria-hidden="true"
-                      {...mobileScoreboardDragDismiss.dragHandleProps}
-                    >
-                      <span className="game-room-mobile-drawer-handle-bar" />
-                    </div>
-                    <div className="game-room-mobile-scoreboard-headline">
-                      <div className="game-room-mobile-scoreboard-title-group">
-                        <span className="game-room-mobile-scoreboard-title">排行榜</span>
-                      </div>
-                      <div className="game-room-mobile-scoreboard-actions">
-                        <span className="game-room-mobile-scoreboard-answered-pill">
-                          已答 {answeredCount}/{participants.length || 0}
-                        </span>
-                        <button
-                          type="button"
-                          className="game-room-mobile-drawer-close game-room-mobile-drawer-close--scoreboard-inline game-room-mobile-drawer-close--icon"
-                          onClick={handleCloseMobileScoreboard}
-                          aria-label="關閉排行榜"
-                        >
-                          <CloseRoundedIcon fontSize="inherit" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative min-h-0 flex-1 overflow-hidden p-2">
-                    <GameRoomLeftSidebar
-                      scoreboardRows={scoreboardRows}
-                      answeredClientIdSet={answeredClientIdSet}
-                      answeredRankByClientId={answeredRankByClientId}
-                      scorePartsByClientId={scorePartsByClientId}
-                      scoreBreakdownByClientId={scoreBreakdownByClientId}
-                      isReveal={isReveal}
-                      meClientId={meClientId}
-                      topTwoSwapState={topTwoSwapState}
-                      className="game-room-mobile-scoreboard-shell !h-full"
-                      mobileOverlayMode
-                      mobileMinimalHeader
-                      swapAnimationEnabled={
-                        mobileScoreboardOpen &&
-                        mobileScoreboardSwapArmed &&
-                        !isMobileDrawerGestureActive
-                      }
-                      swapReplayToken={mobileScoreboardSwapReplayToken}
-                      avatarEffectLevel={avatarEffectLevel}
-                      scoreboardBorderEnabled={scoreboardBorderEnabled}
-                      scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
-                      scoreboardBorderAnimation={scoreboardBorderAnimation}
-                      scoreboardBorderLineStyle={scoreboardBorderLineStyle}
-                      scoreboardBorderTheme={scoreboardBorderTheme}
-                      scoreboardBorderParticleCount={scoreboardBorderParticleCount}
-                    />
-                  </div>
-                </Drawer>
-              </>
-            ) : null}
-            {playbackVoteDialogOpen && canOpenPlaybackVotePrompt ? (
-              <Dialog
-                onClose={handleClosePlaybackVoteDialog}
-                maxWidth="xs"
-                fullWidth
-                open
-                PaperProps={PLAYBACK_VOTE_DIALOG_PAPER_PROPS}
-              >
-                <DialogTitle>延長播放投票</DialogTitle>
-                <DialogContent dividers>
-                  <Stack spacing={1.2}>
-                    <Typography variant="body2" className="text-slate-200">
-                      {playbackVoteRequesterName}{" "}
-                      {`提議將本題多播放 ${playbackVoteProposalSeconds} 秒，請在時限內表態。`}
-                    </Typography>
-                    <div className="game-room-playback-vote-dialog__stats">
-                      <span>{`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
-                      <span>{`不同意 ${playbackVoteRejectCount}`}</span>
-                      <span>{`剩 ${playbackVoteRemainingSeconds} 秒`}</span>
-                    </div>
-                  </Stack>
-                </DialogContent>
-                <DialogActions>
-                  <Button
-                    onClick={handleVoteReject}
-                    variant="outlined"
-                    color="inherit"
-                    disabled={playbackVoteSubmitPending !== null}
-                  >
-                    {playbackVoteSubmitPending === "reject"
-                      ? "送出中..."
-                      : "維持原播放長度"}
-                  </Button>
-                  <Button
-                    onClick={handleVoteApprove}
-                    variant="contained"
-                    color="warning"
-                    disabled={playbackVoteSubmitPending !== null}
-                  >
-                    {playbackVoteSubmitPending === "approve"
-                      ? "送出中..."
-                      : `延長 ${playbackVoteProposalSeconds} 秒`}
-                  </Button>
-                </DialogActions>
-              </Dialog>
-            ) : null}
-            {isHostInGame && !isMobileGameViewport && hostManagementOpen ? (
-              <Dialog
-                open
-                onClose={handleCloseHostManagement}
-                maxWidth="sm"
-                fullWidth
-                PaperProps={HOST_MANAGE_DIALOG_PAPER_PROPS}
-              >
-                <DialogTitle>房主管理</DialogTitle>
-                <DialogContent dividers>{hostManagementPanelContent}</DialogContent>
-                <DialogActions>
-                  <Button onClick={handleCloseHostManagement} variant="outlined" color="inherit">
-                    關閉
-                  </Button>
-                </DialogActions>
-              </Dialog>
-            ) : null}
-            {isHostInGame && isMobileGameViewport && hostManagementOpen && (
+                  <span className="game-room-mobile-action-icon" aria-hidden>
+                    <LogoutRoundedIcon fontSize="inherit" />
+                  </span>
+                  <span>離開房間</span>
+                </button>
+              </div>
+            )}
+          </section>
+          {shouldMountMobileScoreboardDrawer ? (
+            <>
+              {mobileBottomPanel !== null && isMobileDrawerGestureActive && (
+                <div
+                  className="game-room-mobile-overlay-blocker"
+                  aria-hidden="true"
+                />
+              )}
               <Drawer
-                className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage lg:!hidden"
+                className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${mobileAutoOverlayTransition !== "idle"
+                  ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
+                  : ""
+                  }`}
                 anchor="bottom"
-                open={hostManagementOpen}
-                onClose={handleCloseHostManagement}
-                ModalProps={GAME_ROOM_HOST_DRAWER_MODAL_PROPS}
-                PaperProps={mobileHostManageDrawerPaperProps}
+                open={mobileScoreboardOpen}
+                onClose={handleCloseMobileScoreboard}
+                ModalProps={GAME_ROOM_SCOREBOARD_DRAWER_MODAL_PROPS}
+                PaperProps={mobileScoreboardDrawerPaperProps}
               >
                 <div
-                  className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard game-room-mobile-host-manage-head"
+                  className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard"
                   role="presentation"
-                  aria-label="Drag down to collapse host management"
-                  {...mobileHostManageDragDismiss.dragHandleProps}
+                  aria-label="Drag down to collapse scoreboard"
                 >
                   <div
-                    className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${mobileHostManageDismissState}`}
+                    className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${mobileScoreboardDismissState}`}
                     aria-hidden="true"
+                    {...mobileScoreboardDragDismiss.dragHandleProps}
                   >
                     <span className="game-room-mobile-drawer-handle-bar" />
                   </div>
-                  <div className="game-room-mobile-host-manage-headline">
-                    <div className="game-room-mobile-host-manage-title-group">
-                      <Typography variant="subtitle2">房主管理</Typography>
-                      <Typography variant="caption" className="text-slate-400">
-                        {`可管理 ${hostManageParticipants.length} 位玩家`}
-                      </Typography>
+                  <div className="game-room-mobile-scoreboard-headline">
+                    <div className="game-room-mobile-scoreboard-title-group">
+                      <span className="game-room-mobile-scoreboard-title">排行榜</span>
                     </div>
-                    <button
-                      type="button"
-                      className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-host-manage-close"
-                      onClick={handleCloseHostManagement}
-                      aria-label="關閉房主管理"
-                    >
-                      <CloseRoundedIcon fontSize="inherit" />
-                    </button>
+                    <div className="game-room-mobile-scoreboard-actions">
+                      <span className="game-room-mobile-scoreboard-answered-pill">
+                        已答 {answeredCount}/{participants.length || 0}
+                      </span>
+                      <button
+                        type="button"
+                        className="game-room-mobile-drawer-close game-room-mobile-drawer-close--scoreboard-inline game-room-mobile-drawer-close--icon"
+                        onClick={handleCloseMobileScoreboard}
+                        aria-label="關閉排行榜"
+                      >
+                        <CloseRoundedIcon fontSize="inherit" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="game-room-mobile-host-manage-body">
-                  {hostManagementPanelContent}
+                <div className="relative min-h-0 flex-1 overflow-hidden p-2">
+                  <GameRoomLeftSidebar
+                    scoreboardRows={scoreboardRows}
+                    answeredClientIdSet={answeredClientIdSet}
+                    answeredRankByClientId={answeredRankByClientId}
+                    scorePartsByClientId={scorePartsByClientId}
+                    scoreBreakdownByClientId={scoreBreakdownByClientId}
+                    isReveal={isReveal}
+                    meClientId={meClientId}
+                    topTwoSwapState={topTwoSwapState}
+                    className="game-room-mobile-scoreboard-shell !h-full"
+                    mobileOverlayMode
+                    mobileMinimalHeader
+                    swapAnimationEnabled={
+                      mobileScoreboardOpen &&
+                      mobileScoreboardSwapArmed &&
+                      !isMobileDrawerGestureActive
+                    }
+                    swapReplayToken={mobileScoreboardSwapReplayToken}
+                    avatarEffectLevel={avatarEffectLevel}
+                    scoreboardBorderEnabled={scoreboardBorderEnabled}
+                    scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
+                    scoreboardBorderAnimation={scoreboardBorderAnimation}
+                    scoreboardBorderLineStyle={scoreboardBorderLineStyle}
+                    scoreboardBorderTheme={scoreboardBorderTheme}
+                    scoreboardBorderParticleCount={scoreboardBorderParticleCount}
+                  />
                 </div>
               </Drawer>
-            )}
-            {isHostInGame && hostManagementConfirm ? (
-              <ConfirmDialog
-                open
-                title={hostManagementConfirmText?.title ?? ""}
-                description={hostManagementConfirmText?.description ?? ""}
-                confirmLabel={hostManagementConfirmText?.confirmLabel ?? "確認"}
-                cancelLabel="取消"
-                onConfirm={handleConfirmHostManagementAction}
-                onCancel={handleCancelHostManagementConfirm}
-              />
-            ) : null}
-            {shouldShowGestureOverlay ? audioGestureOverlay : null}
-            {isInitialCountdown ? startBroadcastOverlay : null}
-            {exitConfirmOpen ? exitGameDialog : null}
-            <FloatingChatWindow />
-          </div>
+            </>
+          ) : null}
+          {playbackVoteDialogOpen && canOpenPlaybackVotePrompt ? (
+            <Dialog
+              onClose={handleClosePlaybackVoteDialog}
+              maxWidth="xs"
+              fullWidth
+              open
+              PaperProps={PLAYBACK_VOTE_DIALOG_PAPER_PROPS}
+            >
+              <DialogTitle>延長播放投票</DialogTitle>
+              <DialogContent dividers>
+                <Stack spacing={1.2}>
+                  <Typography variant="body2" className="text-slate-200">
+                    {playbackVoteRequesterName}{" "}
+                    {`提議將本題多播放 ${playbackVoteProposalSeconds} 秒，請在時限內表態。`}
+                  </Typography>
+                  <div className="game-room-playback-vote-dialog__stats">
+                    <span>{`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
+                    <span>{`不同意 ${playbackVoteRejectCount}`}</span>
+                    <span>{`剩 ${playbackVoteRemainingSeconds} 秒`}</span>
+                  </div>
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button
+                  onClick={handleVoteReject}
+                  variant="outlined"
+                  color="inherit"
+                  disabled={playbackVoteSubmitPending !== null}
+                >
+                  {playbackVoteSubmitPending === "reject"
+                    ? "送出中..."
+                    : "維持原播放長度"}
+                </Button>
+                <Button
+                  onClick={handleVoteApprove}
+                  variant="contained"
+                  color="warning"
+                  disabled={playbackVoteSubmitPending !== null}
+                >
+                  {playbackVoteSubmitPending === "approve"
+                    ? "送出中..."
+                    : `延長 ${playbackVoteProposalSeconds} 秒`}
+                </Button>
+              </DialogActions>
+            </Dialog>
+          ) : null}
+          {isHostInGame && !isMobileGameViewport && hostManagementOpen ? (
+            <Dialog
+              open
+              onClose={handleCloseHostManagement}
+              maxWidth="sm"
+              fullWidth
+              PaperProps={HOST_MANAGE_DIALOG_PAPER_PROPS}
+            >
+              <DialogTitle>房主管理</DialogTitle>
+              <DialogContent dividers>{hostManagementPanelContent}</DialogContent>
+              <DialogActions>
+                <Button onClick={handleCloseHostManagement} variant="outlined" color="inherit">
+                  關閉
+                </Button>
+              </DialogActions>
+            </Dialog>
+          ) : null}
+          {isHostInGame && isMobileGameViewport && hostManagementOpen && (
+            <Drawer
+              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage lg:!hidden"
+              anchor="bottom"
+              open={hostManagementOpen}
+              onClose={handleCloseHostManagement}
+              ModalProps={GAME_ROOM_HOST_DRAWER_MODAL_PROPS}
+              PaperProps={mobileHostManageDrawerPaperProps}
+            >
+              <div
+                className="game-room-mobile-drawer-head game-room-mobile-drawer-head--scoreboard game-room-mobile-host-manage-head"
+                role="presentation"
+                aria-label="Drag down to collapse host management"
+                {...mobileHostManageDragDismiss.dragHandleProps}
+              >
+                <div
+                  className={`game-room-mobile-drawer-handle-wrap game-room-mobile-drawer-handle-wrap--draggable game-room-mobile-drawer-handle-wrap--${mobileHostManageDismissState}`}
+                  aria-hidden="true"
+                >
+                  <span className="game-room-mobile-drawer-handle-bar" />
+                </div>
+                <div className="game-room-mobile-host-manage-headline">
+                  <div className="game-room-mobile-host-manage-title-group">
+                    <Typography variant="subtitle2">房主管理</Typography>
+                    <Typography variant="caption" className="text-slate-400">
+                      {`可管理 ${hostManageParticipants.length} 位玩家`}
+                    </Typography>
+                  </div>
+                  <button
+                    type="button"
+                    className="game-room-mobile-drawer-close game-room-mobile-drawer-close--icon game-room-mobile-host-manage-close"
+                    onClick={handleCloseHostManagement}
+                    aria-label="關閉房主管理"
+                  >
+                    <CloseRoundedIcon fontSize="inherit" />
+                  </button>
+                </div>
+              </div>
+              <div className="game-room-mobile-host-manage-body">
+                {hostManagementPanelContent}
+              </div>
+            </Drawer>
+          )}
+          {isHostInGame && hostManagementConfirm ? (
+            <ConfirmDialog
+              open
+              title={hostManagementConfirmText?.title ?? ""}
+              description={hostManagementConfirmText?.description ?? ""}
+              confirmLabel={hostManagementConfirmText?.confirmLabel ?? "確認"}
+              cancelLabel="取消"
+              onConfirm={handleConfirmHostManagementAction}
+              onCancel={handleCancelHostManagementConfirm}
+            />
+          ) : null}
+          {shouldShowGestureOverlay ? audioGestureOverlay : null}
+          {isInitialCountdown ? startBroadcastOverlay : null}
+          {exitConfirmOpen ? exitGameDialog : null}
+          <FloatingChatWindow />
         </div>
-      </DanmuItemsContext.Provider>
-    </DanmuContext.Provider>
+      </div>
+    </GameRoomDanmuProviderBridge>
   );
 };
 
-export default GameRoomPage;
+export default React.memo(GameRoomPage);
