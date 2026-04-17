@@ -22,7 +22,7 @@ const RoomCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [activeCreateStep, setActiveCreateStep] = useState<1 | 2>(1);
   const { username, authUser, loginWithGoogle } = useAuth();
-  const { currentRoom } = useRoomSession();
+  const { currentRoom, statusText } = useRoomSession();
   const {
     playlistUrl,
     playlistItems,
@@ -121,10 +121,10 @@ const RoomCreatePage: React.FC = () => {
 
   const canCreateRoom = Boolean(
     username &&
-      roomNameInput.trim() &&
-      playlistItems.length > 0 &&
-      !maxPlayersInvalid &&
-      !playlistLoading,
+    roomNameInput.trim() &&
+    playlistItems.length > 0 &&
+    !maxPlayersInvalid &&
+    !playlistLoading,
   );
 
   const headerCreateDisabled =
@@ -159,6 +159,22 @@ const RoomCreatePage: React.FC = () => {
                 </button>
               </div>
             </header>
+
+            {(isCreatingRoom || statusText) && (
+              <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-sm font-medium text-white">
+                  {statusText ?? "正在建立房間..."}
+                </div>
+
+                {isCreatingRoom && playlistProgress.total > 0 && (
+                  <div className="mt-2 text-xs text-white/70">
+                    題庫同步進度：{playlistProgress.received}/
+                    {playlistProgress.total}
+                    {playlistProgress.ready ? "（完成）" : "（同步中）"}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="room-create-v3-layout">
               <div className="room-create-v3-main-panel">
@@ -249,7 +265,9 @@ const RoomCreatePage: React.FC = () => {
                   </div>
                   <div className="room-create-v3-aside-row">
                     <span>房間權限</span>
-                    <strong>{roomVisibilityInput === "private" ? "私人" : "公開"}</strong>
+                    <strong>
+                      {roomVisibilityInput === "private" ? "私人" : "公開"}
+                    </strong>
                   </div>
                 </div>
               </aside>
