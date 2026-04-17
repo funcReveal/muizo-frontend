@@ -75,7 +75,13 @@ export const connectRoomSocket = (
   handlers: RoomSocketHandlers,
 ) => {
   const socket = io(socketUrl, {
-    transports: ["websocket"],
+    transports: ["websocket", "polling"],
+    upgrade: true,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 2500,
+    timeout: 10000,
     auth,
   });
 
