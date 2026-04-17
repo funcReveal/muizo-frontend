@@ -67,6 +67,7 @@ const MAX_RANK_SWAP_OFFSET_ROWS = 6;
 const DESKTOP_FLIP_BASE_DURATION_MS = 860;
 const DESKTOP_FLIP_MAX_DURATION_MS = 1680;
 const DESKTOP_FLIP_ROW_HEIGHT_PX = 60;
+const DESKTOP_FLIP_BURST_BUFFER_MS = 90;
 const SCOREBOARD_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
 // Must exceed the CSS animation duration (2200ms) so cleanup fires after the
 // animation ends, not during it.
@@ -275,7 +276,11 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
 }: GameRoomScorePlayerRowProps) {
   const [floatingBursts, setFloatingBursts] = React.useState<FloatingScoreBurst[]>([]);
   const burstSequenceRef = React.useRef(0);
-  const activeBurstKeyRef = React.useRef<string | null>(null);
+  const consumedBurstKeyRef = React.useRef<string | null>(null);
+  const scheduledBurstRef = React.useRef<{
+    key: string;
+    delayMs: number;
+  } | null>(null);
   const removalTimerIdsRef = React.useRef<number[]>([]);
   /**
    * Timer that defers burst creation until after a rank-swap animation
@@ -313,7 +318,8 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
     }
     setFloatingBursts([]);
     setAnimatedDisplayScore(null);
-    activeBurstKeyRef.current = null;
+    consumedBurstKeyRef.current = null;
+    scheduledBurstRef.current = null;
     removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
     removalTimerIdsRef.current = [];
     scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
@@ -325,6 +331,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
       window.clearTimeout(swapPendingTimerRef.current);
       swapPendingTimerRef.current = null;
     }
+    scheduledBurstRef.current = null;
     removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
     removalTimerIdsRef.current = [];
     scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
@@ -334,7 +341,12 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   React.useEffect(() => {
     if (!enableFloatingScoreBursts || !isReveal || scoreParts.gain === 0) {
       if (!isReveal || scoreParts.gain === 0) {
-        activeBurstKeyRef.current = null;
+        consumedBurstKeyRef.current = null;
+        scheduledBurstRef.current = null;
+        if (swapPendingTimerRef.current !== null) {
+          window.clearTimeout(swapPendingTimerRef.current);
+          swapPendingTimerRef.current = null;
+        }
         // Reveal ended or no gain — snap back to the true score immediately.
         setAnimatedDisplayScore(null);
         scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
@@ -354,8 +366,14 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
       ].join(":")
       : "none";
     const burstKey = `${player.clientId}:${player.score}:${scoreParts.base}:${scoreParts.gain}:${player.combo}:${breakdownKey}`;
-    if (activeBurstKeyRef.current === burstKey) return;
-    activeBurstKeyRef.current = burstKey;
+    const effectiveDelayMs = Math.max(0, burstDelayMsRef.current);
+    if (consumedBurstKeyRef.current === burstKey) return;
+    if (
+      scheduledBurstRef.current?.key === burstKey &&
+      scheduledBurstRef.current.delayMs === effectiveDelayMs
+    ) {
+      return;
+    }
 
     const combo = Math.max(0, player.combo ?? 0);
 
@@ -371,8 +389,14 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
       window.clearTimeout(swapPendingTimerRef.current);
       swapPendingTimerRef.current = null;
     }
+    scheduledBurstRef.current = {
+      key: burstKey,
+      delayMs: effectiveDelayMs,
+    };
 
     const fireBursts = () => {
+      consumedBurstKeyRef.current = burstKey;
+      scheduledBurstRef.current = null;
       // ─── Per-player anchor: score text right edge ──────────────────────
       // Measured HERE (inside the deferred callback) so that when the row
       // is undergoing a rank-swap animation we capture the NEW position
@@ -446,14 +470,13 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
       });
     };
 
-    const delay = burstDelayMsRef.current;
-    if (delay > 0) {
+    if (effectiveDelayMs > 0) {
       // Row is mid-animation. Defer until the swap finishes so we measure the
       // score element's new viewport position, not its old one.
       swapPendingTimerRef.current = window.setTimeout(() => {
         swapPendingTimerRef.current = null;
         fireBursts();
-      }, delay);
+      }, effectiveDelayMs);
     } else {
       fireBursts();
     }
@@ -695,7 +718,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   const rowElementByClientIdRef = React.useRef(new Map<string, HTMLDivElement>());
   const previousDesktopTopByClientIdRef = React.useRef(new Map<string, number>());
   const desktopFlipAnimationsRef = React.useRef<Animation[]>([]);
+  const desktopFlipBurstClientIdByAnimationRef = React.useRef(
+    new Map<Animation, string>(),
+  );
   const flipPrevScoreByClientIdRef = React.useRef<Map<string, number>>(new Map());
+  const [desktopFlipBurstDelayByClientId, setDesktopFlipBurstDelayByClientId] =
+    React.useState<Record<string, number>>({});
 
   const debugScoreboard = React.useCallback(
     (label: string, payload: Record<string, unknown>) => {
@@ -708,6 +736,39 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     },
     [],
   );
+
+  const clearDesktopFlipBurstDelays = React.useCallback((clientIds?: string[]) => {
+    setDesktopFlipBurstDelayByClientId((prev) => {
+      if (clientIds === undefined) {
+        return Object.keys(prev).length === 0 ? prev : {};
+      }
+      let changed = false;
+      const next = { ...prev };
+      clientIds.forEach((clientId) => {
+        if (!(clientId in next)) return;
+        delete next[clientId];
+        changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const cancelDesktopFlipAnimations = React.useCallback(() => {
+    const animations = desktopFlipAnimationsRef.current;
+    const affectedClientIds = Array.from(
+      new Set(
+        animations
+          .map((animation) =>
+            desktopFlipBurstClientIdByAnimationRef.current.get(animation),
+          )
+          .filter((clientId): clientId is string => Boolean(clientId)),
+      ),
+    );
+    animations.forEach((animation) => animation.cancel());
+    desktopFlipAnimationsRef.current = [];
+    desktopFlipBurstClientIdByAnimationRef.current.clear();
+    clearDesktopFlipBurstDelays(affectedClientIds);
+  }, [clearDesktopFlipBurstDelays]);
 
   React.useLayoutEffect(() => {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") {
@@ -822,14 +883,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
 
   React.useLayoutEffect(() => {
     if (mobileOverlayMode) {
-      desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
-      desktopFlipAnimationsRef.current = [];
+      cancelDesktopFlipAnimations();
       previousDesktopTopByClientIdRef.current.clear();
       return;
     }
     if (typeof document !== "undefined" && document.visibilityState !== "visible") {
-      desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
-      desktopFlipAnimationsRef.current = [];
+      cancelDesktopFlipAnimations();
       previousDesktopTopByClientIdRef.current.clear();
       return;
     }
@@ -882,10 +941,9 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       return;
     }
 
-    desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
-    desktopFlipAnimationsRef.current = [];
+    cancelDesktopFlipAnimations();
 
-    movedRows.forEach(({ element, deltaY }) => {
+    movedRows.forEach(({ element, deltaY, clientId }) => {
       const distanceRows = Math.max(
         1,
         Math.min(
@@ -925,11 +983,25 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           fill: "both",
         },
       );
+      setDesktopFlipBurstDelayByClientId((prev) => ({
+        ...prev,
+        [clientId]: Math.round(durationMs) + DESKTOP_FLIP_BURST_BUFFER_MS,
+      }));
       animation.onfinish = () => {
         desktopFlipAnimationsRef.current = desktopFlipAnimationsRef.current.filter(
           (a) => a !== animation,
         );
+        desktopFlipBurstClientIdByAnimationRef.current.delete(animation);
+        clearDesktopFlipBurstDelays([clientId]);
       };
+      animation.oncancel = () => {
+        desktopFlipAnimationsRef.current = desktopFlipAnimationsRef.current.filter(
+          (a) => a !== animation,
+        );
+        desktopFlipBurstClientIdByAnimationRef.current.delete(animation);
+        clearDesktopFlipBurstDelays([clientId]);
+      };
+      desktopFlipBurstClientIdByAnimationRef.current.set(animation, clientId);
       desktopFlipAnimationsRef.current.push(animation);
     });
 
@@ -949,7 +1021,16 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         ),
       });
     }
-  }, [debugScoreboard, displayedPlayerOrder, mobileOverlayMode, scoreByClientId, swapAnimationEnabled, swapReplayToken]);
+  }, [
+    cancelDesktopFlipAnimations,
+    clearDesktopFlipBurstDelays,
+    debugScoreboard,
+    displayedPlayerOrder,
+    mobileOverlayMode,
+    scoreByClientId,
+    swapAnimationEnabled,
+    swapReplayToken,
+  ]);
 
   React.useEffect(
     () => () => {
@@ -957,10 +1038,9 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         window.clearTimeout(rankSwapTimerRef.current);
         rankSwapTimerRef.current = null;
       }
-      desktopFlipAnimationsRef.current.forEach((animation) => animation.cancel());
-      desktopFlipAnimationsRef.current = [];
+      cancelDesktopFlipAnimations();
     },
-    [],
+    [cancelDesktopFlipAnimations],
   );
 
   return (
@@ -1167,6 +1247,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   : {}),
               } as React.CSSProperties)
               : undefined;
+            const desktopFlipBurstDelayMs =
+              desktopFlipBurstDelayByClientId[p.clientId] ?? 0;
 
             const isComboLeader = p.clientId === comboLeaderClientId;
             const rowComboTier = isComboLeader ? resolveComboTier(p.combo ?? 0) : 0;
@@ -1250,11 +1332,12 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   scoreboardBorderParticleCount={scoreboardBorderParticleCount}
                   avatarEffectLevel={avatarEffectLevel}
                   enableFloatingScoreBursts={enableDesktopFloatingScoreBursts}
-                  burstDelayMs={
+                  burstDelayMs={Math.max(
                     hasRowSwapAnimation
                       ? rowSwapDelayMs + rowSwapDurationMs + 80
-                      : 0
-                  }
+                      : 0,
+                    desktopFlipBurstDelayMs,
+                  )}
                 />
               </div>
             );
