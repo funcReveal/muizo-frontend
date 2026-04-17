@@ -1000,6 +1000,11 @@ export const useRoomProviderSocketLifecycle = ({
     [clientId, setParticipants, socketRef, syncServerOffset],
   );
 
+  // ── Latency probe：雙次校時，不是長期輪詢 ────────────────────────────────────
+  // 進房後立刻量一次 RTT，再 1.5 秒後補量一次。
+  // 補量是為了讓第一次受 TCP handshake / TURN relay 影響的偏高值能被更穩定的
+  // 第二次覆蓋。完成後不再排程，之後靠 onRoomPingUpdated（伺服器 push）更新。
+  // lastLatencyProbeRoomIdRef guard 確保同一 roomId 只做一輪雙次校時。
   useEffect(() => {
     const roomId = currentRoomId;
     if (!roomId || !isConnected) {
@@ -1009,6 +1014,7 @@ export const useRoomProviderSocketLifecycle = ({
     if (lastLatencyProbeRoomIdRef.current === roomId) return;
     lastLatencyProbeRoomIdRef.current = roomId;
     requestLatencyProbe(roomId);
+    // 第二次：讓連線穩定後再取更準確的 RTT
     const timer = window.setTimeout(() => {
       requestLatencyProbe(roomId);
     }, 1500);

@@ -873,26 +873,37 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     confirmNicknameRef.current = confirmNicknameWithSocket;
   }, [confirmNicknameRef, confirmNicknameWithSocket]);
 
+  // ── Chat cooldown countdown ─────────────────────────────────────────────────
+  // Replaces a fixed 250 ms setInterval (4 renders/sec) with a second-boundary
+  // setTimeout so we only re-render when the displayed integer actually changes.
+  // The timer self-stops when the cooldown expires — no residual interval.
   useEffect(() => {
-    if (!chatCooldownUntil) return;
+    if (!chatCooldownUntil) {
+      setChatCooldownLeft(0);
+      return;
+    }
 
-    const updateCooldown = () => {
+    let timerId: number | null = null;
+
+    const tick = () => {
       const diff = chatCooldownUntil - Date.now();
-
       if (diff <= 0) {
         setChatCooldownLeft(0);
         setChatCooldownUntil(null);
-        return;
+        timerId = null;
+        return; // ← stop; effect will re-run with chatCooldownUntil=null
       }
-
-      setChatCooldownLeft(Math.ceil(diff / 1000));
+      const nextSec = Math.ceil(diff / 1000);
+      setChatCooldownLeft(nextSec);
+      // Schedule at the next second boundary (ms until the integer flips)
+      const msToNextBoundary = diff - (nextSec - 1) * 1000;
+      timerId = window.setTimeout(tick, Math.max(50, msToNextBoundary));
     };
 
-    updateCooldown();
-
-    const timer = window.setInterval(updateCooldown, 250);
-
-    return () => window.clearInterval(timer);
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
   }, [chatCooldownUntil]);
 
   useEffect(() => {

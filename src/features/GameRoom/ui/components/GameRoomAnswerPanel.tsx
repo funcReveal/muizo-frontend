@@ -186,6 +186,9 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
   const [label, setLabel] = React.useState(resolveLabel);
   const isNumericCountdownLabel = /^\d+s$/.test(label);
 
+  // ── 優化說明 ────────────────────────────────────────────────────────────────
+  // 倒數歸零後停止 timer（phase 結束後伺服器會推送新狀態，不需繼續輪詢）。
+  // 最後 4.5 秒的 125ms 高頻更新保留，供視覺 urgency 效果使用。
   React.useEffect(() => {
     if (allAnsweredReadyForReveal) {
       setLabel("READY");
@@ -202,10 +205,14 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
       const remainingMs = isInterTrackWait
         ? Math.max(0, startedAt - now)
         : Math.max(0, phaseEndsAt - now);
+      // 倒數到 0 → 停止；伺服器推送下一個 phase 時 props 更新，effect 重啟
+      if (remainingMs <= 0) {
+        timerId = null;
+        return;
+      }
       const nextDelay =
         !isInterTrackWait &&
         gamePhase === "guess" &&
-        remainingMs > 0 &&
         remainingMs <= 4500
           ? 125
           : 1000;
@@ -263,19 +270,31 @@ const GameRoomRevealCountdownText = React.memo(function GameRoomRevealCountdownT
     Math.max(0, Math.ceil(Math.max(0, revealEndsAt - getLocalNowMs()) / 1000)),
   );
 
+  // ── 優化說明 ────────────────────────────────────────────────────────────────
+  // 舊版固定 250ms 輪詢（每秒 4 次 render）。
+  // 新版改為「秒數邊界觸發」：計算距離下次整秒還有幾 ms 才排程，
+  // 且倒數到 0 時立刻停止，不留殘留 timer。
   React.useEffect(() => {
     let timerId: number | null = null;
     const tick = () => {
+      const remainingMs = Math.max(0, revealEndsAt - getLocalNowMs());
+      const nextCountdownSec = Math.max(0, Math.ceil(remainingMs / 1000));
       if (document.visibilityState === "visible") {
-        const nextCountdownSec = Math.max(
-          0,
-          Math.ceil(Math.max(0, revealEndsAt - getLocalNowMs()) / 1000),
-        );
         setCountdownSec((current) =>
           current === nextCountdownSec ? current : nextCountdownSec,
         );
       }
-      timerId = window.setTimeout(tick, 250);
+      if (remainingMs <= 0) {
+        // 倒數結束：停止 timer，伺服器會推下一個 phase
+        timerId = null;
+        return;
+      }
+      // 排程在下一個整秒邊界觸發（最後 1 秒內用 250ms 保持響應）
+      const nextDelay =
+        remainingMs > 1000
+          ? (remainingMs % 1000) || 1000
+          : Math.min(250, remainingMs);
+      timerId = window.setTimeout(tick, nextDelay);
     };
     tick();
     return () => {

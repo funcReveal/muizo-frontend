@@ -145,6 +145,10 @@ const useGameRoomPlayerSync = ({
   const prestartWarmupActiveRef = useRef(false);
   const previousServerOffsetRef = useRef(serverOffsetMs);
   const trackPreparedRef = useRef(false);
+  // ── Recovery loop kick ref ──────────────────────────────────────────────────
+  // 讓 onStateChange / visibility handler 在 loop 停止後能重新啟動它。
+  // 設計目標：healthy state 下 loop 自動停止；只在偵測到問題時才重啟。
+  const recoveryLoopKickRef = useRef<(() => void) | null>(null);
 
   const isSyncDebugEnabled = useCallback(() => {
     if (typeof window === "undefined") return false;
@@ -1079,11 +1083,42 @@ const useGameRoomPlayerSync = ({
     lastWaitingToStartRef.current = waitingToStart;
   }, [debugSync, waitingToStart]);
 
+  // ── Recovery monitor loop ──────────────────────────────────────────────────
+  // 設計原則（事件驅動 + 短期 burst resync）：
+  //
+  //  • 過去：loop 全程跑，healthy state 每 3.2s / 4.6s 自我排程一次，
+  //    但因 ENABLE_STEADY_STATE_WATCHDOG=false，什麼都不做 → 純浪費。
+  //
+  //  • 現在：healthy state 時 loop 主動停止（return 不 scheduleNext）。
+  //    loop 由兩種機制重啟：
+  //      1. React deps 改變（waitingToStart / isEnded / startedAt 等）→ effect 重跑
+  //      2. recoveryLoopKickRef()：onStateChange 偵測到壞狀態，或 visibility
+  //         handler 設定 resumeNeedsSyncRef 時由外部手動踢
+  //
+  //  • 什麼情況會繼續跑（needsRecoverySync=true）：
+  //      - waitingToStart：開局前等待
+  //      - !playerReadyRef：player 尚未 ready
+  //      - recentlyStarted：開始後 2.5s 內補同步視窗
+  //      - playerState === 2：意外暫停，需重啟
+  //      - playerState === null / -1：未初始化，需觸發播放
+  //      - bufferingNeedsRecovery：緩衝超過 grace 期
+  //      - resumeNeedsSyncRef：回前景後需補同步
+  //
+  //  • 不再持續輪詢的情況：
+  //      - 遊戲進行中 healthy（playing, state=1）→ loop 停止
+  //      - isEnded → deps 更新會重跑 effect，但 needsRecoverySync=true 只是
+  //        讓 loop 繼續排程，不會做任何有效操作，成本極低可接受
   useEffect(() => {
     let timerId: number | null = null;
 
     const scheduleNext = (delayMs: number) => {
       timerId = window.setTimeout(tick, delayMs);
+    };
+
+    // kick：讓外部事件處理器（onStateChange / visibility）在 loop 停止後重啟它
+    const kick = () => {
+      if (timerId !== null) return; // 已在跑，不重複啟動
+      tick();
     };
 
     const tick = () => {
@@ -1151,6 +1186,14 @@ const useGameRoomPlayerSync = ({
         }
       }
 
+      // ── Healthy state：停止 loop ──────────────────────────────────────────
+      // ENABLE_STEADY_STATE_WATCHDOG=false 時，healthy 的 loop 完全不做任何事。
+      // 停在這裡；下次需要時由 recoveryLoopKickRef 重啟，省去每 3-5s 的空轉。
+      if (!needsRecoverySync && !ENABLE_STEADY_STATE_WATCHDOG) {
+        timerId = null;
+        return; // ← healthy：loop 停止，等待 kick 重啟
+      }
+
       const nextDelay = visibilityHidden
         ? isMobileClient
           ? MOBILE_BACKGROUND_MONITOR_INTERVAL_MS
@@ -1166,10 +1209,14 @@ const useGameRoomPlayerSync = ({
       scheduleNext(nextDelay);
     };
 
+    // 將 kick 暴露給外部 effect（onStateChange / visibility handler）
+    recoveryLoopKickRef.current = kick;
+
     tick();
 
     return () => {
       if (timerId !== null) window.clearTimeout(timerId);
+      recoveryLoopKickRef.current = null; // 避免 unmount 後的過期 kick
     };
   }, [
     applyVolume,
@@ -1177,7 +1224,7 @@ const useGameRoomPlayerSync = ({
     getServerNowMs,
     isEnded,
     postCommand,
-      requestPlayerTime,
+    requestPlayerTime,
     startPlayback,
     startedAt,
     waitingToStart,
@@ -1340,6 +1387,21 @@ const useGameRoomPlayerSync = ({
         if (typeof state === "number") {
           debugSync("player-state-change", getPlayerDebugPayload(state));
         }
+
+        // ── Recovery loop kick ──────────────────────────────────────────────
+        // loop 在 healthy 狀態下主動停止；這裡在偵測到壞狀態時重啟它。
+        // 放在所有 if(state===x) 之前，避免被後面的 early return 跳過。
+        if (state === 2 || state === -1 || state === null) {
+          // 暫停 / 未初始化：需要 recovery loop 做自動重播或補同步
+          recoveryLoopKickRef.current?.();
+        }
+        if (state === 3) {
+          // 緩衝中：grace 期結束後 loop 需重新確認是否已恢復
+          window.setTimeout(() => {
+            recoveryLoopKickRef.current?.();
+          }, BUFFERING_GRACE_MS + 200);
+        }
+
         if (state === 3) {
           const nowMs = getServerNowMs();
           lastBufferingAtMsRef.current = nowMs;
@@ -1693,6 +1755,8 @@ const useGameRoomPlayerSync = ({
       lastVisibilityResyncAtMsRef.current = serverNow;
       startSilentAudio();
       resumeNeedsSyncRef.current = true;
+      // loop 若已停在 healthy state，回前景後需重啟以處理補同步
+      recoveryLoopKickRef.current?.();
       pendingResumeSyncReasonRef.current =
         event?.type === "focus" ? "visibility-focus" : "visibility";
       const requested = requestPlayerTime("visibility", { force: true });
