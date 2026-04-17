@@ -163,49 +163,13 @@ export const useCollectionEditor = ({
         };
       });
 
-      const toUpdate = updatePayloads.filter(
-        (item) =>
-          item.id && (shouldResyncAllItems || dirtyItemIds.has(item.localId)),
-      );
-      const toInsert = updatePayloads.filter((item) => !item.id);
-
-      if (
-        toUpdate.length === 0 &&
-        toInsert.length === 0 &&
-        pendingDeleteIds.length === 0
-      ) {
-        return;
-      }
-
-      if (toUpdate.length > 0) {
-        await Promise.all(
-          toUpdate.map(async (item) => {
-            await collectionsApi.updateCollectionItem(token, item.id!, {
-              sort: item.sort,
-              provider: item.provider,
-              source_id: item.source_id,
-              title: item.title,
-              channel_title: item.channel_title,
-              channel_id: item.channel_id,
-              start_sec: item.start_sec,
-              end_sec: item.end_sec,
-              answer_text: item.answer_text,
-              answer_status: item.answer_status,
-              answer_ai_provider: item.answer_ai_provider,
-              answer_ai_updated_at: item.answer_ai_updated_at,
-              answer_ai_batch_key: item.answer_ai_batch_key,
-              ...(item.duration_sec !== undefined
-                ? { duration_sec: item.duration_sec }
-                : {}),
-            });
-            return null;
-          }),
-        );
-      }
-
-      if (toInsert.length > 0) {
-        const insertItems = toInsert.map((item) => ({
-          id: createServerId(),
+      const toUpdate = updatePayloads
+        .filter(
+          (item) =>
+            item.id && (shouldResyncAllItems || dirtyItemIds.has(item.localId)),
+        )
+        .map((item) => ({
+          id: item.id,
           sort: item.sort,
           provider: item.provider,
           source_id: item.source_id,
@@ -223,15 +187,54 @@ export const useCollectionEditor = ({
             ? { duration_sec: item.duration_sec }
             : {}),
         }));
-        await collectionsApi.insertCollectionItems(
-          token,
-          collectionId,
-          insertItems,
-        );
+
+      const insertItems = updatePayloads
+        .filter((item) => !item.id)
+        .map((item) => ({
+          id: createServerId(),
+          local_id: item.localId,
+          sort: item.sort,
+          provider: item.provider,
+          source_id: item.source_id,
+          title: item.title,
+          channel_title: item.channel_title,
+          channel_id: item.channel_id,
+          start_sec: item.start_sec,
+          end_sec: item.end_sec,
+          answer_text: item.answer_text,
+          answer_status: item.answer_status,
+          answer_ai_provider: item.answer_ai_provider,
+          answer_ai_updated_at: item.answer_ai_updated_at,
+          answer_ai_batch_key: item.answer_ai_batch_key,
+          ...(item.duration_sec !== undefined
+            ? { duration_sec: item.duration_sec }
+            : {}),
+        }));
+
+      const deleteIds = [...pendingDeleteIds];
+
+      if (
+        toUpdate.length === 0 &&
+        insertItems.length === 0 &&
+        deleteIds.length === 0
+      ) {
+        return;
+      }
+
+      await collectionsApi.syncCollectionItems(token, collectionId, {
+        updates: toUpdate,
+        inserts: insertItems,
+        deletes: deleteIds,
+      });
+
+      if (insertItems.length > 0) {
         const idMap = new Map<string, string>();
-        toInsert.forEach((item, idx) => {
-          idMap.set(item.localId, insertItems[idx].id);
+        insertItems.forEach((item) => {
+          if (typeof item.local_id === "string" && item.local_id) {
+            idMap.set(item.local_id, item.id);
+          }
         });
+
         setPlaylistItems((prev) =>
           prev.map((item) =>
             item.dbId ? item : { ...item, dbId: idMap.get(item.localId) },
@@ -239,13 +242,7 @@ export const useCollectionEditor = ({
         );
       }
 
-      if (pendingDeleteIds.length > 0) {
-        await Promise.all(
-          pendingDeleteIds.map(async (id) => {
-            await collectionsApi.deleteCollectionItem(token, id);
-            return null;
-          }),
-        );
+      if (deleteIds.length > 0) {
         setPendingDeleteIds([]);
       }
     },
@@ -350,15 +347,17 @@ export const useCollectionEditor = ({
           onAuthExpired?.();
           return false;
         }
+
         let collectionId = activeCollectionId;
         const run = async (
-          token: string,
+          nextToken: string,
           allowRetry: boolean,
         ): Promise<DbCollection | null> => {
           let created: DbCollection | null = null;
+
           if (!collectionId) {
             try {
-              created = await collectionsApi.createCollection(token, {
+              created = await collectionsApi.createCollection(nextToken, {
                 owner_id: ownerId,
                 title: collectionTitle.trim(),
                 description: null,
@@ -373,6 +372,7 @@ export const useCollectionEditor = ({
               }
               throw error;
             }
+
             if (!created?.id) {
               throw new Error("Missing collection id");
             }
@@ -383,8 +383,9 @@ export const useCollectionEditor = ({
               const shouldUpdateCollection =
                 nextTitle !== (activeCollectionStoredTitle ?? "").trim() ||
                 collectionVisibility !== activeCollectionStoredVisibility;
+
               if (shouldUpdateCollection) {
-                await collectionsApi.updateCollection(token, collectionId, {
+                await collectionsApi.updateCollection(nextToken, collectionId, {
                   title: nextTitle,
                   visibility: collectionVisibility,
                 });
@@ -398,6 +399,7 @@ export const useCollectionEditor = ({
               }
               throw error;
             }
+
             setCollections((prev) =>
               prev.map((item) =>
                 item.id === collectionId
@@ -422,7 +424,7 @@ export const useCollectionEditor = ({
 
             if (hasPendingItemChanges) {
               try {
-                await syncItemsToDb(collectionId, token);
+                await syncItemsToDb(collectionId, nextToken);
               } catch (error) {
                 if (allowRetry && isAuthError(error)) {
                   const refreshed = await refreshAuthToken();
@@ -434,10 +436,12 @@ export const useCollectionEditor = ({
               }
             }
           }
+
           return created;
         };
 
         const createdCollection = await run(token, true);
+
         if (createdCollection) {
           trackEvent("collection_create_success", {
             collection_id: createdCollection.id,
@@ -458,6 +462,7 @@ export const useCollectionEditor = ({
           item_count: playlistItems.length,
           mode,
         });
+
         if (noNewChanges) {
           dirtyItemIdsRef.current.clear();
           fullItemResyncRef.current = false;
@@ -473,6 +478,7 @@ export const useCollectionEditor = ({
         } else {
           setSaveStatus("idle");
         }
+
         return true;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

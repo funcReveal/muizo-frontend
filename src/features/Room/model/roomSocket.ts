@@ -69,15 +69,72 @@ type RoomSocketAuth = {
   username?: string;
 };
 
+type RoomSocketWithCleanup = ClientSocket & {
+  __wakeReconnectCleanup__?: () => void;
+};
+
+const MOBILE_WAKE_RECONNECT_THROTTLE_MS = 1_500;
+
+const attachWakeReconnect = (socket: ClientSocket) => {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return () => {};
+  }
+
+  let lastAttemptAt = 0;
+
+  const wakeReconnect = () => {
+    if (document.visibilityState === "hidden") return;
+    if (socket.connected) return;
+
+    const now = Date.now();
+    if (now - lastAttemptAt < MOBILE_WAKE_RECONNECT_THROTTLE_MS) {
+      return;
+    }
+    lastAttemptAt = now;
+
+    try {
+      socket.connect();
+    } catch (error) {
+      console.error("Failed to wake room socket reconnect", error);
+    }
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState !== "visible") return;
+    wakeReconnect();
+  };
+
+  window.addEventListener("pageshow", wakeReconnect);
+  window.addEventListener("online", wakeReconnect);
+  window.addEventListener("focus", wakeReconnect);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  return () => {
+    window.removeEventListener("pageshow", wakeReconnect);
+    window.removeEventListener("online", wakeReconnect);
+    window.removeEventListener("focus", wakeReconnect);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+  };
+};
+
 export const connectRoomSocket = (
   socketUrl: string,
   auth: RoomSocketAuth,
   handlers: RoomSocketHandlers,
 ) => {
   const socket = io(socketUrl, {
-    transports: ["websocket"],
+    transports: ["websocket", "polling"],
+    upgrade: true,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 2500,
+    timeout: 10000,
     auth,
   });
+
+  (socket as RoomSocketWithCleanup).__wakeReconnectCleanup__ =
+    attachWakeReconnect(socket);
 
   socket.on("connect", () => handlers.onConnect?.(socket));
   socket.on("disconnect", () => handlers.onDisconnect?.());
@@ -121,6 +178,8 @@ export const connectRoomSocket = (
 
 export const disconnectRoomSocket = (socket: ClientSocket | null) => {
   if (!socket) return;
+  (socket as RoomSocketWithCleanup).__wakeReconnectCleanup__?.();
+  delete (socket as RoomSocketWithCleanup).__wakeReconnectCleanup__;
   socket.removeAllListeners();
   socket.disconnect();
 };

@@ -204,6 +204,36 @@ export const collectionsApi = {
     }
     return null;
   },
+  async syncCollectionItems(
+    token: string,
+    collectionId: string,
+    payload: {
+      updates: Array<Record<string, unknown>>;
+      inserts: Array<Record<string, unknown>>;
+      deletes: string[];
+    },
+  ) {
+    if (!API_URL) {
+      throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
+    }
+    const res = await fetch(
+      `${API_URL}/api/collections/${collectionId}/items/sync`,
+      {
+        method: "PATCH",
+        headers: buildJsonHeaders(token),
+        body: JSON.stringify(payload),
+      },
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(
+        typeof json?.error === "string"
+          ? `${json.error} (${res.status})`
+          : `Failed to sync collection items (${res.status})`,
+      );
+    }
+    return json?.data ?? null;
+  },
   async updateCollectionItem(
     token: string,
     itemId: string,
