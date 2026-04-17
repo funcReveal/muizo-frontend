@@ -36,6 +36,13 @@ const AUTO_RESUME_MIN_INTERVAL_MS = 1800;
 const RECOVERY_MONITOR_INTERVAL_MS = 500;
 const HEALTHY_MONITOR_INTERVAL_MS = 3200;
 const BACKGROUND_MONITOR_INTERVAL_MS = 2600;
+const MOBILE_REQUEST_PLAYER_TIME_INTERVAL_MS = 900;
+const MOBILE_RESUME_RESYNC_THROTTLE_MS = 2200;
+const MOBILE_VISIBILITY_RESYNC_GAP_MS = 1800;
+const MOBILE_MEDIA_SESSION_UPDATE_INTERVAL_MS = 1200;
+const MOBILE_RECOVERY_MONITOR_INTERVAL_MS = 900;
+const MOBILE_HEALTHY_MONITOR_INTERVAL_MS = 4600;
+const MOBILE_BACKGROUND_MONITOR_INTERVAL_MS = 4200;
 const RECENT_START_GUARD_MS = 2500;
 const INITIAL_AUDIO_HOLD_RELEASE_MS = 680;
 const SYNC_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
@@ -44,6 +51,9 @@ const PRESTART_WARMUP_PLAY_MS = 140;
 const PRESTART_FINAL_HOLD_MS = 120;
 const POST_START_DRIFT_TOLERANCE_SEC = 0.35;
 const POST_START_DRIFT_CHECKPOINTS_MS = [320, 700, 1100];
+const MOBILE_POST_START_DRIFT_CHECKPOINTS_MS = [420, 1120];
+const RESUME_RESYNC_CHECKPOINTS_MS = [150, 650, 1200];
+const MOBILE_RESUME_RESYNC_CHECKPOINTS_MS = [220, 980];
 const ENABLE_STEADY_STATE_WATCHDOG = false;
 
 const useGameRoomPlayerSync = ({
@@ -75,6 +85,7 @@ const useGameRoomPlayerSync = ({
   >(() => (!requiresAudioGesture ? audioGestureSessionKey : null));
   const audioUnlocked =
     !requiresAudioGesture || audioUnlockSessionKey === audioGestureSessionKey;
+  const isMobileClient = requiresAudioGesture;
   const audioUnlockedRef = useRef(audioUnlocked);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
@@ -110,6 +121,16 @@ const useGameRoomPlayerSync = ({
   const playbackWarmupTimerRef = useRef<number | null>(null);
   const playbackWarmupStopTimerRef = useRef<number | null>(null);
   const postStartDriftTimersRef = useRef<number[]>([]);
+  const silentAudioStartTimerRef = useRef<number | null>(null);
+  const silentAudioPlayPromiseRef = useRef<Promise<void> | null>(null);
+  const lastMediaSessionUpdateAtMsRef = useRef<number>(0);
+  const hasMediaSessionMetadataRef = useRef(false);
+  const lastMediaSessionPlaybackStateRef = useRef<
+    MediaSessionPlaybackState | null
+  >(null);
+  const lastResumeResyncAtMsRef = useRef<number>(0);
+  const lastVisibilityResyncAtMsRef = useRef<number>(0);
+  const pendingResumeSyncReasonRef = useRef("resume");
   const lastWaitingToStartRef = useRef(waitingToStart);
   const prestartWarmupActiveRef = useRef(false);
   const previousServerOffsetRef = useRef(serverOffsetMs);
@@ -166,6 +187,13 @@ const useGameRoomPlayerSync = ({
     postStartDriftTimersRef.current = [];
   }, []);
 
+  const clearSilentAudioStartTimer = useCallback(() => {
+    if (silentAudioStartTimerRef.current !== null) {
+      window.clearTimeout(silentAudioStartTimerRef.current);
+      silentAudioStartTimerRef.current = null;
+    }
+  }, []);
+
   const markAudioUnlocked = useCallback(() => {
     if (audioUnlockedRef.current) return;
     // Mobile gesture playback may continue in the same event loop, so update
@@ -202,11 +230,13 @@ const useGameRoomPlayerSync = ({
       clearPlaybackStartTimer();
       clearPlaybackWarmupTimers();
       clearPostStartDriftTimers();
+      clearSilentAudioStartTimer();
     };
   }, [
     clearPlaybackStartTimer,
     clearPlaybackWarmupTimers,
     clearPostStartDriftTimers,
+    clearSilentAudioStartTimer,
   ]);
 
   const postPlayerMessage = useCallback(
@@ -306,13 +336,23 @@ const useGameRoomPlayerSync = ({
   );
 
   const requestPlayerTime = useCallback(
-    (reason: string) => {
+    (reason: string, options?: { force?: boolean }) => {
       if (!playerReadyRef.current) return;
+      const nowMs = getServerNowMs();
+      if (
+        isMobileClient &&
+        !options?.force &&
+        nowMs - lastTimeRequestAtMsRef.current <
+          MOBILE_REQUEST_PLAYER_TIME_INTERVAL_MS
+      ) {
+        return false;
+      }
       lastTimeRequestReasonRef.current = reason;
-      lastTimeRequestAtMsRef.current = getServerNowMs();
+      lastTimeRequestAtMsRef.current = nowMs;
       postCommand("getCurrentTime");
+      return true;
     },
-    [getServerNowMs, postCommand],
+    [getServerNowMs, isMobileClient, postCommand],
   );
 
   const isStartedByServerTime = useCallback(() => {
@@ -325,7 +365,7 @@ const useGameRoomPlayerSync = ({
     return lastPlayerTimeSecRef.current;
   }, [getServerNowMs]);
 
-  const updateMediaSession = useCallback(() => {
+  const updateMediaSession = useCallback((options?: { force?: boolean }) => {
     if (typeof navigator === "undefined" || !("mediaSession" in navigator))
       return;
     if (typeof MediaMetadata === "undefined") return;
@@ -336,20 +376,34 @@ const useGameRoomPlayerSync = ({
         audioUnlockedRef.current &&
         !!silentAudio &&
         !silentAudio.paused;
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: "Muizo",
-        artist: "Music Quiz",
-        album: "Competitive Audio Mode",
-      });
-      navigator.mediaSession.playbackState = hasSilentAudioSession
+      const playbackState: MediaSessionPlaybackState = hasSilentAudioSession
         ? "playing"
         : isEnded
           ? "paused"
           : "playing";
+      const nowMs = Date.now();
+      const shouldThrottle =
+        isMobileClient &&
+        !options?.force &&
+        lastMediaSessionPlaybackStateRef.current === playbackState &&
+        nowMs - lastMediaSessionUpdateAtMsRef.current <
+          MOBILE_MEDIA_SESSION_UPDATE_INTERVAL_MS;
+      if (shouldThrottle) return;
+      if (!hasMediaSessionMetadataRef.current) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: "Muizo",
+          artist: "Music Quiz",
+          album: "Competitive Audio Mode",
+        });
+        hasMediaSessionMetadataRef.current = true;
+      }
+      navigator.mediaSession.playbackState = playbackState;
+      lastMediaSessionPlaybackStateRef.current = playbackState;
+      lastMediaSessionUpdateAtMsRef.current = nowMs;
     } catch (err) {
       console.error("mediaSession setup failed", err);
     }
-  }, [isEnded, requiresAudioGesture]);
+  }, [isEnded, isMobileClient, requiresAudioGesture]);
 
   const startSilentAudio = useCallback(() => {
     const audio = silentAudioRef.current;
@@ -359,27 +413,50 @@ const useGameRoomPlayerSync = ({
     audio.muted = false;
     audio.volume = 1;
     updateMediaSession();
-    const playPromise = audio.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {
+    if (!audio.paused) {
+      clearSilentAudioStartTimer();
+      silentAudioStartTimerRef.current = window.setTimeout(() => {
+        silentAudioStartTimerRef.current = null;
         updateMediaSession();
-      });
+      }, 300);
+      return;
     }
-    window.setTimeout(() => {
-      updateMediaSession();
-    }, 300);
-  }, [updateMediaSession]);
+    if (silentAudioPlayPromiseRef.current) return;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      silentAudioPlayPromiseRef.current = playPromise
+        .catch(() => {
+          updateMediaSession({ force: true });
+        })
+        .finally(() => {
+          silentAudioPlayPromiseRef.current = null;
+          clearSilentAudioStartTimer();
+          silentAudioStartTimerRef.current = window.setTimeout(() => {
+            silentAudioStartTimerRef.current = null;
+            updateMediaSession({ force: true });
+          }, 300);
+        });
+    } else {
+      clearSilentAudioStartTimer();
+      silentAudioStartTimerRef.current = window.setTimeout(() => {
+        silentAudioStartTimerRef.current = null;
+        updateMediaSession({ force: true });
+      }, 300);
+    }
+  }, [clearSilentAudioStartTimer, updateMediaSession]);
 
   const stopSilentAudio = useCallback(() => {
     const audio = silentAudioRef.current;
     if (!audio) return;
     try {
+      clearSilentAudioStartTimer();
       audio.pause();
       audio.currentTime = 0;
+      updateMediaSession({ force: true });
     } catch (err) {
       console.error("Failed to stop silent audio", err);
     }
-  }, []);
+  }, [clearSilentAudioStartTimer, updateMediaSession]);
 
   const clearInitialAudioHoldReleaseTimer = useCallback(() => {
     if (initialAudioHoldReleaseTimerRef.current !== null) {
@@ -523,14 +600,17 @@ const useGameRoomPlayerSync = ({
 
   const schedulePostStartDriftChecks = useCallback(() => {
     clearPostStartDriftTimers();
-    POST_START_DRIFT_CHECKPOINTS_MS.forEach((delayMs) => {
+    const checkpoints = isMobileClient
+      ? MOBILE_POST_START_DRIFT_CHECKPOINTS_MS
+      : POST_START_DRIFT_CHECKPOINTS_MS;
+    checkpoints.forEach((delayMs) => {
       const timerId = window.setTimeout(() => {
         if (!playerReadyRef.current) return;
         requestPlayerTime(`post-start-drift-${delayMs}`);
       }, delayMs);
       postStartDriftTimersRef.current.push(timerId);
     });
-  }, [clearPostStartDriftTimers, requestPlayerTime]);
+  }, [clearPostStartDriftTimers, isMobileClient, requestPlayerTime]);
 
   const startPrestartWarmup = useCallback(() => {
     clearPlaybackWarmupTimers();
@@ -819,13 +899,24 @@ const useGameRoomPlayerSync = ({
   );
 
   const scheduleResumeResync = useCallback(() => {
+    const nowMs = getServerNowMs();
+    if (
+      isMobileClient &&
+      nowMs - lastResumeResyncAtMsRef.current <
+        MOBILE_RESUME_RESYNC_THROTTLE_MS
+    ) {
+      return;
+    }
+    lastResumeResyncAtMsRef.current = nowMs;
     if (resumeResyncTimerRef.current !== null) {
       window.clearTimeout(resumeResyncTimerRef.current);
       resumeResyncTimerRef.current = null;
     }
     resyncTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     resyncTimersRef.current = [];
-    const checkpoints = [150, 650, 1200];
+    const checkpoints = isMobileClient
+      ? MOBILE_RESUME_RESYNC_CHECKPOINTS_MS
+      : RESUME_RESYNC_CHECKPOINTS_MS;
     checkpoints.forEach((delayMs) => {
       const timerId = window.setTimeout(() => {
         if (!playerReadyRef.current) return;
@@ -843,7 +934,7 @@ const useGameRoomPlayerSync = ({
       }, delayMs);
       resyncTimersRef.current.push(timerId);
     });
-  }, [getServerNowMs, requestPlayerTime, startedAt, syncToServerPosition]);
+  }, [getServerNowMs, isMobileClient, requestPlayerTime, startedAt, syncToServerPosition]);
 
   const requestPlayerTimeRef = useRef(requestPlayerTime);
   const scheduleResumeResyncRef = useRef(scheduleResumeResync);
@@ -923,7 +1014,7 @@ const useGameRoomPlayerSync = ({
         playerReadyRef.current &&
         now >= startedAt
       ) {
-        resumeNeedsSyncRef.current = false;
+        pendingResumeSyncReasonRef.current = "interval-resume";
         requestPlayerTime("interval-resume");
         scheduleNext(420);
         return;
@@ -961,10 +1052,16 @@ const useGameRoomPlayerSync = ({
       }
 
       const nextDelay = visibilityHidden
-        ? BACKGROUND_MONITOR_INTERVAL_MS
+        ? isMobileClient
+          ? MOBILE_BACKGROUND_MONITOR_INTERVAL_MS
+          : BACKGROUND_MONITOR_INTERVAL_MS
         : needsRecoverySync
-          ? RECOVERY_MONITOR_INTERVAL_MS
-          : HEALTHY_MONITOR_INTERVAL_MS;
+          ? isMobileClient
+            ? MOBILE_RECOVERY_MONITOR_INTERVAL_MS
+            : RECOVERY_MONITOR_INTERVAL_MS
+          : isMobileClient
+            ? MOBILE_HEALTHY_MONITOR_INTERVAL_MS
+            : HEALTHY_MONITOR_INTERVAL_MS;
 
       scheduleNext(nextDelay);
     };
@@ -984,6 +1081,7 @@ const useGameRoomPlayerSync = ({
     startPlayback,
     startedAt,
     waitingToStart,
+    isMobileClient,
   ]);
 
   useEffect(() => {
@@ -1027,7 +1125,8 @@ const useGameRoomPlayerSync = ({
 
       const handleMediaSeek = () => {
         resumeNeedsSyncRef.current = true;
-        requestPlayerTimeRef.current("media-seek");
+        pendingResumeSyncReasonRef.current = "media-seek";
+        requestPlayerTimeRef.current("media-seek", { force: true });
         window.setTimeout(() => {
           syncToServerPositionRef.current("media-seek");
           scheduleResumeResyncRef.current();
@@ -1260,13 +1359,14 @@ const useGameRoomPlayerSync = ({
             if (document.visibilityState !== "visible") {
               return;
             }
+            const resumeReason = pendingResumeSyncReasonRef.current;
             const didSeek = syncToServerPosition(
-              "infoDelivery",
+              resumeReason,
               false,
               RESUME_DRIFT_TOLERANCE_SEC,
               true,
             );
-            if (didSeek) {
+            if (didSeek || resumeReason.startsWith("visibility")) {
               scheduleResumeResync();
             }
           }
@@ -1427,7 +1527,7 @@ const useGameRoomPlayerSync = ({
   ]);
 
   useEffect(() => {
-    const handleVisibility = () => {
+    const handleVisibility = (event?: Event) => {
       if (document.visibilityState !== "visible") {
         resumeNeedsSyncRef.current = true;
         resyncTimersRef.current.forEach((timerId) =>
@@ -1442,27 +1542,39 @@ const useGameRoomPlayerSync = ({
         resumeNeedsSyncRef.current = true;
         return;
       }
-      startSilentAudio();
-      resumeNeedsSyncRef.current = false;
-      const didSeek = syncToServerPosition(
-        "visibility",
-        true,
-        RESUME_DRIFT_TOLERANCE_SEC,
-        true,
-      );
-      requestPlayerTime("visibility");
-      if (didSeek) {
-        scheduleResumeResync();
+      if (
+        isMobileClient &&
+        serverNow - lastVisibilityResyncAtMsRef.current <
+          MOBILE_VISIBILITY_RESYNC_GAP_MS
+      ) {
         return;
       }
-      if (initialAudioSyncPendingRef.current) {
-        scheduleInitialAudioHoldRelease(180);
-      } else {
-        postCommand("playVideo");
-        postCommand("unMute");
-        applyVolume(gameVolume);
+      lastVisibilityResyncAtMsRef.current = serverNow;
+      startSilentAudio();
+      resumeNeedsSyncRef.current = true;
+      pendingResumeSyncReasonRef.current =
+        event?.type === "focus" ? "visibility-focus" : "visibility";
+      const requested = requestPlayerTime("visibility", { force: true });
+      if (!requested && getFreshPlayerTimeSec() !== null) {
+        resumeNeedsSyncRef.current = false;
+        const didSeek = syncToServerPosition(
+          pendingResumeSyncReasonRef.current,
+          false,
+          RESUME_DRIFT_TOLERANCE_SEC,
+          true,
+        );
+        if (didSeek) {
+          scheduleResumeResync();
+          return;
+        }
+        if (initialAudioSyncPendingRef.current) {
+          scheduleInitialAudioHoldRelease(180);
+        } else {
+          postCommand("playVideo");
+          postCommand("unMute");
+          applyVolume(gameVolume);
+        }
       }
-      scheduleResumeResync();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleVisibility);
@@ -1474,6 +1586,8 @@ const useGameRoomPlayerSync = ({
     applyVolume,
     gameVolume,
     getServerNowMs,
+    getFreshPlayerTimeSec,
+    isMobileClient,
     postCommand,
     requestPlayerTime,
     scheduleInitialAudioHoldRelease,

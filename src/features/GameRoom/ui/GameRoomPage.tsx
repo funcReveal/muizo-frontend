@@ -50,6 +50,7 @@ import {
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   useSettingsModel,
 } from "../../Setting/model/settingsContext";
+import type { AvatarEffectLevel } from "../../../shared/ui/playerAvatar/playerAvatarTheme";
 import { useGameSfx } from "../model/useGameSfx";
 import GameRoomAnswerPanel from "./components/GameRoomAnswerPanel";
 import GameRoomLeftSidebar from "./components/GameRoomLeftSidebar";
@@ -128,6 +129,7 @@ const GAME_ROOM_REVEAL_AUTO_OVERLAY_STORAGE_KEY =
   "game_room_reveal_auto_overlay_enabled";
 
 const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 100;
+const MOBILE_SCOREBOARD_PARTICLE_COUNT_CAP = 4;
 
 const PLAYBACK_VOTE_DIALOG_PAPER_PROPS = {
   className: "game-room-playback-vote-dialog",
@@ -427,6 +429,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     [serverOffsetMs],
   );
   const mobileScoreboardOpen = mobileBottomPanel === "scoreboard";
+  const mobileAvatarEffectLevel: AvatarEffectLevel = useMemo(() => {
+    if (!isMobileGameViewport) return avatarEffectLevel;
+    return avatarEffectLevel === "full" ? "simple" : avatarEffectLevel;
+  }, [avatarEffectLevel, isMobileGameViewport]);
+  const mobileScoreboardBorderParticleCount = useMemo(() => {
+    if (!isMobileGameViewport) return scoreboardBorderParticleCount;
+    return Math.min(
+      scoreboardBorderParticleCount,
+      MOBILE_SCOREBOARD_PARTICLE_COUNT_CAP,
+    );
+  }, [isMobileGameViewport, scoreboardBorderParticleCount]);
   const normalizedSplitHeights = useMemo(
     () => normalizeMobileSplitHeights(mobileScoreboardHeight),
     [mobileScoreboardHeight],
@@ -1504,13 +1517,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 isReveal={isReveal}
                 meClientId={meClientId}
                 topTwoSwapState={topTwoSwapState}
-                avatarEffectLevel={avatarEffectLevel}
+                avatarEffectLevel={mobileAvatarEffectLevel}
                 scoreboardBorderEnabled={scoreboardBorderEnabled}
                 scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
                 scoreboardBorderAnimation={scoreboardBorderAnimation}
                 scoreboardBorderLineStyle={scoreboardBorderLineStyle}
                 scoreboardBorderTheme={scoreboardBorderTheme}
-                scoreboardBorderParticleCount={scoreboardBorderParticleCount}
+                scoreboardBorderParticleCount={
+                  mobileScoreboardBorderParticleCount
+                }
               />
             </div>
           )}
@@ -1760,13 +1775,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       !isMobileDrawerGestureActive
                     }
                     swapReplayToken={mobileScoreboardSwapReplayToken}
-                    avatarEffectLevel={avatarEffectLevel}
+                    avatarEffectLevel={mobileAvatarEffectLevel}
                     scoreboardBorderEnabled={scoreboardBorderEnabled}
                     scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
                     scoreboardBorderAnimation={scoreboardBorderAnimation}
                     scoreboardBorderLineStyle={scoreboardBorderLineStyle}
                     scoreboardBorderTheme={scoreboardBorderTheme}
-                    scoreboardBorderParticleCount={scoreboardBorderParticleCount}
+                    scoreboardBorderParticleCount={
+                      mobileScoreboardBorderParticleCount
+                    }
                   />
                 </div>
               </Drawer>
@@ -1892,7 +1909,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           {shouldShowGestureOverlay ? audioGestureOverlay : null}
           {isInitialCountdown ? startBroadcastOverlay : null}
           {exitConfirmOpen ? exitGameDialog : null}
-          <FloatingChatWindow />
+          {!isMobileGameViewport ? <FloatingChatWindow /> : null}
         </div>
       </div>
     </GameRoomDanmuProviderBridge>

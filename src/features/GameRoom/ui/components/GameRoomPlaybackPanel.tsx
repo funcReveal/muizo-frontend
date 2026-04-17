@@ -284,6 +284,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
     );
   const shouldShowYoutubeBadge =
     showGuessMask || showAudioOnlyMask || showPreStartMask || isRevealPhase;
+  const shouldUseSimpleMobileGuessSpinner = isMobileView;
   const handleVideoModeChange = useCallback(
     (nextMode: "video" | "thumbnail") => {
       onShowVideoChange(nextMode === "video");
@@ -438,10 +439,22 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 
         {showGuessMask && (
           <div className="game-room-playback-mask game-room-playback-mask--guess pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950">
-            <div className="game-room-guess-spinner relative h-20 w-20 sm:h-24 sm:w-24">
-              <div className="game-room-guess-spinner__halo absolute inset-0" />
-              <div className="game-room-guess-spinner__ring absolute inset-0" />
-              <div className="game-room-guess-spinner__core absolute inset-[24%]" />
+            <div
+              className={`game-room-guess-spinner relative ${
+                shouldUseSimpleMobileGuessSpinner
+                  ? "h-14 w-14"
+                  : "h-20 w-20 sm:h-24 sm:w-24"
+              }`}
+            >
+              {shouldUseSimpleMobileGuessSpinner ? (
+                <div className="game-room-guess-spinner__ring absolute inset-0" />
+              ) : (
+                <>
+                  <div className="game-room-guess-spinner__halo absolute inset-0" />
+                  <div className="game-room-guess-spinner__ring absolute inset-0" />
+                  <div className="game-room-guess-spinner__core absolute inset-[24%]" />
+                </>
+              )}
             </div>
             <p className="mt-2 text-xs text-slate-300">猜歌中</p>
           </div>

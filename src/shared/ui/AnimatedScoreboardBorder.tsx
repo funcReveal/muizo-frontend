@@ -29,7 +29,10 @@ type ParticleSeed = {
   twist: number;
 };
 
-const MAX_DPR = 2;
+const DESKTOP_MAX_DPR = 2;
+const MOBILE_MAX_DPR = 1.25;
+const DESKTOP_TARGET_FPS = 60;
+const MOBILE_TARGET_FPS = 24;
 
 const createParticleSeed = (index: number, count: number): ParticleSeed => {
   const base = index + 1;
@@ -135,15 +138,42 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
 }) => {
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  const clampedIntensity = Math.max(0, Math.min(1, intensity));
+  const [isMobileViewport, setIsMobileViewport] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 1023.95px), (pointer: coarse)").matches;
+  });
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia(
+      "(max-width: 1023.95px), (pointer: coarse)",
+    );
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches);
+    };
+    setIsMobileViewport(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+  const clampedIntensity = Math.max(
+    0,
+    Math.min(1, intensity * (isMobileViewport ? 0.78 : 1)),
+  );
   const easedIntensity = React.useMemo(
     () => Math.pow(clampedIntensity, 1.7),
     [clampedIntensity],
   );
+  const mobileParticleLimit = React.useMemo(() => {
+    if (!isMobileViewport) return particleCount;
+    return Math.max(1, Math.round(particleCount * 0.55));
+  }, [isMobileViewport, particleCount]);
   const effectiveParticleCount = React.useMemo(() => {
-    if (particleCount <= 0 || clampedIntensity <= 0) return 0;
-    return Math.max(1, Math.round(particleCount * easedIntensity));
-  }, [clampedIntensity, easedIntensity, particleCount]);
+    if (mobileParticleLimit <= 0 || clampedIntensity <= 0) return 0;
+    return Math.max(1, Math.round(mobileParticleLimit * easedIntensity));
+  }, [clampedIntensity, easedIntensity, mobileParticleLimit]);
   const seeds = React.useMemo(
     () =>
       Array.from({ length: Math.max(0, effectiveParticleCount) }, (_, index) =>
@@ -168,13 +198,17 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
     let width = 0;
     let height = 0;
     let destroyed = false;
+    let lastRenderAt = 0;
+    const maxDpr = isMobileViewport ? MOBILE_MAX_DPR : DESKTOP_MAX_DPR;
+    const targetFps = isMobileViewport ? MOBILE_TARGET_FPS : DESKTOP_TARGET_FPS;
+    const frameIntervalMs = 1000 / targetFps;
 
     const resize = () => {
       if (!root || !canvas) return;
       const rect = root.getBoundingClientRect();
       width = Math.max(1, rect.width);
       height = Math.max(1, rect.height);
-      const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+      const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvas.style.width = `${width}px`;
@@ -188,10 +222,15 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
 
     const render = (timestamp: number) => {
       if (destroyed || !context) return;
+      if (timestamp - lastRenderAt < frameIntervalMs) {
+        frameId = window.requestAnimationFrame(render);
+        return;
+      }
+      lastRenderAt = timestamp;
       context.clearRect(0, 0, width, height);
 
       const time = timestamp / 1000;
-      const amplitude = variant === "preview" ? 6 : 10;
+      const amplitude = variant === "preview" ? 6 : isMobileViewport ? 7 : 10;
 
       seeds.forEach((seed, index) => {
         const drift = Math.sin(time * (0.65 + seed.speed * 0.35) + seed.phase);
@@ -239,7 +278,7 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
       }
       context.clearRect(0, 0, width, height);
     };
-  }, [lineStyleId, seeds, shouldHideEffect, variant]);
+  }, [isMobileViewport, lineStyleId, seeds, shouldHideEffect, variant]);
 
   if (shouldHideEffect) {
     return null;
