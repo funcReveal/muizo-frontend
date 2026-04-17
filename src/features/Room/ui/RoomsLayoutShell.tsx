@@ -2,7 +2,6 @@
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -14,7 +13,6 @@ import {
   DialogTitle,
   useMediaQuery,
 } from "@mui/material";
-import { toast as appToast } from "sonner";
 
 import AppHeader from "../../../app/layout/AppHeader";
 import { USERNAME_MAX } from "../model/roomConstants";
@@ -241,35 +239,8 @@ const RoomsLayoutShell: React.FC = () => {
       navigate("/terms");
     });
   }, [currentRoom, handleLeaveRoom, navigate]);
-  const lastStatusToastRef = useRef<number | null>(null);
-
   useEffect(() => {
-    if (!statusNotification) {
-      lastStatusToastRef.current = null;
-      return;
-    }
-    if (lastStatusToastRef.current === statusNotification.id) {
-      return;
-    }
-    lastStatusToastRef.current = statusNotification.id;
-    const options = statusNotification.toastId
-      ? { id: statusNotification.toastId }
-      : undefined;
-    switch (statusNotification.level) {
-      case "success":
-        appToast.success(statusNotification.message, options);
-        break;
-      case "warning":
-        appToast.warning(statusNotification.message, options);
-        break;
-      case "error":
-        appToast.error(statusNotification.message, options);
-        break;
-      case "info":
-      default:
-        appToast.info(statusNotification.message, options);
-        break;
-    }
+    if (!statusNotification) return;
     setStatusText(null);
   }, [setStatusText, statusNotification]);
 

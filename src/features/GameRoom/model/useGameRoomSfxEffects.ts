@@ -44,6 +44,11 @@ interface UseGameRoomSfxEffectsInput {
  * the component harder to scan. Extracting them here:
  *  - Groups audio-cue logic in one place
  *  - Lets GameRoomPage focus on UI state and rendering
+ *
+ * Timer 管理原則：
+ *  - 每個 effect 都有 cleanup，phase 切換 / trackSessionKey 變更時自動取消舊 timer
+ *  - lastXxxSfxKeyRef guard 確保同一事件不重複播放
+ *  - 沒有穩態輪詢：所有 timer 都是「一次性排程」，觸發後不再自我排程
  */
 export function useGameRoomSfxEffects({
   gamePhase,

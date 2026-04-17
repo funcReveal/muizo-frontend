@@ -95,7 +95,6 @@ import {
   capRoomMessages,
   capSettlementHistory,
   formatAckError,
-  mergeGameSettings,
 } from "../roomProviderUtils";
 import { useRoomProviderPresence } from "../useRoomProviderPresence";
 import { useRoomProviderSocketLifecycle } from "../useRoomProviderSocketLifecycle";
@@ -163,7 +162,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     handleFetchPlaylist,
     handleResetPlaylist,
     updateQuestionCount: updateQuestionCountBase,
-    playlistViewItems,
     playlistHasMore,
     playlistLoadingMore,
     playlistPageCursor,
@@ -873,26 +871,37 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     confirmNicknameRef.current = confirmNicknameWithSocket;
   }, [confirmNicknameRef, confirmNicknameWithSocket]);
 
+  // ── Chat cooldown countdown ─────────────────────────────────────────────────
+  // Replaces a fixed 250 ms setInterval (4 renders/sec) with a second-boundary
+  // setTimeout so we only re-render when the displayed integer actually changes.
+  // The timer self-stops when the cooldown expires — no residual interval.
   useEffect(() => {
-    if (!chatCooldownUntil) return;
+    if (!chatCooldownUntil) {
+      setChatCooldownLeft(0);
+      return;
+    }
 
-    const updateCooldown = () => {
+    let timerId: number | null = null;
+
+    const tick = () => {
       const diff = chatCooldownUntil - Date.now();
-
       if (diff <= 0) {
         setChatCooldownLeft(0);
         setChatCooldownUntil(null);
-        return;
+        timerId = null;
+        return; // ← stop; effect will re-run with chatCooldownUntil=null
       }
-
-      setChatCooldownLeft(Math.ceil(diff / 1000));
+      const nextSec = Math.ceil(diff / 1000);
+      setChatCooldownLeft(nextSec);
+      // Schedule at the next second boundary (ms until the integer flips)
+      const msToNextBoundary = diff - (nextSec - 1) * 1000;
+      timerId = window.setTimeout(tick, Math.max(50, msToNextBoundary));
     };
 
-    updateCooldown();
-
-    const timer = window.setInterval(updateCooldown, 250);
-
-    return () => window.clearInterval(timer);
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
   }, [chatCooldownUntil]);
 
   useEffect(() => {
@@ -946,64 +955,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     questionMaxLimit,
     updateQuestionCountBase,
   ]);
-
-  // Game settings backfill from playlist timing data
-  useEffect(() => {
-    if (!currentRoom) return;
-    if (playlistViewItems.length === 0) return;
-    const needsBackfill =
-      currentRoom.gameSettings?.playDurationSec === undefined ||
-      currentRoom.gameSettings?.revealDurationSec === undefined ||
-      currentRoom.gameSettings?.startOffsetSec === undefined ||
-      currentRoom.gameSettings?.allowCollectionClipTiming === undefined;
-    if (!needsBackfill) return;
-
-    const firstRoomSettingsItem = playlistViewItems.find(
-      (item) => item.timingSource === "room_settings",
-    );
-    if (!firstRoomSettingsItem) return;
-
-    const inferredStartOffsetSec = clampStartOffsetSec(
-      firstRoomSettingsItem.startSec ?? DEFAULT_START_OFFSET_SEC,
-    );
-    const inferredPlayDurationSec = clampPlayDurationSec(
-      typeof firstRoomSettingsItem.endSec === "number" &&
-        firstRoomSettingsItem.endSec > inferredStartOffsetSec
-        ? firstRoomSettingsItem.endSec - inferredStartOffsetSec
-        : (currentRoom.gameSettings?.playDurationSec ??
-            DEFAULT_PLAY_DURATION_SEC),
-    );
-    const inferredAllowCollectionClipTiming = playlistViewItems.some(
-      (item) => item.timingSource === "track_clip",
-    );
-    const inferredRevealDurationSec = clampRevealDurationSec(
-      currentRoom.gameSettings?.revealDurationSec ??
-        (typeof gameState?.revealDurationMs === "number" &&
-        gameState.revealDurationMs > 0
-          ? gameState.revealDurationMs / 1000
-          : DEFAULT_REVEAL_DURATION_SEC),
-    );
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentRoom((prev) => {
-      if (!prev || prev.id !== currentRoom.id) return prev;
-      const merged = mergeGameSettings(prev.gameSettings, {
-        playDurationSec: inferredPlayDurationSec,
-        revealDurationSec: inferredRevealDurationSec,
-        startOffsetSec: inferredStartOffsetSec,
-        allowCollectionClipTiming: inferredAllowCollectionClipTiming,
-      });
-      if (
-        prev.gameSettings?.playDurationSec === merged.playDurationSec &&
-        prev.gameSettings?.revealDurationSec === merged.revealDurationSec &&
-        prev.gameSettings?.startOffsetSec === merged.startOffsetSec &&
-        prev.gameSettings?.allowCollectionClipTiming ===
-          merged.allowCollectionClipTiming
-      ) {
-        return prev;
-      }
-      return { ...prev, gameSettings: merged };
-    });
-  }, [currentRoom, gameState?.revealDurationMs, playlistViewItems]);
 
   // Host room password cache
   useEffect(() => {

@@ -42,7 +42,8 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
   const [danmuItems, setDanmuItems] = useState<DanmuItem[]>([]);
   const danmuSeenMessageIdsRef = useRef<Set<string>>(new Set());
   const danmuLaneCursorRef = useRef(0);
-  const danmuTimersRef = useRef<number[]>([]);
+  // Set 比 Array 更適合做 O(1) 插入 / 刪除；Array.filter 每次觸發都要重新分配記憶體
+  const danmuTimersRef = useRef<Set<number>>(new Set());
   const isMobileDanmu = useMemo(() => isMobileDevice(), []);
   const maxVisibleItems = isMobileDanmu
     ? DANMU_MOBILE_MAX_VISIBLE_ITEMS
@@ -63,7 +64,7 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
   const clearDanmuTimers = useCallback(() => {
     if (typeof window === "undefined") return;
     danmuTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
-    danmuTimersRef.current = [];
+    danmuTimersRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -134,19 +135,20 @@ const useGameRoomDanmu = ({ roomId, messages }: UseGameRoomDanmuArgs) => {
 
     newItems.forEach((newItem) => {
       const { id: itemId, durationMs } = newItem;
-      const timerId = window.setTimeout(() => {
-        setDanmuItems((prev) => prev.filter((item) => item.id !== itemId));
-        danmuTimersRef.current = danmuTimersRef.current.filter(
-          (registeredTimerId) => registeredTimerId !== timerId,
-        );
-      }, durationMs + 320);
-      if (danmuTimersRef.current.length >= maxTimerCount) {
-        const staleTimerId = danmuTimersRef.current.shift();
-        if (typeof staleTimerId === "number") {
-          window.clearTimeout(staleTimerId);
+      // 先清理最舊的 timer，防止 Set 無限增長（FIFO 上限控制）
+      if (danmuTimersRef.current.size >= maxTimerCount) {
+        const firstTimerId = danmuTimersRef.current.values().next().value;
+        if (typeof firstTimerId === "number") {
+          window.clearTimeout(firstTimerId);
+          danmuTimersRef.current.delete(firstTimerId);
         }
       }
-      danmuTimersRef.current.push(timerId);
+      const timerId = window.setTimeout(() => {
+        setDanmuItems((prev) => prev.filter((item) => item.id !== itemId));
+        // O(1) 刪除，不需重新分配陣列
+        danmuTimersRef.current.delete(timerId);
+      }, durationMs + 320);
+      danmuTimersRef.current.add(timerId);
     });
   }, [
     baseDurationMs,
