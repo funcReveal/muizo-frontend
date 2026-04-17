@@ -188,6 +188,53 @@ export const mergeGameSettings = (
   };
 };
 
+export const mergeKnownGameSettings = (
+  current: RoomSummary["gameSettings"] | undefined,
+  incoming: Partial<RoomGameSettings> | undefined,
+): RoomSummary["gameSettings"] => {
+  if (!current && !incoming) return undefined;
+
+  const next: Partial<RoomGameSettings> = {};
+  const questionCount = incoming?.questionCount ?? current?.questionCount;
+  if (questionCount !== undefined) {
+    next.questionCount = normalizeQuestionCount(questionCount, QUESTION_MIN);
+  }
+  const playDurationSec =
+    incoming?.playDurationSec ?? current?.playDurationSec;
+  if (playDurationSec !== undefined) {
+    next.playDurationSec = clampPlayDurationSec(playDurationSec);
+  }
+  const revealDurationSec =
+    incoming?.revealDurationSec ?? current?.revealDurationSec;
+  if (revealDurationSec !== undefined) {
+    next.revealDurationSec = clampRevealDurationSec(revealDurationSec);
+  }
+  const startOffsetSec = incoming?.startOffsetSec ?? current?.startOffsetSec;
+  if (startOffsetSec !== undefined) {
+    next.startOffsetSec = clampStartOffsetSec(startOffsetSec);
+  }
+  const allowCollectionClipTiming =
+    incoming?.allowCollectionClipTiming ?? current?.allowCollectionClipTiming;
+  if (allowCollectionClipTiming !== undefined) {
+    next.allowCollectionClipTiming = allowCollectionClipTiming;
+  }
+  const allowParticipantInvite =
+    incoming?.allowParticipantInvite ?? current?.allowParticipantInvite;
+  if (allowParticipantInvite !== undefined) {
+    next.allowParticipantInvite = allowParticipantInvite;
+  }
+  const playbackExtensionMode =
+    incoming?.playbackExtensionMode ?? current?.playbackExtensionMode;
+  if (playbackExtensionMode !== undefined) {
+    next.playbackExtensionMode =
+      normalizePlaybackExtensionMode(playbackExtensionMode);
+  }
+
+  return Object.keys(next).length > 0
+    ? (next as RoomSummary["gameSettings"])
+    : undefined;
+};
+
 export const applyGameSettingsPatch = (
   room: RoomState["room"],
   patch: Partial<RoomGameSettings>,
@@ -304,7 +351,7 @@ export const mergeRoomSummaryIntoCurrentRoom = (
         }
       : {}),
   },
-  gameSettings: mergeGameSettings(current.gameSettings, summary.gameSettings),
+  gameSettings: mergeKnownGameSettings(current.gameSettings, summary.gameSettings),
 });
 
 export const capRoomMessages = (

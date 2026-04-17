@@ -12,7 +12,7 @@ import {
   DEFAULT_REVEAL_DURATION_SEC,
 } from "./roomConstants";
 import { translateRoomErrorDetail } from "./roomErrorText";
-import { formatAckError, applyGameSettingsPatch } from "./roomProviderUtils";
+import { formatAckError } from "./roomProviderUtils";
 import { clampPlayDurationSec, clampRevealDurationSec } from "./roomUtils";
 import type {
   Ack,
@@ -202,7 +202,7 @@ export const useRoomProviderRoomActions = ({
             ).trim();
             const resolvedRoomPassword = submittedPin || serverPin || null;
             syncServerOffset(state.serverNow);
-            setCurrentRoom(applyGameSettingsPatch(state.room, {}));
+            setCurrentRoom(state.room);
             setParticipants((prev) =>
               mergeCachedParticipantPing(state.participants, prev),
             );

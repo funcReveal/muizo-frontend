@@ -12,7 +12,6 @@ import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { connectRoomSocket, disconnectRoomSocket } from "./roomSocket";
 import { translateRoomErrorDetail } from "./roomErrorText";
 import {
-  applyGameSettingsPatch,
   formatAckError,
   mergeRoomSummaryIntoCurrentRoom,
 } from "./roomProviderUtils";
@@ -446,7 +445,7 @@ export const useRoomProviderSocketLifecycle = ({
                     setKickedNotice(null);
                     setClosedRoomNotice(null);
                     syncServerOffset(state.serverNow);
-                    setCurrentRoom(applyGameSettingsPatch(state.room, {}));
+                    setCurrentRoom(state.room);
                     setParticipants((prev) =>
                       mergeCachedParticipantPing(state.participants, prev),
                     );
@@ -634,7 +633,7 @@ export const useRoomProviderSocketLifecycle = ({
           setClosedRoomNotice(null);
           releaseCreateRoomLockRef.current?.();
           syncServerOffset(state.serverNow);
-          setCurrentRoom(applyGameSettingsPatch(state.room, {}));
+          setCurrentRoom(state.room);
           setParticipants((prev) =>
             mergeCachedParticipantPing(state.participants, prev),
           );
