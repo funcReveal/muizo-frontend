@@ -38,26 +38,38 @@ export interface PlaylistItem {
 
 export interface RoomSummary {
   id: string;
+  roomCode: string;
   name: string;
   playlistCount: number;
   playerCount: number;
   maxPlayers?: number | null;
-  createdAt: string;
-  hasPassword?: boolean;
+  createdAt: number;
+  hasPassword: boolean;
   hasPin?: boolean;
+  password?: string | null;
+  pin?: string | null;
   visibility?: RoomVisibility;
+  playlistId?: string | null;
   playlistTitle?: string | null;
+  playlistCoverTitle?: string | null;
+  playlistCoverThumbnailUrl?: string | null;
+  playlistCoverSourceId?: string | null;
   playlistSourceType?: PlaylistSourceType | null;
   currentQuestionNo?: number | null;
   completedQuestionCount?: number;
-  questionCount?: number;
-  gameStatus?: string | null;
+  totalQuestionCount?: number;
+  isPlaying?: boolean;
+  gameStatus?: "playing" | "ended" | "idle";
+  gamePhase?: "guess" | "reveal" | null;
   gameSettings?: {
+    questionCount: number;
     playDurationSec?: number;
     revealDurationSec?: number;
     startOffsetSec?: number;
     allowCollectionClipTiming?: boolean;
-  } | null;
+    allowParticipantInvite?: boolean;
+    playbackExtensionMode?: PlaybackExtensionMode;
+  };
 }
 
 export type RoomListPayload = {

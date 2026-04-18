@@ -31,7 +31,7 @@ import ViewAgendaRounded from "@mui/icons-material/ViewAgendaRounded";
 import type {
   PlaybackExtensionMode,
   RoomSummary,
-} from "../../../../../entities/room/types";
+} from "@domain/room/types";
 import VirtualJoinRoomRow, {
   type VirtualJoinRoomRowProps,
 } from "./VirtualJoinRoomRow";

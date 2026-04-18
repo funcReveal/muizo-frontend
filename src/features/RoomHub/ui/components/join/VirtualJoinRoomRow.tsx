@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { type RowComponentProps } from "react-window";
 
-import type { RoomSummary } from "../../../../../entities/room/types";
+import type { RoomSummary } from "@domain/room/types";
 
 export type VirtualJoinRoomRowProps = {
   items: RoomSummary[];

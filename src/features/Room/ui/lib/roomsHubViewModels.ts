@@ -2,7 +2,7 @@ export type {
   SourceSummary,
   CreateSettingsCard,
   CreatePresetCard,
-} from "../../../entities/room/viewModels";
+} from "@domain/room/viewModels";
 export {
   formatDurationLabel,
   roomRequiresPin,
@@ -14,4 +14,4 @@ export {
   buildSelectedCreateSourceSummary,
   buildCreateSettingsCards,
   buildCreatePresetCards,
-} from "../../../entities/room/viewModels";
+} from "@domain/room/viewModels";

@@ -2,10 +2,10 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import RequireAuthRoute from "./guards/RequireAuthRoute";
-import RoomsLayoutShell from "../features/Room/ui/RoomsLayoutShell";
-import LegalLayout from "../features/Legal/ui/LegalLayout";
-import PrivacyPage from "../features/Legal/ui/PrivacyPage";
-import TermsPage from "../features/Legal/ui/TermsPage";
+import RoomsLayoutShell from "@features/Room/ui/RoomsLayoutShell";
+import LegalLayout from "@features/Legal/ui/LegalLayout";
+import PrivacyPage from "@features/Legal/ui/PrivacyPage";
+import TermsPage from "@features/Legal/ui/TermsPage";
 
 // ---------------------------------------------------------------------------
 // Route-level code splitting
@@ -15,24 +15,24 @@ import TermsPage from "../features/Legal/ui/TermsPage";
 // ---------------------------------------------------------------------------
 
 const LandingHomePage = lazy(
-  () => import("../features/Landing/ui/LandingHomePage"),
+  () => import("@features/Landing/ui/LandingHomePage"),
 );
 const RoomsHubPage = lazy(
-  () => import("../features/RoomHub/ui/RoomsHubPage"),
+  () => import("@features/RoomHub/ui/RoomsHubPage"),
 );
-const RoomLobbyPage = lazy(() => import("../features/Room/ui/RoomLobbyPage"));
+const RoomLobbyPage = lazy(() => import("@features/Room/ui/RoomLobbyPage"));
 const RoomHistoryPage = lazy(
-  () => import("../features/Room/ui/RoomHistoryPage"),
+  () => import("@features/Room/ui/RoomHistoryPage"),
 );
-const InvitedPage = lazy(() => import("../features/Invited/ui/InvitedPage"));
+const InvitedPage = lazy(() => import("@features/Invited/ui/InvitedPage"));
 const CollectionsPage = lazy(
-  () => import("../features/Collections/ui/CollectionsPage"),
+  () => import("@features/Collections/ui/CollectionsPage"),
 );
 const CollectionsCreatePage = lazy(
-  () => import("../features/Collections/create/page/CollectionCreatePage"),
+  () => import("@features/Collections/create/page/CollectionCreatePage"),
 );
 const EditPage = lazy(
-  () => import("../features/Collections/edit/page/CollectionEditPage"),
+  () => import("@features/Collections/edit/page/CollectionEditPage"),
 );
 
 /** Minimal spinner used as the Suspense fallback for route transitions. */

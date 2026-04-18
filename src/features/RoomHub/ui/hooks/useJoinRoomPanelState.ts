@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { RoomSummary } from "../../../../entities/room/types";
+import type { RoomSummary } from "@domain/room/types";
 import { normalizeRoomCodeInput } from "../roomsHubViewModels";
 
 export type JoinPasswordDialogState = {

@@ -8,8 +8,8 @@ import {
   MeetingRoomRounded,
 } from "@mui/icons-material";
 
-import type { RoomSummary } from "../../../entities/room/types";
-import { useAuth } from "../../../shared/auth/AuthContext";
+import type { RoomSummary } from "@domain/room/types";
+import { useAuth } from "@shared/auth/AuthContext";
 import {
   useRoomSession,
   useRoomCreate,
@@ -17,18 +17,18 @@ import {
   useRoomPlaylist,
   useRoomGame,
   useSitePresence,
-} from "../../RoomSession/model/runtimeHooks";
+} from "@features/RoomSession/model/runtimeHooks";
 import {
   DEFAULT_BGM_VOLUME,
   SettingsModelContext,
-} from "../../Setting/model/settingsContext";
-import { apiFetchRoomById } from "../../../entities/room/api";
+} from "@features/Setting/model/settingsContext";
+import { apiFetchRoomById } from "@domain/room/api";
 import {
   API_URL,
   PLAYER_MAX,
   PLAYER_MIN,
   USERNAME_MAX,
-} from "../../../entities/room/constants";
+} from "@domain/room/constants";
 import {
   PlaylistIssueRow,
   PlaylistPreviewRow,

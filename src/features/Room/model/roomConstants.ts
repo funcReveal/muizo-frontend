@@ -1,1 +1,1 @@
-export * from "../../../entities/room/constants";
+export * from "@domain/room/constants";

@@ -1419,7 +1419,7 @@ const useGameRoomPlayerSync = ({
           bufferingStartedAtRef.current = null;
         }
         if (state === 5 || state === 1) {
-          handleTrackPrepared(data.info);
+          handleTrackPrepared(data.info ?? state);
         }
         if (state === 1) {
           setIsPlayerPlaying(true);

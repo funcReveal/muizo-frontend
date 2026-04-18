@@ -5,9 +5,9 @@ import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import {
   RoomSessionProvider,
   SitePresenceProvider,
-} from "../features/RoomSession/model/RoomSessionProvider";
-import { SettingsProvider } from "../features/Setting/model/settingsModel";
-import { AppToaster } from "../shared/ui/toast";
+} from "@features/RoomSession/model/RoomSessionProvider";
+import { SettingsProvider } from "@features/Setting/model/settingsModel";
+import { AppToaster } from "@shared/ui/toast";
 import { VersionUpdateNotifier } from "./VersionUpdateNotifier";
 
 const queryClient = new QueryClient();

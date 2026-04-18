@@ -6,7 +6,7 @@ import {
   QuizRounded,
 } from "@mui/icons-material";
 
-import { PLAYER_MIN } from "../../../../../entities/room/constants";
+import { PLAYER_MIN } from "@domain/room/constants";
 import type { SourceSummary } from "../../roomsHubViewModels";
 
 type RoomSetupSidebarSummaryProps = {
