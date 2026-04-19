@@ -1,17 +1,20 @@
 ﻿import {
   AccessTime,
   ChevronRightRounded,
+  KeyboardArrowUpRounded,
+  LibraryMusic,
   MeetingRoom,
-  Quiz,
-  TimerOutlined,
+  QueueMusic,
+  YouTube,
 } from "@mui/icons-material";
-import { Chip, CircularProgress } from "@mui/material";
+import { CircularProgress } from "@mui/material";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@shared/auth/AuthContext";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import {
+  type PlaylistSourceType,
   useRoomSession,
   type RoomSettlementHistorySummary,
   type RoomSettlementQuestionRecap,
@@ -35,6 +38,7 @@ type HistoryListResponse = {
   data?: {
     items: RoomSettlementHistorySummary[];
     nextCursor: number | null;
+    nextCursorToken?: string | null;
   };
   error?: string;
 };
@@ -50,6 +54,7 @@ type HistoryDetailResponse = {
 type HistoryListCachePayload = {
   savedAt: number;
   items: RoomSettlementHistorySummary[];
+  nextCursorToken?: string | null;
 };
 
 type HistoryRequestGuardPayload = {
@@ -78,6 +83,22 @@ const buildHistoryGuardKey = (clientId: string | null) =>
 const getHistoryGroupKeyFromSummary = (summary: RoomSettlementHistorySummary) =>
   summary.roomId || summary.roomName || summary.matchId;
 
+const mergeHistoryItems = (
+  currentItems: RoomSettlementHistorySummary[],
+  incomingItems: RoomSettlementHistorySummary[],
+) => {
+  const merged = new Map<string, RoomSettlementHistorySummary>();
+  for (const item of currentItems) {
+    merged.set(item.matchId, item);
+  }
+  for (const item of incomingItems) {
+    merged.set(item.matchId, item);
+  }
+  return Array.from(merged.values()).sort(
+    (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
+  );
+};
+
 const getMatchDurationMs = (startedAt: number, endedAt: number) => {
   if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) return null;
   if (startedAt <= 0 || endedAt <= 0 || endedAt <= startedAt) return null;
@@ -103,6 +124,88 @@ const formatMonthDayTime = (timestamp: number) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatScore = (score: number | null | undefined) => {
+  if (typeof score !== "number" || !Number.isFinite(score)) return "-";
+  return Math.max(0, Math.floor(score)).toLocaleString("zh-TW");
+};
+
+const parseSummaryPlaylistTitle = (summary: RoomSettlementHistorySummary) => {
+  const topLevelTitle = summary.playlistTitle?.trim();
+  if (topLevelTitle) return topLevelTitle;
+  const summaryTitle = summary.summaryJson?.playlistTitle;
+  if (typeof summaryTitle === "string" && summaryTitle.trim().length > 0) {
+    return summaryTitle.trim();
+  }
+  return null;
+};
+
+const getHistoryPlaylistTitle = (summary: RoomSettlementHistorySummary) => {
+  const title = parseSummaryPlaylistTitle(summary);
+  if (title) return title;
+  return "未命名播放清單";
+};
+
+const parseSummaryPlaylistSourceType = (
+  summary: RoomSettlementHistorySummary,
+): PlaylistSourceType | null => {
+  const topLevelSourceType = summary.playlistSourceType;
+  if (
+    topLevelSourceType === "public_collection" ||
+    topLevelSourceType === "private_collection" ||
+    topLevelSourceType === "youtube_google_import" ||
+    topLevelSourceType === "youtube_pasted_link"
+  ) {
+    return topLevelSourceType;
+  }
+  const summarySourceType = summary.summaryJson?.playlistSourceType;
+  return summarySourceType === "public_collection" ||
+    summarySourceType === "private_collection" ||
+    summarySourceType === "youtube_google_import" ||
+    summarySourceType === "youtube_pasted_link"
+    ? summarySourceType
+    : null;
+};
+
+const getHistoryPlaylistSourceLabel = (summary: RoomSettlementHistorySummary) => {
+  const sourceType = parseSummaryPlaylistSourceType(summary);
+  switch (sourceType) {
+    case "public_collection":
+    case "private_collection":
+      return "收藏庫";
+    case "youtube_google_import":
+    case "youtube_pasted_link":
+      return "YouTube 清單";
+    default:
+      return "未知來源";
+  }
+};
+
+const isCollectionHistorySource = (summary: RoomSettlementHistorySummary) => {
+  const sourceType = parseSummaryPlaylistSourceType(summary);
+  return (
+    sourceType === "public_collection" || sourceType === "private_collection"
+  );
+};
+
+const isYouTubeHistorySource = (summary: RoomSettlementHistorySummary) => {
+  const sourceType = parseSummaryPlaylistSourceType(summary);
+  return (
+    sourceType === "youtube_google_import" || sourceType === "youtube_pasted_link"
+  );
+};
+
+const getHistoryPlaylistItemCount = (summary: RoomSettlementHistorySummary) => {
+  const topLevelCount = summary.playlistItemCount;
+  if (typeof topLevelCount === "number" && Number.isFinite(topLevelCount) && topLevelCount >= 0) {
+    return Math.floor(topLevelCount);
+  }
+  const summaryCount = summary.summaryJson?.playlistItemCount;
+  if (typeof summaryCount === "number" && Number.isFinite(summaryCount) && summaryCount >= 0) {
+    return Math.floor(summaryCount);
+  }
+  return null;
 };
 
 const formatRankFraction = (rank: number | null, playerCount: number | null | undefined) => {
@@ -216,6 +319,7 @@ const normalizeQuestionRecap = (
               choiceIndex: answer.choiceIndex ?? null,
               result: answer.result ?? "unanswered",
               answeredAtMs: answer.answeredAtMs ?? answer.firstAnsweredAtMs ?? null,
+              scoreBreakdown: answer.scoreBreakdown ?? null,
             },
           ]),
         )
@@ -230,7 +334,10 @@ const RoomHistoryPage: React.FC = () => {
 
   const [items, setItems] = useState<RoomSettlementHistorySummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [loadingMoreList, setLoadingMoreList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [nextCursorToken, setNextCursorToken] = useState<string | null>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [loadingReplayMatchId, setLoadingReplayMatchId] = useState<string | null>(
@@ -248,6 +355,8 @@ const RoomHistoryPage: React.FC = () => {
   const groupContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const groupVisibilityTimerIdsRef = useRef<number[]>([]);
   const lastExpandedGroupKeyRef = useRef<string | null>(null);
+  const pageRootRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLElement | Window | null>(null);
 
   const historyListCacheKey = useMemo(
     () => buildHistoryListCacheKey(clientId),
@@ -423,21 +532,29 @@ const RoomHistoryPage: React.FC = () => {
       if (!parsed || !Array.isArray(parsed.items)) return null;
       if (!Number.isFinite(parsed.savedAt)) return null;
       if (Date.now() - parsed.savedAt > HISTORY_LIST_CACHE_TTL_MS) return null;
-      return parsed.items
-        .slice(0, HISTORY_PAGE_LIMIT)
-        .sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo);
+      return {
+        items: parsed.items.sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo),
+        nextCursorToken:
+          typeof parsed.nextCursorToken === "string" && parsed.nextCursorToken.trim().length > 0
+            ? parsed.nextCursorToken
+            : null,
+      };
     } catch {
       return null;
     }
   }, [historyListCacheKey]);
 
   const writeHistoryListCache = useCallback(
-    (nextItems: RoomSettlementHistorySummary[]) => {
+    (
+      nextItems: RoomSettlementHistorySummary[],
+      nextPageCursorToken: string | null,
+    ) => {
       if (typeof window === "undefined") return;
       try {
         const payload: HistoryListCachePayload = {
           savedAt: Date.now(),
-          items: nextItems.slice(0, HISTORY_PAGE_LIMIT),
+          items: nextItems,
+          nextCursorToken: nextPageCursorToken,
         };
         window.sessionStorage.setItem(historyListCacheKey, JSON.stringify(payload));
       } catch {
@@ -521,7 +638,7 @@ const RoomHistoryPage: React.FC = () => {
     [guardBlockedMessage, historyGuardKey, setStatusText],
   );
 
-  const fetchHistoryList = useCallback(async () => {
+  const fetchHistoryList = useCallback(async (beforeCursor?: string | null) => {
     if (!API_URL) {
       throw new Error("找不到 API_URL 設定");
     }
@@ -530,6 +647,7 @@ const RoomHistoryPage: React.FC = () => {
     const params = new URLSearchParams();
     if (clientId) params.set("clientId", clientId);
     params.set("limit", String(HISTORY_PAGE_LIMIT));
+    if (beforeCursor) params.set("beforeCursor", beforeCursor);
 
     const res = await fetch(`${API_URL}/api/history/matches?${params.toString()}`, {
       method: "GET",
@@ -544,14 +662,16 @@ const RoomHistoryPage: React.FC = () => {
       throw new Error(payload?.error ?? "讀取歷史列表失敗");
     }
 
-    const merged = new Map<string, RoomSettlementHistorySummary>();
-    for (const item of payload.data.items ?? []) {
-      merged.set(item.matchId, item);
-    }
-
-    return Array.from(merged.values())
-      .sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo)
-      .slice(0, HISTORY_PAGE_LIMIT);
+    return {
+      items: Array.isArray(payload.data.items)
+        ? payload.data.items.sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo)
+        : [],
+      nextCursorToken:
+        typeof payload.data.nextCursorToken === "string" &&
+        payload.data.nextCursorToken.trim().length > 0
+          ? payload.data.nextCursorToken
+          : null,
+    };
   }, [clientId, getBearerToken]);
 
   const fetchReplay = useCallback(
@@ -615,8 +735,9 @@ const RoomHistoryPage: React.FC = () => {
     let cancelled = false;
     const cachedItems = readHistoryListCache();
 
-    if (cachedItems && cachedItems.length > 0) {
-      setItems(cachedItems);
+    if (cachedItems && cachedItems.items.length > 0) {
+      setItems(cachedItems.items);
+      setNextCursorToken(cachedItems.nextCursorToken);
       setLoadingList(false);
       setListError(null);
     } else {
@@ -625,7 +746,7 @@ const RoomHistoryPage: React.FC = () => {
     }
 
     if (!acquireHistoryRequestPermit("list")) {
-      if (!cachedItems || cachedItems.length === 0) {
+      if (!cachedItems || cachedItems.items.length === 0) {
         setListError("歷史請求過於頻繁，請稍後再試。");
         setLoadingList(false);
       } else {
@@ -637,17 +758,18 @@ const RoomHistoryPage: React.FC = () => {
     }
 
     void fetchHistoryList()
-      .then((nextItems) => {
+      .then((page) => {
         if (cancelled) return;
-        setItems(nextItems);
-        writeHistoryListCache(nextItems);
+        setItems(page.items);
+        setNextCursorToken(page.nextCursorToken);
+        writeHistoryListCache(page.items, page.nextCursorToken);
         setListError(null);
       })
       .catch((error) => {
         if (cancelled) return;
         const message =
           error instanceof Error ? error.message : "讀取歷史列表失敗";
-        if (cachedItems && cachedItems.length > 0) {
+        if (cachedItems && cachedItems.items.length > 0) {
           setListError(null);
           setStatusText(`${message}，已顯示快取資料`);
         } else {
@@ -669,6 +791,70 @@ const RoomHistoryPage: React.FC = () => {
     setStatusText,
     writeHistoryListCache,
   ]);
+
+  useEffect(() => {
+    const rootNode = pageRootRef.current;
+    if (!rootNode || typeof window === "undefined") return;
+    const resolvedContainer = resolveScrollableParent(rootNode);
+    const scrollHost: HTMLElement | Window = resolvedContainer ?? window;
+    scrollContainerRef.current = scrollHost;
+
+    const handleScroll = () => {
+      const top =
+        scrollHost === window
+          ? window.scrollY || window.pageYOffset || 0
+          : (scrollHost as HTMLElement).scrollTop;
+      setShowBackToTop(top > 320);
+    };
+
+    handleScroll();
+    scrollHost.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      scrollHost.removeEventListener("scroll", handleScroll);
+    };
+  }, [resolveScrollableParent]);
+
+  const handleLoadMoreHistory = useCallback(async () => {
+    if (!nextCursorToken || loadingList || loadingMoreList) return;
+    if (!acquireHistoryRequestPermit("list")) return;
+
+    setLoadingMoreList(true);
+    try {
+      const page = await fetchHistoryList(nextCursorToken);
+      let mergedItems: RoomSettlementHistorySummary[] = [];
+      setItems((prev) => {
+        mergedItems = mergeHistoryItems(prev, page.items);
+        return mergedItems;
+      });
+      setNextCursorToken(page.nextCursorToken);
+      writeHistoryListCache(mergedItems, page.nextCursorToken);
+      setListError(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "載入更多對戰紀錄失敗";
+      setStatusText(message);
+    } finally {
+      setLoadingMoreList(false);
+    }
+  }, [
+    acquireHistoryRequestPermit,
+    fetchHistoryList,
+    loadingList,
+    loadingMoreList,
+    nextCursorToken,
+    setStatusText,
+    writeHistoryListCache,
+  ]);
+
+  const handleBackToTop = useCallback(() => {
+    const scrollHost = scrollContainerRef.current;
+    if (typeof window === "undefined") return;
+    if (!scrollHost || scrollHost === window) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   const openReplayDetail = useCallback(
     async (summary: RoomSettlementHistorySummary) => {
@@ -777,9 +963,6 @@ const RoomHistoryPage: React.FC = () => {
     }
     return best;
   }, [recentItems]);
-  const oldestRecentEntry =
-    recentItems.length > 0 ? recentItems[recentItems.length - 1] : null;
-
   const groupedHistoryItems = useMemo(() => {
     const groups = new Map<
       string,
@@ -865,11 +1048,18 @@ const RoomHistoryPage: React.FC = () => {
       item: RoomSettlementHistorySummary,
       options?: {
         animationDelayMs?: number;
-        roomLabel?: string | null;
       },
     ) => {
       const selfRank = getSelfRankForSummary(item);
       const matchDurationMs = getMatchDurationMs(item.startedAt, item.endedAt);
+      const correctCount = item.selfPlayer?.correctCount ?? 0;
+      const maxCombo = item.selfPlayer?.maxCombo ?? 0;
+      const finalScore = item.selfPlayer?.finalScore ?? 0;
+      const sourceLabel = getHistoryPlaylistSourceLabel(item);
+      const playlistTitle = getHistoryPlaylistTitle(item);
+      const playlistItemCount = getHistoryPlaylistItemCount(item);
+      const isCollectionSource = isCollectionHistorySource(item);
+      const isYouTubeSource = isYouTubeHistorySource(item);
       return (
         <button
           key={item.matchId}
@@ -883,72 +1073,57 @@ const RoomHistoryPage: React.FC = () => {
           }
         >
           <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-sky-300/40 opacity-70 transition group-hover:opacity-100" />
-          <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="min-w-0 pr-1 sm:pr-2">
-              <div className="flex flex-wrap items-center gap-1.5 pb-1 sm:gap-2">
-                {options?.roomLabel && (
-                  <Chip
-                    size="small"
-                    label={options.roomLabel}
-                    className="border-amber-300/25 bg-amber-300/8 text-amber-100"
-                    variant="outlined"
-                  />
-                )}
-                <Chip
-                  size="small"
-                  label={`第 ${item.roundNo} 場`}
-                  className="border-amber-300/30 bg-amber-300/10 text-amber-100"
-                  variant="outlined"
-                />
-                <Chip
-                  size="small"
-                  label={`名次 ${formatRankFraction(selfRank, item.playerCount)}`}
-                  className={
-                    selfRank !== null
-                      ? "border-amber-300/35 bg-amber-300/14 text-amber-50"
-                      : "border-slate-300/28 bg-slate-300/10 text-slate-200/90"
-                  }
-                  variant="outlined"
-                />
-                {item.selfPlayer && (
-                  <>
-                    <Chip
-                      size="small"
-                      label={`分數 ${item.selfPlayer.finalScore}`}
-                      className="border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
-                      variant="outlined"
-                    />
-                    <Chip
-                      size="small"
-                      label={`答對 ${item.selfPlayer.correctCount}/${item.questionCount}`}
-                      className="border-sky-300/30 bg-sky-300/10 text-sky-100"
-                      variant="outlined"
-                    />
-                    <span className="hidden sm:inline-flex">
-                      <Chip
-                        size="small"
-                        label={`Combo x${item.selfPlayer.maxCombo}`}
-                        className="border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100"
-                        variant="outlined"
-                      />
-                    </span>
-                  </>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <div className="min-w-0 truncate text-base font-semibold tracking-tight text-[var(--mc-text)] sm:text-lg">
+                  {playlistTitle}
+                </div>
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold sm:text-[13px] ${
+                    isYouTubeSource
+                      ? "text-rose-300"
+                      : isCollectionSource
+                        ? "text-sky-100"
+                        : "text-slate-200/88"
+                  }`}
+                >
+                  {isYouTubeSource ? (
+                    <YouTube sx={{ fontSize: 16 }} />
+                  ) : isCollectionSource ? (
+                    <LibraryMusic sx={{ fontSize: 16 }} />
+                  ) : null}
+                  <span>{sourceLabel}</span>
+                </span>
+                {playlistItemCount !== null && playlistItemCount > 0 && (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-slate-200/82 sm:text-[13px]">
+                    <QueueMusic sx={{ fontSize: 15 }} />
+                    <span>{playlistItemCount} 首</span>
+                  </span>
                 )}
               </div>
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)] sm:gap-x-4 sm:text-sm">
-                <div className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-[var(--mc-text)] sm:text-[15px]">
+                <span>第 {item.roundNo} 場</span>
+                <span className="text-[var(--mc-text-muted)]/45">•</span>
+                <span className={selfRank !== null ? "text-amber-100" : undefined}>
+                  名次 {formatRankFraction(selfRank, item.playerCount)}
+                </span>
+                <span className="text-[var(--mc-text-muted)]/45">•</span>
+                <span className="text-emerald-100">分數 {formatScore(finalScore)}</span>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)] sm:gap-x-4 sm:text-sm">
+                <span>答對 {correctCount}/{item.questionCount}</span>
+                <span>Combo x{maxCombo}</span>
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <AccessTime sx={{ fontSize: 16 }} />
-                  <span className="truncate">{formatDuration(matchDurationMs)}</span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                  <Quiz sx={{ fontSize: 16 }} />
-                  <span>{item.questionCount} 題</span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <span>{formatDuration(matchDurationMs)}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <MeetingRoom sx={{ fontSize: 16 }} />
                   <span>{item.playerCount} 人</span>
-                </div>
+                </span>
               </div>
             </div>
 
@@ -1006,8 +1181,6 @@ const RoomHistoryPage: React.FC = () => {
                 historyDisplayMode === "expanded"
                   ? false
                   : (collapsedRoomGroups[groupKey] ?? true);
-              const firstItem = group.items[group.items.length - 1] ?? null;
-              const firstPlayedAt = firstItem?.startedAt ?? firstItem?.endedAt ?? 0;
               const groupBestScore = group.items.reduce(
                 (max, entry) => Math.max(max, entry.selfPlayer?.finalScore ?? 0),
                 0,
@@ -1026,14 +1199,19 @@ const RoomHistoryPage: React.FC = () => {
                 };
                 return isBetterRankResult(next, best) ? next : best;
               }, null);
+              const latestItem = group.items[0] ?? null;
+              const latestPlayedAt = latestItem?.endedAt ?? latestItem?.startedAt ?? 0;
               const groupTotalQuestionCount = group.items.reduce(
                 (sum, entry) => sum + Math.max(0, entry.questionCount),
                 0,
               );
-              const groupTotalDurationMs = group.items.reduce((sum, entry) => {
-                const duration = getMatchDurationMs(entry.startedAt, entry.endedAt);
-                return sum + (duration ?? 0);
-              }, 0);
+              const groupSummaryItems = [
+                `最近遊玩 ${formatMonthDayTime(latestPlayedAt)}`,
+                `共 ${group.items.length} 場`,
+                ...(groupBestScore > 0 ? [`最佳分數 ${formatScore(groupBestScore)}`] : []),
+                `最佳名次 ${formatRankFraction(groupBestRank?.rank ?? null, groupBestRank?.playerCount)}`,
+                ...(groupTotalQuestionCount > 0 ? [`累計題數 ${groupTotalQuestionCount} 題`] : []),
+              ];
 
               return (
                 <div
@@ -1089,76 +1267,29 @@ const RoomHistoryPage: React.FC = () => {
                       }}
                     >
                       <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-amber-300/45 opacity-85 transition group-hover:opacity-100" />
-                      <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
                         <div className="min-w-0 pr-1 sm:pr-2">
-                          <div className="flex flex-wrap items-center gap-1.5 pb-1 sm:gap-2">
-                            <Chip
-                              size="small"
-                              label={group.roomName || group.roomId}
-                              className="border-amber-300/22 bg-amber-300/8 text-amber-100"
-                              variant="outlined"
-                            />
-                            <Chip
-                              size="small"
-                              label={`資料集 ${group.items.length} 場`}
-                              className="border-amber-300/36 bg-amber-300/18 text-amber-50"
-                              variant="outlined"
-                            />
-                            <span className="sm:hidden">
-                              <Chip
-                                size="small"
-                                label={`${group.items.length} 場`}
-                                className="border-amber-300/36 bg-amber-300/18 text-amber-50"
-                                variant="outlined"
-                              />
-                            </span>
-                            {groupBestScore > 0 && (
-                              <span className="hidden sm:inline-flex">
-                              <Chip
-                                size="small"
-                                label={`最佳 ${groupBestScore}`}
-                                className="border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
-                                variant="outlined"
-                              />
-                              </span>
-                            )}
-                            <Chip
-                              size="small"
-                              label={`名次 ${formatRankFraction(
-                                groupBestRank?.rank ?? null,
-                                groupBestRank?.playerCount,
-                              )}`}
-                              className={
-                                groupBestRank !== null
-                                  ? "border-amber-300/35 bg-amber-300/14 text-amber-50"
-                                  : "border-slate-300/28 bg-slate-300/10 text-slate-200/90"
-                              }
-                              variant="outlined"
-                            />
+                          <div className="min-w-0">
+                            <div className="truncate text-lg font-semibold tracking-tight text-[var(--mc-text)] sm:text-[1.35rem]">
+                              {group.roomName || group.roomId}
+                            </div>
                           </div>
 
-                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)] sm:gap-x-4 sm:text-sm">
-                            <div className="hidden min-w-0 items-center gap-1.5 whitespace-nowrap sm:inline-flex">
-                              <AccessTime sx={{ fontSize: 16 }} />
-                              <span className="truncate">
-                                首場 {formatMonthDayTime(firstPlayedAt)}
-                              </span>
-                            </div>
-                            <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <TimerOutlined sx={{ fontSize: 16 }} />
-                              <span>{formatDuration(groupTotalDurationMs)}</span>
-                            </div>
-                            <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <Quiz sx={{ fontSize: 16 }} />
-                              <span>{groupTotalQuestionCount} 題</span>
-                            </div>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)] sm:gap-x-4 sm:text-sm">
+                            {groupSummaryItems.map((summaryItem, index) => (
+                              <React.Fragment key={summaryItem}>
+                                {index > 0 && (
+                                  <span className="text-[var(--mc-text-muted)]/40">
+                                    •
+                                  </span>
+                                )}
+                                <span className="truncate">{summaryItem}</span>
+                              </React.Fragment>
+                            ))}
                           </div>
                         </div>
 
                         <div className="shrink-0 self-start text-right sm:self-center sm:pr-1">
-                          <span className="mb-1.5 hidden items-center justify-end text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-100/72 sm:flex">
-                            Collection
-                          </span>
                           <span
                             className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.12em] transition ${
                               historyDisplayMode === "expanded"
@@ -1233,22 +1364,27 @@ const RoomHistoryPage: React.FC = () => {
               );
             })}
           </div>
-          <div className="px-1 text-xs text-[var(--mc-text-muted)]/80">
-            {oldestRecentEntry
-              ? `目前顯示最近 ${recentItems.length} 場，從第 ${oldestRecentEntry.roundNo} 場開始。`
-              : "目前沒有可顯示的對戰場次。"}
-          </div>
+          {nextCursorToken && (
+            <div className="flex justify-center pt-1">
+              <button
+                type="button"
+                onClick={() => void handleLoadMoreHistory()}
+                disabled={loadingMoreList}
+                className="inline-flex min-w-[132px] items-center justify-center rounded-full border border-sky-300/24 bg-sky-300/10 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/40 hover:bg-sky-300/16 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loadingMoreList ? "載入中..." : "載入更多"}
+              </button>
+            </div>
+          )}
         </>
       )}
     </section>
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1180px] min-w-0 px-1 sm:px-0">
+    <div ref={pageRootRef} className="mx-auto w-full max-w-[1180px] min-w-0 px-1 sm:px-0">
       <HistoryArchiveHeader
-        historyPageLimit={HISTORY_PAGE_LIMIT}
         loadingList={loadingList}
-        recentItemsLength={recentItems.length}
         historyDisplayMode={historyDisplayMode}
         onHistoryDisplayModeChange={setHistoryDisplayMode}
         recentTopScoreEntry={recentTopScoreEntry}
@@ -1278,6 +1414,16 @@ const RoomHistoryPage: React.FC = () => {
         getMatchDurationMs={getMatchDurationMs}
         formatDuration={formatDuration}
       />
+      {showBackToTop && (
+        <button
+          type="button"
+          aria-label="回到頂部"
+          onClick={handleBackToTop}
+          className="fixed bottom-5 right-5 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full border border-sky-300/30 bg-[linear-gradient(180deg,rgba(10,26,42,0.92),rgba(6,14,24,0.96))] text-sky-100 shadow-[0_18px_34px_-22px_rgba(14,165,233,0.55)] transition hover:-translate-y-0.5 hover:border-sky-300/50 hover:bg-sky-300/14"
+        >
+          <KeyboardArrowUpRounded sx={{ fontSize: 26 }} />
+        </button>
+      )}
     </div>
   );
 };

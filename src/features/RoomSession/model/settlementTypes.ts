@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   PlaylistItem,
+  PlaylistSourceType,
   PlaylistState,
   QuestionScoreBreakdown,
   RoomParticipant,
@@ -57,6 +58,9 @@ export interface RoomSettlementHistorySummary {
   roundNo: number;
   roomId: string;
   roomName: string;
+  playlistTitle?: string | null;
+  playlistSourceType?: PlaylistSourceType | null;
+  playlistItemCount?: number | null;
   startedAt: number;
   endedAt: number;
   status: "ended" | "aborted";

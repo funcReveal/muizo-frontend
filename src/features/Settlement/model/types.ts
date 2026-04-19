@@ -1,3 +1,5 @@
+import type { QuestionScoreBreakdown } from "@features/RoomSession";
+
 export type SettlementQuestionResult = "correct" | "wrong" | "unanswered";
 
 export type SettlementQuestionChoice = {
@@ -40,6 +42,7 @@ export type SettlementQuestionRecap = {
       choiceIndex: number | null;
       result: SettlementQuestionResult;
       answeredAtMs?: number | null;
+      scoreBreakdown?: QuestionScoreBreakdown | null;
     }
   >;
 };

@@ -1,12 +1,25 @@
 ﻿
+import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
+import HighlightOffRoundedIcon from "@mui/icons-material/HighlightOffRounded";
+import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import PlayCircleOutlineRoundedIcon from "@mui/icons-material/PlayCircleOutlineRounded";
+import RadioButtonCheckedRoundedIcon from "@mui/icons-material/RadioButtonCheckedRounded";
+import RemoveCircleOutlineRoundedIcon from "@mui/icons-material/RemoveCircleOutlineRounded";
+import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
 import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { trackEvent } from "../../../../shared/analytics/track";
+import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 import {
   resolveSettlementTrackLink,
   type SettlementTrackLink,
@@ -51,25 +64,272 @@ const HISTORY_PREVIEW_VOLUME_STORAGE_KEY = "history_preview_volume";
 const PREVIEW_OVERLAY_COPY = "如果喜歡這首音樂，別忘了到 YouTube 支持創作者喲！";
 const HISTORY_PREVIEW_BRIDGE_ID = "history-replay-preview";
 
-const RESULT_TONE: Record<
+const RESULT_META: Record<
   ParticipantResult,
-  { label: string; chipClassName: string; dotClassName: string }
+  {
+    label: string;
+    shortLabel: string;
+    icon: React.ReactNode;
+    textClassName: string;
+    softBgClassName: string;
+    barClassName: string;
+    dotClassName: string;
+  }
 > = {
   correct: {
     label: "答對",
-    chipClassName: "border-emerald-300/35 bg-emerald-500/12 text-emerald-100",
+    shortLabel: "答對",
+    icon: <CheckCircleRoundedIcon sx={{ fontSize: 16 }} />,
+    textClassName: "text-emerald-100",
+    softBgClassName: "bg-emerald-400/14",
+    barClassName: "from-emerald-300 via-emerald-400 to-emerald-500",
     dotClassName: "bg-emerald-300",
   },
   wrong: {
     label: "答錯",
-    chipClassName: "border-rose-300/35 bg-rose-500/12 text-rose-100",
+    shortLabel: "答錯",
+    icon: <HighlightOffRoundedIcon sx={{ fontSize: 16 }} />,
+    textClassName: "text-rose-100",
+    softBgClassName: "bg-rose-400/14",
+    barClassName: "from-rose-300 via-rose-400 to-rose-500",
     dotClassName: "bg-rose-300",
   },
   unanswered: {
-    label: "未答",
-    chipClassName: "border-slate-400/40 bg-slate-700/45 text-slate-100",
+    label: "未作答",
+    shortLabel: "未答",
+    icon: <RemoveCircleOutlineRoundedIcon sx={{ fontSize: 16 }} />,
+    textClassName: "text-slate-100",
+    softBgClassName: "bg-slate-400/14",
+    barClassName: "from-slate-400 via-slate-500 to-slate-600",
     dotClassName: "bg-slate-500",
   },
+};
+
+const DashboardMiniCard: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  toneClassName: string;
+}> = ({ icon, label, value, toneClassName }) => (
+  <div className="rounded-[16px] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.66),rgba(7,12,20,0.9))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+    <div className={`inline-flex items-center gap-2 text-[11px] ${toneClassName}`}>
+      {icon}
+      <span>{label}</span>
+    </div>
+    <div className="mt-1.5 text-lg font-semibold tracking-tight text-slate-50">{value}</div>
+  </div>
+);
+
+const DashboardDonut: React.FC<{
+  value: number;
+  total: number;
+  label: string;
+  grade?: string;
+}> = ({ value, total, label, grade }) => {
+  const safeTotal = total > 0 ? total : 1;
+  const clampedValue = Math.max(0, Math.min(value, safeTotal));
+  const radius = 32;
+  const circumference = 2 * Math.PI * radius;
+  const progress = clampedValue / safeTotal;
+  const dashOffset = circumference * (1 - progress);
+
+  return (
+    <div className="flex items-center justify-end gap-4">
+      <div className="flex min-w-[96px] flex-col items-center justify-center text-center">
+        {grade ? (
+          <div className="bg-[linear-gradient(135deg,#f8fafc,#a5f3fc,#f9a8d4)] bg-clip-text text-[1.85rem] font-black italic leading-none tracking-[0.06em] text-transparent drop-shadow-[0_0_12px_rgba(34,211,238,0.18)]">
+            {grade}
+          </div>
+        ) : null}
+        <div className="mt-2 bg-[linear-gradient(90deg,#93c5fd,#e2e8f0,#7dd3fc)] bg-clip-text text-[11px] font-semibold uppercase tracking-[0.32em] text-transparent">
+          {label}
+        </div>
+      </div>
+      <div className="relative h-[116px] w-[116px] shrink-0">
+        <svg viewBox="0 0 88 88" className="h-full w-full -rotate-90">
+          <circle cx="44" cy="44" r={radius} fill="none" stroke="rgba(51,65,85,0.55)" strokeWidth="8" />
+          <circle
+            cx="44"
+            cy="44"
+            r={radius}
+            fill="none"
+            stroke="url(#historyReplayDonut)"
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+          />
+          <defs>
+            <linearGradient id="historyReplayDonut" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#22d3ee" />
+              <stop offset="55%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#34d399" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <div className="text-[1.7rem] font-bold leading-none text-slate-50">
+            {Math.round(progress * 100)}%
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ResultStackBar: React.FC<{
+  correctCount: number;
+  wrongCount: number;
+  unansweredCount: number;
+}> = ({ correctCount, wrongCount, unansweredCount }) => {
+  const total = Math.max(1, correctCount + wrongCount + unansweredCount);
+  const segments = [
+    { key: "correct", value: correctCount, className: "from-emerald-300 to-emerald-500" },
+    { key: "wrong", value: wrongCount, className: "from-rose-300 to-rose-500" },
+    { key: "unanswered", value: unansweredCount, className: "from-slate-400 to-slate-600" },
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-full bg-slate-800/85">
+      <div className="flex h-8 w-full">
+        {segments.map((segment) => {
+          if (segment.value <= 0) return null;
+          const ratio = (segment.value / total) * 100;
+          const meta = RESULT_META[segment.key as ParticipantResult];
+          return (
+            <div
+              key={segment.key}
+              className={`flex h-full items-center justify-center bg-gradient-to-r ${segment.className} px-2 text-[10px] font-medium text-white`}
+              style={{ width: `${ratio}%` }}
+              title={`${meta.label} ${segment.value}`}
+            >
+              {ratio >= 18 ? `${meta.shortLabel} ${segment.value}` : segment.value}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const PlayerPerspectivePicker: React.FC<{
+  rankedParticipants: RoomParticipant[];
+  selectedParticipant: RoomParticipant | null;
+  meClientId?: string;
+  onSelect: (clientId: string) => void;
+  minWidthClassName?: string;
+}> = ({
+  rankedParticipants,
+  selectedParticipant,
+  meClientId,
+  onSelect,
+  minWidthClassName = "min-w-[220px]",
+}) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const selectedRank = selectedParticipant
+    ? rankedParticipants.findIndex((item) => item.clientId === selectedParticipant.clientId) + 1
+    : null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(event) => setAnchorEl(event.currentTarget)}
+        className={`inline-flex items-center gap-2 rounded-full border border-slate-600/70 bg-slate-900/85 px-2 py-1.5 text-sm text-slate-100 transition hover:border-cyan-300/35 ${minWidthClassName}`}
+      >
+        <PlayerAvatar
+          username={selectedParticipant?.username}
+          clientId={selectedParticipant?.clientId}
+          avatarUrl={selectedParticipant?.avatar_url ?? selectedParticipant?.avatarUrl ?? undefined}
+          rank={selectedRank}
+          combo={selectedParticipant?.combo ?? 0}
+          isMe={Boolean(meClientId && selectedParticipant?.clientId === meClientId)}
+          effectLevel="off"
+          size={26}
+          stateTone="neutral"
+          hideRankMark
+        />
+        <span className="min-w-0 flex-1 truncate text-left">
+          {selectedParticipant
+            ? `#${selectedRank ?? "-"} ${selectedParticipant.username}${
+                meClientId && selectedParticipant.clientId === meClientId ? "（你）" : ""
+              }`
+            : "選擇玩家"}
+        </span>
+        <KeyboardArrowDownRoundedIcon sx={{ fontSize: 18, color: "rgb(148 163 184)" }} />
+      </button>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 1,
+              minWidth: 230,
+              borderRadius: "16px",
+              border: "1px solid rgba(71,85,105,0.7)",
+              background:
+                "linear-gradient(180deg, rgba(15,23,42,0.96), rgba(7,12,20,0.98))",
+              color: "#e2e8f0",
+              boxShadow: "0 16px 40px rgba(2,6,23,0.45)",
+              overflow: "hidden",
+            },
+          },
+        }}
+      >
+        {rankedParticipants.map((participant, index) => {
+          const isSelected = participant.clientId === selectedParticipant?.clientId;
+          const isMe = Boolean(meClientId && participant.clientId === meClientId);
+          return (
+            <MenuItem
+              key={participant.clientId}
+              selected={isSelected}
+              onClick={() => {
+                onSelect(participant.clientId);
+                setAnchorEl(null);
+              }}
+              sx={{
+                gap: 1.25,
+                py: 1,
+                px: 1.25,
+                color: "#e2e8f0",
+                "&.Mui-selected": {
+                  backgroundColor: "rgba(34,211,238,0.14)",
+                },
+                "&.Mui-selected:hover": {
+                  backgroundColor: "rgba(34,211,238,0.18)",
+                },
+                "&:hover": {
+                  backgroundColor: "rgba(30,41,59,0.88)",
+                },
+              }}
+            >
+              <PlayerAvatar
+                username={participant.username}
+                clientId={participant.clientId}
+                avatarUrl={participant.avatar_url ?? participant.avatarUrl ?? undefined}
+                rank={index + 1}
+                combo={participant.combo ?? 0}
+                isMe={isMe}
+                effectLevel="off"
+                size={24}
+                stateTone="neutral"
+                hideRankMark
+              />
+              <span className="min-w-0 flex-1 truncate text-sm">
+                #{index + 1} {participant.username}
+                {isMe ? "（你）" : ""}
+              </span>
+            </MenuItem>
+          );
+        })}
+      </Menu>
+    </>
+  );
 };
 
 const readStoredPreviewVolume = () => {
@@ -87,18 +347,20 @@ const readStoredPreviewAutoplay = () => {
   return raw === "1";
 };
 
+const resolveAccuracyGrade = (percent: number) => {
+  if (percent >= 100) return "SS";
+  if (percent >= 95) return "S";
+  if (percent >= 85) return "A";
+  if (percent >= 75) return "B";
+  if (percent >= 65) return "C";
+  if (percent >= 50) return "D";
+  return "E";
+};
+
 const formatMs = (value: number | null | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return "--";
   if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
   return `${Math.round(value)}ms`;
-};
-
-const formatPlayedOnDate = (timestamp?: number) => {
-  if (!timestamp || !Number.isFinite(timestamp)) return null;
-  const date = new Date(timestamp);
-  return `遊玩於 ${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
 };
 
 const normalizeParticipantResult = (value: unknown): ParticipantResult => {
@@ -112,15 +374,34 @@ const getParticipantAnswer = (
   recap: SettlementQuestionRecap,
   participantClientId: string | null,
   meClientId?: string,
-): { choiceIndex: number | null; result: ParticipantResult } => {
+): {
+  choiceIndex: number | null;
+  result: ParticipantResult;
+  answeredAtMs: number | null;
+  scoreGain: number | null;
+} => {
   if (!participantClientId) {
-    return { choiceIndex: null as number | null, result: "unanswered" as ParticipantResult };
+    return {
+      choiceIndex: null as number | null,
+      result: "unanswered" as ParticipantResult,
+      answeredAtMs: null,
+      scoreGain: null,
+    };
   }
   const answer = recap.answersByClientId?.[participantClientId];
   if (answer) {
     return {
       choiceIndex: typeof answer.choiceIndex === "number" ? answer.choiceIndex : null,
       result: normalizeParticipantResult(answer.result),
+      answeredAtMs:
+        typeof answer.answeredAtMs === "number" && Number.isFinite(answer.answeredAtMs)
+          ? answer.answeredAtMs
+          : null,
+      scoreGain:
+        typeof answer.scoreBreakdown?.totalGainPoints === "number" &&
+        Number.isFinite(answer.scoreBreakdown.totalGainPoints)
+          ? answer.scoreBreakdown.totalGainPoints
+          : null,
     };
   }
   if (meClientId && participantClientId === meClientId) {
@@ -134,9 +415,16 @@ const getParticipantAnswer = (
           : choiceIndex === recap.correctChoiceIndex
             ? "correct"
             : "wrong",
+      answeredAtMs: null,
+      scoreGain: null,
     };
   }
-  return { choiceIndex: null as number | null, result: "unanswered" as ParticipantResult };
+  return {
+    choiceIndex: null as number | null,
+    result: "unanswered" as ParticipantResult,
+    answeredAtMs: null,
+    scoreGain: null,
+  };
 };
 
 const HoverMarqueeText: React.FC<{
@@ -219,7 +507,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   playlistItems = [],
   trackOrder = [],
   playedQuestionCount,
-  endedAt,
   meClientId,
   questionRecaps = [],
 }) => {
@@ -241,7 +528,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
     [rankedParticipants],
   );
   const meParticipant = meClientId ? participantMap[meClientId] ?? null : null;
-  const [playersExpanded, setPlayersExpanded] = useState(false);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
     meClientId && participantMap[meClientId]
       ? meClientId
@@ -328,16 +614,53 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const selectedParticipant = resolvedParticipantId
     ? participantMap[resolvedParticipantId] ?? null
     : null;
-  const selectedParticipantRank = selectedParticipant
-    ? rankedParticipants.findIndex((participant) => participant.clientId === selectedParticipant.clientId) + 1
-    : 0;
   const selectedAnswer = useMemo(
     () =>
       selectedRecap
         ? getParticipantAnswer(selectedRecap, resolvedParticipantId, meClientId)
-        : { choiceIndex: null as number | null, result: "unanswered" as ParticipantResult },
+        : {
+            choiceIndex: null as number | null,
+            result: "unanswered" as ParticipantResult,
+            answeredAtMs: null,
+            scoreGain: null,
+          },
     [meClientId, resolvedParticipantId, selectedRecap],
   );
+  const selectedAnswerCorrectRank = useMemo(() => {
+    if (!selectedRecap || !resolvedParticipantId) return null;
+    const answer = selectedRecap.answersByClientId?.[resolvedParticipantId];
+    if (
+      !answer ||
+      answer.result !== "correct" ||
+      typeof answer.answeredAtMs !== "number" ||
+      !Number.isFinite(answer.answeredAtMs)
+    ) {
+      return null;
+    }
+    const orderedCorrectAnswers = Object.values(selectedRecap.answersByClientId ?? {})
+      .filter(
+        (entry) =>
+          entry.result === "correct" &&
+          typeof entry.answeredAtMs === "number" &&
+          Number.isFinite(entry.answeredAtMs),
+      )
+      .sort((a, b) => (a.answeredAtMs ?? Number.POSITIVE_INFINITY) - (b.answeredAtMs ?? Number.POSITIVE_INFINITY));
+    const index = orderedCorrectAnswers.findIndex((entry) => entry === answer);
+    return index >= 0 ? index + 1 : null;
+  }, [resolvedParticipantId, selectedRecap]);
+  const selectedAnswerRunningCombo = useMemo(() => {
+    if (!resolvedParticipantId || !selectedRecap) return null;
+    const orderedRecaps = recaps.slice().sort((a, b) => a.order - b.order);
+    let combo = 0;
+    for (const recap of orderedRecaps) {
+      const answer = getParticipantAnswer(recap, resolvedParticipantId, meClientId);
+      combo = answer.result === "correct" ? combo + 1 : 0;
+      if (recap.key === selectedRecap.key) {
+        return combo;
+      }
+    }
+    return null;
+  }, [meClientId, recaps, resolvedParticipantId, selectedRecap]);
   const selectedRecapDistribution = useMemo(() => {
     if (!selectedRecap || !selectedRecap.choices.length) return [];
     const counts = new Map<number, number>();
@@ -367,6 +690,37 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
     () => new Map(selectedRecapDistribution.map((row) => [row.choice.index, row] as const)),
     [selectedRecapDistribution],
   );
+  const selectedChoiceAvatarMap = useMemo(() => {
+    if (!selectedRecap?.answersByClientId) return new Map<number, RoomParticipant[]>();
+    const grouped = new Map<number, { participant: RoomParticipant; answeredAtMs: number | null }[]>();
+    Object.entries(selectedRecap.answersByClientId).forEach(([clientId, answer]) => {
+      if (typeof answer.choiceIndex !== "number") return;
+      const participant = participantMap[clientId];
+      if (!participant) return;
+      const bucket = grouped.get(answer.choiceIndex) ?? [];
+      bucket.push({
+        participant,
+        answeredAtMs:
+          typeof answer.answeredAtMs === "number" && Number.isFinite(answer.answeredAtMs)
+            ? answer.answeredAtMs
+            : null,
+      });
+      grouped.set(answer.choiceIndex, bucket);
+    });
+
+    return new Map(
+      Array.from(grouped.entries()).map(([choiceIndex, rows]) => [
+        choiceIndex,
+        rows
+          .sort(
+            (a, b) =>
+              (a.answeredAtMs ?? Number.MAX_SAFE_INTEGER) -
+              (b.answeredAtMs ?? Number.MAX_SAFE_INTEGER),
+          )
+          .map((row) => row.participant),
+      ]),
+    );
+  }, [participantMap, selectedRecap]);
 
   const previewVolumeFillStyle = useMemo<React.CSSProperties>(
     () => ({ width: `${Math.max(0, Math.min(100, previewVolume))}%` }),
@@ -396,7 +750,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   }, [selectedRecap, selectedRecapLink]);
   const selectedPreviewTitle = selectedRecap?.title?.trim() || "未提供歌名";
   const selectedPreviewMeta = selectedRecap?.uploader?.trim() || "";
-  const playedOnLabel = formatPlayedOnDate(endedAt);
 
   const openLink = useCallback(
     (link: SettlementTrackLink, recap: ExtendedRecap) => {
@@ -603,6 +956,18 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
     meParticipant && meParticipant.clientId
       ? rankedParticipants.findIndex((item) => item.clientId === meParticipant.clientId) + 1
       : 0;
+  const meCorrectCount = meParticipant?.correctCount ?? 0;
+  const accuracyPercent =
+    playedQuestionCount > 0 ? Math.round((meCorrectCount / playedQuestionCount) * 100) : 0;
+  const accuracyGrade = resolveAccuracyGrade(accuracyPercent);
+  const selectedResultMeta = RESULT_META[selectedAnswer.result];
+  const selectedCorrectCount = selectedRecap?.correctCount ?? 0;
+  const selectedWrongCount = selectedRecap?.wrongCount ?? 0;
+  const selectedUnansweredCount = selectedRecap?.unansweredCount ?? 0;
+  const selectedDistributionTotal = Math.max(
+    1,
+    selectedCorrectCount + selectedWrongCount + selectedUnansweredCount,
+  );
   const supportCtaLabel =
     selectedRecapLink?.href
       ? "前往 YouTube 支持作者"
@@ -705,90 +1070,53 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
       clearPreviewVolumeRetryTimers,
     ],
   );
-  const primaryParticipants = playersExpanded
-    ? rankedParticipants
-    : rankedParticipants.filter((participant) => participant.clientId === resolvedParticipantId);
-
   if (isWide) {
     return (
       <div className="space-y-4 overflow-x-hidden">
-        <section className="rounded-[24px] border border-slate-700/70 bg-[linear-gradient(180deg,rgba(8,14,24,0.9),rgba(4,8,16,0.96))] p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(176px,208px)] sm:items-start">
+        <section className="rounded-[24px] border border-slate-700/70 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.1),transparent_24%),linear-gradient(180deg,rgba(8,14,24,0.92),rgba(4,8,16,0.98))] p-4 sm:p-5">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,380px)] xl:items-start">
             <div className="min-w-0">
-              <p className="truncate text-lg font-semibold text-slate-100 sm:text-xl">
-                {collectionTitle}
-              </p>
-              <p className="mt-1 text-sm text-slate-400">
-                {playedOnLabel ?? "可切換玩家視角、題目與作答分布。"}
-              </p>
+              <div className="min-w-0 flex items-center gap-2.5">
+                  <MusicNoteRoundedIcon sx={{ fontSize: 22, color: "rgb(186 230 253)" }} />
+                  <p className="truncate text-[1.2rem] font-semibold tracking-tight text-slate-50">
+                    {collectionTitle}
+                  </p>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <DashboardMiniCard
+                  icon={<EmojiEventsRoundedIcon sx={{ fontSize: 16 }} />}
+                  label="名次"
+                  value={meRank > 0 ? `${meRank}/${Math.max(1, rankedParticipants.length)}` : "--"}
+                  toneClassName="text-amber-100"
+                />
+                <DashboardMiniCard
+                  icon={<BarChartRoundedIcon sx={{ fontSize: 16 }} />}
+                  label="分數"
+                  value={String(meParticipant?.score ?? "--")}
+                  toneClassName="text-emerald-100"
+                />
+                <DashboardMiniCard
+                  icon={<CheckCircleRoundedIcon sx={{ fontSize: 16 }} />}
+                  label="答對"
+                  value={`${meCorrectCount}/${playedQuestionCount}`}
+                  toneClassName="text-cyan-100"
+                />
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-sky-300/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-100 sm:justify-self-end sm:w-full sm:max-w-[208px]">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-sky-200/85">
-                你的本局表現
-              </p>
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-300">名次</span>
-                  <span className="font-semibold text-slate-50">
-                    {meRank > 0 ? `${meRank}/${Math.max(1, rankedParticipants.length)}` : "--"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-300">分數</span>
-                  <span className="font-semibold text-slate-50">
-                    {meParticipant?.score ?? "--"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-300">答對</span>
-                  <span className="font-semibold text-slate-50">
-                    {meParticipant?.correctCount ?? 0}/{playedQuestionCount}
-                  </span>
-                </div>
+            <div className="xl:max-w-[360px]">
+              <div className="flex justify-end xl:pt-1">
+                <DashboardDonut
+                  value={meCorrectCount}
+                  total={playedQuestionCount}
+                  label="Accuracy"
+                  grade={accuracyGrade}
+                />
               </div>
             </div>
           </div>
         </section>
-
         <section className="space-y-3">
-          <aside className="rounded-2xl border border-slate-700/70 bg-slate-950/55 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-400">玩家</p>
-              <span className="text-xs text-slate-500">{rankedParticipants.length} 人</span>
-            </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(220px,280px))] xl:justify-start">
-              {rankedParticipants.map((participant, index) => {
-                const active = resolvedParticipantId === participant.clientId;
-                const isMe = meClientId && meClientId === participant.clientId;
-                return (
-                  <button
-                    key={participant.clientId}
-                    type="button"
-                    onClick={() => setSelectedParticipantId(participant.clientId)}
-                    className={`w-full max-w-[280px] cursor-pointer overflow-hidden rounded-xl border px-3 py-2.5 text-left transition ${
-                      active
-                        ? "border-cyan-300/45 bg-cyan-500/12"
-                        : "border-slate-700/70 bg-slate-900/55 hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-slate-900/68"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="min-w-0 truncate text-sm font-semibold text-slate-100">
-                        #{index + 1} {participant.username}
-                        {isMe ? "（你）" : ""}
-                      </p>
-                      <span className="text-sm font-bold text-slate-100">{participant.score}</span>
-                    </div>
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      答對 {participant.correctCount ?? 0}/{playedQuestionCount} · Combo x
-                      {Math.max(participant.maxCombo ?? 0, participant.combo)}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
-
           <div className="grid gap-3 xl:grid-cols-[minmax(255px,280px)_minmax(0,1fr)] xl:items-start">
             <aside className="rounded-2xl border border-slate-700/70 bg-slate-950/55 p-3 xl:w-[280px] xl:self-start">
               <div className="flex items-center justify-between gap-2">
@@ -798,7 +1126,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
               <div className="mt-3 max-h-[620px] space-y-2 overflow-y-auto pr-1">
                 {recaps.map((recap) => {
                   const answer = getParticipantAnswer(recap, resolvedParticipantId, meClientId);
-                  const tone = RESULT_TONE[answer.result];
+                  const resultMeta = RESULT_META[answer.result];
                   const active = selectedRecap?.key === recap.key;
                   return (
                     <button
@@ -807,34 +1135,34 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                       onClick={() => {
                         setSelectedRecapKey(recap.key);
                       }}
-                      className={`w-full cursor-pointer rounded-xl border px-3 py-2.5 text-left transition ${
+                      className={`group relative w-full cursor-pointer overflow-hidden rounded-xl border px-3 py-2.5 text-left transition ${
                         active
-                          ? "border-amber-300/55 bg-amber-500/10"
+                          ? "border-amber-300/55 bg-[linear-gradient(180deg,rgba(245,158,11,0.12),rgba(15,23,42,0.82))] shadow-[0_18px_30px_-26px_rgba(245,158,11,0.75)]"
                           : "border-slate-700/70 bg-slate-900/55 hover:-translate-y-0.5 hover:border-amber-300/35 hover:bg-slate-900/68"
                       }`}
                     >
-                      <div className="flex min-w-0 items-start gap-2">
-                        <span
-                          className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${
-                            active
-                              ? "bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.12)]"
-                              : "bg-slate-700"
-                          }`}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <HoverMarqueeText
-                            text={recap.title}
-                            className="min-w-0 max-w-full text-sm font-semibold text-slate-100"
-                          />
-                          <p className="mt-1 truncate text-[11px] text-slate-400">
-                            {recap.uploader || "未知作者"}
-                          </p>
+                      {active ? (
+                        <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.42)]" />
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">
+                          <span>Q{recap.order}</span>
+                          <span className={`inline-flex items-center gap-1.5 ${resultMeta.textClassName}`}>
+                            <span
+                              className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${resultMeta.dotClassName} ${
+                                active ? "shadow-[0_0_0_4px_rgba(255,255,255,0.04)]" : ""
+                              }`}
+                            />
+                            <span>{resultMeta.shortLabel}</span>
+                          </span>
                         </div>
-                        <span
-                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone.chipClassName}`}
-                        >
-                          {tone.label}
-                        </span>
+                        <HoverMarqueeText
+                          text={recap.title}
+                          className="mt-1 min-w-0 max-w-full text-sm font-semibold text-slate-100"
+                        />
+                        <p className="mt-1 truncate text-[11px] text-slate-400">
+                          {recap.uploader || "未知作者"}
+                        </p>
                       </div>
                     </button>
                   );
@@ -880,64 +1208,68 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                       ) : (
                         <p className="mt-1 text-sm text-slate-400">{selectedRecap.uploader || "未知作者"}</p>
                       )}
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        {selectedParticipant?.username ?? "玩家視角"}
-                      </p>
                     </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                        RESULT_TONE[selectedAnswer.result].chipClassName
-                      }`}
-                    >
-                      {RESULT_TONE[selectedAnswer.result].label}
-                    </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <PlayerPerspectivePicker
+                          rankedParticipants={rankedParticipants}
+                          selectedParticipant={selectedParticipant}
+                          meClientId={meClientId}
+                          onSelect={setSelectedParticipantId}
+                        />
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${selectedResultMeta.textClassName} ${selectedResultMeta.softBgClassName}`}>
+                          {selectedResultMeta.icon}
+                          {selectedResultMeta.shortLabel}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-4 space-y-3">
                     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="rounded-xl border border-emerald-300/35 bg-emerald-500/10 px-3 py-2.5">
-                        <p className="text-[10px] text-emerald-100/90">玩家分數</p>
-                        <p className="mt-1 text-lg font-semibold text-emerald-50">
-                          {selectedParticipant?.score ?? "--"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-sky-300/35 bg-sky-500/10 px-3 py-2.5">
-                        <p className="text-[10px] text-sky-100/90">玩家名次</p>
-                        <p className="mt-1 text-lg font-semibold text-sky-50">
-                          {selectedParticipantRank > 0
-                            ? `${selectedParticipantRank}/${Math.max(1, rankedParticipants.length)}`
-                            : "--"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/10 px-3 py-2.5">
-                        <p className="text-[10px] text-fuchsia-100/90">玩家最高 Combo</p>
-                        <p className="mt-1 text-lg font-semibold text-fuchsia-50">
-                          x
-                          {selectedParticipant
-                            ? Math.max(
-                                selectedParticipant.maxCombo ?? 0,
-                                selectedParticipant.combo,
-                              )
-                            : "--"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2.5">
-                        <p className="text-[10px] text-amber-100/90">玩家最快答題</p>
-                        <p className="mt-1 text-lg font-semibold text-amber-50">
-                          {formatMs(selectedParticipant?.fastestCorrectMs)}
-                        </p>
-                      </div>
+                      <DashboardMiniCard
+                        icon={<TimerRoundedIcon sx={{ fontSize: 16 }} />}
+                        label="答題時間"
+                        value={formatMs(selectedAnswer.answeredAtMs)}
+                        toneClassName="text-emerald-100"
+                      />
+                      <DashboardMiniCard
+                        icon={<EmojiEventsRoundedIcon sx={{ fontSize: 16 }} />}
+                        label="第幾答"
+                        value={selectedAnswerCorrectRank ? `#${selectedAnswerCorrectRank}` : "--"}
+                        toneClassName="text-sky-100"
+                      />
+                      <DashboardMiniCard
+                        icon={<BoltRoundedIcon sx={{ fontSize: 16 }} />}
+                        label="當時 Combo"
+                        value={selectedAnswerRunningCombo !== null ? `x${selectedAnswerRunningCombo}` : "--"}
+                        toneClassName="text-fuchsia-100"
+                      />
+                      <DashboardMiniCard
+                        icon={<BarChartRoundedIcon sx={{ fontSize: 16 }} />}
+                        label="本題得分"
+                        value={
+                          selectedAnswer.scoreGain !== null
+                            ? `${selectedAnswer.scoreGain > 0 ? "+" : ""}${selectedAnswer.scoreGain}`
+                            : "--"
+                        }
+                        toneClassName="text-amber-100"
+                      />
                     </div>
 
-                    <div className="rounded-xl border border-slate-700/75 bg-slate-900/60 px-3 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
-                        本題統計
-                      </p>
-                      <p className="mt-2 text-sm text-slate-200">
-                        答對 {selectedRecap.correctCount ?? 0} · 答錯 {selectedRecap.wrongCount ?? 0}
-                        · 未作答 {selectedRecap.unansweredCount ?? 0} · 最快答對{" "}
-                        {formatMs(selectedRecap.fastestCorrectMs)}
-                      </p>
+                    <div className="rounded-[22px] border border-slate-700/75 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(7,12,20,0.92))] px-4 py-4">
+                      <div className="flex items-start gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                            本題統計
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <ResultStackBar
+                          correctCount={selectedCorrectCount}
+                          wrongCount={selectedWrongCount}
+                          unansweredCount={selectedUnansweredCount}
+                        />
+                      </div>
                     </div>
 
                     {selectedRecap.choices.length > 0 ? (
@@ -947,25 +1279,20 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                             <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
                               題目選項與分布
                             </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              正確答案、玩家選項與全體作答分布合併顯示。
-                            </p>
                           </div>
-                          <span className="text-xs text-slate-500">
-                            {selectedRecap.choices.length} 個選項
-                          </span>
                         </div>
                         <div className="mt-3 grid gap-2.5">
                           {selectedRecap.choices.map((choice) => {
                             const isCorrect = choice.index === selectedRecap.correctChoiceIndex;
                             const isSelected = selectedAnswer.choiceIndex === choice.index;
                             const row = selectedRecapDistributionMap.get(choice.index);
+                            const choiceParticipants = selectedChoiceAvatarMap.get(choice.index) ?? [];
                             const count = row?.count ?? 0;
                             const width = row?.width ?? 0;
                             return (
                               <div
                                 key={`${selectedRecap.key}-${choice.index}`}
-                                className={`overflow-hidden rounded-xl border px-3 py-3 ${
+                                className={`relative overflow-visible rounded-[18px] border px-3 py-3 ${
                                   isCorrect
                                     ? "border-emerald-300/35 bg-emerald-500/10"
                                     : isSelected
@@ -973,44 +1300,75 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                                       : "border-slate-700/70 bg-slate-900/45"
                                 }`}
                               >
-                                <div className="flex items-start gap-3">
+                                {choiceParticipants.length > 0 ? (
+                                  <div className="absolute right-3 -top-[15px] z-10 inline-flex items-center opacity-80">
+                                    {choiceParticipants.slice(0, 5).map((participant, avatarIndex) => (
+                                      <PlayerAvatar
+                                        key={`${choice.index}-${participant.clientId}`}
+                                        username={participant.username}
+                                        clientId={participant.clientId}
+                                        avatarUrl={participant.avatar_url ?? participant.avatarUrl ?? undefined}
+                                        rank={rankedParticipants.findIndex((item) => item.clientId === participant.clientId) + 1}
+                                        combo={participant.combo ?? 0}
+                                        isMe={Boolean(meClientId && participant.clientId === meClientId)}
+                                        effectLevel="off"
+                                        size={24}
+                                        stateTone={
+                                          participant.clientId === resolvedParticipantId
+                                            ? "neutral"
+                                            : "neutral"
+                                        }
+                                        hideRankMark
+                                        className={avatarIndex > 0 ? "-ml-1.5" : ""}
+                                      />
+                                    ))}
+                                    {choiceParticipants.length > 5 ? (
+                                      <span className="-ml-1.5 inline-flex h-6 items-center rounded-full border border-white/8 bg-slate-900/85 px-2 text-[10px] font-semibold text-slate-200">
+                                        +{choiceParticipants.length - 5}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                                <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0 flex-1">
                                     <div className="flex min-w-0 items-start gap-2">
                                       <HoverMarqueeText
                                         text={choice.title}
-                                        className="min-w-0 max-w-full flex-1 text-sm text-slate-100"
+                                        className="min-w-0 max-w-full flex-1 text-sm font-medium text-slate-100"
                                       />
-                                      {count > 0 ? (
-                                        <span className="shrink-0 rounded-full border border-cyan-300/35 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
-                                          {count} 人
-                                        </span>
-                                      ) : (
-                                        <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-slate-500">
-                                          0 人
-                                        </span>
-                                      )}
+                                      <div className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-semibold">
+                                        {isCorrect ? (
+                                          <span className="inline-flex items-center gap-1 text-emerald-100">
+                                            <CheckCircleRoundedIcon sx={{ fontSize: 13 }} />
+                                            正解
+                                          </span>
+                                        ) : null}
+                                        {isSelected ? (
+                                          <span className="inline-flex items-center gap-1 text-sky-100">
+                                            <RadioButtonCheckedRoundedIcon sx={{ fontSize: 13 }} />
+                                            你的選項
+                                          </span>
+                                        ) : null}
+                                      </div>
                                     </div>
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                      {isCorrect ? (
-                                        <span className="rounded-full border border-emerald-300/35 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
-                                          正確
-                                        </span>
-                                      ) : null}
-                                      {isSelected ? (
-                                        <span className="rounded-full border border-sky-300/35 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-100">
-                                          玩家選項
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800/80">
+                                    <div className="relative mt-3 h-8 overflow-hidden rounded-full bg-slate-800/85">
                                       {count > 0 ? (
                                         <div
-                                          className={`h-full rounded-full ${
-                                            isCorrect ? "bg-emerald-300/85" : "bg-sky-300/80"
+                                          className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${
+                                            isCorrect
+                                              ? "from-emerald-300 to-emerald-500"
+                                              : isSelected
+                                                ? "from-sky-300 to-sky-500"
+                                                : "from-slate-500 to-slate-400"
                                           }`}
                                           style={{ width: `${width}%` }}
                                         />
                                       ) : null}
+                                      <div className="absolute inset-0 flex items-center justify-center px-3 text-[10px] font-medium text-slate-100">
+                                        {count} 人 · {selectedDistributionTotal > 0
+                                          ? `${Math.round((count / selectedDistributionTotal) * 100)}%`
+                                          : "0%"}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -1201,69 +1559,46 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
 
   return (
     <div className="space-y-3 overflow-x-hidden sm:space-y-4">
-      <section className="rounded-[20px] border border-slate-700/70 bg-[linear-gradient(180deg,rgba(8,14,24,0.94),rgba(4,8,16,0.98))] p-3 sm:rounded-[24px] sm:p-4">
-        <HoverMarqueeText
-          text={collectionTitle}
-          className="w-full text-[1.45rem] font-semibold leading-tight text-slate-100 sm:text-[1.7rem]"
-          autoRunOnTouch
-        />
-        <p className="mt-2 text-xs text-slate-400">
-          {playedOnLabel ?? "尚未取得遊玩日期"}
-        </p>
-      </section>
-
-      <section className="rounded-[20px] border border-slate-700/70 bg-slate-950/55 p-3 sm:rounded-[24px] sm:p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">玩家</p>
-            <p className="mt-1 text-sm text-slate-300">目前查看 {selectedParticipant?.username ?? "玩家"}</p>
+      <section className="rounded-[20px] border border-slate-700/70 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.1),transparent_24%),linear-gradient(180deg,rgba(8,14,24,0.94),rgba(4,8,16,0.98))] p-3 sm:rounded-[24px] sm:p-4">
+        <div className="min-w-0 flex items-center gap-2.5">
+          <div className="min-w-0 flex items-center gap-2.5">
+            <MusicNoteRoundedIcon sx={{ fontSize: 20, color: "rgb(186 230 253)" }} />
+            <HoverMarqueeText
+              text={collectionTitle}
+              className="w-full text-[1.3rem] font-semibold leading-tight text-slate-100 sm:text-[1.7rem]"
+              autoRunOnTouch
+            />
           </div>
-          {rankedParticipants.length > 1 ? (
-            <button
-              type="button"
-              className="cursor-pointer rounded-full border border-slate-600/70 bg-slate-900/70 px-3 py-1 text-[11px] font-semibold text-slate-200 transition hover:border-cyan-300/35 hover:bg-slate-900/88 hover:text-white"
-              onClick={() => setPlayersExpanded((current) => !current)}
-            >
-              {playersExpanded ? "收合玩家" : "切換玩家"}
-            </button>
-          ) : (
-            <span className="rounded-full border border-slate-600/70 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-200">
-              {rankedParticipants.length} 人
-            </span>
-          )}
         </div>
-        <div className="mt-3 max-h-[174px] space-y-2 overflow-y-auto pr-1">
-          {primaryParticipants.map((participant, index) => {
-            const actualRank = rankedParticipants.findIndex((item) => item.clientId === participant.clientId) + 1;
-            const isActive = participant.clientId === resolvedParticipantId;
-            const isMe = participant.clientId === meClientId;
-            return (
-              <button
-                key={participant.clientId}
-                type="button"
-                onClick={() => setSelectedParticipantId(participant.clientId)}
-                className={`w-full cursor-pointer rounded-[18px] border px-3 py-3 text-left transition ${
-                  isActive
-                    ? "border-cyan-300/45 bg-cyan-500/12"
-                    : "border-slate-700/70 bg-slate-900/55 hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-slate-900/68"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-100">
-                      #{actualRank || index + 1} {participant.username}
-                      {isMe ? "（你）" : ""}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-400">答對 {participant.correctCount ?? 0}/{playedQuestionCount} 題</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-slate-50">{participant.score}</p>
-                    <p className="text-[11px] text-slate-400">Combo x{Math.max(participant.maxCombo ?? 0, participant.combo)}</p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+        <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="grid grid-cols-3 gap-2">
+            <DashboardMiniCard
+              icon={<EmojiEventsRoundedIcon sx={{ fontSize: 15 }} />}
+              label="名次"
+              value={meRank > 0 ? `${meRank}/${Math.max(1, rankedParticipants.length)}` : "--"}
+              toneClassName="text-amber-100"
+            />
+            <DashboardMiniCard
+              icon={<BarChartRoundedIcon sx={{ fontSize: 15 }} />}
+              label="分數"
+              value={String(meParticipant?.score ?? "--")}
+              toneClassName="text-emerald-100"
+            />
+            <DashboardMiniCard
+              icon={<CheckCircleRoundedIcon sx={{ fontSize: 15 }} />}
+              label="答對"
+              value={`${meCorrectCount}/${playedQuestionCount}`}
+              toneClassName="text-cyan-100"
+            />
+          </div>
+          <div className="justify-self-end">
+            <DashboardDonut
+              value={meCorrectCount}
+              total={playedQuestionCount}
+              label="Accuracy"
+              grade={accuracyGrade}
+            />
+          </div>
         </div>
       </section>
 
@@ -1271,7 +1606,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">題目列表</p>
-            <p className="mt-1 text-sm text-slate-300">固定顯示，快速切換題目</p>
           </div>
           <span className="rounded-full border border-slate-600/70 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-200">
             {recaps.length} 題
@@ -1280,7 +1614,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
         <div className="mt-3 max-h-[222px] space-y-2 overflow-y-auto pr-1 sm:max-h-[280px]">
           {recaps.map((recap) => {
             const answer = getParticipantAnswer(recap, resolvedParticipantId, meClientId);
-            const tone = RESULT_TONE[answer.result];
+            const resultMeta = RESULT_META[answer.result];
             const active = selectedRecap?.key === recap.key;
             return (
               <button
@@ -1289,27 +1623,31 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                 onClick={() => {
                   setSelectedRecapKey(recap.key);
                 }}
-                className={`w-full cursor-pointer rounded-[18px] border px-3 py-3 text-left transition ${
+                className={`group relative w-full cursor-pointer overflow-hidden rounded-[18px] border px-3 py-3 text-left transition ${
                   active
                     ? "border-amber-300/48 bg-amber-500/10 shadow-[0_18px_30px_-26px_rgba(245,158,11,0.75)]"
                     : "border-slate-700/70 bg-slate-900/55 hover:-translate-y-0.5 hover:border-amber-300/35 hover:bg-slate-900/68"
                 }`}
               >
-                <div className="flex items-start gap-2.5">
-                  <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${tone.dotClassName}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-slate-400">第 {recap.order} 題</span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone.chipClassName}`}>
-                        {tone.label}
-                      </span>
-                    </div>
-                    <HoverMarqueeText
-                      text={recap.title}
-                      className="mt-1 min-w-0 max-w-full text-sm font-semibold text-slate-100"
-                      autoRunOnTouch
-                    />
+                {active ? (
+                  <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.42)]" />
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-400">Q{recap.order}</span>
+                    <span className={`inline-flex items-center gap-1.5 text-[11px] ${resultMeta.textClassName}`}>
+                      <span className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${resultMeta.dotClassName}`} />
+                      <span>{resultMeta.shortLabel}</span>
+                    </span>
                   </div>
+                  <HoverMarqueeText
+                    text={recap.title}
+                    className="mt-1 min-w-0 max-w-full text-sm font-semibold text-slate-100"
+                    autoRunOnTouch
+                  />
+                  <p className="mt-1 truncate text-[11px] text-slate-400">
+                    {recap.uploader || "未知作者"}
+                  </p>
                 </div>
               </button>
             );
@@ -1326,7 +1664,8 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
               <span className="rounded-full border border-slate-600/70 bg-slate-900/70 px-2.5 py-1 text-slate-100">選項 {selectedRecap.choices.length}</span>
             </div>
 
-            <div className="mt-3 flex flex-col gap-2.5">
+            <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex flex-col gap-2.5">
               {selectedRecapLink?.href ? (
                 <button
                   type="button"
@@ -1359,43 +1698,85 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
               ) : (
                 <p className="text-sm text-slate-400">{selectedRecap.uploader || "未知作者"}</p>
               )}
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <PlayerPerspectivePicker
+                  rankedParticipants={rankedParticipants}
+                  selectedParticipant={selectedParticipant}
+                  meClientId={meClientId}
+                  onSelect={setSelectedParticipantId}
+                  minWidthClassName="min-w-[168px]"
+                />
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${selectedResultMeta.textClassName} ${selectedResultMeta.softBgClassName}`}>
+                  {selectedResultMeta.icon}
+                  {selectedResultMeta.shortLabel}
+                </span>
+              </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              <div className="rounded-[18px] border border-sky-300/22 bg-sky-500/10 px-3 py-2.5">
-                <p className="text-[10px] text-slate-400">名次</p>
-                <p className="mt-1 text-lg font-semibold text-sky-50">
-                  {selectedParticipant
-                    ? `${rankedParticipants.findIndex((item) => item.clientId === selectedParticipant.clientId) + 1}/${Math.max(1, rankedParticipants.length)}`
-                    : "--"}
-                </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <DashboardMiniCard
+                icon={<TimerRoundedIcon sx={{ fontSize: 15 }} />}
+                label="答題時間"
+                value={formatMs(selectedAnswer.answeredAtMs)}
+                toneClassName="text-emerald-100"
+              />
+              <DashboardMiniCard
+                icon={<EmojiEventsRoundedIcon sx={{ fontSize: 15 }} />}
+                label="第幾答"
+                value={selectedAnswerCorrectRank ? `#${selectedAnswerCorrectRank}` : "--"}
+                toneClassName="text-sky-100"
+              />
+              <DashboardMiniCard
+                icon={<BoltRoundedIcon sx={{ fontSize: 15 }} />}
+                label="當時 Combo"
+                value={selectedAnswerRunningCombo !== null ? `x${selectedAnswerRunningCombo}` : "--"}
+                toneClassName="text-fuchsia-100"
+              />
+              <DashboardMiniCard
+                icon={<BarChartRoundedIcon sx={{ fontSize: 15 }} />}
+                label="本題得分"
+                value={
+                  selectedAnswer.scoreGain !== null
+                    ? `${selectedAnswer.scoreGain > 0 ? "+" : ""}${selectedAnswer.scoreGain}`
+                    : "--"
+                }
+                toneClassName="text-amber-100"
+              />
+            </div>
+
+            <div className="mt-4 rounded-[20px] border border-slate-700/75 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(7,12,20,0.92))] p-3">
+              <div className="flex items-start gap-2">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">本題統計</p>
+                </div>
               </div>
-              <div className="rounded-[18px] border border-emerald-300/22 bg-emerald-500/10 px-3 py-2.5">
-                <p className="text-[10px] text-slate-400">分數</p>
-                <p className="mt-1 text-lg font-semibold text-emerald-50">{selectedParticipant?.score ?? 0}</p>
-              </div>
-              <div className="rounded-[18px] border border-amber-300/22 bg-amber-500/10 px-3 py-2.5">
-                <p className="text-[10px] text-slate-400">結果</p>
-                <p className="mt-1 text-lg font-semibold text-amber-50">{RESULT_TONE[selectedAnswer.result].label}</p>
+              <div className="mt-4">
+                <ResultStackBar
+                  correctCount={selectedCorrectCount}
+                  wrongCount={selectedWrongCount}
+                  unansweredCount={selectedUnansweredCount}
+                />
               </div>
             </div>
 
             <div className="mt-4 rounded-[18px] border border-slate-700/75 bg-slate-900/55 p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-slate-100">題目選項與分布</p>
-                <span className="text-[11px] text-slate-400">答對 {selectedRecap.correctCount ?? 0} / 答錯 {selectedRecap.wrongCount ?? 0}</span>
+                <span className="text-[11px] text-slate-400">{selectedRecap.choices.length} 個選項</span>
               </div>
               <div className="mt-3 grid gap-2">
                 {selectedRecap.choices.map((choice) => {
                   const isCorrect = choice.index === selectedRecap.correctChoiceIndex;
                   const isSelected = selectedAnswer.choiceIndex === choice.index;
                   const row = selectedRecapDistributionMap.get(choice.index);
+                  const choiceParticipants = selectedChoiceAvatarMap.get(choice.index) ?? [];
                   const count = row?.count ?? 0;
                   const width = row?.width ?? 0;
                   return (
                     <div
                       key={`${selectedRecap.key}-${choice.index}`}
-                      className={`overflow-hidden rounded-[18px] border px-3 py-3 ${
+                      className={`relative overflow-visible rounded-[18px] border px-3 py-3 ${
                         isCorrect
                           ? "border-emerald-300/35 bg-emerald-500/10"
                           : isSelected
@@ -1403,21 +1784,52 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                             : "border-slate-700/70 bg-slate-900/45"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      {choiceParticipants.length > 0 ? (
+                        <div className="absolute right-3 -top-[15px] z-10 inline-flex items-center opacity-80">
+                          {choiceParticipants.slice(0, 5).map((participant, avatarIndex) => (
+                            <PlayerAvatar
+                              key={`${choice.index}-${participant.clientId}`}
+                              username={participant.username}
+                              clientId={participant.clientId}
+                              avatarUrl={participant.avatar_url ?? participant.avatarUrl ?? undefined}
+                              rank={rankedParticipants.findIndex((item) => item.clientId === participant.clientId) + 1}
+                              combo={participant.combo ?? 0}
+                              isMe={Boolean(meClientId && participant.clientId === meClientId)}
+                            effectLevel="off"
+                            size={22}
+                            stateTone={
+                                participant.clientId === resolvedParticipantId
+                                  ? "neutral"
+                                  : "neutral"
+                            }
+                              hideRankMark
+                              className={avatarIndex > 0 ? "-ml-1.5" : ""}
+                            />
+                          ))}
+                          {choiceParticipants.length > 5 ? (
+                            <span className="-ml-1.5 inline-flex h-6 items-center rounded-full border border-white/8 bg-slate-900/85 px-2 text-[10px] font-semibold text-slate-200">
+                              +{choiceParticipants.length - 5}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="flex items-start gap-2">
                         <HoverMarqueeText text={choice.title} className="min-w-0 flex-1 text-sm leading-snug text-slate-100" autoRunOnTouch />
-                        <span className="rounded-full border border-cyan-300/35 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">{count}</span>
+                        <div className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-semibold">
+                          {isCorrect ? <span className="inline-flex items-center gap-1 text-emerald-100"><CheckCircleRoundedIcon sx={{ fontSize: 13 }} />正解</span> : null}
+                          {isSelected ? <span className="inline-flex items-center gap-1 text-sky-100"><RadioButtonCheckedRoundedIcon sx={{ fontSize: 13 }} />你的選項</span> : null}
+                        </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {isCorrect ? <span className="rounded-full border border-emerald-300/35 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">正確答案</span> : null}
-                        {isSelected ? <span className="rounded-full border border-sky-300/35 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-100">玩家選項</span> : null}
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800/80">
+                      <div className="relative mt-2 h-8 overflow-hidden rounded-full bg-slate-800/80">
                         {count > 0 ? (
                           <div
-                            className={`h-full rounded-full ${isCorrect ? "bg-emerald-300/85" : "bg-sky-300/80"}`}
+                            className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${isCorrect ? "from-emerald-300 to-emerald-500" : isSelected ? "from-sky-300 to-sky-500" : "from-slate-500 to-slate-400"}`}
                             style={{ width: `${width}%` }}
                           />
                         ) : null}
+                        <div className="absolute inset-0 flex items-center justify-center px-3 text-[10px] font-medium text-slate-100">
+                          {count} 人 · {selectedDistributionTotal > 0 ? `${Math.round((count / selectedDistributionTotal) * 100)}%` : "0%"}
+                        </div>
                       </div>
                     </div>
                   );
