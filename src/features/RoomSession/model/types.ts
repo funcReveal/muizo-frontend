@@ -1,4 +1,8 @@
-import { Socket } from "socket.io-client";
+import type {
+  GameState,
+  PlaybackExtensionMode,
+} from "./gameTypes";
+import type { RoomSettlementSnapshot } from "./settlementTypes";
 
 export type Ack<T> =
   | { ok: true; data: T }
@@ -49,103 +53,18 @@ export interface PlaylistState {
   pageSize: number;
 }
 
-export interface GameChoice {
-  title: string;
-  index: number;
-}
-
-export interface QuestionScoreBreakdown {
-  basePoints: number;
-  speedBonusPoints: number;
-  decisionBonusPoints: number;
-  difficultyBonusPoints: number;
-  comboBonusPoints: number;
-  totalGainPoints: number;
-}
-
-export interface GameQuestionStats {
-  participantCount: number;
-  answeredCount: number;
-  correctCount: number;
-  wrongCount: number;
-  unansweredCount: number;
-  changedAnswerCount?: number;
-  changedAnswerUserCount?: number;
-  answersByClientId?: Record<string, RoomSettlementQuestionAnswer>;
-  answerOrderLatest?: string[];
-  fastestCorrectMs?: number | null;
-  medianCorrectMs?: number | null;
-  scoreBreakdownsByClientId?: Record<string, QuestionScoreBreakdown>;
-}
-
-export interface SubmitAnswerAckData {
-  accepted: true;
-  choiceIndex: number;
-  answeredAtMs: number;
-  changedAnswerCount: number;
-}
-
-export interface GameSyncVersion {
-  gameSessionId: number;
-  phaseVersion: number;
-  questionSubmitSeq: number;
-  roomVersion: number;
-}
-
-export interface GameLiveUpdatePayload {
-  roomId: string;
-  gameState: GameState;
-  serverNow: number;
-  syncVersion: GameSyncVersion;
-}
-
-export type SubmitAnswerResult =
-  | {
-      ok: true;
-      data: SubmitAnswerAckData;
-    }
-  | {
-      ok: false;
-      error: string;
-    };
-
-export interface GameState {
-  status: "playing" | "ended";
-  phase: "guess" | "reveal";
-  currentIndex: number;
-  startedAt: number;
-  revealEndsAt: number;
-  guessDurationMs: number;
-  revealDurationMs: number;
-  clipStartSec?: number;
-  clipEndSec?: number;
-  clipSource?: "room_settings" | "track_clip";
-  choices: GameChoice[];
-  answerTitle?: string;
-  showVideo: boolean;
-  trackOrder: number[];
-  trackCursor: number;
-  playbackExtensionMs?: number;
-  playbackExtensionVote?: PlaybackExtensionVoteState | null;
-  lockedClientIds?: string[];
-  lockedOrder?: string[];
-  questionStats?: GameQuestionStats;
-}
-
-export interface PlaybackExtensionVoteState {
-  requestedByClientId: string;
-  requestedByUsername: string;
-  startedAt: number;
-  endsAt: number;
-  extendMs: number;
-  eligibleClientIds: string[];
-  approveClientIds: string[];
-  rejectClientIds: string[];
-  status: "active" | "approved" | "rejected";
-  resolvedAt?: number;
-}
-
-export type PlaybackExtensionMode = "manual_vote" | "auto_once" | "disabled";
+export type {
+  GameChoice,
+  GameLiveUpdatePayload,
+  GameQuestionStats,
+  GameState,
+  GameSyncVersion,
+  PlaybackExtensionMode,
+  PlaybackExtensionVoteState,
+  QuestionScoreBreakdown,
+  SubmitAnswerAckData,
+  SubmitAnswerResult,
+} from "./gameTypes";
 
 export interface PlaylistSuggestion {
   clientId: string;
@@ -208,87 +127,13 @@ export interface SessionProgressPayload {
   timestamp: number;
 }
 
-export interface RoomSettlementQuestionAnswer {
-  choiceIndex: number | null;
-  result: "correct" | "wrong" | "unanswered";
-  answeredAtMs?: number | null;
-  firstAnsweredAtMs?: number | null;
-  changedAnswerCount?: number;
-  scoreBreakdown?: QuestionScoreBreakdown | null;
-}
-
-export interface RoomSettlementQuestionChoice {
-  index: number;
-  title: string;
-  isCorrect?: boolean;
-  isSelectedByMe?: boolean;
-}
-
-export interface RoomSettlementQuestionRecap {
-  key: string;
-  order: number;
-  trackIndex: number;
-  title: string;
-  uploader: string;
-  channelId?: string | null;
-  duration: string | null;
-  thumbnail: string | null;
-  sourceId?: string | null;
-  provider?: string;
-  videoId?: string;
-  url?: string;
-  myResult?: "correct" | "wrong" | "unanswered";
-  myChoiceIndex?: number | null;
-  correctChoiceIndex: number;
-  choices: RoomSettlementQuestionChoice[];
-  participantCount?: number;
-  answeredCount?: number;
-  correctCount?: number;
-  wrongCount?: number;
-  unansweredCount?: number;
-  fastestCorrectRank?: number | null;
-  fastestCorrectMs?: number | null;
-  medianCorrectMs?: number | null;
-  answersByClientId?: Record<string, RoomSettlementQuestionAnswer>;
-}
-
-export interface RoomSettlementHistorySummary {
-  matchId: string;
-  roundKey: string;
-  roundNo: number;
-  roomId: string;
-  roomName: string;
-  startedAt: number;
-  endedAt: number;
-  status: "ended" | "aborted";
-  playerCount: number;
-  questionCount: number;
-  summaryJson?: Record<string, unknown> | null;
-  selfRank?: number | null;
-  selfPlayer?: {
-    usernameSnapshot: string | null;
-    finalScore: number;
-    maxCombo: number;
-    correctCount: number;
-  } | null;
-}
-
-export interface RoomSettlementSnapshot {
-  roundKey: string;
-  roundNo: number;
-  startedAt: number;
-  endedAt: number;
-  room: RoomSummary & {
-    hostClientId: string;
-    playlist: PlaylistState;
-  };
-  participants: RoomParticipant[];
-  messages: ChatMessage[];
-  playlistItems?: PlaylistItem[];
-  trackOrder: number[];
-  playedQuestionCount: number;
-  questionRecaps?: RoomSettlementQuestionRecap[];
-}
+export type {
+  RoomSettlementHistorySummary,
+  RoomSettlementQuestionAnswer,
+  RoomSettlementQuestionChoice,
+  RoomSettlementQuestionRecap,
+  RoomSettlementSnapshot,
+} from "./settlementTypes";
 
 export interface RoomSummary {
   id: string;
@@ -445,236 +290,8 @@ export type SitePresencePayload = {
   updatedAt: number;
 };
 
-// Client -> Server
-export interface ClientToServerEvents {
-  beginRoomCreation: (
-    payload: BeginRoomCreationPayload,
-    callback?: Ack<BeginRoomCreationResult>,
-  ) => void;
-
-  uploadRoomCreationChunk: (
-    payload: UploadRoomCreationChunkPayload,
-    callback?: Ack<UploadRoomCreationChunkResult>,
-  ) => void;
-
-  finalizeRoomCreation: (
-    payload: FinalizeRoomCreationPayload,
-    callback?: Ack<FinalizeRoomCreationResult>,
-  ) => void;
-
-  abortRoomCreation: (
-    payload: AbortRoomCreationPayload,
-    callback?: Ack<AbortRoomCreationResult>,
-  ) => void;
-  joinRoom: (
-    payload: {
-      roomId?: string;
-      roomCode?: string;
-      username: string;
-      password?: string;
-      pin?: string;
-    },
-    callback?: (ack: Ack<RoomState>) => void,
-  ) => void;
-  resumeSession: (
-    payload: {
-      roomId: string;
-      username: string;
-      roomSessionToken: string;
-    },
-    callback?: (ack: Ack<RoomState>) => void,
-  ) => void;
-  updateProfile: (
-    payload: { roomId: string; username: string },
-    callback?: (ack: Ack<null>) => void,
-  ) => void;
-  leaveRoom: (
-    payload: { roomId: string },
-    callback?: (ack: Ack<null>) => void,
-  ) => void;
-  sendMessage: (
-    payload: { content: string; questionContext?: ChatMessageQuestionContext },
-    callback?: (ack: Ack<ChatMessage>) => void,
-  ) => void;
-  listRooms: (callback?: (ack: Ack<RoomSummary[]>) => void) => void;
-  getSitePresence: (callback?: (ack: Ack<SitePresencePayload>) => void) => void;
-  getPlaylistPage: (
-    payload: { roomId: string; page: number; pageSize?: number },
-    callback?: (
-      ack: Ack<{
-        items: PlaylistItem[];
-        totalCount: number;
-        page: number;
-        pageSize: number;
-        ready: boolean;
-      }>,
-    ) => void,
-  ) => void;
-  startGame: (
-    payload: {
-      roomId: string;
-      guessDurationMs?: number;
-      revealDurationMs?: number;
-      showVideo?: boolean;
-    },
-    callback?: (ack: Ack<GameLiveUpdatePayload>) => void,
-  ) => void;
-  submitAnswer: (
-    payload: { roomId: string; choiceIndex: number },
-    callback?: (ack: Ack<SubmitAnswerAckData>) => void,
-  ) => void;
-  requestPlaybackExtensionVote: (
-    payload: { roomId: string; remainingMs?: number },
-    callback?: (ack: Ack<GameLiveUpdatePayload>) => void,
-  ) => void;
-  castPlaybackExtensionVote: (
-    payload: { roomId: string; vote: "approve" | "reject" },
-    callback?: (ack: Ack<GameLiveUpdatePayload>) => void,
-  ) => void;
-  latencyProbe: (
-    payload: { roomId: string },
-    callback?: (ack: Ack<{ serverNow: number }>) => void,
-  ) => void;
-  updateRoomSettings: (
-    payload: {
-      roomId: string;
-      name?: string;
-      visibility?: "public" | "private";
-      password?: string | null;
-      pin?: string | null;
-      questionCount?: number;
-      playDurationSec?: number;
-      revealDurationSec?: number;
-      startOffsetSec?: number;
-      allowCollectionClipTiming?: boolean;
-      allowParticipantInvite?: boolean;
-      playbackExtensionMode?: PlaybackExtensionMode;
-      maxPlayers?: number | null;
-    },
-    callback?: (ack: Ack<{ room: RoomSummary }>) => void,
-  ) => void;
-  kickPlayer: (
-    payload: {
-      roomId: string;
-      targetClientId: string;
-      durationMs?: number | null;
-    },
-    callback?: (ack: Ack<null>) => void,
-  ) => void;
-  transferHost: (
-    payload: { roomId: string; targetClientId: string },
-    callback?: (ack: Ack<{ hostClientId: string }>) => void,
-  ) => void;
-  suggestPlaylist: (
-    payload: {
-      roomId: string;
-      type: "collection" | "playlist";
-      value: string;
-      title?: string | null;
-      totalCount?: number;
-      sourceId?: string | null;
-      items?: PlaylistItem[];
-      readToken?: string | null;
-    },
-    callback?: (ack: Ack<null>) => void,
-  ) => void;
-  changePlaylist: (
-    payload: {
-      roomId: string;
-      playlist: {
-        uploadId: string;
-        id?: string;
-        title?: string;
-        sourceType?: PlaylistSourceType | null;
-        totalCount: number;
-        items?: PlaylistItem[];
-        isLast?: boolean;
-        pageSize?: number;
-      };
-    },
-    callback?: (
-      ack: Ack<{ receivedCount: number; totalCount: number; ready: boolean }>,
-    ) => void,
-  ) => void;
-  uploadPlaylistChunk: (
-    payload: {
-      roomId: string;
-      uploadId: string;
-      items: PlaylistItem[];
-      isLast: boolean;
-    },
-    callback?: (ack: Ack<{ receivedCount: number; totalCount: number }>) => void,
-  ) => void;
-  listSettlementHistorySummaries: (
-    payload: { roomId: string; limit?: number; beforeEndedAt?: number | null },
-    callback?: (
-      ack: Ack<{
-        items: RoomSettlementHistorySummary[];
-        nextCursor: number | null;
-      }>,
-    ) => void,
-  ) => void;
-  getSettlementReplay: (
-    payload: { roomId: string; matchId: string; roundKey?: string | null },
-    callback?: (ack: Ack<RoomSettlementSnapshot>) => void,
-  ) => void;
-}
-
-// Server -> Client
-export interface ServerToClientEvents {
-  sitePresenceUpdated: (payload: SitePresencePayload) => void;
-  roomsUpdated: (rooms: RoomSummary[]) => void;
-  roomCreated: (payload: { room: RoomSummary }) => void;
-  roomRemoved: (payload: { roomId: string }) => void;
-  joinedRoom: (state: RoomState) => void;
-  roomCreationProgress: (payload: {
-    creationId: string;
-    state: RoomCreationState;
-    receivedChunkCount: number;
-    expectedChunkCount: number;
-    receivedItemsCount: number;
-    totalCount: number;
-    timestamp: number;
-  }) => void;
-  sessionProgress: (payload: SessionProgressPayload) => void;
-  participantsUpdated: (payload: {
-    roomId: string;
-    participants: RoomParticipant[];
-    hostClientId: string;
-  }) => void;
-  roomPingUpdated: (payload: {
-    roomId: string;
-    pings: Record<string, number | null>;
-    updatedAt: number;
-  }) => void;
-  playlistProgress: (payload: {
-    roomId: string;
-    receivedCount: number;
-    totalCount: number;
-    ready: boolean;
-  }) => void;
-  playlistUpdated: (payload: {
-    roomId: string;
-    playlist: PlaylistState;
-  }) => void;
-  userLeft: (payload: { roomId: string; clientId: string }) => void;
-  messageAdded: (payload: { roomId: string; message: ChatMessage }) => void;
-  gameStarted: (payload: GameLiveUpdatePayload) => void;
-  gameUpdated: (payload: GameLiveUpdatePayload) => void;
-  roomUpdated: (payload: { room: RoomSummary }) => void;
-  kicked: (payload: {
-    roomId: string;
-    reason: string;
-    bannedUntil: number | null;
-  }) => void;
-  playlistSuggestionsUpdated: (payload: {
-    roomId: string;
-    suggestions: PlaylistSuggestion[];
-  }) => void;
-  settlementHistoryUpdated: (payload: {
-    roomId: string;
-    settlementHistory: RoomSettlementSnapshot[];
-  }) => void;
-}
-
-export type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+export type {
+  ClientSocket,
+  ClientToServerEvents,
+  ServerToClientEvents,
+} from "./socketEvents";

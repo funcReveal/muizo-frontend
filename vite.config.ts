@@ -37,6 +37,25 @@ export default defineConfig({
       output: {
         manualChunks: {
           "vendor-react": ["react", "react-dom"],
+          "vendor-router": ["react-router-dom"],
+          "vendor-data": ["@tanstack/react-query"],
+          "vendor-realtime": ["socket.io-client"],
+          "vendor-capacitor": [
+            "@capacitor/app",
+            "@capacitor/browser",
+            "@capacitor/core",
+            "@capacitor/preferences",
+            "@codetrix-studio/capacitor-google-auth",
+            "capacitor-secure-storage-plugin",
+          ],
+          "vendor-interaction": [
+            "@dnd-kit/core",
+            "@dnd-kit/sortable",
+            "@dnd-kit/utilities",
+            "motion",
+            "react-window",
+            "sonner",
+          ],
           "vendor-mui": [
             "@mui/material",
             "@mui/icons-material",
