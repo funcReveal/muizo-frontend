@@ -319,6 +319,7 @@ const normalizeQuestionRecap = (
               choiceIndex: answer.choiceIndex ?? null,
               result: answer.result ?? "unanswered",
               answeredAtMs: answer.answeredAtMs ?? answer.firstAnsweredAtMs ?? null,
+              scoreBreakdown: answer.scoreBreakdown ?? null,
             },
           ]),
         )
