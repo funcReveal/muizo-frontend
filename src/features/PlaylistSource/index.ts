@@ -18,6 +18,14 @@ export {
   getQuestionMax,
   normalizePlaylistItems,
 } from "./model/playlistSourceUtils";
+export {
+  buildPlaylistIssueSummary,
+  EMPTY_PLAYLIST_ISSUE_SUMMARY,
+  getPlaylistIssueTotal,
+  type PlaylistIssueListItem,
+  type PlaylistIssueSummary,
+} from "./model/playlistPreviewIssues";
+export { default as PlaylistIssueSummaryDialog } from "./ui/PlaylistIssueSummaryDialog";
 export { PlaylistSourceProvider } from "./model/PlaylistSourceProvider";
 export {
   usePlaylistInputControl,

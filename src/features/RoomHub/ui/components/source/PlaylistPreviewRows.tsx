@@ -1,4 +1,8 @@
 import { type RowComponentProps } from "react-window";
+import type {
+  PlaylistIssueListItem,
+  PlaylistIssueSummary,
+} from "@features/PlaylistSource";
 
 export type PlaylistPreviewItem = {
   title: string;
@@ -11,21 +15,7 @@ type PlaylistPreviewRowProps = {
   items: PlaylistPreviewItem[];
 };
 
-export type PlaylistIssueListItem = {
-  title: string;
-  reason: string;
-  thumbnail?: string;
-};
-
-export type PlaylistIssueSummary = {
-  removed: PlaylistIssueListItem[];
-  privateRestricted: PlaylistIssueListItem[];
-  embedBlocked: PlaylistIssueListItem[];
-  unavailable: PlaylistIssueListItem[];
-  unknown: PlaylistIssueListItem[];
-  unknownCount: number;
-  exact?: boolean;
-};
+export type { PlaylistIssueListItem, PlaylistIssueSummary };
 
 type PlaylistIssueRowProps = {
   items: PlaylistIssueListItem[];

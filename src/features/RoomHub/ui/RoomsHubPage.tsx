@@ -17,7 +17,12 @@ import {
   useSitePresence,
 } from "@features/RoomSession";
 import { useCollectionContent } from "@features/CollectionContent";
-import { usePlaylistSource } from "@features/PlaylistSource";
+import {
+  buildPlaylistIssueSummary,
+  getPlaylistIssueTotal,
+  PlaylistIssueSummaryDialog,
+  usePlaylistSource,
+} from "@features/PlaylistSource";
 import {
   DEFAULT_BGM_VOLUME,
   SettingsModelContext,
@@ -30,9 +35,7 @@ import {
   USERNAME_MAX,
 } from "@domain/room/constants";
 import {
-  PlaylistIssueRow,
   PlaylistPreviewRow,
-  type PlaylistIssueListItem,
 } from "./components/source/PlaylistPreviewRows";
 import RoomSetupPanel from "./components/setup/RoomSetupPanel";
 import RoomSetupSidebarSummary from "./components/setup/RoomSetupSidebarSummary";
@@ -286,6 +289,8 @@ const RoomsHubPage: React.FC = () => {
     const stored = window.sessionStorage.getItem(GUIDE_MODE_STORAGE_KEY);
     return stored === "join" ? "join" : "create";
   });
+  const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] =
+    useState(false);
   const {
     passwordDialog,
     setPasswordDialog,
@@ -605,116 +610,10 @@ const RoomsHubPage: React.FC = () => {
       })),
     [playlistItems],
   );
-  const playlistIssueSummary = useMemo(() => {
-    if (playlistPreviewMeta?.skippedItems?.length) {
-      const removed: PlaylistIssueListItem[] = [];
-      const privateRestricted: PlaylistIssueListItem[] = [];
-      const embedBlocked: PlaylistIssueListItem[] = [];
-      const unavailable: PlaylistIssueListItem[] = [];
-      const unknown: PlaylistIssueListItem[] = [];
-      const normalizeBlockedReason = (reason?: string | null) => {
-        const normalized = reason?.trim() ?? "";
-        const lower = normalized.toLowerCase();
-        if (
-          lower.includes("age") ||
-          lower.includes("mature") ||
-          lower.includes("adult") ||
-          normalized.includes("年齡") ||
-          normalized.includes("限制級")
-        ) {
-          return "因年齡限制，不允許嵌入播放";
-        }
-        if (
-          lower.includes("copyright") ||
-          lower.includes("rights") ||
-          lower.includes("owner") ||
-          normalized.includes("版權") ||
-          normalized.includes("權利") ||
-          normalized.includes("擁有者")
-        ) {
-          return "因版權或權利設定，不允許嵌入播放";
-        }
-        if (
-          lower.includes("embedding disabled") ||
-          lower.includes("embed") ||
-          normalized.includes("嵌入")
-        ) {
-          return "此影片不允許嵌入播放";
-        }
-        return "此影片不允許嵌入播放";
-      };
-      playlistPreviewMeta.skippedItems.forEach((item) => {
-        const title = item.title?.trim() || item.videoId || "未知項目";
-        const thumbnail = item.videoId
-          ? `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`
-          : undefined;
-        const fallbackReason =
-          item.status === "removed"
-            ? "影片已移除"
-            : item.status === "private"
-              ? "私人或受限制，無法匯入"
-              : item.status === "blocked"
-                ? normalizeBlockedReason(item.reason)
-                : item.status === "unavailable"
-                  ? "影片目前不可用"
-                  : "無法判斷匯入原因";
-        const issueItem = {
-          title,
-          thumbnail,
-          reason:
-            item.status === "blocked"
-              ? normalizeBlockedReason(item.reason)
-              : item.reason?.trim() || fallbackReason,
-        };
-        if (item.status === "removed") {
-          removed.push(issueItem);
-          return;
-        }
-        if (item.status === "private") {
-          privateRestricted.push(issueItem);
-          return;
-        }
-        if (item.status === "blocked") {
-          embedBlocked.push(issueItem);
-          return;
-        }
-        if (item.status === "unavailable") {
-          unavailable.push(issueItem);
-          return;
-        }
-        unknown.push(issueItem);
-      });
-      return {
-        removed,
-        privateRestricted,
-        embedBlocked,
-        unavailable,
-        unknown,
-        unknownCount: 0,
-        exact: true,
-      };
-    }
-    if ((playlistPreviewMeta?.skippedCount ?? 0) > 0) {
-      return {
-        removed: [],
-        privateRestricted: [],
-        embedBlocked: [],
-        unavailable: [],
-        unknown: [],
-        unknownCount: playlistPreviewMeta?.skippedCount ?? 0,
-        exact: false,
-      };
-    }
-    return {
-      removed: [],
-      privateRestricted: [],
-      embedBlocked: [],
-      unavailable: [],
-      unknown: [],
-      unknownCount: 0,
-      exact: false,
-    };
-  }, [playlistPreviewMeta]);
+  const playlistIssueSummary = useMemo(
+    () => buildPlaylistIssueSummary(playlistPreviewMeta),
+    [playlistPreviewMeta],
+  );
   const sharedCollectionId = searchParams.get("sharedCollection");
   const { handledSharedCollectionRef } = useSharedCollectionEntry({
     sharedCollectionId,
@@ -772,6 +671,10 @@ const RoomsHubPage: React.FC = () => {
     setSharedCollectionMeta,
     setCreateLeftTab,
   });
+  const linkPlaylistIssueTotal = useMemo(
+    () => getPlaylistIssueTotal(linkPlaylistIssueSummary),
+    [linkPlaylistIssueSummary],
+  );
   const { publicLibrarySearchActive, togglePublicLibrarySearch } =
     usePublicCollectionsSearchUi({
       createLibraryTab,
@@ -1732,11 +1635,14 @@ const RoomsHubPage: React.FC = () => {
                               linkPlaylistIssueSummary={
                                 linkPlaylistIssueSummary
                               }
+                              linkPlaylistIssueTotal={linkPlaylistIssueTotal}
+                              onOpenPlaylistIssueDialog={() =>
+                                setPlaylistIssueDialogOpen(true)
+                              }
                               playlistPreviewMetaSkippedCount={
                                 playlistPreviewMeta?.skippedCount ?? 0
                               }
                               PlaylistPreviewRow={PlaylistPreviewRow}
-                              PlaylistIssueRow={PlaylistIssueRow}
                             />
                           ) : createLibraryTab === "youtube" ? (
                             <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
@@ -1902,6 +1808,13 @@ const RoomsHubPage: React.FC = () => {
           </div>
         </section>
       )}
+      <PlaylistIssueSummaryDialog
+        open={playlistIssueDialogOpen}
+        onClose={() => setPlaylistIssueDialogOpen(false)}
+        summary={linkPlaylistIssueSummary}
+        total={linkPlaylistIssueTotal}
+        description={`共 ${linkPlaylistIssueTotal} 首未能匯入房間清單`}
+      />
     </div>
   );
 };

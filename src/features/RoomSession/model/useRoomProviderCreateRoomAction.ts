@@ -185,6 +185,7 @@ interface UseRoomProviderCreateRoomActionParams {
   setHostRoomPassword: Dispatch<SetStateAction<string | null>>;
   setRoomNameInput: Dispatch<SetStateAction<string>>;
   setRoomMaxPlayersInput: Dispatch<SetStateAction<string>>;
+  resetPlaylistState: () => void;
 }
 
 type UnsafeSocketEmit = (
@@ -272,6 +273,7 @@ export const useRoomProviderCreateRoomAction = ({
   setHostRoomPassword,
   setRoomNameInput,
   setRoomMaxPlayersInput,
+  resetPlaylistState,
 }: UseRoomProviderCreateRoomActionParams) => {
   const questionMin = QUESTION_MIN;
 
@@ -603,6 +605,7 @@ export const useRoomProviderCreateRoomAction = ({
     setHostRoomPassword(desiredPin);
     setRoomNameInput(getDefaultRoomName(username));
     setRoomMaxPlayersInput(String(DEFAULT_ROOM_MAX_PLAYERS));
+    resetPlaylistState();
 
     trackEvent("room_create_success", {
       room_id: finalizeAck.data.roomId,
@@ -634,6 +637,7 @@ export const useRoomProviderCreateRoomAction = ({
     refreshAuthToken,
     releaseCreateRoomLockRef,
     revealDurationSec,
+    resetPlaylistState,
     roomCreateSourceMode,
     roomMaxPlayersInput,
     roomNameInput,

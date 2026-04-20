@@ -94,6 +94,7 @@ export interface PlaylistInputControlContextValue {
     title: string | null;
     totalCount: number;
     sourceId: string;
+    previewMeta?: import("./types").PlaylistPreviewMeta | null;
   }>;
 }
 

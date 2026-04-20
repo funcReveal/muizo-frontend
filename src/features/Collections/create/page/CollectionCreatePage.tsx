@@ -303,6 +303,7 @@ const CollectionCreatePage = () => {
   const playlistIssueSummary = useMemo(() => {
     if (playlistPreviewMeta?.skippedItems?.length) {
       const removed: string[] = [];
+      const duplicate: string[] = [];
       const privateRestricted: string[] = [];
       const embedBlocked: string[] = [];
       const unavailable: string[] = [];
@@ -311,6 +312,10 @@ const CollectionCreatePage = () => {
       playlistPreviewMeta.skippedItems.forEach((item) => {
         const label = item.title?.trim() || item.videoId || "未知項目";
 
+        if (item.status === "duplicate") {
+          duplicate.push(label);
+          return;
+        }
         if (item.status === "removed") {
           removed.push(label);
           return;
@@ -333,6 +338,7 @@ const CollectionCreatePage = () => {
 
       return {
         removed,
+        duplicate,
         privateRestricted,
         embedBlocked,
         unavailable,
@@ -343,6 +349,7 @@ const CollectionCreatePage = () => {
 
     return {
       removed: [] as string[],
+      duplicate: [] as string[],
       privateRestricted: [] as string[],
       embedBlocked: [] as string[],
       unavailable: [] as string[],
@@ -353,6 +360,7 @@ const CollectionCreatePage = () => {
 
   const playlistIssueTotal =
     playlistIssueSummary.removed.length +
+    playlistIssueSummary.duplicate.length +
     playlistIssueSummary.privateRestricted.length +
     playlistIssueSummary.embedBlocked.length +
     playlistIssueSummary.unavailable.length +
@@ -361,6 +369,13 @@ const CollectionCreatePage = () => {
 
   const playlistIssueGroups = useMemo(
     () => [
+      {
+        key: "duplicate" as const,
+        label: "重複略過",
+        count: playlistIssueSummary.duplicate.length,
+        items: playlistIssueSummary.duplicate,
+        className: "border-emerald-300/30 bg-emerald-300/10 text-emerald-100",
+      },
       {
         key: "removed" as const,
         label: "已移除",
@@ -401,6 +416,7 @@ const CollectionCreatePage = () => {
       },
     ],
     [
+      playlistIssueSummary.duplicate,
       playlistIssueSummary.removed,
       playlistIssueSummary.privateRestricted,
       playlistIssueSummary.embedBlocked,

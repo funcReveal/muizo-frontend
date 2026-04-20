@@ -106,9 +106,13 @@ export const apiPreviewPlaylist = (
   apiUrl: string,
   url: string,
   playlistId?: string,
+  token?: string | null,
 ) =>
   fetchJson<PlaylistPreviewPayload>(`${apiUrl}/api/playlists/preview`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ url, playlistId }),
   });

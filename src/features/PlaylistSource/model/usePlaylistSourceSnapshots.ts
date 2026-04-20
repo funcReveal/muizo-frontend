@@ -5,7 +5,7 @@ import {
   apiFetchYoutubePlaylistItems,
   apiPreviewPlaylist,
 } from "./playlistSourceApi";
-import type { PlaylistItem, YoutubePlaylist } from "./types";
+import type { PlaylistItem, PlaylistPreviewMeta, YoutubePlaylist } from "./types";
 import { normalizePlaylistItems } from "./playlistSourceUtils";
 
 interface UsePlaylistSourceSnapshotsParams {
@@ -21,6 +21,7 @@ interface PlaylistSnapshot {
   title: string | null;
   totalCount: number;
   sourceId: string;
+  previewMeta?: PlaylistPreviewMeta | null;
 }
 
 export const usePlaylistSourceSnapshots = ({
@@ -100,6 +101,7 @@ export const usePlaylistSourceSnapshots = ({
         apiUrl,
         url,
         playlistId,
+        authToken,
       );
       if (!ok || !payload) {
         throw new Error("讀取播放清單失敗，請稍後再試");
@@ -129,9 +131,14 @@ export const usePlaylistSourceSnapshots = ({
         title: data.title ?? null,
         totalCount: normalized.length,
         sourceId: data.playlistId ?? playlistId,
+        previewMeta: {
+          expectedCount: data.expectedCount ?? null,
+          skippedCount: data.skippedCount ?? 0,
+          skippedItems: data.skippedItems ?? [],
+        },
       };
     },
-    [apiUrl, extractVideoIdFromUrl],
+    [apiUrl, authToken, extractVideoIdFromUrl],
   );
 
   return {

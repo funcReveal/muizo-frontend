@@ -11,17 +11,12 @@ import { CloseRounded } from "@mui/icons-material";
 import { List, type RowComponentProps } from "react-window";
 
 import type {
-  PlaylistIssueListItem,
   PlaylistIssueSummary,
   PlaylistPreviewItem,
 } from "./PlaylistPreviewRows";
 
 type PlaylistPreviewRowData = {
   items: PlaylistPreviewItem[];
-};
-
-type PlaylistIssueRowData = {
-  items: PlaylistIssueListItem[];
 };
 
 type PlaylistLinkSourceContentProps = {
@@ -49,12 +44,11 @@ type PlaylistLinkSourceContentProps = {
   linkPlaylistPreviewItems: PlaylistPreviewItem[];
   canAttemptPlaylistPreview: (value: string) => boolean;
   linkPlaylistIssueSummary: PlaylistIssueSummary;
+  linkPlaylistIssueTotal: number;
+  onOpenPlaylistIssueDialog: () => void;
   playlistPreviewMetaSkippedCount: number;
   PlaylistPreviewRow: (
     props: RowComponentProps<PlaylistPreviewRowData>,
-  ) => ReactElement;
-  PlaylistIssueRow: (
-    props: RowComponentProps<PlaylistIssueRowData>,
   ) => ReactElement;
 };
 
@@ -83,9 +77,10 @@ const PlaylistLinkSourceContent = ({
   linkPlaylistPreviewItems,
   canAttemptPlaylistPreview,
   linkPlaylistIssueSummary,
+  linkPlaylistIssueTotal,
+  onOpenPlaylistIssueDialog,
   playlistPreviewMetaSkippedCount,
   PlaylistPreviewRow,
-  PlaylistIssueRow,
 }: PlaylistLinkSourceContentProps) => {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
@@ -329,49 +324,16 @@ const PlaylistLinkSourceContent = ({
               />
             </div>
             <div className="mt-4 space-y-3 pb-1">
-              {[
-                {
-                  title: "隱私限制",
-                  tone: "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100",
-                  items: linkPlaylistIssueSummary.privateRestricted,
-                },
-                {
-                  title: "嵌入限制",
-                  tone: "border-rose-300/30 bg-rose-300/10 text-rose-100",
-                  items: linkPlaylistIssueSummary.embedBlocked,
-                },
-                {
-                  title: "其他不可用",
-                  tone: "border-red-300/30 bg-red-300/10 text-red-100",
-                  items: [
-                    ...linkPlaylistIssueSummary.unavailable,
-                    ...linkPlaylistIssueSummary.unknown,
-                  ],
-                },
-              ]
-                .filter((group) => group.items.length > 0)
-                .map((group) => (
-                  <div
-                    key={group.title}
-                    className={`rounded-xl border p-2.5 ${group.tone}`}
-                  >
-                    <p className="text-xs font-semibold">
-                      {group.title}：{group.items.length} 首
-                    </p>
-                    <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/15">
-                      <List<PlaylistIssueRowData>
-                        style={{
-                          height: Math.min(group.items.length * 64, 256),
-                          width: "100%",
-                        }}
-                        rowCount={group.items.length}
-                        rowHeight={64}
-                        rowProps={{ items: group.items }}
-                        rowComponent={PlaylistIssueRow as never}
-                      />
-                    </div>
-                  </div>
-                ))}
+              {linkPlaylistIssueTotal > 0 && (
+                <button
+                  type="button"
+                  onClick={onOpenPlaylistIssueDialog}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs text-amber-100 transition hover:border-amber-300/45 hover:bg-amber-300/15"
+                >
+                  <span className="font-semibold">未成功匯入原因</span>
+                  <span>{linkPlaylistIssueTotal} 首，查看明細</span>
+                </button>
+              )}
               {isLinkSourceActive &&
                 playlistPreviewMetaSkippedCount > 0 &&
                 !linkPlaylistIssueSummary.exact && (
