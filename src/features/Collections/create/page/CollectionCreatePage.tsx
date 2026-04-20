@@ -22,7 +22,7 @@ import { isGoogleReauthRequired } from "../../../../shared/auth/providerAuth";
 import { fadeInUp } from "../../../../shared/motion/motionPresets";
 import { appToast } from "../../../../shared/ui/toastApi";
 import { usePlaylistSource } from "@features/PlaylistSource";
-import { useRoomCollections } from "@features/RoomSession";
+import { useCollectionContent } from "@features/CollectionContent";
 import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
@@ -73,7 +73,7 @@ const CollectionCreatePage = () => {
     importYoutubePlaylist,
   } = usePlaylistSource();
   const { collections, collectionScope, fetchCollections } =
-    useRoomCollections();
+    useCollectionContent();
 
   const [collectionTitle, setCollectionTitle] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("private");

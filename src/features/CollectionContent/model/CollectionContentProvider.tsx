@@ -1,32 +1,38 @@
 /**
- * RoomCollectionsSubProvider
+ * CollectionContentProvider
  *
- * Manages collection browsing and collection-to-playlist application inside a room.
- * It exposes both the public RoomCollectionsContext and the internal
- * CollectionAccessContext used by SessionCoreProvider.
+ * Manages collection browsing and collection-to-playlist application.
+ * It exposes public collection content state plus the access bridge used by
+ * room flows that need collection snapshots/read tokens.
  */
 import { useEffect, useMemo, type ReactNode } from "react";
 
-import { useAuth } from "../../../../shared/auth/AuthContext";
+import { useAuth } from "../../../shared/auth/AuthContext";
 import {
-  RoomCollectionsContext,
-  type RoomCollectionsContextValue,
-} from "../RoomCollectionsContext";
-import { useRoomCollections as useRoomCollectionsHook } from "../useRoomCollections";
-import { useRoomProviderCollectionAccess } from "../useRoomProviderCollectionAccess";
-import { API_URL } from "../roomConstants";
-import { useStatusWrite } from "./RoomStatusContexts";
-import { CollectionAccessContext } from "./RoomCollectionsAccessContext";
+  CollectionContentContext,
+  type CollectionContentContextValue,
+} from "./CollectionContentContext";
+import { useCollectionContentState } from "./useCollectionContentState";
+import { useCollectionContentAccess } from "./useCollectionContentAccess";
+import { API_URL } from "@domain/room/constants";
+import { CollectionAccessContext } from "./CollectionAccessContext";
 import {
   usePlaylistInputControl,
   usePlaylistSocketBridge,
 } from "@features/PlaylistSource";
 
-export const RoomCollectionsSubProvider: React.FC<{ children: ReactNode }> = ({
+type CollectionContentProviderProps = {
+  children: ReactNode;
+  setStatusText?: (value: string | null) => void;
+};
+
+export const CollectionContentProvider: React.FC<
+  CollectionContentProviderProps
+> = ({
   children,
+  setStatusText = () => {},
 }) => {
   const { authToken, authUser, refreshAuthToken } = useAuth();
-  const { setStatusText } = useStatusWrite();
   const {
     applyPlaylistSource,
     clearPlaylistError,
@@ -57,7 +63,7 @@ export const RoomCollectionsSubProvider: React.FC<{ children: ReactNode }> = ({
     resetCollectionsState,
     resetCollectionSelection,
     clearCollectionsError,
-  } = useRoomCollectionsHook({
+  } = useCollectionContentState({
     apiUrl: API_URL,
     authToken,
     ownerId: authUser?.id ?? null,
@@ -83,13 +89,13 @@ export const RoomCollectionsSubProvider: React.FC<{ children: ReactNode }> = ({
   }, [onResetCollectionRef, resetCollectionSelection]);
 
   const { fetchCollectionSnapshot, createCollectionReadToken } =
-    useRoomProviderCollectionAccess({
+    useCollectionContentAccess({
       apiUrl: API_URL,
       authToken,
       refreshAuthToken,
     });
 
-  const collectionsContextValue = useMemo<RoomCollectionsContextValue>(
+  const collectionsContextValue = useMemo<CollectionContentContextValue>(
     () => ({
       collections,
       collectionsLoading,
@@ -148,10 +154,10 @@ export const RoomCollectionsSubProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   return (
-    <RoomCollectionsContext.Provider value={collectionsContextValue}>
+    <CollectionContentContext.Provider value={collectionsContextValue}>
       <CollectionAccessContext.Provider value={collectionAccessValue}>
         {children}
       </CollectionAccessContext.Provider>
-    </RoomCollectionsContext.Provider>
+    </CollectionContentContext.Provider>
   );
 };

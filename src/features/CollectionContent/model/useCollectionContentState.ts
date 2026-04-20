@@ -1,26 +1,31 @@
 ﻿import { useCallback, useRef, useState } from "react";
 
-import type { PlaylistItem } from "./types";
+import {
+  normalizePlaylistItems,
+  type PlaylistItem,
+} from "@features/PlaylistSource";
 import {
   apiFetchCollectionItems,
   apiFetchCollections,
   apiFavoriteCollection,
   apiUnfavoriteCollection,
   type CollectionItemRecord,
-} from "./roomApi";
+} from "./collectionContentApi";
 import {
   extractYoutubeChannelId,
-  formatSeconds,
-  normalizePlaylistItems,
   thumbnailFromId,
   videoUrlFromId,
-} from "./roomUtils";
-import { DEFAULT_CLIP_SEC, DEFAULT_PAGE_SIZE } from "./roomConstants";
+} from "../../../shared/utils/youtube";
+import { formatSeconds } from "../../../shared/utils/format";
+import {
+  DEFAULT_CLIP_SEC,
+  DEFAULT_PAGE_SIZE,
+} from "@domain/room/constants";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 
 const EMPTY_COLLECTION_RETRY_LIMIT = 2;
 
-type UseRoomCollectionsOptions = {
+type UseCollectionContentStateOptions = {
   apiUrl?: string;
   authToken: string | null;
   ownerId?: string | null;
@@ -34,7 +39,7 @@ type UseRoomCollectionsOptions = {
   onPlaylistReset: () => void;
 };
 
-export type UseRoomCollectionsResult = {
+export type UseCollectionContentStateResult = {
   collections: Array<{
     id: string;
     title: string;
@@ -85,7 +90,7 @@ export type UseRoomCollectionsResult = {
   clearCollectionsError: () => void;
 };
 
-export const useRoomCollections = ({
+export const useCollectionContentState = ({
   apiUrl,
   authToken,
   ownerId,
@@ -93,7 +98,7 @@ export const useRoomCollections = ({
   setStatusText,
   onPlaylistLoaded,
   onPlaylistReset,
-}: UseRoomCollectionsOptions): UseRoomCollectionsResult => {
+}: UseCollectionContentStateOptions): UseCollectionContentStateResult => {
   const [collections, setCollections] = useState<
     Array<{
       id: string;

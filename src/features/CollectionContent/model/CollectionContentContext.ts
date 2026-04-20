@@ -21,7 +21,7 @@ export type CollectionEntry = {
   has_ai_edited?: boolean;
 };
 
-export interface RoomCollectionsContextValue {
+export interface CollectionContentContextValue {
   collections: CollectionEntry[];
   collectionsLoading: boolean;
   collectionsLoadingMore: boolean;
@@ -50,12 +50,14 @@ export interface RoomCollectionsContextValue {
   ) => Promise<void>;
 }
 
-export const RoomCollectionsContext =
-  createContext<RoomCollectionsContextValue | null>(null);
+export const CollectionContentContext =
+  createContext<CollectionContentContextValue | null>(null);
 
-export const useRoomCollections = (): RoomCollectionsContextValue => {
-  const ctx = useContext(RoomCollectionsContext);
+export const useCollectionContent = (): CollectionContentContextValue => {
+  const ctx = useContext(CollectionContentContext);
   if (!ctx)
-    throw new Error("useRoomCollections must be used within a RoomContentProvider");
+    throw new Error(
+      "useCollectionContent must be used within CollectionContentProvider",
+    );
   return ctx;
 };

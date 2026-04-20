@@ -1,7 +1,7 @@
 import type { FC, ReactNode } from "react";
 
+import { CollectionContentProvider } from "@features/CollectionContent";
 import { PlaylistSourceProvider } from "@features/PlaylistSource";
-import { RoomCollectionsSubProvider } from "./providers/RoomCollectionsSubProvider";
 import { useStatusWrite } from "./providers/RoomStatusContexts";
 
 export const RoomContentProvider: FC<{ children: ReactNode }> = ({
@@ -11,7 +11,9 @@ export const RoomContentProvider: FC<{ children: ReactNode }> = ({
 
   return (
     <PlaylistSourceProvider setStatusText={setStatusText}>
-      <RoomCollectionsSubProvider>{children}</RoomCollectionsSubProvider>
+      <CollectionContentProvider setStatusText={setStatusText}>
+        {children}
+      </CollectionContentProvider>
     </PlaylistSourceProvider>
   );
 };

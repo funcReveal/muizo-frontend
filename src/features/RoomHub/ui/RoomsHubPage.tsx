@@ -13,10 +13,10 @@ import { useAuth } from "@shared/auth/AuthContext";
 import {
   useRoomSession,
   useRoomCreate,
-  useRoomCollections,
   useRoomGame,
   useSitePresence,
 } from "@features/RoomSession";
+import { useCollectionContent } from "@features/CollectionContent";
 import { usePlaylistSource } from "@features/PlaylistSource";
 import {
   DEFAULT_BGM_VOLUME,
@@ -217,7 +217,7 @@ const RoomsHubPage: React.FC = () => {
     loadMoreCollections,
     toggleCollectionFavorite,
     loadCollectionItems,
-  } = useRoomCollections();
+  } = useCollectionContent();
   const {
     youtubePlaylists,
     youtubePlaylistsLoading,

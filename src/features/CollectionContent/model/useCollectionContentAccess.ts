@@ -1,27 +1,32 @@
 import { useCallback } from "react";
 
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
-import { apiCreateCollectionReadToken, apiFetchCollectionItems } from "./roomApi";
-import { mapCollectionItemsToPlaylist } from "./roomProviderUtils";
-import type { PlaylistItem } from "./types";
-import { normalizePlaylistItems } from "./roomUtils";
+import {
+  apiCreateCollectionReadToken,
+  apiFetchCollectionItems,
+} from "./collectionContentApi";
+import { mapCollectionItemsToPlaylist } from "./collectionContentUtils";
+import {
+  normalizePlaylistItems,
+  type PlaylistItem,
+} from "@features/PlaylistSource";
 
-type UseRoomProviderCollectionAccessArgs = {
+type UseCollectionContentAccessArgs = {
   apiUrl: string;
   authToken: string | null;
   refreshAuthToken: () => Promise<string | null>;
 };
 
-type UseRoomProviderCollectionAccessResult = {
+type UseCollectionContentAccessResult = {
   fetchCollectionSnapshot: (collectionId: string) => Promise<PlaylistItem[]>;
   createCollectionReadToken: (collectionId: string) => Promise<string>;
 };
 
-export const useRoomProviderCollectionAccess = ({
+export const useCollectionContentAccess = ({
   apiUrl,
   authToken,
   refreshAuthToken,
-}: UseRoomProviderCollectionAccessArgs): UseRoomProviderCollectionAccessResult => {
+}: UseCollectionContentAccessArgs): UseCollectionContentAccessResult => {
   const fetchCollectionSnapshot = useCallback(
     async (collectionId: string) => {
       if (!apiUrl) {

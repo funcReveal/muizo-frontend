@@ -38,10 +38,12 @@ import {
   usePlaylistSource,
   type PlaylistSourceContextValue,
 } from "@features/PlaylistSource";
-import { useCollectionAccess } from "./RoomCollectionsAccessContext";
+import {
+  useCollectionAccess,
+  useCollectionContent,
+} from "@features/CollectionContent";
 import type { RoomSessionInternalContextValue } from "./RoomSessionInternalContext";
 import { RoomSessionContextProviderTree } from "./RoomSessionContextProviderTree";
-import { useRoomCollections } from "../RoomCollectionsContext";
 import {
   type RoomClosedNotice,
   type RoomSessionContextValue,
@@ -123,7 +125,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const { getSocketRef, loadMorePlaylistRef, handleTerminalRoomAckRef } =
     usePlaylistSocketBridge();
 
-  const { collections } = useRoomCollections();
+  const { collections } = useCollectionContent();
   const { fetchCollectionSnapshot, createCollectionReadToken } =
     useCollectionAccess();
 

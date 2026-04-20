@@ -32,7 +32,7 @@ import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import { List as VirtualList, type RowComponentProps } from "react-window";
 
-import type { CollectionEntry } from "@features/RoomSession";
+import type { CollectionEntry } from "@features/CollectionContent";
 import type {
   PlaylistItem,
   PlaylistSourceType,

@@ -34,7 +34,7 @@ import {
   usePlaylistLiveSetters,
   usePlaylistSource,
 } from "@features/PlaylistSource";
-import { useCollectionAccess } from "./RoomCollectionsAccessContext";
+import { useCollectionAccess } from "@features/CollectionContent";
 import { useRoomSessionInternal } from "./RoomSessionInternalContext";
 import { useRoomGame } from "../RoomGameContext";
 import { useRoomSession } from "../RoomSessionContext";

@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-import type { PlaylistItem } from "../types";
+import type { PlaylistItem } from "@features/PlaylistSource";
 
 export interface CollectionAccessContextValue {
   fetchCollectionSnapshot: (collectionId: string) => Promise<PlaylistItem[]>;
@@ -16,7 +16,7 @@ export const useCollectionAccess = (): CollectionAccessContextValue => {
   const ctx = useContext(CollectionAccessContext);
   if (!ctx) {
     throw new Error(
-      "useCollectionAccess must be used within RoomCollectionsSubProvider",
+      "useCollectionAccess must be used within CollectionContentProvider",
     );
   }
   return ctx;

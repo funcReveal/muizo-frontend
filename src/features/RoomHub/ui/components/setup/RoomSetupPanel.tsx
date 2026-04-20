@@ -22,6 +22,7 @@ import {
   PLAYER_MIN,
   PLAY_DURATION_MAX,
   PLAY_DURATION_MIN,
+  QUESTION_STEP,
   REVEAL_DURATION_MAX,
   REVEAL_DURATION_MIN,
   START_OFFSET_MAX,
@@ -321,6 +322,7 @@ const RoomSetupPanel = ({
             <div className="mt-5 flex items-center justify-between gap-3">
               <button
                 type="button"
+                aria-label="減少 1 題"
                 onClick={() =>
                   updateQuestionCount(Math.max(questionMin, questionCount - 1))
                 }
@@ -341,6 +343,7 @@ const RoomSetupPanel = ({
               </div>
               <button
                 type="button"
+                aria-label="增加 1 題"
                 onClick={() =>
                   updateQuestionCount(
                     Math.min(questionMaxLimit, questionCount + 1),
@@ -357,6 +360,22 @@ const RoomSetupPanel = ({
               </button>
             </div>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  updateQuestionCount(
+                    Math.max(questionMin, questionCount - QUESTION_STEP),
+                  )
+                }
+                disabled={!canDecreaseQuestionCount}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  canDecreaseQuestionCount
+                    ? "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                    : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
+                }`}
+              >
+                -{QUESTION_STEP}
+              </button>
               {[10, 15, 20].map((count) => (
                 <button
                   key={count}
@@ -371,6 +390,22 @@ const RoomSetupPanel = ({
                   {count} 題
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() =>
+                  updateQuestionCount(
+                    Math.min(questionMaxLimit, questionCount + QUESTION_STEP),
+                  )
+                }
+                disabled={!canIncreaseQuestionCount}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  canIncreaseQuestionCount
+                    ? "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                    : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
+                }`}
+              >
+                +{QUESTION_STEP}
+              </button>
             </div>
           </div>
         </div>

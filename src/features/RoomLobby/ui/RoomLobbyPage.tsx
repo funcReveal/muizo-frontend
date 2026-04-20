@@ -41,9 +41,9 @@ import { translateRoomErrorDetail } from "@features/RoomSession";
 import { useAuth } from "@shared/auth/AuthContext";
 import {
   useRoomSession,
-  useRoomCollections,
   useRoomGame,
 } from "@features/RoomSession";
+import { useCollectionContent } from "@features/CollectionContent";
 import { usePlaylistSource } from "@features/PlaylistSource";
 
 // ---------------------------------------------------------------------------
@@ -573,7 +573,7 @@ const RoomLobbyPage: React.FC = () => {
     collectionItemsError,
     fetchCollections,
     loadMoreCollections,
-  } = useRoomCollections();
+  } = useCollectionContent();
   const {
     gameState,
     isGameView,

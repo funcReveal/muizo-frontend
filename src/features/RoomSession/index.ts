@@ -12,11 +12,11 @@ export {
 export {
   useRoomSession,
   useRoomCreate,
-  useRoomCollections,
   useRoomGame,
   useSitePresence,
   useRoomRealtime,
 } from "./model/runtimeHooks";
+export { useCollectionContent } from "@features/CollectionContent";
 export { usePlaylistSource } from "@features/PlaylistSource";
 export { translateRoomErrorDetail } from "./model/roomErrorText";
 export {
@@ -56,4 +56,4 @@ export type {
   RoomCreateSourceMode,
 } from "./model/RoomCreateContext";
 export type { YoutubePlaylist } from "@features/PlaylistSource";
-export type { CollectionEntry } from "./model/RoomCollectionsContext";
+export type { CollectionEntry } from "@features/CollectionContent";
