@@ -7,7 +7,16 @@ import { SettingsProvider } from "@features/Setting/model/settingsModel";
 import { AppToaster } from "@shared/ui/toast";
 import { VersionUpdateNotifier } from "./VersionUpdateNotifier";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Disable automatic refetch on window focus/visibility — the app manages
+      // its own real-time sync. Without this, every foreground return fires a
+      // network request for every active query (rooms, site-presence, etc.).
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const theme = createTheme({
   palette: {

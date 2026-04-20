@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GameState } from "@features/RoomSession";
 
@@ -29,7 +29,7 @@ interface UseGameRoomPlayerSyncParams {
 
 const PLAYER_ID = "mq-main-player";
 
-// ── Drift tolerances (2 tiers) ──────────────────────────────────────────────
+// ?? Drift tolerances (2 tiers) ??????????????????????????????????????????????
 // DRIFT_TOLERANCE_SEC:        steady-state threshold for resume / drift-sync /
 //                             post-start check; any drift greater than this
 //                             triggers a single corrective seek.
@@ -38,16 +38,19 @@ const PLAYER_ID = "mq-main-player";
 //                             where we want tighter alignment right after play.
 const DRIFT_TOLERANCE_SEC = 1;
 const POST_START_DRIFT_TOLERANCE_SEC = 0.35;
+const PLAYER_TIME_RESPONSE_FALLBACK_MS = 260;
+const RESUME_DRIFT_TOLERANCE_SEC = 1.5;
+const FOREGROUND_RECOVERY_DEDUPE_MS = 450;
 
-// ── Prestart warmup ────────────────────────────────────────────────────────
+// ?? Prestart warmup ????????????????????????????????????????????????????????
 // At T-PRESTART_WARMUP_LEAD_MS (4500), mute + seek to clipStart + play for
 // PRESTART_WARMUP_PLAY_MS (140) to prime the codec AND trigger byte loading,
 // then pause and hold at clipStart until T0. Gives the player ~4.5s to buffer
-// before go-time — critical because cueVideoById alone does NOT load bytes,
+// before go-time ??critical because cueVideoById alone does NOT load bytes,
 // only playVideo/seekTo do. On slow 4G this is the difference between a
 // correctly-aligned start and a 3s offset that needs corrective seek.
 // Only applies when we actually have that much lead (Q1 has 5s countdown;
-// Q2+ has 0s → warmup is skipped and catchup loop takes over instead).
+// Q2+ has 0s ??warmup is skipped and catchup loop takes over instead).
 // PRESTART_FINAL_HOLD_MS: mute-hold window after playVideo at T0 *when warmup
 // completed*. Short because the player is already primed at clipStart.
 // NO_WARMUP_HOLD_MS: longer mute-hold when we start playback without warmup
@@ -57,40 +60,22 @@ const PRESTART_WARMUP_PLAY_MS = 140;
 const PRESTART_FINAL_HOLD_MS = 120;
 const NO_WARMUP_HOLD_MS = 680;
 
-// ── Post-start drift check (single checkpoint) ─────────────────────────────
+// ?? Post-start drift check (single checkpoint) ?????????????????????????????
 // One check at T0+POST_START_DRIFT_CHECK_MS. If drift exceeds
 // POST_START_DRIFT_TOLERANCE_SEC, do one seek correction. No additional
 // polling after that.
 const POST_START_DRIFT_CHECK_MS = 1500;
 
-// ── Buffering grace ─────────────────────────────────────────────────────────
+// ?? Buffering grace ?????????????????????????????????????????????????????????
 // If YouTube reports state=3 (buffering), suppress drift-triggered seeks for
-// this window — seeking mid-buffer just extends the stall.
-// 例外：LARGE_DRIFT_OVERRIDE_SEC —— 若偏差超過此值，表示 player 正在錯誤位置
-// 緩衝錯誤內容，繼續等反而永遠對不齊；此時即使在 grace 內也強制 seek。
-// 觸發情境：慢速 4G 下 post-start drift check 恰好落在 grace 窗口內。
+// this window ??seeking mid-buffer just extends the stall.
 const BUFFERING_GRACE_MS = 1500;
 const RECENT_BUFFERING_WINDOW_MS = 1500;
 const LARGE_DRIFT_OVERRIDE_SEC = 1.5;
 
-// ── Resume resync ──────────────────────────────────────────────────────────
-// After coming back from background / focus event, do a single delayed check
-// to verify drift stayed within tolerance. No multi-checkpoint ladder.
+// After coming back from background / focus event, force a resume at the
+// server-derived position, then do one delayed verification check.
 const RESUME_RESYNC_CHECK_MS = 700;
-
-// ── Recovery monitor loop ───────────────────────────────────────────────────
-// Event-driven: loop idles when healthy; kicks on bad state transitions or
-// visibility return, then polls every RECOVERY_MONITOR_INTERVAL_MS until
-// healthy again. When background, use BACKGROUND_MONITOR_INTERVAL_MS to save
-// battery. AUTO_RESUME_MIN_INTERVAL_MS throttles repeated playVideo kicks.
-const RECOVERY_MONITOR_INTERVAL_MS = 500;
-const BACKGROUND_MONITOR_INTERVAL_MS = 2000;
-const AUTO_RESUME_MIN_INTERVAL_MS = 1800;
-
-// Ignore drift signals right after an intentional start — the player may still
-// be ramping up currentTime.
-const RECENT_START_GUARD_MS = 2500;
-
 const SYNC_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
 
 const useGameRoomPlayerSync = ({
@@ -131,9 +116,6 @@ const useGameRoomPlayerSync = ({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
   const hasStartedPlaybackRef = useRef(false);
-  // 當 startPlayback 被呼叫後，等待下一次 state=1 (playing) 立即對齊伺服器位置。
-  // 這處理「playVideo 在 T0 下達，但慢速網路下 player 到 T0+X 才真正播放」的情況
-  // —— 此時伺服器位置已前進 X 秒，我們必須 seekTo 趕上，而不是停在 clipStart。
   const awaitingFirstPlaySyncRef = useRef(false);
   const playerReadyRef = useRef(false);
   const playerStartRef = useRef(0);
@@ -141,7 +123,6 @@ const useGameRoomPlayerSync = ({
   const lastTrackLoadKeyRef = useRef<string | null>(null);
   const lastLoadedVideoIdRef = useRef<string | null>(null);
   const lastTrackSessionRef = useRef<string | null>(null);
-  const lastPassiveResumeRef = useRef<number>(0);
   const resumeNeedsSyncRef = useRef(false);
   const resyncTimersRef = useRef<number[]>([]);
   const initialAudioHoldReleaseTimerRef = useRef<number | null>(null);
@@ -157,13 +138,12 @@ const useGameRoomPlayerSync = ({
   const bufferingStartedAtRef = useRef<number | null>(null);
   const lastBufferingAtMsRef = useRef<number>(0);
   const bufferingGraceUntilMsRef = useRef<number>(0);
-  const lastAutoResumeAttemptAtMsRef = useRef<number>(0);
   const listeningRetryTimerRef = useRef<number | null>(null);
   const playbackStartTimerRef = useRef<number | null>(null);
   const playbackWarmupTimerRef = useRef<number | null>(null);
   const playbackWarmupStopTimerRef = useRef<number | null>(null);
+  const bufferingRecoveryTimerRef = useRef<number | null>(null);
   const postStartDriftTimersRef = useRef<number[]>([]);
-  // post-start drift 若被 buffering grace 擋下且仍偏差，允許最多 1 次重試
   const postStartDriftRetriedRef = useRef(false);
   const silentAudioStartTimerRef = useRef<number | null>(null);
   const silentAudioPlayPromiseRef = useRef<Promise<void> | null>(null);
@@ -176,10 +156,16 @@ const useGameRoomPlayerSync = ({
   const prestartWarmupActiveRef = useRef(false);
   const previousServerOffsetRef = useRef(serverOffsetMs);
   const trackPreparedRef = useRef(false);
-  // ── Recovery loop kick ref ──────────────────────────────────────────────────
-  // 讓 onStateChange / visibility handler 在 loop 停止後能重新啟動它。
-  // 設計目標：healthy state 下 loop 自動停止；只在偵測到問題時才重啟。
-  const recoveryLoopKickRef = useRef<(() => void) | null>(null);
+  const lastForegroundRecoveryAtMsRef = useRef(0);
+  const isLikelyMobileClientRef = useRef(
+    (() => {
+      if (typeof navigator === "undefined") return false;
+      return (
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+        navigator.maxTouchPoints > 1
+      );
+    })(),
+  );
 
   const isSyncDebugEnabled = useCallback(() => {
     if (typeof window === "undefined") return false;
@@ -223,6 +209,13 @@ const useGameRoomPlayerSync = ({
       playbackWarmupStopTimerRef.current = null;
     }
     prestartWarmupActiveRef.current = false;
+  }, []);
+
+  const clearBufferingRecoveryTimer = useCallback(() => {
+    if (bufferingRecoveryTimerRef.current !== null) {
+      window.clearTimeout(bufferingRecoveryTimerRef.current);
+      bufferingRecoveryTimerRef.current = null;
+    }
   }, []);
 
   const clearPostStartDriftTimers = useCallback(() => {
@@ -274,10 +267,12 @@ const useGameRoomPlayerSync = ({
       }
       clearPlaybackStartTimer();
       clearPlaybackWarmupTimers();
+      clearBufferingRecoveryTimer();
       clearPostStartDriftTimers();
       clearSilentAudioStartTimer();
     };
   }, [
+    clearBufferingRecoveryTimer,
     clearPlaybackStartTimer,
     clearPlaybackWarmupTimers,
     clearPostStartDriftTimers,
@@ -370,7 +365,8 @@ const useGameRoomPlayerSync = ({
     bufferingGraceUntilMsRef.current = 0;
     postStartDriftRetriedRef.current = false;
     awaitingFirstPlaySyncRef.current = false;
-  }, [trackSessionKey]);
+    clearBufferingRecoveryTimer();
+  }, [clearBufferingRecoveryTimer, trackSessionKey]);
 
   const postCommand = useCallback(
     (func: string, args: unknown[] = []) => {
@@ -407,6 +403,33 @@ const useGameRoomPlayerSync = ({
     if (nowMs - lastPlayerTimeAtMsRef.current > 2000) return null;
     return lastPlayerTimeSecRef.current;
   }, [getServerNowMs]);
+
+  const isLikelyContinuousPlayback = useCallback(
+    (toleranceSec = RESUME_DRIFT_TOLERANCE_SEC) => {
+      // NOTE: no state=1 guard here. When iOS pauses the iframe (state=2),
+      // the old guard made this always return false → always force-seek →
+      // always seekTo → always mute sensation. Drift is the only criterion;
+      // callers handle state separately (recoverPlaybackIfNeeded checks
+      // lastPlayerStateRef to decide whether to send playVideo).
+      const nowMs = getServerNowMs();
+      const desiredSec = getDesiredPositionSec();
+      // KEY: we must extrapolate from the measured position, not compare it raw.
+      // playerTime is a snapshot from the past (e.g. the "pre-hide" capture).
+      // Comparing it directly to the current desiredSec counts elapsed background
+      // time as drift — a 2s background shows drift=2s even when fully on track.
+      // Extrapolating at 1× speed gives the position the player "should" be at
+      // now if it ran continuously, which matches desiredSec when drift is real-zero.
+      // Window = 10s: beyond that the sync-point estimate is the better fallback.
+      const measuredAt = lastPlayerTimeAtMsRef.current;
+      const measuredTime = lastPlayerTimeSecRef.current;
+      const estimatedPos =
+        measuredTime !== null && nowMs - measuredAt <= 10_000
+          ? Math.min(clipEndSec, measuredTime + (nowMs - measuredAt) / 1000)
+          : getEstimatedLocalPositionSec();
+      return Math.abs(estimatedPos - desiredSec) <= toleranceSec;
+    },
+    [clipEndSec, getDesiredPositionSec, getEstimatedLocalPositionSec, getServerNowMs],
+  );
 
   const getPlayerDebugPayload = useCallback(
     (state?: number) => ({
@@ -607,13 +630,19 @@ const useGameRoomPlayerSync = ({
       );
       const estimated = getEstimatedLocalPositionSec();
       const bufferingGraceActive = isBufferingGraceActive(serverNowMs);
+      const mustSeekToServerPosition =
+        forceSeek ||
+        options?.reason === "startPlayback-startedAt" ||
+        options?.reason === "post-start-drift" ||
+        options?.reason === "media-seek" ||
+        options?.reason === "guess-loop" ||
+        options?.reason === "reveal-replay";
       const suppressCorrectiveSeek =
-        bufferingGraceActive &&
-        options?.reason !== "startPlayback-startedAt" &&
-        options?.reason !== "guess-loop";
+        bufferingGraceActive && !mustSeekToServerPosition;
       const needsSeek =
-        !suppressCorrectiveSeek &&
-        (forceSeek || Math.abs(estimated - startPos) > DRIFT_TOLERANCE_SEC);
+        mustSeekToServerPosition ||
+        (!suppressCorrectiveSeek &&
+          Math.abs(estimated - startPos) > DRIFT_TOLERANCE_SEC);
       const holdAudio =
         options?.holdAudio ?? initialAudioSyncPendingRef.current;
       if (Math.abs(playerStartRef.current - startPos) > 0.01) {
@@ -621,8 +650,6 @@ const useGameRoomPlayerSync = ({
       }
       lastSyncMsRef.current = serverNowMs;
 
-      // 標記：T0 首次起播後，等待下次 state=1 立即對齊。不涵蓋 resume / media-seek
-      // / guess-loop / reveal-replay / post-start-drift（這些已有各自的對齊路徑）。
       if (options?.reason === "startPlayback-startedAt") {
         awaitingFirstPlaySyncRef.current = true;
       }
@@ -675,18 +702,35 @@ const useGameRoomPlayerSync = ({
 
   // Schedule a single drift check at T0 + POST_START_DRIFT_CHECK_MS. The
   // infoDelivery handler picks up the response and calls syncToServerPosition
-  // with POST_START_DRIFT_TOLERANCE_SEC (0.35s) — tight threshold only for
+  // with POST_START_DRIFT_TOLERANCE_SEC (0.35s) ??tight threshold only for
   // this one-shot early check. After that, we don't poll again.
   const schedulePostStartDriftChecks = useCallback(() => {
     clearPostStartDriftTimers();
     const timerId = window.setTimeout(() => {
       if (!playerReadyRef.current) return;
-      requestPlayerTime(`post-start-drift-${POST_START_DRIFT_CHECK_MS}`);
+      const requestReason = `post-start-drift-${POST_START_DRIFT_CHECK_MS}`;
+      requestPlayerTime(requestReason);
+      const requestedAtMs = lastTimeRequestAtMsRef.current;
+      const fallbackTimerId = window.setTimeout(() => {
+        if (!playerReadyRef.current) return;
+        if (lastPlayerTimeAtMsRef.current >= requestedAtMs) return;
+        debugSync("post-start-drift-fallback", {
+          requestReason,
+          requestedAtMs,
+          lastPlayerTimeAtMs: lastPlayerTimeAtMsRef.current,
+        });
+        startPlayback(undefined, true, {
+          holdAudio: initialAudioSyncPendingRef.current,
+          holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 220 : undefined,
+          reason: "post-start-drift",
+        });
+      }, PLAYER_TIME_RESPONSE_FALLBACK_MS);
+      postStartDriftTimersRef.current.push(fallbackTimerId);
     }, POST_START_DRIFT_CHECK_MS);
     postStartDriftTimersRef.current.push(timerId);
-  }, [clearPostStartDriftTimers, requestPlayerTime]);
+  }, [clearPostStartDriftTimers, debugSync, requestPlayerTime, startPlayback]);
 
-  // ── Prestart warmup ────────────────────────────────────────────────────────
+  // ?? Prestart warmup ????????????????????????????????????????????????????????
   // At T-PRESTART_WARMUP_LEAD_MS (4500ms before the scheduled startedAt):
   //   1. mute + seek to clipStart
   //   2. playVideo for PRESTART_WARMUP_PLAY_MS (140ms) to prime the codec AND
@@ -694,7 +738,7 @@ const useGameRoomPlayerSync = ({
   //   3. pauseVideo + seek back to clipStart
   //   4. hold (muted, paused, at clipStart) until T0
   // This gives the YouTube player ~4.5s headroom to buffer the clip before
-  // playback begins — essential on slow networks where 2s was too tight and
+  // playback begins ??essential on slow networks where 2s was too tight and
   // left players starting 3s behind server position.
   const startPrestartWarmup = useCallback(() => {
     clearPlaybackWarmupTimers();
@@ -726,7 +770,7 @@ const useGameRoomPlayerSync = ({
       debugSync("prestart-warmup-stop", { targetSec: clipStartSec });
       postCommand("pauseVideo");
       postCommand("seekTo", [clipStartSec, true]);
-      // prestartWarmupActiveRef stays true until T0 handler consumes it — that
+      // prestartWarmupActiveRef stays true until T0 handler consumes it ??that
       // flag tells schedulePlaybackStart whether warmup completed (use short
       // final hold) or was skipped (use longer no-warmup hold).
     }, PRESTART_WARMUP_PLAY_MS);
@@ -743,14 +787,14 @@ const useGameRoomPlayerSync = ({
     videoId,
   ]);
 
-  // ── Schedule playback start ────────────────────────────────────────────────
+  // ?? Schedule playback start ????????????????????????????????????????????????
   // Plans two timers relative to startedAt:
-  //   1. Warmup timer at max(0, delayMs - PRESTART_WARMUP_LEAD_MS) — skipped
-  //      if there isn't enough lead (Q2+ where delayMs ≤ PRESTART_WARMUP_LEAD_MS;
+  //   1. Warmup timer at max(0, delayMs - PRESTART_WARMUP_LEAD_MS) ??skipped
+  //      if there isn't enough lead (Q2+ where delayMs ??PRESTART_WARMUP_LEAD_MS;
   //      the player starts catchup-muted instead). For Q1 (5s countdown),
   //      warmup fires ~500ms after schedulePlaybackStart and runs until T0.
-  //   2. Playback start timer at delayMs — at T0, playVideo + schedule unmute.
-  // If startedAt is already ≤ now (Q2+ / late join), go straight to muted
+  //   2. Playback start timer at delayMs ??at T0, playVideo + schedule unmute.
+  // If startedAt is already ??now (Q2+ / late join), go straight to muted
   // playback with the longer no-warmup hold; the recovery loop + post-start
   // drift check will catch up to server position.
   const schedulePlaybackStart = useCallback(() => {
@@ -774,7 +818,7 @@ const useGameRoomPlayerSync = ({
 
     const delayMs = startedAt - getServerNowMs();
 
-    // Already past T0 — no lead time, go straight to muted playback and let
+    // Already past T0 ??no lead time, go straight to muted playback and let
     // the recovery loop + post-start drift check handle alignment.
     if (delayMs <= 0) {
       armInitialAudioSync(NO_WARMUP_HOLD_MS);
@@ -806,7 +850,7 @@ const useGameRoomPlayerSync = ({
       prestartWarmupActiveRef.current = false;
       const holdMs = warmupWasActive ? PRESTART_FINAL_HOLD_MS : NO_WARMUP_HOLD_MS;
       armInitialAudioSync(holdMs);
-      startPlayback(undefined, warmupWasActive, {
+      startPlayback(undefined, true, {
         holdAudio: true,
         holdReleaseDelayMs: holdMs,
         reason: "startPlayback-startedAt",
@@ -866,7 +910,6 @@ const useGameRoomPlayerSync = ({
   const unlockAudioAndStart = useCallback(() => {
     primeSfxAudio();
 
-    // 沒 ready 時，完全不允許進入真正解鎖
     if (!playerReadyRef.current) {
       resumeNeedsSyncRef.current = true;
       return false;
@@ -880,7 +923,7 @@ const useGameRoomPlayerSync = ({
 
     const serverNow = getServerNowMs();
     if (serverNow < startedAt) {
-      // Gesture happened before T0 — do a short play/pause to unlock the
+      // Gesture happened before T0 ??do a short play/pause to unlock the
       // codec, then hold at clipStart. The normal schedulePlaybackStart flow
       // will take over for the actual T0 start.
       debugSync("gesture-unlock-warmup", { targetSec: clipStartSec });
@@ -893,7 +936,7 @@ const useGameRoomPlayerSync = ({
       return true;
     }
 
-    // Gesture happened after T0 — start muted, let recovery/drift check align.
+    // Gesture happened after T0 ??start muted, let recovery/drift check align.
     armInitialAudioSync(NO_WARMUP_HOLD_MS);
     startPlayback(undefined, false, {
       holdAudio: true,
@@ -920,21 +963,21 @@ const useGameRoomPlayerSync = ({
       event?.preventDefault();
       event?.stopPropagation();
 
-      // 第二層保護：沒 ready 不做事
+      // 蝚砌?撅支?霅瘀?瘝?ready 銝?鈭?
       if (!playerReadyRef.current) return;
 
       unlockAudioAndStart();
     },
     [unlockAudioAndStart],
   );
-  // ── syncToServerPosition ───────────────────────────────────────────────────
+  // ?? syncToServerPosition ???????????????????????????????????????????????????
   // Compares estimated local position against server-expected position. If
   // drift exceeds toleranceSec (default: DRIFT_TOLERANCE_SEC), issues a single
   // seek via startPlayback(). Otherwise updates local sync state and ensures
   // the player is in the "playing + unmuted" state.
   //
   // During reveal (non-replay mode), the clip is looping: we don't seek, just
-  // ensure playback continues — seeking would jump mid-loop for no benefit.
+  // ensure playback continues ??seeking would jump mid-loop for no benefit.
   // Buffering grace window also suppresses seek (seeking mid-buffer stalls).
   const syncToServerPosition = useCallback(
     (
@@ -962,10 +1005,6 @@ const useGameRoomPlayerSync = ({
       }
       const estimated = playerTime ?? getEstimatedLocalPositionSec();
       const drift = Math.abs(estimated - serverPosition);
-      // 大偏差例外：只有拿到真實 player time（非本地估算）且偏差超過 1.5s 時，
-      // 即使在 buffering grace 內也強制 seek。原因：此時 player 正在錯誤位置
-      // 緩衝錯誤內容，不 seek 永遠對不齊（典型：慢速 4G 首播 drift check 落在
-      // grace 窗口內被擋下）。
       const isLargeRealDrift =
         playerTime !== null && drift > LARGE_DRIFT_OVERRIDE_SEC;
       const shouldSeek =
@@ -1033,39 +1072,179 @@ const useGameRoomPlayerSync = ({
       if (!playerReadyRef.current) return;
       if (document.visibilityState !== "visible") return;
       if (getServerNowMs() < startedAt) return;
-      requestPlayerTime(`resume-${RESUME_RESYNC_CHECK_MS}`);
-      window.setTimeout(() => {
+      const requestReason = `resume-${RESUME_RESYNC_CHECK_MS}`;
+      requestPlayerTime(requestReason);
+      const requestedAtMs = lastTimeRequestAtMsRef.current;
+      const verifyTimerId = window.setTimeout(() => {
+        if (!playerReadyRef.current) return;
+        if (document.visibilityState !== "visible") return;
+        if (lastPlayerTimeAtMsRef.current < requestedAtMs) {
+          // No time response arrived. Use the extrapolated local estimate to
+          // decide — spuriously seeking when the estimate shows we're on-track
+          // is what causes the "seekTo sensation" on foreground return.
+          const estimatedDrift = Math.abs(
+            getEstimatedLocalPositionSec() - getDesiredPositionSec(),
+          );
+          debugSync("resume-resync-fallback", {
+            requestReason,
+            estimatedDrift,
+          });
+          if (estimatedDrift > RESUME_DRIFT_TOLERANCE_SEC) {
+            startPlayback(undefined, true, {
+              holdAudio: initialAudioSyncPendingRef.current,
+              holdReleaseDelayMs: initialAudioSyncPendingRef.current
+                ? 180
+                : undefined,
+              reason: "resume",
+            });
+          }
+          return;
+        }
         syncToServerPosition(
           `resume-check-${RESUME_RESYNC_CHECK_MS}`,
           false,
-          DRIFT_TOLERANCE_SEC,
+          RESUME_DRIFT_TOLERANCE_SEC,
           true,
         );
-      }, 120);
+      }, PLAYER_TIME_RESPONSE_FALLBACK_MS);
+      resyncTimersRef.current.push(verifyTimerId);
     }, RESUME_RESYNC_CHECK_MS);
     resyncTimersRef.current.push(timerId);
-  }, [getServerNowMs, requestPlayerTime, startedAt, syncToServerPosition]);
+  }, [
+    debugSync,
+    getDesiredPositionSec,
+    getEstimatedLocalPositionSec,
+    getServerNowMs,
+    requestPlayerTime,
+    startPlayback,
+    startedAt,
+    syncToServerPosition,
+  ]);
 
-  const requestPlayerTimeRef = useRef(requestPlayerTime);
+  const scheduleBufferingRecovery = useCallback(
+    (reason = "buffering-recovery") => {
+      clearBufferingRecoveryTimer();
+      bufferingRecoveryTimerRef.current = window.setTimeout(() => {
+        bufferingRecoveryTimerRef.current = null;
+        if (!playerReadyRef.current) return;
+        if (getServerNowMs() < startedAt || isEnded) return;
+        if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+          resumeNeedsSyncRef.current = true;
+        }
+        debugSync("buffering-recovery-force-seek", {
+          reason,
+          playerState: lastPlayerStateRef.current,
+          lastPlayerTimeSec: lastPlayerTimeSecRef.current,
+        });
+        startPlayback(undefined, true, {
+          holdAudio: initialAudioSyncPendingRef.current,
+          holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+          reason: "resume",
+        });
+        scheduleResumeResync();
+      }, BUFFERING_GRACE_MS + 220);
+    },
+    [
+      clearBufferingRecoveryTimer,
+      debugSync,
+      getServerNowMs,
+      isEnded,
+      scheduleResumeResync,
+      startPlayback,
+      startedAt,
+    ],
+  );
+
+  const recoverPlaybackIfNeeded = useCallback(
+    (
+      reason:
+        | "resume"
+        | "buffering-recovery"
+        | "pause-recovery"
+        | "media-seek",
+      options?: {
+        requireAlignedPlayback?: boolean;
+        holdAudio?: boolean;
+        holdReleaseDelayMs?: number;
+      },
+    ) => {
+      if (!playerReadyRef.current) return;
+      if (getServerNowMs() < startedAt || isEnded) return;
+
+      const holdAudio =
+        options?.holdAudio ?? initialAudioSyncPendingRef.current;
+      const holdReleaseDelayMs = options?.holdReleaseDelayMs;
+      // Caller is expected to pass requireAlignedPlayback based on observed drift;
+      // fall back to isLikelyContinuousPlayback only when caller omits the flag.
+      const shouldForceAlign =
+        options?.requireAlignedPlayback ?? !isLikelyContinuousPlayback();
+
+      debugSync("recover-playback", {
+        reason,
+        shouldForceAlign,
+        playerState: lastPlayerStateRef.current,
+        freshPlayerTime: getFreshPlayerTimeSec(),
+        holdAudio,
+      });
+
+      if (shouldForceAlign) {
+        startPlayback(undefined, true, {
+          holdAudio,
+          holdReleaseDelayMs,
+          reason: reason === "media-seek" ? "media-seek" : "resume",
+        });
+        return;
+      }
+
+      if (holdAudio) {
+        scheduleInitialAudioHoldRelease(holdReleaseDelayMs);
+      }
+      startSilentAudio();
+      if (lastPlayerStateRef.current !== 1) {
+        // Only issue playVideo when the player is not already playing.
+        // Sending playVideo to a state-1 player causes a brief interruption
+        // in the YouTube iframe even though it "should" be a no-op.
+        postCommand("playVideo");
+      }
+      if (!holdAudio) {
+        postCommand("unMute");
+        applyVolume(gameVolume);
+      }
+    },
+    [
+      applyVolume,
+      debugSync,
+      gameVolume,
+      getFreshPlayerTimeSec,
+      getServerNowMs,
+      isEnded,
+      isLikelyContinuousPlayback,
+      postCommand,
+      scheduleInitialAudioHoldRelease,
+      startPlayback,
+      startSilentAudio,
+      startedAt,
+    ],
+  );
+
+  const recoverPlaybackIfNeededRef = useRef(recoverPlaybackIfNeeded);
   const scheduleResumeResyncRef = useRef(scheduleResumeResync);
-  const syncToServerPositionRef = useRef(syncToServerPosition);
   const updateMediaSessionRef = useRef(updateMediaSession);
 
   useEffect(() => {
-    requestPlayerTimeRef.current = requestPlayerTime;
+    recoverPlaybackIfNeededRef.current = recoverPlaybackIfNeeded;
     scheduleResumeResyncRef.current = scheduleResumeResync;
-    syncToServerPositionRef.current = syncToServerPosition;
     updateMediaSessionRef.current = updateMediaSession;
   }, [
-    requestPlayerTime,
+    recoverPlaybackIfNeeded,
     scheduleResumeResync,
-    syncToServerPosition,
     updateMediaSession,
   ]);
 
   useEffect(
     () => () => {
       clearInitialAudioHoldReleaseTimer();
+      clearBufferingRecoveryTimer();
       clearPlaybackStartTimer();
       clearPlaybackWarmupTimers();
       clearPostStartDriftTimers();
@@ -1075,6 +1254,7 @@ const useGameRoomPlayerSync = ({
       stopSilentAudio();
     },
     [
+      clearBufferingRecoveryTimer,
       clearInitialAudioHoldReleaseTimer,
       clearPlaybackStartTimer,
       clearPlaybackWarmupTimers,
@@ -1090,125 +1270,6 @@ const useGameRoomPlayerSync = ({
     lastWaitingToStartRef.current = waitingToStart;
   }, [debugSync, waitingToStart]);
 
-  // ── Recovery monitor loop ──────────────────────────────────────────────────
-  // 事件驅動：healthy 時 loop 停止；偵測到壞狀態或 visibility 回前景時由
-  // recoveryLoopKickRef() 重啟。
-  //
-  //  • 什麼情況會繼續跑（needsRecoverySync=true）：
-  //      - waitingToStart：開局前等待
-  //      - !playerReadyRef：player 尚未 ready
-  //      - recentlyStarted：開始後 2.5s 內補同步視窗
-  //      - playerState === 2：意外暫停，需重啟
-  //      - playerState === null / -1：未初始化，需觸發播放
-  //      - bufferingNeedsRecovery：緩衝超過 grace 期
-  //      - resumeNeedsSyncRef：回前景後需補同步
-  //
-  //  • 輪詢間隔（單一策略，不再分 mobile / desktop）：
-  //      - 背景：BACKGROUND_MONITOR_INTERVAL_MS (2000ms)
-  //      - 前景需 recovery：RECOVERY_MONITOR_INTERVAL_MS (500ms)
-  //      - 前景 healthy：loop 停止
-  useEffect(() => {
-    let timerId: number | null = null;
-
-    const scheduleNext = (delayMs: number) => {
-      timerId = window.setTimeout(tick, delayMs);
-    };
-
-    // kick：讓外部事件處理器（onStateChange / visibility）在 loop 停止後重啟它
-    const kick = () => {
-      if (timerId !== null) return; // 已在跑，不重複啟動
-      tick();
-    };
-
-    const tick = () => {
-      const visibilityHidden =
-        typeof document !== "undefined" &&
-        document.visibilityState !== "visible";
-      const now = getServerNowMs();
-      const playerState = lastPlayerStateRef.current;
-      const recentlyStarted =
-        now >= startedAt && now - startedAt < RECENT_START_GUARD_MS;
-      const bufferingGraceActive = isBufferingGraceActive(now);
-      const bufferingNeedsRecovery =
-        playerState === 3 && !bufferingGraceActive;
-
-      const needsRecoverySync =
-        waitingToStart ||
-        !playerReadyRef.current ||
-        isEnded ||
-        resumeNeedsSyncRef.current ||
-        recentlyStarted ||
-        playerState === 2 ||
-        bufferingNeedsRecovery ||
-        playerState === null ||
-        playerState === -1;
-
-      if (
-        resumeNeedsSyncRef.current &&
-        playerReadyRef.current &&
-        now >= startedAt
-      ) {
-        pendingResumeSyncReasonRef.current = "interval-resume";
-        requestPlayerTime("interval-resume");
-        scheduleNext(420);
-        return;
-      }
-
-      if (!visibilityHidden && needsRecoverySync) {
-        const canAutoResumeNow =
-          now - lastAutoResumeAttemptAtMsRef.current >=
-          AUTO_RESUME_MIN_INTERVAL_MS;
-
-        if (playerReadyRef.current && now >= startedAt && !isEnded) {
-          if (playerState === 2 && canAutoResumeNow) {
-            lastAutoResumeAttemptAtMsRef.current = now;
-            postCommand("playVideo");
-            postCommand("unMute");
-            applyVolume(gameVolume);
-          } else if (
-            (playerState === null || playerState === -1) &&
-            canAutoResumeNow
-          ) {
-            lastAutoResumeAttemptAtMsRef.current = now;
-            startPlayback();
-          }
-        }
-      }
-
-      // Healthy → loop 停止，等待 kick 重啟
-      if (!needsRecoverySync) {
-        timerId = null;
-        return;
-      }
-
-      const nextDelay = visibilityHidden
-        ? BACKGROUND_MONITOR_INTERVAL_MS
-        : RECOVERY_MONITOR_INTERVAL_MS;
-
-      scheduleNext(nextDelay);
-    };
-
-    // 將 kick 暴露給外部 effect（onStateChange / visibility handler）
-    recoveryLoopKickRef.current = kick;
-
-    tick();
-
-    return () => {
-      if (timerId !== null) window.clearTimeout(timerId);
-      recoveryLoopKickRef.current = null; // 避免 unmount 後的過期 kick
-    };
-  }, [
-    applyVolume,
-    gameVolume,
-    getServerNowMs,
-    isEnded,
-    postCommand,
-    requestPlayerTime,
-    startPlayback,
-    startedAt,
-    waitingToStart,
-    isBufferingGraceActive,
-  ]);
 
   useEffect(() => {
     applyVolume(gameVolume);
@@ -1252,11 +1313,12 @@ const useGameRoomPlayerSync = ({
       const handleMediaSeek = () => {
         resumeNeedsSyncRef.current = true;
         pendingResumeSyncReasonRef.current = "media-seek";
-        requestPlayerTimeRef.current("media-seek");
-        window.setTimeout(() => {
-          syncToServerPositionRef.current("media-seek");
-          scheduleResumeResyncRef.current();
-        }, 120);
+        recoverPlaybackIfNeededRef.current("media-seek", {
+          requireAlignedPlayback: true,
+          holdAudio: initialAudioSyncPendingRef.current,
+          holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+        });
+        scheduleResumeResyncRef.current();
       };
 
       const actions: Array<MediaSessionAction> = [
@@ -1352,6 +1414,12 @@ const useGameRoomPlayerSync = ({
           !beforeStart,
           beforeStart ? "loadTrack-cue" : "loadTrack-autoplay",
         );
+        // Mark prepared immediately for the cue path so schedulePlaybackStart
+        // can schedule the warmup without waiting for state=5 from YouTube.
+        // (loadTrack resets trackPreparedRef to false; we restore it here.)
+        if (beforeStart) {
+          trackPreparedRef.current = true;
+        }
         setLoadedTrackKey(trackLoadKey);
         lastTrackLoadKeyRef.current = trackLoadKey;
         if (beforeStart) {
@@ -1366,20 +1434,6 @@ const useGameRoomPlayerSync = ({
           debugSync("player-state-change", getPlayerDebugPayload(state));
         }
 
-        // ── Recovery loop kick ──────────────────────────────────────────────
-        // loop 在 healthy 狀態下主動停止；這裡在偵測到壞狀態時重啟它。
-        // 放在所有 if(state===x) 之前，避免被後面的 early return 跳過。
-        if (state === 2 || state === -1 || state === null) {
-          // 暫停 / 未初始化：需要 recovery loop 做自動重播或補同步
-          recoveryLoopKickRef.current?.();
-        }
-        if (state === 3) {
-          // 緩衝中：grace 期結束後 loop 需重新確認是否已恢復
-          window.setTimeout(() => {
-            recoveryLoopKickRef.current?.();
-          }, BUFFERING_GRACE_MS + 200);
-        }
-
         if (state === 3) {
           const nowMs = getServerNowMs();
           lastBufferingAtMsRef.current = nowMs;
@@ -1388,27 +1442,24 @@ const useGameRoomPlayerSync = ({
             bufferingStartedAtRef.current = nowMs;
             debugSync("buffering-start", getPlayerDebugPayload(state));
           }
+          scheduleBufferingRecovery("buffering-state");
         } else if (bufferingStartedAtRef.current !== null) {
+          clearBufferingRecoveryTimer();
           const durationMs = Math.max(0, getServerNowMs() - bufferingStartedAtRef.current);
           debugSync("buffering-end", {
             ...getPlayerDebugPayload(state ?? undefined),
             durationMs,
           });
           bufferingStartedAtRef.current = null;
+        } else {
+          clearBufferingRecoveryTimer();
         }
         if (state === 5 || state === 1) {
           handleTrackPrepared(data.info ?? state);
         }
         if (state === 1) {
-          // 仍標記 track 已備好（warmup 期間也已載入 bytes，UI 可顯示封面）
           setLoadedTrackKey(trackLoadKey);
           if (prestartWarmupActiveRef.current) {
-            // Prestart warmup 的 140ms playVideo 會短暫進入 state=1，之後被
-            // pauseVideo 打回 state=2。此時不應把它當作真正的起播：
-            //  - 不要設 hasStartedPlaybackRef（會讓 state=2 auto-resume 誤觸發）
-            //  - 不要 schedulePostStartDriftChecks（基準時間是 warmup 開始而非 T0）
-            //  - 不要 setIsPlayerPlaying(true)（會跟 140ms 後的 pause 閃爍）
-            //  - 不要觸發 first-play-sync（還沒真正開始播放）
             debugSync("player-state-playing-warmup");
           } else {
             const shouldDoFirstPlaySync = awaitingFirstPlaySyncRef.current;
@@ -1417,15 +1468,28 @@ const useGameRoomPlayerSync = ({
             hasStartedPlaybackRef.current = true;
             lastSyncMsRef.current = getServerNowMs();
             debugSync("player-state-playing");
-            if (initialAudioSyncPendingRef.current) {
-              scheduleInitialAudioHoldRelease(220);
+            if (shouldDoFirstPlaySync) {
+              clearInitialAudioHoldReleaseTimer();
+              requestPlayerTime("first-play-sync");
+              const requestedAtMs = lastTimeRequestAtMsRef.current;
+              const fallbackTimerId = window.setTimeout(() => {
+                if (!playerReadyRef.current) return;
+                if (lastPlayerTimeAtMsRef.current >= requestedAtMs) return;
+                debugSync("first-play-sync-fallback", {
+                  requestedAtMs,
+                  lastPlayerTimeAtMs: lastPlayerTimeAtMsRef.current,
+                });
+                startPlayback(undefined, true, {
+                  holdAudio: initialAudioSyncPendingRef.current,
+                  holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 220 : undefined,
+                  reason: "post-start-drift",
+                });
+              }, PLAYER_TIME_RESPONSE_FALLBACK_MS);
+              postStartDriftTimersRef.current.push(fallbackTimerId);
+              schedulePostStartDriftChecks();
+            } else if (initialAudioSyncPendingRef.current) {
+              releaseInitialAudioHold();
             }
-            // 若剛從 startPlayback 觸發的首次起播，用 first-play-sync 觸發立即對齊，
-            // 處理「playVideo 下達後 player 晚了 X 秒才真正進入 state=1」的情況。
-            requestPlayerTime(
-              shouldDoFirstPlaySync ? "first-play-sync" : "state-playing",
-            );
-            schedulePostStartDriftChecks();
             startSilentAudio();
           }
         }
@@ -1435,18 +1499,29 @@ const useGameRoomPlayerSync = ({
         if (
           state === 2 &&
           hasStartedPlaybackRef.current &&
-          isStartedByServerTime()
+          isStartedByServerTime() &&
+          !prestartWarmupActiveRef.current &&
+          !isBufferingGraceActive()
         ) {
-          const now = Date.now();
-          if (
-            now - lastPassiveResumeRef.current >
-            AUTO_RESUME_MIN_INTERVAL_MS
-          ) {
-            lastPassiveResumeRef.current = now;
-            postCommand("playVideo");
-            postCommand("unMute");
-            applyVolume(gameVolume);
-          }
+          // Use the pre-hide snapshot to decide immediately:
+          // drift > 1.5s → seek to correct position (ONE buffer event).
+          // drift ≤ 1.5s → just resume (ZERO buffer events; resync verifies).
+          const msSinceMeasured =
+            lastPlayerTimeSecRef.current !== null
+              ? getServerNowMs() - lastPlayerTimeAtMsRef.current
+              : null;
+          const requireAlignedPlayback =
+            msSinceMeasured !== null
+              ? msSinceMeasured > RESUME_DRIFT_TOLERANCE_SEC * 1000
+              : !isLikelyContinuousPlayback();
+          recoverPlaybackIfNeeded("pause-recovery", {
+            requireAlignedPlayback,
+            holdAudio: initialAudioSyncPendingRef.current,
+            holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+          });
+          // Verify drift after recovery — catches network-stall pauses where
+          // the player resumes from a position that's behind server time.
+          scheduleResumeResync();
         }
         if (state === 0) {
           const serverNow = getServerNowMs();
@@ -1473,14 +1548,14 @@ const useGameRoomPlayerSync = ({
                 Math.min(5, fallbackDurationSec),
               );
             }
-            startPlayback(computeServerPositionSec(), true, {
+            startPlayback(undefined, true, {
               reason: "guess-loop",
             });
             return;
           }
           if (isReveal) {
             revealReplayRef.current = true;
-            startPlayback(computeRevealPositionSec(), true, {
+            startPlayback(undefined, true, {
               reason: "reveal-replay",
             });
           }
@@ -1491,11 +1566,12 @@ const useGameRoomPlayerSync = ({
         const info = (data as { info?: { currentTime?: number } }).info;
         if (typeof info?.currentTime === "number") {
           lastPlayerTimeSecRef.current = info.currentTime;
-          lastPlayerTimeAtMsRef.current = getServerNowMs();
-          // First-play sync：player 剛進入 state=1（真正開始播放）時立即對齊。
-          // 覆蓋「playVideo 下達後慢網延遲數秒才真正開始」的情境。bypass
-          // buffering grace，因為 state=1 本身就代表 buffer 已完成，這是最佳
-          // seek 時機而非 stall 中段。
+          // Stamp with the request time, not response arrival time.
+          // If the response is delayed (e.g. pre-hide request answered on foreground return),
+          // using getServerNowMs() here makes measuredAt = "now" with an old position,
+          // causing isLikelyContinuousPlayback to see ~0ms elapsed and incorrectly
+          // report large drift (background_duration) → spurious force-seek.
+          lastPlayerTimeAtMsRef.current = lastTimeRequestAtMsRef.current;
           if (lastTimeRequestReasonRef.current === "first-play-sync") {
             const expected = getDesiredPositionSec();
             const drift = Math.abs(info.currentTime - expected);
@@ -1533,9 +1609,6 @@ const useGameRoomPlayerSync = ({
               toleranceSec: POST_START_DRIFT_TOLERANCE_SEC,
               didSeek,
             });
-            // 保險：若這次被 buffering grace 擋下（didSeek=false）但偏差仍超過
-            // 容忍值，重排一次檢查。避免「drift check 恰好落在 grace 窗口內」
-            // 的邊界情境造成永久失準。每個 track session 只重試一次。
             if (
               !didSeek &&
               drift > POST_START_DRIFT_TOLERANCE_SEC &&
@@ -1543,22 +1616,6 @@ const useGameRoomPlayerSync = ({
             ) {
               postStartDriftRetriedRef.current = true;
               schedulePostStartDriftChecks();
-            }
-          }
-          if (resumeNeedsSyncRef.current) {
-            resumeNeedsSyncRef.current = false;
-            if (document.visibilityState !== "visible") {
-              return;
-            }
-            const resumeReason = pendingResumeSyncReasonRef.current;
-            const didSeek = syncToServerPosition(
-              resumeReason,
-              false,
-              DRIFT_TOLERANCE_SEC,
-              true,
-            );
-            if (didSeek || resumeReason.startsWith("visibility")) {
-              scheduleResumeResync();
             }
           }
         }
@@ -1570,6 +1627,8 @@ const useGameRoomPlayerSync = ({
   }, [
     armInitialAudioSync,
     applyVolume,
+    clearBufferingRecoveryTimer,
+    clearInitialAudioHoldReleaseTimer,
     clipEndSec,
     clipStartSec,
     computeRevealPositionSec,
@@ -1583,13 +1642,18 @@ const useGameRoomPlayerSync = ({
     getPlayerDebugPayload,
     handleTrackPrepared,
     isEnded,
+    isBufferingGraceActive,
+    isLikelyContinuousPlayback,
     isReveal,
     isStartedByServerTime,
     loadTrack,
     phase,
     postCommand,
     requestPlayerTime,
+    recoverPlaybackIfNeeded,
+    releaseInitialAudioHold,
     scheduleInitialAudioHoldRelease,
+    scheduleBufferingRecovery,
     schedulePlaybackStart,
     schedulePostStartDriftChecks,
     scheduleResumeResync,
@@ -1624,6 +1688,10 @@ const useGameRoomPlayerSync = ({
       autoplay,
       autoplay ? "loadTrack-autoplay" : "loadTrack-cue",
     );
+    // Mark prepared immediately for the cue path (same as onReady handler).
+    if (!autoplay) {
+      trackPreparedRef.current = true;
+    }
     hasStartedPlaybackRef.current = false;
     lastTrackLoadKeyRef.current = trackLoadKey;
     if (!autoplay) {
@@ -1657,14 +1725,14 @@ const useGameRoomPlayerSync = ({
       if (hasRecentBuffering()) {
         const timerId = window.setTimeout(() => {
           revealReplayRef.current = true;
-          startPlayback(computeRevealPositionSec(), false, {
+          startPlayback(undefined, false, {
             reason: "reveal-replay",
           });
         }, 260);
         return () => window.clearTimeout(timerId);
       }
       revealReplayRef.current = true;
-      startPlayback(computeRevealPositionSec(), true, {
+      startPlayback(undefined, true, {
         reason: "reveal-replay",
       });
       return;
@@ -1739,6 +1807,13 @@ const useGameRoomPlayerSync = ({
           window.clearTimeout(timerId),
         );
         resyncTimersRef.current = [];
+        // Snapshot the player position right before going to background.
+        // This keeps lastPlayerTimeAtMsRef fresh so getFreshPlayerTimeSec()
+        // returns a usable value on short background trips (< 2s), reducing
+        // spurious seeks on foreground return.
+        if (playerReadyRef.current && hasStartedPlaybackRef.current) {
+          requestPlayerTime("pre-hide");
+        }
         return;
       }
       const serverNow = getServerNowMs();
@@ -1747,52 +1822,67 @@ const useGameRoomPlayerSync = ({
         resumeNeedsSyncRef.current = true;
         return;
       }
-      startSilentAudio();
-      resumeNeedsSyncRef.current = true;
-      // loop 若已停在 healthy state，回前景後需重啟以處理補同步
-      recoveryLoopKickRef.current?.();
-      pendingResumeSyncReasonRef.current =
-        event?.type === "focus" ? "visibility-focus" : "visibility";
-      const requested = requestPlayerTime("visibility");
-      if (!requested && getFreshPlayerTimeSec() !== null) {
-        resumeNeedsSyncRef.current = false;
-        const didSeek = syncToServerPosition(
-          pendingResumeSyncReasonRef.current,
-          false,
-          DRIFT_TOLERANCE_SEC,
-          true,
-        );
-        if (didSeek) {
-          scheduleResumeResync();
-          return;
-        }
-        if (initialAudioSyncPendingRef.current) {
-          scheduleInitialAudioHoldRelease(180);
-        } else {
-          postCommand("playVideo");
-          postCommand("unMute");
-          applyVolume(gameVolume);
-        }
+      const dedupeNow = Date.now();
+      if (
+        dedupeNow - lastForegroundRecoveryAtMsRef.current <
+        FOREGROUND_RECOVERY_DEDUPE_MS
+      ) {
+        return;
       }
+      lastForegroundRecoveryAtMsRef.current = dedupeNow;
+      resyncTimersRef.current.forEach((timerId) =>
+        window.clearTimeout(timerId),
+      );
+      resyncTimersRef.current = [];
+      resumeNeedsSyncRef.current = false;
+      pendingResumeSyncReasonRef.current =
+        event?.type === "focus"
+          ? "visibility-focus"
+          : event?.type === "pageshow"
+            ? "visibility-pageshow"
+            : "visibility";
+      // If the player is already playing and on-track, do nothing.
+      // Sending postMessages to the iframe (unMute, setVolume, getCurrentTime)
+      // causes noticeable stutter even without a seek.
+      const isPlayingOnTrack =
+        hasStartedPlaybackRef.current &&
+        lastPlayerStateRef.current === 1 &&
+        isLikelyContinuousPlayback(RESUME_DRIFT_TOLERANCE_SEC);
+      debugSync("visibility-force-resume", {
+        reason: pendingResumeSyncReasonRef.current,
+        playerState: lastPlayerStateRef.current,
+        initialAudioHoldPending: initialAudioSyncPendingRef.current,
+        isPlayingOnTrack,
+        isLikelyMobileClient: isLikelyMobileClientRef.current,
+      });
+      if (isPlayingOnTrack && !initialAudioSyncPendingRef.current) {
+        return;
+      }
+      startSilentAudio();
+      recoverPlaybackIfNeeded("resume", {
+        requireAlignedPlayback: !isPlayingOnTrack,
+        holdAudio: initialAudioSyncPendingRef.current,
+        holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+      });
+      scheduleResumeResync();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleVisibility);
+    window.addEventListener("pageshow", handleVisibility);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleVisibility);
+      window.removeEventListener("pageshow", handleVisibility);
     };
   }, [
-    applyVolume,
-    gameVolume,
+    debugSync,
     getServerNowMs,
-    getFreshPlayerTimeSec,
-    postCommand,
+    isLikelyContinuousPlayback,
+    recoverPlaybackIfNeeded,
     requestPlayerTime,
-    scheduleInitialAudioHoldRelease,
     scheduleResumeResync,
     startSilentAudio,
     startedAt,
-    syncToServerPosition,
   ]);
 
   const handlePlaybackIframeLoad = useCallback(() => {

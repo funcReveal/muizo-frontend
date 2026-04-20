@@ -63,58 +63,55 @@ function showUpdateToast() {
 export function VersionUpdateNotifier() {
   const updateDetectedRef = useRef(false);
   const requestRef = useRef<AbortController | null>(null);
+  const lastCheckedAtRef = useRef<number>(0);
 
-  const checkForUpdates = useCallback(async () => {
+  const checkForUpdates = useCallback(async (source: "interval" | "visibility") => {
     if (updateDetectedRef.current || document.visibilityState === "hidden") {
       return;
     }
+    // Visibility-triggered checks are debounced to at most once per interval.
+    // The periodic timer always runs regardless.
+    if (source === "visibility") {
+      const now = Date.now();
+      if (now - lastCheckedAtRef.current < VERSION_CHECK_INTERVAL_MS) return;
+    }
+    lastCheckedAtRef.current = Date.now();
 
     requestRef.current?.abort();
-
     const controller = new AbortController();
     requestRef.current = controller;
 
     try {
       const latestManifest = await fetchVersionManifest(controller.signal);
-
-      if (!latestManifest) {
-        return;
-      }
-
+      if (!latestManifest) return;
       if (latestManifest.buildId !== __APP_BUILD_ID__) {
         updateDetectedRef.current = true;
         showUpdateToast();
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
+      if (error instanceof DOMException && error.name === "AbortError") return;
     }
   }, []);
 
   useEffect(() => {
-    void checkForUpdates();
+    void checkForUpdates("interval");
 
     const intervalId = window.setInterval(() => {
-      void checkForUpdates();
+      void checkForUpdates("interval");
     }, VERSION_CHECK_INTERVAL_MS);
 
-    const handleWindowFocus = () => {
-      void checkForUpdates();
-    };
-
+    // Use only visibilitychange — `focus` fires together with visibilitychange
+    // on every foreground return, causing two fetches per switch.
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void checkForUpdates();
+        void checkForUpdates("visibility");
       }
     };
 
-    window.addEventListener("focus", handleWindowFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       requestRef.current?.abort();
       toast.dismiss(VERSION_TOAST_ID);
