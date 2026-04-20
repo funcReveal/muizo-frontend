@@ -1226,6 +1226,29 @@ const RoomsHubPage: React.FC = () => {
             </p>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <article className="rounded-2xl border border-cyan-300/35 bg-cyan-500/5 p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/90">
+                  推薦登入
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-[var(--mc-text)]">
+                  Google 登入
+                </h3>
+                <ul className="mt-2 space-y-1 text-xs text-[var(--mc-text-muted)]">
+                  <li>同步收藏與題庫設定</li>
+                  <li>保留對戰歷史與回顧</li>
+                  <li>跨裝置延續狀態</li>
+                </ul>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 3 }}
+                  onClick={loginWithGoogle}
+                  disabled={authLoading}
+                >
+                  {authLoading ? "登入中..." : "使用 Google 登入"}
+                </Button>
+              </article>
+
               <article className="rounded-2xl border border-amber-300/30 bg-amber-400/5 p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/90">
                   先試玩
@@ -1257,29 +1280,6 @@ const RoomsHubPage: React.FC = () => {
                     以訪客身份繼續
                   </Button>
                 </div>
-              </article>
-
-              <article className="rounded-2xl border border-cyan-300/35 bg-cyan-500/5 p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/90">
-                  推薦登入
-                </p>
-                <h3 className="mt-2 text-lg font-semibold text-[var(--mc-text)]">
-                  Google 登入
-                </h3>
-                <ul className="mt-2 space-y-1 text-xs text-[var(--mc-text-muted)]">
-                  <li>同步收藏與題庫設定</li>
-                  <li>保留對戰歷史與回顧</li>
-                  <li>跨裝置延續狀態</li>
-                </ul>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  sx={{ mt: 3 }}
-                  onClick={loginWithGoogle}
-                  disabled={authLoading}
-                >
-                  {authLoading ? "登入中..." : "使用 Google 登入"}
-                </Button>
               </article>
             </div>
 
