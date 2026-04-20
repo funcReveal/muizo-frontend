@@ -194,6 +194,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     setHostRoomPassword,
     setRoomNameInput,
     setRoomMaxPlayersInput,
+    resetPlaylistState,
   });
 
   // Reset room creation state.

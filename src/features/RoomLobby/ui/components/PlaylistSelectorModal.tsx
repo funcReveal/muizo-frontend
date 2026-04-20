@@ -38,7 +38,13 @@ import type {
   PlaylistSourceType,
   PlaylistSuggestion,
 } from "@features/RoomSession";
-import type { YoutubePlaylist } from "@features/PlaylistSource";
+import {
+  buildPlaylistIssueSummary,
+  getPlaylistIssueTotal,
+  PlaylistIssueSummaryDialog,
+  type PlaylistPreviewMeta,
+  type YoutubePlaylist,
+} from "@features/PlaylistSource";
 import { formatDurationLabel } from "../lib/roomsHubViewModels";
 import { normalizeDisplayText } from "./roomLobbyDisplayUtils";
 
@@ -68,6 +74,7 @@ type Props = {
   isGoogleAuthed: boolean;
   playlistUrl: string;
   playlistItemsForChange: PlaylistItem[];
+  playlistPreviewMeta: PlaylistPreviewMeta | null;
   playlistError?: string | null;
   playlistLoading: boolean;
   playlistSuggestions: PlaylistSuggestion[];
@@ -83,6 +90,7 @@ type Props = {
   youtubePlaylistsError: string | null;
   onPlaylistUrlChange: (value: string) => void;
   onPreviewPlaylistUrl: (url: string) => void;
+  onResetPlaylist: () => void;
   onApplyPlaylistUrlDirect: (url: string) => Promise<boolean>;
   onApplyCollectionDirect: (
     collectionId: string,
@@ -170,6 +178,17 @@ const playCountChip = (mode: ToolPlayMode) =>
 const previewCount = (count: number | null | undefined) => {
   const n = Math.max(0, Number(count ?? 0));
   return n > 500 ? "500 題以上" : `${n} 題`;
+};
+
+const canPreviewPlaylistUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  try {
+    const parsed = new URL(trimmed);
+    return Boolean(parsed.searchParams.get("list"));
+  } catch {
+    return false;
+  }
 };
 
 const GridCollectionRow = ({
@@ -397,6 +416,7 @@ const PlaylistSelectorModal = ({
   isGoogleAuthed,
   playlistUrl,
   playlistItemsForChange,
+  playlistPreviewMeta,
   playlistError,
   playlistLoading,
   playlistSuggestions,
@@ -411,6 +431,7 @@ const PlaylistSelectorModal = ({
   youtubePlaylistsError,
   onPlaylistUrlChange,
   onPreviewPlaylistUrl,
+  onResetPlaylist,
   onApplyPlaylistUrlDirect,
   onApplyCollectionDirect,
   onApplyYoutubePlaylistDirect,
@@ -445,6 +466,9 @@ const PlaylistSelectorModal = ({
   const [cooldownNow, setCooldownNow] = useState(() => Date.now());
   const [actionRunning, setActionRunning] = useState(false);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
+  const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] =
+    useState(false);
+  const lastAutoPreviewUrlRef = React.useRef("");
   const oneCol = useMediaQuery("(max-width:900px)");
   const twoCol = useMediaQuery("(max-width:1260px)");
   const columns = oneCol ? 1 : twoCol ? 2 : 3;
@@ -511,6 +535,22 @@ const PlaylistSelectorModal = ({
       window.clearTimeout(timer);
     };
   }, [cooldownUntil]);
+
+  useEffect(() => {
+    if (!open || activeTab !== "link") return;
+    const trimmed = playlistUrl.trim();
+    if (
+      !canPreviewPlaylistUrl(trimmed) ||
+      trimmed === lastAutoPreviewUrlRef.current
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      lastAutoPreviewUrlRef.current = trimmed;
+      onPreviewPlaylistUrl(trimmed);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, onPreviewPlaylistUrl, open, playlistUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -1211,6 +1251,24 @@ const PlaylistSelectorModal = ({
     currentSourceType ?? "youtube_pasted_link",
     currentPlaylistIdFromUrl,
   );
+  const trimmedPlaylistUrl = playlistUrl.trim();
+  const playlistUrlLooksValid = canPreviewPlaylistUrl(trimmedPlaylistUrl);
+  const linkHasPreview =
+    playlistUrlLooksValid &&
+    Boolean(playlistPreviewMeta) &&
+    playlistItemsForChange.length > 0;
+  const linkPreviewItems = linkHasPreview ? playlistItemsForChange : [];
+  const linkPreviewLocked =
+    activeTab === "link" &&
+    ((playlistLoading && playlistUrlLooksValid) || linkHasPreview);
+  const linkIssueSummary = useMemo(
+    () => buildPlaylistIssueSummary(playlistPreviewMeta),
+    [playlistPreviewMeta],
+  );
+  const linkIssueTotal = useMemo(
+    () => getPlaylistIssueTotal(linkIssueSummary),
+    [linkIssueSummary],
+  );
   const showEmptyFrame =
     (activeTab === "suggestions" && (!isHost || suggestions.length === 0)) ||
     (activeTab === "public" &&
@@ -1224,7 +1282,7 @@ const PlaylistSelectorModal = ({
         (!youtubePlaylistsLoading && youtubeItems.length === 0))) ||
     (activeTab === "link" &&
       !playlistLoading &&
-      playlistItemsForChange.length === 0 &&
+      linkPreviewItems.length === 0 &&
       !playlistUrl.trim());
 
   const content =
@@ -1367,25 +1425,45 @@ const PlaylistSelectorModal = ({
             fullWidth
             size="small"
             value={playlistUrl}
-            onChange={(event) => onPlaylistUrlChange(event.target.value)}
+            onChange={(event) => {
+              if (linkPreviewLocked) return;
+              onResetPlaylist();
+              onPlaylistUrlChange(event.target.value);
+              setActionError(null);
+              lastAutoPreviewUrlRef.current = "";
+            }}
             placeholder="https://www.youtube.com/playlist?list=..."
             className="mt-4"
+            InputProps={{
+              readOnly: linkPreviewLocked,
+              endAdornment: playlistUrl.trim() ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    aria-label="取消目前播放清單連結"
+                    onClick={() => {
+                      onResetPlaylist();
+                      onPlaylistUrlChange("");
+                      setActionError(null);
+                      lastAutoPreviewUrlRef.current = "";
+                    }}
+                    className="!text-amber-100"
+                  >
+                    <CloseRoundedIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            }}
           />
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              variant="outlined"
-              color="inherit"
-              disabled={!playlistUrl.trim() || playlistLoading || actionRunning}
-              onClick={() => onPreviewPlaylistUrl(playlistUrl.trim())}
-            >
-              預覽
-            </Button>
             <Button
               variant="contained"
               color="inherit"
               disabled={
                 !playlistUrl.trim() ||
                 playlistLoading ||
+                linkPreviewItems.length === 0 ||
                 actionRunning ||
                 linkAlreadyApplied ||
                 linkAlreadySuggested
@@ -1423,8 +1501,11 @@ const PlaylistSelectorModal = ({
                       sourceType: "youtube_pasted_link",
                       title: trimmed,
                       url: trimmed,
-                      itemCount: playlistItemsForChange.length || null,
+                      itemCount: linkPreviewItems.length || null,
                     });
+                    onResetPlaylist();
+                    onPlaylistUrlChange("");
+                    lastAutoPreviewUrlRef.current = "";
                     onClose();
                   } finally {
                     setActionRunning(false);
@@ -1451,6 +1532,11 @@ const PlaylistSelectorModal = ({
                   : "套用此清單"}
             </Button>
           </div>
+          {playlistUrl.trim() && !playlistUrlLooksValid ? (
+            <div className="mt-3 text-sm text-amber-200">
+              請貼上有效的 YouTube 播放清單連結。
+            </div>
+          ) : null}
           {playlistError ? (
             <div className="mt-3 text-sm text-rose-300">{playlistError}</div>
           ) : null}
@@ -1464,24 +1550,34 @@ const PlaylistSelectorModal = ({
           <div className="flex h-full min-h-[320px] w-full flex-1 items-center justify-center rounded-[24px] border border-white/8 bg-white/[0.03]">
             <CircularProgress size={34} sx={{ color: "#67e8f9" }} />
           </div>
-        ) : playlistItemsForChange.length > 0 ? (
+        ) : linkPreviewItems.length > 0 ? (
           <div className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-100">預覽清單</div>
               <div className="text-xs text-slate-400">
-                {previewCount(playlistItemsForChange.length)}
+                {previewCount(linkPreviewItems.length)}
               </div>
             </div>
             <VirtualList<GenericRowProps<PlaylistItem>>
               style={{ height: viewportSafeH, width: "100%" }}
-              rowCount={Math.min(playlistItemsForChange.length, 40)}
+              rowCount={Math.min(linkPreviewItems.length, 40)}
               rowHeight={PREVIEW_H}
               rowProps={{
-                items: playlistItemsForChange.slice(0, 40),
+                items: linkPreviewItems.slice(0, 40),
                 render: renderPreview,
               }}
               rowComponent={GenericRow as never}
             />
+            {linkIssueTotal > 0 ? (
+              <button
+                type="button"
+                onClick={() => setPlaylistIssueDialogOpen(true)}
+                className="mt-4 flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs text-amber-100 transition hover:border-amber-300/45 hover:bg-amber-300/15"
+              >
+                <span className="font-semibold">未成功匯入原因</span>
+                <span>{linkIssueTotal} 首，查看明細</span>
+              </button>
+            ) : null}
           </div>
         ) : (
           <EmptyState
@@ -1527,7 +1623,8 @@ const PlaylistSelectorModal = ({
     selectorTabs.find((tab) => tab.key === activeTab) ?? selectorTabs[0];
 
   return (
-    <Dialog
+    <>
+      <Dialog
       open={open}
       onClose={onClose}
       fullWidth
@@ -1840,7 +1937,15 @@ const PlaylistSelectorModal = ({
           </div>
         </div>
       ) : null}
-    </Dialog>
+      </Dialog>
+      <PlaylistIssueSummaryDialog
+        open={playlistIssueDialogOpen}
+        onClose={() => setPlaylistIssueDialogOpen(false)}
+        summary={linkIssueSummary}
+        total={linkIssueTotal}
+        description={`共 ${linkIssueTotal} 首未能匯入房間清單`}
+      />
+    </>
   );
 };
 

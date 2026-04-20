@@ -62,7 +62,13 @@ export type PlaylistPreviewSkippedItem = {
   title?: string | null;
   videoId?: string | null;
   reason?: string | null;
-  status?: "removed" | "unavailable" | "private" | "blocked" | "unknown";
+  status?:
+    | "removed"
+    | "unavailable"
+    | "private"
+    | "blocked"
+    | "duplicate"
+    | "unknown";
 };
 
 export type PlaylistPreviewMeta = {

@@ -548,9 +548,11 @@ const RoomLobbyPage: React.FC = () => {
     playlistSuggestions,
     playlistUrl,
     playlistItems,
+    playlistPreviewMeta,
     playlistError,
     playlistLoading,
     setPlaylistUrl,
+    handleResetPlaylist,
     youtubePlaylists,
     youtubePlaylistsLoading,
     youtubePlaylistsError,
@@ -2773,6 +2775,7 @@ const RoomLobbyPage: React.FC = () => {
             playlistSuggestions={playlistSuggestions}
             playlistUrl={playlistUrl}
             playlistItemsForChange={playlistItems}
+            playlistPreviewMeta={playlistPreviewMeta}
             playlistError={playlistError}
             playlistLoading={playlistLoading}
             collections={collections}
@@ -2809,6 +2812,7 @@ const RoomLobbyPage: React.FC = () => {
             onApplyYoutubePlaylistDirect={handleApplyYoutubePlaylistDirect}
             onPlaylistUrlChange={setPlaylistUrl}
             onFetchPlaylistByUrl={handleFetchPlaylistByUrl}
+            onResetPlaylist={handleResetPlaylist}
             onFetchCollections={fetchCollections}
             onLoadMoreCollections={loadMoreCollections}
             onFetchYoutubePlaylists={fetchYoutubePlaylists}

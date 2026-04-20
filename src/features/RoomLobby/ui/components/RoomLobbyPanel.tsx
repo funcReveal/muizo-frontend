@@ -39,7 +39,7 @@ import type {
   RoomParticipant,
   RoomState,
 } from "@features/RoomSession";
-import type { YoutubePlaylist } from "@features/PlaylistSource";
+import type { PlaylistPreviewMeta, YoutubePlaylist } from "@features/PlaylistSource";
 import {
   clampPlayDurationSec,
   clampQuestionCount,
@@ -93,6 +93,7 @@ interface RoomLobbyPanelProps {
   playlistSuggestions: PlaylistSuggestion[];
   playlistUrl: string;
   playlistItemsForChange: PlaylistItem[];
+  playlistPreviewMeta: PlaylistPreviewMeta | null;
   playlistError?: string | null;
   playlistLoading?: boolean;
   collections: CollectionOption[];
@@ -151,6 +152,7 @@ interface RoomLobbyPanelProps {
   ) => Promise<boolean>;
   onPlaylistUrlChange: (value: string) => void;
   onFetchPlaylistByUrl: (url: string) => void;
+  onResetPlaylist: () => void;
   onFetchCollections: (
     scope?: "owner" | "public",
     options?: { query?: string },
@@ -179,6 +181,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   playlistSuggestions,
   playlistUrl,
   playlistItemsForChange,
+  playlistPreviewMeta,
   playlistError,
   playlistLoading = false,
   collections,
@@ -211,6 +214,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onApplyYoutubePlaylistDirect = async () => false,
   onPlaylistUrlChange,
   onFetchPlaylistByUrl,
+  onResetPlaylist,
   onFetchCollections,
   onLoadMoreCollections,
   onFetchYoutubePlaylists,
@@ -1368,6 +1372,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         isGoogleAuthed={isGoogleAuthed}
         playlistUrl={playlistUrl}
         playlistItemsForChange={playlistItemsForChange}
+        playlistPreviewMeta={playlistPreviewMeta}
         playlistError={playlistError}
         playlistLoading={playlistLoading}
         playlistSuggestions={playlistSuggestions}
@@ -1383,6 +1388,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         youtubePlaylistsError={youtubePlaylistsError}
         onPlaylistUrlChange={onPlaylistUrlChange}
         onPreviewPlaylistUrl={onFetchPlaylistByUrl}
+        onResetPlaylist={onResetPlaylist}
         onApplyPlaylistUrlDirect={onApplyPlaylistUrlDirect}
         onApplyCollectionDirect={onApplyCollectionDirect}
         onApplyYoutubePlaylistDirect={onApplyYoutubePlaylistDirect}

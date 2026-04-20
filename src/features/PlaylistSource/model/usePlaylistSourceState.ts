@@ -112,6 +112,19 @@ const normalizePlaylistPreviewErrorMessage = (message: string) => {
   }
 
   if (
+    normalized.includes("playlist item count") &&
+    normalized.includes("exceeds the allowed limit")
+  ) {
+    const limitMatch = message.match(/allowed limit\s+(\d+)/i);
+    const countMatch = message.match(/item count\s+(\d+)/i);
+    const limit = limitMatch?.[1] ?? "800";
+    const count = countMatch?.[1];
+    return count
+      ? `這份播放清單共有 ${count} 首，超過一般使用者 ${limit} 首上限。`
+      : `這份播放清單超過一般使用者 ${limit} 首上限。`;
+  }
+
+  if (
     normalized.includes("no playable videos found") ||
     normalized.includes("清單沒有可用影片")
   ) {
@@ -383,6 +396,7 @@ export const usePlaylistSourceState = ({
         apiUrl,
         targetUrl,
         playlistId,
+        authToken,
       );
       if (payload && "error" in payload) {
         throw new Error(
@@ -444,6 +458,7 @@ export const usePlaylistSourceState = ({
     },
     [
       apiUrl,
+      authToken,
       lastFetchedPlaylistId,
       playlistLocked,
       playlistUrl,

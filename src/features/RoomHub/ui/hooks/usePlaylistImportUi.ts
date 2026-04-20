@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
 
 import type {
-  PlaylistIssueSummary,
   PlaylistPreviewItem,
 } from "../components/source/PlaylistPreviewRows";
+import {
+  EMPTY_PLAYLIST_ISSUE_SUMMARY,
+  type PlaylistIssueSummary,
+} from "@features/PlaylistSource";
 
 type UsePlaylistImportUiArgs = {
   createLibraryTab: "public" | "personal" | "youtube" | "link";
@@ -25,16 +28,6 @@ type UsePlaylistImportUiArgs = {
   setSelectedCreateYoutubeId: (value: string | null) => void;
   setSharedCollectionMeta: (value: null) => void;
   setCreateLeftTab: (value: "library" | "settings") => void;
-};
-
-const EMPTY_ISSUE_SUMMARY: PlaylistIssueSummary = {
-  removed: [],
-  privateRestricted: [],
-  embedBlocked: [],
-  unavailable: [],
-  unknown: [],
-  unknownCount: 0,
-  exact: false,
 };
 
 export const canAttemptPlaylistPreview = (value: string) => {
@@ -83,7 +76,7 @@ export const usePlaylistImportUi = ({
   const linkPlaylistPreviewItems = isLinkSourceActive ? playlistPreviewItems : [];
   const linkPlaylistIssueSummary = isLinkSourceActive
     ? playlistIssueSummary
-    : EMPTY_ISSUE_SUMMARY;
+    : EMPTY_PLAYLIST_ISSUE_SUMMARY;
 
   const handlePreviewPlaylistByUrl = async () => {
     const trimmed = playlistUrlDraft.trim();
