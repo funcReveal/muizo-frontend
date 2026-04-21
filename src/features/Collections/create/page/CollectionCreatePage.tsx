@@ -77,7 +77,7 @@ const CollectionCreatePage = () => {
     useCollectionContent();
 
   const [collectionTitle, setCollectionTitle] = useState("");
-  const [visibility, setVisibility] = useState<"private" | "public">("private");
+  const [visibility, setVisibility] = useState<"private" | "public">("public");
   const [playlistSource, setPlaylistSource] = useState<"url" | "youtube">(
     "url",
   );
