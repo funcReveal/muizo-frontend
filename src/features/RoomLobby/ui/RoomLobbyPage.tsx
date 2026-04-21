@@ -52,7 +52,7 @@ import { usePlaylistSource } from "@features/PlaylistSource";
 // LiveSettlementShowcase is only shown after the game ends (activeSettlementSnapshot).
 // Deferring their load keeps the initial lobby bundle significantly smaller.
 // ---------------------------------------------------------------------------
-const GameRoomPage = lazy(() => import("@features/GameRoom/ui/GameRoomPage"));
+const GameRoomPage = lazy(() => import("@features/GameRoom"));
 const LiveSettlementShowcase = lazy(
   () => import("@features/Settlement/ui/components/LiveSettlementShowcase"),
 );

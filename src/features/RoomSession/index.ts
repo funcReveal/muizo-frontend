@@ -16,8 +16,6 @@ export {
   useSitePresence,
   useRoomRealtime,
 } from "./model/runtimeHooks";
-export { useCollectionContent } from "@features/CollectionContent";
-export { usePlaylistSource } from "@features/PlaylistSource";
 export { translateRoomErrorDetail } from "./model/roomErrorText";
 export {
   clampPlayDurationSec,
@@ -32,7 +30,9 @@ export {
   setStoredShowVideoPreference,
 } from "./model/roomStorage";
 export type {
+  Ack,
   ChatMessage,
+  ClientSocket,
   GameChoice,
   GameQuestionStats,
   GameState,
@@ -55,5 +55,3 @@ export type {
 export type {
   RoomCreateSourceMode,
 } from "./model/RoomCreateContext";
-export type { YoutubePlaylist } from "@features/PlaylistSource";
-export type { CollectionEntry } from "@features/CollectionContent";

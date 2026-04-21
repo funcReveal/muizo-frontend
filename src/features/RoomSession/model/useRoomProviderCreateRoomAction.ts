@@ -7,6 +7,9 @@ import {
 
 import { trackEvent } from "../../../shared/analytics/track";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
+import {
+  runRoomCreationFlow,
+} from "@features/RoomCreation";
 import type { RoomCreateSourceMode } from "./RoomCreateContext";
 import {
   CHUNK_SIZE,
@@ -29,7 +32,6 @@ import {
   getQuestionMax,
 } from "./roomUtils";
 import type {
-  Ack,
   ClientSocket,
   GameState,
   PlaylistItem,
@@ -43,88 +45,6 @@ type PlaylistProgressState = {
   received: number;
   total: number;
   ready: boolean;
-};
-
-type RoomCreationState =
-  | "drafting"
-  | "uploading"
-  | "verifying"
-  | "finalizing"
-  | "ready"
-  | "failed"
-  | "aborted";
-
-type BeginRoomCreationPayload = {
-  roomMeta: {
-    name: string;
-    visibility: "public" | "private";
-    pin?: string | null;
-    maxPlayers: number | null;
-  };
-  gameSettings: {
-    questionCount: number;
-    playDurationSec: number;
-    revealDurationSec: number;
-    startOffsetSec: number;
-    allowCollectionClipTiming: boolean;
-    allowParticipantInvite: boolean;
-    playbackExtensionMode: "manual_vote" | "auto_once" | "disabled";
-  };
-  playlistManifest: {
-    sourceType?: PlaylistSourceType | null;
-    sourceId?: string | null;
-    title?: string | null;
-    totalCount: number;
-    chunkCount: number;
-    playlistHash: string;
-  };
-};
-
-type BeginRoomCreationResult = {
-  creationId: string;
-  uploadSessionId: string;
-  state: "uploading";
-  expiresAt: number;
-};
-
-type UploadRoomCreationChunkPayload = {
-  creationId: string;
-  uploadSessionId: string;
-  chunkIndex: number;
-  chunkCount: number;
-  chunkHash: string;
-  items: PlaylistItem[];
-};
-
-type UploadRoomCreationChunkResult = {
-  creationId: string;
-  state: "uploading" | "verifying";
-  receivedChunkCount: number;
-  expectedChunkCount: number;
-  receivedItemsCount: number;
-  totalCount: number;
-};
-
-type FinalizeRoomCreationPayload = {
-  creationId: string;
-  uploadSessionId: string;
-};
-
-type FinalizeRoomCreationResult = {
-  creationId: string;
-  state: RoomCreationState;
-  roomId?: string;
-  roomState?: RoomState;
-  roomSessionToken?: string;
-};
-
-type AbortRoomCreationPayload = {
-  creationId: string;
-};
-
-type AbortRoomCreationResult = {
-  creationId: string;
-  state: "aborted";
 };
 
 interface UseRoomProviderCreateRoomActionParams {
@@ -187,50 +107,6 @@ interface UseRoomProviderCreateRoomActionParams {
   setRoomMaxPlayersInput: Dispatch<SetStateAction<string>>;
   resetPlaylistState: () => void;
 }
-
-type UnsafeSocketEmit = (
-  event: string,
-  payload: unknown,
-  callback: (ack: Ack<unknown>) => void,
-) => void;
-
-const asUnsafeEmit = (socket: ClientSocket): UnsafeSocketEmit =>
-  (socket as unknown as { emit: UnsafeSocketEmit }).emit.bind(socket);
-
-const ROOM_CREATION_ACK_TIMEOUT_MS = 20_000;
-
-const computeStableHash = async (value: unknown) => {
-  const text = JSON.stringify(value);
-  const encoded = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-};
-
-const emitAck = <T>(
-  socket: ClientSocket,
-  event: string,
-  payload: unknown,
-): Promise<Ack<T>> =>
-  new Promise((resolve) => {
-    let settled = false;
-    const timer = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      resolve({
-        ok: false,
-        error: "Room creation request timed out. Please retry.",
-      });
-    }, ROOM_CREATION_ACK_TIMEOUT_MS);
-
-    asUnsafeEmit(socket)(event, payload, (ack) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve(ack as Ack<T>);
-    });
-  });
 
 export const useRoomProviderCreateRoomAction = ({
   getSocket,
@@ -431,10 +307,8 @@ export const useRoomProviderCreateRoomAction = ({
       allowCollectionClipTiming: nextAllowCollectionClipTiming,
     });
 
-    const chunkCount = Math.ceil(uploadItems.length / CHUNK_SIZE);
-    const playlistHash = await computeStableHash(uploadItems);
-
-    const beginPayload: BeginRoomCreationPayload = {
+    const finalizeAck = await runRoomCreationFlow({
+      socket,
       roomMeta: {
         name: trimmed,
         visibility: desiredVisibility,
@@ -450,111 +324,36 @@ export const useRoomProviderCreateRoomAction = ({
         allowParticipantInvite: false,
         playbackExtensionMode: DEFAULT_PLAYBACK_EXTENSION_MODE,
       },
-      playlistManifest: {
+      playlist: {
+        items: uploadItems,
+        chunkSize: CHUNK_SIZE,
         sourceType: resolvePlaylistSourceType(roomCreateSourceMode),
         sourceId: lastFetchedPlaylistId,
         title: lastFetchedPlaylistTitle ?? null,
-        totalCount: uploadItems.length,
-        chunkCount,
-        playlistHash,
       },
-    };
+      onUploadStart: (progress) => {
+        setPlaylistProgress(progress);
+        setStatusText(`正在同步題庫到房間（0/${uploadItems.length}）...`);
+      },
+      onChunkUploaded: (progress) => {
+        setPlaylistProgress(progress);
+        const { received, total } = progress;
+        setStatusText(`正在同步題庫到房間（${received}/${total}）...`);
+      },
+      onFinalizing: () => {
+        setStatusText("正在完成房間建立...");
+      },
+    });
 
-    let creationId: string | null = null;
-
-    const abortCreation = async () => {
-      if (!creationId) return;
-      try {
-        await emitAck<AbortRoomCreationResult>(socket, "abortRoomCreation", {
-          creationId,
-        } satisfies AbortRoomCreationPayload);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    const beginAck = await emitAck<BeginRoomCreationResult>(
-      socket,
-      "beginRoomCreation",
-      beginPayload,
-    );
-
-    if (!beginAck.ok) {
-      setStatusText(formatAckError("建立房間失敗", beginAck.error));
+    if (!finalizeAck.ok) {
+      setStatusText(formatAckError("建立房間失敗", finalizeAck.error));
       finalizeCreate();
       return;
     }
 
-    creationId = beginAck.data.creationId;
-    const uploadSessionId = beginAck.data.uploadSessionId;
-
-    setPlaylistProgress({
-      received: 0,
-      total: uploadItems.length,
-      ready: false,
-    });
-    setStatusText(`正在同步題庫到房間（0/${uploadItems.length}）...`);
-
-    for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
-      const chunkItems = uploadItems.slice(
-        chunkIndex * CHUNK_SIZE,
-        (chunkIndex + 1) * CHUNK_SIZE,
-      );
-      const chunkHash = await computeStableHash(chunkItems);
-
-      const uploadAck = await emitAck<UploadRoomCreationChunkResult>(
-        socket,
-        "uploadRoomCreationChunk",
-        {
-          creationId,
-          uploadSessionId,
-          chunkIndex,
-          chunkCount,
-          chunkHash,
-          items: chunkItems,
-        } satisfies UploadRoomCreationChunkPayload,
-      );
-
-      if (!uploadAck.ok) {
-        await abortCreation();
-        setStatusText(formatAckError("建立房間失敗", uploadAck.error));
-        finalizeCreate();
-        return;
-      }
-
-      setPlaylistProgress({
-        received: uploadAck.data.receivedItemsCount,
-        total: uploadAck.data.totalCount,
-        ready: false,
-      });
-
+    if (!finalizeAck.data.roomState || !finalizeAck.data.roomId) {
       setStatusText(
-        `正在同步題庫到房間（${uploadAck.data.receivedItemsCount}/${uploadAck.data.totalCount}）...`,
-      );
-    }
-
-    setStatusText("正在完成房間建立...");
-
-    const finalizeAck = await emitAck<FinalizeRoomCreationResult>(
-      socket,
-      "finalizeRoomCreation",
-      {
-        creationId,
-        uploadSessionId,
-      } satisfies FinalizeRoomCreationPayload,
-    );
-
-    if (
-      !finalizeAck.ok ||
-      !finalizeAck.data.roomState ||
-      !finalizeAck.data.roomId
-    ) {
-      await abortCreation();
-      setStatusText(
-        formatAckError(
-          "建立房間失敗",
-          finalizeAck.ok ? "Missing finalized room state" : finalizeAck.error,
-        ),
+        formatAckError("建立房間失敗", "Missing finalized room state"),
       );
       finalizeCreate();
       return;

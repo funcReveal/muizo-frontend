@@ -3,10 +3,10 @@ import { Button, Chip } from "@mui/material";
 
 import type {
   ChatMessage,
-  PlaylistItem,
   RoomParticipant,
   RoomState,
 } from "@features/RoomSession";
+import type { PlaylistItem } from "@features/PlaylistSource";
 import type {
   SettlementQuestionResult,
   SettlementQuestionChoice,

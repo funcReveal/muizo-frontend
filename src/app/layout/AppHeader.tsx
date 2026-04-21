@@ -163,7 +163,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
   const authLabel =
     authUser?.display_name || authUser?.id || displayUsername || "Guest";
-  const authSubLabel = authUser?.email ?? null;
+  // const authSubLabel = authUser?.email ?? null;
   const isAnonymousVisitor = !authUser && !hasGuestIdentity;
   const isGuestVisitor = !authUser && hasGuestIdentity;
   const isAdmin = isAdminRole(authUser?.role);
@@ -506,11 +506,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 variant="caption"
                 sx={{
                   color: "rgba(148, 163, 184, 0.8)",
-                  textTransform: "uppercase",
+                  // textTransform: "uppercase",
                   letterSpacing: "0.12em",
                 }}
               >
-                {isAnonymousVisitor ? "" : isGuestVisitor ? "訪客身分" : "帳號"}
+                {isAnonymousVisitor ? "" : isGuestVisitor ? "訪客" : "帳號"}
               </Typography>
               <Typography
                 variant="subtitle2"
@@ -518,14 +518,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               >
                 {isAnonymousVisitor ? "尚未登入" : authLabel}
               </Typography>
-              {authSubLabel && !isAnonymousVisitor && (
+              {/* {authSubLabel && !isAnonymousVisitor && (
                 <Typography
                   variant="caption"
                   sx={{ color: "rgba(148, 163, 184, 0.85)" }}
                 >
                   {authSubLabel}
                 </Typography>
-              )}
+              )} */}
             </Box>
           </Box>
 

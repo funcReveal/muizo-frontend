@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 
 import type { GameState, PlaylistSuggestion } from "@features/RoomSession";
 import type { YoutubePlaylist } from "@features/PlaylistSource";
+import { YOUTUBE_PLAYLIST_MIN_ITEM_COUNT } from "@domain/room/constants";
 import RoomLobbyStatusStrip from "./RoomLobbyStatusStrip";
 import RoomUiTooltip from "@shared/ui/RoomUiTooltip";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
@@ -617,6 +618,12 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                         const selected = youtubePlaylists.find(
                           (item) => item.id === nextId,
                         );
+                        if (
+                          selected &&
+                          selected.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT
+                        ) {
+                          return;
+                        }
                         const label = selected
                           ? `${normalizeDisplayText(
                               selected.title,
@@ -654,15 +661,32 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                       }}
                     >
                       <MenuItem value="">選擇 YouTube</MenuItem>
-                      {youtubePlaylists.map((playlist) => (
-                        <MenuItem key={playlist.id} value={playlist.id}>
-                          {normalizeDisplayText(
-                            playlist.title,
-                            "未命名 YouTube 播放清單",
-                          )}{" "}
-                          ({playlist.itemCount})
+                      {youtubePlaylists.map((playlist) => {
+                        const isTooSmall =
+                          playlist.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT;
+                        return (
+                        <MenuItem
+                          key={playlist.id}
+                          value={playlist.id}
+                          disabled={isTooSmall}
+                        >
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate">
+                              {normalizeDisplayText(
+                                playlist.title,
+                                "未命名 YouTube 播放清單",
+                              )}{" "}
+                              ({playlist.itemCount})
+                            </span>
+                            {isTooSmall ? (
+                              <span className="text-xs text-amber-300">
+                                低於 {YOUTUBE_PLAYLIST_MIN_ITEM_COUNT} 題，不能用於題庫
+                              </span>
+                            ) : null}
+                          </div>
                         </MenuItem>
-                      ))}
+                      );
+                      })}
                     </TextField>
                   )}
                 </Stack>

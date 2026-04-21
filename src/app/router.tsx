@@ -3,9 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import RequireAuthRoute from "./guards/RequireAuthRoute";
 import AppLayoutShell from "./layout/AppLayoutShell";
-import LegalLayout from "@features/Legal/ui/LegalLayout";
-import PrivacyPage from "@features/Legal/ui/PrivacyPage";
-import TermsPage from "@features/Legal/ui/TermsPage";
+import { LegalLayout, PrivacyPage, TermsPage } from "@features/Legal";
 
 // ---------------------------------------------------------------------------
 // Route-level code splitting
@@ -14,9 +12,7 @@ import TermsPage from "@features/Legal/ui/TermsPage";
 // wrappers / instantly-needed on their route groups.
 // ---------------------------------------------------------------------------
 
-const LandingHomePage = lazy(
-  () => import("@features/Landing/ui/LandingHomePage"),
-);
+const LandingHomePage = lazy(() => import("@features/Landing"));
 const RoomSessionLayoutShell = lazy(
   () => import("./layout/RoomSessionLayoutShell"),
 );
@@ -28,15 +24,19 @@ const RoomLobbyPage = lazy(
   () => import("@features/RoomLobby"),
 );
 const RoomHistoryPage = lazy(() => import("@features/RoomHistory"));
-const InvitedPage = lazy(() => import("@features/Invited/ui/InvitedPage"));
-const CollectionsPage = lazy(
-  () => import("@features/Collections/ui/CollectionsPage"),
-);
+const InvitedPage = lazy(() => import("@features/Invited"));
+const CollectionsPage = lazy(() => import("@features/Collections"));
 const CollectionsCreatePage = lazy(
-  () => import("@features/Collections/create/page/CollectionCreatePage"),
+  () =>
+    import("@features/Collections").then(({ CollectionCreatePage }) => ({
+      default: CollectionCreatePage,
+    })),
 );
 const EditPage = lazy(
-  () => import("@features/Collections/edit/page/CollectionEditPage"),
+  () =>
+    import("@features/Collections").then(({ CollectionEditPage }) => ({
+      default: CollectionEditPage,
+    })),
 );
 
 /** Minimal spinner used as the Suspense fallback for route transitions. */

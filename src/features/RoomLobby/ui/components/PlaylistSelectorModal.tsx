@@ -45,6 +45,7 @@ import {
   type PlaylistPreviewMeta,
   type YoutubePlaylist,
 } from "@features/PlaylistSource";
+import { YOUTUBE_PLAYLIST_MIN_ITEM_COUNT } from "@domain/room/constants";
 import { formatDurationLabel } from "../lib/roomsHubViewModels";
 import { normalizeDisplayText } from "./roomLobbyDisplayUtils";
 
@@ -881,19 +882,30 @@ const PlaylistSelectorModal = ({
       const isCurrent = matchesCurrentSource("youtube_google_import", item.id);
       const alreadySuggested =
         isSuggestionMode && hasSuggestedSource("playlist", item.id, item.id);
+      const isTooSmall = item.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT;
+      const disabledReason = isTooSmall
+        ? `低於 ${YOUTUBE_PLAYLIST_MIN_ITEM_COUNT} 題，不能用於題庫`
+        : null;
       return (
       <SourceCard
         key={item.id}
         title={normalizeDisplayText(item.title, "未命名 YouTube 播放清單")}
-        subtitle={null}
+        subtitle={disabledReason}
         thumbnailUrl={item.thumbnail ?? null}
         badge="YouTube"
         mode={mode}
-        disabled={isCurrent || alreadySuggested}
-        actionText={isCurrent ? "已套用" : alreadySuggested ? "已推薦" : null}
+        disabled={isCurrent || alreadySuggested || isTooSmall}
+        actionText={
+          isCurrent
+            ? "已套用"
+            : alreadySuggested
+              ? "已推薦"
+              : disabledReason
+        }
         metrics={<Metrics itemCount={item.itemCount} />}
         onClick={() => {
           void (async () => {
+            if (isTooSmall) return;
             if (isCurrent) return;
             if (actionRunning) return;
             if (isSuggestionMode) {

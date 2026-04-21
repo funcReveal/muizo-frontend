@@ -33,6 +33,7 @@ import {
   PLAYER_MAX,
   PLAYER_MIN,
   USERNAME_MAX,
+  YOUTUBE_PLAYLIST_MIN_ITEM_COUNT,
 } from "@domain/room/constants";
 import {
   PlaylistPreviewRow,
@@ -857,13 +858,21 @@ const RoomsHubPage: React.FC = () => {
     view: "grid" | "list",
   ) => {
     const playlist = playlistValue as (typeof youtubePlaylists)[number];
+    const isTooSmall = playlist.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT;
 
     return (
       <YoutubePlaylistCard
         playlist={playlist}
         view={view}
         selected={selectedCreateYoutubeId === playlist.id}
+        disabled={isTooSmall}
+        disabledReason={
+          isTooSmall
+            ? `低於 ${YOUTUBE_PLAYLIST_MIN_ITEM_COUNT} 題，不能用於題庫`
+            : null
+        }
         onSelect={() => {
+          if (isTooSmall) return;
           void handlePickYoutubeSource(playlist.id);
         }}
       />
@@ -968,6 +977,10 @@ const RoomsHubPage: React.FC = () => {
     loadMoreCollections,
   ]);
   const handlePickYoutubeSource = async (playlistId: string) => {
+    const playlist = youtubePlaylists.find((item) => item.id === playlistId);
+    if (playlist && playlist.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT) {
+      return;
+    }
     setRoomCreateSourceMode("youtube");
     setSelectedCreateYoutubeId(playlistId);
     setSelectedCreateCollectionId(null);

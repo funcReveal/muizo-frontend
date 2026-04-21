@@ -41,6 +41,7 @@ const API_URL =
 const LONG_DURATION_THRESHOLD_SEC = 600;
 
 type PlaylistIssueTab =
+  | "duplicate"
   | "removed"
   | "privateRestricted"
   | "embedBlocked"
@@ -76,7 +77,7 @@ const CollectionCreatePage = () => {
     useCollectionContent();
 
   const [collectionTitle, setCollectionTitle] = useState("");
-  const [visibility, setVisibility] = useState<"private" | "public">("private");
+  const [visibility, setVisibility] = useState<"private" | "public">("public");
   const [playlistSource, setPlaylistSource] = useState<"url" | "youtube">(
     "url",
   );

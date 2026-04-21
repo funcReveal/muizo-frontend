@@ -24,6 +24,7 @@ export const START_OFFSET_MAX = 600;
 export const QUESTION_MIN = 5;
 export const QUESTION_MAX = 100;
 export const QUESTION_STEP = 5;
+export const YOUTUBE_PLAYLIST_MIN_ITEM_COUNT = 20;
 export const PLAYER_MIN = 1;
 export const PLAYER_MAX = 12;
 export const USERNAME_MAX = 16;
