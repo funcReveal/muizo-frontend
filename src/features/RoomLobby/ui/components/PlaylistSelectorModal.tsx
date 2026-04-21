@@ -67,6 +67,12 @@ type GenericRowProps<T> = {
   items: T[];
   render: (item: T, index: number) => React.ReactNode;
 };
+type SuggestionGroup = {
+  key: string;
+  representative: PlaylistSuggestion;
+  count: number;
+  usernames: string[];
+};
 
 type Props = {
   open: boolean;
@@ -463,6 +469,15 @@ const PlaylistSelectorModal = ({
   const [playWindow, setPlayWindow] = useState<ToolPlayMode>("all");
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Optimistic tracker of what *this* user has just suggested, keyed by
+  // `${type}:${sourceId||value}`. The authoritative source is still the
+  // server-pushed `playlistSuggestions`, but that arrives with a roundtrip
+  // of latency — during which the card the user clicked would otherwise
+  // stay clickable and lack the "已推薦" mask. This set gives instant
+  // visual feedback without waiting for the socket echo.
+  const [optimisticSuggestedKeys, setOptimisticSuggestedKeys] = useState<
+    Set<string>
+  >(() => new Set());
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownNow, setCooldownNow] = useState(() => Date.now());
   const [actionRunning, setActionRunning] = useState(false);
@@ -524,18 +539,39 @@ const PlaylistSelectorModal = ({
 
   useEffect(() => {
     if (!cooldownUntil) return;
-    const tick = window.setInterval(() => {
-      setCooldownNow(Date.now());
-    }, 1000);
+    // Align wakeups to the next second boundary. setTimeout chain beats
+    // setInterval on mobile: no drift when the tab is backgrounded, and we
+    // only re-render once per visible-seconds change.
+    let tick: number | null = null;
+    const scheduleNextTick = () => {
+      const now = Date.now();
+      const untilNextSecond = 1000 - (now % 1000);
+      tick = window.setTimeout(() => {
+        setCooldownNow(Date.now());
+        scheduleNextTick();
+      }, untilNextSecond);
+    };
+    scheduleNextTick();
     const timer = window.setTimeout(() => {
       setCooldownUntil(null);
       setActionNotice(null);
     }, Math.max(0, cooldownUntil - Date.now()));
     return () => {
-      window.clearInterval(tick);
+      if (tick !== null) window.clearTimeout(tick);
       window.clearTimeout(timer);
     };
   }, [cooldownUntil]);
+
+  // Auto-dismiss transient action notices so the cooldown countdown can
+  // reclaim the banner after ~2.5s. Errors stick around until the next
+  // interaction (they set actionError, which isn't affected here).
+  useEffect(() => {
+    if (!actionNotice) return;
+    const timerId = window.setTimeout(() => {
+      setActionNotice(null);
+    }, 2500);
+    return () => window.clearTimeout(timerId);
+  }, [actionNotice]);
 
   useEffect(() => {
     if (!open || activeTab !== "link") return;
@@ -686,6 +722,45 @@ const PlaylistSelectorModal = ({
     [playlistSuggestions, matchCount, matchText],
   );
 
+  // Group duplicate suggestions so that when multiple players recommend the
+  // same collection/playlist, the host sees one card with a "×N" count badge
+  // instead of N separate cards. Keyed by `${type}:${sourceId ?? value}`.
+  // The representative is the newest suggestion (latest suggestedAt), which
+  // tends to carry the freshest snapshot (items/title).
+  const groupedSuggestions = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        key: string;
+        representative: PlaylistSuggestion;
+        count: number;
+        usernames: string[];
+      }
+    >();
+    for (const item of suggestions) {
+      const keySource = String(item.sourceId ?? item.value ?? "").trim();
+      const key = `${item.type}:${keySource}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          key,
+          representative: item,
+          count: 1,
+          usernames: [item.username],
+        });
+        continue;
+      }
+      existing.count += 1;
+      if (!existing.usernames.includes(item.username)) {
+        existing.usernames.push(item.username);
+      }
+      if (item.suggestedAt > existing.representative.suggestedAt) {
+        existing.representative = item;
+      }
+    }
+    return Array.from(map.values());
+  }, [suggestions]);
+
   const hasSuggestedSource = useCallback(
     (
       type: "collection" | "playlist",
@@ -694,6 +769,16 @@ const PlaylistSelectorModal = ({
     ) => {
       const normalizedValue = String(value ?? "").trim();
       const normalizedSourceId = String(sourceId ?? "").trim();
+      // Optimistic check first — covers the window between submit and the
+      // server socket echo updating `playlistSuggestions`.
+      if (normalizedSourceId &&
+        optimisticSuggestedKeys.has(`${type}:${normalizedSourceId}`)) {
+        return true;
+      }
+      if (normalizedValue &&
+        optimisticSuggestedKeys.has(`${type}:${normalizedValue}`)) {
+        return true;
+      }
       return playlistSuggestions.some((suggestion) => {
         if (suggestion.type !== type) return false;
         const suggestionValue = String(suggestion.value ?? "").trim();
@@ -708,7 +793,7 @@ const PlaylistSelectorModal = ({
         );
       });
     },
-    [playlistSuggestions],
+    [playlistSuggestions, optimisticSuggestedKeys],
   );
 
   const chips = useMemo(
@@ -774,6 +859,16 @@ const PlaylistSelectorModal = ({
         setCooldownUntil(Date.now() + RECOMMENDATION_COOLDOWN_MS);
         setCooldownNow(Date.now());
         setActionNotice("題庫推薦已送出。");
+        // Optimistically mark this source as suggested so the card gets
+        // the "已推薦" mask immediately, before the socket echo arrives.
+        const normalizedValue = String(value ?? "").trim();
+        const normalizedSourceId = String(options?.sourceId ?? "").trim();
+        setOptimisticSuggestedKeys((prev) => {
+          const next = new Set(prev);
+          if (normalizedSourceId) next.add(`${type}:${normalizedSourceId}`);
+          if (normalizedValue) next.add(`${type}:${normalizedValue}`);
+          return next;
+        });
       } finally {
         setActionRunning(false);
         setPendingActionKey(null);
@@ -963,7 +1058,13 @@ const PlaylistSelectorModal = ({
   );
 
   const renderSuggestion = useCallback(
-    (item: PlaylistSuggestion) => {
+    (group: {
+      key: string;
+      representative: PlaylistSuggestion;
+      count: number;
+      usernames: string[];
+    }) => {
+      const item = group.representative;
       const matchedCollection = collections.find((entry) => entry.id === item.value);
       const suggestionThumbnailUrl =
         item.type === "collection"
@@ -979,7 +1080,7 @@ const PlaylistSelectorModal = ({
       );
       return (
         <button
-        key={`${item.clientId}-${item.suggestedAt}`}
+        key={group.key}
         type="button"
         disabled={isCurrent}
         onClick={() => {
@@ -1080,7 +1181,11 @@ const PlaylistSelectorModal = ({
             }`}
           >
             {[
-              `推薦者 ${item.username}`,
+              group.count > 1
+                ? `推薦者 ${group.usernames.slice(0, 2).join("、")}${
+                    group.usernames.length > 2 ? " 等" : ""
+                  }`
+                : `推薦者 ${item.username}`,
               item.totalCount ? `${Math.max(0, Number(item.totalCount))} 題` : null,
               item.type === "collection" ? "題庫推薦" : "播放清單推薦",
             ]
@@ -1088,11 +1193,21 @@ const PlaylistSelectorModal = ({
               .join(" · ")}
           </div>
         </div>
-        {isCurrent ? (
-          <span className="absolute right-4 top-4 rounded-full border border-white/12 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-100">
-            已套用
-          </span>
-        ) : null}
+        <div className="absolute right-4 top-4 flex items-center gap-2">
+          {group.count > 1 ? (
+            <span
+              className="rounded-full border border-cyan-300/30 bg-cyan-300/16 px-2.5 py-1 text-[11px] font-semibold text-cyan-50"
+              title={`${group.count} 位玩家推薦了此題庫`}
+            >
+              ×{group.count}
+            </span>
+          ) : null}
+          {isCurrent ? (
+            <span className="rounded-full border border-white/12 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-100">
+              已套用
+            </span>
+          ) : null}
+        </div>
         </button>
       );
     },
@@ -1226,8 +1341,11 @@ const PlaylistSelectorModal = ({
       </>
     );
 
+  // Errors and transient notices show in the banner. Cooldown countdown is
+  // now rendered as a full-modal overlay (see bottom of this component) so it
+  // doesn't need to appear here as a banner as well.
   const statusBanner =
-    actionError || actionNotice || (isSuggestionMode && isCooldownActive) ? (
+    actionError || actionNotice ? (
       <div
         className={`mb-4 overflow-hidden rounded-[18px] border px-4 py-3 text-sm ${
           actionError
@@ -1235,20 +1353,7 @@ const PlaylistSelectorModal = ({
             : "border-cyan-300/20 bg-cyan-400/10 text-cyan-50"
         }`}
       >
-        <div>
-          {actionError ??
-            (isSuggestionMode && isCooldownActive
-              ? `推薦冷卻中，${cooldownSeconds} 秒後可再次推薦。`
-              : actionNotice)}
-        </div>
-        {isSuggestionMode && isCooldownActive ? (
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-cyan-950/70">
-            <div
-              className="h-full rounded-full bg-cyan-300 transition-[width] duration-300 ease-linear"
-              style={{ width: `${cooldownProgress}%` }}
-            />
-          </div>
-        ) : null}
+        <div>{actionError ?? actionNotice}</div>
       </div>
     ) : null;
 
@@ -1282,7 +1387,8 @@ const PlaylistSelectorModal = ({
     [linkIssueSummary],
   );
   const showEmptyFrame =
-    (activeTab === "suggestions" && (!isHost || suggestions.length === 0)) ||
+    (activeTab === "suggestions" &&
+      (!isHost || groupedSuggestions.length === 0)) ||
     (activeTab === "public" &&
       !collectionsLoading &&
       publicCollections.length === 0) ||
@@ -1304,18 +1410,18 @@ const PlaylistSelectorModal = ({
           title="只有房主可以推薦題庫"
           description="目前只有房主可以查看與套用推薦題庫。"
         />
-      ) : suggestions.length === 0 ? (
+      ) : groupedSuggestions.length === 0 ? (
         <EmptyState
           title="目前沒有推薦題庫"
           description="暫時還沒有其他玩家推薦題庫，可以先搜尋公開題庫或改用其他來源。"
         />
       ) : (
         <div className="pr-3 pb-3">
-          <VirtualList<GenericRowProps<PlaylistSuggestion>>
+          <VirtualList<GenericRowProps<SuggestionGroup>>
             style={{ height: viewportSafeH, width: "100%" }}
-            rowCount={suggestions.length}
+            rowCount={groupedSuggestions.length}
             rowHeight={SUGGESTION_H}
-            rowProps={{ items: suggestions, render: renderSuggestion }}
+            rowProps={{ items: groupedSuggestions, render: renderSuggestion }}
             rowComponent={GenericRow as never}
           />
         </div>
@@ -1946,6 +2052,67 @@ const PlaylistSelectorModal = ({
           <div className="pointer-events-auto inline-flex items-center gap-3 rounded-full border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(16,27,46,0.84),rgba(8,18,34,0.92))] px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[0_22px_44px_-30px_rgba(34,211,238,0.65)]">
             <CircularProgress size={16} sx={{ color: "#a5f3fc" }} />
             <span>{isSuggestionMode ? "正在送出推薦..." : "正在套用題庫..."}</span>
+          </div>
+        </div>
+      ) : null}
+      {isSuggestionMode && isCooldownActive && !modalInteractionLocked ? (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-[linear-gradient(180deg,rgba(6,10,20,0.72),rgba(4,8,16,0.86))] backdrop-blur-[4px]"
+          // Block pointer events on every element below. We keep the close (×)
+          // button clickable by layering a second, smaller element above the
+          // overlay — see the close IconButton, which has its own z-index.
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="pointer-events-auto relative flex max-w-[320px] flex-col items-center gap-5 rounded-[28px] border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(16,27,46,0.96),rgba(8,18,34,0.98))] px-8 py-7 text-center shadow-[0_44px_140px_-60px_rgba(34,211,238,0.55)]">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="關閉"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
+            >
+              <CloseRoundedIcon sx={{ fontSize: 18 }} />
+            </button>
+            <div className="relative flex h-28 w-28 items-center justify-center">
+              <svg
+                viewBox="0 0 120 120"
+                className="absolute inset-0 h-full w-full -rotate-90"
+                aria-hidden
+              >
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="54"
+                  fill="none"
+                  stroke="rgba(165,243,252,0.12)"
+                  strokeWidth="8"
+                />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="54"
+                  fill="none"
+                  stroke="rgba(103,232,249,0.9)"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 54}
+                  strokeDashoffset={
+                    2 * Math.PI * 54 * (1 - cooldownProgress / 100)
+                  }
+                  style={{ transition: "stroke-dashoffset 0.3s linear" }}
+                />
+              </svg>
+              <span className="relative text-[44px] font-bold leading-none text-cyan-50 tabular-nums">
+                {cooldownSeconds}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-lg font-semibold text-cyan-50">
+                推薦冷卻中
+              </div>
+              <div className="text-sm leading-5 text-slate-300/90">
+                剛才的推薦已送出，請稍候 {cooldownSeconds} 秒後再推薦下一個題庫。
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

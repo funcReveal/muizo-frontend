@@ -359,11 +359,11 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
       window.cancelAnimationFrame(mobileDrawerAutoScrollFrameRef.current);
     }
 
+    // Single rAF — nested rAF was unnecessary; layout is settled after one
+    // commit → paint tick since the drawer itself isn't mid-transition here.
     mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
-      mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
-        mobileDrawerAutoScrollFrameRef.current = null;
-        scrollMobileDrawerToSelected("auto");
-      });
+      mobileDrawerAutoScrollFrameRef.current = null;
+      scrollMobileDrawerToSelected("auto");
     });
 
     return () => {

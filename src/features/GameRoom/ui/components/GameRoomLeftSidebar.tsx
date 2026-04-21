@@ -1181,18 +1181,43 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   // rAF loop：在 bursts 生命週期內每 frame 寫 DOM style（ref 直寫，不走 setState）。
   // writeBurstPositions 內建 early-exit，row 不動時等於 noop。
   // 壽命由 burst 集合控制：sidebarOverlayBursts 空陣列時停，否則每 frame 跑。
+  // 另外掛 visibilitychange：tab 被隱藏時 cancel rAF，真正讓手機進入 sleep；
+  // 切回來再啟動，避免前景時漏掉一幀位置同步。
   React.useEffect(() => {
     if (mobileOverlayMode || sidebarOverlayBursts.length === 0) {
       return undefined;
     }
-    let frameId = window.requestAnimationFrame(function sync() {
-      writeBurstPositions();
-      frameId = window.requestAnimationFrame(sync);
-    });
-    return () => {
+    let frameId = 0;
+    const start = () => {
+      if (frameId !== 0) return;
+      frameId = window.requestAnimationFrame(function sync() {
+        writeBurstPositions();
+        frameId = window.requestAnimationFrame(sync);
+      });
+    };
+    const stop = () => {
       if (frameId !== 0) {
         window.cancelAnimationFrame(frameId);
+        frameId = 0;
       }
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        // Paint one synchronous frame so bursts don't linger at a stale
+        // position while we wait for the first rAF tick.
+        writeBurstPositions();
+        start();
+      }
+    };
+    if (!document.hidden) {
+      start();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stop();
     };
   }, [mobileOverlayMode, sidebarOverlayBursts, writeBurstPositions]);
 

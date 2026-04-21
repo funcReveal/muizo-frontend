@@ -1037,11 +1037,12 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
       window.cancelAnimationFrame(mobileDrawerAutoScrollFrameRef.current);
     }
 
+    // One rAF is enough to wait for layout after drawer open/filter change.
+    // The previous nested-rAF form was cargo-cult: the scroll container is
+    // not waiting on a CSS transition, only on the commit → paint cycle.
     mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
-      mobileDrawerAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
-        mobileDrawerAutoScrollFrameRef.current = null;
-        scrollMobileDrawerToSelected("auto");
-      });
+      mobileDrawerAutoScrollFrameRef.current = null;
+      scrollMobileDrawerToSelected("auto");
     });
 
     return () => {
