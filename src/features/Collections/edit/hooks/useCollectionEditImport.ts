@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PlaylistItem } from "@features/RoomSession";
+import type { PlaylistItem } from "@features/PlaylistSource";
 import { collectionsApi } from "../../shared/api/collectionsApi";
 import { buildEditableItems } from "../utils/editMappers";
 import type { EditableItem } from "../utils/editTypes";

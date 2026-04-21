@@ -15,7 +15,7 @@ import type { YoutubePlaylist } from "@features/PlaylistSource";
 import type { CollectionOption } from "../roomLobbyPanelTypes";
 import RoomLobbyPanel from "../RoomLobbyPanel";
 
-vi.mock("../gameRoomPage/useMobileDrawerDragDismiss", () => ({
+vi.mock("@shared/hooks/useMobileDrawerDragDismiss", () => ({
   default: () => ({
     dragHandleProps: {},
     paperStyle: {},
@@ -102,6 +102,7 @@ const baseProps = {
   playlistSuggestions,
   playlistUrl: "",
   playlistItemsForChange: playlistItems,
+  playlistPreviewMeta: null,
   playlistError: null,
   playlistLoading: false,
   collections,
@@ -132,6 +133,7 @@ const baseProps = {
   onChangePlaylist: async () => {},
   onPlaylistUrlChange: () => {},
   onFetchPlaylistByUrl: () => {},
+  onResetPlaylist: () => {},
   onFetchCollections: () => {},
   onSelectCollection: () => {},
   onLoadCollectionItems: async () => {},

@@ -32,7 +32,9 @@ export {
   setStoredShowVideoPreference,
 } from "./model/roomStorage";
 export type {
+  Ack,
   ChatMessage,
+  ClientSocket,
   GameChoice,
   GameQuestionStats,
   GameState,

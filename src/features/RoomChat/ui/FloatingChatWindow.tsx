@@ -3,7 +3,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useChatInput, useRoomRealtime } from "@features/RoomSession";
 import type { ChatMessage } from "@features/RoomSession";
 import { DanmuContext } from "@features/RoomChat/model/DanmuContext";
-import useMobileDrawerDragDismiss from "@features/GameRoom/ui/lib/useMobileDrawerDragDismiss";
+import useMobileDrawerDragDismiss from "@shared/hooks/useMobileDrawerDragDismiss";
 import useAutoHideScrollbar from "@shared/hooks/useAutoHideScrollbar";
 import { blurActiveInteractiveElement } from "@shared/utils/dom";
 import MobileChatDrawerContent from "./components/MobileChatDrawerContent";

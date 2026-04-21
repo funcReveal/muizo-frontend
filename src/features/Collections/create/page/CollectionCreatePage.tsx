@@ -41,6 +41,7 @@ const API_URL =
 const LONG_DURATION_THRESHOLD_SEC = 600;
 
 type PlaylistIssueTab =
+  | "duplicate"
   | "removed"
   | "privateRestricted"
   | "embedBlocked"

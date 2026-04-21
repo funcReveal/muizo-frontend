@@ -26,10 +26,10 @@ import {
 } from "../../model/settlementLinks";
 import type {
   ChatMessage,
-  PlaylistItem,
   RoomParticipant,
   RoomState,
 } from "@features/RoomSession";
+import type { PlaylistItem } from "@features/PlaylistSource";
 import type { SettlementQuestionRecap } from "./GameSettlementPanel";
 import {
   resolvePreviewEmbedUrl,

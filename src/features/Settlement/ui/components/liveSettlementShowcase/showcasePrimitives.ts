@@ -4,7 +4,7 @@ import {
   resolveSettlementTrackLink,
   type SettlementTrackLink,
 } from "../../../model/settlementLinks";
-import type { PlaylistItem } from "@features/RoomSession";
+import type { PlaylistItem } from "@features/PlaylistSource";
 import type { SettlementQuestionRecap } from "../GameSettlementPanel";
 import {
   buildCorrectAnsweredRankMap,

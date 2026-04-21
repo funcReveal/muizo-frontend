@@ -7,6 +7,18 @@ import {
 
 import { trackEvent } from "../../../shared/analytics/track";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
+import {
+  computeStableHash,
+  emitRoomCreationAck,
+  type AbortRoomCreationPayload,
+  type AbortRoomCreationResult,
+  type BeginRoomCreationPayload,
+  type BeginRoomCreationResult,
+  type FinalizeRoomCreationPayload,
+  type FinalizeRoomCreationResult,
+  type UploadRoomCreationChunkPayload,
+  type UploadRoomCreationChunkResult,
+} from "@features/RoomCreation";
 import type { RoomCreateSourceMode } from "./RoomCreateContext";
 import {
   CHUNK_SIZE,
@@ -29,7 +41,6 @@ import {
   getQuestionMax,
 } from "./roomUtils";
 import type {
-  Ack,
   ClientSocket,
   GameState,
   PlaylistItem,
@@ -43,88 +54,6 @@ type PlaylistProgressState = {
   received: number;
   total: number;
   ready: boolean;
-};
-
-type RoomCreationState =
-  | "drafting"
-  | "uploading"
-  | "verifying"
-  | "finalizing"
-  | "ready"
-  | "failed"
-  | "aborted";
-
-type BeginRoomCreationPayload = {
-  roomMeta: {
-    name: string;
-    visibility: "public" | "private";
-    pin?: string | null;
-    maxPlayers: number | null;
-  };
-  gameSettings: {
-    questionCount: number;
-    playDurationSec: number;
-    revealDurationSec: number;
-    startOffsetSec: number;
-    allowCollectionClipTiming: boolean;
-    allowParticipantInvite: boolean;
-    playbackExtensionMode: "manual_vote" | "auto_once" | "disabled";
-  };
-  playlistManifest: {
-    sourceType?: PlaylistSourceType | null;
-    sourceId?: string | null;
-    title?: string | null;
-    totalCount: number;
-    chunkCount: number;
-    playlistHash: string;
-  };
-};
-
-type BeginRoomCreationResult = {
-  creationId: string;
-  uploadSessionId: string;
-  state: "uploading";
-  expiresAt: number;
-};
-
-type UploadRoomCreationChunkPayload = {
-  creationId: string;
-  uploadSessionId: string;
-  chunkIndex: number;
-  chunkCount: number;
-  chunkHash: string;
-  items: PlaylistItem[];
-};
-
-type UploadRoomCreationChunkResult = {
-  creationId: string;
-  state: "uploading" | "verifying";
-  receivedChunkCount: number;
-  expectedChunkCount: number;
-  receivedItemsCount: number;
-  totalCount: number;
-};
-
-type FinalizeRoomCreationPayload = {
-  creationId: string;
-  uploadSessionId: string;
-};
-
-type FinalizeRoomCreationResult = {
-  creationId: string;
-  state: RoomCreationState;
-  roomId?: string;
-  roomState?: RoomState;
-  roomSessionToken?: string;
-};
-
-type AbortRoomCreationPayload = {
-  creationId: string;
-};
-
-type AbortRoomCreationResult = {
-  creationId: string;
-  state: "aborted";
 };
 
 interface UseRoomProviderCreateRoomActionParams {
@@ -187,50 +116,6 @@ interface UseRoomProviderCreateRoomActionParams {
   setRoomMaxPlayersInput: Dispatch<SetStateAction<string>>;
   resetPlaylistState: () => void;
 }
-
-type UnsafeSocketEmit = (
-  event: string,
-  payload: unknown,
-  callback: (ack: Ack<unknown>) => void,
-) => void;
-
-const asUnsafeEmit = (socket: ClientSocket): UnsafeSocketEmit =>
-  (socket as unknown as { emit: UnsafeSocketEmit }).emit.bind(socket);
-
-const ROOM_CREATION_ACK_TIMEOUT_MS = 20_000;
-
-const computeStableHash = async (value: unknown) => {
-  const text = JSON.stringify(value);
-  const encoded = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-};
-
-const emitAck = <T>(
-  socket: ClientSocket,
-  event: string,
-  payload: unknown,
-): Promise<Ack<T>> =>
-  new Promise((resolve) => {
-    let settled = false;
-    const timer = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      resolve({
-        ok: false,
-        error: "Room creation request timed out. Please retry.",
-      });
-    }, ROOM_CREATION_ACK_TIMEOUT_MS);
-
-    asUnsafeEmit(socket)(event, payload, (ack) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve(ack as Ack<T>);
-    });
-  });
 
 export const useRoomProviderCreateRoomAction = ({
   getSocket,
@@ -465,15 +350,19 @@ export const useRoomProviderCreateRoomAction = ({
     const abortCreation = async () => {
       if (!creationId) return;
       try {
-        await emitAck<AbortRoomCreationResult>(socket, "abortRoomCreation", {
-          creationId,
-        } satisfies AbortRoomCreationPayload);
+        await emitRoomCreationAck<AbortRoomCreationResult>(
+          socket,
+          "abortRoomCreation",
+          {
+            creationId,
+          } satisfies AbortRoomCreationPayload,
+        );
       } catch (error) {
         console.error(error);
       }
     };
 
-    const beginAck = await emitAck<BeginRoomCreationResult>(
+    const beginAck = await emitRoomCreationAck<BeginRoomCreationResult>(
       socket,
       "beginRoomCreation",
       beginPayload,
@@ -486,6 +375,7 @@ export const useRoomProviderCreateRoomAction = ({
     }
 
     creationId = beginAck.data.creationId;
+    const activeCreationId = creationId;
     const uploadSessionId = beginAck.data.uploadSessionId;
 
     setPlaylistProgress({
@@ -502,11 +392,11 @@ export const useRoomProviderCreateRoomAction = ({
       );
       const chunkHash = await computeStableHash(chunkItems);
 
-      const uploadAck = await emitAck<UploadRoomCreationChunkResult>(
+      const uploadAck = await emitRoomCreationAck<UploadRoomCreationChunkResult>(
         socket,
         "uploadRoomCreationChunk",
         {
-          creationId,
+          creationId: activeCreationId,
           uploadSessionId,
           chunkIndex,
           chunkCount,
@@ -535,11 +425,11 @@ export const useRoomProviderCreateRoomAction = ({
 
     setStatusText("正在完成房間建立...");
 
-    const finalizeAck = await emitAck<FinalizeRoomCreationResult>(
+    const finalizeAck = await emitRoomCreationAck<FinalizeRoomCreationResult>(
       socket,
       "finalizeRoomCreation",
       {
-        creationId,
+        creationId: activeCreationId,
         uploadSessionId,
       } satisfies FinalizeRoomCreationPayload,
     );

@@ -12,10 +12,10 @@ import { useSettingsModel } from "../../../Setting/model/settingsContext";
 import { type SettlementTrackLink } from "../../model/settlementLinks";
 import type {
   ChatMessage,
-  PlaylistItem,
   RoomParticipant,
   RoomState,
 } from "@features/RoomSession";
+import type { PlaylistItem } from "@features/PlaylistSource";
 import type { SettlementQuestionRecap } from "../../model/types";
 import { type RecommendCategory } from "../lib/settlementUtils";
 import OverviewSection from "./liveSettlementShowcase/OverviewSection";

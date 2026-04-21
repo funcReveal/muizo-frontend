@@ -1,4 +1,4 @@
-import type { PlaylistItem } from "@features/RoomSession";
+import type { PlaylistItem } from "@features/PlaylistSource";
 import type { DbCollectionItem, EditableItem } from "./editTypes";
 import {
   DEFAULT_DURATION_SEC,
