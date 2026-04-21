@@ -9,6 +9,8 @@ type YoutubePlaylistCardProps = {
   };
   view: "grid" | "list";
   selected: boolean;
+  disabled?: boolean;
+  disabledReason?: string | null;
   onSelect: () => void;
 };
 
@@ -16,6 +18,8 @@ const YoutubePlaylistCard = ({
   playlist,
   view,
   selected,
+  disabled = false,
+  disabledReason,
   onSelect,
 }: YoutubePlaylistCardProps) => {
   const itemCountLabel = `${playlist.itemCount} 首`;
@@ -25,9 +29,12 @@ const YoutubePlaylistCard = ({
       <button
         key={playlist.id}
         type="button"
+        disabled={disabled}
         onClick={onSelect}
         className={`group h-full overflow-hidden rounded-[22px] border text-left transition ${
-          selected
+          disabled
+            ? "cursor-not-allowed border-white/10 bg-slate-950/42 opacity-70"
+            : selected
             ? "border-rose-300/50 bg-slate-950/70 shadow-[0_24px_44px_-28px_rgba(251,113,133,0.4)]"
             : "border-rose-300/16 bg-slate-950/55 hover:border-rose-300/34 hover:bg-slate-950/72 hover:shadow-[0_22px_42px_-30px_rgba(251,113,133,0.28)]"
         }`}
@@ -52,6 +59,11 @@ const YoutubePlaylistCard = ({
               YouTube
             </span>
           </div>
+          {disabledReason ? (
+            <div className="absolute inset-x-3 bottom-3 rounded-xl border border-amber-300/30 bg-slate-950/78 px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.55)]">
+              {disabledReason}
+            </div>
+          ) : null}
         </div>
         <div className="space-y-3 px-4 py-3.5">
           <div className="space-y-1.5">
@@ -59,7 +71,7 @@ const YoutubePlaylistCard = ({
               {playlist.title}
             </p>
             <p className="line-clamp-2 min-h-[2.5rem] text-[12px] leading-5 text-slate-300/88">
-              YouTube 播放清單匯入來源
+              {disabledReason ?? "YouTube 播放清單匯入來源"}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -79,9 +91,12 @@ const YoutubePlaylistCard = ({
     <button
       key={playlist.id}
       type="button"
+      disabled={disabled}
       onClick={onSelect}
       className={`rounded-xl border text-left transition ${
-        selected
+        disabled
+          ? "cursor-not-allowed border-white/10 bg-slate-950/20 opacity-70"
+          : selected
           ? "border-rose-300/50 bg-rose-500/10"
           : "border-rose-300/18 bg-slate-950/25 hover:border-rose-300/34"
       } flex w-full items-center gap-3 px-3 py-2`}
@@ -111,7 +126,7 @@ const YoutubePlaylistCard = ({
           </span>
         </div>
         <p className="mt-1 truncate text-xs text-[var(--mc-text-muted)]">
-          YouTube 播放清單匯入來源
+          {disabledReason ?? "YouTube 播放清單匯入來源"}
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
           <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-none text-slate-200/90">
