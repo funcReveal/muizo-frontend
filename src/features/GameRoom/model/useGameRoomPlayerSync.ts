@@ -967,21 +967,21 @@ const useGameRoomPlayerSync = ({
       event?.preventDefault();
       event?.stopPropagation();
 
-      // 蝚砌?撅支?霅瘀?瘝?ready 銝?鈭?
+      // Ignore early gestures until the player reports ready.
       if (!playerReadyRef.current) return;
 
       unlockAudioAndStart();
     },
     [unlockAudioAndStart],
   );
-  // ?? syncToServerPosition ???????????????????????????????????????????????????
+  // syncToServerPosition
   // Compares estimated local position against server-expected position. If
   // drift exceeds toleranceSec (default: DRIFT_TOLERANCE_SEC), issues a single
   // seek via startPlayback(). Otherwise updates local sync state and ensures
   // the player is in the "playing + unmuted" state.
   //
   // During reveal (non-replay mode), the clip is looping: we don't seek, just
-  // ensure playback continues ??seeking would jump mid-loop for no benefit.
+  // ensure playback continues; seeking would jump mid-loop for no benefit.
   // Buffering grace window also suppresses seek (seeking mid-buffer stalls).
   const syncToServerPosition = useCallback(
     (

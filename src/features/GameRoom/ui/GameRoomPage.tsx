@@ -976,10 +976,27 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const effectivePlayerVideoId =
     trackCursor === 0 ? videoId : playerVideoId ?? videoId;
   const iframeSrc = useMemo(
-    () =>
-      effectivePlayerVideoId
-        ? `https://www.youtube-nocookie.com/embed/${effectivePlayerVideoId}?autoplay=0&controls=0&fs=0&disablekb=1&modestbranding=1&iv_load_policy=3&enablejsapi=1&rel=0&playsinline=1`
-        : null,
+    () => {
+      if (!effectivePlayerVideoId) return null;
+
+      const params = new URLSearchParams({
+        autoplay: "0",
+        controls: "0",
+        fs: "0",
+        disablekb: "1",
+        modestbranding: "1",
+        iv_load_policy: "3",
+        enablejsapi: "1",
+        rel: "0",
+        playsinline: "1",
+      });
+      if (typeof window !== "undefined") {
+        params.set("origin", window.location.origin);
+        params.set("widget_referrer", window.location.href);
+      }
+
+      return `https://www.youtube-nocookie.com/embed/${effectivePlayerVideoId}?${params.toString()}`;
+    },
     [effectivePlayerVideoId],
   );
 

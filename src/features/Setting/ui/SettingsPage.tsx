@@ -26,6 +26,7 @@ import {
   DEFAULT_KEY_BINDINGS,
   useKeyBindings,
 } from "./components/useKeyBindings";
+import "@features/RoomSession/ui/roomSessionStyles.css";
 
 const SLOT_TITLES = ["左上", "右上", "左下", "右下"] as const;
 

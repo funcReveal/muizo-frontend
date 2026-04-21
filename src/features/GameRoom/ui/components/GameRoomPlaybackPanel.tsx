@@ -416,6 +416,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
               className="game-room-media-iframe h-full w-full object-contain"
               allow="autoplay; encrypted-media"
               allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
               title="遊戲影片播放器"
               style={iframeStyle}
               ref={iframeRef}

@@ -6,6 +6,7 @@ import {
   SitePresenceProvider,
 } from "@features/RoomSession";
 import RoomAwareLayoutShell from "./RoomAwareLayoutShell";
+import "@features/RoomSession/ui/roomSessionStyles.css";
 
 const RoomSessionLayoutShell: React.FC = () => (
   <SitePresenceProvider>
