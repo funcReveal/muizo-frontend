@@ -407,6 +407,10 @@
   --block-accent: rgba(251, 191, 36, 0.9);
 }
 
+.landing-stage-search {
+  --block-accent: rgba(251, 191, 36, 0.9);
+}
+
 .landing-info-header {
   margin-bottom: 13px;
   position: relative;
@@ -614,6 +618,104 @@
   color: var(--mc-text-muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.landing-search-discovery {
+  border-radius: 16px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: linear-gradient(
+    135deg,
+    rgba(113, 63, 18, 0.24),
+    rgba(15, 23, 42, 0.94) 42%,
+    rgba(8, 15, 28, 0.98)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 34px -28px rgba(15, 23, 42, 0.95);
+  padding: 18px;
+}
+
+.landing-search-copy {
+  max-width: 980px;
+}
+
+.landing-search-kicker {
+  margin: 0;
+  color: var(--landing-gold);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.landing-search-title {
+  margin: 7px 0 0;
+  color: var(--mc-text);
+  font-size: 1.12rem;
+  line-height: 1.35;
+}
+
+.landing-search-description {
+  margin: 10px 0 0;
+  color: rgba(203, 213, 225, 0.9);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.landing-search-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.landing-search-card {
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.44);
+  padding: 12px;
+}
+
+.landing-search-card h4 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.landing-search-card p {
+  margin: 7px 0 0;
+  color: rgba(203, 213, 225, 0.84);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.landing-faq-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.landing-faq-item {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.64);
+  color: rgba(203, 213, 225, 0.88);
+  padding: 10px 12px;
+}
+
+.landing-faq-item summary {
+  cursor: pointer;
+  color: #f8fafc;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.landing-faq-item p {
+  margin: 8px 0 0;
+  color: rgba(203, 213, 225, 0.82);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .landing-community-callout {
@@ -836,6 +938,14 @@
   .landing-info-grid-mobile-scroll > * {
     min-width: 0;
     scroll-snap-align: start;
+  }
+
+  .landing-search-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-search-discovery {
+    padding: 14px;
   }
 
   .landing-community-copy {

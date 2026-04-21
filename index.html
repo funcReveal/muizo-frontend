@@ -16,11 +16,11 @@
 
     <meta
       name="description"
-      content="Muizo 是免費多人即時猜歌平台，支援公開題庫與 YouTube 播放清單快速開房，立即邀請朋友一起進行猜歌遊戲，享受即時排行榜與派對互動。"
+      content="Muizo 是免費線上猜歌遊戲與多人歌曲問答平台，支援 YouTube 播放清單題庫、即時開房、朋友派對對戰、排行榜與結算回顧。"
     />
     <meta
       name="keywords"
-      content="Muizo, 猜歌, 猜歌遊戲, 多人對戰, 競猜, YouTube 猜歌, 線上派對遊戲"
+      content="Muizo, 猜歌, 猜歌遊戲, 線上猜歌, 猜歌網站, 多人猜歌, 歌曲問答, YouTube 猜歌, 音樂遊戲, 派對遊戲"
     />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#0b0a08" />
@@ -33,26 +33,82 @@
     <meta property="og:locale:alternate" content="en_US" />
     <meta property="og:locale:alternate" content="ja_JP" />
     <meta property="og:locale:alternate" content="ko_KR" />
-    <meta property="og:title" content="Muizo - 多人即時猜歌平台" />
+    <meta property="og:title" content="Muizo - 線上多人即時猜歌" />
     <meta
       property="og:description"
-      content="Muizo 是免費多人即時猜歌平台，支援公開題庫與 YouTube 播放清單快速開房，立即邀請朋友一起進行猜歌遊戲，享受即時排行榜與派對互動。"
+      content="免費線上猜歌遊戲，支援 YouTube 播放清單題庫、即時開房、朋友派對對戰、排行榜與結算回顧。"
     />
-    <meta property="og:image" content="/muizo.png" />
+    <meta property="og:image" content="https://muizo.org/muizo.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="Muizo - 多人即時猜歌平台"
+      content="Muizo - 線上多人即時猜歌"
     />
     <meta
       name="twitter:description"
-      content="Muizo 是免費多人即時猜歌平台，支援公開題庫與 YouTube 播放清單快速開房，立即邀請朋友一起猜歌對戰，享受即時排行榜與派對互動。"
+      content="免費線上猜歌遊戲，支援 YouTube 播放清單題庫、即時開房、朋友派對對戰、排行榜與結算回顧。"
     />
-    <meta name="twitter:image" content="/muizo.png" />
+    <meta name="twitter:image" content="https://muizo.org/muizo.png" />
 
     <link rel="canonical" href="https://muizo.org/" />
-    <title>Muizo - 多人即時猜歌平台</title>
+    <title>Muizo - 線上多人即時猜歌</title>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://muizo.org/#app",
+            "name": "Muizo",
+            "alternateName": ["線上猜歌遊戲", "多人猜歌平台", "歌曲問答平台"],
+            "url": "https://muizo.org/",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Web",
+            "inLanguage": "zh-Hant",
+            "description": "Muizo 是免費線上猜歌遊戲與多人歌曲問答平台，支援 YouTube 播放清單題庫、即時開房、朋友派對對戰、排行榜與結算回顧。",
+            "keywords": "猜歌, 猜歌遊戲, 線上猜歌, 猜歌網站, 多人猜歌, 歌曲問答, YouTube 猜歌, 音樂遊戲, 派對遊戲",
+            "image": "https://muizo.org/muizo.png",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "TWD"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://muizo.org/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Muizo 可以用來玩線上猜歌嗎？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "可以。Muizo 是多人即時猜歌平台，玩家可以建立房間、邀請朋友加入，透過歌曲片段進行猜歌遊戲。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Muizo 支援 YouTube 播放清單嗎？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "支援。登入 Google 後可以匯入 YouTube 播放清單，也可以建立平台收藏題庫，快速套用到猜歌房間。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Muizo 適合哪些場合？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "適合朋友聚會、線上派對、社群語音、直播互動與音樂主題活動，讓多人一起進行歌曲問答與排行榜競賽。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
 
     <script
       async
@@ -92,6 +148,23 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <main>
+        <h1>Muizo 線上猜歌遊戲</h1>
+        <p>
+          Muizo 是免費多人即時猜歌網站，支援 YouTube 播放清單題庫、歌曲問答、朋友派對對戰、即時排行榜與結算回顧。
+        </p>
+        <p>
+          你可以建立猜歌房間，邀請朋友一起挑戰華語流行、動漫歌、遊戲 BGM、J-POP、K-POP 等音樂題庫。
+        </p>
+        <nav aria-label="Muizo public pages">
+          <a href="/">首頁</a>
+          <a href="/rooms">公開房間</a>
+          <a href="/privacy">隱私權政策</a>
+          <a href="/terms">服務條款</a>
+        </nav>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

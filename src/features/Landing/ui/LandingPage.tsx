@@ -6,6 +6,7 @@ import GuestEntryCard from "./components/GuestEntryCard";
 import HowItWorksSection from "./components/HowItWorksSection";
 import AuthComparisonSection from "./components/AuthComparisonSection";
 import CommunityCallout from "./components/CommunityCallout";
+import SearchDiscoverySection from "./components/SearchDiscoverySection";
 import type { LandingPageProps } from "./types";
 import "./LandingPage.css";
 
@@ -138,6 +139,19 @@ const LandingPage: React.FC<LandingPageProps> = ({
         <div className="landing-stage-content landing-info-grid landing-info-grid-mobile-scroll mt-8 grid gap-4 lg:grid-cols-2">
           <HowItWorksSection />
           <AuthComparisonSection />
+        </div>
+      </section>
+
+      <section
+        className="landing-stage landing-stage-search landing-stage-scroll-fade"
+        data-landing-stage
+      >
+        <div className="landing-stage-head">
+          <p className="landing-stage-kicker">搜尋與玩法</p>
+          <h2 className="landing-stage-title">線上猜歌遊戲與歌曲問答平台</h2>
+        </div>
+        <div className="landing-stage-content mt-4">
+          <SearchDiscoverySection />
         </div>
       </section>
 

@@ -51,8 +51,8 @@ const LandingHero: React.FC = () => {
   return (
     <div className="landing-hero flex min-w-0 flex-col justify-between gap-6">
       <div className="space-y-5">
-        <h2 className="landing-title text-[2.15rem] leading-[1.2] text-[var(--mc-text)] sm:text-[2.5rem] lg:text-[3rem]">
-          和朋友一起猜
+        <h1 className="landing-title text-[2.15rem] leading-[1.2] text-[var(--mc-text)] sm:text-[2.5rem] lg:text-[3rem]">
+          和朋友一起玩
           <span
             className="landing-word-slot"
             style={
@@ -65,9 +65,9 @@ const LandingHero: React.FC = () => {
             <span className="landing-word-caret" />
           </span>
           <span className="block landing-title-accent">
-            創建房間，邀請好友開始挑戰！
+            創建房間，邀請好友線上猜歌！
           </span>
-        </h2>
+        </h1>
         <p className="landing-hero-vision">
           我們不只想讓猜歌更方便、互動更即時，也希望每一次出題都能把好歌重新帶回大家耳邊，讓被記憶收藏的旋律與創作者再次被看見。
         </p>
