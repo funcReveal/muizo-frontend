@@ -87,10 +87,11 @@ type FloatingScoreBurst = {
   delayMs: number;
 };
 
+// Burst 的 shell：只描述「有哪些 burst 存在」，不含位置。
+// 位置 (top/left) 由 rAF loop 直接寫到 DOM ref，不進 React state，
+// 避免每 frame 觸發 re-render。
 type SidebarOverlayBurst = FloatingScoreBurst & {
   clientId: string;
-  fixedTop: number;
-  fixedLeft: number;
 };
 
 type FloatingScoreBreakdownPart =
@@ -222,7 +223,6 @@ interface GameRoomScorePlayerRowProps {
   player: RoomParticipant;
   isReveal: boolean;
   answerRank?: number;
-  scoreParts: { base: number; gain: number };
   scoreBreakdown?: QuestionScoreBreakdown;
   isMeRow: boolean;
   answerDotClass: string;
@@ -258,7 +258,6 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   player,
   isReveal,
   answerRank,
-  scoreParts,
   scoreBreakdown,
   isMeRow,
   answerDotClass,
@@ -291,12 +290,34 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
     delayMs: number;
   } | null>(null);
   const removalTimerIdsRef = React.useRef<number[]>([]);
-  const resolvedGain = scoreBreakdown?.totalGainPoints ?? scoreParts.gain;
-  const resolvedBaseScore = player.score - resolvedGain;
+  /**
+   * Tracks the last "settled" score displayed to the user. Used as the
+   * authoritative base for segmented score animation so we do not rely on
+   * `player.score - scoreBreakdown.totalGainPoints`, which is unreliable:
+   * `player.score` and `scoreBreakdown` frequently arrive in separate React
+   * commits during reveal, producing races where the computed base is wrong
+   * (seen as the total score briefly jumping backward, or the animation
+   * skipping entirely on the first few questions).
+   *
+   * Only updated when `!isReveal` — during reveal it holds the pre-reveal
+   * value so we always know the correct animation starting point.
+   */
+  const [stableScore, setStableScore] = React.useState(player.score);
+  // Actual score delta we need to animate across. Prefer the observed
+  // score delta (`player.score - stableScore`) since it is the ground truth,
+  // but during reveal the new `player.score` frequently only arrives at the
+  // END of reveal — in that window we fall back to
+  // `scoreBreakdown.totalGainPoints` so the animation can proceed using the
+  // server-provided gain even before `player.score` has been updated.
+  const scoreDeltaFromStable = player.score - stableScore;
+  const breakdownGain = scoreBreakdown?.totalGainPoints ?? 0;
+  const derivedGain = isReveal
+    ? (scoreDeltaFromStable !== 0 ? scoreDeltaFromStable : breakdownGain)
+    : scoreDeltaFromStable;
   const shouldAnimateSegmentedScore =
-    enableSegmentedScoreAnimation && isReveal && resolvedGain !== 0;
+    enableSegmentedScoreAnimation && isReveal && derivedGain !== 0;
   const shouldShowLocalFloatingBursts =
-    enableFloatingScoreBursts && isReveal && isMeRow && resolvedGain !== 0;
+    enableFloatingScoreBursts && isReveal && isMeRow && derivedGain !== 0;
   /**
    * Timer that defers burst creation until after a rank-swap animation
    * finishes. Cleared on every effect re-run and on unmount.
@@ -313,7 +334,12 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
    * number → the score value being stepped through segment-by-segment.
    */
   const [animatedDisplayScore, setAnimatedDisplayScore] = React.useState<number | null>(null);
+  const animatedDisplayScoreRef = React.useRef<number | null>(null);
   const scoreIncrementTimerIdsRef = React.useRef<number[]>([]);
+
+  React.useEffect(() => {
+    animatedDisplayScoreRef.current = animatedDisplayScore;
+  }, [animatedDisplayScore]);
 
   React.useEffect(() => {
     if (enableFloatingScoreBursts || enableSegmentedScoreAnimation) return;
@@ -368,23 +394,90 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
     scoreIncrementTimerIdsRef.current = [];
   }, []);
 
+  // Keep the stable score ref synced to the current score whenever we are
+  // outside the reveal phase. This is the only safe window to update it:
+  // during reveal the score is in flight and we need the previous value as
+  // the animation base.
+  React.useLayoutEffect(() => {
+    if (!isReveal && stableScore !== player.score) {
+      setStableScore(player.score);
+    }
+  }, [isReveal, player.score, stableScore]);
+
   React.useEffect(() => {
     if (!shouldAnimateSegmentedScore) {
-      if (!isReveal || resolvedGain === 0) {
-        consumedBurstKeyRef.current = null;
-        scheduledBurstRef.current = null;
-        if (swapPendingTimerRef.current !== null) {
-          window.clearTimeout(swapPendingTimerRef.current);
-          swapPendingTimerRef.current = null;
-        }
-        // Reveal ended or no gain — snap back to the true score immediately.
-        setFloatingBursts([]);
+      if (!isReveal) {
         setAnimatedDisplayScore(null);
-        removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
-        removalTimerIdsRef.current = [];
+        if (stableScore !== player.score) setStableScore(player.score);
         scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
         scoreIncrementTimerIdsRef.current = [];
+      } else if (
+        derivedGain === 0 &&
+        scoreIncrementTimerIdsRef.current.length === 0 &&
+        animatedDisplayScoreRef.current === null
+      ) {
+        setAnimatedDisplayScore(stableScore);
       }
+      return;
+    }
+
+    const combo = Math.max(0, player.combo ?? 0);
+    let segments = resolveFloatingScoreSegments(
+      derivedGain,
+      combo,
+      scoreBreakdown,
+    );
+    const segmentsSum = segments.reduce((sum, seg) => sum + seg.amount, 0);
+    if (segmentsSum !== derivedGain) {
+      segments = derivedGain === 0
+        ? []
+        : [
+          {
+            amount: derivedGain,
+            tier: resolveFloatingScoreTier(derivedGain, combo),
+            kind: derivedGain >= 0 ? ("gain" as const) : ("loss" as const),
+            part: "other" as FloatingScoreBreakdownPart,
+          },
+        ];
+    }
+    if (segments.length === 0) return;
+
+    scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
+    scoreIncrementTimerIdsRef.current = [];
+    setAnimatedDisplayScore(stableScore);
+    let runningScore = stableScore;
+    segments.forEach((segment, index) => {
+      runningScore += segment.amount;
+      const targetScore = runningScore;
+      const incrTimerId = window.setTimeout(() => {
+        setAnimatedDisplayScore(targetScore);
+        scoreIncrementTimerIdsRef.current = scoreIncrementTimerIdsRef.current.filter(
+          (id) => id !== incrTimerId,
+        );
+      }, index * ROW_ATTACHED_BURST_STAGGER_MS + 180);
+      scoreIncrementTimerIdsRef.current.push(incrTimerId);
+    });
+  }, [
+    isReveal,
+    player.combo,
+    player.score,
+    derivedGain,
+    stableScore,
+    scoreBreakdown,
+    shouldAnimateSegmentedScore,
+  ]);
+
+  React.useEffect(() => {
+    if (!shouldShowLocalFloatingBursts) {
+      consumedBurstKeyRef.current = null;
+      scheduledBurstRef.current = null;
+      if (swapPendingTimerRef.current !== null) {
+        window.clearTimeout(swapPendingTimerRef.current);
+        swapPendingTimerRef.current = null;
+      }
+      setFloatingBursts([]);
+      removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      removalTimerIdsRef.current = [];
       return;
     }
 
@@ -398,7 +491,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
         scoreBreakdown.totalGainPoints,
       ].join(":")
       : "none";
-    const burstKey = `${player.clientId}:${player.score}:${resolvedBaseScore}:${resolvedGain}:${player.combo}:${breakdownKey}`;
+    const burstKey = `${player.clientId}:${stableScore}:${derivedGain}:${player.combo}:${breakdownKey}:${isReveal ? "reveal" : "idle"}`;
     const effectiveDelayMs = Math.max(0, burstDelayMsRef.current);
     if (consumedBurstKeyRef.current === burstKey) return;
     if (
@@ -409,15 +502,38 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
     }
 
     const combo = Math.max(0, player.combo ?? 0);
+    let segments = resolveFloatingScoreSegments(
+      derivedGain,
+      combo,
+      scoreBreakdown,
+    );
+    const segmentsSum = segments.reduce((sum, seg) => sum + seg.amount, 0);
+    if (segmentsSum !== derivedGain) {
+      segments = derivedGain === 0
+        ? []
+        : [
+          {
+            amount: derivedGain,
+            tier: resolveFloatingScoreTier(derivedGain, combo),
+            kind: derivedGain >= 0 ? ("gain" as const) : ("loss" as const),
+            part: "other" as FloatingScoreBreakdownPart,
+          },
+        ];
+    }
+    const nextBursts = segments.map((segment, index) => {
+      burstSequenceRef.current += 1;
+      return {
+        id: `${player.clientId}-${burstSequenceRef.current}`,
+        amount: segment.amount,
+        combo,
+        kind: segment.kind,
+        tier: segment.tier,
+        part: segment.part,
+        delayMs: index * ROW_ATTACHED_BURST_STAGGER_MS,
+      } satisfies FloatingScoreBurst;
+    });
+    if (nextBursts.length === 0) return;
 
-    // Capture values used inside the deferred callback so they're not stale.
-    const capturedClientId = player.clientId;
-    const capturedBase = resolvedBaseScore;
-    const capturedGain = resolvedGain;
-    const capturedCombo = combo;
-    const capturedBreakdown = scoreBreakdown;
-
-    // Cancel any previously pending swap-delay timer for this player.
     if (swapPendingTimerRef.current !== null) {
       window.clearTimeout(swapPendingTimerRef.current);
       swapPendingTimerRef.current = null;
@@ -432,80 +548,32 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
       scheduledBurstRef.current = null;
       removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
       removalTimerIdsRef.current = [];
-      const segments = resolveFloatingScoreSegments(
-        capturedGain,
-        capturedCombo,
-        capturedBreakdown,
-      );
-      const nextBursts = segments.map((segment, index) => {
-        burstSequenceRef.current += 1;
-        return {
-          id: `${capturedClientId}-${burstSequenceRef.current}`,
-          amount: segment.amount,
-          combo: capturedCombo,
-          kind: segment.kind,
-          tier: segment.tier,
-          part: segment.part,
-          delayMs: index * ROW_ATTACHED_BURST_STAGGER_MS,
-        } satisfies FloatingScoreBurst;
-      });
-      if (nextBursts.length === 0) return;
-
-      if (shouldShowLocalFloatingBursts) {
-        setFloatingBursts(nextBursts);
-        nextBursts.forEach((nextBurst) => {
-          const timerId = window.setTimeout(() => {
-            setFloatingBursts((current) => current.filter((burst) => burst.id !== nextBurst.id));
-            removalTimerIdsRef.current = removalTimerIdsRef.current.filter((id) => id !== timerId);
-          }, FLOATING_SCORE_BURST_LIFETIME_MS + nextBurst.delayMs);
-          removalTimerIdsRef.current.push(timerId);
-        });
-      } else {
-        setFloatingBursts([]);
-      }
-
-      // — Animated displayed score: tick up one segment at a time.
-      // Start from the base (pre-reveal) score then add each segment's amount
-      // 60 ms after its floating label appears, so the user sees the label first.
-      scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
-      scoreIncrementTimerIdsRef.current = [];
-      setAnimatedDisplayScore(capturedBase);
-      let runningScore = capturedBase;
-      nextBursts.forEach((burst) => {
-        runningScore += burst.amount;
-        const targetScore = runningScore;
-        const incrTimerId = window.setTimeout(() => {
-          setAnimatedDisplayScore(targetScore);
-          scoreIncrementTimerIdsRef.current = scoreIncrementTimerIdsRef.current.filter(
-            (id) => id !== incrTimerId,
-          );
-          // 180 ms after the burst appears → lands inside the hold phase where the
-          // floating label is fully visible, so the score tick and "+XX" feel in sync.
-        }, burst.delayMs + 180);
-        scoreIncrementTimerIdsRef.current.push(incrTimerId);
+      setFloatingBursts(nextBursts);
+      nextBursts.forEach((nextBurst) => {
+        const timerId = window.setTimeout(() => {
+          setFloatingBursts((current) => current.filter((burst) => burst.id !== nextBurst.id));
+          removalTimerIdsRef.current = removalTimerIdsRef.current.filter((id) => id !== timerId);
+        }, FLOATING_SCORE_BURST_LIFETIME_MS + nextBurst.delayMs);
+        removalTimerIdsRef.current.push(timerId);
       });
     };
 
     if (effectiveDelayMs > 0) {
-      // Row is mid-animation. Defer until the swap finishes so we measure the
-      // score element's new viewport position, not its old one.
       swapPendingTimerRef.current = window.setTimeout(() => {
         swapPendingTimerRef.current = null;
         fireBursts();
       }, effectiveDelayMs);
-    } else {
-      fireBursts();
+      return;
     }
+
+    fireBursts();
   }, [
     isReveal,
-    isMeRow,
     player.clientId,
     player.combo,
-    player.score,
-    resolvedGain,
+    derivedGain,
+    stableScore,
     scoreBreakdown,
-    resolvedBaseScore,
-    shouldAnimateSegmentedScore,
     shouldShowLocalFloatingBursts,
   ]);
 
@@ -569,7 +637,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
               />
             )}
             <span className="relative font-semibold text-emerald-300 tabular-nums">
-              {(shouldAnimateSegmentedScore && animatedDisplayScore !== null
+              {(enableSegmentedScoreAnimation && isReveal && animatedDisplayScore !== null
                 ? animatedDisplayScore
                 : player.score
               ).toLocaleString()}
@@ -775,34 +843,59 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     [],
   );
 
+  // DOM 元素池：每個 burst 的 <span> mount 時註冊，unmount 時清除。
+  // rAF loop 靠這個 Map 直寫 style.top/left，避開 React state update。
+  const burstElementByIdRef = React.useRef(new Map<string, HTMLSpanElement>());
+
+  // 讀一次 me 的 row 矩形，直接寫進所有 burst 元素的 style。
+  // 帶 early-exit：位置沒變就完全不寫（避免無謂的 style recalc）。
+  const lastBurstTopRef = React.useRef<number>(Number.NaN);
+  const lastBurstLeftRef = React.useRef<number>(Number.NaN);
+  const writeBurstPositions = React.useCallback(() => {
+    if (!meClientId) return;
+    const rowShell = rowShellByClientIdRef.current.get(meClientId);
+    if (!rowShell) return;
+    const rect = rowShell.getBoundingClientRect();
+    const top = rect.top + rect.height / 2;
+    const left = rect.right + 10;
+    if (top === lastBurstTopRef.current && left === lastBurstLeftRef.current) {
+      return;
+    }
+    lastBurstTopRef.current = top;
+    lastBurstLeftRef.current = left;
+    const topPx = `${top}px`;
+    const leftPx = `${left}px`;
+    burstElementByIdRef.current.forEach((el) => {
+      el.style.top = topPx;
+      el.style.left = leftPx;
+    });
+  }, [meClientId]);
+
   const recomputeSidebarOverlayBursts = React.useCallback(() => {
     const sidebar = sidebarRef.current;
     if (!sidebar) {
-      setSidebarOverlayBursts([]);
+      setSidebarOverlayBursts((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
     const nextOverlayBursts: SidebarOverlayBurst[] = [];
-
     Object.entries(floatingBurstsByClientId).forEach(([clientId, bursts]) => {
       if (bursts.length === 0 || clientId !== meClientId) return;
-      const rowShell = rowShellByClientIdRef.current.get(clientId);
-      if (!rowShell) return;
-      const rowRect = rowShell.getBoundingClientRect();
-      const fixedTop = rowRect.top + rowRect.height / 2;
-      const fixedLeft = rowRect.right + 10;
-
       bursts.forEach((burst) => {
-        nextOverlayBursts.push({
-          ...burst,
-          clientId,
-          fixedTop,
-          fixedLeft,
-        });
+        nextOverlayBursts.push({ ...burst, clientId });
       });
     });
 
-    setSidebarOverlayBursts(nextOverlayBursts);
+    // Bail-out：id 集合一樣就不 setState（避免 re-render cascade）。
+    setSidebarOverlayBursts((prev) => {
+      if (
+        prev.length === nextOverlayBursts.length &&
+        prev.every((p, i) => p.id === nextOverlayBursts[i]?.id)
+      ) {
+        return prev;
+      }
+      return nextOverlayBursts;
+    });
   }, [floatingBurstsByClientId, meClientId]);
 
   React.useLayoutEffect(() => {
@@ -1071,27 +1164,37 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     recomputeSidebarOverlayBursts();
   }, [recomputeSidebarOverlayBursts, scoreboardRows]);
 
+  // Burst 新增/移除後立刻寫入一次 position（避免首幀位置為 0,0 閃爍）。
+  // 也讓 sidebarOverlayBursts 相同時保持 ref 不動，不會重複 work。
+  React.useLayoutEffect(() => {
+    if (sidebarOverlayBursts.length === 0) {
+      lastBurstTopRef.current = Number.NaN;
+      lastBurstLeftRef.current = Number.NaN;
+      return;
+    }
+    // 重置對比基準，強制這次寫入（新元素 ref 剛綁上）
+    lastBurstTopRef.current = Number.NaN;
+    lastBurstLeftRef.current = Number.NaN;
+    writeBurstPositions();
+  }, [sidebarOverlayBursts, writeBurstPositions]);
+
+  // rAF loop：在 bursts 生命週期內每 frame 寫 DOM style（ref 直寫，不走 setState）。
+  // writeBurstPositions 內建 early-exit，row 不動時等於 noop。
+  // 壽命由 burst 集合控制：sidebarOverlayBursts 空陣列時停，否則每 frame 跑。
   React.useEffect(() => {
-    if (mobileOverlayMode || Object.keys(floatingBurstsByClientId).length === 0) {
-      setSidebarOverlayBursts([]);
+    if (mobileOverlayMode || sidebarOverlayBursts.length === 0) {
       return undefined;
     }
-
-    let frameId = 0;
-    const syncOverlay = () => {
-      recomputeSidebarOverlayBursts();
-      if (Object.keys(floatingBurstsByClientId).length > 0) {
-        frameId = window.requestAnimationFrame(syncOverlay);
-      }
-    };
-
-    syncOverlay();
+    let frameId = window.requestAnimationFrame(function sync() {
+      writeBurstPositions();
+      frameId = window.requestAnimationFrame(sync);
+    });
     return () => {
       if (frameId !== 0) {
         window.cancelAnimationFrame(frameId);
       }
     };
-  }, [floatingBurstsByClientId, mobileOverlayMode, recomputeSidebarOverlayBursts]);
+  }, [mobileOverlayMode, sidebarOverlayBursts, writeBurstPositions]);
 
   React.useEffect(
     () => () => {
@@ -1375,7 +1478,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   player={p}
                   isReveal={isReveal}
                   answerRank={answerRank}
-                  scoreParts={scoreParts}
                   scoreBreakdown={scoreBreakdown}
                   isMeRow={isMeRow}
                   answerDotClass={answerDotClass}
@@ -1437,10 +1539,19 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
             return (
               <span
                 key={burst.id}
+                ref={(node) => {
+                  const map = burstElementByIdRef.current;
+                  if (node) {
+                    map.set(burst.id, node);
+                  } else {
+                    map.delete(burst.id);
+                  }
+                }}
                 style={{
                   position: "fixed",
-                  top: `${burst.fixedTop}px`,
-                  left: `${burst.fixedLeft}px`,
+                  // top/left 由 writeBurstPositions() 透過 ref 直寫，
+                  // 不放 React state，避免每 frame re-render。
+                  // 初始寫入由 useLayoutEffect 負責，首幀不會停在原點。
                   "--gr-floating-score-x": "0px",
                   "--gr-fs-combo-ratio": Math.min(1, Math.max(0, burst.combo) / 10).toFixed(3),
                   animationDelay: `${burst.delayMs}ms`,

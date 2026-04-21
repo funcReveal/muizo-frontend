@@ -116,6 +116,10 @@ const GameRoomStartCountdownDisplay = React.memo(function GameRoomStartCountdown
     Math.max(1, Math.ceil(Math.max(0, startedAt - getLocalNowMs()) / 1000)),
   );
 
+  // ── 優化說明 ────────────────────────────────────────────────────────────────
+  // 舊版在最後 4.2 秒切成 125ms（每秒 8 次 wakeup），但 setCountdownSec 有
+  // bail-out，實際 re-render 仍只發生在秒數邊界。移除高頻段，改「秒邊界排程」：
+  // 下一次 tick 精準落在下個整秒切換點，每秒最多 1 次 wakeup。倒數為 0 時停。
   React.useEffect(() => {
     let timerId: number | null = null;
     const tick = () => {
@@ -124,7 +128,16 @@ const GameRoomStartCountdownDisplay = React.memo(function GameRoomStartCountdown
       setCountdownSec((current) =>
         current === nextCountdownSec ? current : nextCountdownSec,
       );
-      timerId = window.setTimeout(tick, remainingMs <= 4200 ? 125 : 1000);
+      if (remainingMs <= 0) {
+        timerId = null;
+        return;
+      }
+      // 落到下一個整秒邊界（最後 1 秒內保持 250ms 響應）
+      const nextDelay =
+        remainingMs > 1000
+          ? (remainingMs % 1000) || 1000
+          : Math.min(250, remainingMs);
+      timerId = window.setTimeout(tick, nextDelay);
     };
     tick();
     return () => {
@@ -188,7 +201,10 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
 
   // ── 優化說明 ────────────────────────────────────────────────────────────────
   // 倒數歸零後停止 timer（phase 結束後伺服器會推送新狀態，不需繼續輪詢）。
-  // 最後 4.5 秒的 125ms 高頻更新保留，供視覺 urgency 效果使用。
+  // 舊版最後 4.5 秒用 125ms（每秒 8 次 wakeup）但 setLabel 有 string bail-out，
+  // 真正 re-render 只在秒數邊界發生。改「秒邊界排程」，每秒最多 1 次 wakeup。
+  // Urgency 視覺效果由父層 isGuessUrgency / urgentChipPingActive 另外控制，
+  // 跟此 tick 頻率無關。
   React.useEffect(() => {
     if (allAnsweredReadyForReveal) {
       setLabel("READY");
@@ -210,12 +226,11 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
         timerId = null;
         return;
       }
+      // 落到下一個整秒邊界（最後 1 秒內保持 250ms 響應）
       const nextDelay =
-        !isInterTrackWait &&
-        gamePhase === "guess" &&
-        remainingMs <= 4500
-          ? 125
-          : 1000;
+        remainingMs > 1000
+          ? (remainingMs % 1000) || 1000
+          : Math.min(250, remainingMs);
       timerId = window.setTimeout(tick, nextDelay);
     };
     tick();
@@ -224,7 +239,6 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
     };
   }, [
     allAnsweredReadyForReveal,
-    gamePhase,
     getLocalNowMs,
     isInterTrackWait,
     phaseEndsAt,
