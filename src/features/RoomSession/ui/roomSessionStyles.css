@@ -12002,13 +12002,12 @@
   .game-settlement-mobile-shell {
     padding-inline: 0.5rem;
     padding-bottom: calc(env(safe-area-inset-bottom) + 4.9rem);
-    /* Fill the visual viewport on mobile. Without this the shell is only
-       as tall as its content, and when mobile browser chrome (top URL bar,
-       bottom tab bar) collapses during scroll, the layout doesn't grow —
-       leaving dead black space under the fixed footer. `100dvh` follows
-       the dynamic viewport and `overscroll-behavior-y: contain` blocks
-       the rubber-band scroll that also exposes blank area. */
-    min-height: 100dvh;
+    /* Fill the *actual* visible area. `--settlement-vvh` is set from JS
+       via window.visualViewport so the shell tracks toolbar show/hide
+       in real time; `100dvh` is a safe fallback for browsers that don't
+       support the API (or the first paint before JS runs).
+       `overscroll-behavior-y: contain` still blocks rubber-band. */
+    min-height: var(--settlement-vvh, 100dvh);
     overscroll-behavior-y: contain;
   }
 
@@ -12019,7 +12018,7 @@
     padding-inline: 0;
     padding-bottom: calc(env(safe-area-inset-bottom) + 4.4rem);
     overflow-x: clip;
-    min-height: 100dvh;
+    min-height: var(--settlement-vvh, 100dvh);
     overscroll-behavior-y: contain;
   }
 

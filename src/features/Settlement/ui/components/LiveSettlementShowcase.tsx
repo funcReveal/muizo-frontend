@@ -1184,6 +1184,52 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     };
   }, []);
 
+  // Track the mobile browser's visual viewport height and expose it as a
+  // CSS variable (`--settlement-vvh`). The settlement shell uses this as
+  // its `min-height`, so the fixed footer always sits flush against the
+  // *actual* visible bottom — no blank gap when Safari/Chrome hides its
+  // bottom toolbar.
+  //
+  // Perf notes:
+  //  • visualViewport events only fire when the viewport truly changes
+  //    (toolbar show/hide, keyboard, rotate) — not on ordinary scroll.
+  //  • Listeners are passive and coalesced via rAF: at most one write per
+  //    frame during the ~200ms toolbar animation.
+  //  • We mutate a CSS variable on <html>, so zero React re-renders;
+  //    only elements consuming the var re-layout.
+  useEffect(() => {
+    if (!isMobileSettlementViewport) return;
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const root = document.documentElement;
+    let rafId = 0;
+
+    const apply = () => {
+      rafId = 0;
+      // Round to avoid sub-pixel churn from iOS toolbar micro-adjustments.
+      const h = Math.round(vv.height);
+      root.style.setProperty("--settlement-vvh", `${h}px`);
+    };
+
+    const schedule = () => {
+      if (rafId !== 0) return;
+      rafId = window.requestAnimationFrame(apply);
+    };
+
+    apply();
+    vv.addEventListener("resize", schedule, { passive: true });
+    vv.addEventListener("scroll", schedule, { passive: true });
+
+    return () => {
+      vv.removeEventListener("resize", schedule);
+      vv.removeEventListener("scroll", schedule);
+      if (rafId !== 0) window.cancelAnimationFrame(rafId);
+      root.style.removeProperty("--settlement-vvh");
+    };
+  }, [isMobileSettlementViewport]);
+
   return (
     <div
       className={`game-settlement-mobile-shell mx-auto w-full max-w-[1456px] min-w-0 px-0 pb-12 lg:pb-4 ${
