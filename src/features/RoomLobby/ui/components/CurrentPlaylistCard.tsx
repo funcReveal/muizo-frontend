@@ -8,6 +8,7 @@ import YouTubeIcon from "@mui/icons-material/YouTube";
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
 import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
 import type { PlaylistSourceType, RoomState } from "@features/RoomSession";
 import { normalizeDisplayText } from "./roomLobbyDisplayUtils";
@@ -20,6 +21,8 @@ type CurrentPlaylistCardProps = {
   onChange: (initialTab?: "suggestions" | "public") => void;
   changeDisabled?: boolean;
   actionLabel?: string;
+  collectionOnlyMode?: boolean;
+  collectionOnlyReason?: string;
 };
 
 const sourceTypeConfig: Record<
@@ -73,6 +76,8 @@ const CurrentPlaylistCard = ({
   onChange,
   changeDisabled = false,
   actionLabel,
+  collectionOnlyMode = false,
+  collectionOnlyReason = "排行挑戰僅支援收藏庫",
 }: CurrentPlaylistCardProps) => {
   const isMobileCard = useMediaQuery("(max-width:640px)");
   const thumbnailUrl = room?.playlistCoverThumbnailUrl ?? null;
@@ -188,6 +193,24 @@ const CurrentPlaylistCard = ({
                           backgroundColor: "rgba(56,189,248,0.18)",
                           borderColor: "rgba(103,232,249,0.32)",
                         },
+                  }}
+                />
+              ) : null}
+              {collectionOnlyMode ? (
+                <Chip
+                  size="small"
+                  icon={<LockOutlinedIcon sx={{ fontSize: 15 }} />}
+                  label={collectionOnlyReason}
+                  sx={{
+                    ...playlistChipSx,
+                    backgroundColor: "rgba(250,204,21,0.12)",
+                    color: "#fde68a",
+                    border: "1px solid rgba(250,204,21,0.16)",
+                    "& .MuiChip-icon": {
+                      ...playlistChipIconSx,
+                      color: "#fde68a",
+                    },
+                    "& .MuiChip-label": playlistChipLabelSx,
                   }}
                 />
               ) : null}

@@ -560,6 +560,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     currentRoom?.gameSettings?.leaderboardVariantKey,
   ]);
   const currentRoomPlayMode = currentRoomLeaderboardVariant ? "leaderboard" : "casual";
+  const isLeaderboardRoom = Boolean(
+    currentRoom?.gameSettings?.leaderboardProfileKey,
+  );
+  const leaderboardCollectionOnlyReason = "排行挑戰僅支援收藏庫";
   const canUseLeaderboard30 = questionMaxLimit >= 30;
   const canUseLeaderboard50 = questionMaxLimit >= 50;
   const leaderboardQuestionHelpText =
@@ -1433,6 +1437,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         playlistCount={playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
         isHost={isHost}
         pendingSuggestionCount={newSuggestionCount}
+        collectionOnlyMode={isLeaderboardRoom}
+        collectionOnlyReason={leaderboardCollectionOnlyReason}
         onChange={(initialTab = "public") => {
           // Only mark suggestions seen when the host explicitly opens the
           // "推薦" tab via the suggestion chip — not on every modal open.
@@ -1452,6 +1458,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         playlistCount={playlistProgress.total > 0 ? playlistProgress.total : playlistItems.length}
         isHost={false}
         pendingSuggestionCount={0}
+        collectionOnlyMode={isLeaderboardRoom}
+        collectionOnlyReason={leaderboardCollectionOnlyReason}
         onChange={(initialTab = "public") => {
           setSelectorInitialTab(initialTab);
           setSelectorModalOpen(true);
@@ -1503,6 +1511,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         openConfirmModal={openConfirmModal}
         onMarkSuggestionsSeen={markSuggestionsSeen}
         initialTab={selectorInitialTab}
+        leaderboardCollectionOnlyMode={isLeaderboardRoom}
+        leaderboardCollectionOnlyReason={leaderboardCollectionOnlyReason}
         onRecordSourceApplied={handleRecordSourceApplied}
         currentSourceType={
           currentRoom?.playlistSourceType ?? currentRoom?.playlist?.sourceType ?? null

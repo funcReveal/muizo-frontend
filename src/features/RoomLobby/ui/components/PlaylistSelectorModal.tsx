@@ -18,6 +18,7 @@ import {
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
@@ -143,6 +144,8 @@ type Props = {
   }) => void;
   currentSourceType?: PlaylistSourceType | null;
   currentSourceIds?: string[];
+  leaderboardCollectionOnlyMode?: boolean;
+  leaderboardCollectionOnlyReason?: string;
 };
 
 const MODAL_W = 1180;
@@ -321,6 +324,24 @@ const EmptyState = ({
   </div>
 );
 
+const LockedSourceState = ({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) => (
+  <div className="flex h-full min-h-[320px] w-full flex-1 flex-col items-center justify-center rounded-[24px] border border-amber-200/18 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] px-6 text-center">
+    <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200/18 bg-amber-300/12 text-amber-50">
+      <LockOutlinedIcon sx={{ fontSize: 24 }} />
+    </div>
+    <div className="text-base font-semibold text-amber-50">{title}</div>
+    <div className="mt-2 max-w-[520px] text-sm leading-6 text-amber-50/82">
+      {description}
+    </div>
+  </div>
+);
+
 const Metrics = ({
   itemCount,
   useCount,
@@ -364,6 +385,7 @@ const SourceCard = ({
   onClick,
   disabled = false,
   actionText,
+  lockReason,
 }: {
   title: string;
   subtitle?: string | null;
@@ -374,6 +396,7 @@ const SourceCard = ({
   onClick: () => void;
   disabled?: boolean;
   actionText?: string | null;
+  lockReason?: string | null;
 }) => {
   const list = mode === "list";
   return (
@@ -430,6 +453,11 @@ const SourceCard = ({
             }`}
           >
             {actionText}
+          </span>
+        ) : null}
+        {disabled && lockReason ? (
+          <span className="absolute inset-x-3 bottom-3 z-[2] rounded-2xl border border-amber-200/18 bg-slate-950/76 px-3 py-2 text-[11px] leading-4 text-amber-100">
+            {lockReason}
           </span>
         ) : null}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#060b16]/92 via-[#060b16]/46 to-transparent" />
@@ -504,6 +532,8 @@ const PlaylistSelectorModal = ({
   onRecordSourceApplied,
   currentSourceType,
   currentSourceIds = [],
+  leaderboardCollectionOnlyMode = false,
+  leaderboardCollectionOnlyReason = "排行挑戰僅支援收藏庫",
 }: Props) => {
   const isSuggestionMode = !isHost;
   const [activeTab, setActiveTab] = useState<SelectorTab>("suggestions");
@@ -549,6 +579,11 @@ const PlaylistSelectorModal = ({
         .filter(Boolean),
     [currentSourceIds],
   );
+  const leaderboardLockedDetail =
+    "此模式不可使用 YouTube 或連結題庫。若要套用這份題庫，請先建立為收藏庫。";
+  const isLeaderboardRestrictedTab =
+    leaderboardCollectionOnlyMode &&
+    (activeTab === "youtube" || activeTab === "link");
 
   const isCooldownActive =
     typeof cooldownUntil === "number" && cooldownUntil > Date.now();
@@ -618,7 +653,13 @@ const PlaylistSelectorModal = ({
   }, [actionNotice]);
 
   useEffect(() => {
-    if (!open || activeTab !== "link") return;
+    if (
+      !open ||
+      activeTab !== "link" ||
+      leaderboardCollectionOnlyMode
+    ) {
+      return;
+    }
     const trimmed = playlistUrl.trim();
     if (
       !canPreviewPlaylistUrl(trimmed) ||
@@ -631,17 +672,30 @@ const PlaylistSelectorModal = ({
       onPreviewPlaylistUrl(trimmed);
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [activeTab, onPreviewPlaylistUrl, open, playlistUrl]);
+  }, [
+    activeTab,
+    leaderboardCollectionOnlyMode,
+    onPreviewPlaylistUrl,
+    open,
+    playlistUrl,
+  ]);
 
   useEffect(() => {
     if (!open) return;
     if (activeTab === "public") onFetchCollections("public", { query: debouncedSearch });
     if (activeTab === "mine" && isGoogleAuthed) onFetchCollections("owner");
-    if (activeTab === "youtube" && isGoogleAuthed) onFetchYoutubePlaylists();
+    if (
+      activeTab === "youtube" &&
+      isGoogleAuthed &&
+      !leaderboardCollectionOnlyMode
+    ) {
+      onFetchYoutubePlaylists();
+    }
   }, [
     activeTab,
     debouncedSearch,
     isGoogleAuthed,
+    leaderboardCollectionOnlyMode,
     onFetchCollections,
     onFetchYoutubePlaylists,
     open,
@@ -879,6 +933,10 @@ const PlaylistSelectorModal = ({
       },
     ) => {
       if (!onSuggestPlaylist) return;
+      if (leaderboardCollectionOnlyMode && type !== "collection") {
+        setActionError(leaderboardCollectionOnlyReason);
+        return;
+      }
       if (actionRunning) return;
       if (hasSuggestedSource(type, value, options?.sourceId)) {
         setActionError(null);
@@ -926,6 +984,8 @@ const PlaylistSelectorModal = ({
       cooldownSeconds,
       hasSuggestedSource,
       isCooldownActive,
+      leaderboardCollectionOnlyMode,
+      leaderboardCollectionOnlyReason,
       onSuggestPlaylist,
     ],
   );
@@ -1024,8 +1084,11 @@ const PlaylistSelectorModal = ({
       const isCurrent = matchesCurrentSource("youtube_google_import", item.id);
       const alreadySuggested =
         isSuggestionMode && hasSuggestedSource("playlist", item.id, item.id);
+      const isLeaderboardLocked = leaderboardCollectionOnlyMode;
       const isTooSmall = item.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT;
-      const disabledReason = isTooSmall
+      const disabledReason = isLeaderboardLocked
+        ? leaderboardCollectionOnlyReason
+        : isTooSmall
         ? `低於 ${YOUTUBE_PLAYLIST_MIN_ITEM_COUNT} 題，不能用於題庫`
         : null;
       return (
@@ -1036,7 +1099,7 @@ const PlaylistSelectorModal = ({
         thumbnailUrl={item.thumbnail ?? null}
         badge="YouTube"
         mode={mode}
-        disabled={isCurrent || alreadySuggested || isTooSmall}
+        disabled={isCurrent || alreadySuggested || isTooSmall || isLeaderboardLocked}
         actionText={
           isCurrent
             ? "已套用"
@@ -1044,9 +1107,14 @@ const PlaylistSelectorModal = ({
               ? "已推薦"
               : disabledReason
         }
+        lockReason={isLeaderboardLocked ? leaderboardLockedDetail : disabledReason}
         metrics={<Metrics itemCount={item.itemCount} />}
         onClick={() => {
           void (async () => {
+            if (isLeaderboardLocked) {
+              setActionError(leaderboardCollectionOnlyReason);
+              return;
+            }
             if (isTooSmall) return;
             if (isCurrent) return;
             if (actionRunning) return;
@@ -1095,6 +1163,9 @@ const PlaylistSelectorModal = ({
       actionRunning,
       hasSuggestedSource,
       isSuggestionMode,
+      leaderboardCollectionOnlyMode,
+      leaderboardCollectionOnlyReason,
+      leaderboardLockedDetail,
       matchesCurrentSource,
       onApplyYoutubePlaylistDirect,
       onClose,
@@ -1121,6 +1192,8 @@ const PlaylistSelectorModal = ({
         item.type === "collection"
           ? sourceType(matchedCollection?.visibility)
           : currentSourceType ?? "youtube_pasted_link";
+      const isLeaderboardLockedSuggestion =
+        leaderboardCollectionOnlyMode && item.type !== "collection";
       const isCurrent = matchesCurrentSource(
         suggestionSourceType,
         item.sourceId ?? item.value,
@@ -1129,9 +1202,13 @@ const PlaylistSelectorModal = ({
         <button
         key={group.key}
         type="button"
-        disabled={isCurrent}
+        disabled={isCurrent || isLeaderboardLockedSuggestion}
         onClick={() => {
           void (async () => {
+            if (isLeaderboardLockedSuggestion) {
+              setActionError(leaderboardCollectionOnlyReason);
+              return;
+            }
             if (isCurrent) return;
             if (actionRunning) return;
             if (item.items?.length) {
@@ -1189,12 +1266,12 @@ const PlaylistSelectorModal = ({
           })();
         }}
         className={`relative flex h-[108px] w-full items-center gap-4 rounded-[24px] border px-4 text-left transition duration-200 ${
-          isCurrent
+          isCurrent || isLeaderboardLockedSuggestion
             ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
             : "border-white/8 bg-[#060b16] hover:border-cyan-300/34 hover:bg-[#08101e]"
         }`}
       >
-        {isCurrent ? (
+        {isCurrent || isLeaderboardLockedSuggestion ? (
           <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
         ) : null}
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-cyan-400/8 text-cyan-100">
@@ -1214,7 +1291,9 @@ const PlaylistSelectorModal = ({
         <div className="min-w-0 flex-1">
           <div
             className={`line-clamp-1 text-[15px] font-semibold ${
-              isCurrent ? "text-slate-300/80" : "text-slate-50"
+              isCurrent || isLeaderboardLockedSuggestion
+                ? "text-slate-300/80"
+                : "text-slate-50"
             }`}
           >
             {normalizeDisplayText(
@@ -1224,7 +1303,9 @@ const PlaylistSelectorModal = ({
           </div>
           <div
             className={`mt-1 line-clamp-2 text-[13px] leading-5 ${
-              isCurrent ? "text-slate-400/70" : "text-slate-300/78"
+              isCurrent || isLeaderboardLockedSuggestion
+                ? "text-slate-400/70"
+                : "text-slate-300/78"
             }`}
           >
             {[
@@ -1261,6 +1342,8 @@ const PlaylistSelectorModal = ({
     [
       actionRunning,
       currentSourceType,
+      leaderboardCollectionOnlyMode,
+      leaderboardCollectionOnlyReason,
       matchesCurrentSource,
       collections,
       onApplyCollectionDirect,
@@ -1550,7 +1633,12 @@ const PlaylistSelectorModal = ({
         </div>
       )
     ) : activeTab === "youtube" ? (
-      !isGoogleAuthed ? (
+      leaderboardCollectionOnlyMode ? (
+        <LockedSourceState
+          title={leaderboardCollectionOnlyReason}
+          description={leaderboardLockedDetail}
+        />
+      ) : !isGoogleAuthed ? (
         <EmptyState
           title="連線 Google 以查看 YouTube 清單"
           description="完成 Google 連線後，就能瀏覽自己的 YouTube 播放清單。"
@@ -1579,9 +1667,13 @@ const PlaylistSelectorModal = ({
       ) : (
         renderYoutubeViewport(youtubeItems)
       )
+    ) : leaderboardCollectionOnlyMode ? (
+      <LockedSourceState
+        title={leaderboardCollectionOnlyReason}
+        description={leaderboardLockedDetail}
+      />
     ) : (
       <div className="flex min-h-0 flex-1 flex-col gap-4">
-        {statusBanner}
         <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
           <div className="text-sm font-semibold text-slate-100">
             貼上 YouTube 播放清單連結
@@ -1777,6 +1869,7 @@ const PlaylistSelectorModal = ({
       key: "youtube" as const,
       label: "YouTube",
       icon: <YouTubeIcon fontSize="small" />,
+      locked: leaderboardCollectionOnlyMode,
     },
     {
       key: "link" as const,
@@ -1836,7 +1929,7 @@ const PlaylistSelectorModal = ({
               placeholder={
                 activeTab === "link" ? "貼上 YouTube 播放清單連結" : "搜尋題庫"
               }
-              disabled={activeTab === "link"}
+              disabled={activeTab === "link" || isLeaderboardRestrictedTab}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -1877,9 +1970,10 @@ const PlaylistSelectorModal = ({
               }}
               className="min-w-[240px] flex-1 max-sm:!min-w-0"
             />
-            {activeTab === "public" ||
-            activeTab === "mine" ||
-            activeTab === "youtube" ? (
+            {(activeTab === "public" ||
+              activeTab === "mine" ||
+              activeTab === "youtube") &&
+            !isLeaderboardRestrictedTab ? (
               <div className="inline-flex min-h-[44px] shrink-0 items-stretch gap-2 self-stretch max-sm:min-h-0">
                 <div className="inline-flex h-full items-stretch gap-1 rounded-[14px] border border-white/10 bg-white/[0.03] p-1">
                   <button
@@ -2036,18 +2130,28 @@ const PlaylistSelectorModal = ({
                 },
               }}
             >
-              {selectorTabs.map((tab) => (
+              {selectorTabs.map((tab) => {
+                const tabLocked =
+                  leaderboardCollectionOnlyMode &&
+                  (tab.key === "youtube" || tab.key === "link");
+                return (
                 <MenuItem key={tab.key} value={tab.key}>
                   <span className="inline-flex items-center gap-2">
                     {tab.icon}
                     <span>{tab.label}</span>
+                    {tabLocked ? <LockOutlinedIcon sx={{ fontSize: 14 }} /> : null}
                   </span>
                 </MenuItem>
-              ))}
+                );
+              })}
             </TextField>
           ) : (
             <div className="mt-4 flex flex-wrap gap-2">
-              {selectorTabs.map((tab) => (
+              {selectorTabs.map((tab) => {
+                const tabLocked =
+                  leaderboardCollectionOnlyMode &&
+                  (tab.key === "youtube" || tab.key === "link");
+                return (
                 <button
                   key={tab.key}
                   type="button"
@@ -2060,8 +2164,10 @@ const PlaylistSelectorModal = ({
                 >
                   {tab.icon}
                   <span>{tab.label}</span>
+                  {tabLocked ? <LockOutlinedIcon sx={{ fontSize: 14 }} /> : null}
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
           {chips.length > 0 ? (
@@ -2084,6 +2190,7 @@ const PlaylistSelectorModal = ({
         </div>
       </DialogTitle>
       <DialogContent className="!flex !min-h-0 !flex-1 !flex-col !overflow-hidden !p-5 max-sm:!p-4 sm:!p-6">
+        {activeTab !== "link" && statusBanner}
         <div
           className={`flex min-h-0 flex-1 flex-col ${
             showEmptyFrame
