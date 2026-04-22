@@ -353,7 +353,7 @@ const RoomSetupPanel = ({
                 : "border-white/8 bg-white/5 text-[var(--mc-text-muted)] hover:border-amber-300/28 hover:bg-white/[0.07]"
             }`}
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setRoomPlayMode("leaderboard")}
@@ -398,13 +398,13 @@ const RoomSetupPanel = ({
                     onClick={() =>
                       setIsLeaderboardSpecMenuOpen((current) => !current)
                     }
-                    className="inline-flex h-8 w-[104px] items-center justify-between gap-2 rounded-xl border border-amber-100/22 bg-[linear-gradient(180deg,rgba(15,23,42,0.62),rgba(2,6,23,0.44))] px-2.5 text-left text-xs font-semibold text-amber-50 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-amber-100/36 hover:bg-slate-950/44 focus:border-amber-100/50 focus:ring-2 focus:ring-amber-200/10"
+                    className="inline-flex h-10 w-[124px] items-center justify-between gap-2.5 rounded-xl border border-amber-100/22 bg-[linear-gradient(180deg,rgba(15,23,42,0.62),rgba(2,6,23,0.44))] px-3 text-left text-sm font-semibold text-amber-50 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-amber-100/36 hover:bg-slate-950/44 focus:border-amber-100/50 focus:ring-2 focus:ring-amber-200/10"
                   >
                     <span className="min-w-0 truncate">
                       {activeLeaderboardOption.label}
                     </span>
                     <KeyboardArrowDownRounded
-                      sx={{ fontSize: 17 }}
+                      sx={{ fontSize: 19 }}
                       className={`shrink-0 text-amber-100/72 transition ${
                         isLeaderboardSpecMenuOpen ? "rotate-180" : ""
                       }`}
@@ -412,7 +412,7 @@ const RoomSetupPanel = ({
                   </button>
 
                   {isLeaderboardSpecMenuOpen ? (
-                    <div className="absolute right-0 top-[calc(100%+0.35rem)] z-30 w-[188px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-1.5 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl">
+                    <div className="absolute right-0 top-[calc(100%+0.45rem)] z-30 w-[216px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl">
                       <div
                         role="listbox"
                         aria-label="挑戰規格"
@@ -444,14 +444,14 @@ const RoomSetupPanel = ({
                                       );
                                       setIsLeaderboardSpecMenuOpen(false);
                                     }}
-                                    className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition ${
+                                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
                                       selected
                                         ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
                                         : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
                                     }`}
                                   >
                                     <span className="min-w-0">
-                                      <span className="block truncate text-xs font-semibold">
+                                      <span className="block truncate text-sm font-semibold">
                                         {option.label}
                                       </span>
                                     </span>
