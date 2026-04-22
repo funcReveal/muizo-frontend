@@ -26,7 +26,11 @@ const MobileDrawerEdgeControls: React.FC<MobileDrawerEdgeControlsProps> = ({
   onClose,
   openIcon,
   drawerWidthCss,
-  closedTopClassName = "top-[85dvh]",
+  // Anchor to the bottom of the screen, flush against the top of the fixed
+  // settlement footer (`上一步 / 下一步`). The footer's safe-area padding is
+  // `env(safe-area-inset-bottom) + 0.42rem` plus the button row (~2.6rem), so
+  // the trigger sits right above it.
+  closedTopClassName = "bottom-[calc(env(safe-area-inset-bottom)+4rem)]",
 }) => {
   const swipeStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const swipeDeltaRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -66,19 +70,20 @@ const MobileDrawerEdgeControls: React.FC<MobileDrawerEdgeControlsProps> = ({
   if (typeof document === "undefined") return null;
 
   const openTrigger = (
-    <div className={`fixed right-2 z-[1750] -translate-y-1/2 ${closedTopClassName}`}>
+    // Icon-only trigger parked directly above the fixed bottom toolbar
+    // (上一步 / 下一步). No pulse, no glow — just a small cyan tab that's
+    // easy to notice because it sits in the natural thumb zone next to the
+    // action buttons.
+    <div className={`fixed right-[5px] z-[1750] ${closedTopClassName}`}>
       <button
         type="button"
-        aria-label={openAriaLabel}
+        aria-label={
+          progressLabel ? `${openAriaLabel}（${progressLabel}）` : openAriaLabel
+        }
         onClick={onOpen}
-        className="inline-flex h-10 w-[7rem] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/36 bg-[linear-gradient(180deg,rgba(8,20,34,0.9),rgba(4,10,22,0.96))] px-2.5 text-sm font-semibold text-cyan-50 shadow-[0_10px_28px_-18px_rgba(34,211,238,0.72)] backdrop-blur-md transition hover:border-cyan-200/58"
+        className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-[14px] border border-cyan-300/35 bg-[linear-gradient(180deg,rgba(8,20,34,0.88),rgba(4,10,22,0.94))] text-cyan-100 shadow-[0_8px_20px_-14px_rgba(34,211,238,0.6)] backdrop-blur-[3px] transition hover:border-cyan-200/70 hover:text-cyan-50 active:scale-95"
       >
         {openIcon}
-        {progressLabel ? (
-          <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center px-1 text-[10px] font-black leading-none tabular-nums text-cyan-100">
-            {progressLabel}
-          </span>
-        ) : null}
       </button>
     </div>
   );

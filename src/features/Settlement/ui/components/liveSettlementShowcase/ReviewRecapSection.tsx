@@ -345,17 +345,26 @@ const MobileReviewOverlayToggle: React.FC<{
   onClick: () => void;
   label: string;
 }> = ({ direction, onClick, label }) => (
+  // A half-pill "edge tab" that sits flush to the container edge — only the
+  // inner half is visible, which keeps it obviously tappable without ever
+  // extending back over the content area. The hit-target is 40×56 (comfortable
+  // for thumbs) but the visible part is a rounded half-pill with a subtle
+  // translucent fill.
   <button
     type="button"
     aria-label={label}
     onClick={onClick}
-    className={`absolute top-1/2 z-20 flex h-14 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/14 bg-white/[0.08] text-[0.92rem] font-black tracking-[-0.16em] text-white/70 shadow-[0_8px_22px_-16px_rgba(255,255,255,0.55)] backdrop-blur-sm transition active:scale-[0.97] ${
+    className={`absolute top-1/2 z-20 flex h-14 w-10 -translate-y-1/2 items-center justify-center border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.55),rgba(2,6,23,0.72))] text-white/60 shadow-[0_6px_18px_-12px_rgba(0,0,0,0.6)] backdrop-blur-[3px] transition hover:border-cyan-300/30 hover:text-cyan-100 active:scale-[0.96] ${
       direction === "left"
-        ? "left-0 -translate-x-1/3 pl-1"
-        : "right-0 translate-x-1/3 pr-1"
+        ? "left-0 -translate-x-1/2 justify-end pr-1 rounded-r-[18px]"
+        : "right-0 translate-x-1/2 justify-start pl-1 rounded-l-[18px]"
     }`}
   >
-    <span aria-hidden="true">{direction === "left" ? "<<" : ">>"}</span>
+    {direction === "left" ? (
+      <ChevronLeftRoundedIcon className="text-[1.2rem]" />
+    ) : (
+      <ChevronRightRoundedIcon className="text-[1.2rem]" />
+    )}
   </button>
 );
 
@@ -1225,10 +1234,12 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
             <div className="flex h-full flex-col overflow-hidden">
               {/* drawer header */}
               <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
-                <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
-                  題目清單
+                <span className="inline-flex min-w-0 items-baseline gap-3 font-semibold">
+                  <span className="text-sm text-white">題目清單</span>
                   {filteredRecaps.length > 0 && (
-                    <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-black leading-none tabular-nums text-slate-300">
+                    // Frameless cyan count — larger than the white label so it
+                    // reads as the primary number at a glance.
+                    <span className="whitespace-nowrap text-[0.95rem] font-black tabular-nums text-cyan-200">
                       {mobileRecapProgressLabel}
                     </span>
                   )}
@@ -1313,11 +1324,15 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
                     </div>
                   </div>
 
-                  {/* [mobile] two-view panel — pager embedded at bottom of each view */}
-                  <div className="relative">
+                  {/* [mobile] two-view panel — pager embedded at bottom of each view.
+                      `min-h-[22rem]` keeps both views the same overall height
+                      so the 上一題 / 下一題 row below doesn't jump vertically
+                      when the user toggles between 4-options and detailed-
+                      stats views. */}
+                  <div className="relative min-h-[24rem]">
                     {/* view A: 4 choices, compact cards, pager at bottom */}
                     {mobileReviewDetailView === "choices" && (
-                      <div className="space-y-2.5 pr-2">
+                      <div className="space-y-2.5 px-1 min-h-[24rem]">
                         {selectedRecap.choices.map((choice) => {
                           const isCorrect = choice.index === selectedRecap.correctChoiceIndex;
                           const isMine = selectedRecapAnswer.choiceIndex === choice.index;
@@ -1424,36 +1439,40 @@ const ReviewRecapSection: React.FC<ReviewRecapSectionProps> = ({
 
                     {/* view B: detailed metrics, pager at bottom */}
                     {mobileReviewDetailView === "metrics" && (
-                      <div className="space-y-3 pl-2">
+                      <div className="flex flex-col gap-3 px-1 min-h-[24rem]">
+                        {/* Tiles use `rounded-[20px]` + larger padding to match
+                            the visual weight of the 4-choice cards in the
+                            alternate view, so switching between tabs doesn't
+                            shrink the panel. */}
                         <div className="grid grid-cols-2 gap-2.5">
-                          <div className="rounded-[14px] border border-white/6 bg-white/[0.03] px-3 py-2.5">
-                            <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.14em] text-slate-400"><EmojiEventsRoundedIcon className="text-[0.9rem] text-amber-200" />全場最快</div>
-                            <p className="mt-1.5 text-sm font-black text-white">{selectedRecapFastestCorrectMeta ? selectedRecapFastestCorrectMeta.username : "--"}</p>
-                            <p className="mt-0.5 text-xs text-slate-300">{selectedRecapFastestCorrectMeta ? formatMs(selectedRecapFastestCorrectMeta.answeredAtMs) : "--"}</p>
+                          <div className="rounded-[20px] border border-white/6 bg-white/[0.03] px-4 py-4">
+                            <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.14em] text-slate-400"><EmojiEventsRoundedIcon className="text-[0.95rem] text-amber-200" />全場最快</div>
+                            <p className="mt-2 text-[0.98rem] font-black leading-snug text-white">{selectedRecapFastestCorrectMeta ? selectedRecapFastestCorrectMeta.username : "--"}</p>
+                            <p className="mt-1 text-xs text-slate-300">{selectedRecapFastestCorrectMeta ? formatMs(selectedRecapFastestCorrectMeta.answeredAtMs) : "--"}</p>
                           </div>
-                          <div className="rounded-[14px] border border-white/6 bg-white/[0.03] px-3 py-2.5">
-                            <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.14em] text-slate-400"><TimerRoundedIcon className="text-[0.9rem] text-cyan-200" />中位作答</div>
-                            <p className="mt-1.5 text-sm font-black text-white">{typeof medianMs === "number" ? formatMs(medianMs) : "--"}</p>
+                          <div className="rounded-[20px] border border-white/6 bg-white/[0.03] px-4 py-4">
+                            <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.14em] text-slate-400"><TimerRoundedIcon className="text-[0.95rem] text-cyan-200" />中位作答</div>
+                            <p className="mt-2 text-[0.98rem] font-black leading-snug text-white">{typeof medianMs === "number" ? formatMs(medianMs) : "--"}</p>
                           </div>
-                          <div className="rounded-[14px] border border-white/6 bg-white/[0.03] px-3 py-2.5">
+                          <div className="rounded-[20px] border border-white/6 bg-white/[0.03] px-4 py-4">
                             <div className="text-[10px] tracking-[0.14em] text-slate-400">你的作答</div>
-                            <div className="mt-1.5 text-sm font-black text-white">{answeredAtMs !== null ? formatMs(answeredAtMs) : "--"}</div>
+                            <div className="mt-2 text-[0.98rem] font-black leading-snug text-white">{answeredAtMs !== null ? formatMs(answeredAtMs) : "--"}</div>
                           </div>
-                          <div className="rounded-[14px] border border-white/6 bg-white/[0.03] px-3 py-2.5">
+                          <div className="rounded-[20px] border border-white/6 bg-white/[0.03] px-4 py-4">
                             <div className="text-[10px] tracking-[0.14em] text-slate-400">比中位快慢</div>
-                            <div className={`mt-1.5 text-sm font-black ${speedDeltaMs === null ? "text-white" : speedDeltaMs >= 0 ? "text-emerald-100" : "text-rose-100"}`}>
+                            <div className={`mt-2 text-[0.98rem] font-black leading-snug ${speedDeltaMs === null ? "text-white" : speedDeltaMs >= 0 ? "text-emerald-100" : "text-rose-100"}`}>
                               {speedDeltaMs === null ? "--" : `${speedDeltaMs >= 0 ? "+" : "-"}${formatMs(Math.abs(speedDeltaMs))}`}
                             </div>
                           </div>
-                          <div className="col-span-2 rounded-[14px] border border-white/6 bg-white/[0.03] px-3 py-2.5">
+                          <div className="col-span-2 rounded-[20px] border border-white/6 bg-white/[0.03] px-4 py-4">
                             <div className="text-[10px] tracking-[0.14em] text-slate-400">贏過比例</div>
-                            <div className="mt-1.5 text-sm font-black text-white">{beatPercent > 0 ? `${beatPercent}%` : "--"}</div>
+                            <div className="mt-2 text-[0.98rem] font-black leading-snug text-white">{beatPercent > 0 ? `${beatPercent}%` : "--"}</div>
                           </div>
                         </div>
 
                         {/* result bar */}
-                        <div className="overflow-hidden rounded-[14px]">
-                          <div className="flex h-8 w-full overflow-hidden rounded-[14px]">
+                        <div className="overflow-hidden rounded-[20px]">
+                          <div className="flex h-9 w-full overflow-hidden rounded-[20px]">
                             {(selectedRecap.correctCount ?? 0) > 0 && (
                               <div className="flex items-center justify-center bg-[linear-gradient(90deg,rgba(16,185,129,0.95),rgba(45,212,191,0.95))] px-3 text-sm font-black text-emerald-50"
                                 style={{ width: `${globalResultTotal > 0 ? ((selectedRecap.correctCount ?? 0) / globalResultTotal) * 100 : 0}%` }}>

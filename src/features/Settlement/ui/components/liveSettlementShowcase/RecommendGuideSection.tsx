@@ -575,10 +575,12 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           >
             <div className="flex h-full flex-col overflow-hidden">
               <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
-                <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
-                  <QueueMusicRoundedIcon className="shrink-0 text-[1rem] text-cyan-200" />
-                  題目清單
-                  <span className="inline-flex min-w-[3.5rem] shrink-0 items-center justify-center whitespace-nowrap px-1 text-[10px] font-black leading-none tabular-nums text-slate-300">
+                <span className="inline-flex min-w-0 items-baseline gap-3 font-semibold">
+                  <span className="inline-flex items-center gap-2 text-sm text-white">
+                    <QueueMusicRoundedIcon className="shrink-0 text-[1rem] text-cyan-200" />
+                    題目清單
+                  </span>
+                  <span className="whitespace-nowrap text-[0.95rem] font-black tabular-nums text-cyan-200">
                     {mobileListProgressLabel}
                   </span>
                 </span>
@@ -1170,25 +1172,51 @@ const RecommendGuideSection: React.FC<RecommendGuideSectionProps> = ({
           >
             {isMobileView ? (
               <>
-                <div className="rounded-[24px] border border-white/8 bg-transparent px-4 py-2.5">
-                  <button
-                    type="button"
-                    onClick={onToggleMobileRecommendPanelOpen}
-                    className="inline-flex w-full cursor-pointer items-center justify-between text-left transition"
-                  >
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
-                      <QueueMusicRoundedIcon className="text-[1rem] text-cyan-200" />
-                      題目清單
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
-                        {recommendationCards.length === 0
-                          ? "0 / 0"
-                          : `${safeRecommendIndex + 1} / ${recommendationCards.length}`}
+                <div
+                  className={`rounded-[24px] border transition-colors duration-200 ${
+                    isMobileRecommendPanelOpen
+                      ? "border-white/8 bg-transparent px-4 py-2.5"
+                      : "border-transparent bg-transparent px-2 py-1"
+                  }`}
+                >
+                  {isMobileRecommendPanelOpen ? (
+                    <button
+                      type="button"
+                      onClick={onToggleMobileRecommendPanelOpen}
+                      aria-label="收起題目清單"
+                      className="inline-flex w-full cursor-pointer items-center justify-between text-left transition"
+                    >
+                      <span className="inline-flex items-baseline gap-3 font-semibold">
+                        <span className="inline-flex items-center gap-2 text-sm text-white">
+                          <QueueMusicRoundedIcon className="text-[1rem] text-cyan-200" />
+                          題目清單
+                        </span>
+                        {/* Frameless count — bigger, cyan so it reads as a
+                            secondary label rather than a chip. */}
+                        <span className="text-[0.95rem] font-black tabular-nums text-cyan-200">
+                          {recommendationCards.length === 0
+                            ? "0 / 0"
+                            : `${safeRecommendIndex + 1} / ${recommendationCards.length}`}
+                        </span>
                       </span>
-                    </span>
-                    <ExpandMoreRoundedIcon
-                      className={`text-slate-300 transition ${isMobileRecommendPanelOpen ? "rotate-180" : ""}`}
-                    />
-                  </button>
+                      <ExpandMoreRoundedIcon className="text-slate-300 transition rotate-180" />
+                    </button>
+                  ) : (
+                    // Collapsed: render ONLY a translucent music icon flush to
+                    // the right edge. No label, no counter, no chevron — just
+                    // a barely-there affordance that the user can tap to open
+                    // the full list.
+                    <div className="flex w-full justify-end">
+                      <button
+                        type="button"
+                        onClick={onToggleMobileRecommendPanelOpen}
+                        aria-label="展開題目清單"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-cyan-200/35 transition hover:text-cyan-200/70 active:scale-95"
+                      >
+                        <QueueMusicRoundedIcon className="text-[1.05rem]" />
+                      </button>
+                    </div>
+                  )}
                   <div
                     className={`overflow-hidden transition-[grid-template-rows,opacity] duration-300 ${
                       isMobileRecommendPanelOpen ? "grid grid-rows-[1fr] opacity-100" : "grid grid-rows-[0fr] opacity-0"

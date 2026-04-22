@@ -154,6 +154,55 @@ const PREVIEW_H = 80;
 const RECOMMENDATION_COOLDOWN_MS = 5000;
 const VIEWPORT_SAFE_GAP = 14;
 
+// Isolated so the parent's per-second re-renders (cooldownNow ticks) never
+// reach this subtree. The CSS keyframe is the only thing driving the ring;
+// animationDelay is captured ONCE at mount via useMemo and never updated,
+// otherwise the ring would judder each second.
+const CooldownRing: React.FC<{ cooldownUntil: number }> = React.memo(
+  ({ cooldownUntil }) => {
+    const circumference = 2 * Math.PI * 54;
+    // Capture the mount moment once (useState lazy init) so Date.now() isn't
+    // called during render. Parent re-keys this component per cooldown, so
+    // remounting starts a fresh mountTime at the right instant.
+    const [mountTime] = React.useState(() => Date.now());
+    const animationDelayMs = Math.max(
+      0,
+      RECOMMENDATION_COOLDOWN_MS - (cooldownUntil - mountTime),
+    );
+    return (
+      <svg
+        viewBox="0 0 120 120"
+        className="absolute inset-0 h-full w-full -rotate-90"
+        aria-hidden
+      >
+        <circle
+          cx="60"
+          cy="60"
+          r="54"
+          fill="none"
+          stroke="rgba(165,243,252,0.14)"
+          strokeWidth="6"
+        />
+        <circle
+          cx="60"
+          cy="60"
+          r="54"
+          fill="none"
+          stroke="rgba(103,232,249,0.85)"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          style={{
+            animation: `playlistSuggestionCooldownDrain ${RECOMMENDATION_COOLDOWN_MS}ms linear forwards`,
+            animationDelay: `-${animationDelayMs}ms`,
+          }}
+        />
+      </svg>
+    );
+  },
+);
+CooldownRing.displayName = "CooldownRing";
+
 const sourceType = (visibility?: "private" | "public") =>
   visibility === "private" ? "private_collection" : "public_collection";
 
@@ -480,6 +529,8 @@ const PlaylistSelectorModal = ({
   >(() => new Set());
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownNow, setCooldownNow] = useState(() => Date.now());
+  const [cooldownOverlayDismissed, setCooldownOverlayDismissed] =
+    useState(false);
   const [actionRunning, setActionRunning] = useState(false);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] =
@@ -504,16 +555,6 @@ const PlaylistSelectorModal = ({
   const cooldownSeconds = cooldownUntil
     ? Math.max(0, Math.ceil((cooldownUntil - cooldownNow) / 1000))
     : 0;
-  const cooldownProgress = cooldownUntil
-    ? Math.max(
-        0,
-        Math.min(
-          100,
-          ((cooldownUntil - cooldownNow) / RECOMMENDATION_COOLDOWN_MS) * 100,
-        ),
-      )
-    : 0;
-
   useEffect(() => {
     // Mark suggestions as seen only when the modal is explicitly opened to the
     // "suggestions" tab (i.e. the host clicked the "推薦 N" chip). Opening via
@@ -539,6 +580,9 @@ const PlaylistSelectorModal = ({
 
   useEffect(() => {
     if (!cooldownUntil) return;
+    // A fresh cooldown starts → re-show the overlay even if the user had
+    // dismissed the previous one.
+    setCooldownOverlayDismissed(false);
     // Align wakeups to the next second boundary. setTimeout chain beats
     // setInterval on mobile: no drift when the tab is backgrounded, and we
     // only re-render once per visible-seconds change.
@@ -845,6 +889,9 @@ const PlaylistSelectorModal = ({
         setActionNotice(
           `請在 ${Math.max(1, cooldownSeconds)} 秒後再推薦下一個題庫。`,
         );
+        // User attempted another suggestion during cooldown → bring the
+        // countdown overlay back even if they'd previously dismissed it.
+        setCooldownOverlayDismissed(false);
         return;
       }
       setActionError(null);
@@ -2055,63 +2102,48 @@ const PlaylistSelectorModal = ({
           </div>
         </div>
       ) : null}
-      {isSuggestionMode && isCooldownActive && !modalInteractionLocked ? (
+      {isSuggestionMode && isCooldownActive && !modalInteractionLocked && !cooldownOverlayDismissed ? (
+        // Softer full-modal cooldown overlay. Design notes:
+        //  • No inner panel — just the ring + text sit on a lightly dimmed
+        //    backdrop, which feels less abrupt than a popover-on-popover.
+        //  • Countdown ring drains via a pure CSS keyframe animation (linear,
+        //    RECOMMENDATION_COOLDOWN_MS long), so the sweep is perfectly
+        //    smooth and doesn't re-render every frame in React.
+        //  • Clicking the dim area dismisses just the overlay (not the whole
+        //    modal) — cooldown is still active underneath; a fresh cooldown
+        //    will re-show the overlay automatically.
         <div
-          className="absolute inset-0 z-30 flex items-center justify-center bg-[linear-gradient(180deg,rgba(6,10,20,0.72),rgba(4,8,16,0.86))] backdrop-blur-[4px]"
-          // Block pointer events on every element below. We keep the close (×)
-          // button clickable by layering a second, smaller element above the
-          // overlay — see the close IconButton, which has its own z-index.
-          onClick={(event) => event.stopPropagation()}
+          role="button"
+          tabIndex={-1}
+          aria-label="關閉倒數"
+          onClick={() => setCooldownOverlayDismissed(true)}
+          className="absolute inset-0 z-30 flex cursor-pointer flex-col items-center justify-center bg-[rgba(6,10,20,0.55)] backdrop-blur-[2px]"
         >
-          <div className="pointer-events-auto relative flex max-w-[320px] flex-col items-center gap-5 rounded-[28px] border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(16,27,46,0.96),rgba(8,18,34,0.98))] px-8 py-7 text-center shadow-[0_44px_140px_-60px_rgba(34,211,238,0.55)]">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="關閉"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
-            >
-              <CloseRoundedIcon sx={{ fontSize: 18 }} />
-            </button>
-            <div className="relative flex h-28 w-28 items-center justify-center">
-              <svg
-                viewBox="0 0 120 120"
-                className="absolute inset-0 h-full w-full -rotate-90"
-                aria-hidden
-              >
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  fill="none"
-                  stroke="rgba(165,243,252,0.12)"
-                  strokeWidth="8"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  fill="none"
-                  stroke="rgba(103,232,249,0.9)"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 54}
-                  strokeDashoffset={
-                    2 * Math.PI * 54 * (1 - cooldownProgress / 100)
-                  }
-                  style={{ transition: "stroke-dashoffset 0.3s linear" }}
-                />
-              </svg>
-              <span className="relative text-[44px] font-bold leading-none text-cyan-50 tabular-nums">
-                {cooldownSeconds}
-              </span>
+          <style>{`
+            @keyframes playlistSuggestionCooldownDrain {
+              from { stroke-dashoffset: 0; }
+              to { stroke-dashoffset: ${2 * Math.PI * 54}; }
+            }
+          `}</style>
+          <div
+            className="pointer-events-none relative flex h-28 w-28 items-center justify-center"
+          >
+            <CooldownRing
+              key={cooldownUntil ?? 0}
+              cooldownUntil={cooldownUntil ?? 0}
+            />
+            <span className="relative text-[44px] font-bold leading-none text-cyan-50 tabular-nums drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              {cooldownSeconds}
+            </span>
+          </div>
+          <div
+            className="pointer-events-none mt-5 flex flex-col items-center gap-1.5 px-8 text-center"
+          >
+            <div className="text-base font-semibold text-cyan-50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+              推薦冷卻中
             </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="text-lg font-semibold text-cyan-50">
-                推薦冷卻中
-              </div>
-              <div className="text-sm leading-5 text-slate-300/90">
-                剛才的推薦已送出，請稍候 {cooldownSeconds} 秒後再推薦下一個題庫。
-              </div>
+            <div className="text-xs leading-5 text-slate-200/85 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+              點擊任意處可關閉
             </div>
           </div>
         </div>
