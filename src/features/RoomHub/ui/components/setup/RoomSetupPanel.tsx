@@ -35,7 +35,6 @@ import {
 import type { CreateSettingsCard, SourceSummary } from "../../roomsHubViewModels";
 import {
   getLeaderboardModeDescription,
-  getLeaderboardVariant,
   leaderboardModes,
   leaderboardVariants,
   type LeaderboardModeKey,
@@ -140,14 +139,9 @@ const RoomSetupPanel = ({
     leaderboardChallengeOptions.find(
       (option) => option.variantKey === selectedLeaderboardVariant,
     ) ?? leaderboardChallengeOptions[0];
-  const activeLeaderboardVariant = getLeaderboardVariant(
-    selectedLeaderboardMode,
-    selectedLeaderboardVariant,
-  );
   const activeLeaderboardModeDescription =
     getLeaderboardModeDescription(selectedLeaderboardMode);
   const isLeaderboardRoom = roomPlayMode === "leaderboard";
-  const lockedQuestionCount = activeLeaderboardVariant.questionCount;
   const isLeaderboardSettingsLocked = isLeaderboardRoom;
   const isQuestionCountLocked = isLeaderboardSettingsLocked;
   const hasPinLengthError =
@@ -553,13 +547,7 @@ const RoomSetupPanel = ({
                 題數
               </p>
               <span className="text-[11px] text-[var(--mc-text-muted)]">
-                {isQuestionCountLocked
-                  ? typeof lockedQuestionCount === "number"
-                    ? `${lockedQuestionCount} 題`
-                    : activeLeaderboardVariant.label
-                  : activeLeaderboardVariant.timeLimitSec && isLeaderboardRoom
-                    ? activeLeaderboardVariant.label
-                    : `${questionMin}-${questionMaxLimit} 題`}
+                {questionMin}-{questionMaxLimit} 題
               </span>
             </div>
             <div
@@ -583,11 +571,9 @@ const RoomSetupPanel = ({
                 <RemoveRounded sx={{ fontSize: 18 }} />
               </button>
               <div className="text-2xl font-semibold text-[var(--mc-text)]">
-                {isLeaderboardRoom
-                  ? activeLeaderboardVariant.label
-                  : questionCount}
+                {questionCount}
                 <span className="ml-1 text-sm text-[var(--mc-text-muted)]">
-                  {isLeaderboardRoom ? "" : "題"}
+                  題
                 </span>
               </div>
               <button
