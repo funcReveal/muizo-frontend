@@ -137,6 +137,13 @@ export interface ClientToServerEvents {
       allowParticipantInvite?: boolean;
       playbackExtensionMode?: PlaybackExtensionMode;
       maxPlayers?: number | null;
+      leaderboardProfileKey?: string | null;
+      leaderboardRuleVersion?: number | null;
+      leaderboardModeKey?: string | null;
+      leaderboardVariantKey?: string | null;
+      leaderboardTargetQuestionCount?: number | null;
+      leaderboardTimeLimitSec?: number | null;
+      leaderboardRankingMetric?: string | null;
     },
     callback?: (ack: Ack<{ room: RoomSummary }>) => void,
   ) => void;

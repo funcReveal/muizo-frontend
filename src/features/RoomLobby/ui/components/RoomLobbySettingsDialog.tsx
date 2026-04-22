@@ -2,46 +2,44 @@ import React from "react";
 import {
   Box,
   Button,
-  Chip,
-  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
-  IconButton,
   Stack,
-  Switch,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
+import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
+import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import VideogameAssetRoundedIcon from "@mui/icons-material/VideogameAssetRounded";
 import {
-  DEFAULT_PLAYBACK_EXTENSION_MODE,
   PLAYER_MAX,
   PLAYER_MIN,
-  PLAY_DURATION_MAX,
-  PLAY_DURATION_MIN,
   QUESTION_MAX,
-  QUESTION_MIN,
   QUESTION_STEP,
-  REVEAL_DURATION_MAX,
-  REVEAL_DURATION_MIN,
-  START_OFFSET_MAX,
-  START_OFFSET_MIN,
 } from "@domain/room/constants";
 import type { PlaybackExtensionMode } from "@features/RoomSession";
 import QuestionCountControls from "./QuestionCountControls";
 import RoomAccessSettingsFields from "./RoomAccessSettingsFields";
 
+type RoomPlayMode = "casual" | "leaderboard";
+type LeaderboardVariantKey = "30q" | "50q" | "15m";
+
 interface RoomLobbySettingsDialogProps {
   open: boolean;
   settingsDisabled: boolean;
   settingsSaving: boolean;
+  roomPlayMode: RoomPlayMode;
+  onRoomPlayModeChange: (value: RoomPlayMode) => void;
+  leaderboardVariant: LeaderboardVariantKey;
+  onLeaderboardVariantChange: (value: LeaderboardVariantKey) => void;
   settingsName: string;
   onSettingsNameChange: (value: string) => void;
   settingsVisibility: "public" | "private";
@@ -62,28 +60,141 @@ interface RoomLobbySettingsDialogProps {
   onSettingsAllowCollectionClipTimingChange: (value: boolean) => void;
   settingsPlaybackExtensionMode: PlaybackExtensionMode;
   onSettingsPlaybackExtensionModeChange: (value: PlaybackExtensionMode) => void;
-  useCollectionTimingForSettings: boolean;
   settingsPlayDurationSec: number;
   onSettingsPlayDurationSecChange: (value: number) => void;
   settingsStartOffsetSec: number;
   onSettingsStartOffsetSecChange: (value: number) => void;
+  canUseLeaderboard30: boolean;
+  canUseLeaderboard50: boolean;
+  leaderboardQuestionHelpText: string | null;
   settingsError: string | null;
   onClose: () => void;
   onSave: () => void;
 }
 
-type SettingsSectionKey = "room" | "question" | "playback" | "timing";
+type SectionProps = {
+  title: string;
+  icon: React.ReactNode;
+  headerAside?: React.ReactNode;
+  locked?: boolean;
+  lockedReason?: string;
+  children: React.ReactNode;
+};
 
-const PLAYBACK_MODE_ORDER: PlaybackExtensionMode[] = [
-  "manual_vote",
-  "auto_once",
-  "disabled",
+const plainFieldSx = {
+  "& .MuiInputBase-root": {
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    paddingLeft: 0,
+    paddingRight: 0,
+    color: "#f8fafc",
+  },
+  "& .MuiInputBase-input": {
+    paddingLeft: 0,
+    paddingRight: 0,
+    fontSize: "0.98rem",
+    fontWeight: 600,
+  },
+  "& .MuiInputLabel-root": {
+    color: "rgba(148,163,184,0.82)",
+  },
+  "& .MuiInputLabel-root.Mui-focused": {
+    color: "rgba(125,211,252,0.95)",
+  },
+  "& .MuiInput-underline:before": {
+    borderBottomColor: "rgba(148,163,184,0.26)",
+  },
+  "& .MuiInput-underline:hover:not(.Mui-disabled):before": {
+    borderBottomColor: "rgba(125,211,252,0.42)",
+  },
+  "& .MuiInput-underline:after": {
+    borderBottomColor: "rgba(56,189,248,0.78)",
+  },
+} as const;
+
+const Section = ({
+  title,
+  icon,
+  headerAside,
+  locked = false,
+  lockedReason = "排行挑戰模式下，這個區塊無法在 lobby 修改。",
+  children,
+}: SectionProps) => (
+  <Box className="relative py-3 sm:py-4">
+    <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+      <div className="flex items-center gap-3">
+        <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-slate-100 sm:h-10 sm:w-10">
+          {icon}
+        </div>
+        <Typography variant="subtitle1" className="font-semibold text-slate-50">
+          {title}
+        </Typography>
+      </div>
+      {headerAside ? <div className="min-w-0">{headerAside}</div> : null}
+    </div>
+
+    <div className={locked ? "opacity-50" : ""}>{children}</div>
+
+    {locked ? (
+      <div
+        aria-hidden="true"
+        className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-center justify-center rounded-3xl bg-slate-950/58 px-4 backdrop-blur-[2px]"
+      >
+        <div className="inline-flex max-w-[320px] items-center gap-3 rounded-2xl border border-amber-200/24 bg-amber-300/12 px-4 py-3 text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.72)]">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-100/24 bg-amber-200/14">
+            <LockOutlinedIcon sx={{ fontSize: 18 }} />
+          </span>
+          <span className="min-w-0 text-sm font-semibold">{lockedReason}</span>
+        </div>
+      </div>
+    ) : null}
+  </Box>
+);
+
+const challengeOptions: Array<{
+  key: LeaderboardVariantKey;
+  label: string;
+  summary: string;
+}> = [
+  { key: "30q", label: "30 題", summary: "固定 30 題" },
+  { key: "50q", label: "50 題", summary: "固定 50 題" },
+  { key: "15m", label: "15 分鐘", summary: "限時模式" },
+];
+
+const playbackExtensionOptions: Array<{
+  key: PlaybackExtensionMode;
+  label: string;
+}> = [
+  { key: "manual_vote", label: "投票延長" },
+  { key: "auto_once", label: "自動延長一次" },
+  { key: "disabled", label: "不開放延長" },
+];
+
+const roomModeOptions: Array<{
+  key: RoomPlayMode;
+  label: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    key: "casual",
+    label: "休閒派對",
+    icon: <MeetingRoomRoundedIcon sx={{ fontSize: 18 }} />,
+  },
+  {
+    key: "leaderboard",
+    label: "排行挑戰",
+    icon: <EmojiEventsRoundedIcon sx={{ fontSize: 18 }} />,
+  },
 ];
 
 const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   open,
   settingsDisabled,
   settingsSaving,
+  roomPlayMode,
+  onRoomPlayModeChange,
+  leaderboardVariant,
+  onLeaderboardVariantChange,
   settingsName,
   onSettingsNameChange,
   settingsVisibility,
@@ -104,144 +215,34 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
   onSettingsAllowCollectionClipTimingChange,
   settingsPlaybackExtensionMode,
   onSettingsPlaybackExtensionModeChange,
-  useCollectionTimingForSettings,
   settingsPlayDurationSec,
   onSettingsPlayDurationSecChange,
   settingsStartOffsetSec,
   onSettingsStartOffsetSecChange,
+  canUseLeaderboard30,
+  canUseLeaderboard50,
   settingsError,
   onClose,
   onSave,
 }) => {
   const isMobileDialog = useMediaQuery("(max-width:900px)");
-  const isWideDialog = useMediaQuery("(min-width:1180px)");
   const settingsLocked = settingsDisabled || settingsSaving;
-  const [mobileSummaryExpanded, setMobileSummaryExpanded] =
-    React.useState(false);
-
-  const playbackModeCopy: Record<
-    PlaybackExtensionMode,
-    { title: string; meta: string; description: string }
-  > = {
-    manual_vote: {
-      title: "延長投票",
-      meta: "猜歌中投票決定",
-      description: "猜歌中可投票延長本題播放。",
-    },
-    auto_once: {
-      title: "播放結束後自動延長",
-      meta: "未作答時自動補時",
-      description: "若仍有人未答，系統會自動補一次。",
-    },
-    disabled: {
-      title: "關閉延長功能",
-      meta: "不補時，直接揭曉",
-      description: "不開放補時，依原節奏直接公布答案。",
-    },
-  };
-
-  const selectedMode =
-    settingsPlaybackExtensionMode ?? DEFAULT_PLAYBACK_EXTENSION_MODE;
-  const selectedModeCopy = playbackModeCopy[selectedMode];
-  const accessSummary =
-    settingsVisibility === "public"
-      ? settingsMaxPlayers.trim()
-        ? `公開 · 上限 ${settingsMaxPlayers} 人`
-        : "公開 · 不限人數"
-      : settingsMaxPlayers.trim()
-        ? `私人 · 上限 ${settingsMaxPlayers} 人`
-        : "私人 · 不限人數";
-  const timingSummary = useCollectionTimingForSettings
-    ? `揭曉 ${settingsRevealDurationSec}s（收藏庫時間）`
-    : `播放 ${settingsPlayDurationSec}s · 起始 ${settingsStartOffsetSec}s · 揭曉 ${settingsRevealDurationSec}s`;
-  const summaryItems = [
-    { label: "題數", value: `${settingsQuestionCount} 題` },
-    { label: "房間", value: accessSummary },
-    { label: "答題節奏", value: timingSummary, accent: true },
-    { label: "延長模式", value: selectedModeCopy.title },
-  ];
-  const mobileSummaryItems = summaryItems;
-  const mobileSummaryPreviewItems = [
-    `${settingsQuestionCount} 題`,
-    settingsVisibility === "public" ? "公開房" : "私人房",
-    useCollectionTimingForSettings
-      ? `揭曉 ${settingsRevealDurationSec}s`
-      : `播放 ${settingsPlayDurationSec}s`,
-    selectedModeCopy.title,
-  ];
-  const questionCountPresets = Array.from(
-    new Set(
-      [10, 20, 30, 50].filter(
-        (count) => count >= questionMinLimit && count <= questionMaxLimit,
-      ),
-    ),
-  ).sort((left, right) => left - right);
-  const roomInfoRef = React.useRef<HTMLDivElement | null>(null);
-  const questionCountRef = React.useRef<HTMLDivElement | null>(null);
-  const playbackModeRef = React.useRef<HTMLDivElement | null>(null);
-  const timingRef = React.useRef<HTMLDivElement | null>(null);
-  const settingsSections = [
-    {
-      key: "room",
-      label: "房間資訊",
-      note: "名稱、公開狀態與人數",
-    },
-    {
-      key: "question",
-      label: "題數設定",
-      note: "題數捷徑與增減控制",
-    },
-    {
-      key: "playback",
-      label: "延長模式",
-      note: "投票、自動或關閉",
-    },
-    {
-      key: "timing",
-      label: "時間設定",
-      note: "揭曉、播放與起始秒數",
-    },
-  ] as const satisfies ReadonlyArray<{
-    key: SettingsSectionKey;
-    label: string;
-    note: string;
-  }>;
-  const mobileJumpSections = settingsSections.filter(
-    (section) => section.key === "playback" || section.key === "timing",
-  );
+  const isLeaderboardRoom = roomPlayMode === "leaderboard";
+  const canUseCollectionTiming = settingsUseCollectionSource;
+  const useCollectionTimingForSettings =
+    settingsAllowCollectionClipTiming && canUseCollectionTiming;
+  const challengeQuestionSummary =
+    challengeOptions.find((option) => option.key === leaderboardVariant)?.label ??
+    "30 題";
 
   const handleDialogClose = () => {
     if (settingsSaving) return;
     onClose();
   };
 
-  const clampOnBlur = React.useCallback(
-    (
-      value: number,
-      min: number,
-      max: number,
-      onChange: (next: number) => void,
-    ) => {
-      if (!Number.isFinite(value)) {
-        onChange(min);
-        return;
-      }
-      onChange(Math.min(max, Math.max(min, value)));
-    },
-    [],
+  const questionPresetButtons = [10, 20, 30, 50].filter(
+    (count) => count >= questionMinLimit && count <= questionMaxLimit,
   );
-
-  const scrollToSection = (sectionKey: SettingsSectionKey) => {
-    const targetRef =
-      sectionKey === "room"
-        ? roomInfoRef
-        : sectionKey === "question"
-          ? questionCountRef
-          : sectionKey === "playback"
-            ? playbackModeRef
-            : timingRef;
-    targetRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   return (
     <Dialog
@@ -264,59 +265,80 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
       }}
     >
       <DialogTitle
-        className="room-lobby-settings-dialog__head"
         sx={{
           px: { xs: 2, sm: 3 },
-          pt: { xs: 2, sm: 2.5 },
-          pb: { xs: 1.5, sm: 2 },
+          pt: { xs: 1.5, sm: 2.5 },
+          pb: { xs: 1.25, sm: 2 },
           borderBottom: "1px solid rgba(245,158,11,0.12)",
         }}
       >
-        <Stack spacing={1.35}>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={1.25}
-            justifyContent="space-between"
-            alignItems={{ xs: "flex-start", md: "center" }}
-          >
-            <Stack spacing={0.55}>
-              <Typography variant="h5" className="font-semibold text-slate-50">
-                房間設定
-              </Typography>
-              <Typography variant="caption" className="text-slate-400">
-                調整後會立即同步到房間，建議在開局前完成設定。
-              </Typography>
-            </Stack>
+        <Stack spacing={{ xs: 1, sm: 1.5 }}>
+          <Typography variant="h5" className="font-semibold text-slate-50">
+            房間設定
+          </Typography>
 
-            {settingsDisabled && !isMobileDialog ? (
-              <Box className="room-lobby-settings-warning">
-                <Typography variant="caption" className="text-amber-200">
-                  遊戲進行中無法修改房主設定，請在下一局開始前調整。
-                </Typography>
-              </Box>
-            ) : null}
-          </Stack>
-
-          {!isMobileDialog ? (
-            <div className="room-lobby-settings-summary-rail">
-              {summaryItems.map((item) => (
-                <div
-                  key={item.label}
-                  className={`room-lobby-settings-summary-pill ${
-                    item.accent ? "is-accent" : ""
-                  }`}
-                >
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4 sm:gap-4">
+            <div className="flex items-start gap-2 text-slate-100">
+              <VideogameAssetRoundedIcon
+                sx={{ fontSize: 15, color: "#94a3b8", mt: "2px" }}
+              />
+              <div className="min-w-0">
+                <div className="text-[10px] tracking-[0.14em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
+                  房型
                 </div>
-              ))}
+                <div className="text-sm font-semibold">
+                  {isLeaderboardRoom ? "排行挑戰" : "休閒派對"}
+                </div>
+              </div>
             </div>
-          ) : null}
+            <div className="flex items-start gap-2 text-slate-100">
+              <GroupsRoundedIcon
+                sx={{ fontSize: 15, color: "#94a3b8", mt: "2px" }}
+              />
+              <div className="min-w-0">
+                <div className="text-[10px] tracking-[0.14em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
+                  人數
+                </div>
+                <div className="text-sm font-semibold">
+                  {settingsMaxPlayers || "未設定"}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 text-slate-100">
+              <QuizRoundedIcon
+                sx={{ fontSize: 15, color: "#94a3b8", mt: "2px" }}
+              />
+              <div className="min-w-0">
+                <div className="text-[10px] tracking-[0.14em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
+                  題數
+                </div>
+                <div className="text-sm font-semibold">
+                  {isLeaderboardRoom
+                    ? challengeQuestionSummary
+                    : `${settingsQuestionCount} 題`}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 text-slate-100">
+              <TimerRoundedIcon
+                sx={{ fontSize: 15, color: "#94a3b8", mt: "2px" }}
+              />
+              <div className="min-w-0">
+                <div className="text-[10px] tracking-[0.14em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
+                  時間
+                </div>
+                <div className="text-sm font-semibold">
+                  {useCollectionTimingForSettings
+                    ? `收藏庫時間 / 揭曉 ${settingsRevealDurationSec} 秒`
+                    : `播放 ${settingsPlayDurationSec} 秒 / 揭曉 ${settingsRevealDurationSec} 秒`}
+                </div>
+              </div>
+            </div>
+          </div>
         </Stack>
       </DialogTitle>
 
       <DialogContent
-        className="room-lobby-settings-dialog__body"
         dividers
         sx={{
           borderColor: "rgba(245,158,11,0.12)",
@@ -327,500 +349,298 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
           overflowX: "hidden",
         }}
       >
-        <Stack spacing={isMobileDialog ? 1.5 : 2}>
-          {settingsDisabled && isMobileDialog ? (
-            <Box className="room-lobby-settings-warning">
-              <Typography variant="caption" className="text-amber-200">
-                遊戲進行中無法修改房主設定，請在下一局開始前調整。
-              </Typography>
-            </Box>
-          ) : null}
-
-          {isMobileDialog ? (
-            <div className="room-lobby-settings-mobile-summary-wrap">
-              <button
-                type="button"
-                className={`room-lobby-settings-mobile-summary-toggle ${
-                  mobileSummaryExpanded ? "is-open" : ""
-                }`}
-                onClick={() => setMobileSummaryExpanded((current) => !current)}
-              >
-                <span className="room-lobby-settings-mobile-summary-toggle__icon">
-                  <TuneRoundedIcon sx={{ fontSize: 18 }} />
-                </span>
-                <span className="room-lobby-settings-mobile-summary-toggle__body">
-                  <span className="room-lobby-settings-mobile-summary-toggle__eyebrow">
-                    設定摘要
-                  </span>
-                  <strong>
-                    {mobileSummaryExpanded ? "收起目前設定" : "查看目前設定"}
-                  </strong>
-                  <span className="room-lobby-settings-mobile-summary-toggle__preview">
-                    {mobileSummaryPreviewItems.map((item) => (
-                      <span key={item}>{item}</span>
-                    ))}
-                  </span>
-                </span>
-                <span className="room-lobby-settings-mobile-summary-toggle__arrow">
-                  <KeyboardArrowDownRoundedIcon sx={{ fontSize: 18 }} />
-                </span>
-              </button>
-
-              <Collapse in={mobileSummaryExpanded} timeout={180}>
-                <div className="room-lobby-settings-mobile-summary room-lobby-settings-mobile-summary--secondary">
-                  {mobileSummaryItems.map((item) => (
-                    <div
-                      key={item.label}
-                      className={`room-lobby-settings-mobile-summary-item ${
-                        item.accent ? "is-accent" : ""
-                      }`}
-                    >
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                    </div>
-                  ))}
-                </div>
-              </Collapse>
-            </div>
-          ) : null}
-
-          {isMobileDialog ? (
-            <div className="room-lobby-settings-mobile-jump-grid">
-              {mobileJumpSections.map((section, index) => (
-                <button
-                  key={section.key}
-                  type="button"
-                  className="room-lobby-settings-mobile-jump-chip"
-                  onClick={() => scrollToSection(section.key)}
-                >
-                  <span className="room-lobby-settings-mobile-jump-chip__index">
-                    {(index + 1).toString().padStart(2, "0")}
-                  </span>
-                  <span className="room-lobby-settings-mobile-jump-chip__body">
-                    <strong>{section.label}</strong>
-                    <small>{section.note}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <Box className="room-lobby-settings-layout">
-            {!isMobileDialog ? (
-              <Box className="room-lobby-settings-sidebar">
-                <div className="room-lobby-settings-anchor-list">
-                  {settingsSections.map((section, index) => (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,1.18fr)]">
+          <Section
+            icon={<MeetingRoomRoundedIcon sx={{ fontSize: 20, color: "#7dd3fc" }} />}
+            title="房間核心設定"
+          >
+            <div className="flex h-full flex-col gap-6">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {roomModeOptions.map((option) => {
+                  const selected = roomPlayMode === option.key;
+                  return (
                     <button
-                      key={section.key}
+                      key={option.key}
                       type="button"
-                      className="room-lobby-settings-anchor"
-                      onClick={() => scrollToSection(section.key)}
-                    >
-                      <span className="room-lobby-settings-anchor__index">
-                        {(index + 1).toString().padStart(2, "0")}
-                      </span>
-                      <span className="room-lobby-settings-anchor__body">
-                        <strong>{section.label}</strong>
-                        <small>{section.note}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </Box>
-            ) : null}
-
-            <Stack spacing={isMobileDialog ? 1.5 : 1.75} className="min-w-0">
-              <Box
-                ref={roomInfoRef}
-                className="room-lobby-settings-card room-lobby-settings-section-card"
-              >
-                <Stack spacing={1.4}>
-                  <div className="room-lobby-settings-section-head">
-                    <Typography variant="subtitle2" className="text-slate-100">
-                      房間資訊
-                    </Typography>
-                    <Typography variant="caption" className="text-slate-400">
-                      先決定房間可見性與玩家容量，再進行題數與時間微調。
-                    </Typography>
-                  </div>
-
-                  <TextField
-                    label="房間名稱"
-                    className="room-lobby-settings-field"
-                    value={settingsName}
-                    onChange={(event) =>
-                      onSettingsNameChange(event.target.value)
-                    }
-                    disabled={settingsLocked}
-                    fullWidth
-                  />
-
-                  <RoomAccessSettingsFields
-                    visibility={settingsVisibility}
-                    password={settingsPassword}
-                    disabled={settingsLocked}
-                    allowPasswordWhenPublic
-                    onVisibilityChange={onSettingsVisibilityChange}
-                    onPasswordChange={onSettingsPasswordChange}
-                    onPasswordClear={onSettingsPasswordClear}
-                    classes={{
-                      visibilityRow: "room-lobby-settings-visibility-row",
-                      visibilityButton: "room-lobby-settings-visibility-btn",
-                      helperText: "room-lobby-settings-helper",
-                      passwordField: "room-lobby-settings-field",
-                      noteText: "room-lobby-settings-helper",
-                    }}
-                  />
-
-                  <Stack spacing={0.75}>
-                    <TextField
-                      label="玩家上限"
-                      type="number"
-                      className="room-lobby-settings-field"
-                      value={settingsMaxPlayers}
-                      onChange={(event) =>
-                        onSettingsMaxPlayersChange(event.target.value)
-                      }
-                      inputProps={{
-                        min: PLAYER_MIN,
-                        max: PLAYER_MAX,
-                        inputMode: "numeric",
-                      }}
-                      placeholder="留空代表不限制"
+                      onClick={() => onRoomPlayModeChange(option.key)}
                       disabled={settingsLocked}
-                      fullWidth
-                    />
-                    <Typography variant="caption" className="text-slate-400">
-                      可設定範圍：{PLAYER_MIN} - {PLAYER_MAX} 人
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Box>
-
-              <Box
-                ref={questionCountRef}
-                className="room-lobby-settings-card room-lobby-settings-section-card"
-              >
-                <Stack spacing={1.4}>
-                  <div className="room-lobby-settings-section-head">
-                    <Typography variant="subtitle2" className="text-slate-100">
-                      題數設定
-                    </Typography>
-                    <Typography variant="caption" className="text-slate-400">
-                      保留快速調整節奏，題數上限會跟著目前房間曲目數量收斂。
-                    </Typography>
-                  </div>
-
-                  <Stack
-                    direction={{ xs: "column", xl: "row" }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", xl: "center" }}
-                    spacing={1}
-                  >
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      useFlexGap
-                      flexWrap="wrap"
-                      alignItems="center"
+                      className={`rounded-2xl px-4 py-3 text-left transition ${
+                        selected
+                          ? option.key === "leaderboard"
+                            ? "bg-amber-300/10 text-amber-50 ring-1 ring-amber-300/35"
+                            : "bg-emerald-400/12 text-emerald-50 ring-1 ring-emerald-300/35"
+                          : "bg-white/5 text-slate-300 hover:bg-white/[0.07]"
+                      } ${settingsLocked ? "cursor-not-allowed opacity-60" : ""}`}
                     >
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={`目前 ${settingsQuestionCount} 題`}
-                        className="room-lobby-settings-chip"
-                      />
-                      <Typography variant="caption" className="text-slate-500">
-                        可設定範圍：{QUESTION_MIN} - {QUESTION_MAX} 題
-                      </Typography>
-                    </Stack>
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-950/35">
+                          {option.icon}
+                        </span>
+                        <span className="text-sm font-semibold">{option.label}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
-                    <div className="room-lobby-settings-preset-strip">
-                      {questionCountPresets.map((count) => (
-                        <button
-                          key={count}
-                          type="button"
-                          className={`room-lobby-settings-preset-button ${
-                            settingsQuestionCount === count ? "is-active" : ""
-                          }`}
-                          onClick={() => onSettingsQuestionCountChange(count)}
-                          disabled={
-                            settingsLocked || settingsQuestionCount === count
-                          }
-                        >
-                          {count} 題
-                        </button>
-                      ))}
-                    </div>
-                  </Stack>
+              <TextField
+                label="房間名稱"
+                variant="standard"
+                slotProps={{ input: { disableUnderline: false } }}
+                className="room-lobby-settings-field"
+                sx={plainFieldSx}
+                value={settingsName}
+                onChange={(event) => onSettingsNameChange(event.target.value)}
+                disabled={settingsLocked}
+                fullWidth
+              />
 
+              <RoomAccessSettingsFields
+                visibility={settingsVisibility}
+                password={settingsPassword}
+                disabled={settingsLocked}
+                allowPasswordWhenPublic
+                passwordFieldVariant="standard"
+                passwordFieldLabelShrink
+                passwordFieldSize="medium"
+                onVisibilityChange={onSettingsVisibilityChange}
+                onPasswordChange={onSettingsPasswordChange}
+                onPasswordClear={onSettingsPasswordClear}
+                classes={{
+                  visibilityRow: "room-lobby-settings-visibility-row",
+                  visibilityButton: "room-lobby-settings-visibility-btn",
+                  helperText: "room-lobby-settings-helper",
+                  passwordField: "room-lobby-settings-field",
+                  noteText: "room-lobby-settings-helper",
+                }}
+              />
+
+              <Stack spacing={0.75}>
+                <TextField
+                  label="人數上限"
+                  type="number"
+                  variant="standard"
+                  slotProps={{ input: { disableUnderline: false } }}
+                  className="room-lobby-settings-field"
+                  sx={plainFieldSx}
+                  value={settingsMaxPlayers}
+                  onChange={(event) =>
+                    onSettingsMaxPlayersChange(event.target.value)
+                  }
+                  inputProps={{
+                    min: PLAYER_MIN,
+                    max: PLAYER_MAX,
+                    inputMode: "numeric",
+                  }}
+                  placeholder="未設定"
+                  disabled={settingsLocked}
+                  fullWidth
+                />
+                <Typography variant="caption" className="text-slate-400">
+                  可設定範圍：{PLAYER_MIN} - {PLAYER_MAX}
+                </Typography>
+              </Stack>
+            </div>
+          </Section>
+
+          <Stack spacing={4}>
+            {!isLeaderboardRoom ? (
+              <Section
+                icon={<QuizRoundedIcon sx={{ fontSize: 20, color: "#fbbf24" }} />}
+                title="題數"
+                headerAside={
+                  <div className="flex flex-wrap justify-start gap-1.5 sm:justify-end sm:gap-2">
+                    {questionPresetButtons.map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        className={`room-lobby-settings-preset-button min-h-[32px] min-w-[56px] px-2.5 text-xs sm:min-h-[38px] sm:min-w-[70px] sm:px-3 sm:text-sm ${
+                          settingsQuestionCount === count ? "is-active" : ""
+                        }`}
+                        onClick={() => onSettingsQuestionCountChange(count)}
+                        disabled={settingsLocked || settingsQuestionCount === count}
+                      >
+                        {count} 題
+                      </button>
+                    ))}
+                  </div>
+                }
+              >
+                <Stack spacing={1.1}>
                   <QuestionCountControls
                     value={settingsQuestionCount}
                     min={questionMinLimit}
                     max={questionMaxLimit}
                     step={QUESTION_STEP}
-                    compact={!isWideDialog}
-                    showRangeHint={!isWideDialog}
+                    compact
+                    showRangeHint={false}
                     showSummaryRow={false}
                     disabled={settingsLocked}
                     onChange={onSettingsQuestionCountChange}
                   />
 
-                  {questionMaxLimit < QUESTION_MAX ? (
-                    <Typography variant="caption" className="text-slate-500">
-                      目前房間可用曲目較少，題數會先依可用上限收斂到{" "}
-                      {questionMaxLimit} 題。
-                    </Typography>
-                  ) : null}
+                  <Typography variant="caption" className="text-slate-400">
+                    可設定範圍：{questionMinLimit} -{" "}
+                    {Math.min(questionMaxLimit, QUESTION_MAX)} 題
+                  </Typography>
                 </Stack>
-              </Box>
-
-              <Box
-                ref={playbackModeRef}
-                className="room-lobby-settings-card room-lobby-settings-section-card"
+              </Section>
+            ) : (
+              <Section
+                icon={<EmojiEventsRoundedIcon sx={{ fontSize: 20, color: "#fbbf24" }} />}
+                title="挑戰模式"
               >
-                <Stack spacing={1.25}>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                    spacing={1}
-                  >
-                    <div className="room-lobby-settings-section-head">
-                      <Typography
-                        variant="subtitle2"
-                        className="text-slate-100"
-                      >
-                        延長播放模式
-                      </Typography>
-                      <Typography variant="caption" className="text-slate-400">
-                        決定這個房間是否開放補時，以及補時由誰觸發。
-                      </Typography>
-                    </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {challengeOptions.map((option) => {
+                    const selected = leaderboardVariant === option.key;
+                    const disabled =
+                      settingsLocked ||
+                      (option.key === "30q" && !canUseLeaderboard30) ||
+                      (option.key === "50q" && !canUseLeaderboard50);
 
-                    <Tooltip
-                      arrow
-                      placement="top"
-                      title="延長功能只影響猜歌階段；目前提供延長播放時間，不會直接重播整首歌曲。"
-                      slotProps={{ popper: { style: { zIndex: 1510 } } }}
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => onLeaderboardVariantChange(option.key)}
+                        disabled={disabled}
+                        className={`rounded-2xl border px-4 py-4 text-left transition ${
+                          selected
+                            ? "border-amber-300/45 bg-amber-300/12 text-amber-50"
+                            : "border-white/8 bg-white/5 text-slate-300 hover:border-amber-300/28 hover:bg-white/[0.07]"
+                        } ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
+                      >
+                        <div className="flex flex-col gap-1">
+                          <span className="text-base font-semibold">
+                            {option.label}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {option.summary}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+            )}
+
+            <Section
+              icon={<TuneRoundedIcon sx={{ fontSize: 20, color: "#34d399" }} />}
+              title="播放規則"
+              locked={isLeaderboardRoom}
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                {playbackExtensionOptions.map((option) => {
+                  const selected = settingsPlaybackExtensionMode === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => onSettingsPlaybackExtensionModeChange(option.key)}
+                      disabled={settingsLocked}
+                      className={`rounded-2xl border px-3 py-3 text-left transition ${
+                        selected
+                          ? "border-amber-300/45 bg-amber-300/12 text-amber-50"
+                          : "border-white/8 bg-white/5 text-slate-300"
+                      }`}
                     >
-                      <IconButton
-                        size="small"
-                        className="room-lobby-settings-mode-info"
-                      >
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
 
-                  <div className="room-lobby-settings-mode-grid">
-                    {PLAYBACK_MODE_ORDER.map((mode) => {
-                      const selected = selectedMode === mode;
-                      const modeCopy = playbackModeCopy[mode];
-
-                      return (
-                        <button
-                          key={mode}
-                          type="button"
-                          className={`room-lobby-settings-mode-card ${
-                            selected ? "is-selected" : ""
-                          }`}
-                          onClick={() =>
-                            onSettingsPlaybackExtensionModeChange(mode)
-                          }
-                          disabled={settingsLocked}
-                          aria-pressed={selected}
-                        >
-                          <span className="room-lobby-settings-mode-card__head">
-                            <span className="room-lobby-settings-mode-card__title">
-                              {modeCopy.title}
-                            </span>
-                            <span
-                              className="room-lobby-settings-mode-card__check"
-                              aria-hidden
-                            >
-                              {selected ? "✓" : ""}
-                            </span>
-                          </span>
-                          <span className="room-lobby-settings-mode-card__meta">
-                            {modeCopy.meta}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Stack>
-              </Box>
-
-              <Box
-                ref={timingRef}
-                className="room-lobby-settings-card room-lobby-settings-section-card"
-              >
-                <Stack spacing={1.4}>
-                  <div className="room-lobby-settings-section-head">
-                    <Typography variant="subtitle2" className="text-slate-100">
-                      時間設定
-                    </Typography>
-                    <Typography variant="caption" className="text-slate-400">
-                      作答與揭曉規則會立即同步；若啟用收藏庫時間，播放片段會以歌曲設定為準。
-                    </Typography>
-                  </div>
-
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
+            <Section
+              icon={<TimerRoundedIcon sx={{ fontSize: 20, color: "#c084fc" }} />}
+              title="時間設定"
+              locked={isLeaderboardRoom}
+            >
+              <Stack spacing={1.4}>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onSettingsAllowCollectionClipTimingChange(true)}
+                    disabled={settingsLocked || !canUseCollectionTiming}
+                    className={`rounded-2xl px-3 py-3 text-left text-sm transition ${
+                      useCollectionTimingForSettings
+                        ? "border border-emerald-300/40 bg-emerald-300/10 text-emerald-50"
+                        : "border border-white/8 bg-white/5 text-slate-300"
+                    } ${
+                      settingsLocked || !canUseCollectionTiming
+                        ? "cursor-not-allowed opacity-55"
+                        : ""
+                    }`}
                   >
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={timingSummary}
-                      className="room-lobby-settings-chip room-lobby-settings-chip--accent"
-                    />
-                  </Stack>
+                    使用收藏庫時間
+                  </button>
 
+                  <button
+                    type="button"
+                    onClick={() => onSettingsAllowCollectionClipTimingChange(false)}
+                    disabled={settingsLocked}
+                    className={`rounded-2xl px-3 py-3 text-left text-sm transition ${
+                      !useCollectionTimingForSettings
+                        ? "border border-cyan-300/40 bg-cyan-300/10 text-cyan-50"
+                        : "border border-white/8 bg-white/5 text-slate-300"
+                    } ${settingsLocked ? "cursor-not-allowed opacity-55" : ""}`}
+                  >
+                    自訂播放時間
+                  </button>
+                </div>
+
+                {!canUseCollectionTiming ? (
+                  <Typography variant="caption" className="text-slate-400">
+                    目前未使用收藏庫，無法套用收藏庫時間。
+                  </Typography>
+                ) : null}
+
+                <div className="grid gap-3 md:grid-cols-3">
                   <TextField
-                    label="公布答案時間（秒）"
+                    label="播放時間"
+                    type="number"
+                    className="room-lobby-settings-field"
+                    value={settingsPlayDurationSec}
+                    onChange={(event) =>
+                      onSettingsPlayDurationSecChange(Number(event.target.value))
+                    }
+                    disabled={settingsLocked || useCollectionTimingForSettings}
+                    fullWidth
+                  />
+                  <TextField
+                    label="起始時間"
+                    type="number"
+                    className="room-lobby-settings-field"
+                    value={settingsStartOffsetSec}
+                    onChange={(event) =>
+                      onSettingsStartOffsetSecChange(Number(event.target.value))
+                    }
+                    disabled={settingsLocked || useCollectionTimingForSettings}
+                    fullWidth
+                  />
+                  <TextField
+                    label="揭曉時間"
                     type="number"
                     className="room-lobby-settings-field"
                     value={settingsRevealDurationSec}
-                    onChange={(event) => {
-                      const next = Number(event.target.value);
-                      if (!Number.isFinite(next)) return;
-                      onSettingsRevealDurationSecChange(next);
-                    }}
-                    onBlur={() =>
-                      clampOnBlur(
-                        settingsRevealDurationSec,
-                        REVEAL_DURATION_MIN,
-                        REVEAL_DURATION_MAX,
-                        onSettingsRevealDurationSecChange,
-                      )
+                    onChange={(event) =>
+                      onSettingsRevealDurationSecChange(Number(event.target.value))
                     }
-                    inputProps={{
-                      min: REVEAL_DURATION_MIN,
-                      max: REVEAL_DURATION_MAX,
-                      inputMode: "numeric",
-                    }}
                     disabled={settingsLocked}
                     fullWidth
                   />
+                </div>
+              </Stack>
+            </Section>
 
-                  <Typography variant="caption" className="text-slate-400">
-                    可設定範圍：{REVEAL_DURATION_MIN} - {REVEAL_DURATION_MAX} 秒
-                  </Typography>
-
-                  {settingsUseCollectionSource ? (
-                    <>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={settingsAllowCollectionClipTiming}
-                            onChange={(_event, checked) =>
-                              onSettingsAllowCollectionClipTimingChange(checked)
-                            }
-                            disabled={settingsLocked}
-                          />
-                        }
-                        label="使用收藏庫時間設定"
-                        className="room-lobby-settings-switch"
-                      />
-
-                      {useCollectionTimingForSettings ? (
-                        <Typography
-                          variant="caption"
-                          className="text-cyan-200/90"
-                        >
-                          已啟用收藏庫時間，作答片段與起始時間將依歌曲片段設定帶入。
-                        </Typography>
-                      ) : null}
-                    </>
-                  ) : null}
-
-                  {!useCollectionTimingForSettings ? (
-                    <Stack spacing={1}>
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1}
-                      >
-                        <TextField
-                          label="作答播放時間（秒）"
-                          type="number"
-                          className="room-lobby-settings-field"
-                          value={settingsPlayDurationSec}
-                          onChange={(event) => {
-                            const next = Number(event.target.value);
-                            if (!Number.isFinite(next)) return;
-                            onSettingsPlayDurationSecChange(next);
-                          }}
-                          onBlur={() =>
-                            clampOnBlur(
-                              settingsPlayDurationSec,
-                              PLAY_DURATION_MIN,
-                              PLAY_DURATION_MAX,
-                              onSettingsPlayDurationSecChange,
-                            )
-                          }
-                          inputProps={{
-                            min: PLAY_DURATION_MIN,
-                            max: PLAY_DURATION_MAX,
-                            inputMode: "numeric",
-                          }}
-                          disabled={settingsLocked}
-                          fullWidth
-                        />
-
-                        <TextField
-                          label="起始秒數（秒）"
-                          type="number"
-                          className="room-lobby-settings-field"
-                          value={settingsStartOffsetSec}
-                          onChange={(event) => {
-                            const next = Number(event.target.value);
-                            if (!Number.isFinite(next)) return;
-                            onSettingsStartOffsetSecChange(next);
-                          }}
-                          onBlur={() =>
-                            clampOnBlur(
-                              settingsStartOffsetSec,
-                              START_OFFSET_MIN,
-                              START_OFFSET_MAX,
-                              onSettingsStartOffsetSecChange,
-                            )
-                          }
-                          inputProps={{
-                            min: START_OFFSET_MIN,
-                            max: START_OFFSET_MAX,
-                            inputMode: "numeric",
-                          }}
-                          disabled={settingsLocked}
-                          fullWidth
-                        />
-                      </Stack>
-
-                      <Typography variant="caption" className="text-slate-400">
-                        作答時間範圍：{PLAY_DURATION_MIN} - {PLAY_DURATION_MAX}{" "}
-                        秒 · 起始時間範圍：{START_OFFSET_MIN} -{" "}
-                        {START_OFFSET_MAX} 秒
-                      </Typography>
-
-                      <Typography variant="caption" className="text-slate-400">
-                        播放時間會從起始秒數開始計算，適合用來收斂題目的辨識難度。
-                      </Typography>
-                    </Stack>
-                  ) : null}
-                </Stack>
-              </Box>
-            </Stack>
-          </Box>
-
-          {settingsError ? (
-            <Typography variant="caption" className="text-rose-300">
-              {settingsError}
-            </Typography>
-          ) : null}
-        </Stack>
+            {settingsError ? (
+              <Typography variant="caption" className="text-rose-300">
+                {settingsError}
+              </Typography>
+            ) : null}
+          </Stack>
+        </div>
       </DialogContent>
 
       <DialogActions
@@ -849,21 +669,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
           }`}
         >
           <span className="room-lobby-settings-primary-btn__content">
-            {settingsSaving ? (
-              <>
-                <span
-                  className="room-lobby-settings-primary-btn__loader"
-                  aria-hidden="true"
-                >
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>儲存中...</span>
-              </>
-            ) : (
-              <span>儲存設定</span>
-            )}
+            {settingsSaving ? "儲存中..." : "儲存設定"}
           </span>
         </Button>
       </DialogActions>

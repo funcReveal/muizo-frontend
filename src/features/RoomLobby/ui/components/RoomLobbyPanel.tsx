@@ -58,6 +58,11 @@ import {
   PLAYER_MIN,
   QUESTION_MIN,
 } from "@domain/room/constants";
+import {
+  getLeaderboardProfileKey,
+  type LeaderboardVariantKey,
+  type RoomPlayMode,
+} from "@features/RoomHub/model/leaderboardChallengeOptions";
 import RoomLobbySettingsDialog from "./RoomLobbySettingsDialog";
 import CurrentPlaylistCard from "./CurrentPlaylistCard";
 import PlaylistSelectorModal from "./PlaylistSelectorModal";
@@ -120,6 +125,7 @@ interface RoomLobbyPanelProps {
     name?: string;
     visibility?: "public" | "private";
     password?: string | null;
+    pin?: string | null;
     questionCount?: number;
     playDurationSec?: number;
     revealDurationSec?: number;
@@ -128,6 +134,13 @@ interface RoomLobbyPanelProps {
     allowParticipantInvite?: boolean;
     playbackExtensionMode?: PlaybackExtensionMode;
     maxPlayers?: number | null;
+    leaderboardProfileKey?: string | null;
+    leaderboardRuleVersion?: number | null;
+    leaderboardModeKey?: string | null;
+    leaderboardVariantKey?: string | null;
+    leaderboardTargetQuestionCount?: number | null;
+    leaderboardTimeLimitSec?: number | null;
+    leaderboardRankingMetric?: string | null;
   }) => Promise<boolean>;
   onOpenLastSettlement?: () => void;
   onOpenHistoryDrawer?: () => void;
@@ -274,6 +287,10 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   >("public");
   const [settingsPassword, setSettingsPassword] = useState("");
   const [settingsPasswordDirty, setSettingsPasswordDirty] = useState(false);
+  const [settingsRoomPlayMode, setSettingsRoomPlayMode] =
+    useState<RoomPlayMode>("casual");
+  const [settingsLeaderboardVariant, setSettingsLeaderboardVariant] =
+    useState<LeaderboardVariantKey>("30q");
   const [settingsQuestionCount, setSettingsQuestionCount] =
     useState(QUESTION_MIN);
   const [settingsPlayDurationSec, setSettingsPlayDurationSec] = useState(
@@ -528,8 +545,29 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       ),
     [settingsSourceItems],
   );
-  const useCollectionTimingForSettings =
-    settingsUseCollectionSource && settingsAllowCollectionClipTiming;
+  const currentRoomLeaderboardVariant = useMemo<LeaderboardVariantKey | null>(() => {
+    const variantKey = currentRoom?.gameSettings?.leaderboardVariantKey;
+    if (variantKey === "30q" || variantKey === "50q" || variantKey === "15m") {
+      return variantKey;
+    }
+    const profileKey = currentRoom?.gameSettings?.leaderboardProfileKey;
+    if (profileKey === "classic_50") return "50q";
+    if (profileKey === "time_attack_15m") return "15m";
+    if (profileKey === "classic_30") return "30q";
+    return null;
+  }, [
+    currentRoom?.gameSettings?.leaderboardProfileKey,
+    currentRoom?.gameSettings?.leaderboardVariantKey,
+  ]);
+  const currentRoomPlayMode = currentRoomLeaderboardVariant ? "leaderboard" : "casual";
+  const canUseLeaderboard30 = questionMaxLimit >= 30;
+  const canUseLeaderboard50 = questionMaxLimit >= 50;
+  const leaderboardQuestionHelpText =
+    !canUseLeaderboard30
+      ? "目前歌單少於 30 首，因此排行榜預設模式會受到限制。"
+      : !canUseLeaderboard50
+        ? "目前歌單少於 50 首，因此暫時無法使用 50 題挑戰。"
+        : "排行榜房間的題數模式只允許 30 題、50 題或 15 分鐘限時。";
   const [startCountdownNow, setStartCountdownNow] = useState(() => Date.now());
   useEffect(() => {
     if (gameState?.status !== "playing") return;
@@ -645,6 +683,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     setSettingsPasswordDirty(false);
     const baseQuestion =
       currentRoom.gameSettings?.questionCount ?? QUESTION_MIN;
+    setSettingsRoomPlayMode(currentRoomPlayMode);
+    setSettingsLeaderboardVariant(currentRoomLeaderboardVariant ?? "30q");
     setSettingsQuestionCount(
       clampQuestionCount(baseQuestion, questionMaxLimit),
     );
@@ -671,7 +711,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     );
     setSettingsError(null);
     setSettingsOpen(true);
-  }, [currentRoom, questionMaxLimit, roomPassword]);
+  }, [
+    currentRoom,
+    currentRoomLeaderboardVariant,
+    currentRoomPlayMode,
+    questionMaxLimit,
+    roomPassword,
+  ]);
 
   const closeSettingsModal = React.useCallback(() => {
     if (settingsSaving) return;
@@ -683,14 +729,14 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     if (settingsDisabled || settingsSaving) return;
     const trimmedName = settingsName.trim();
     if (!trimmedName) {
-      setSettingsError("房間名稱不能為空");
+      setSettingsError("請輸入房間名稱。");
       return;
     }
     const parsedMaxPlayers = settingsMaxPlayers.trim()
       ? Number(settingsMaxPlayers)
       : null;
     if (parsedMaxPlayers !== null && !Number.isFinite(parsedMaxPlayers)) {
-      setSettingsError("最大人數必須是有效數字");
+      setSettingsError("人數上限格式不正確。");
       return;
     }
     const normalizedMaxPlayers =
@@ -703,35 +749,84 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       effectiveMaxPlayers !== null &&
       (effectiveMaxPlayers < PLAYER_MIN || effectiveMaxPlayers > PLAYER_MAX)
     ) {
-      setSettingsError(`最大人數需介於 ${PLAYER_MIN} - ${PLAYER_MAX}`);
-      return;
-    }
-    const normalizedPin = settingsPassword.trim();
-    if (normalizedPin && !/^\d{4}$/.test(normalizedPin)) {
-      setSettingsError("PIN 需為 4 位數字");
+      setSettingsError(`人數上限必須介於 ${PLAYER_MIN} 到 ${PLAYER_MAX} 之間。`);
       return;
     }
 
-    const nextMaxPlayers = effectiveMaxPlayers;
-    const nextQuestionCount = clampQuestionCount(
-      settingsQuestionCount,
-      questionMaxLimit,
-    );
-    const nextPlayDurationSec = clampPlayDurationSec(settingsPlayDurationSec);
-    const nextRevealDurationSec = clampRevealDurationSec(settingsRevealDurationSec);
-    const nextStartOffsetSec = clampStartOffsetSec(settingsStartOffsetSec);
-    const payload = {
+    const normalizedPin = settingsPassword.trim();
+    if (normalizedPin && !/^\d{4}$/.test(normalizedPin)) {
+      setSettingsError("PIN 必須為 4 碼數字。");
+      return;
+    }
+
+    const basePayload = {
       name: trimmedName,
       visibility: settingsVisibility,
-      questionCount: nextQuestionCount,
-      playDurationSec: nextPlayDurationSec,
-      revealDurationSec: nextRevealDurationSec,
-      startOffsetSec: nextStartOffsetSec,
-      allowCollectionClipTiming: settingsAllowCollectionClipTiming,
-      playbackExtensionMode: settingsPlaybackExtensionMode,
-      maxPlayers: nextMaxPlayers,
+      maxPlayers: effectiveMaxPlayers,
       ...(settingsPasswordDirty ? { pin: normalizedPin } : {}),
     };
+
+    const payload =
+      settingsRoomPlayMode === "leaderboard"
+        ? {
+            ...basePayload,
+            ...(settingsLeaderboardVariant === "15m"
+              ? {}
+              : {
+                  questionCount: clampQuestionCount(
+                    settingsLeaderboardVariant === "50q" ? 50 : 30,
+                    questionMaxLimit,
+                  ),
+                }),
+            leaderboardProfileKey: getLeaderboardProfileKey(
+              settingsLeaderboardVariant === "15m" ? "time_attack" : "classic",
+              settingsLeaderboardVariant,
+            ),
+            leaderboardModeKey:
+              settingsLeaderboardVariant === "15m" ? "time_attack" : "classic",
+            leaderboardVariantKey: settingsLeaderboardVariant,
+            leaderboardTargetQuestionCount:
+              settingsLeaderboardVariant === "15m"
+                ? null
+                : settingsLeaderboardVariant === "50q"
+                  ? 50
+                  : 30,
+            leaderboardTimeLimitSec:
+              settingsLeaderboardVariant === "15m" ? 15 * 60 : null,
+            leaderboardRuleVersion: null,
+            leaderboardRankingMetric: null,
+          }
+        : {
+            ...basePayload,
+            questionCount: clampQuestionCount(
+              settingsQuestionCount,
+              questionMaxLimit,
+            ),
+            playDurationSec: clampPlayDurationSec(settingsPlayDurationSec),
+            revealDurationSec: clampRevealDurationSec(settingsRevealDurationSec),
+            startOffsetSec: clampStartOffsetSec(settingsStartOffsetSec),
+            allowCollectionClipTiming: settingsAllowCollectionClipTiming,
+            playbackExtensionMode: settingsPlaybackExtensionMode,
+            leaderboardProfileKey: null,
+            leaderboardRuleVersion: null,
+            leaderboardModeKey: null,
+            leaderboardVariantKey: null,
+            leaderboardTargetQuestionCount: null,
+            leaderboardTimeLimitSec: null,
+            leaderboardRankingMetric: null,
+          };
+
+    if (settingsRoomPlayMode === "leaderboard") {
+      if (settingsLeaderboardVariant === "30q" && !canUseLeaderboard30) {
+        setSettingsError("目前歌單不足 30 首，無法使用 30 題挑戰。");
+        return;
+      }
+      if (settingsLeaderboardVariant === "50q" && !canUseLeaderboard50) {
+        setSettingsError("目前歌單不足 50 首，無法使用 50 題挑戰。");
+        return;
+      }
+    }
+
     setSettingsSaving(true);
     try {
       const success = await onUpdateRoomSettings(payload);
@@ -743,10 +838,13 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       setSettingsSaving(false);
     }
   }, [
+    canUseLeaderboard30,
+    canUseLeaderboard50,
     onUpdateRoomSettings,
     questionMaxLimit,
     settingsAllowCollectionClipTiming,
     settingsDisabled,
+    settingsLeaderboardVariant,
     settingsMaxPlayers,
     settingsName,
     settingsPassword,
@@ -755,6 +853,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     settingsPlayDurationSec,
     settingsQuestionCount,
     settingsRevealDurationSec,
+    settingsRoomPlayMode,
     settingsSaving,
     settingsStartOffsetSec,
     settingsVisibility,
@@ -1888,6 +1987,20 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         open={settingsOpen}
         settingsDisabled={settingsDisabled}
         settingsSaving={settingsSaving}
+        roomPlayMode={settingsRoomPlayMode}
+        onRoomPlayModeChange={(value) => {
+          setSettingsRoomPlayMode(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
+        leaderboardVariant={settingsLeaderboardVariant}
+        onLeaderboardVariantChange={(value) => {
+          setSettingsLeaderboardVariant(value);
+          if (settingsError) {
+            setSettingsError(null);
+          }
+        }}
         settingsName={settingsName}
         onSettingsNameChange={(value) => {
           setSettingsName(value);
@@ -1956,9 +2069,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
             setSettingsError(null);
           }
         }}
-        useCollectionTimingForSettings={useCollectionTimingForSettings}
         settingsPlayDurationSec={settingsPlayDurationSec}
         onSettingsPlayDurationSecChange={(value) => {
+          if (!Number.isFinite(value)) return;
           setSettingsPlayDurationSec(value);
           if (settingsError) {
             setSettingsError(null);
@@ -1966,11 +2079,15 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         }}
         settingsStartOffsetSec={settingsStartOffsetSec}
         onSettingsStartOffsetSecChange={(value) => {
+          if (!Number.isFinite(value)) return;
           setSettingsStartOffsetSec(value);
           if (settingsError) {
             setSettingsError(null);
           }
         }}
+        canUseLeaderboard30={canUseLeaderboard30}
+        canUseLeaderboard50={canUseLeaderboard50}
+        leaderboardQuestionHelpText={leaderboardQuestionHelpText}
         settingsError={settingsError}
         onClose={closeSettingsModal}
         onSave={handleSaveSettingsClick}

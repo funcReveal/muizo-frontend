@@ -41,6 +41,13 @@ type RoomSettingsPayload = {
   allowParticipantInvite?: boolean;
   playbackExtensionMode?: PlaybackExtensionMode;
   maxPlayers?: number | null;
+  leaderboardProfileKey?: string | null;
+  leaderboardRuleVersion?: number | null;
+  leaderboardModeKey?: string | null;
+  leaderboardVariantKey?: string | null;
+  leaderboardTargetQuestionCount?: number | null;
+  leaderboardTimeLimitSec?: number | null;
+  leaderboardRankingMetric?: string | null;
 };
 
 interface UseRoomProviderSettingsActionsParams {
@@ -229,6 +236,9 @@ export const useRoomProviderSettingsActions = ({
             }
 
             const gameSettingsPatch = {
+              ...(typeof normalizedPayload.questionCount === "number"
+                ? { questionCount: normalizedPayload.questionCount }
+                : {}),
               ...(typeof normalizedPayload.playDurationSec === "number"
                 ? { playDurationSec: normalizedPayload.playDurationSec }
                 : {}),
@@ -255,6 +265,47 @@ export const useRoomProviderSettingsActions = ({
                 ? {
                     playbackExtensionMode:
                       normalizedPayload.playbackExtensionMode,
+                  }
+                : {}),
+              ...(normalizedPayload.leaderboardProfileKey !== undefined
+                ? {
+                    leaderboardProfileKey:
+                      normalizedPayload.leaderboardProfileKey,
+                  }
+                : {}),
+              ...(normalizedPayload.leaderboardRuleVersion !== undefined
+                ? {
+                    leaderboardRuleVersion:
+                      normalizedPayload.leaderboardRuleVersion,
+                  }
+                : {}),
+              ...(normalizedPayload.leaderboardModeKey !== undefined
+                ? {
+                    leaderboardModeKey: normalizedPayload.leaderboardModeKey,
+                  }
+                : {}),
+              ...(normalizedPayload.leaderboardVariantKey !== undefined
+                ? {
+                    leaderboardVariantKey:
+                      normalizedPayload.leaderboardVariantKey,
+                  }
+                : {}),
+              ...(normalizedPayload.leaderboardTargetQuestionCount !== undefined
+                ? {
+                    leaderboardTargetQuestionCount:
+                      normalizedPayload.leaderboardTargetQuestionCount,
+                  }
+                : {}),
+              ...(normalizedPayload.leaderboardTimeLimitSec !== undefined
+                ? {
+                    leaderboardTimeLimitSec:
+                      normalizedPayload.leaderboardTimeLimitSec,
+                  }
+                : {}),
+              ...(normalizedPayload.leaderboardRankingMetric !== undefined
+                ? {
+                    leaderboardRankingMetric:
+                      normalizedPayload.leaderboardRankingMetric,
                   }
                 : {}),
             } satisfies Partial<RoomGameSettings>;
