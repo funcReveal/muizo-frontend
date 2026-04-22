@@ -32,6 +32,7 @@ import {
   START_OFFSET_MAX,
   START_OFFSET_MIN,
 } from "@domain/room/constants";
+import type { RoomCreateSourceMode } from "@domain/room/types";
 import type { CreateSettingsCard, SourceSummary } from "../../roomsHubViewModels";
 import {
   getLeaderboardModeDescription,
@@ -57,6 +58,7 @@ type RoomSetupPanelProps = {
   updateQuestionCount: (value: number) => void;
   roomPlayMode: RoomPlayMode;
   setRoomPlayMode: (value: RoomPlayMode) => void;
+  roomCreateSourceMode: RoomCreateSourceMode;
   selectedLeaderboardMode: LeaderboardModeKey;
   selectedLeaderboardVariant: LeaderboardVariantKey;
   onLeaderboardSelectionChange: (
@@ -97,6 +99,7 @@ const RoomSetupPanel = ({
   updateQuestionCount,
   roomPlayMode,
   setRoomPlayMode,
+  roomCreateSourceMode,
   selectedLeaderboardMode,
   selectedLeaderboardVariant,
   onLeaderboardSelectionChange,
@@ -141,13 +144,17 @@ const RoomSetupPanel = ({
     ) ?? leaderboardChallengeOptions[0];
   const activeLeaderboardModeDescription =
     getLeaderboardModeDescription(selectedLeaderboardMode);
-  const isLeaderboardRoom = roomPlayMode === "leaderboard";
+  const isLeaderboardChallengeAvailable =
+    roomCreateSourceMode === "publicCollection";
+  const isLeaderboardRoom =
+    roomPlayMode === "leaderboard" && isLeaderboardChallengeAvailable;
   const isLeaderboardSettingsLocked = isLeaderboardRoom;
   const isQuestionCountLocked = isLeaderboardSettingsLocked;
   const hasPinLengthError =
     isPinProtectionOpen &&
     roomPasswordInput.length > 0 &&
     roomPasswordInput.length < 4;
+
   const leaderboardLockedOverlay = isLeaderboardSettingsLocked ? (
     <div
       aria-hidden="true"
@@ -341,8 +348,8 @@ const RoomSetupPanel = ({
           </button>
 
           <div
-            className={`rounded-2xl border px-3 py-3 transition ${
-              isLeaderboardRoom
+            className={`relative overflow-hidden rounded-2xl border px-3 py-3 transition ${
+              isLeaderboardRoom && isLeaderboardChallengeAvailable
                 ? "border-amber-300/38 bg-amber-300/10 text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                 : "border-white/8 bg-white/5 text-[var(--mc-text-muted)] hover:border-amber-300/28 hover:bg-white/[0.07]"
             }`}
@@ -350,12 +357,16 @@ const RoomSetupPanel = ({
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setRoomPlayMode("leaderboard")}
-                className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                disabled={!isLeaderboardChallengeAvailable}
+                onClick={() => {
+                  if (!isLeaderboardChallengeAvailable) return;
+                  setRoomPlayMode("leaderboard");
+                }}
+                className="flex min-w-0 flex-1 items-start gap-3 text-left disabled:cursor-not-allowed"
               >
                 <span
                   className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
-                    isLeaderboardRoom
+                    isLeaderboardRoom && isLeaderboardChallengeAvailable
                       ? "border-amber-200/24 bg-amber-300/14 text-amber-100"
                       : "border-white/10 bg-slate-950/35 text-slate-300"
                   }`}
@@ -372,7 +383,7 @@ const RoomSetupPanel = ({
                 </span>
               </button>
 
-              {isLeaderboardRoom ? (
+              {isLeaderboardRoom && isLeaderboardChallengeAvailable ? (
                 <div
                   className="relative shrink-0"
                   onBlur={(event) => {
@@ -464,6 +475,14 @@ const RoomSetupPanel = ({
                 </div>
               ) : null}
             </div>
+            {!isLeaderboardChallengeAvailable ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-end rounded-2xl bg-slate-950/66 px-3 backdrop-blur-[2px]">
+                <div className="inline-flex max-w-[13rem] items-center gap-2 rounded-xl border border-amber-100/18 bg-slate-950/84 px-3 py-2 text-xs font-semibold text-amber-50 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.72)]">
+                  <LockOutlined sx={{ fontSize: 16 }} />
+                  <span className="leading-5">僅公開收藏庫可用</span>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

@@ -642,10 +642,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       }}
                     >
                       <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                      對戰歷史
+                      生涯總覽
                     </Box>
                   ) : (
-                    (historyMenuLabel ?? "對戰歷史")
+                    (historyMenuLabel ?? "生涯總覽")
                   )
                 }
                 secondary={

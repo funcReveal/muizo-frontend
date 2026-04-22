@@ -825,8 +825,10 @@ const RoomsHubPage: React.FC = () => {
     setSelectedLeaderboardMode(nextMode);
     setSelectedLeaderboardVariant(nextVariant);
   };
+  const canUseLeaderboardChallenge =
+    roomCreateSourceMode === "publicCollection";
   const createRoomOptions =
-    roomPlayMode === "leaderboard"
+    roomPlayMode === "leaderboard" && canUseLeaderboardChallenge
       ? {
           leaderboardProfileKey: getLeaderboardProfileKey(
             selectedLeaderboardMode,
@@ -1562,6 +1564,7 @@ const RoomsHubPage: React.FC = () => {
                             updateQuestionCount={updateQuestionCount}
                             roomPlayMode={roomPlayMode}
                             setRoomPlayMode={handleRoomPlayModeChange}
+                            roomCreateSourceMode={roomCreateSourceMode}
                             selectedLeaderboardMode={selectedLeaderboardMode}
                             selectedLeaderboardVariant={
                               selectedLeaderboardVariant

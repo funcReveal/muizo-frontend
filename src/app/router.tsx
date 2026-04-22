@@ -20,23 +20,19 @@ const CollectionContentLayoutShell = lazy(
   () => import("./layout/CollectionContentLayoutShell"),
 );
 const RoomsHubPage = lazy(() => import("@features/RoomHub"));
-const RoomLobbyPage = lazy(
-  () => import("@features/RoomLobby"),
-);
-const RoomHistoryPage = lazy(() => import("@features/RoomHistory"));
+const RoomLobbyPage = lazy(() => import("@features/RoomLobby"));
+const CareerPage = lazy(() => import("@features/Career"));
 const InvitedPage = lazy(() => import("@features/Invited"));
 const CollectionsPage = lazy(() => import("@features/Collections"));
-const CollectionsCreatePage = lazy(
-  () =>
-    import("@features/Collections").then(({ CollectionCreatePage }) => ({
-      default: CollectionCreatePage,
-    })),
+const CollectionsCreatePage = lazy(() =>
+  import("@features/Collections").then(({ CollectionCreatePage }) => ({
+    default: CollectionCreatePage,
+  })),
 );
-const EditPage = lazy(
-  () =>
-    import("@features/Collections").then(({ CollectionEditPage }) => ({
-      default: CollectionEditPage,
-    })),
+const EditPage = lazy(() =>
+  import("@features/Collections").then(({ CollectionEditPage }) => ({
+    default: CollectionEditPage,
+  })),
 );
 
 /** Minimal spinner used as the Suspense fallback for route transitions. */
@@ -58,10 +54,7 @@ export function AppRouter() {
             </Suspense>
           }
         />
-        <Route
-          path="/settings"
-          element={<Navigate to="/rooms" replace />}
-        />
+        <Route path="/settings" element={<Navigate to="/rooms" replace />} />
         <Route
           path="/collections"
           element={
@@ -152,13 +145,13 @@ export function AppRouter() {
           element={
             <RequireAuthRoute
               badge="History Access"
-              title="先建立身分即可查看對戰歷史"
+              title="先建立身分即可查看生涯總覽"
               description="訪客可查看目前身分的對戰紀錄；登入可跨裝置保存完整歷史。"
               highlights={["完整對戰回放", "個人戰績", "跨裝置同步"]}
               allowGuest
             >
               <Suspense fallback={<PageLoader />}>
-                <RoomHistoryPage />
+                <CareerPage />
               </Suspense>
             </RequireAuthRoute>
           }

@@ -176,7 +176,7 @@ export function useRoomAwareNavigationGuards({
         ? "房間列表"
         : navigationConfirmTarget === "collections"
           ? "收藏庫"
-          : "對戰歷史";
+          : "生涯總覽";
     if (gameState?.status === "playing") {
       return {
         title: `離開對戰並前往${targetLabel}？`,

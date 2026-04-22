@@ -48,7 +48,7 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
       <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h1 className="font-semibold tracking-tight text-[var(--mc-text)] sm:text-xl">
-            對戰歷史紀錄
+            生涯總覽
           </h1>
         </div>
 
@@ -82,10 +82,14 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
               近期最高分
             </div>
             <div className="mt-1.5 text-[1.95rem] font-semibold leading-none text-[var(--mc-text)] sm:mt-2 sm:text-4xl">
-              {loadingList ? "-" : (recentTopScoreEntry?.selfPlayer?.finalScore ?? "-")}
+              {loadingList
+                ? "-"
+                : (recentTopScoreEntry?.selfPlayer?.finalScore ?? "-")}
             </div>
             <div className="mt-auto pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
-              {recentTopScoreEntry ? `第 ${recentTopScoreEntry.roundNo} 場` : "暫無資料"}
+              {recentTopScoreEntry
+                ? `第 ${recentTopScoreEntry.roundNo} 場`
+                : "暫無資料"}
             </div>
           </div>
         </button>
@@ -118,7 +122,9 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
                   : "-"}
             </div>
             <div className="mt-auto pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
-              {recentBestRankEntry ? `第 ${recentBestRankEntry.item.roundNo} 場` : "暫無資料"}
+              {recentBestRankEntry
+                ? `第 ${recentBestRankEntry.item.roundNo} 場`
+                : "暫無資料"}
             </div>
           </div>
         </button>
@@ -148,7 +154,9 @@ const HistoryArchiveHeader: React.FC<HistoryArchiveHeaderProps> = ({
                   : "-"}
             </div>
             <div className="mt-auto pt-2 text-[11px] text-[var(--mc-text-muted)] sm:pt-3 sm:text-xs">
-              {recentBestComboEntry ? `第 ${recentBestComboEntry.roundNo} 場` : "暫無資料"}
+              {recentBestComboEntry
+                ? `第 ${recentBestComboEntry.roundNo} 場`
+                : "暫無資料"}
             </div>
           </div>
         </button>
