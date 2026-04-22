@@ -6,6 +6,10 @@ export type RoomCreateSourceMode =
   | "publicCollection"
   | "privateCollection";
 
+export type CreateRoomOptions = {
+  leaderboardProfileKey?: string | null;
+};
+
 export interface RoomCreateContextValue {
   // 建立房間表單
   roomNameInput: string;
@@ -23,7 +27,7 @@ export interface RoomCreateContextValue {
   setJoinPasswordInput: (value: string) => void;
   // 操作
   isCreatingRoom: boolean;
-  handleCreateRoom: () => Promise<void>;
+  handleCreateRoom: (options?: CreateRoomOptions) => Promise<void>;
   handleJoinRoom: (
     roomReference: string,
     hasPin: boolean,

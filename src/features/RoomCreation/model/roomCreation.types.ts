@@ -27,6 +27,13 @@ export type BeginRoomCreationPayload = {
     allowCollectionClipTiming: boolean;
     allowParticipantInvite: boolean;
     playbackExtensionMode: "manual_vote" | "auto_once" | "disabled";
+    leaderboardProfileKey?: string | null;
+    leaderboardRuleVersion?: number | null;
+    leaderboardModeKey?: string | null;
+    leaderboardVariantKey?: string | null;
+    leaderboardTargetQuestionCount?: number | null;
+    leaderboardTimeLimitSec?: number | null;
+    leaderboardRankingMetric?: string | null;
   };
   playlistManifest: {
     sourceType?: PlaylistSourceType | null;

@@ -66,12 +66,27 @@ export type CollectionItemRecord = {
   deleted_at: number | null;
 };
 
+export type CollectionItemPreviewRecord = {
+  id: string;
+  sort: number;
+  provider: string;
+  source_id: string;
+  title?: string | null;
+  channel_title?: string | null;
+  duration_sec?: number | null;
+  start_sec?: number | null;
+  end_sec?: number | null;
+  thumbnail_url?: string | null;
+};
+
 export type WorkerListPayload<TItem> = {
   ok?: boolean;
   data?: {
     items: TItem[];
     page: number;
     pageSize: number;
+    hasMore?: boolean;
+    nextPage?: number | null;
   };
   error?: string;
   error_code?: string;
@@ -206,6 +221,38 @@ export const apiFetchCollectionItems = (
   return fetchJson<WorkerListPayload<CollectionItemRecord>>(url.toString(), {
     headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
+};
+
+export const apiFetchCollectionItemPreview = (
+  apiUrl: string,
+  token: string | null,
+  collectionId: string,
+  options?: {
+    page?: number;
+    pageSize?: number;
+    readToken?: string | null;
+  },
+) => {
+  const url = new URL(`${apiUrl}/api/collections/${collectionId}/items/preview`);
+  if (options?.page !== undefined) {
+    url.searchParams.set("page", String(options.page));
+  }
+  if (options?.pageSize !== undefined) {
+    url.searchParams.set("pageSize", String(options.pageSize));
+  }
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  if (options?.readToken) {
+    headers["X-Collection-Read-Token"] = options.readToken;
+  }
+  return fetchJson<WorkerListPayload<CollectionItemPreviewRecord>>(
+    url.toString(),
+    {
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    },
+  );
 };
 
 export const apiCreateCollectionReadToken = (

@@ -1,8 +1,5 @@
 import {
   Fragment,
-  useEffect,
-  useRef,
-  useState,
   type ReactNode,
   type RefObject,
   type UIEvent,
@@ -16,6 +13,7 @@ import type {
   VirtualLibraryListRowComponent,
   VirtualLibraryListRowProps,
 } from "./VirtualLibraryListRow";
+import { useTransientScrollbar } from "@shared/hooks/useTransientScrollbar";
 
 type CreateLibraryTab = "public" | "personal";
 
@@ -70,16 +68,8 @@ const CollectionsSourceContent = ({
   loadMoreCollections,
   VirtualLibraryListRow,
 }: CollectionsSourceContentProps) => {
-  const [isScrollbarVisible, setIsScrollbarVisible] = useState(false);
-  const scrollHideTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (scrollHideTimerRef.current !== null) {
-        window.clearTimeout(scrollHideTimerRef.current);
-      }
-    };
-  }, []);
+  const { transientScrollbarClassName, revealScrollbar } =
+    useTransientScrollbar();
 
   const getCollectionRenderKey = (collection: unknown, index: number) => {
     if (
@@ -188,19 +178,10 @@ const CollectionsSourceContent = ({
       {createLibraryView === "grid" ? (
         <div
           ref={createLibraryScrollRef}
-          className={`rooms-hub-library-scrollbar h-full min-h-0 overflow-y-auto sm:pr-1 ${
-            isScrollbarVisible ? "is-scrolling" : ""
-          }`}
+          className={`transient-scrollbar h-full min-h-0 overflow-y-auto sm:pr-1 ${transientScrollbarClassName}`}
           onScroll={(event) => {
             handleCollectionGridScroll(event);
-            setIsScrollbarVisible(true);
-            if (scrollHideTimerRef.current !== null) {
-              window.clearTimeout(scrollHideTimerRef.current);
-            }
-            scrollHideTimerRef.current = window.setTimeout(() => {
-              setIsScrollbarVisible(false);
-              scrollHideTimerRef.current = null;
-            }, 720);
+            revealScrollbar();
           }}
         >
           <div

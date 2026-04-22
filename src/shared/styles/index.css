@@ -127,22 +127,26 @@ body {
   scrollbar-color: rgba(245, 158, 11, 0.72) rgba(20, 17, 13, 0.36);
 }
 
+.transient-scrollbar,
 .rooms-hub-library-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   scrollbar-gutter: stable;
 }
 
+.transient-scrollbar::-webkit-scrollbar,
 .rooms-hub-library-scrollbar::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
+.transient-scrollbar::-webkit-scrollbar-track,
 .rooms-hub-library-scrollbar::-webkit-scrollbar-track {
   background: transparent;
   border: 0;
 }
 
+.transient-scrollbar::-webkit-scrollbar-thumb,
 .rooms-hub-library-scrollbar::-webkit-scrollbar-thumb {
   background: transparent;
   border: 2px solid transparent;
@@ -150,12 +154,18 @@ body {
   box-shadow: none;
 }
 
+.transient-scrollbar.is-scrolling,
+.transient-scrollbar:hover,
+.transient-scrollbar:focus-within,
 .rooms-hub-library-scrollbar.is-scrolling,
 .rooms-hub-library-scrollbar:hover,
 .rooms-hub-library-scrollbar:focus-within {
   scrollbar-color: rgba(245, 158, 11, 0.72) rgba(20, 17, 13, 0.36);
 }
 
+.transient-scrollbar.is-scrolling::-webkit-scrollbar-track,
+.transient-scrollbar:hover::-webkit-scrollbar-track,
+.transient-scrollbar:focus-within::-webkit-scrollbar-track,
 .rooms-hub-library-scrollbar.is-scrolling::-webkit-scrollbar-track,
 .rooms-hub-library-scrollbar:hover::-webkit-scrollbar-track,
 .rooms-hub-library-scrollbar:focus-within::-webkit-scrollbar-track {
@@ -164,6 +174,9 @@ body {
   border: 1px solid rgba(245, 158, 11, 0.06);
 }
 
+.transient-scrollbar.is-scrolling::-webkit-scrollbar-thumb,
+.transient-scrollbar:hover::-webkit-scrollbar-thumb,
+.transient-scrollbar:focus-within::-webkit-scrollbar-thumb,
 .rooms-hub-library-scrollbar.is-scrolling::-webkit-scrollbar-thumb,
 .rooms-hub-library-scrollbar:hover::-webkit-scrollbar-thumb,
 .rooms-hub-library-scrollbar:focus-within::-webkit-scrollbar-thumb {

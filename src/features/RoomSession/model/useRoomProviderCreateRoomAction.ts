@@ -10,7 +10,7 @@ import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import {
   runRoomCreationFlow,
 } from "@features/RoomCreation";
-import type { RoomCreateSourceMode } from "./RoomCreateContext";
+import type { CreateRoomOptions, RoomCreateSourceMode } from "./RoomCreateContext";
 import {
   CHUNK_SIZE,
   DEFAULT_PLAYBACK_EXTENSION_MODE,
@@ -191,7 +191,7 @@ export const useRoomProviderCreateRoomAction = ({
     [],
   );
 
-  const handleCreateRoom = useCallback(async () => {
+  const handleCreateRoom = useCallback(async (options?: CreateRoomOptions) => {
     const socket = getSocket();
     if (!socket || !username) {
       setStatusText("請先設定使用者名稱");
@@ -291,6 +291,11 @@ export const useRoomProviderCreateRoomAction = ({
     const nextRevealDurationSec = clampRevealDurationSec(revealDurationSec);
     const nextStartOffsetSec = clampStartOffsetSec(startOffsetSec);
     const nextAllowCollectionClipTiming = Boolean(allowCollectionClipTiming);
+    const leaderboardProfileKey =
+      typeof options?.leaderboardProfileKey === "string" &&
+      options.leaderboardProfileKey.trim().length > 0
+        ? options.leaderboardProfileKey.trim()
+        : null;
 
     trackEvent("room_create_click", {
       source_mode: roomCreateSourceMode,
@@ -299,6 +304,7 @@ export const useRoomProviderCreateRoomAction = ({
       question_count: nextQuestionCount,
       reveal_duration_sec: nextRevealDurationSec,
       playlist_count: playlistItems.length,
+      leaderboard_profile_key: leaderboardProfileKey,
     });
 
     const uploadItems = buildUploadPlaylistItems(playlistItems, {
@@ -323,6 +329,7 @@ export const useRoomProviderCreateRoomAction = ({
         allowCollectionClipTiming: nextAllowCollectionClipTiming,
         allowParticipantInvite: false,
         playbackExtensionMode: DEFAULT_PLAYBACK_EXTENSION_MODE,
+        leaderboardProfileKey,
       },
       playlist: {
         items: uploadItems,
@@ -360,8 +367,10 @@ export const useRoomProviderCreateRoomAction = ({
     }
 
     const finalizedState = finalizeAck.data.roomState;
+    const finalizedQuestionCount =
+      finalizedState.room.gameSettings?.questionCount ?? nextQuestionCount;
     const finalizedRoom = applyGameSettingsPatch(finalizedState.room, {
-      questionCount: nextQuestionCount,
+      questionCount: finalizedQuestionCount,
       playDurationSec: nextPlayDurationSec,
       revealDurationSec: nextRevealDurationSec,
       startOffsetSec: nextStartOffsetSec,
@@ -411,8 +420,9 @@ export const useRoomProviderCreateRoomAction = ({
       source_mode: roomCreateSourceMode,
       room_visibility: desiredVisibility,
       player_limit: desiredMaxPlayers,
-      question_count: nextQuestionCount,
+      question_count: finalizedQuestionCount,
       playlist_count: uploadItems.length,
+      leaderboard_profile_key: leaderboardProfileKey,
     });
 
     setStatusText(null);

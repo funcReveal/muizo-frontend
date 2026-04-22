@@ -4,8 +4,11 @@ import { Slider, TextField } from "@mui/material";
 import {
   AccessTimeRounded,
   AddRounded,
+  EmojiEventsRounded,
   GroupsRounded,
+  KeyboardArrowDownRounded,
   LockRounded,
+  LockOutlined,
   MeetingRoomRounded,
   PinOutlined,
   PlayCircleOutlineRounded,
@@ -15,6 +18,7 @@ import {
   ScheduleRounded,
   TimerRounded,
   TuneRounded,
+  VideogameAssetRounded,
 } from "@mui/icons-material";
 
 import {
@@ -29,6 +33,14 @@ import {
   START_OFFSET_MIN,
 } from "@domain/room/constants";
 import type { CreateSettingsCard, SourceSummary } from "../../roomsHubViewModels";
+import {
+  getLeaderboardModeDescription,
+  leaderboardModes,
+  leaderboardVariants,
+  type LeaderboardModeKey,
+  type LeaderboardVariantKey,
+  type RoomPlayMode,
+} from "../../../model/leaderboardChallengeOptions";
 
 type RoomSetupPanelProps = {
   roomNameInput: string;
@@ -43,6 +55,14 @@ type RoomSetupPanelProps = {
   questionMin: number;
   questionMaxLimit: number;
   updateQuestionCount: (value: number) => void;
+  roomPlayMode: RoomPlayMode;
+  setRoomPlayMode: (value: RoomPlayMode) => void;
+  selectedLeaderboardMode: LeaderboardModeKey;
+  selectedLeaderboardVariant: LeaderboardVariantKey;
+  onLeaderboardSelectionChange: (
+    mode: LeaderboardModeKey,
+    variant: LeaderboardVariantKey,
+  ) => void;
   playDurationSec: number;
   revealDurationSec: number;
   startOffsetSec: number;
@@ -75,6 +95,11 @@ const RoomSetupPanel = ({
   questionMin,
   questionMaxLimit,
   updateQuestionCount,
+  roomPlayMode,
+  setRoomPlayMode,
+  selectedLeaderboardMode,
+  selectedLeaderboardVariant,
+  onLeaderboardSelectionChange,
   playDurationSec,
   revealDurationSec,
   startOffsetSec,
@@ -89,6 +114,8 @@ const RoomSetupPanel = ({
   const [isPinProtectionEnabled, setIsPinProtectionEnabled] = useState(
     () => roomPasswordInput.length > 0,
   );
+  const [isLeaderboardSpecMenuOpen, setIsLeaderboardSpecMenuOpen] =
+    useState(false);
   const isPinProtectionOpen =
     isPinProtectionEnabled || roomPasswordInput.length > 0;
   const effectiveMaxPlayers = parsedMaxPlayers ?? PLAYER_MIN;
@@ -96,10 +123,49 @@ const RoomSetupPanel = ({
   const canIncreaseMaxPlayers = effectiveMaxPlayers < PLAYER_MAX;
   const canDecreaseQuestionCount = questionCount > questionMin;
   const canIncreaseQuestionCount = questionCount < questionMaxLimit;
+  const leaderboardChallengeGroups = leaderboardModes.map((mode) => ({
+    modeKey: mode.key,
+    label: mode.label,
+    options: leaderboardVariants[mode.key].map((variant) => ({
+      modeKey: mode.key,
+      variantKey: variant.key,
+      label: variant.label,
+    })),
+  }));
+  const leaderboardChallengeOptions = leaderboardChallengeGroups.flatMap(
+    (group) => group.options,
+  );
+  const activeLeaderboardOption =
+    leaderboardChallengeOptions.find(
+      (option) => option.variantKey === selectedLeaderboardVariant,
+    ) ?? leaderboardChallengeOptions[0];
+  const activeLeaderboardModeDescription =
+    getLeaderboardModeDescription(selectedLeaderboardMode);
+  const isLeaderboardRoom = roomPlayMode === "leaderboard";
+  const isLeaderboardSettingsLocked = isLeaderboardRoom;
+  const isQuestionCountLocked = isLeaderboardSettingsLocked;
   const hasPinLengthError =
     isPinProtectionOpen &&
     roomPasswordInput.length > 0 &&
     roomPasswordInput.length < 4;
+  const leaderboardLockedOverlay = isLeaderboardSettingsLocked ? (
+    <div
+      aria-hidden="true"
+      className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-center justify-center rounded-2xl border border-amber-200/18 bg-slate-950/62 px-4 backdrop-blur-[2px]"
+    >
+      <div className="inline-flex items-center gap-3 rounded-2xl border border-amber-200/24 bg-amber-300/12 px-4 py-3 text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.72)]">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-100/24 bg-amber-200/14">
+          <LockOutlined sx={{ fontSize: 18 }} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">僅休閒派對可調整</span>
+          <span className="mt-0.5 block text-xs text-amber-100/72">
+            排行挑戰使用固定規格
+          </span>
+        </span>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-4">
@@ -238,8 +304,173 @@ const RoomSetupPanel = ({
       </section>
 
       <section className="px-1 py-2">
+        <div className="flex items-center gap-2">
+          <VideogameAssetRounded sx={{ fontSize: 18, color: "#34d399" }} />
+          <p className="text-sm font-semibold text-[var(--mc-text)]">
+            房間模式
+          </p>
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setRoomPlayMode("casual")}
+            className={`rounded-2xl border px-3 py-3 text-left transition ${
+              !isLeaderboardRoom
+                ? "border-emerald-300/45 bg-emerald-400/12 text-emerald-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                : "border-white/8 bg-white/5 text-[var(--mc-text-muted)] hover:border-emerald-300/28 hover:bg-white/[0.07] hover:text-[var(--mc-text)]"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                  !isLeaderboardRoom
+                    ? "border-emerald-200/24 bg-emerald-300/14 text-emerald-100"
+                    : "border-white/10 bg-slate-950/35 text-slate-300"
+                }`}
+              >
+                <MeetingRoomRounded sx={{ fontSize: 18 }} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">休閒派對</span>
+                <span className="mt-1 block text-xs leading-5 opacity-80">
+                  自由調整題數、人數與播放節奏。
+                </span>
+              </span>
+            </div>
+          </button>
+
+          <div
+            className={`rounded-2xl border px-3 py-3 transition ${
+              isLeaderboardRoom
+                ? "border-amber-300/38 bg-amber-300/10 text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                : "border-white/8 bg-white/5 text-[var(--mc-text-muted)] hover:border-amber-300/28 hover:bg-white/[0.07]"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setRoomPlayMode("leaderboard")}
+                className="flex min-w-0 flex-1 items-start gap-3 text-left"
+              >
+                <span
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                    isLeaderboardRoom
+                      ? "border-amber-200/24 bg-amber-300/14 text-amber-100"
+                      : "border-white/10 bg-slate-950/35 text-slate-300"
+                  }`}
+                >
+                  <EmojiEventsRounded sx={{ fontSize: 18 }} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">
+                    排行挑戰
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 opacity-80">
+                    {activeLeaderboardModeDescription}
+                  </span>
+                </span>
+              </button>
+
+              {isLeaderboardRoom ? (
+                <div
+                  className="relative shrink-0"
+                  onBlur={(event) => {
+                    if (
+                      !event.currentTarget.contains(
+                        event.relatedTarget as Node | null,
+                      )
+                    ) {
+                      setIsLeaderboardSpecMenuOpen(false);
+                    }
+                  }}
+                >
+                  <button
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={isLeaderboardSpecMenuOpen}
+                    onClick={() =>
+                      setIsLeaderboardSpecMenuOpen((current) => !current)
+                    }
+                    className="inline-flex h-10 w-[124px] items-center justify-between gap-2.5 rounded-xl border border-amber-100/22 bg-[linear-gradient(180deg,rgba(15,23,42,0.62),rgba(2,6,23,0.44))] px-3 text-left text-sm font-semibold text-amber-50 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-amber-100/36 hover:bg-slate-950/44 focus:border-amber-100/50 focus:ring-2 focus:ring-amber-200/10"
+                  >
+                    <span className="min-w-0 truncate">
+                      {activeLeaderboardOption.label}
+                    </span>
+                    <KeyboardArrowDownRounded
+                      sx={{ fontSize: 19 }}
+                      className={`shrink-0 text-amber-100/72 transition ${
+                        isLeaderboardSpecMenuOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {isLeaderboardSpecMenuOpen ? (
+                    <div className="absolute right-0 top-[calc(100%+0.45rem)] z-30 w-[216px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl">
+                      <div
+                        role="listbox"
+                        aria-label="挑戰規格"
+                        className="space-y-1"
+                      >
+                        {leaderboardChallengeGroups.map((group) => (
+                          <div key={group.modeKey}>
+                            <div className="px-3 pb-1 pt-1.5 text-[10px] font-semibold tracking-[0.16em] text-amber-100/45">
+                              {group.label}
+                            </div>
+                            <div className="space-y-1">
+                              {group.options.map((option) => {
+                                const selected =
+                                  option.variantKey ===
+                                  selectedLeaderboardVariant;
+                                return (
+                                  <button
+                                    key={option.variantKey}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={selected}
+                                    onMouseDown={(event) =>
+                                      event.preventDefault()
+                                    }
+                                    onClick={() => {
+                                      onLeaderboardSelectionChange(
+                                        option.modeKey,
+                                        option.variantKey,
+                                      );
+                                      setIsLeaderboardSpecMenuOpen(false);
+                                    }}
+                                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
+                                      selected
+                                        ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
+                                        : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
+                                    }`}
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-sm font-semibold">
+                                        {option.label}
+                                      </span>
+                                    </span>
+                                    {selected ? (
+                                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-200" />
+                                    ) : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-1 py-2">
         <div className="grid gap-5 lg:grid-cols-2">
-          <div className="px-1 py-2">
+          <div className="select-none px-1 py-2">
             <div className="flex items-center justify-between gap-3">
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--mc-text)]">
                 <GroupsRounded sx={{ fontSize: 18, color: "#7dd3fc" }} />
@@ -309,7 +540,7 @@ const RoomSetupPanel = ({
             </div>
           </div>
 
-          <div className="px-1 py-2">
+          <div className="relative select-none overflow-hidden rounded-2xl px-1 py-2">
             <div className="flex items-center justify-between gap-3">
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--mc-text)]">
                 <QuizRounded sx={{ fontSize: 18, color: "#fbbf24" }} />
@@ -319,16 +550,20 @@ const RoomSetupPanel = ({
                 {questionMin}-{questionMaxLimit} 題
               </span>
             </div>
-            <div className="mt-5 flex items-center justify-between gap-3">
+            <div
+              className={`mt-5 flex items-center justify-between gap-3 ${
+                isLeaderboardSettingsLocked ? "opacity-60" : ""
+              }`}
+            >
               <button
                 type="button"
                 aria-label="減少 1 題"
                 onClick={() =>
                   updateQuestionCount(Math.max(questionMin, questionCount - 1))
                 }
-                disabled={!canDecreaseQuestionCount}
+                disabled={isQuestionCountLocked || !canDecreaseQuestionCount}
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
-                  canDecreaseQuestionCount
+                  !isQuestionCountLocked && canDecreaseQuestionCount
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:border-cyan-300/35 hover:text-cyan-100"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -349,9 +584,9 @@ const RoomSetupPanel = ({
                     Math.min(questionMaxLimit, questionCount + 1),
                   )
                 }
-                disabled={!canIncreaseQuestionCount}
+                disabled={isQuestionCountLocked || !canIncreaseQuestionCount}
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
-                  canIncreaseQuestionCount
+                  !isQuestionCountLocked && canIncreaseQuestionCount
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:border-cyan-300/35 hover:text-cyan-100"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -359,7 +594,11 @@ const RoomSetupPanel = ({
                 <AddRounded sx={{ fontSize: 18 }} />
               </button>
             </div>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <div
+              className={`mt-4 flex flex-wrap justify-center gap-2 ${
+                isLeaderboardSettingsLocked ? "opacity-60" : ""
+              }`}
+            >
               <button
                 type="button"
                 onClick={() =>
@@ -367,9 +606,9 @@ const RoomSetupPanel = ({
                     Math.max(questionMin, questionCount - QUESTION_STEP),
                   )
                 }
-                disabled={!canDecreaseQuestionCount}
+                disabled={isQuestionCountLocked || !canDecreaseQuestionCount}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  canDecreaseQuestionCount
+                  !isQuestionCountLocked && canDecreaseQuestionCount
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -381,6 +620,7 @@ const RoomSetupPanel = ({
                   key={count}
                   type="button"
                   onClick={() => updateQuestionCount(count)}
+                  disabled={isQuestionCountLocked}
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                     questionCount === count
                       ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
@@ -397,9 +637,9 @@ const RoomSetupPanel = ({
                     Math.min(questionMaxLimit, questionCount + QUESTION_STEP),
                   )
                 }
-                disabled={!canIncreaseQuestionCount}
+                disabled={isQuestionCountLocked || !canIncreaseQuestionCount}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  canIncreaseQuestionCount
+                  !isQuestionCountLocked && canIncreaseQuestionCount
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -407,19 +647,28 @@ const RoomSetupPanel = ({
                 +{QUESTION_STEP}
               </button>
             </div>
+            {leaderboardLockedOverlay}
           </div>
         </div>
       </section>
 
-      <section className="px-1 py-2">
-        <div className="flex items-center gap-2">
-          <TimerRounded sx={{ fontSize: 18, color: "#c084fc" }} />
-          <p className="text-sm font-semibold text-[var(--mc-text)]">
-            遊戲節奏
-          </p>
+      <section className="relative select-none overflow-hidden rounded-2xl px-1 py-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <TimerRounded sx={{ fontSize: 18, color: "#c084fc" }} />
+            <p className="text-sm font-semibold text-[var(--mc-text)]">
+              遊戲節奏
+            </p>
+          </div>
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div
+          className={`mt-4 grid gap-4 lg:grid-cols-2 ${
+            isLeaderboardSettingsLocked
+              ? "pointer-events-none opacity-55 saturate-75"
+              : ""
+          }`}
+        >
           <div>
             <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
               {supportsCollectionClipTiming ? (
@@ -435,10 +684,11 @@ const RoomSetupPanel = ({
                       type="button"
                       role="switch"
                       aria-checked={allowCollectionClipTiming}
+                      disabled={isLeaderboardSettingsLocked}
                       onClick={() =>
                         updateAllowCollectionClipTiming(!allowCollectionClipTiming)
                       }
-                      className="inline-flex items-center gap-2 px-1 py-1.5 transition"
+                      className="inline-flex items-center gap-2 px-1 py-1.5 transition disabled:cursor-not-allowed"
                     >
                       <span
                         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
@@ -467,8 +717,9 @@ const RoomSetupPanel = ({
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
+                    disabled={isLeaderboardSettingsLocked}
                     onClick={() => updateAllowCollectionClipTiming(false)}
-                    className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3 text-left transition hover:border-emerald-300/35 hover:bg-white/[0.07]"
+                    className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3 text-left transition hover:border-emerald-300/35 hover:bg-white/[0.07] disabled:cursor-not-allowed"
                   >
                     <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
                       作答時間
@@ -482,8 +733,9 @@ const RoomSetupPanel = ({
                   </button>
                   <button
                     type="button"
+                    disabled={isLeaderboardSettingsLocked}
                     onClick={() => updateAllowCollectionClipTiming(false)}
-                    className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3 text-left transition hover:border-emerald-300/35 hover:bg-white/[0.07]"
+                    className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3 text-left transition hover:border-emerald-300/35 hover:bg-white/[0.07] disabled:cursor-not-allowed"
                   >
                     <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
                       起始秒數
@@ -519,6 +771,7 @@ const RoomSetupPanel = ({
                         min={PLAY_DURATION_MIN}
                         max={PLAY_DURATION_MAX}
                         step={1}
+                        disabled={isLeaderboardSettingsLocked}
                         onChange={(_event, value) =>
                           updatePlayDurationSec(
                             Array.isArray(value) ? value[0] : value,
@@ -548,6 +801,7 @@ const RoomSetupPanel = ({
                         min={START_OFFSET_MIN}
                         max={START_OFFSET_MAX}
                         step={1}
+                        disabled={isLeaderboardSettingsLocked}
                         onChange={(_event, value) =>
                           updateStartOffsetSec(
                             Array.isArray(value) ? value[0] : value,
@@ -582,6 +836,7 @@ const RoomSetupPanel = ({
                   min={REVEAL_DURATION_MIN}
                   max={REVEAL_DURATION_MAX}
                   step={1}
+                  disabled={isLeaderboardSettingsLocked}
                   onChange={(_event, value) =>
                     updateRevealDurationSec(
                       Array.isArray(value) ? value[0] : value,
@@ -593,6 +848,7 @@ const RoomSetupPanel = ({
             </div>
           </div>
         </div>
+        {leaderboardLockedOverlay}
       </section>
     </div>
   );

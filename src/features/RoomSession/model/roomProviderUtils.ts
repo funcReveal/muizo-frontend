@@ -94,6 +94,34 @@ export const mergeGameSettings = (
     playbackExtensionMode: normalizePlaybackExtensionMode(
       incoming?.playbackExtensionMode ?? current?.playbackExtensionMode,
     ),
+    leaderboardProfileKey:
+      incoming?.leaderboardProfileKey !== undefined
+        ? incoming.leaderboardProfileKey
+        : current?.leaderboardProfileKey,
+    leaderboardRuleVersion:
+      incoming?.leaderboardRuleVersion !== undefined
+        ? incoming.leaderboardRuleVersion
+        : current?.leaderboardRuleVersion,
+    leaderboardModeKey:
+      incoming?.leaderboardModeKey !== undefined
+        ? incoming.leaderboardModeKey
+        : current?.leaderboardModeKey,
+    leaderboardVariantKey:
+      incoming?.leaderboardVariantKey !== undefined
+        ? incoming.leaderboardVariantKey
+        : current?.leaderboardVariantKey,
+    leaderboardTargetQuestionCount:
+      incoming?.leaderboardTargetQuestionCount !== undefined
+        ? incoming.leaderboardTargetQuestionCount
+        : current?.leaderboardTargetQuestionCount,
+    leaderboardTimeLimitSec:
+      incoming?.leaderboardTimeLimitSec !== undefined
+        ? incoming.leaderboardTimeLimitSec
+        : current?.leaderboardTimeLimitSec,
+    leaderboardRankingMetric:
+      incoming?.leaderboardRankingMetric !== undefined
+        ? incoming.leaderboardRankingMetric
+        : current?.leaderboardRankingMetric,
   };
 };
 
@@ -137,6 +165,55 @@ export const mergeKnownGameSettings = (
   if (playbackExtensionMode !== undefined) {
     next.playbackExtensionMode =
       normalizePlaybackExtensionMode(playbackExtensionMode);
+  }
+  const leaderboardProfileKey =
+    incoming?.leaderboardProfileKey !== undefined
+      ? incoming.leaderboardProfileKey
+      : current?.leaderboardProfileKey;
+  if (leaderboardProfileKey !== undefined) {
+    next.leaderboardProfileKey = leaderboardProfileKey;
+  }
+  const leaderboardRuleVersion =
+    incoming?.leaderboardRuleVersion !== undefined
+      ? incoming.leaderboardRuleVersion
+      : current?.leaderboardRuleVersion;
+  if (leaderboardRuleVersion !== undefined) {
+    next.leaderboardRuleVersion = leaderboardRuleVersion;
+  }
+  const leaderboardModeKey =
+    incoming?.leaderboardModeKey !== undefined
+      ? incoming.leaderboardModeKey
+      : current?.leaderboardModeKey;
+  if (leaderboardModeKey !== undefined) {
+    next.leaderboardModeKey = leaderboardModeKey;
+  }
+  const leaderboardVariantKey =
+    incoming?.leaderboardVariantKey !== undefined
+      ? incoming.leaderboardVariantKey
+      : current?.leaderboardVariantKey;
+  if (leaderboardVariantKey !== undefined) {
+    next.leaderboardVariantKey = leaderboardVariantKey;
+  }
+  const leaderboardTargetQuestionCount =
+    incoming?.leaderboardTargetQuestionCount !== undefined
+      ? incoming.leaderboardTargetQuestionCount
+      : current?.leaderboardTargetQuestionCount;
+  if (leaderboardTargetQuestionCount !== undefined) {
+    next.leaderboardTargetQuestionCount = leaderboardTargetQuestionCount;
+  }
+  const leaderboardTimeLimitSec =
+    incoming?.leaderboardTimeLimitSec !== undefined
+      ? incoming.leaderboardTimeLimitSec
+      : current?.leaderboardTimeLimitSec;
+  if (leaderboardTimeLimitSec !== undefined) {
+    next.leaderboardTimeLimitSec = leaderboardTimeLimitSec;
+  }
+  const leaderboardRankingMetric =
+    incoming?.leaderboardRankingMetric !== undefined
+      ? incoming.leaderboardRankingMetric
+      : current?.leaderboardRankingMetric;
+  if (leaderboardRankingMetric !== undefined) {
+    next.leaderboardRankingMetric = leaderboardRankingMetric;
   }
 
   return Object.keys(next).length > 0

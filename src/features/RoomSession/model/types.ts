@@ -119,6 +119,13 @@ export interface RoomSummary {
     allowCollectionClipTiming?: boolean;
     allowParticipantInvite?: boolean;
     playbackExtensionMode?: PlaybackExtensionMode;
+    leaderboardProfileKey?: string | null;
+    leaderboardRuleVersion?: number | null;
+    leaderboardModeKey?: string | null;
+    leaderboardVariantKey?: string | null;
+    leaderboardTargetQuestionCount?: number | null;
+    leaderboardTimeLimitSec?: number | null;
+    leaderboardRankingMetric?: string | null;
   };
   visibility?: "public" | "private";
   maxPlayers?: number | null;
@@ -186,6 +193,13 @@ export type BeginRoomCreationPayload = {
     allowCollectionClipTiming: boolean;
     allowParticipantInvite: boolean;
     playbackExtensionMode: "manual_vote" | "auto_once" | "disabled";
+    leaderboardProfileKey?: string | null;
+    leaderboardRuleVersion?: number | null;
+    leaderboardModeKey?: string | null;
+    leaderboardVariantKey?: string | null;
+    leaderboardTargetQuestionCount?: number | null;
+    leaderboardTimeLimitSec?: number | null;
+    leaderboardRankingMetric?: string | null;
   };
   playlistManifest: {
     sourceType?: PlaylistSourceType | null;

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 const VERSION_MANIFEST_URL = "/version.json";
 const VERSION_TOAST_ID = "app-version-update";
 const VERSION_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const INITIAL_VERSION_CHECK_DELAY_MS = 15 * 1000;
 
 type VersionManifest = {
   buildId: string;
@@ -94,7 +95,9 @@ export function VersionUpdateNotifier() {
   }, []);
 
   useEffect(() => {
-    void checkForUpdates("interval");
+    const initialCheckId = window.setTimeout(() => {
+      void checkForUpdates("interval");
+    }, INITIAL_VERSION_CHECK_DELAY_MS);
 
     const intervalId = window.setInterval(() => {
       void checkForUpdates("interval");
@@ -111,6 +114,7 @@ export function VersionUpdateNotifier() {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      window.clearTimeout(initialCheckId);
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       requestRef.current?.abort();
