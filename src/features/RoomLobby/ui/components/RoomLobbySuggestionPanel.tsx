@@ -137,7 +137,7 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
       cooldownTimerRef.current = null;
     }
     if (cooldownIntervalRef.current) {
-      window.clearInterval(cooldownIntervalRef.current);
+      window.clearTimeout(cooldownIntervalRef.current);
       cooldownIntervalRef.current = null;
     }
 
@@ -151,9 +151,19 @@ const RoomLobbySuggestionPanel: React.FC<SuggestionPanelProps> = ({
     }
 
     setCooldownNow(Date.now());
-    cooldownIntervalRef.current = window.setInterval(() => {
-      setCooldownNow(Date.now());
-    }, 1000);
+    // Align wakeups to the next second boundary so we only re-render when
+    // the displayed seconds actually change. setTimeout chain is used instead
+    // of setInterval because setInterval drifts badly on backgrounded mobile
+    // tabs and cannot self-adjust to the second boundary.
+    const scheduleNextTick = () => {
+      const now = Date.now();
+      const untilNextSecond = 1000 - (now % 1000);
+      cooldownIntervalRef.current = window.setTimeout(() => {
+        setCooldownNow(Date.now());
+        scheduleNextTick();
+      }, untilNextSecond);
+    };
+    scheduleNextTick();
     cooldownTimerRef.current = window.setTimeout(() => {
       setCooldownUntil(null);
       setSuggestNotice(null);
