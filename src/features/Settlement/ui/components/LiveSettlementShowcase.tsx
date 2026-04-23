@@ -50,6 +50,7 @@ import useSettlementRecommendationInsights from "../../model/useSettlementRecomm
 import ReviewRecapSection from "./liveSettlementShowcase/ReviewRecapSection";
 import useSettlementRecapSelectionState from "../../model/useSettlementRecapSelectionState";
 import useSettlementReviewState from "../../model/useSettlementReviewState";
+import { useRankedChallengeSettlementData } from "../../model/useRankedChallengeSettlementData";
 import SettlementStageHeader from "./liveSettlementShowcase/SettlementStageHeader";
 import SettlementMobileFooter from "./liveSettlementShowcase/SettlementMobileFooter";
 import SettlementExitDialog from "./liveSettlementShowcase/SettlementExitDialog";
@@ -72,6 +73,7 @@ interface LiveSettlementShowcaseProps {
   endedAt?: number;
   meClientId?: string;
   questionRecaps?: SettlementQuestionRecap[];
+  matchId?: string | null;
   upcomingGameStartAt?: number | null;
   nowMs?: number;
   selfAvatarUrl?: string | null;
@@ -280,6 +282,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
   endedAt,
   meClientId,
   questionRecaps = [],
+  matchId = null,
   upcomingGameStartAt = null,
   nowMs,
   selfAvatarUrl = null,
@@ -409,6 +412,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     participants: settlementParticipants,
     playedQuestionCount,
     meClientId,
+  });
+  const rankedSettlement = useRankedChallengeSettlementData({
+    room,
+    participants: settlementParticipants,
+    playedQuestionCount,
+    meClientId,
+    matchId,
+    endedAt,
   });
 
   useEffect(() => {
@@ -1319,6 +1330,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
                 topComboEntry={topComboEntry}
                 fastestAverageAnswerEntry={fastestAverageAnswerEntry}
                 participantScoreMeta={participantScoreMeta}
+                rankedSettlement={rankedSettlement}
                 formatPercent={formatPercent}
                 formatMs={formatMs}
                 multilineEllipsis2Style={MULTILINE_ELLIPSIS_2}

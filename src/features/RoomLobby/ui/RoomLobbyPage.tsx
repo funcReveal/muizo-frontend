@@ -3236,6 +3236,7 @@ const RoomLobbyPage: React.FC = () => {
                 playlistItems={activeSettlementSnapshot.playlistItems ?? []}
                 playedQuestionCount={activeSettlementSnapshot.playedQuestionCount}
                 meClientId={clientId}
+                matchId={activeSettlementSnapshot.matchId}
                 questionRecaps={activeSettlementQuestionRecaps}
                 rankChangeByClientId={
                   rankChangeByRoundKey[activeSettlementSnapshot.roundKey] ?? undefined
@@ -3260,6 +3261,7 @@ const RoomLobbyPage: React.FC = () => {
                 startedAt={activeSettlementSnapshot.startedAt}
                 endedAt={activeSettlementSnapshot.endedAt}
                 meClientId={clientId}
+                matchId={activeSettlementSnapshot.matchId}
                 questionRecaps={activeSettlementQuestionRecaps}
                 upcomingGameStartAt={
                   gameState?.status === "playing" ? gameState.startedAt : null

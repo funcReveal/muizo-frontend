@@ -1,6 +1,7 @@
 ﻿import React from "react";
 import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import { List, type RowComponentProps } from "react-window";
 
 import type { RoomParticipant } from "@features/RoomSession";
 import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
@@ -9,6 +10,10 @@ import {
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   useSettingsModel,
 } from "../../../../Setting/model/settingsContext";
+import type {
+  RankedChallengeLeaderboardEntry,
+  RankedChallengeSettlementState,
+} from "../../../model/rankedChallengeSettlementTypes";
 
 interface ScoreMetrics {
   accuracy: number;
@@ -37,6 +42,7 @@ interface OverviewSectionProps {
   topComboEntry: { participant: RoomParticipant; combo: number } | null;
   fastestAverageAnswerEntry: { participant: RoomParticipant; ms: number } | null;
   participantScoreMeta: ParticipantScoreMeta;
+  rankedSettlement?: RankedChallengeSettlementState;
   formatPercent: (value: number) => string;
   formatMs: (value: number | null | undefined) => string;
   multilineEllipsis2Style: React.CSSProperties;
@@ -186,6 +192,67 @@ const statDisplayName = (participant: RoomParticipant | null) => {
   return participant.username.length > 10 ? `${participant.username.slice(0, 10)}...` : participant.username;
 };
 
+type RankedLeaderboardRowProps = {
+  entries: RankedChallengeLeaderboardEntry[];
+  playedQuestionCount: number;
+  formatMs: (value: number | null | undefined) => string;
+};
+
+const RANKED_LEADERBOARD_ROW_HEIGHT = 116;
+
+const RankedLeaderboardRow = React.memo(function RankedLeaderboardRow({
+  index,
+  style,
+  entries,
+  playedQuestionCount,
+  formatMs,
+}: RowComponentProps<RankedLeaderboardRowProps>) {
+  const entry = entries[index];
+  if (!entry) return null;
+
+  return (
+    <div style={style} className="box-border pb-2">
+      <div
+        className={`rounded-[24px] border px-4 py-3 ${
+          entry.rank === 1
+            ? "border-amber-300/48 bg-[radial-gradient(circle_at_55%_50%,rgba(250,204,21,0.2),rgba(120,53,15,0.12)_52%,rgba(15,23,42,0.94)_100%)] shadow-[0_16px_40px_-34px_rgba(250,204,21,0.34)]"
+            : entry.isMe
+              ? "border-sky-300/55 bg-sky-500/14 shadow-[0_0_0_1px_rgba(56,189,248,0.18)]"
+              : "border-slate-700/80 bg-slate-950/58"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-500/70 bg-slate-900/72 text-sm font-black text-slate-100">
+                {entry.rank}
+              </span>
+              <p className="min-w-0 truncate text-[1.05rem] font-black text-white">
+                {entry.displayName}
+                {entry.isMe ? "（你）" : ""}
+              </p>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-100">
+              <span className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2.5 py-1">
+                答對 {entry.correctCount}/{playedQuestionCount}
+              </span>
+              <span className="rounded-full border border-violet-300/35 bg-violet-500/12 px-2.5 py-1">
+                Combo x{entry.maxCombo}
+              </span>
+              <span className="rounded-full border border-sky-300/35 bg-sky-500/12 px-2.5 py-1">
+                平均 {formatMs(entry.avgCorrectMs)}
+              </span>
+            </div>
+          </div>
+          <p className="shrink-0 text-[2.4rem] font-black leading-none text-white">
+            {entry.score}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const OverviewSection: React.FC<OverviewSectionProps> = ({
   isMobileView = false,
   winner,
@@ -201,6 +268,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
   topComboEntry,
   fastestAverageAnswerEntry,
   participantScoreMeta,
+  rankedSettlement,
   formatPercent,
   formatMs,
   multilineEllipsis2Style,
@@ -208,6 +276,34 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
   const settingsModel = useSettingsModel();
   const avatarEffectLevel =
     settingsModel.avatarEffectLevel ?? DEFAULT_AVATAR_EFFECT_LEVEL_VALUE;
+  const isRankedChallenge = Boolean(rankedSettlement?.isRankedChallenge);
+  const rankedSummary = rankedSettlement?.myRankedSummary ?? null;
+  const rankedLeaderboardEntries =
+    rankedSettlement?.leaderboardPagedEntries ??
+    rankedSettlement?.leaderboardTopEntries ??
+    [];
+  const rankedCurrentRun = rankedSettlement?.currentRun ?? null;
+  const rankedDelta = rankedSummary?.deltaVsPreviousBest ?? null;
+  const rankedLeaderboardHeight = Math.min(
+    680,
+    Math.max(
+      RANKED_LEADERBOARD_ROW_HEIGHT,
+      rankedLeaderboardEntries.length * RANKED_LEADERBOARD_ROW_HEIGHT,
+    ),
+  );
+  const handleRankedRowsRendered = React.useCallback(
+    ({ stopIndex }: { startIndex: number; stopIndex: number }) => {
+      if (
+        !rankedSettlement?.hasMore ||
+        rankedSettlement.loadingMore ||
+        stopIndex < rankedLeaderboardEntries.length - 4
+      ) {
+        return;
+      }
+      rankedSettlement.loadMoreLeaderboardEntries();
+    },
+    [rankedLeaderboardEntries.length, rankedSettlement],
+  );
   const podium = [
     {
       participant: runnerUp,
@@ -469,11 +565,83 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
           </div>
           <div className="min-w-0">
             <h3 className="text-3xl font-black tracking-tight text-cyan-50">排行榜</h3>
+            {isRankedChallenge && (
+              <p className="mt-1 text-xs font-semibold text-cyan-100/72">
+                全球收藏庫排行
+                {rankedSettlement?.loading ? " · 同步中" : ""}
+                {rankedSettlement?.error ? " · 暫用本場資料" : ""}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="mt-4 max-h-[680px] space-y-2 overflow-y-auto pr-1">
-          {sortedParticipants.length === 0 ? (
+        {isRankedChallenge && (
+          <div className="mt-4 rounded-[22px] border border-cyan-300/12 bg-cyan-400/8 px-4 py-3">
+            <div className="grid gap-2 text-sm text-cyan-50/88 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-cyan-100/60">
+                  目前全球排名
+                </p>
+                <p className="mt-1 text-xl font-black text-white">
+                  {rankedSummary?.currentRank
+                    ? `#${rankedSummary.currentRank}`
+                    : rankedCurrentRun?.roomRank
+                      ? `本場 #${rankedCurrentRun.roomRank}`
+                      : "--"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-cyan-100/60">
+                  超越玩家
+                </p>
+                <p className="mt-1 text-xl font-black text-white">
+                  {rankedSummary?.surpassedPercent !== null &&
+                  rankedSummary?.surpassedPercent !== undefined
+                    ? `${rankedSummary.surpassedPercent}%`
+                    : "--"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-cyan-100/60">
+                  與前次最佳
+                </p>
+                <p className="mt-1 text-xl font-black text-white">
+                  {rankedSummary?.isNewBest
+                    ? "新紀錄"
+                    : rankedDelta?.score !== null &&
+                        rankedDelta?.score !== undefined
+                      ? `${rankedDelta.score >= 0 ? "+" : ""}${rankedDelta.score}`
+                      : "--"}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 max-h-[680px] overflow-y-auto pr-1">
+          {isRankedChallenge && rankedLeaderboardEntries.length > 0 ? (
+            <>
+              <List
+                rowComponent={RankedLeaderboardRow}
+                rowCount={rankedLeaderboardEntries.length}
+                rowHeight={RANKED_LEADERBOARD_ROW_HEIGHT}
+                rowProps={{
+                  entries: rankedLeaderboardEntries,
+                  playedQuestionCount,
+                  formatMs,
+                }}
+                overscanCount={5}
+                defaultHeight={rankedLeaderboardHeight}
+                onRowsRendered={handleRankedRowsRendered}
+                style={{ height: rankedLeaderboardHeight, width: "100%" }}
+              />
+              {rankedSettlement?.loadingMore && (
+                <div className="mt-2 rounded-full border border-slate-700/70 bg-slate-950/55 px-3 py-2 text-center text-xs font-semibold text-slate-300">
+                  載入更多排行榜資料...
+                </div>
+              )}
+            </>
+          ) : sortedParticipants.length === 0 ? (
             <div className="rounded-[22px] border border-dashed border-slate-700 bg-slate-950/55 px-4 py-5 text-sm text-slate-400">
               目前沒有可顯示的排行榜資料
             </div>

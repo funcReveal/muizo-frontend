@@ -77,6 +77,7 @@ export interface RoomSettlementHistorySummary {
 }
 
 export interface RoomSettlementSnapshot {
+  matchId?: string | null;
   roundKey: string;
   roundNo: number;
   startedAt: number;

@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
@@ -21,6 +21,7 @@ import type {
   RoomState,
 } from "@features/RoomSession";
 import type { SettlementQuestionRecap, SettlementQuestionResult } from "../../model/types";
+import { useRankedChallengeSettlementData } from "../../model/useRankedChallengeSettlementData";
 import PlayerAvatar from "@shared/ui/playerAvatar/PlayerAvatar";
 
 type LeaderboardSettlementShowcaseProps = {
@@ -29,6 +30,7 @@ type LeaderboardSettlementShowcaseProps = {
   playlistItems?: PlaylistItem[];
   playedQuestionCount: number;
   meClientId?: string;
+  matchId?: string | null;
   questionRecaps?: SettlementQuestionRecap[];
   rankChangeByClientId?: Record<string, number | null>;
   isFavorited?: boolean;
@@ -75,6 +77,11 @@ type PersonalSummary = {
 
 type QuestionListRowProps = {
   items: LeaderboardQuestionRow[];
+};
+
+type LeaderboardListRowProps = {
+  rows: LeaderboardMetricRow[];
+  playedQuestionCount: number;
 };
 
 const scoreFormatter = new Intl.NumberFormat("zh-TW");
@@ -298,6 +305,121 @@ const QuestionListRow = memo(function QuestionListRow({
   );
 });
 
+const LeaderboardDesktopRow = memo(function LeaderboardDesktopRow({
+  index,
+  style,
+  rows,
+  playedQuestionCount,
+}: RowComponentProps<LeaderboardListRowProps>) {
+  const row = rows[index];
+  if (!row) return null;
+
+  return (
+    <div style={style} className="box-border pb-2">
+      <div
+        className={`grid grid-cols-[64px_minmax(220px,1.65fr)_132px_132px_132px_128px_132px] items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${
+          row.isMe
+            ? "border-amber-300/45 bg-amber-500/10 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.08)]"
+            : "border-white/6 bg-white/[0.02]"
+        }`}
+      >
+        <div className="text-lg font-black text-amber-100">{row.rank}</div>
+        <div className="flex min-w-0 items-center gap-3">
+          <PlayerAvatar
+            username={row.username}
+            clientId={row.clientId}
+            avatarUrl={row.avatarUrl}
+            size={38}
+            rank={row.rank}
+            combo={row.combo}
+            isMe={row.isMe}
+            hideRankMark
+            loading="lazy"
+          />
+          <div className="truncate text-base font-semibold text-[var(--mc-text)]">
+            {row.username}
+            {row.isMe ? "（你）" : ""}
+          </div>
+        </div>
+        <div className="text-center text-[var(--mc-text-muted)]">
+          {row.correctCount} / {playedQuestionCount}
+        </div>
+        <div className="text-center font-semibold text-violet-300">
+          x{row.combo}
+        </div>
+        <div className="text-center text-[var(--mc-text-muted)]">
+          {formatSeconds(row.avgCorrectMs)}
+        </div>
+        <div className="text-center text-xl font-black text-amber-100">
+          {formatScore(row.score)}
+        </div>
+        <div className="flex min-w-0 items-center justify-center">
+          <RankChangeBadge value={row.rankChange} />
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const LeaderboardMobileRow = memo(function LeaderboardMobileRow({
+  index,
+  style,
+  rows,
+  playedQuestionCount,
+}: RowComponentProps<LeaderboardListRowProps>) {
+  const row = rows[index];
+  if (!row) return null;
+
+  return (
+    <div style={style} className="box-border pb-3">
+      <div
+        className={`rounded-[24px] border px-4 py-4 ${
+          row.isMe
+            ? "border-amber-300/45 bg-amber-500/10 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.08)]"
+            : "border-white/6 bg-white/[0.02]"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="text-xl font-black text-amber-100">#{row.rank}</div>
+            <PlayerAvatar
+              username={row.username}
+              clientId={row.clientId}
+              avatarUrl={row.avatarUrl}
+              size={36}
+              rank={row.rank}
+              combo={row.combo}
+              isMe={row.isMe}
+              hideRankMark
+              loading="lazy"
+            />
+            <div className="min-w-0">
+              <div className="truncate text-base font-semibold text-[var(--mc-text)]">
+                {row.username}
+                {row.isMe ? "（你）" : ""}
+              </div>
+              <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                答對 {row.correctCount} / {playedQuestionCount}
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xl font-black text-amber-100">
+              {formatScore(row.score)}
+            </div>
+            <div className="mt-1 text-xs text-violet-300">
+              Combo x{row.combo}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 text-xs text-[var(--mc-text-muted)]">
+          平均答題 {formatSeconds(row.avgCorrectMs)}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const LeaderboardSettlementShowcase: React.FC<
   LeaderboardSettlementShowcaseProps
 > = ({
@@ -306,6 +428,7 @@ const LeaderboardSettlementShowcase: React.FC<
   playlistItems = [],
   playedQuestionCount,
   meClientId,
+  matchId = null,
   questionRecaps = [],
   rankChangeByClientId,
   isFavorited,
@@ -327,6 +450,13 @@ const LeaderboardSettlementShowcase: React.FC<
     () => sortParticipants(participants),
     [participants],
   );
+  const rankedSettlement = useRankedChallengeSettlementData({
+    room,
+    participants,
+    playedQuestionCount,
+    meClientId,
+    matchId,
+  });
 
   const meSummary = useMemo<PersonalSummary>(() => {
     const myIndex = sortedParticipants.findIndex(
@@ -354,26 +484,40 @@ const LeaderboardSettlementShowcase: React.FC<
     const rank = myIndex + 1;
     const previous = myIndex > 0 ? sortedParticipants[myIndex - 1] : null;
 
+    const rankedSummary = rankedSettlement.myRankedSummary;
+    const rankedRun = rankedSettlement.currentRun;
+
     return {
       me,
-      myRank: rank,
+      myRank: rankedSummary?.currentRank ?? rank,
       rankPercentile:
-        total <= 1 ? 100 : Math.round(((total - rank) / (total - 1)) * 100),
+        rankedSummary?.surpassedPercent ??
+        (total <= 1 ? 100 : Math.round(((total - rank) / (total - 1)) * 100)),
       scoreGapToPrev: previous ? previous.score - me.score : null,
       myRankChange: rankChangeByClientId
         ? (rankChangeByClientId[me.clientId] ?? null)
         : null,
       accuracy:
         playedQuestionCount > 0
-          ? ((me.correctCount ?? 0) / playedQuestionCount) * 100
+          ? (((rankedRun?.correctCount ?? me.correctCount) ?? 0) /
+              playedQuestionCount) *
+            100
           : 0,
-      combo: Math.max(me.maxCombo ?? 0, me.combo ?? 0),
+      combo: rankedRun?.maxCombo ?? Math.max(me.maxCombo ?? 0, me.combo ?? 0),
       avgCorrectMs:
-        typeof me.avgCorrectMs === "number" && Number.isFinite(me.avgCorrectMs)
+        rankedRun?.avgCorrectMs ??
+        (typeof me.avgCorrectMs === "number" && Number.isFinite(me.avgCorrectMs)
           ? me.avgCorrectMs
-          : null,
+          : null),
     };
-  }, [meClientId, playedQuestionCount, rankChangeByClientId, sortedParticipants]);
+  }, [
+    meClientId,
+    playedQuestionCount,
+    rankChangeByClientId,
+    rankedSettlement.currentRun,
+    rankedSettlement.myRankedSummary,
+    sortedParticipants,
+  ]);
 
   const percentileMetrics = useMemo(() => {
     const accuracyValues = sortedParticipants.map((participant) =>
@@ -434,6 +578,29 @@ const LeaderboardSettlementShowcase: React.FC<
       })),
     [meClientId, rankChangeByClientId, sortedParticipants],
   );
+  const effectiveLeaderboardRows = useMemo<LeaderboardMetricRow[]>(() => {
+    const rankedEntries =
+      rankedSettlement.leaderboardPagedEntries.length > 0
+        ? rankedSettlement.leaderboardPagedEntries
+        : rankedSettlement.leaderboardTopEntries;
+    if (rankedEntries.length === 0) return leaderboardRows;
+    return rankedEntries.map((entry) => ({
+      clientId: entry.userId ?? `ranked-${entry.rank}-${entry.displayName}`,
+      rank: entry.rank,
+      username: entry.displayName,
+      avatarUrl: entry.avatarUrl ?? null,
+      score: entry.score,
+      correctCount: entry.correctCount,
+      combo: entry.maxCombo,
+      avgCorrectMs: entry.avgCorrectMs,
+      isMe: Boolean(entry.isMe),
+      rankChange: null,
+    }));
+  }, [
+    leaderboardRows,
+    rankedSettlement.leaderboardPagedEntries,
+    rankedSettlement.leaderboardTopEntries,
+  ]);
 
   const playlistSummary = useMemo(() => {
     const firstThumbnail =
@@ -563,8 +730,33 @@ const LeaderboardSettlementShowcase: React.FC<
     if (meSummary.myRank === 1) {
       return "目前位居榜首";
     }
-    return `排行榜顯示前 ${Math.min(10, leaderboardRows.length || 10)} 名`;
-  }, [leaderboardRows.length, meSummary.myRank, meSummary.scoreGapToPrev]);
+    return `排行榜顯示前 ${Math.min(10, effectiveLeaderboardRows.length || 10)} 名`;
+  }, [
+    effectiveLeaderboardRows.length,
+    meSummary.myRank,
+    meSummary.scoreGapToPrev,
+  ]);
+  const leaderboardDesktopHeight = Math.min(
+    420,
+    Math.max(80, effectiveLeaderboardRows.length * 80),
+  );
+  const leaderboardMobileHeight = Math.min(
+    520,
+    Math.max(128, effectiveLeaderboardRows.length * 128),
+  );
+  const handleLeaderboardRowsRendered = useCallback(
+    ({ stopIndex }: { startIndex: number; stopIndex: number }) => {
+      if (
+        !rankedSettlement.hasMore ||
+        rankedSettlement.loadingMore ||
+        stopIndex < effectiveLeaderboardRows.length - 4
+      ) {
+        return;
+      }
+      rankedSettlement.loadMoreLeaderboardEntries();
+    },
+    [effectiveLeaderboardRows.length, rankedSettlement],
+  );
 
   const scoreSummaryLabel = useMemo(() => {
     if (!meSummary.me) return "尚未取得本場分數";
@@ -672,6 +864,27 @@ const LeaderboardSettlementShowcase: React.FC<
                       )}
                       <span className="hidden h-5 w-px bg-white/10 sm:block" />
                       <span>{scoreSummaryLabel}</span>
+                      {rankedSettlement.myRankedSummary?.previousBestBeforeRun && (
+                        <>
+                          <span className="hidden h-5 w-px bg-white/10 sm:block" />
+                          <span>
+                            前次最佳{" "}
+                            {formatScore(
+                              rankedSettlement.myRankedSummary
+                                .previousBestBeforeRun.score,
+                            )}{" "}
+                            分
+                          </span>
+                        </>
+                      )}
+                      {rankedSettlement.myRankedSummary?.isNewBest && (
+                        <>
+                          <span className="hidden h-5 w-px bg-white/10 sm:block" />
+                          <span className="font-semibold text-emerald-400">
+                            新個人最佳
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -730,8 +943,45 @@ const LeaderboardSettlementShowcase: React.FC<
                   <div className="text-center">排名變化</div>
                 </div>
 
-                <div className="mt-3 hidden space-y-2 xl:block">
-                  {leaderboardRows.slice(0, 10).map((row) => (
+                <div className="mt-3 hidden xl:block">
+                  <List
+                    rowComponent={LeaderboardDesktopRow}
+                    rowCount={effectiveLeaderboardRows.length}
+                    rowHeight={80}
+                    rowProps={{
+                      rows: effectiveLeaderboardRows,
+                      playedQuestionCount,
+                    }}
+                    overscanCount={5}
+                    defaultHeight={leaderboardDesktopHeight}
+                    onRowsRendered={handleLeaderboardRowsRendered}
+                    style={{ height: leaderboardDesktopHeight, width: "100%" }}
+                  />
+                </div>
+
+                <div className="mt-3 xl:hidden">
+                  <List
+                    rowComponent={LeaderboardMobileRow}
+                    rowCount={effectiveLeaderboardRows.length}
+                    rowHeight={128}
+                    rowProps={{
+                      rows: effectiveLeaderboardRows,
+                      playedQuestionCount,
+                    }}
+                    overscanCount={5}
+                    defaultHeight={leaderboardMobileHeight}
+                    onRowsRendered={handleLeaderboardRowsRendered}
+                    style={{ height: leaderboardMobileHeight, width: "100%" }}
+                  />
+                </div>
+                {rankedSettlement.loadingMore && (
+                  <div className="mt-2 rounded-full border border-amber-300/14 bg-amber-500/8 px-3 py-2 text-center text-xs font-semibold text-amber-100/82">
+                    載入更多排行榜資料...
+                  </div>
+                )}
+
+                <div className="hidden">
+                  {effectiveLeaderboardRows.slice(0, 10).map((row) => (
                     <div
                       key={row.clientId}
                       className={`grid grid-cols-[64px_minmax(220px,1.65fr)_132px_132px_132px_128px_132px] items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${
@@ -777,8 +1027,8 @@ const LeaderboardSettlementShowcase: React.FC<
                   ))}
                 </div>
 
-                <div className="mt-3 space-y-3 xl:hidden">
-                  {leaderboardRows.slice(0, 10).map((row) => (
+                <div className="hidden">
+                  {effectiveLeaderboardRows.slice(0, 10).map((row) => (
                     <div
                       key={row.clientId}
                       className={`rounded-[24px] border px-4 py-4 ${
