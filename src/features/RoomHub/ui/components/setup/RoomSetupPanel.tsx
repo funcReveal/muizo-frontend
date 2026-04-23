@@ -917,7 +917,7 @@ const RoomSetupPanel = ({
                             Array.isArray(value) ? value[0] : value,
                           )
                         }
-                        valueLabelDisplay="auto"
+                        valueLabelDisplay="off"
                       />
                     </div>
                   </div>
@@ -976,7 +976,7 @@ const RoomSetupPanel = ({
                             Array.isArray(value) ? value[0] : value,
                           )
                         }
-                        valueLabelDisplay="auto"
+                        valueLabelDisplay="off"
                       />
                     </div>
                   </div>
@@ -1013,7 +1013,7 @@ const RoomSetupPanel = ({
                       Array.isArray(value) ? value[0] : value,
                     )
                   }
-                  valueLabelDisplay="auto"
+                  valueLabelDisplay="off"
                 />
               </div>
             </div>

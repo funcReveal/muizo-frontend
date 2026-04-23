@@ -474,6 +474,9 @@ const CollectionDetailDrawer = ({
   const activeLeaderboardModeLabel = getLeaderboardModeLabel(
     selectedLeaderboardMode,
   );
+  const leaderboardPlayersToShow = isCompact
+    ? activeLeaderboardData.players.slice(0, 3)
+    : activeLeaderboardData.players;
   const isPreparingLeaderboardChallenge =
     isLeaderboardStartPending || isApplying || isCreatingRoom;
   const isPreparingCustomRoom =
@@ -865,10 +868,10 @@ const CollectionDetailDrawer = ({
             </main>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:grid md:grid-cols-[minmax(360px,0.8fr)_minmax(460px,1.2fr)] md:grid-rows-none md:gap-0">
-            <main className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-              <section className="overflow-hidden rounded-[20px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                <div className="relative aspect-[16/5] min-h-24 overflow-hidden bg-slate-900/80 sm:min-h-32">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:grid md:grid-cols-[minmax(360px,0.82fr)_minmax(420px,1.18fr)] md:grid-rows-none md:gap-0">
+            <main className="min-h-0 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+              <section className="overflow-hidden rounded-[22px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <div className="relative aspect-[16/9] min-h-40 overflow-hidden bg-slate-900/80 sm:aspect-[16/5] sm:min-h-32">
                   {previewThumbnail ? (
                     <img
                       src={previewThumbnail}
@@ -881,7 +884,7 @@ const CollectionDetailDrawer = ({
                     </div>
                   )}
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
-                  <div className="absolute bottom-3 left-4 right-4">
+                  <div className="absolute bottom-3 left-3 right-3 sm:left-4 sm:right-4">
                     <div className="mb-2 flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/56 px-2.5 py-1 text-xs font-medium text-slate-100 backdrop-blur">
                         {isPublic ? (
@@ -898,17 +901,17 @@ const CollectionDetailDrawer = ({
                         </span>
                       ) : null} */}
                     </div>
-                    <p className="line-clamp-2 text-xl font-semibold leading-tight text-white sm:text-2xl">
+                    <p className="line-clamp-2 text-lg font-semibold leading-tight text-white sm:text-2xl">
                       {collection.title}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-white/8 px-4 py-2.5">
+                <div className="grid grid-cols-2 gap-2 border-b border-white/8 px-3 py-3 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5">
                   {stats.map((item) => (
                     <div
                       key={item.key}
-                      className="inline-flex min-w-0 items-center gap-2 text-sm"
+                      className="flex min-w-0 items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-2.5 py-2 text-sm"
                     >
                       <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-300/8 text-cyan-100">
                         {item.icon}
@@ -923,7 +926,7 @@ const CollectionDetailDrawer = ({
                   ))}
                 </div>
 
-                <div className="px-4 py-3">
+                <div className="px-3 py-3 sm:px-4">
                   <p
                     className={`whitespace-pre-wrap text-sm leading-6 ${
                       collection.description
@@ -974,10 +977,10 @@ const CollectionDetailDrawer = ({
             </main>
 
             <aside className="min-h-0 shrink-0 border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-5">
-              <div className="flex h-full min-h-0 flex-col rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3">
-                <div className="flex items-center justify-between gap-3">
+              <div className="flex h-full min-h-0 flex-col rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="mt-1 text-base font-semibold text-slate-50 sm:text-lg">
+                    <h3 className="text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
                       全球排行榜
                     </h3>
                   </div>
@@ -1031,7 +1034,7 @@ const CollectionDetailDrawer = ({
                       })}
                     </div>
 
-                    <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {activeLeaderboardData.summary.map((item, index) => (
                         <div
                           key={item.label}
@@ -1052,7 +1055,7 @@ const CollectionDetailDrawer = ({
                     </div>
 
                     <div className="mt-3 space-y-2.5">
-                      {activeLeaderboardData.players.map((player) => (
+                      {leaderboardPlayersToShow.map((player) => (
                         <div
                           key={`${activeLeaderboardVariant.key}-${player.rank}`}
                           className="flex items-center gap-3 rounded-xl border border-white/8 bg-slate-950/34 px-3 py-3"
@@ -1091,7 +1094,7 @@ const CollectionDetailDrawer = ({
                               {activeLeaderboardModeLabel} ·{" "}
                               {activeLeaderboardVariant.label}
                             </p>
-                            <div className="mt-3 grid grid-cols-3 gap-2">
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                               <div>
                                 <p className="text-[11px] text-slate-400">
                                   最高分
@@ -1120,7 +1123,7 @@ const CollectionDetailDrawer = ({
                             <p className="mt-3 text-xs leading-5 text-slate-400">
                               {activeLeaderboardData.currentUser.hint}
                             </p>
-                        </div>
+                          </div>
                         </div>
                       </div>
                       <p className="mt-3 hidden text-xs leading-5 text-slate-400 md:block">

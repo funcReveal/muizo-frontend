@@ -1165,7 +1165,6 @@ const RoomsHubPage: React.FC = () => {
     if (!options?.keepDetailDrawerOpen) {
       setDetailCollectionId(null);
     }
-    updateAllowCollectionClipTiming(true);
     setRoomCreateSourceMode(
       scope === "public" ? "publicCollection" : "privateCollection",
     );

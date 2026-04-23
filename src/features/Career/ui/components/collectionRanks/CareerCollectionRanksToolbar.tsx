@@ -30,21 +30,22 @@ const CareerCollectionRanksToolbar: React.FC<
   CareerCollectionRanksToolbarProps
 > = ({ sortKey, sortOrder, setSortKey, setSortOrder }) => {
   return (
-    <div className="flex flex-col gap-3 rounded-[20px] border border-[var(--mc-border)] bg-[rgba(10,18,30,0.45)] p-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 rounded-[18px] border border-[var(--mc-border)] bg-[rgba(10,18,30,0.4)] p-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label
           htmlFor="career-collection-rank-sort"
-          className="text-xs font-semibold tracking-[0.12em] text-[var(--mc-text-muted)]"
+          className="text-[11px] font-semibold tracking-[0.12em] text-[var(--mc-text-muted)]"
         >
-          排序欄位
+          排序
         </label>
+
         <select
           id="career-collection-rank-sort"
           value={sortKey}
           onChange={(event) =>
             setSortKey(event.target.value as CareerCollectionRankSortKey)
           }
-          className="rounded-[14px] border border-[var(--mc-border)] bg-[rgba(8,14,24,0.92)] px-3 py-2 text-sm text-[var(--mc-text)] outline-none transition focus:border-sky-300/40"
+          className="rounded-[12px] border border-[var(--mc-border)] bg-[rgba(8,14,24,0.92)] px-3 py-2 text-sm text-[var(--mc-text)] outline-none transition focus:border-sky-300/40"
         >
           {sortOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -66,6 +67,7 @@ const CareerCollectionRanksToolbar: React.FC<
         >
           升冪
         </button>
+
         <button
           type="button"
           onClick={() => setSortOrder("desc")}
