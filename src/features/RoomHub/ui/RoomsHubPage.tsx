@@ -866,6 +866,9 @@ const RoomsHubPage: React.FC = () => {
   const buildCreateRoomOptions = useCallback(
     (leaderboardProfileKey?: string | null) => ({
       ...(leaderboardProfileKey ? { leaderboardProfileKey } : {}),
+      ...(leaderboardProfileKey === "time_attack_15m"
+        ? { maxPlayersOverride: 1 }
+        : {}),
       playbackExtensionMode,
     }),
     [playbackExtensionMode],

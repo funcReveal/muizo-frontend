@@ -258,15 +258,25 @@ export const useRoomProviderCreateRoomAction = ({
       return;
     }
 
-    if (trimmedMaxPlayers && !/^\d+$/.test(trimmedMaxPlayers)) {
+    const maxPlayersOverride =
+      typeof options?.maxPlayersOverride === "number"
+        ? options.maxPlayersOverride
+        : null;
+
+    if (
+      maxPlayersOverride === null &&
+      trimmedMaxPlayers &&
+      !/^\d+$/.test(trimmedMaxPlayers)
+    ) {
       setStatusText("最大玩家數必須是數字");
       finalizeCreate();
       return;
     }
 
-    const desiredMaxPlayers = trimmedMaxPlayers
-      ? Number(trimmedMaxPlayers)
-      : DEFAULT_ROOM_MAX_PLAYERS;
+    const desiredMaxPlayers =
+      maxPlayersOverride ?? (trimmedMaxPlayers
+        ? Number(trimmedMaxPlayers)
+        : DEFAULT_ROOM_MAX_PLAYERS);
 
     if (desiredMaxPlayers < PLAYER_MIN || desiredMaxPlayers > PLAYER_MAX) {
       setStatusText(`最大人數需介於 ${PLAYER_MIN} - ${PLAYER_MAX} 人之間`);

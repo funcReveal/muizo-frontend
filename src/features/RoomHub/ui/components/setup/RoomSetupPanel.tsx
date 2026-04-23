@@ -154,9 +154,14 @@ const RoomSetupPanel = ({
     roomCreateSourceMode === "publicCollection";
   const isLeaderboardRoom =
     roomPlayMode === "leaderboard" && isLeaderboardChallengeAvailable;
+  const isTimeAttackLeaderboardRoom =
+    isLeaderboardRoom &&
+    selectedLeaderboardMode === "time_attack" &&
+    selectedLeaderboardVariant === "15m";
   const effectiveMaxPlayers = parsedMaxPlayers ?? PLAYER_MIN;
   const canDecreaseMaxPlayers = effectiveMaxPlayers > PLAYER_MIN;
   const canIncreaseMaxPlayers = effectiveMaxPlayers < PLAYER_MAX;
+  const isMaxPlayersLocked = isTimeAttackLeaderboardRoom;
   const isLeaderboardSettingsLocked = isLeaderboardRoom;
   const isQuestionCountLocked = isLeaderboardSettingsLocked;
   const hasPinLengthError =
@@ -218,6 +223,27 @@ const RoomSetupPanel = ({
           <span className="block text-sm font-semibold">僅休閒派對可調整</span>
           <span className="mt-0.5 block text-xs text-amber-100/72">
             排行挑戰使用固定規格
+          </span>
+        </span>
+      </div>
+    </div>
+  ) : null;
+
+  const timeAttackPlayersLockedOverlay = isMaxPlayersLocked ? (
+    <div
+      aria-hidden="true"
+      className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-center justify-center rounded-2xl border border-cyan-200/16 bg-slate-950/62 px-4 backdrop-blur-[2px]"
+    >
+      <div className="inline-flex items-center gap-3 rounded-2xl border border-cyan-200/22 bg-cyan-300/12 px-4 py-3 text-cyan-50 shadow-[0_18px_34px_-28px_rgba(34,211,238,0.72)]">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-100/22 bg-cyan-200/14">
+          <LockOutlined sx={{ fontSize: 18 }} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">
+            限時挑戰固定 1 人
+          </span>
+          <span className="mt-0.5 block text-xs text-cyan-100/72">
+            不會變更休閒派對的人數設定
           </span>
         </span>
       </div>
@@ -585,7 +611,11 @@ const RoomSetupPanel = ({
                 {PLAYER_MIN}-{PLAYER_MAX} 人
               </span>
             </div>
-            <div className="mt-5 flex items-center justify-between gap-3">
+            <div
+              className={`mt-5 flex items-center justify-between gap-3 ${
+                isMaxPlayersLocked ? "opacity-60" : ""
+              }`}
+            >
               <button
                 type="button"
                 onClick={() =>
@@ -593,9 +623,9 @@ const RoomSetupPanel = ({
                     String(Math.max(PLAYER_MIN, effectiveMaxPlayers - 1)),
                   )
                 }
-                disabled={!canDecreaseMaxPlayers}
+                disabled={isMaxPlayersLocked || !canDecreaseMaxPlayers}
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
-                  canDecreaseMaxPlayers
+                  !isMaxPlayersLocked && canDecreaseMaxPlayers
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:border-cyan-300/35 hover:text-cyan-100"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -615,9 +645,9 @@ const RoomSetupPanel = ({
                     String(Math.min(PLAYER_MAX, effectiveMaxPlayers + 1)),
                   )
                 }
-                disabled={!canIncreaseMaxPlayers}
+                disabled={isMaxPlayersLocked || !canIncreaseMaxPlayers}
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
-                  canIncreaseMaxPlayers
+                  !isMaxPlayersLocked && canIncreaseMaxPlayers
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:border-cyan-300/35 hover:text-cyan-100"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -625,7 +655,11 @@ const RoomSetupPanel = ({
                 <AddRounded sx={{ fontSize: 18 }} />
               </button>
             </div>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <div
+              className={`mt-4 flex flex-wrap justify-center gap-2 ${
+                isMaxPlayersLocked ? "opacity-60" : ""
+              }`}
+            >
               {[2, 4, 8, 12]
                 .filter((count) => count >= PLAYER_MIN && count <= PLAYER_MAX)
                 .map((count) => (
@@ -633,16 +667,20 @@ const RoomSetupPanel = ({
                     key={count}
                     type="button"
                     onClick={() => setRoomMaxPlayersInput(String(count))}
+                    disabled={isMaxPlayersLocked}
                     className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                      effectiveMaxPlayers === count
+                      !isMaxPlayersLocked && effectiveMaxPlayers === count
                         ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
-                        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                        : isMaxPlayersLocked
+                          ? "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
+                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
                     }`}
                   >
                     {count} 人
                   </button>
                 ))}
             </div>
+            {timeAttackPlayersLockedOverlay}
           </div>
 
           <div className="relative select-none overflow-hidden rounded-2xl px-1 py-2">

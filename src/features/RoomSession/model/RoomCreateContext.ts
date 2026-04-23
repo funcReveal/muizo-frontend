@@ -10,6 +10,7 @@ export type RoomCreateSourceMode =
 
 export type CreateRoomOptions = {
   leaderboardProfileKey?: string | null;
+  maxPlayersOverride?: number | null;
   playbackExtensionMode?: PlaybackExtensionMode;
 };
 
