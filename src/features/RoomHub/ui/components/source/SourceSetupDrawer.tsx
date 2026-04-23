@@ -1,5 +1,5 @@
 import {
-  CelebrationRounded,
+  ChairRounded,
   CloseRounded,
   PlayArrowRounded,
   YouTube,
@@ -261,7 +261,7 @@ const SourceSetupDrawer = ({
           </div>
           <Button
             variant="contained"
-            startIcon={isSourceLoading ? <CelebrationRounded /> : <PlayArrowRounded />}
+            startIcon={isSourceLoading ? <ChairRounded /> : <PlayArrowRounded />}
             disabled={!canCreateRoom || isSourceLoading || isCreatingRoom}
             onClick={onCreateRoom}
           >

@@ -14,6 +14,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { USERNAME_MAX } from "@domain/room/constants";
+import { roomIsLeaderboardChallenge } from "@domain/room/viewModels";
 import {
   useRoomCreate,
   useRoomSession,
@@ -48,6 +49,9 @@ const TEXT = {
   collectionClipDesc:
     "若歌曲本身已有收藏庫片段設定，這個房間會優先沿用每首歌曲各自的起訖時間。",
   noCover: "這個題庫目前沒有封面曲資訊",
+  leaderboardLoginTitle: "排行挑戰需登入",
+  leaderboardLoginDesc:
+    "這個房間會記錄挑戰成績，請先使用 Google 登入後再加入。",
 };
 
 const formatSeconds = (value?: number) =>
@@ -210,6 +214,8 @@ const InvitedPage: React.FC = () => {
   const playlistMetaText = [playlistSourceMeta.description, playlistCoverTitle]
     .filter(Boolean)
     .join(" ・ ");
+  const isLeaderboardInvite = roomIsLeaderboardChallenge(inviteRoom);
+  const needsLeaderboardLogin = isLeaderboardInvite && !authUser;
 
   if (!inviteReference) {
     return (
@@ -393,7 +399,38 @@ const InvitedPage: React.FC = () => {
 
             <div className="lg:border-l lg:border-white/8 lg:pl-8">
               <div className="rounded-[1.5rem] bg-white/[0.04] p-4 ring-1 ring-white/8 sm:p-5">
-                {!hasIdentity ? (
+                {needsLeaderboardLogin ? (
+                  <div className="grid gap-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-[var(--mc-text)]">
+                        {TEXT.leaderboardLoginTitle}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-[var(--mc-text-muted)]">
+                        {TEXT.leaderboardLoginDesc}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="contained"
+                      onClick={loginWithGoogle}
+                      disabled={authLoading}
+                      sx={{
+                        background:
+                          "linear-gradient(90deg, rgba(56,189,248,0.9), rgba(245,158,11,0.9))",
+                        color: "#0b0a08",
+                        fontWeight: 700,
+                        minHeight: 46,
+                        boxShadow: "0 10px 24px rgba(56,189,248,0.25)",
+                        "&:hover": {
+                          background:
+                            "linear-gradient(90deg, rgba(56,189,248,1), rgba(245,158,11,1))",
+                        },
+                      }}
+                    >
+                      {authLoading ? "登入中..." : TEXT.googleAction}
+                    </Button>
+                  </div>
+                ) : !hasIdentity ? (
                   <div className="grid gap-4">
                     <div>
                       <h3 className="text-xl font-semibold text-[var(--mc-text)]">
@@ -495,12 +532,16 @@ const InvitedPage: React.FC = () => {
 
                     <Button
                       variant="contained"
-                      onClick={() =>
+                      onClick={() => {
+                        if (needsLeaderboardLogin) {
+                          loginWithGoogle();
+                          return;
+                        }
                         handleJoinRoom(
                           inviteRoom.roomCode || inviteRoom.id,
                           inviteRoom.hasPassword,
-                        )
-                      }
+                        );
+                      }}
                       sx={{
                         background:
                           "linear-gradient(90deg, rgba(245,158,11,0.95), rgba(234,179,8,0.95))",

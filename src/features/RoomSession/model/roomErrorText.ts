@@ -74,5 +74,9 @@ export const translateRoomErrorDetail = (
     return "房間忙碌中，請稍後再試";
   }
 
+  if (/^Leaderboard challenge requires login$/i.test(normalized)) {
+    return "排行挑戰需先登入";
+  }
+
   return normalized;
 };

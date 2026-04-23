@@ -1587,7 +1587,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 scoreboardBorderParticleCount={
                   mobileScoreboardBorderParticleCount
                 }
-                isLeaderboardRoom={isLeaderboardRoom}
               />
             </div>
           )}
@@ -1867,7 +1866,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     scoreboardBorderParticleCount={
                       mobileScoreboardBorderParticleCount
                     }
-                    isLeaderboardRoom={isLeaderboardRoom}
                   />
                 </div>
               </Drawer>

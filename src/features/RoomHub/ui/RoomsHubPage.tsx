@@ -76,6 +76,7 @@ import {
   formatRoomCodeDisplay,
   getRoomPlaylistLabel,
   getRoomStatusLabel,
+  roomIsLeaderboardChallenge,
   roomRequiresPin,
   type SourceSummary,
 } from "./roomsHubViewModels";
@@ -216,6 +217,68 @@ const GUIDE_MODE_STORAGE_KEY = "room_guide_mode";
 const JOIN_ENTRY_TAB_STORAGE_KEY = "room_join_entry_tab";
 const ROOMS_HUB_BGM_PATH = "/rooms-hub-bgm.mp3";
 const ROOMS_HUB_BGM_FADE_IN_MS = 1200;
+const ROOM_HUB_SETUP_PREFERENCES_KEY = "roomHub:setupPreferences:v1";
+
+type RoomHubSetupPreferences = {
+  roomPlayMode?: RoomPlayMode;
+  maxPlayers?: number;
+  questionCount?: number;
+  selectedLeaderboardMode?: LeaderboardModeKey;
+  selectedLeaderboardVariant?: LeaderboardVariantKey;
+  playDurationSec?: number;
+  revealDurationSec?: number;
+  startOffsetSec?: number;
+  allowCollectionClipTiming?: boolean;
+  playbackExtensionMode?: PlaybackExtensionMode;
+};
+
+const isRoomPlayMode = (value: unknown): value is RoomPlayMode =>
+  value === "casual" || value === "leaderboard";
+
+const isLeaderboardModeKey = (
+  value: unknown,
+): value is LeaderboardModeKey =>
+  typeof value === "string" && value in leaderboardVariants;
+
+const isLeaderboardVariantKey = (
+  mode: LeaderboardModeKey,
+  value: unknown,
+): value is LeaderboardVariantKey =>
+  typeof value === "string" &&
+  leaderboardVariants[mode].some((variant) => variant.key === value);
+
+const isPlaybackExtensionMode = (
+  value: unknown,
+): value is PlaybackExtensionMode =>
+  value === "manual_vote" || value === "auto_once" || value === "disabled";
+
+const readRoomHubSetupPreferences = (): RoomHubSetupPreferences | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(ROOM_HUB_SETUP_PREFERENCES_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as RoomHubSetupPreferences)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeRoomHubSetupPreferences = (
+  preferences: RoomHubSetupPreferences,
+) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      ROOM_HUB_SETUP_PREFERENCES_KEY,
+      JSON.stringify(preferences),
+    );
+  } catch {
+    // Best-effort device preference. Storage can be blocked or full.
+  }
+};
 
 const RoomsHubPage: React.FC = () => {
   const navigate = useNavigate();
@@ -311,6 +374,7 @@ const RoomsHubPage: React.FC = () => {
     kind: "youtube" | "link";
     summary: NonNullable<SourceSummary>;
   } | null>(null);
+  const setupPreferencesHydrateAttemptedRef = useRef(false);
   const [roomPlayMode, setRoomPlayMode] = useState<RoomPlayMode>(
     DEFAULT_ROOM_PLAY_MODE,
   );
@@ -318,6 +382,8 @@ const RoomsHubPage: React.FC = () => {
   const [pinValidationAttempted, setPinValidationAttempted] = useState(false);
   const [playbackExtensionMode, setPlaybackExtensionMode] =
     useState<PlaybackExtensionMode>(DEFAULT_PLAYBACK_EXTENSION_MODE);
+  const [setupPreferencesHydrated, setSetupPreferencesHydrated] =
+    useState(false);
   const [selectedLeaderboardMode, setSelectedLeaderboardMode] =
     useState<LeaderboardModeKey>(DEFAULT_LEADERBOARD_MODE);
   const [selectedLeaderboardVariant, setSelectedLeaderboardVariant] =
@@ -610,6 +676,7 @@ const RoomsHubPage: React.FC = () => {
   const canUseGoogleLibraries = Boolean(authUser);
   const filteredJoinRooms = useMemo(() => {
     const next = [...rooms].filter((room) => {
+      if (room.maxPlayers === 1) return false;
       if (joinPasswordFilter === "no_password") return !roomRequiresPin(room);
       if (joinPasswordFilter === "password_required")
         return roomRequiresPin(room);
@@ -753,6 +820,113 @@ const RoomsHubPage: React.FC = () => {
     !playlistLoading &&
     !maxPlayersInvalid &&
     !isCreatingRoom;
+
+  useEffect(() => {
+    if (setupPreferencesHydrateAttemptedRef.current) return;
+    setupPreferencesHydrateAttemptedRef.current = true;
+
+    const preferences = readRoomHubSetupPreferences();
+    if (!preferences) {
+      setSetupPreferencesHydrated(true);
+      return;
+    }
+
+    if (isRoomPlayMode(preferences.roomPlayMode)) {
+      setRoomPlayMode(preferences.roomPlayMode);
+    }
+    if (
+      typeof preferences.maxPlayers === "number" &&
+      Number.isInteger(preferences.maxPlayers) &&
+      preferences.maxPlayers >= PLAYER_MIN &&
+      preferences.maxPlayers <= PLAYER_MAX
+    ) {
+      setRoomMaxPlayersInput(String(preferences.maxPlayers));
+    }
+    if (
+      typeof preferences.questionCount === "number" &&
+      Number.isFinite(preferences.questionCount)
+    ) {
+      updateQuestionCount(preferences.questionCount);
+    }
+    if (isLeaderboardModeKey(preferences.selectedLeaderboardMode)) {
+      const nextMode = preferences.selectedLeaderboardMode;
+      setSelectedLeaderboardMode(nextMode);
+      if (
+        isLeaderboardVariantKey(
+          nextMode,
+          preferences.selectedLeaderboardVariant,
+        )
+      ) {
+        setSelectedLeaderboardVariant(preferences.selectedLeaderboardVariant);
+      } else {
+        setSelectedLeaderboardVariant(leaderboardVariants[nextMode][0].key);
+      }
+    }
+    if (
+      typeof preferences.playDurationSec === "number" &&
+      Number.isFinite(preferences.playDurationSec)
+    ) {
+      updatePlayDurationSec(preferences.playDurationSec);
+    }
+    if (
+      typeof preferences.revealDurationSec === "number" &&
+      Number.isFinite(preferences.revealDurationSec)
+    ) {
+      updateRevealDurationSec(preferences.revealDurationSec);
+    }
+    if (
+      typeof preferences.startOffsetSec === "number" &&
+      Number.isFinite(preferences.startOffsetSec)
+    ) {
+      updateStartOffsetSec(preferences.startOffsetSec);
+    }
+    if (typeof preferences.allowCollectionClipTiming === "boolean") {
+      updateAllowCollectionClipTiming(preferences.allowCollectionClipTiming);
+    }
+    if (isPlaybackExtensionMode(preferences.playbackExtensionMode)) {
+      setPlaybackExtensionMode(preferences.playbackExtensionMode);
+    }
+
+    setSetupPreferencesHydrated(true);
+  }, [
+    setRoomMaxPlayersInput,
+    setRoomVisibilityInput,
+    updateAllowCollectionClipTiming,
+    updatePlayDurationSec,
+    updateQuestionCount,
+    updateRevealDurationSec,
+    updateStartOffsetSec,
+  ]);
+
+  useEffect(() => {
+    if (!setupPreferencesHydrated) return;
+
+    writeRoomHubSetupPreferences({
+      roomPlayMode,
+      maxPlayers: parsedMaxPlayers ?? undefined,
+      questionCount,
+      selectedLeaderboardMode,
+      selectedLeaderboardVariant,
+      playDurationSec,
+      revealDurationSec,
+      startOffsetSec,
+      allowCollectionClipTiming,
+      playbackExtensionMode,
+    });
+  }, [
+    allowCollectionClipTiming,
+    parsedMaxPlayers,
+    playbackExtensionMode,
+    playDurationSec,
+    questionCount,
+    revealDurationSec,
+    roomPlayMode,
+    selectedLeaderboardMode,
+    selectedLeaderboardVariant,
+    setupPreferencesHydrated,
+    startOffsetSec,
+  ]);
+
   const isCreateSourceReady = playlistItems.length > 0;
   const selectedYoutubePlaylist = useMemo(
     () =>
@@ -866,6 +1040,9 @@ const RoomsHubPage: React.FC = () => {
   const buildCreateRoomOptions = useCallback(
     (leaderboardProfileKey?: string | null) => ({
       ...(leaderboardProfileKey ? { leaderboardProfileKey } : {}),
+      ...(leaderboardProfileKey === "time_attack_15m"
+        ? { maxPlayersOverride: 1 }
+        : {}),
       playbackExtensionMode,
     }),
     [playbackExtensionMode],
@@ -1165,7 +1342,6 @@ const RoomsHubPage: React.FC = () => {
     if (!options?.keepDetailDrawerOpen) {
       setDetailCollectionId(null);
     }
-    updateAllowCollectionClipTiming(true);
     setRoomCreateSourceMode(
       scope === "public" ? "publicCollection" : "privateCollection",
     );
@@ -1265,6 +1441,10 @@ const RoomsHubPage: React.FC = () => {
     closePasswordDialog();
   };
   const handleJoinRoomEntry = (room: RoomSummary) => {
+    if (roomIsLeaderboardChallenge(room) && !authUser) {
+      loginWithGoogle();
+      return;
+    }
     if (isRoomCurrentlyPlaying(room)) {
       openInProgressJoinDialog(room);
       return;
@@ -1289,6 +1469,11 @@ const RoomsHubPage: React.FC = () => {
     }
     if (!resolvedDirectJoinRoom) {
       setDirectJoinError("請先等待房間資訊載入完成。");
+      return;
+    }
+    if (roomIsLeaderboardChallenge(resolvedDirectJoinRoom) && !authUser) {
+      setDirectJoinError("排行挑戰需先登入才能加入。");
+      loginWithGoogle();
       return;
     }
     if (isRoomCurrentlyPlaying(resolvedDirectJoinRoom)) {
@@ -1814,10 +1999,14 @@ const RoomsHubPage: React.FC = () => {
                   setJoinRoomsView={setJoinRoomsView}
                   handleJoinRoomEntry={handleJoinRoomEntry}
                   roomRequiresPin={roomRequiresPin}
+                  roomIsLeaderboardChallenge={roomIsLeaderboardChallenge}
                   isRoomCurrentlyPlaying={isRoomCurrentlyPlaying}
                   getRoomStatusLabel={getRoomStatusLabel}
                   getRoomPlaylistLabel={getRoomPlaylistLabel}
                   formatRoomCodeDisplay={formatRoomCodeDisplay}
+                  isAuthenticated={Boolean(authUser)}
+                  isAuthLoading={authLoading}
+                  onLoginRequired={loginWithGoogle}
                   joinConfirmDialog={joinConfirmDialog}
                   closeJoinConfirmDialog={closeJoinConfirmDialog}
                   handleConfirmJoinInProgress={handleConfirmJoinInProgress}
@@ -1909,6 +2098,11 @@ const RoomsHubPage: React.FC = () => {
           );
         }}
         onStartLeaderboardChallenge={(collectionId) => {
+          if (detailCollection?.visibility !== "public") return;
+          if (!authUser) {
+            loginWithGoogle();
+            return;
+          }
           setRoomPlayMode("leaderboard");
           void handlePickCollectionSource(
             collectionId,
@@ -1917,6 +2111,10 @@ const RoomsHubPage: React.FC = () => {
         }}
         onConfirmLeaderboardChallenge={(collectionId) => {
           if (detailCollection?.visibility !== "public") return;
+          if (!authUser) {
+            loginWithGoogle();
+            return;
+          }
           if (!canSubmitRoomCreate()) return;
           const profileKey = getLeaderboardProfileKey(
             selectedLeaderboardMode,
@@ -1976,6 +2174,9 @@ const RoomsHubPage: React.FC = () => {
         onLeaderboardSelectionChange={handleLeaderboardSelectionChange}
         onLeaderboardModeChange={handleLeaderboardModeChange}
         onLeaderboardVariantChange={handleLeaderboardVariantChange}
+        isAuthenticated={Boolean(authUser)}
+        isAuthLoading={authLoading}
+        onLoginRequired={loginWithGoogle}
       />
       <SourceSetupDrawer
         open={Boolean(sourceSetupDrawer)}

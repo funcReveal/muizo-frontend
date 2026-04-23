@@ -1,22 +1,38 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
-import { Slider, TextField, Tooltip } from "@mui/material";
+import {
+  ClickAwayListener,
+  Popper,
+  Slider,
+  TextField,
+  Tooltip,
+} from "@mui/material";
+import { AnimatePresence, motion } from "motion/react";
 import {
   AccessTimeRounded,
   AddRounded,
-  CelebrationRounded,
+  ChairRounded,
+  ContentCutRounded,
   EditNoteRounded,
   EmojiEventsRounded,
+  FastForwardRounded,
   GroupsRounded,
+  HourglassTopRounded,
   KeyboardArrowDownRounded,
+  LoginRounded,
   LockRounded,
   LockOutlined,
   PinOutlined,
-  PlayCircleOutlineRounded,
   PublicOutlined,
   QuizRounded,
   RemoveRounded,
-  ScheduleRounded,
+  SportsEsportsRounded,
   TimerRounded,
   TuneRounded,
 } from "@mui/icons-material";
@@ -32,8 +48,14 @@ import {
   START_OFFSET_MAX,
   START_OFFSET_MIN,
 } from "@domain/room/constants";
-import type { PlaybackExtensionMode, RoomCreateSourceMode } from "@domain/room/types";
-import type { CreateSettingsCard, SourceSummary } from "../../roomsHubViewModels";
+import type {
+  PlaybackExtensionMode,
+  RoomCreateSourceMode,
+} from "@domain/room/types";
+import type {
+  CreateSettingsCard,
+  SourceSummary,
+} from "../../roomsHubViewModels";
 import {
   getLeaderboardModeDescription,
   leaderboardModes,
@@ -88,6 +110,9 @@ type RoomSetupPanelProps = {
   onCreateRoom: () => void;
   pinValidationAttempted?: boolean;
   showLeaderboardMode?: boolean;
+  isAuthenticated?: boolean;
+  isAuthLoading?: boolean;
+  onLoginRequired?: () => void;
 };
 
 const RoomSetupPanel = ({
@@ -124,10 +149,22 @@ const RoomSetupPanel = ({
   supportsCollectionClipTiming,
   pinValidationAttempted = false,
   showLeaderboardMode = true,
+  isAuthenticated = false,
+  isAuthLoading = false,
+  onLoginRequired,
 }: RoomSetupPanelProps) => {
   const isPrivateRoom = roomVisibilityInput === "private";
   const [isLeaderboardSpecMenuOpen, setIsLeaderboardSpecMenuOpen] =
     useState(false);
+  const [leaderboardAnchorEl, setLeaderboardAnchorEl] =
+    useState<HTMLDivElement | null>(null);
+  const leaderboardMenuRef = useRef<HTMLDivElement | null>(null);
+  const [draftPlayDurationSec, setDraftPlayDurationSec] =
+    useState(playDurationSec);
+  const [draftStartOffsetSec, setDraftStartOffsetSec] =
+    useState(startOffsetSec);
+  const [draftRevealDurationSec, setDraftRevealDurationSec] =
+    useState(revealDurationSec);
   const isPinProtectionOpen =
     isPinProtectionEnabled || roomPasswordInput.length > 0;
   const canDecreaseQuestionCount = questionCount > questionMin;
@@ -148,15 +185,23 @@ const RoomSetupPanel = ({
     leaderboardChallengeOptions.find(
       (option) => option.variantKey === selectedLeaderboardVariant,
     ) ?? leaderboardChallengeOptions[0];
-  const activeLeaderboardModeDescription =
-    getLeaderboardModeDescription(selectedLeaderboardMode);
-  const isLeaderboardChallengeAvailable =
+  const activeLeaderboardModeDescription = getLeaderboardModeDescription(
+    selectedLeaderboardMode,
+  );
+  const isLeaderboardSourceAvailable =
     roomCreateSourceMode === "publicCollection";
+  const isLeaderboardChallengeAvailable =
+    isLeaderboardSourceAvailable && isAuthenticated;
   const isLeaderboardRoom =
     roomPlayMode === "leaderboard" && isLeaderboardChallengeAvailable;
+  const isTimeAttackLeaderboardRoom =
+    isLeaderboardRoom &&
+    selectedLeaderboardMode === "time_attack" &&
+    selectedLeaderboardVariant === "15m";
   const effectiveMaxPlayers = parsedMaxPlayers ?? PLAYER_MIN;
   const canDecreaseMaxPlayers = effectiveMaxPlayers > PLAYER_MIN;
   const canIncreaseMaxPlayers = effectiveMaxPlayers < PLAYER_MAX;
+  const isMaxPlayersLocked = isTimeAttackLeaderboardRoom;
   const isLeaderboardSettingsLocked = isLeaderboardRoom;
   const isQuestionCountLocked = isLeaderboardSettingsLocked;
   const hasPinLengthError =
@@ -177,7 +222,8 @@ const RoomSetupPanel = ({
     { value: 300, label: "5m" },
     { value: START_OFFSET_MAX, label: "10m" },
   ];
-  const controlSliderSx = {
+  const controlSliderSx = useMemo(
+    () => ({
     height: 8,
     py: 1.5,
     "& .MuiSlider-rail": {
@@ -203,7 +249,75 @@ const RoomSetupPanel = ({
         boxShadow: "0 0 0 8px rgba(34,211,238,0.12)",
       },
     },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    setDraftPlayDurationSec(playDurationSec);
+  }, [playDurationSec]);
+
+  useEffect(() => {
+    setDraftStartOffsetSec(startOffsetSec);
+  }, [startOffsetSec]);
+
+  useEffect(() => {
+    setDraftRevealDurationSec(revealDurationSec);
+  }, [revealDurationSec]);
+
+  const normalizeSliderValue = (value: number | number[]) =>
+    Array.isArray(value) ? value[0] : value;
+
+  const handleLeaderboardCardClick = () => {
+    if (!isLeaderboardChallengeAvailable) return;
+    setRoomPlayMode("leaderboard");
+    setIsLeaderboardSpecMenuOpen((current) => !current);
   };
+
+  const handleLeaderboardCardKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleLeaderboardCardClick();
+  };
+
+  const handleLeaderboardOptionSelect = (
+    modeKey: LeaderboardModeKey,
+    variantKey: LeaderboardVariantKey,
+  ) => {
+    setRoomPlayMode("leaderboard");
+    onLeaderboardSelectionChange(modeKey, variantKey);
+    setIsLeaderboardSpecMenuOpen(false);
+  };
+  const leaderboardMenuWidth = leaderboardAnchorEl
+    ? leaderboardAnchorEl.clientWidth
+    : 280;
+  const leaderboardUnavailableTitle = !isLeaderboardSourceAvailable
+    ? "僅公開收藏庫可用"
+    : isAuthLoading
+      ? "正在確認登入狀態"
+      : "登入後可進行排行挑戰";
+  const leaderboardUnavailableHint = !isLeaderboardSourceAvailable
+    ? "排行榜挑戰目前只支援公開收藏庫。"
+    : "使用 Google 登入後，挑戰成績才會記錄到排行榜。";
+
+  useEffect(() => {
+    if (!isLeaderboardSpecMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (leaderboardAnchorEl?.contains(target)) return;
+      if (leaderboardMenuRef.current?.contains(target)) return;
+      setIsLeaderboardSpecMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
+  }, [isLeaderboardSpecMenuOpen, leaderboardAnchorEl]);
 
   const leaderboardLockedOverlay = isLeaderboardSettingsLocked ? (
     <div
@@ -218,6 +332,25 @@ const RoomSetupPanel = ({
           <span className="block text-sm font-semibold">僅休閒派對可調整</span>
           <span className="mt-0.5 block text-xs text-amber-100/72">
             排行挑戰使用固定規格
+          </span>
+        </span>
+      </div>
+    </div>
+  ) : null;
+
+  const timeAttackPlayersLockedOverlay = isMaxPlayersLocked ? (
+    <div
+      aria-hidden="true"
+      className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-center justify-center rounded-2xl border border-cyan-200/16 bg-slate-950/62 px-4 backdrop-blur-[2px]"
+    >
+      <div className="inline-flex items-center gap-3 rounded-2xl border border-cyan-200/22 bg-cyan-300/12 px-4 py-3 text-cyan-50 shadow-[0_18px_34px_-28px_rgba(34,211,238,0.72)]">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-100/22 bg-cyan-200/14">
+          <LockOutlined sx={{ fontSize: 18 }} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">限時挑戰固定 1 人</span>
+          <span className="mt-0.5 block text-xs text-cyan-100/72">
+            不會變更休閒派對的人數設定
           </span>
         </span>
       </div>
@@ -386,8 +519,8 @@ const RoomSetupPanel = ({
       </section>
 
       <section className="px-1 py-2">
-        <div className="flex items-center gap-2">
-          <CelebrationRounded sx={{ fontSize: 18, color: "#34d399" }} />
+          <div className="flex items-center gap-2">
+          <SportsEsportsRounded sx={{ fontSize: 18, color: "#34d399" }} />
           <p className="text-sm font-semibold text-[var(--mc-text)]">
             房間模式
           </p>
@@ -400,7 +533,10 @@ const RoomSetupPanel = ({
         >
           <button
             type="button"
-            onClick={() => setRoomPlayMode("casual")}
+            onClick={() => {
+              setRoomPlayMode("casual");
+              setIsLeaderboardSpecMenuOpen(false);
+            }}
             className={`rounded-2xl border px-3 py-3 text-left transition ${
               !isLeaderboardRoom
                 ? "border-emerald-300/45 bg-emerald-400/12 text-emerald-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
@@ -415,7 +551,7 @@ const RoomSetupPanel = ({
                     : "border-white/10 bg-slate-950/35 text-slate-300"
                 }`}
               >
-                <CelebrationRounded sx={{ fontSize: 18 }} />
+                <ChairRounded sx={{ fontSize: 18 }} />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold">休閒派對</span>
@@ -428,68 +564,55 @@ const RoomSetupPanel = ({
 
           {showLeaderboardMode ? (
             <div
-            className={`relative rounded-2xl border px-3 py-3 transition ${
-              isLeaderboardRoom && isLeaderboardChallengeAvailable
-                ? "border-amber-300/38 bg-amber-300/10 text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                : "border-white/8 bg-white/5 text-[var(--mc-text-muted)] hover:border-amber-300/28 hover:bg-white/[0.07]"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                disabled={!isLeaderboardChallengeAvailable}
-                onClick={() => {
-                  if (!isLeaderboardChallengeAvailable) return;
-                  setRoomPlayMode("leaderboard");
-                }}
-                className="flex min-w-0 flex-1 items-start gap-3 text-left disabled:cursor-not-allowed"
-              >
-                <span
-                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
-                    isLeaderboardRoom && isLeaderboardChallengeAvailable
-                      ? "border-amber-200/24 bg-amber-300/14 text-amber-100"
-                      : "border-white/10 bg-slate-950/35 text-slate-300"
-                  }`}
-                >
-                  <EmojiEventsRounded sx={{ fontSize: 18 }} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">
-                    排行挑戰
-                  </span>
-                  <span className="mt-1 block text-xs leading-5 opacity-80">
-                    {activeLeaderboardModeDescription}
-                  </span>
-                </span>
-              </button>
-
-              {isLeaderboardChallengeAvailable ? (
-                <div
-                  className="relative shrink-0"
-                  onBlur={(event) => {
-                    if (
-                      !event.currentTarget.contains(
-                        event.relatedTarget as Node | null,
-                      )
-                    ) {
-                      setIsLeaderboardSpecMenuOpen(false);
-                    }
-                  }}
-                >
-                  <button
-                    type="button"
-                    aria-haspopup="listbox"
-                    aria-expanded={isLeaderboardSpecMenuOpen}
-                    onClick={() =>
-                      setIsLeaderboardSpecMenuOpen((current) => !current)
-                    }
-                    className={`inline-flex h-10 w-[124px] items-center justify-between gap-2.5 rounded-xl border px-3 text-left text-sm font-semibold outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-amber-100/36 hover:bg-slate-950/44 focus:border-amber-100/50 focus:ring-2 focus:ring-amber-200/10 ${
-                      isLeaderboardRoom
-                        ? "border-amber-100/22 bg-[linear-gradient(180deg,rgba(15,23,42,0.62),rgba(2,6,23,0.44))] text-amber-50"
-                        : "border-white/10 bg-slate-950/30 text-amber-100/86"
+              ref={setLeaderboardAnchorEl}
+              role={isLeaderboardChallengeAvailable ? "button" : undefined}
+              tabIndex={isLeaderboardChallengeAvailable ? 0 : undefined}
+              aria-haspopup={isLeaderboardChallengeAvailable ? "listbox" : undefined}
+              aria-expanded={
+                isLeaderboardChallengeAvailable
+                  ? isLeaderboardSpecMenuOpen
+                  : undefined
+              }
+              onClick={handleLeaderboardCardClick}
+              onKeyDown={handleLeaderboardCardKeyDown}
+              className={`relative rounded-2xl border px-3 py-3 transition ${
+                isLeaderboardRoom && isLeaderboardChallengeAvailable
+                  ? "cursor-pointer border-amber-300/38 bg-amber-300/10 text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                  : isLeaderboardChallengeAvailable
+                    ? "cursor-pointer border-white/8 bg-white/5 text-[var(--mc-text-muted)] outline-none hover:border-amber-300/28 hover:bg-white/[0.07] focus:border-amber-100/42 focus:ring-2 focus:ring-amber-200/10"
+                    : "border-white/8 bg-white/5 text-[var(--mc-text-muted)]"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                  <span
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                      isLeaderboardRoom && isLeaderboardChallengeAvailable
+                        ? "border-amber-200/24 bg-amber-300/14 text-amber-100"
+                        : "border-white/10 bg-slate-950/35 text-slate-300"
                     }`}
                   >
-                    <span className="min-w-0 truncate">
+                    <EmojiEventsRounded sx={{ fontSize: 18 }} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">
+                      排行挑戰
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 opacity-80">
+                      {activeLeaderboardModeDescription}
+                    </span>
+                  </span>
+                </div>
+
+                {isLeaderboardChallengeAvailable ? (
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold transition ${
+                      isLeaderboardRoom
+                        ? "text-amber-50"
+                        : "text-amber-100/86"
+                    }`}
+                  >
+                    <span className="max-w-[5.5rem] truncate">
                       {activeLeaderboardOption.label}
                     </span>
                     <KeyboardArrowDownRounded
@@ -498,79 +621,125 @@ const RoomSetupPanel = ({
                         isLeaderboardSpecMenuOpen ? "rotate-180" : ""
                       }`}
                     />
-                  </button>
-
-                  {isLeaderboardSpecMenuOpen ? (
-                    <div className="absolute right-0 top-[calc(100%+0.45rem)] z-30 w-[216px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl">
-                      <div
-                        role="listbox"
-                        aria-label="挑戰規格"
-                        className="space-y-1"
+                  </span>
+                ) : null}
+              </div>
+              {!isLeaderboardChallengeAvailable ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-end rounded-2xl bg-slate-950/66 px-3 backdrop-blur-[2px]">
+                  <div className="inline-flex max-w-[15rem] items-center gap-2 rounded-xl border border-amber-100/18 bg-slate-950/84 px-3 py-2 text-xs font-semibold text-amber-50 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.72)]">
+                    <LockOutlined sx={{ fontSize: 16 }} />
+                    <span className="min-w-0 leading-5">
+                      <span className="block">{leaderboardUnavailableTitle}</span>
+                      <span className="block text-[11px] font-medium text-amber-100/62">
+                        {leaderboardUnavailableHint}
+                      </span>
+                    </span>
+                    {isLeaderboardSourceAvailable ? (
+                      <button
+                        type="button"
+                        disabled={isAuthLoading}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onLoginRequired?.();
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-100/18 bg-amber-200/10 px-2 py-1 text-[11px] font-semibold text-amber-50 transition hover:border-amber-100/30 hover:bg-amber-200/14 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {leaderboardChallengeGroups.map((group) => (
-                          <div key={group.modeKey}>
-                            <div className="px-3 pb-1 pt-1.5 text-[10px] font-semibold tracking-[0.16em] text-amber-100/45">
-                              {group.label}
-                            </div>
-                            <div className="space-y-1">
-                              {group.options.map((option) => {
-                                const selected =
-                                  option.variantKey ===
-                                  selectedLeaderboardVariant;
-                                return (
-                                  <button
-                                    key={option.variantKey}
-                                    type="button"
-                                    role="option"
-                                    aria-selected={selected}
-                                    onMouseDown={(event) =>
-                                      event.preventDefault()
-                                    }
-                                    onClick={() => {
-                                      setRoomPlayMode("leaderboard");
-                                      onLeaderboardSelectionChange(
-                                        option.modeKey,
-                                        option.variantKey,
-                                      );
-                                      setIsLeaderboardSpecMenuOpen(false);
-                                    }}
-                                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
-                                      selected
-                                        ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
-                                        : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
-                                    }`}
-                                  >
-                                    <span className="min-w-0">
-                                      <span className="block truncate text-sm font-semibold">
-                                        {option.label}
-                                      </span>
-                                    </span>
-                                    {selected ? (
-                                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-200" />
-                                    ) : null}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
+                        <LoginRounded sx={{ fontSize: 14 }} />
+                        登入
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
             </div>
-            {!isLeaderboardChallengeAvailable ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-end rounded-2xl bg-slate-950/66 px-3 backdrop-blur-[2px]">
-                <div className="inline-flex max-w-[13rem] items-center gap-2 rounded-xl border border-amber-100/18 bg-slate-950/84 px-3 py-2 text-xs font-semibold text-amber-50 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.72)]">
-                  <LockOutlined sx={{ fontSize: 16 }} />
-                  <span className="leading-5">僅公開收藏庫可用</span>
-                </div>
-              </div>
-            ) : null}
-            </div>
           ) : null}
         </div>
+
+        <Popper
+          open={isLeaderboardChallengeAvailable}
+          anchorEl={leaderboardAnchorEl}
+          placement="bottom-end"
+          modifiers={[
+            { name: "offset", options: { offset: [0, 8] } },
+            { name: "flip", enabled: true },
+            {
+              name: "preventOverflow",
+              options: { padding: 12 },
+            },
+          ]}
+          sx={{ zIndex: 1500 }}
+        >
+          <ClickAwayListener
+            onClickAway={() => setIsLeaderboardSpecMenuOpen(false)}
+          >
+            <AnimatePresence>
+              {isLeaderboardSpecMenuOpen ? (
+                <motion.div
+                  ref={leaderboardMenuRef}
+                  key="leaderboard-spec-menu"
+                  initial={{ opacity: 0, y: -6, scale: 0.985 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.985 }}
+                  transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                  className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 text-slate-100 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl"
+                  style={{
+                    width: leaderboardMenuWidth,
+                    transformOrigin: "top right",
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div
+                    role="listbox"
+                    aria-label="挑戰規格"
+                    className="space-y-1"
+                  >
+                    {leaderboardChallengeGroups.map((group) => (
+                      <div key={group.modeKey}>
+                        <div className="px-3 pb-1 pt-1.5 text-xs font-semibold tracking-[0.12em] text-amber-100/55">
+                          {group.label}
+                        </div>
+                        <div className="space-y-1">
+                          {group.options.map((option) => {
+                            const selected =
+                              option.variantKey === selectedLeaderboardVariant;
+                            return (
+                              <button
+                                key={option.variantKey}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                onClick={() =>
+                                  handleLeaderboardOptionSelect(
+                                    option.modeKey,
+                                    option.variantKey,
+                                  )
+                                }
+                                className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
+                                  selected
+                                    ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
+                                    : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
+                                }`}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-semibold">
+                                    {option.label}
+                                  </span>
+                                </span>
+                                {selected ? (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-200" />
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </ClickAwayListener>
+        </Popper>
       </section>
 
       <section className="px-1 py-2">
@@ -585,7 +754,11 @@ const RoomSetupPanel = ({
                 {PLAYER_MIN}-{PLAYER_MAX} 人
               </span>
             </div>
-            <div className="mt-5 flex items-center justify-between gap-3">
+            <div
+              className={`mt-5 flex items-center justify-between gap-3 ${
+                isMaxPlayersLocked ? "opacity-60" : ""
+              }`}
+            >
               <button
                 type="button"
                 onClick={() =>
@@ -593,9 +766,9 @@ const RoomSetupPanel = ({
                     String(Math.max(PLAYER_MIN, effectiveMaxPlayers - 1)),
                   )
                 }
-                disabled={!canDecreaseMaxPlayers}
+                disabled={isMaxPlayersLocked || !canDecreaseMaxPlayers}
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
-                  canDecreaseMaxPlayers
+                  !isMaxPlayersLocked && canDecreaseMaxPlayers
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:border-cyan-300/35 hover:text-cyan-100"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -615,9 +788,9 @@ const RoomSetupPanel = ({
                     String(Math.min(PLAYER_MAX, effectiveMaxPlayers + 1)),
                   )
                 }
-                disabled={!canIncreaseMaxPlayers}
+                disabled={isMaxPlayersLocked || !canIncreaseMaxPlayers}
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
-                  canIncreaseMaxPlayers
+                  !isMaxPlayersLocked && canIncreaseMaxPlayers
                     ? "border-[var(--mc-border)] bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:border-cyan-300/35 hover:text-cyan-100"
                     : "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
                 }`}
@@ -625,7 +798,11 @@ const RoomSetupPanel = ({
                 <AddRounded sx={{ fontSize: 18 }} />
               </button>
             </div>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <div
+              className={`mt-4 flex flex-wrap justify-center gap-2 ${
+                isMaxPlayersLocked ? "opacity-60" : ""
+              }`}
+            >
               {[2, 4, 8, 12]
                 .filter((count) => count >= PLAYER_MIN && count <= PLAYER_MAX)
                 .map((count) => (
@@ -633,16 +810,20 @@ const RoomSetupPanel = ({
                     key={count}
                     type="button"
                     onClick={() => setRoomMaxPlayersInput(String(count))}
+                    disabled={isMaxPlayersLocked}
                     className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                      effectiveMaxPlayers === count
+                      !isMaxPlayersLocked && effectiveMaxPlayers === count
                         ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
-                        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
+                        : isMaxPlayersLocked
+                          ? "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"
+                          : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text-muted)] hover:border-cyan-300/35 hover:text-[var(--mc-text)]"
                     }`}
                   >
                     {count} 人
                   </button>
                 ))}
             </div>
+            {timeAttackPlayersLockedOverlay}
           </div>
 
           <div className="relative select-none overflow-hidden rounded-2xl px-1 py-2">
@@ -815,10 +996,12 @@ const RoomSetupPanel = ({
                       {allowCollectionClipTiming ? (
                         <TuneRounded sx={{ fontSize: 18, color: "#34d399" }} />
                       ) : (
-                        <TimerRounded sx={{ fontSize: 18, color: "#7dd3fc" }} />
+                        <ContentCutRounded
+                          sx={{ fontSize: 18, color: "#7dd3fc" }}
+                        />
                       )}
                       <p className="text-sm font-semibold text-[var(--mc-text)]">
-                        {allowCollectionClipTiming ? "收藏庫片段" : "手動節奏"}
+                        {allowCollectionClipTiming ? "收藏庫片段" : "自訂片段"}
                       </p>
                     </div>
                   </div>
@@ -863,7 +1046,7 @@ const RoomSetupPanel = ({
                 <div className="mt-3 grid gap-3">
                   <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
                     <div className="flex items-center gap-2">
-                      <PlayCircleOutlineRounded
+                      <HourglassTopRounded
                         sx={{ fontSize: 18, color: "#7dd3fc" }}
                       />
                       <p className="text-sm font-semibold text-[var(--mc-text)]">
@@ -877,26 +1060,28 @@ const RoomSetupPanel = ({
                       <button
                         type="button"
                         disabled={isLeaderboardSettingsLocked}
-                        onClick={() =>
-                          updatePlayDurationSec(
+                        onClick={() => {
+                          const nextValue = updatePlayDurationSec(
                             Math.max(PLAY_DURATION_MIN, playDurationSec - 1),
-                          )
-                        }
+                          );
+                          setDraftPlayDurationSec(nextValue);
+                        }}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <RemoveRounded sx={{ fontSize: 16 }} />
                       </button>
                       <div className="text-xl font-semibold text-[var(--mc-text)]">
-                        {playDurationSec}s
+                        {draftPlayDurationSec}s
                       </div>
                       <button
                         type="button"
                         disabled={isLeaderboardSettingsLocked}
-                        onClick={() =>
-                          updatePlayDurationSec(
+                        onClick={() => {
+                          const nextValue = updatePlayDurationSec(
                             Math.min(PLAY_DURATION_MAX, playDurationSec + 1),
-                          )
-                        }
+                          );
+                          setDraftPlayDurationSec(nextValue);
+                        }}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <AddRounded sx={{ fontSize: 16 }} />
@@ -904,7 +1089,7 @@ const RoomSetupPanel = ({
                     </div>
                     <div className="mt-2 px-2 pb-3">
                       <Slider
-                        value={playDurationSec}
+                        value={draftPlayDurationSec}
                         min={PLAY_DURATION_MIN}
                         max={PLAY_DURATION_MAX}
                         step={1}
@@ -913,18 +1098,21 @@ const RoomSetupPanel = ({
                         disabled={isLeaderboardSettingsLocked}
                         sx={controlSliderSx}
                         onChange={(_event, value) =>
-                          updatePlayDurationSec(
-                            Array.isArray(value) ? value[0] : value,
-                          )
+                          setDraftPlayDurationSec(normalizeSliderValue(value))
                         }
-                        valueLabelDisplay="auto"
+                        onChangeCommitted={(_event, value) =>
+                          updatePlayDurationSec(normalizeSliderValue(value))
+                        }
+                        valueLabelDisplay="off"
                       />
                     </div>
                   </div>
 
                   <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
                     <div className="flex items-center gap-2">
-                      <ScheduleRounded sx={{ fontSize: 18, color: "#c084fc" }} />
+                      <FastForwardRounded
+                        sx={{ fontSize: 18, color: "#c084fc" }}
+                      />
                       <p className="text-sm font-semibold text-[var(--mc-text)]">
                         起始秒數
                       </p>
@@ -936,26 +1124,28 @@ const RoomSetupPanel = ({
                       <button
                         type="button"
                         disabled={isLeaderboardSettingsLocked}
-                        onClick={() =>
-                          updateStartOffsetSec(
+                        onClick={() => {
+                          const nextValue = updateStartOffsetSec(
                             Math.max(START_OFFSET_MIN, startOffsetSec - 5),
-                          )
-                        }
+                          );
+                          setDraftStartOffsetSec(nextValue);
+                        }}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <RemoveRounded sx={{ fontSize: 16 }} />
                       </button>
                       <div className="text-xl font-semibold text-[var(--mc-text)]">
-                        {startOffsetSec}s
+                        {draftStartOffsetSec}s
                       </div>
                       <button
                         type="button"
                         disabled={isLeaderboardSettingsLocked}
-                        onClick={() =>
-                          updateStartOffsetSec(
+                        onClick={() => {
+                          const nextValue = updateStartOffsetSec(
                             Math.min(START_OFFSET_MAX, startOffsetSec + 5),
-                          )
-                        }
+                          );
+                          setDraftStartOffsetSec(nextValue);
+                        }}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <AddRounded sx={{ fontSize: 16 }} />
@@ -963,7 +1153,7 @@ const RoomSetupPanel = ({
                     </div>
                     <div className="mt-2 px-2 pb-3">
                       <Slider
-                        value={startOffsetSec}
+                        value={draftStartOffsetSec}
                         min={START_OFFSET_MIN}
                         max={START_OFFSET_MAX}
                         step={1}
@@ -972,11 +1162,12 @@ const RoomSetupPanel = ({
                         disabled={isLeaderboardSettingsLocked}
                         sx={controlSliderSx}
                         onChange={(_event, value) =>
-                          updateStartOffsetSec(
-                            Array.isArray(value) ? value[0] : value,
-                          )
+                          setDraftStartOffsetSec(normalizeSliderValue(value))
                         }
-                        valueLabelDisplay="auto"
+                        onChangeCommitted={(_event, value) =>
+                          updateStartOffsetSec(normalizeSliderValue(value))
+                        }
+                        valueLabelDisplay="off"
                       />
                     </div>
                   </div>
@@ -997,11 +1188,11 @@ const RoomSetupPanel = ({
                 題目結束後保留給大家查看答案的時間。
               </p>
               <div className="mt-3 text-xl font-semibold text-[var(--mc-text)]">
-                {revealDurationSec}s
+                {draftRevealDurationSec}s
               </div>
               <div className="mt-3 px-1">
                 <Slider
-                  value={revealDurationSec}
+                  value={draftRevealDurationSec}
                   min={REVEAL_DURATION_MIN}
                   max={REVEAL_DURATION_MAX}
                   step={1}
@@ -1009,11 +1200,12 @@ const RoomSetupPanel = ({
                   disabled={isLeaderboardSettingsLocked}
                   sx={controlSliderSx}
                   onChange={(_event, value) =>
-                    updateRevealDurationSec(
-                      Array.isArray(value) ? value[0] : value,
-                    )
+                    setDraftRevealDurationSec(normalizeSliderValue(value))
                   }
-                  valueLabelDisplay="auto"
+                  onChangeCommitted={(_event, value) =>
+                    updateRevealDurationSec(normalizeSliderValue(value))
+                  }
+                  valueLabelDisplay="off"
                 />
               </div>
             </div>

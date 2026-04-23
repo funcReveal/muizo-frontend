@@ -75,6 +75,7 @@ interface UseRoomMembershipActionsParams {
   setPlaylistHasMore: Dispatch<SetStateAction<boolean>>;
   setPlaylistLoadingMore: Dispatch<SetStateAction<boolean>>;
   setPlaylistSuggestions: Dispatch<SetStateAction<PlaylistSuggestion[]>>;
+  onLeaderboardAuthRequired?: () => void;
 }
 
 export const useRoomMembershipActions = ({
@@ -110,6 +111,7 @@ export const useRoomMembershipActions = ({
   setPlaylistHasMore,
   setPlaylistLoadingMore,
   setPlaylistSuggestions,
+  onLeaderboardAuthRequired,
 }: UseRoomMembershipActionsParams) => {
   const handleJoinRoom = useCallback(
     (roomReference: string, hasPin: boolean, pinOverride?: string) => {
@@ -182,10 +184,14 @@ export const useRoomMembershipActions = ({
             });
             setStatusText(null);
           } else {
+            const requiresLeaderboardAuth =
+              ack.code === "AUTH_REQUIRED_FOR_LEADERBOARD" ||
+              ack.error === "Leaderboard challenge requires login";
             trackEvent("room_join_failed", {
               room_reference: roomReference,
               has_pin: hasPin,
               reason: ack.error ?? "unknown_error",
+              code: ack.code ?? null,
             });
             setStatusText(
               formatAckError(
@@ -193,6 +199,9 @@ export const useRoomMembershipActions = ({
                 translateRoomErrorDetail(ack.error),
               ),
             );
+            if (requiresLeaderboardAuth) {
+              onLeaderboardAuthRequired?.();
+            }
           }
         },
       );
@@ -222,6 +231,7 @@ export const useRoomMembershipActions = ({
       username,
       persistRoomSessionToken,
       resetGameSyncVersion,
+      onLeaderboardAuthRequired,
     ],
   );
 

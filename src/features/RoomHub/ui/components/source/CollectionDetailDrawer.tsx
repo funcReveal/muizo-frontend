@@ -4,14 +4,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import {
   BarChartRounded,
-  CelebrationRounded,
+  ChairRounded,
   ChevronLeftRounded,
   CloseRounded,
   EmojiEventsRounded,
+  KeyboardArrowDownRounded,
+  LoginRounded,
   LockOutlined,
   PlayArrowRounded,
   PublicOutlined,
@@ -22,10 +25,13 @@ import {
 } from "@mui/icons-material";
 import {
   Button,
+  ClickAwayListener,
   Drawer,
   IconButton,
+  Popper,
   useMediaQuery,
 } from "@mui/material";
+import { AnimatePresence, motion } from "motion/react";
 import { List, type RowComponentProps } from "react-window";
 
 import { API_URL } from "@domain/room/constants";
@@ -39,6 +45,7 @@ import { useAuth } from "@shared/auth/AuthContext";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import { useTransientScrollbar } from "@shared/hooks/useTransientScrollbar";
 import {
+  getLeaderboardModeDescription,
   getLeaderboardModeLabel,
   getLeaderboardVariant,
   leaderboardModes,
@@ -130,6 +137,9 @@ type CollectionDetailDrawerProps = {
   ) => void;
   onLeaderboardModeChange: (value: LeaderboardModeKey) => void;
   onLeaderboardVariantChange: (value: LeaderboardVariantKey) => void;
+  isAuthenticated?: boolean;
+  isAuthLoading?: boolean;
+  onLoginRequired?: () => void;
 };
 
 const leaderboardPreviewByVariant: Record<
@@ -141,6 +151,7 @@ const leaderboardPreviewByVariant: Record<
       name: string;
       score: string;
       meta: string;
+      isCurrentUser?: boolean;
     }>;
     currentUser: {
       rank: string;
@@ -153,42 +164,55 @@ const leaderboardPreviewByVariant: Record<
 > = {
   "30q": {
     summary: [
-      { label: "最高分", value: "98,420" },
+      { label: "最高分", value: "28,740" },
       { label: "平均命中", value: "91%" },
       { label: "挑戰局數", value: "162" },
     ],
     players: [
       {
         rank: 1,
-        name: "Mika",
-        score: "98,420",
-        meta: "29/30 · 命中 97% · combo 18",
+        name: "Luna",
+        score: "28,740",
+        meta: "29/30 · 命中 96% · combo 18",
       },
       {
         rank: 2,
-        name: "Rin",
-        score: "91,880",
-        meta: "28/30 · 命中 94% · combo 16",
+        name: "Kaito",
+        score: "27,920",
+        meta: "28/30 · 命中 93% · combo 16",
       },
       {
         rank: 3,
-        name: "Yuki",
-        score: "87,120",
-        meta: "27/30 · 命中 91% · combo 14",
+        name: "Mira",
+        score: "26,880",
+        meta: "28/30 · 命中 93% · combo 14",
       },
       {
         rank: 4,
-        name: "Nana",
-        score: "79,540",
-        meta: "26/30 · 命中 88% · combo 13",
+        name: "阿哲",
+        score: "25,410",
+        meta: "27/30 · 命中 90% · combo 13",
+      },
+      {
+        rank: 5,
+        name: "Rina",
+        score: "24,950",
+        meta: "27/30 · 命中 90% · combo 12",
+      },
+      {
+        rank: 6,
+        name: "你",
+        score: "24,120",
+        meta: "27/30 · 命中 90% · combo 11",
+        isCurrentUser: true,
       },
     ],
     currentUser: {
-      rank: "12",
-      score: "68,120",
-      accuracy: "84%",
-      attempts: "8 局",
-      hint: "你目前落後第 10 名 2,860 pts。",
+      rank: "6",
+      score: "24,120",
+      accuracy: "90%",
+      attempts: "3 局",
+      hint: "27/30 正確，距離第 5 名還差 830 pts。",
     },
   },
   "50q": {
@@ -429,6 +453,9 @@ const CollectionDetailDrawer = ({
   onLeaderboardSelectionChange,
   onLeaderboardModeChange,
   onLeaderboardVariantChange,
+  isAuthenticated = false,
+  isAuthLoading = false,
+  onLoginRequired,
 }: CollectionDetailDrawerProps) => {
   const { authToken, refreshAuthToken } = useAuth();
   const isCompact = useMediaQuery("(max-width:767px)");
@@ -441,17 +468,29 @@ const CollectionDetailDrawer = ({
   const [previewHasMore, setPreviewHasMore] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const previewRequestIdRef = useRef(0);
-  const { transientScrollbarClassName, revealScrollbar } =
-    useTransientScrollbar();
+  const {
+    transientScrollbarClassName: previewScrollbarClassName,
+    revealScrollbar: revealPreviewScrollbar,
+  } = useTransientScrollbar();
+  const {
+    transientScrollbarClassName: leaderboardScrollbarClassName,
+    revealScrollbar: revealLeaderboardScrollbar,
+  } = useTransientScrollbar();
   const previewThumbnail =
     collection?.cover_thumbnail_url ||
     (collection?.cover_provider === "youtube" && collection.cover_source_id
       ? `https://i.ytimg.com/vi/${collection.cover_source_id}/hqdefault.jpg`
       : "");
   const isPublic = (collection?.visibility ?? "private") === "public";
+  const canStartLeaderboardChallenge = isPublic && isAuthenticated;
   const isFavorited = Boolean(collection?.is_favorited);
   const [drawerView, setDrawerView] =
     useState<CollectionDrawerView>("detail");
+  const [isLeaderboardProfileMenuOpen, setIsLeaderboardProfileMenuOpen] =
+    useState(false);
+  const [leaderboardProfileAnchorEl, setLeaderboardProfileAnchorEl] =
+    useState<HTMLDivElement | null>(null);
+  const leaderboardProfileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLeaderboardSetupView = drawerView === "leaderboardSetup" && isPublic;
   const isCasualSetupView = drawerView === "casualSetup";
   const isSetupView = isLeaderboardSetupView || isCasualSetupView;
@@ -463,8 +502,6 @@ const CollectionDetailDrawer = ({
   const setupSupportsCollectionClipTiming = isSetupView
     ? true
     : supportsCollectionClipTiming;
-  const activeLeaderboardVariants =
-    leaderboardVariants[selectedLeaderboardMode];
   const activeLeaderboardVariant = getLeaderboardVariant(
     selectedLeaderboardMode,
     selectedLeaderboardVariant,
@@ -474,6 +511,42 @@ const CollectionDetailDrawer = ({
   const activeLeaderboardModeLabel = getLeaderboardModeLabel(
     selectedLeaderboardMode,
   );
+  const activeLeaderboardModeDescription = getLeaderboardModeDescription(
+    selectedLeaderboardMode,
+  );
+  const leaderboardChallengeGroups = leaderboardModes.map((mode) => ({
+    modeKey: mode.key,
+    label: mode.label,
+    options: leaderboardVariants[mode.key].map((variant) => ({
+      modeKey: mode.key,
+      variantKey: variant.key,
+      label: variant.label,
+    })),
+  }));
+  const leaderboardChallengeOptions = leaderboardChallengeGroups.flatMap(
+    (group) => group.options,
+  );
+  const activeLeaderboardOption =
+    leaderboardChallengeOptions.find(
+      (option) => option.variantKey === selectedLeaderboardVariant,
+    ) ?? leaderboardChallengeOptions[0];
+  const leaderboardProfileMenuWidth = leaderboardProfileAnchorEl
+    ? leaderboardProfileAnchorEl.clientWidth
+    : 280;
+  const currentLeaderboardPlayer = activeLeaderboardData.players.find(
+    (player) => player.isCurrentUser,
+  );
+  const leaderboardPlayersToShow = isCompact
+    ? [
+        ...activeLeaderboardData.players.slice(0, 3),
+        ...(currentLeaderboardPlayer &&
+        !activeLeaderboardData.players
+          .slice(0, 3)
+          .some((player) => player.rank === currentLeaderboardPlayer.rank)
+          ? [currentLeaderboardPlayer]
+          : []),
+      ]
+    : activeLeaderboardData.players;
   const isPreparingLeaderboardChallenge =
     isLeaderboardStartPending || isApplying || isCreatingRoom;
   const isPreparingCustomRoom =
@@ -486,6 +559,13 @@ const CollectionDetailDrawer = ({
     : isApplying || isLeaderboardStartPending
       ? "載入題庫中..."
       : "開始挑戰";
+  const leaderboardEntryLabel = !isAuthenticated
+    ? isAuthLoading
+      ? "確認登入中..."
+      : "登入後挑戰"
+    : isPreparingLeaderboardChallenge
+      ? leaderboardStartLabel
+      : "進行排行挑戰";
   const customRoomStartLabel = isCreatingRoom
     ? "建立房間中..."
     : isApplying || isCustomRoomStartPending
@@ -550,6 +630,10 @@ const CollectionDetailDrawer = ({
   const handleStartLeaderboardChallenge = () => {
     if (!collection) return;
     if (!isPublic) return;
+    if (!isAuthenticated) {
+      onLoginRequired?.();
+      return;
+    }
     setRoomPlayMode("leaderboard");
     setDrawerView("leaderboardSetup");
   };
@@ -557,6 +641,10 @@ const CollectionDetailDrawer = ({
   const handleConfirmLeaderboardChallenge = () => {
     if (!collection) return;
     if (!isPublic) return;
+    if (!isAuthenticated) {
+      onLoginRequired?.();
+      return;
+    }
     void (
       onConfirmLeaderboardChallenge ??
       onStartLeaderboardChallenge ??
@@ -570,6 +658,47 @@ const CollectionDetailDrawer = ({
       collection.id,
     );
   };
+
+  const handleLeaderboardProfileCardClick = () => {
+    if (!isPublic) return;
+    setIsLeaderboardProfileMenuOpen((current) => !current);
+  };
+
+  const handleLeaderboardProfileCardKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleLeaderboardProfileCardClick();
+  };
+
+  const handleLeaderboardProfileSelect = (
+    modeKey: LeaderboardModeKey,
+    variantKey: LeaderboardVariantKey,
+  ) => {
+    if (selectedLeaderboardMode !== modeKey) {
+      onLeaderboardModeChange(modeKey);
+    }
+    onLeaderboardVariantChange(variantKey);
+    setIsLeaderboardProfileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isLeaderboardProfileMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (leaderboardProfileAnchorEl?.contains(target)) return;
+      if (leaderboardProfileMenuRef.current?.contains(target)) return;
+      setIsLeaderboardProfileMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
+  }, [isLeaderboardProfileMenuOpen, leaderboardProfileAnchorEl]);
 
   const fetchPreviewPage = useCallback(
     async (page: number, mode: "replace" | "append") => {
@@ -678,8 +807,8 @@ const CollectionDetailDrawer = ({
   );
 
   const handlePreviewListScroll = useCallback(() => {
-    revealScrollbar();
-  }, [revealScrollbar]);
+    revealPreviewScrollbar();
+  }, [revealPreviewScrollbar]);
 
   useEffect(() => {
     if (!open || !collection?.id || !API_URL) {
@@ -703,6 +832,7 @@ const CollectionDetailDrawer = ({
 
   useEffect(() => {
     setDrawerView("detail");
+    setIsLeaderboardProfileMenuOpen(false);
   }, [collection?.id, open]);
 
   useEffect(() => {
@@ -838,6 +968,9 @@ const CollectionDetailDrawer = ({
                 selectedLeaderboardMode={selectedLeaderboardMode}
                 selectedLeaderboardVariant={selectedLeaderboardVariant}
                 onLeaderboardSelectionChange={onLeaderboardSelectionChange}
+                isAuthenticated={isAuthenticated}
+                isAuthLoading={isAuthLoading}
+                onLoginRequired={onLoginRequired}
                 playDurationSec={playDurationSec}
                 revealDurationSec={revealDurationSec}
                 startOffsetSec={startOffsetSec}
@@ -865,10 +998,10 @@ const CollectionDetailDrawer = ({
             </main>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:grid md:grid-cols-[minmax(360px,0.8fr)_minmax(460px,1.2fr)] md:grid-rows-none md:gap-0">
-            <main className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-              <section className="overflow-hidden rounded-[20px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                <div className="relative aspect-[16/5] min-h-24 overflow-hidden bg-slate-900/80 sm:min-h-32">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:grid md:grid-cols-[minmax(360px,0.82fr)_minmax(420px,1.18fr)] md:grid-rows-none md:gap-0">
+            <main className="min-h-0 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+              <section className="overflow-hidden rounded-[22px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <div className="relative aspect-[16/9] min-h-40 overflow-hidden bg-slate-900/80 sm:aspect-[16/5] sm:min-h-32">
                   {previewThumbnail ? (
                     <img
                       src={previewThumbnail}
@@ -881,7 +1014,7 @@ const CollectionDetailDrawer = ({
                     </div>
                   )}
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
-                  <div className="absolute bottom-3 left-4 right-4">
+                  <div className="absolute bottom-3 left-3 right-3 sm:left-4 sm:right-4">
                     <div className="mb-2 flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/56 px-2.5 py-1 text-xs font-medium text-slate-100 backdrop-blur">
                         {isPublic ? (
@@ -898,17 +1031,17 @@ const CollectionDetailDrawer = ({
                         </span>
                       ) : null} */}
                     </div>
-                    <p className="line-clamp-2 text-xl font-semibold leading-tight text-white sm:text-2xl">
+                    <p className="line-clamp-2 text-lg font-semibold leading-tight text-white sm:text-2xl">
                       {collection.title}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-white/8 px-4 py-2.5">
+                <div className="grid grid-cols-2 gap-2 border-b border-white/8 px-3 py-3 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5">
                   {stats.map((item) => (
                     <div
                       key={item.key}
-                      className="inline-flex min-w-0 items-center gap-2 text-sm"
+                      className="flex min-w-0 items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-2.5 py-2 text-sm"
                     >
                       <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-300/8 text-cyan-100">
                         {item.icon}
@@ -923,7 +1056,7 @@ const CollectionDetailDrawer = ({
                   ))}
                 </div>
 
-                <div className="px-4 py-3">
+                <div className="px-3 py-3 sm:px-4">
                   <p
                     className={`whitespace-pre-wrap text-sm leading-6 ${
                       collection.description
@@ -957,7 +1090,7 @@ const CollectionDetailDrawer = ({
                     </div>
                   ) : (
                     <List<CollectionPreviewListRowProps>
-                      className={`transient-scrollbar ${transientScrollbarClassName}`}
+                      className={`transient-scrollbar ${previewScrollbarClassName}`}
                       style={{
                         height: previewListHeight,
                         width: "100%",
@@ -973,11 +1106,11 @@ const CollectionDetailDrawer = ({
               </section>
             </main>
 
-            <aside className="min-h-0 shrink-0 border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-5">
-              <div className="flex h-full min-h-0 flex-col rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3">
-                <div className="flex items-center justify-between gap-3">
+            <aside className="min-h-0 overflow-hidden border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-5">
+              <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="mt-1 text-base font-semibold text-slate-50 sm:text-lg">
+                    <h3 className="text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
                       全球排行榜
                     </h3>
                   </div>
@@ -987,51 +1120,134 @@ const CollectionDetailDrawer = ({
                 </div>
 
                 {isPublic ? (
-                  <>
-                    <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-white/8 bg-slate-950/28 p-1">
-                      {leaderboardModes.map((mode) => {
-                        const selected = selectedLeaderboardMode === mode.key;
-                        return (
-                          <button
-                            key={mode.key}
-                            type="button"
-                            onClick={() => onLeaderboardModeChange(mode.key)}
-                            className={`h-9 rounded-lg text-sm font-semibold transition ${
-                              selected
-                                ? "bg-amber-300/16 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.18)]"
-                                : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <div
+                      ref={setLeaderboardProfileAnchorEl}
+                      role="button"
+                      tabIndex={0}
+                      aria-haspopup="listbox"
+                      aria-expanded={isLeaderboardProfileMenuOpen}
+                      onClick={handleLeaderboardProfileCardClick}
+                      onKeyDown={handleLeaderboardProfileCardKeyDown}
+                      className="group mt-3 shrink-0 cursor-pointer rounded-2xl border border-white/10 bg-slate-950/32 px-3.5 py-3 text-slate-300 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition hover:border-amber-100/22 hover:bg-slate-950/42 focus:border-amber-100/34 focus:ring-2 focus:ring-amber-200/10"
+                    >
+                      <div className="flex items-stretch justify-between gap-3">
+                        <div className="min-w-0 flex-1 text-left">
+                          <span className="block text-base font-semibold text-slate-50">
+                            {activeLeaderboardModeLabel}
+                          </span>
+                          <span className="mt-1 block text-sm leading-5 text-slate-400">
+                            {activeLeaderboardModeDescription}
+                          </span>
+                        </div>
+
+                        <span className="inline-flex shrink-0 items-center gap-2 self-center text-base font-semibold text-amber-100 transition group-hover:text-amber-50">
+                          <span className="max-w-[6.5rem] truncate">
+                            {activeLeaderboardOption.label}
+                          </span>
+                          <KeyboardArrowDownRounded
+                            sx={{ fontSize: 24 }}
+                            className={`shrink-0 text-amber-100/72 transition ${
+                              isLeaderboardProfileMenuOpen ? "rotate-180" : ""
                             }`}
-                          >
-                            {mode.label}
-                          </button>
-                        );
-                      })}
+                          />
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {activeLeaderboardVariants.map((variant) => {
-                        const selected =
-                          selectedLeaderboardVariant === variant.key;
-                        return (
-                          <button
-                            key={variant.key}
-                            type="button"
-                            onClick={() =>
-                              onLeaderboardVariantChange(variant.key)
-                            }
-                            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                              selected
-                                ? "border-cyan-100/24 bg-cyan-300/12 text-cyan-50"
-                                : "border-white/8 bg-slate-950/20 text-slate-400 hover:border-white/14 hover:text-slate-100"
-                            }`}
-                          >
-                            {variant.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <Popper
+                      open={Boolean(leaderboardProfileAnchorEl)}
+                      anchorEl={leaderboardProfileAnchorEl}
+                      placement="bottom-end"
+                      modifiers={[
+                        { name: "offset", options: { offset: [0, 8] } },
+                        { name: "flip", enabled: true },
+                        {
+                          name: "preventOverflow",
+                          options: { padding: 12 },
+                        },
+                      ]}
+                      sx={{ zIndex: 1500 }}
+                    >
+                      <ClickAwayListener
+                        onClickAway={() =>
+                          setIsLeaderboardProfileMenuOpen(false)
+                        }
+                      >
+                        <AnimatePresence>
+                          {isLeaderboardProfileMenuOpen ? (
+                            <motion.div
+                              ref={leaderboardProfileMenuRef}
+                              key="collection-leaderboard-profile-menu"
+                              initial={{ opacity: 0, y: -6, scale: 0.985 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -4, scale: 0.985 }}
+                              transition={{
+                                duration: 0.16,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 text-slate-100 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl"
+                              style={{
+                                width: leaderboardProfileMenuWidth,
+                                transformOrigin: "top right",
+                              }}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <div
+                                role="listbox"
+                                aria-label="排行榜規格"
+                                className="space-y-1"
+                              >
+                                {leaderboardChallengeGroups.map((group) => (
+                                  <div key={group.modeKey}>
+                                    <div className="px-3 pb-1 pt-1.5 text-xs font-semibold tracking-[0.12em] text-amber-100/55">
+                                      {group.label}
+                                    </div>
+                                    <div className="space-y-1">
+                                      {group.options.map((option) => {
+                                        const selected =
+                                          option.variantKey ===
+                                          selectedLeaderboardVariant;
+                                        return (
+                                          <button
+                                            key={option.variantKey}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={selected}
+                                            onClick={() =>
+                                              handleLeaderboardProfileSelect(
+                                                option.modeKey,
+                                                option.variantKey,
+                                              )
+                                            }
+                                            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
+                                              selected
+                                                ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
+                                                : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
+                                            }`}
+                                          >
+                                            <span className="min-w-0">
+                                              <span className="block truncate text-sm font-semibold">
+                                                {option.label}
+                                              </span>
+                                            </span>
+                                            {selected ? (
+                                              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-200" />
+                                            ) : null}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+                      </ClickAwayListener>
+                    </Popper>
 
-                    <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="mt-3 grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3">
                       {activeLeaderboardData.summary.map((item, index) => (
                         <div
                           key={item.label}
@@ -1051,18 +1267,38 @@ const CollectionDetailDrawer = ({
                       ))}
                     </div>
 
-                    <div className="mt-3 space-y-2.5">
-                      {activeLeaderboardData.players.map((player) => (
+                    <div
+                      className={`transient-scrollbar mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1 ${leaderboardScrollbarClassName}`}
+                      onMouseEnter={revealLeaderboardScrollbar}
+                      onPointerDown={revealLeaderboardScrollbar}
+                      onScroll={revealLeaderboardScrollbar}
+                    >
+                      {leaderboardPlayersToShow.map((player) => (
                         <div
                           key={`${activeLeaderboardVariant.key}-${player.rank}`}
-                          className="flex items-center gap-3 rounded-xl border border-white/8 bg-slate-950/34 px-3 py-3"
+                          className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition ${
+                            player.isCurrentUser
+                              ? "border-cyan-100/22 bg-cyan-300/[0.065] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]"
+                              : "border-white/8 bg-slate-950/34"
+                          }`}
                         >
-                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/6 text-sm font-bold text-slate-100">
+                          <span
+                            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
+                              player.isCurrentUser
+                                ? "border-cyan-100/20 bg-cyan-300/10 text-cyan-50"
+                                : "border-white/10 bg-white/6 text-slate-100"
+                            }`}
+                          >
                             {player.rank}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-slate-100">
-                              {player.name}
+                            <p className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-slate-100">
+                              <span className="truncate">{player.name}</span>
+                              {player.isCurrentUser ? (
+                                <span className="shrink-0 rounded-full border border-cyan-100/16 bg-cyan-300/8 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
+                                  上榜中
+                                </span>
+                              ) : null}
                             </p>
                             <p className="mt-1 truncate text-xs text-slate-400">
                               {player.meta}
@@ -1080,54 +1316,58 @@ const CollectionDetailDrawer = ({
                       ))}
                     </div>
 
-                    <div className="mt-3 pt-3">
-                      <div className="rounded-2xl border border-cyan-100/14 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(15,23,42,0.24))] p-3">
-                        <div className="flex items-start gap-3">
-                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cyan-100/14 bg-cyan-300/10 text-xs font-bold text-cyan-100">
-                            {activeLeaderboardData.currentUser.rank}
-                          </span>
-                          <div className="min-w-0 flex-1">
+                    <div className="shrink-0 pt-3">
+                      <div className="rounded-2xl border border-cyan-100/14 bg-[linear-gradient(180deg,rgba(34,211,238,0.07),rgba(15,23,42,0.22))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
                             <p className="text-sm font-semibold text-slate-50">
-                              {activeLeaderboardModeLabel} ·{" "}
-                              {activeLeaderboardVariant.label}
+                              {activeLeaderboardModeLabel} · {activeLeaderboardVariant.label}
                             </p>
-                            <div className="mt-3 grid grid-cols-3 gap-2">
-                              <div>
-                                <p className="text-[11px] text-slate-400">
-                                  最高分
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-slate-100">
-                                  {activeLeaderboardData.currentUser.score}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-[11px] text-slate-400">
-                                  命中率
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-slate-100">
-                                  {activeLeaderboardData.currentUser.accuracy}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-[11px] text-slate-400">
-                                  挑戰
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-slate-100">
-                                  {activeLeaderboardData.currentUser.attempts}
-                                </p>
-                              </div>
-                            </div>
-                            <p className="mt-3 text-xs leading-5 text-slate-400">
+                            <p className="mt-1 text-xs leading-5 text-slate-400">
                               {activeLeaderboardData.currentUser.hint}
                             </p>
+                          </div>
+                          <span className="inline-flex shrink-0 items-baseline gap-1 text-cyan-50">
+                            <span className="text-xs font-semibold text-cyan-100/70">
+                              #
+                            </span>
+                            <span className="text-2xl font-semibold leading-none">
+                              {activeLeaderboardData.currentUser.rank}
+                            </span>
+                          </span>
                         </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="text-[11px] text-slate-400">
+                              分數
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-slate-100">
+                              {activeLeaderboardData.currentUser.score}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-slate-400">
+                              命中率
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-slate-100">
+                              {activeLeaderboardData.currentUser.accuracy}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-slate-400">
+                              挑戰
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-slate-100">
+                              {activeLeaderboardData.currentUser.attempts}
+                            </p>
+                          </div>
                         </div>
                       </div>
                       <p className="mt-3 hidden text-xs leading-5 text-slate-400 md:block">
                         目前為前端假資料，後續接上 API 後會替換為真實排行榜。
                       </p>
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <div className="flex min-h-0 flex-1 items-center justify-center py-10">
                     <div className="max-w-sm rounded-2xl border border-white/10 bg-slate-950/42 p-5 text-center">
@@ -1174,17 +1414,30 @@ const CollectionDetailDrawer = ({
                   </Button>
                   <Button
                     variant="contained"
-                    startIcon={<PlayArrowRounded />}
-                    disabled={isPreparingSetup}
+                    startIcon={
+                      isSetupLeaderboardMode && !isAuthenticated ? (
+                        <LoginRounded />
+                      ) : (
+                        <PlayArrowRounded />
+                      )
+                    }
+                    disabled={
+                      isPreparingSetup ||
+                      (isSetupLeaderboardMode && isAuthLoading)
+                    }
                     onClick={
                       isSetupLeaderboardMode
                         ? handleConfirmLeaderboardChallenge
                         : handleConfirmCustomRoom
                     }
                   >
-                    {isSetupLeaderboardMode
-                      ? leaderboardStartLabel
-                      : customRoomStartLabel}
+                    {isSetupLeaderboardMode && !isAuthenticated
+                      ? isAuthLoading
+                        ? "確認登入中..."
+                        : "登入後挑戰"
+                      : isSetupLeaderboardMode
+                        ? leaderboardStartLabel
+                        : customRoomStartLabel}
                   </Button>
                 </div>
               </>
@@ -1226,7 +1479,7 @@ const CollectionDetailDrawer = ({
                 >
                   <Button
                     variant="outlined"
-                    startIcon={<CelebrationRounded />}
+                    startIcon={<ChairRounded />}
                     disabled={isApplying}
                     onClick={handleStartCustomRoom}
                     className="!border-cyan-100/18 !text-cyan-50 hover:!border-cyan-100/32 hover:!bg-cyan-300/8"
@@ -1240,13 +1493,19 @@ const CollectionDetailDrawer = ({
                   {isPublic ? (
                     <Button
                       variant="contained"
-                      startIcon={<PlayArrowRounded />}
-                      disabled={isPreparingLeaderboardChallenge}
+                      startIcon={
+                        canStartLeaderboardChallenge ? (
+                          <PlayArrowRounded />
+                        ) : (
+                          <LoginRounded />
+                        )
+                      }
+                      disabled={
+                        isPreparingLeaderboardChallenge || isAuthLoading
+                      }
                       onClick={handleStartLeaderboardChallenge}
                     >
-                      {isPreparingLeaderboardChallenge
-                        ? leaderboardStartLabel
-                        : "進行排行挑戰"}
+                      {leaderboardEntryLabel}
                     </Button>
                   ) : null}
                 </div>

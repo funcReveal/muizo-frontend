@@ -15,7 +15,9 @@ import { List } from "react-window";
 import GroupsRounded from "@mui/icons-material/GroupsRounded";
 import LibraryMusicRounded from "@mui/icons-material/LibraryMusicRounded";
 import LockRounded from "@mui/icons-material/LockRounded";
+import LoginRounded from "@mui/icons-material/LoginRounded";
 import QuizRounded from "@mui/icons-material/QuizRounded";
+import EmojiEventsRounded from "@mui/icons-material/EmojiEventsRounded";
 import AccessTimeRounded from "@mui/icons-material/AccessTimeRounded";
 import ContentCutRounded from "@mui/icons-material/ContentCutRounded";
 import FastForwardRounded from "@mui/icons-material/FastForwardRounded";
@@ -97,10 +99,14 @@ type JoinRoomPanelProps = {
   setJoinRoomsView: (value: JoinRoomsView) => void;
   handleJoinRoomEntry: (room: RoomSummary) => void;
   roomRequiresPin: (room: RoomSummary) => boolean;
+  roomIsLeaderboardChallenge: (room: RoomSummary) => boolean;
   isRoomCurrentlyPlaying: (room: RoomSummary) => boolean;
   getRoomStatusLabel: (room: RoomSummary) => string;
   getRoomPlaylistLabel: (room: RoomSummary) => string;
   formatRoomCodeDisplay: (value: string) => string;
+  isAuthenticated?: boolean;
+  isAuthLoading?: boolean;
+  onLoginRequired?: () => void;
   joinConfirmDialog: JoinConfirmDialogState;
   closeJoinConfirmDialog: () => void;
   handleConfirmJoinInProgress: () => void;
@@ -143,10 +149,14 @@ const JoinRoomPanel = ({
   setJoinRoomsView,
   handleJoinRoomEntry,
   roomRequiresPin,
+  roomIsLeaderboardChallenge,
   isRoomCurrentlyPlaying,
   getRoomStatusLabel,
   getRoomPlaylistLabel,
   formatRoomCodeDisplay,
+  isAuthenticated = false,
+  isAuthLoading = false,
+  onLoginRequired,
   joinConfirmDialog,
   closeJoinConfirmDialog,
   handleConfirmJoinInProgress,
@@ -357,71 +367,89 @@ const JoinRoomPanel = ({
     room: RoomSummary,
     _itemIndex: number,
     view: "grid" | "list",
-  ) => (
-    <div
-      key={room.id}
-      role="button"
-      tabIndex={0}
-      onClick={() => handleJoinRoomEntry(room)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          handleJoinRoomEntry(room);
-        }
-      }}
-      className={`relative cursor-pointer rounded-2xl border border-[var(--mc-border)] bg-slate-950/25 text-left transition hover:border-amber-300/35 hover:bg-slate-900/30 focus:outline-none focus-visible:border-amber-300/55 focus-visible:ring-2 focus-visible:ring-amber-300/25 ${
-        view === "grid" ? "p-4" : "h-[204px] px-4 py-3"
-      }`}
-    >
+  ) => {
+    const isLeaderboardRoom = roomIsLeaderboardChallenge(room);
+    const requiresLogin = isLeaderboardRoom && !isAuthenticated;
+
+    return (
       <div
-        className={`${
-          view === "grid"
-            ? "space-y-3"
-            : "flex h-full flex-wrap items-center gap-4"
-        }`}
+        key={room.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => handleJoinRoomEntry(room)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleJoinRoomEntry(room);
+          }
+        }}
+        className={`relative cursor-pointer rounded-2xl border text-left transition focus:outline-none focus-visible:ring-2 ${
+          isLeaderboardRoom
+            ? "border-amber-300/22 bg-[linear-gradient(180deg,rgba(31,22,8,0.34),rgba(15,23,42,0.25))] hover:border-amber-300/42 hover:bg-slate-900/34 focus-visible:border-amber-300/60 focus-visible:ring-amber-300/25"
+            : "border-[var(--mc-border)] bg-slate-950/25 hover:border-amber-300/35 hover:bg-slate-900/30 focus-visible:border-amber-300/55 focus-visible:ring-amber-300/25"
+        } ${view === "grid" ? "p-4" : "h-[204px] px-4 py-3"}`}
       >
         <div
           className={`${
-            view === "grid" ? "space-y-3" : "min-w-0 flex-1 space-y-2.5"
+            view === "grid"
+              ? "space-y-3"
+              : "flex h-full flex-wrap items-center gap-4"
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[var(--mc-text)] sm:text-[15px]">
-                {room.name}
-              </p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--mc-text-muted)]/82">
-                {getRoomProgressLabel(room) ? (
-                  <span className="text-emerald-200/85">
-                    {getRoomProgressLabel(room)}
-                  </span>
-                ) : null}
+          <div
+            className={`${
+              view === "grid" ? "space-y-3" : "min-w-0 flex-1 space-y-2.5"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[var(--mc-text)] sm:text-[15px]">
+                  {room.name}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--mc-text-muted)]/82">
+                  {isLeaderboardRoom ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/24 bg-amber-300/10 px-2 py-0.5 font-semibold text-amber-100">
+                      <EmojiEventsRounded sx={{ fontSize: 13 }} />
+                      排行挑戰
+                    </span>
+                  ) : null}
+                  {requiresLogin ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200/22 bg-cyan-300/8 px-2 py-0.5 font-semibold text-cyan-100">
+                      <LoginRounded sx={{ fontSize: 13 }} />
+                      登入後可加入
+                    </span>
+                  ) : null}
+                  {getRoomProgressLabel(room) ? (
+                    <span className="text-emerald-200/85">
+                      {getRoomProgressLabel(room)}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            <span
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${
-                isRoomCurrentlyPlaying(room)
-                  ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                  : "border-slate-300/20 bg-slate-400/10 text-slate-200"
-              }`}
-            >
-              {getRoomStatusLabel(room)}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-[var(--mc-text-muted)]">
-            <span className="inline-flex items-center gap-1.5">
-              <GroupsRounded sx={{ fontSize: 15 }} />
-              <span>
-                {room.playerCount}
-                {room.maxPlayers ? `/${room.maxPlayers}` : ""} 人
+              <span
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${
+                  isRoomCurrentlyPlaying(room)
+                    ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                    : "border-slate-300/20 bg-slate-400/10 text-slate-200"
+                }`}
+              >
+                {getRoomStatusLabel(room)}
               </span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <QuizRounded sx={{ fontSize: 15 }} />
-              <span>{room.gameSettings?.questionCount ?? "-"} 題</span>
-            </span>
-          </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-[var(--mc-text-muted)]">
+              <span className="inline-flex items-center gap-1.5">
+                <GroupsRounded sx={{ fontSize: 15 }} />
+                <span>
+                  {room.playerCount}
+                  {room.maxPlayers ? `/${room.maxPlayers}` : ""} 人
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <QuizRounded sx={{ fontSize: 15 }} />
+                <span>{room.gameSettings?.questionCount ?? "-"} 題</span>
+              </span>
+            </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-[var(--mc-text-muted)]/90">
             <span className="inline-flex items-center gap-1.5">
@@ -482,17 +510,28 @@ const JoinRoomPanel = ({
           </p>
         </div>
       </div>
+      {requiresLogin ? (
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-end">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/20 bg-slate-950/80 px-2.5 py-1 text-[11px] font-semibold text-cyan-50 shadow-[0_12px_26px_-22px_rgba(34,211,238,0.85)]">
+            <LoginRounded sx={{ fontSize: 14 }} />
+            點擊登入
+          </span>
+        </div>
+      ) : null}
       {roomRequiresPin(room) ? (
         <LockRounded
           sx={{
             fontSize: 18,
             color: "rgba(250, 204, 21, 0.92)",
           }}
-          className="pointer-events-none absolute bottom-3 right-3"
+          className={`pointer-events-none absolute right-3 ${
+            requiresLogin ? "bottom-10" : "bottom-3"
+          }`}
         />
       ) : null}
     </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -775,6 +814,29 @@ const JoinRoomPanel = ({
                           "-"}
                       </p>
                     </div>
+                    {roomIsLeaderboardChallenge(resolvedDirectJoinRoom) ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300/18 bg-amber-300/8 px-3 py-2 text-xs">
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-amber-100">
+                          <EmojiEventsRounded sx={{ fontSize: 15 }} />
+                          排行挑戰
+                        </span>
+                        {isAuthenticated ? (
+                          <span className="text-[var(--mc-text-muted)]">
+                            已登入，可加入挑戰
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isAuthLoading}
+                            onClick={onLoginRequired}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/20 bg-cyan-300/10 px-2.5 py-1 font-semibold text-cyan-50 transition hover:border-cyan-200/34 hover:bg-cyan-300/14 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <LoginRounded sx={{ fontSize: 14 }} />
+                            {isAuthLoading ? "確認登入中..." : "登入後加入"}
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 {directJoinNeedsPassword && (
