@@ -153,6 +153,7 @@ interface RoomLobbyPanelProps {
   onOpenLastSettlement?: () => void;
   onOpenHistoryDrawer?: () => void;
   onOpenSettlementByRoundKey?: (roundKey: string) => void;
+  onOpenTestSettlement?: () => void;
   onOpenGame?: () => void;
   onKickPlayer: (clientId: string, durationMs?: number | null) => void;
   onTransferHost: (clientId: string) => void;
@@ -229,6 +230,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onStartGame,
   onUpdateRoomSettings,
   onOpenHistoryDrawer,
+  onOpenTestSettlement,
   onOpenGame,
   onKickPlayer,
   onTransferHost,
@@ -1316,6 +1318,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ],
     [
       openSettingsModal,
+      onOpenTestSettlement,
       requestLeaveRoom,
       settingsActionDisabledReason,
       isHost,
