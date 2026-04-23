@@ -89,6 +89,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     authUser,
     authLoading,
     clientId,
+    loginWithGoogle,
     nicknameDraft,
     refreshAuthToken,
   } = useAuth();
@@ -471,6 +472,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     persistRoomSessionToken,
     resetGameSyncVersion,
     handleRoomGoneAck,
+    onLeaderboardAuthRequired: loginWithGoogle,
   });
 
   const {

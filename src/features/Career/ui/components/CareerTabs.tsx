@@ -15,7 +15,7 @@ const tabs: Array<{
   {
     key: "overview",
     label: "總覽",
-    description: "綜合表現 / 本週狀態",
+    description: "綜合表現 / 趨勢 / 高光",
   },
   {
     key: "collectionRanks",
@@ -36,7 +36,7 @@ const tabs: Array<{
 
 const CareerTabs: React.FC<CareerTabsProps> = ({ activeTab, onChange }) => {
   return (
-    <div className="mt-3 rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(17,15,13,0.94),rgba(9,8,6,0.98))] p-2 shadow-[0_14px_30px_-24px_rgba(0,0,0,0.72)]">
+    <div className="shrink-0 rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(17,15,13,0.94),rgba(9,8,6,0.98))] p-2 shadow-[0_14px_30px_-24px_rgba(0,0,0,0.72)]">
       <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;

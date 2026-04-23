@@ -61,7 +61,6 @@ interface GameRoomLeftSidebarProps {
   scoreboardBorderLineStyle?: ScoreboardBorderLineStyleId;
   scoreboardBorderTheme?: ScoreboardBorderThemeId;
   scoreboardBorderParticleCount?: number;
-  isLeaderboardRoom?: boolean;
 }
 
 const RANK_SWAP_DURATION_MS = 960;
@@ -254,7 +253,6 @@ interface GameRoomScorePlayerRowProps {
    */
   burstDelayMs: number;
   onFloatingBurstsChange?: (clientId: string, bursts: FloatingScoreBurst[]) => void;
-  isLeaderboardRoom?: boolean;
 }
 
 const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
@@ -284,7 +282,6 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   enableFloatingScoreBursts,
   burstDelayMs,
   onFloatingBurstsChange,
-  isLeaderboardRoom = false,
 }: GameRoomScorePlayerRowProps) {
   const [floatingBursts, setFloatingBursts] = React.useState<FloatingScoreBurst[]>([]);
   const burstSequenceRef = React.useRef(0);
@@ -712,7 +709,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   scoreboardBorderLineStyle = DEFAULT_SCOREBOARD_BORDER_LINE_STYLE_ID,
   scoreboardBorderTheme = DEFAULT_SCOREBOARD_BORDER_THEME_ID,
   scoreboardBorderParticleCount = DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT_VALUE,
-  isLeaderboardRoom = false,
 }) => {
   const enableDesktopFloatingScoreBursts = !mobileOverlayMode;
   const effectiveScoreboardBorderMotion = React.useMemo<ScoreboardBorderAnimationId>(() => {
@@ -1562,7 +1558,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                     desktopFlipBurstDelayMs,
                   )}
                   onFloatingBurstsChange={handleFloatingBurstsChange}
-                  isLeaderboardRoom={isLeaderboardRoom}
                 />
               </div>
             );

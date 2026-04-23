@@ -3,18 +3,15 @@ import React from "react";
 import type {
   CareerCollectionRankShortcutItem,
   CareerCompositeStats,
-  CareerHeroStats,
   CareerHighlightItem,
   CareerWeeklyStats,
 } from "../../types/career";
 import CareerCollectionShortcutsSection from "./overview/CareerCollectionShortcutsSection";
 import CareerCompositeSection from "./overview/CareerCompositeSection";
-import CareerHeroSection from "./overview/CareerHeroSection";
 import CareerHighlightsSection from "./overview/CareerHighlightsSection";
 import CareerWeeklySection from "./overview/CareerWeeklySection";
 
 interface CareerOverviewTabProps {
-  hero: CareerHeroStats;
   composite: CareerCompositeStats;
   weekly: CareerWeeklyStats;
   highlights: CareerHighlightItem[];
@@ -24,7 +21,6 @@ interface CareerOverviewTabProps {
 }
 
 const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
-  hero,
   composite,
   weekly,
   highlights,
@@ -34,9 +30,8 @@ const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
 }) => {
   return (
     <div className="h-full min-h-0 overflow-auto pr-1 xl:overflow-hidden xl:pr-0">
-      <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[1.18fr_0.82fr]">
-        <div className="flex min-h-0 flex-col gap-4">
-          <CareerHeroSection hero={hero} />
+      <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[1.28fr_0.72fr]">
+        <div className="min-h-0">
           <CareerCompositeSection composite={composite} />
         </div>
 

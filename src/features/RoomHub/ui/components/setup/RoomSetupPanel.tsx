@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent,
 } from "react";
@@ -24,6 +25,7 @@ import {
   GroupsRounded,
   HourglassTopRounded,
   KeyboardArrowDownRounded,
+  LoginRounded,
   LockRounded,
   LockOutlined,
   PinOutlined,
@@ -108,6 +110,9 @@ type RoomSetupPanelProps = {
   onCreateRoom: () => void;
   pinValidationAttempted?: boolean;
   showLeaderboardMode?: boolean;
+  isAuthenticated?: boolean;
+  isAuthLoading?: boolean;
+  onLoginRequired?: () => void;
 };
 
 const RoomSetupPanel = ({
@@ -144,12 +149,16 @@ const RoomSetupPanel = ({
   supportsCollectionClipTiming,
   pinValidationAttempted = false,
   showLeaderboardMode = true,
+  isAuthenticated = false,
+  isAuthLoading = false,
+  onLoginRequired,
 }: RoomSetupPanelProps) => {
   const isPrivateRoom = roomVisibilityInput === "private";
   const [isLeaderboardSpecMenuOpen, setIsLeaderboardSpecMenuOpen] =
     useState(false);
   const [leaderboardAnchorEl, setLeaderboardAnchorEl] =
     useState<HTMLDivElement | null>(null);
+  const leaderboardMenuRef = useRef<HTMLDivElement | null>(null);
   const [draftPlayDurationSec, setDraftPlayDurationSec] =
     useState(playDurationSec);
   const [draftStartOffsetSec, setDraftStartOffsetSec] =
@@ -179,8 +188,10 @@ const RoomSetupPanel = ({
   const activeLeaderboardModeDescription = getLeaderboardModeDescription(
     selectedLeaderboardMode,
   );
-  const isLeaderboardChallengeAvailable =
+  const isLeaderboardSourceAvailable =
     roomCreateSourceMode === "publicCollection";
+  const isLeaderboardChallengeAvailable =
+    isLeaderboardSourceAvailable && isAuthenticated;
   const isLeaderboardRoom =
     roomPlayMode === "leaderboard" && isLeaderboardChallengeAvailable;
   const isTimeAttackLeaderboardRoom =
@@ -282,6 +293,31 @@ const RoomSetupPanel = ({
   const leaderboardMenuWidth = leaderboardAnchorEl
     ? leaderboardAnchorEl.clientWidth
     : 280;
+  const leaderboardUnavailableTitle = !isLeaderboardSourceAvailable
+    ? "僅公開收藏庫可用"
+    : isAuthLoading
+      ? "正在確認登入狀態"
+      : "登入後可進行排行挑戰";
+  const leaderboardUnavailableHint = !isLeaderboardSourceAvailable
+    ? "排行榜挑戰目前只支援公開收藏庫。"
+    : "使用 Google 登入後，挑戰成績才會記錄到排行榜。";
+
+  useEffect(() => {
+    if (!isLeaderboardSpecMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (leaderboardAnchorEl?.contains(target)) return;
+      if (leaderboardMenuRef.current?.contains(target)) return;
+      setIsLeaderboardSpecMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
+  }, [isLeaderboardSpecMenuOpen, leaderboardAnchorEl]);
 
   const leaderboardLockedOverlay = isLeaderboardSettingsLocked ? (
     <div
@@ -590,9 +626,28 @@ const RoomSetupPanel = ({
               </div>
               {!isLeaderboardChallengeAvailable ? (
                 <div className="absolute inset-0 z-10 flex items-center justify-end rounded-2xl bg-slate-950/66 px-3 backdrop-blur-[2px]">
-                  <div className="inline-flex max-w-[13rem] items-center gap-2 rounded-xl border border-amber-100/18 bg-slate-950/84 px-3 py-2 text-xs font-semibold text-amber-50 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.72)]">
+                  <div className="inline-flex max-w-[15rem] items-center gap-2 rounded-xl border border-amber-100/18 bg-slate-950/84 px-3 py-2 text-xs font-semibold text-amber-50 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.72)]">
                     <LockOutlined sx={{ fontSize: 16 }} />
-                    <span className="leading-5">僅公開收藏庫可用</span>
+                    <span className="min-w-0 leading-5">
+                      <span className="block">{leaderboardUnavailableTitle}</span>
+                      <span className="block text-[11px] font-medium text-amber-100/62">
+                        {leaderboardUnavailableHint}
+                      </span>
+                    </span>
+                    {isLeaderboardSourceAvailable ? (
+                      <button
+                        type="button"
+                        disabled={isAuthLoading}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onLoginRequired?.();
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-100/18 bg-amber-200/10 px-2 py-1 text-[11px] font-semibold text-amber-50 transition hover:border-amber-100/30 hover:bg-amber-200/14 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <LoginRounded sx={{ fontSize: 14 }} />
+                        登入
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -620,6 +675,7 @@ const RoomSetupPanel = ({
             <AnimatePresence>
               {isLeaderboardSpecMenuOpen ? (
                 <motion.div
+                  ref={leaderboardMenuRef}
                   key="leaderboard-spec-menu"
                   initial={{ opacity: 0, y: -6, scale: 0.985 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -639,7 +695,7 @@ const RoomSetupPanel = ({
                   >
                     {leaderboardChallengeGroups.map((group) => (
                       <div key={group.modeKey}>
-                        <div className="px-3 pb-1 pt-1.5 text-[10px] font-semibold tracking-[0.16em] text-amber-100/45">
+                        <div className="px-3 pb-1 pt-1.5 text-xs font-semibold tracking-[0.12em] text-amber-100/55">
                           {group.label}
                         </div>
                         <div className="space-y-1">

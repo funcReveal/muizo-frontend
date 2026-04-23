@@ -76,6 +76,7 @@ import {
   formatRoomCodeDisplay,
   getRoomPlaylistLabel,
   getRoomStatusLabel,
+  roomIsLeaderboardChallenge,
   roomRequiresPin,
   type SourceSummary,
 } from "./roomsHubViewModels";
@@ -675,6 +676,7 @@ const RoomsHubPage: React.FC = () => {
   const canUseGoogleLibraries = Boolean(authUser);
   const filteredJoinRooms = useMemo(() => {
     const next = [...rooms].filter((room) => {
+      if (room.maxPlayers === 1) return false;
       if (joinPasswordFilter === "no_password") return !roomRequiresPin(room);
       if (joinPasswordFilter === "password_required")
         return roomRequiresPin(room);
@@ -1439,6 +1441,10 @@ const RoomsHubPage: React.FC = () => {
     closePasswordDialog();
   };
   const handleJoinRoomEntry = (room: RoomSummary) => {
+    if (roomIsLeaderboardChallenge(room) && !authUser) {
+      loginWithGoogle();
+      return;
+    }
     if (isRoomCurrentlyPlaying(room)) {
       openInProgressJoinDialog(room);
       return;
@@ -1463,6 +1469,11 @@ const RoomsHubPage: React.FC = () => {
     }
     if (!resolvedDirectJoinRoom) {
       setDirectJoinError("請先等待房間資訊載入完成。");
+      return;
+    }
+    if (roomIsLeaderboardChallenge(resolvedDirectJoinRoom) && !authUser) {
+      setDirectJoinError("排行挑戰需先登入才能加入。");
+      loginWithGoogle();
       return;
     }
     if (isRoomCurrentlyPlaying(resolvedDirectJoinRoom)) {
@@ -1988,10 +1999,14 @@ const RoomsHubPage: React.FC = () => {
                   setJoinRoomsView={setJoinRoomsView}
                   handleJoinRoomEntry={handleJoinRoomEntry}
                   roomRequiresPin={roomRequiresPin}
+                  roomIsLeaderboardChallenge={roomIsLeaderboardChallenge}
                   isRoomCurrentlyPlaying={isRoomCurrentlyPlaying}
                   getRoomStatusLabel={getRoomStatusLabel}
                   getRoomPlaylistLabel={getRoomPlaylistLabel}
                   formatRoomCodeDisplay={formatRoomCodeDisplay}
+                  isAuthenticated={Boolean(authUser)}
+                  isAuthLoading={authLoading}
+                  onLoginRequired={loginWithGoogle}
                   joinConfirmDialog={joinConfirmDialog}
                   closeJoinConfirmDialog={closeJoinConfirmDialog}
                   handleConfirmJoinInProgress={handleConfirmJoinInProgress}
@@ -2083,6 +2098,11 @@ const RoomsHubPage: React.FC = () => {
           );
         }}
         onStartLeaderboardChallenge={(collectionId) => {
+          if (detailCollection?.visibility !== "public") return;
+          if (!authUser) {
+            loginWithGoogle();
+            return;
+          }
           setRoomPlayMode("leaderboard");
           void handlePickCollectionSource(
             collectionId,
@@ -2091,6 +2111,10 @@ const RoomsHubPage: React.FC = () => {
         }}
         onConfirmLeaderboardChallenge={(collectionId) => {
           if (detailCollection?.visibility !== "public") return;
+          if (!authUser) {
+            loginWithGoogle();
+            return;
+          }
           if (!canSubmitRoomCreate()) return;
           const profileKey = getLeaderboardProfileKey(
             selectedLeaderboardMode,
@@ -2150,6 +2174,9 @@ const RoomsHubPage: React.FC = () => {
         onLeaderboardSelectionChange={handleLeaderboardSelectionChange}
         onLeaderboardModeChange={handleLeaderboardModeChange}
         onLeaderboardVariantChange={handleLeaderboardVariantChange}
+        isAuthenticated={Boolean(authUser)}
+        isAuthLoading={authLoading}
+        onLoginRequired={loginWithGoogle}
       />
       <SourceSetupDrawer
         open={Boolean(sourceSetupDrawer)}

@@ -10,6 +10,7 @@ import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import {
   runRoomCreationFlow,
 } from "@features/RoomCreation";
+import { translateRoomErrorDetail } from "./roomErrorText";
 import type { CreateRoomOptions, RoomCreateSourceMode } from "./RoomCreateContext";
 import {
   CHUNK_SIZE,
@@ -106,6 +107,7 @@ interface UseRoomProviderCreateRoomActionParams {
   setRoomNameInput: Dispatch<SetStateAction<string>>;
   setRoomMaxPlayersInput: Dispatch<SetStateAction<string>>;
   resetPlaylistState: () => void;
+  onLeaderboardAuthRequired?: () => void;
 }
 
 export const useRoomProviderCreateRoomAction = ({
@@ -150,6 +152,7 @@ export const useRoomProviderCreateRoomAction = ({
   setRoomNameInput,
   setRoomMaxPlayersInput,
   resetPlaylistState,
+  onLeaderboardAuthRequired,
 }: UseRoomProviderCreateRoomActionParams) => {
   const questionMin = QUESTION_MIN;
 
@@ -306,6 +309,12 @@ export const useRoomProviderCreateRoomAction = ({
       options.leaderboardProfileKey.trim().length > 0
         ? options.leaderboardProfileKey.trim()
         : null;
+    if (leaderboardProfileKey && !authToken) {
+      setStatusText("排行挑戰需先登入。");
+      onLeaderboardAuthRequired?.();
+      finalizeCreate();
+      return;
+    }
     const playbackExtensionMode =
       options?.playbackExtensionMode ?? DEFAULT_PLAYBACK_EXTENSION_MODE;
 
@@ -365,7 +374,18 @@ export const useRoomProviderCreateRoomAction = ({
     });
 
     if (!finalizeAck.ok) {
-      setStatusText(formatAckError("建立房間失敗", finalizeAck.error));
+      const requiresLeaderboardAuth =
+        finalizeAck.code === "AUTH_REQUIRED_FOR_LEADERBOARD" ||
+        finalizeAck.error === "Leaderboard challenge requires login";
+      setStatusText(
+        formatAckError(
+          "建立房間失敗",
+          translateRoomErrorDetail(finalizeAck.error),
+        ),
+      );
+      if (requiresLeaderboardAuth) {
+        onLeaderboardAuthRequired?.();
+      }
       finalizeCreate();
       return;
     }
@@ -483,6 +503,7 @@ export const useRoomProviderCreateRoomAction = ({
     syncServerOffset,
     username,
     runWithTimeout,
+    onLeaderboardAuthRequired,
   ]);
 
   return { handleCreateRoom };

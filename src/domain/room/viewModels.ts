@@ -36,6 +36,23 @@ export const formatDurationLabel = (durationSec?: number | null) => {
 export const roomRequiresPin = (room: RoomSummary) =>
   Boolean(room.hasPin ?? room.hasPassword);
 
+export const roomIsLeaderboardChallenge = (room: RoomSummary | null | undefined) => {
+  if (!room) return false;
+  const source = room as RoomSummary &
+    Record<string, unknown> & {
+      gameSettings?: Record<string, unknown> | null;
+      game_settings?: Record<string, unknown> | null;
+    };
+  const gameSettings = source.gameSettings ?? source.game_settings;
+  return Boolean(
+    room.gameSettings?.leaderboardProfileKey ??
+      source.leaderboardProfileKey ??
+      source.leaderboard_profile_key ??
+      gameSettings?.leaderboardProfileKey ??
+      gameSettings?.leaderboard_profile_key,
+  );
+};
+
 export const normalizeRoomCodeInput = (value: string) =>
   value
     .toUpperCase()

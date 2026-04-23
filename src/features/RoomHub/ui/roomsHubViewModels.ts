@@ -14,4 +14,5 @@ export {
   buildSelectedCreateSourceSummary,
   buildCreateSettingsCards,
   buildCreatePresetCards,
+  roomIsLeaderboardChallenge,
 } from "@domain/room/viewModels";

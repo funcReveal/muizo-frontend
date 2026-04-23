@@ -50,7 +50,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   // Reads from parent providers.
-  const { authToken, clientId, refreshAuthToken } = useAuth();
+  const { authToken, clientId, loginWithGoogle, refreshAuthToken } = useAuth();
   const { activeUsername, getDefaultRoomName, previousUsernameRef } =
     useRoomAuthInternal();
   const { setStatusText } = useStatusWrite();
@@ -195,6 +195,7 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     setRoomNameInput,
     setRoomMaxPlayersInput,
     resetPlaylistState,
+    onLeaderboardAuthRequired: loginWithGoogle,
   });
 
   // Reset room creation state.
