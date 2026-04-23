@@ -49,10 +49,7 @@ import type {
 } from "@features/RoomSession";
 import { translateRoomErrorDetail } from "@features/RoomSession";
 import { useAuth } from "@shared/auth/AuthContext";
-import {
-  useRoomSession,
-  useRoomGame,
-} from "@features/RoomSession";
+import { useRoomSession, useRoomGame } from "@features/RoomSession";
 import { useCollectionContent } from "@features/CollectionContent";
 import { usePlaylistSource } from "@features/PlaylistSource";
 
@@ -397,13 +394,13 @@ const readSettlementSessionCache = (
       replays:
         parsed.replays && typeof parsed.replays === "object"
           ? pruneSettlementReplayByRoundKey(
-            parsed.replays as Record<string, RoomSettlementSnapshot>,
-            {},
-          )
+              parsed.replays as Record<string, RoomSettlementSnapshot>,
+              {},
+            )
           : {},
       updatedAt:
         typeof parsed.updatedAt === "number" &&
-          Number.isFinite(parsed.updatedAt)
+        Number.isFinite(parsed.updatedAt)
           ? parsed.updatedAt
           : undefined,
     };
@@ -549,7 +546,10 @@ const buildMockScoreBreakdown = (
   comboBeforeGain: number,
 ): QuestionScoreBreakdown => {
   const basePoints = 1800;
-  const speedBonusPoints = Math.max(180, Math.round((3200 - answeredAtMs) * 0.34));
+  const speedBonusPoints = Math.max(
+    180,
+    Math.round((3200 - answeredAtMs) * 0.34),
+  );
   const decisionBonusPoints = 240;
   const difficultyBonusPoints = 160;
   const comboBonusPoints = comboBeforeGain * 120;
@@ -581,28 +581,30 @@ const buildMockPlaylistItems = (
             answerText: "夜行",
             uploader: "YOASOBI",
             duration: "3:22",
-            thumbnail: null,
+            thumbnail: undefined,
           },
           {
             title: "青のすみか",
             answerText: "青のすみか",
             uploader: "キタニタツヤ",
             duration: "3:16",
-            thumbnail: null,
+            thumbnail: undefined,
           },
           {
             title: "怪物",
             answerText: "怪物",
             uploader: "YOASOBI",
             duration: "3:27",
-            thumbnail: null,
+            thumbnail: undefined,
           },
         ];
 
   return Array.from({ length: count }, (_, index) => {
     const source = baseItems[index % baseItems.length];
     const answerTitle =
-      source.answerText?.trim() || source.title?.trim() || `測試曲目 ${index + 1}`;
+      source.answerText?.trim() ||
+      source.title?.trim() ||
+      `測試曲目 ${index + 1}`;
     return {
       ...source,
       title: source.title?.trim() || answerTitle,
@@ -635,11 +637,15 @@ const buildMockLeaderboardSettlement = ({
     MOCK_LEADERBOARD_QUESTION_COUNT,
   );
   const meParticipant =
-    participants.find((item) => item.clientId === meClientId) ?? participants[0] ?? null;
+    participants.find((item) => item.clientId === meClientId) ??
+    participants[0] ??
+    null;
   const otherParticipants = participants.filter(
     (item) => item.clientId !== meParticipant?.clientId,
   );
-  const skillByIndex = [0.96, 0.9, 0.84, 0.76, 0.72, 0.68, 0.64, 0.6, 0.56, 0.52];
+  const skillByIndex = [
+    0.96, 0.9, 0.84, 0.76, 0.72, 0.68, 0.64, 0.6, 0.56, 0.52,
+  ];
   const mockParticipantsSeed = Array.from(
     { length: MOCK_LEADERBOARD_PLAYER_COUNT },
     (_, index) => {
@@ -647,7 +653,7 @@ const buildMockLeaderboardSettlement = ({
       const source =
         index === 3 && meParticipant
           ? meParticipant
-          : otherParticipants.shift() ?? null;
+          : (otherParticipants.shift() ?? null);
       return {
         clientId: source?.clientId ?? `mock-client-${index + 1}`,
         username:
@@ -658,7 +664,8 @@ const buildMockLeaderboardSettlement = ({
         joinedAt: source?.joinedAt ?? startedAt - (index + 1) * 30_000,
         isMe: Boolean(
           meParticipant &&
-            (source?.clientId ?? `mock-client-${index + 1}`) === meParticipant.clientId,
+          (source?.clientId ?? `mock-client-${index + 1}`) ===
+            meParticipant.clientId,
         ),
         skill: skillByIndex[index] ?? Math.max(0.35, 0.52 - index * 0.04),
       };
@@ -679,182 +686,212 @@ const buildMockLeaderboardSettlement = ({
     ]),
   );
 
-  const recaps: SettlementQuestionRecap[] = mockPlaylistItems.map((item, index) => {
-    const correctChoiceIndex = index % 4;
-    const answerLabel = item.answerText?.trim() || item.title?.trim() || `測試曲目 ${index + 1}`;
-    const choices = [
-      answerLabel,
-      `${answerLabel} Remix`,
-      `${answerLabel} Live`,
-      `${answerLabel} Ver.`,
-    ].map((title, choiceIndex) => ({
-      index: choiceIndex,
-      title,
-      isCorrect: choiceIndex === correctChoiceIndex,
-      isSelectedByMe: false,
-    }));
+  const recaps: SettlementQuestionRecap[] = mockPlaylistItems.map(
+    (item, index) => {
+      const correctChoiceIndex = index % 4;
+      const answerLabel =
+        item.answerText?.trim() ||
+        item.title?.trim() ||
+        `測試曲目 ${index + 1}`;
+      const choices = [
+        answerLabel,
+        `${answerLabel} Remix`,
+        `${answerLabel} Live`,
+        `${answerLabel} Ver.`,
+      ].map((title, choiceIndex) => ({
+        index: choiceIndex,
+        title,
+        isCorrect: choiceIndex === correctChoiceIndex,
+        isSelectedByMe: false,
+      }));
 
-    const answersByClientId: NonNullable<SettlementQuestionRecap["answersByClientId"]> = {};
-    const correctTimings: number[] = [];
-    let answeredCount = 0;
-    let correctCount = 0;
-    let wrongCount = 0;
-    let unansweredCount = 0;
+      const answersByClientId: NonNullable<
+        SettlementQuestionRecap["answersByClientId"]
+      > = {};
+      const correctTimings: number[] = [];
+      let answeredCount = 0;
+      let correctCount = 0;
+      let wrongCount = 0;
+      let unansweredCount = 0;
 
-    mockParticipantsSeed.forEach((participant, participantIndex) => {
-      const entry = statMap.get(participant.clientId);
-      if (!entry) return;
+      mockParticipantsSeed.forEach((participant, participantIndex) => {
+        const entry = statMap.get(participant.clientId);
+        if (!entry) return;
 
-      const resultRoll = seededUnit((index + 1) * 97 + (participantIndex + 1) * 29);
-      const speedRoll = seededUnit((index + 1) * 53 + (participantIndex + 1) * 71);
-      const choiceRoll = seededUnit((index + 1) * 43 + (participantIndex + 1) * 11);
-      const unansweredThreshold = 0.03 + participantIndex * 0.02;
-      const correctThreshold = Math.max(
-        0.24,
-        participant.skill - (index % 6) * 0.035,
-      );
+        const resultRoll = seededUnit(
+          (index + 1) * 97 + (participantIndex + 1) * 29,
+        );
+        const speedRoll = seededUnit(
+          (index + 1) * 53 + (participantIndex + 1) * 71,
+        );
+        const choiceRoll = seededUnit(
+          (index + 1) * 43 + (participantIndex + 1) * 11,
+        );
+        const unansweredThreshold = 0.03 + participantIndex * 0.02;
+        const correctThreshold = Math.max(
+          0.24,
+          participant.skill - (index % 6) * 0.035,
+        );
 
-      let result: SettlementQuestionRecap["myResult"] = "wrong";
-      if (resultRoll < unansweredThreshold) {
-        result = "unanswered";
-      } else if (resultRoll < correctThreshold) {
-        result = "correct";
-      }
-
-      const answeredAtMs =
-        result === "unanswered"
-          ? null
-          : Math.round(
-              1020 +
-                speedRoll * 1850 +
-                participantIndex * 92 +
-                (index % 4) * 58,
-            );
-
-      let choiceIndex: number | null = null;
-      let scoreBreakdown: QuestionScoreBreakdown | null = null;
-
-      if (result === "correct") {
-        choiceIndex = correctChoiceIndex;
-        entry.correctCount += 1;
-        entry.combo += 1;
-        entry.maxCombo = Math.max(entry.maxCombo, entry.combo);
-        if (typeof answeredAtMs === "number") {
-          entry.answerTimes.push(answeredAtMs);
-          entry.fastestCorrectMs = Math.min(entry.fastestCorrectMs, answeredAtMs);
-          correctTimings.push(answeredAtMs);
-          scoreBreakdown = buildMockScoreBreakdown(answeredAtMs, entry.combo - 1);
+        let result: SettlementQuestionRecap["myResult"] = "wrong";
+        if (resultRoll < unansweredThreshold) {
+          result = "unanswered";
+        } else if (resultRoll < correctThreshold) {
+          result = "correct";
         }
-      } else if (result === "wrong") {
-        const offset = 1 + Math.floor(choiceRoll * 3);
-        choiceIndex = (correctChoiceIndex + offset) % 4;
-        entry.combo = 0;
-      } else {
-        entry.combo = 0;
-      }
 
-      if (result !== "unanswered") {
-        answeredCount += 1;
-      }
-      if (result === "correct") {
-        correctCount += 1;
-      } else if (result === "wrong") {
-        wrongCount += 1;
-      } else {
-        unansweredCount += 1;
-      }
+        const answeredAtMs =
+          result === "unanswered"
+            ? null
+            : Math.round(
+                1020 +
+                  speedRoll * 1850 +
+                  participantIndex * 92 +
+                  (index % 4) * 58,
+              );
 
-      if (scoreBreakdown) {
-        entry.score += scoreBreakdown.totalGainPoints;
-      }
+        let choiceIndex: number | null = null;
+        let scoreBreakdown: QuestionScoreBreakdown | null = null;
 
-      answersByClientId[participant.clientId] = {
-        choiceIndex,
-        result,
-        answeredAtMs,
-        scoreBreakdown,
+        if (result === "correct") {
+          choiceIndex = correctChoiceIndex;
+          entry.correctCount += 1;
+          entry.combo += 1;
+          entry.maxCombo = Math.max(entry.maxCombo, entry.combo);
+          if (typeof answeredAtMs === "number") {
+            entry.answerTimes.push(answeredAtMs);
+            entry.fastestCorrectMs = Math.min(
+              entry.fastestCorrectMs,
+              answeredAtMs,
+            );
+            correctTimings.push(answeredAtMs);
+            scoreBreakdown = buildMockScoreBreakdown(
+              answeredAtMs,
+              entry.combo - 1,
+            );
+          }
+        } else if (result === "wrong") {
+          const offset = 1 + Math.floor(choiceRoll * 3);
+          choiceIndex = (correctChoiceIndex + offset) % 4;
+          entry.combo = 0;
+        } else {
+          entry.combo = 0;
+        }
+
+        if (result !== "unanswered") {
+          answeredCount += 1;
+        }
+        if (result === "correct") {
+          correctCount += 1;
+        } else if (result === "wrong") {
+          wrongCount += 1;
+        } else {
+          unansweredCount += 1;
+        }
+
+        if (scoreBreakdown) {
+          entry.score += scoreBreakdown.totalGainPoints;
+        }
+
+        answersByClientId[participant.clientId] = {
+          choiceIndex,
+          result,
+          answeredAtMs,
+          scoreBreakdown,
+        };
+      });
+
+      const myAnswer = meParticipant
+        ? (answersByClientId[meParticipant.clientId] ?? null)
+        : null;
+      const myAnsweredAtMs =
+        typeof myAnswer?.answeredAtMs === "number"
+          ? myAnswer.answeredAtMs
+          : null;
+      const sortedCorrectTimings = [...correctTimings].sort((a, b) => a - b);
+      const medianCorrectMs =
+        sortedCorrectTimings.length > 0
+          ? (sortedCorrectTimings[
+              Math.floor(sortedCorrectTimings.length / 2)
+            ] ?? null)
+          : null;
+
+      return {
+        key: `${roundKey}:question:${index + 1}`,
+        order: index + 1,
+        trackIndex: index,
+        title: answerLabel,
+        uploader: item.uploader?.trim() || "Muizo Test",
+        duration: item.duration ?? "3:30",
+        thumbnail: item.thumbnail ?? null,
+        sourceId: item.sourceId ?? null,
+        channelId: item.channelId ?? null,
+        provider: item.provider,
+        videoId: item.videoId,
+        url: item.url,
+        myResult: myAnswer?.result ?? "unanswered",
+        myChoiceIndex: myAnswer?.choiceIndex ?? null,
+        correctChoiceIndex,
+        choices: choices.map((choice) => ({
+          ...choice,
+          isSelectedByMe: myAnswer?.choiceIndex === choice.index,
+        })),
+        participantCount: mockParticipantsSeed.length,
+        answeredCount,
+        correctCount,
+        wrongCount,
+        unansweredCount,
+        fastestCorrectRank:
+          myAnswer?.result === "correct" && typeof myAnsweredAtMs === "number"
+            ? sortedCorrectTimings.findIndex(
+                (value) => value === myAnsweredAtMs,
+              ) + 1
+            : null,
+        fastestCorrectMs:
+          sortedCorrectTimings.length > 0
+            ? (sortedCorrectTimings[0] ?? null)
+            : null,
+        medianCorrectMs,
+        answersByClientId,
       };
-    });
+    },
+  );
 
-    const myAnswer = meParticipant
-      ? answersByClientId[meParticipant.clientId] ?? null
-      : null;
-    const myAnsweredAtMs =
-      typeof myAnswer?.answeredAtMs === "number" ? myAnswer.answeredAtMs : null;
-    const sortedCorrectTimings = [...correctTimings].sort((a, b) => a - b);
-    const medianCorrectMs =
-      sortedCorrectTimings.length > 0
-        ? sortedCorrectTimings[Math.floor(sortedCorrectTimings.length / 2)] ?? null
-        : null;
-
-    return {
-      key: `${roundKey}:question:${index + 1}`,
-      order: index + 1,
-      trackIndex: index,
-      title: answerLabel,
-      uploader: item.uploader?.trim() || "Muizo Test",
-      duration: item.duration ?? "3:30",
-      thumbnail: item.thumbnail ?? null,
-      sourceId: item.sourceId ?? null,
-      channelId: item.channelId ?? null,
-      provider: item.provider,
-      videoId: item.videoId,
-      url: item.url,
-      myResult: myAnswer?.result ?? "unanswered",
-      myChoiceIndex: myAnswer?.choiceIndex ?? null,
-      correctChoiceIndex,
-      choices: choices.map((choice) => ({
-        ...choice,
-        isSelectedByMe: myAnswer?.choiceIndex === choice.index,
-      })),
-      participantCount: mockParticipantsSeed.length,
-      answeredCount,
-      correctCount,
-      wrongCount,
-      unansweredCount,
-      fastestCorrectRank:
-        myAnswer?.result === "correct" && typeof myAnsweredAtMs === "number"
-          ? sortedCorrectTimings.findIndex((value) => value === myAnsweredAtMs) + 1
-          : null,
-      fastestCorrectMs:
-        sortedCorrectTimings.length > 0 ? sortedCorrectTimings[0] ?? null : null,
-      medianCorrectMs,
-      answersByClientId,
-    };
-  });
-
-  const snapshotParticipants: RoomParticipant[] = mockParticipantsSeed.map((item) => {
-    const entry = statMap.get(item.clientId);
-    const avgCorrectMs =
-      entry && entry.answerTimes.length > 0
-        ? Math.round(
-            entry.answerTimes.reduce((sum, value) => sum + value, 0) /
-              entry.answerTimes.length,
-          )
-        : null;
-    return {
-      clientId: item.clientId,
-      username: item.username,
-      avatar_url: item.avatarUrl,
-      avatarUrl: item.avatarUrl,
-      joinedAt: item.joinedAt,
-      isOnline: true,
-      lastSeen: endedAt,
-      score: entry?.score ?? 0,
-      combo: 0,
-      maxCombo: entry?.maxCombo ?? 0,
-      correctCount: entry?.correctCount ?? 0,
-      fastestCorrectMs:
-        entry && Number.isFinite(entry.fastestCorrectMs)
-          ? entry.fastestCorrectMs
-          : null,
-      avgCorrectMs,
-    };
-  });
+  const snapshotParticipants: RoomParticipant[] = mockParticipantsSeed.map(
+    (item) => {
+      const entry = statMap.get(item.clientId);
+      const avgCorrectMs =
+        entry && entry.answerTimes.length > 0
+          ? Math.round(
+              entry.answerTimes.reduce((sum, value) => sum + value, 0) /
+                entry.answerTimes.length,
+            )
+          : null;
+      return {
+        clientId: item.clientId,
+        username: item.username,
+        avatar_url: item.avatarUrl,
+        avatarUrl: item.avatarUrl,
+        joinedAt: item.joinedAt,
+        isOnline: true,
+        lastSeen: endedAt,
+        score: entry?.score ?? 0,
+        combo: 0,
+        maxCombo: entry?.maxCombo ?? 0,
+        correctCount: entry?.correctCount ?? 0,
+        fastestCorrectMs:
+          entry && Number.isFinite(entry.fastestCorrectMs)
+            ? entry.fastestCorrectMs
+            : null,
+        avgCorrectMs,
+      };
+    },
+  );
 
   const playlistTitle =
     room.playlist.title?.trim() || room.playlistTitle?.trim() || "測試收藏庫";
-  const coverItem = mockPlaylistItems.find((item) => item.thumbnail) ?? mockPlaylistItems[0];
+  const coverItem =
+    mockPlaylistItems.find((item) => item.thumbnail) ?? mockPlaylistItems[0];
   const snapshot: RoomSettlementSnapshot = {
     roundKey,
     roundNo: Math.max(1, Math.floor(endedAt / 1000)),
@@ -864,14 +901,18 @@ const buildMockLeaderboardSettlement = ({
       ...room,
       playerCount: snapshotParticipants.length,
       playlistCount: mockPlaylistItems.length,
-      playlistId: room.playlist.id ?? room.playlistId ?? "mock-leaderboard-playlist",
+      playlistId:
+        room.playlist.id ?? room.playlistId ?? "mock-leaderboard-playlist",
       playlistTitle,
       playlistCoverTitle: coverItem?.title ?? room.playlistCoverTitle ?? null,
       playlistCoverThumbnailUrl:
         coverItem?.thumbnail ?? room.playlistCoverThumbnailUrl ?? null,
-      playlistCoverSourceId: coverItem?.sourceId ?? room.playlistCoverSourceId ?? null,
+      playlistCoverSourceId:
+        coverItem?.sourceId ?? room.playlistCoverSourceId ?? null,
       playlistSourceType:
-        room.playlist.sourceType ?? room.playlistSourceType ?? "public_collection",
+        room.playlist.sourceType ??
+        room.playlistSourceType ??
+        "public_collection",
       gameSettings: {
         ...room.gameSettings,
         questionCount: MOCK_LEADERBOARD_QUESTION_COUNT,
@@ -895,12 +936,17 @@ const buildMockLeaderboardSettlement = ({
         id: room.playlist.id ?? room.playlistId ?? "mock-leaderboard-playlist",
         title: playlistTitle,
         sourceType:
-          room.playlist.sourceType ?? room.playlistSourceType ?? "public_collection",
+          room.playlist.sourceType ??
+          room.playlistSourceType ??
+          "public_collection",
         items: mockPlaylistItems,
         totalCount: mockPlaylistItems.length,
         receivedCount: mockPlaylistItems.length,
         ready: true,
-        pageSize: Math.max(room.playlist.pageSize ?? 0, mockPlaylistItems.length),
+        pageSize: Math.max(
+          room.playlist.pageSize ?? 0,
+          mockPlaylistItems.length,
+        ),
       },
     },
     participants: snapshotParticipants,
@@ -921,7 +967,14 @@ const RoomLobbyPage: React.FC = () => {
   const { roomId } = useParams<{ roomId?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { username, authUser, authToken, refreshAuthToken, loginWithGoogle, clientId } = useAuth();
+  const {
+    username,
+    authUser,
+    authToken,
+    refreshAuthToken,
+    loginWithGoogle,
+    clientId,
+  } = useAuth();
   const {
     currentRoom,
     participants,
@@ -1201,7 +1254,9 @@ const RoomLobbyPage: React.FC = () => {
       !activeSettlementRoundKey &&
       gameState?.status !== "ended"
     ) {
-      setRoomViewMode(gameState?.status === "playing" && isGameView ? "game" : "lobby");
+      setRoomViewMode(
+        gameState?.status === "playing" && isGameView ? "game" : "lobby",
+      );
     }
   }, [
     activeSettlementRoundKey,
@@ -1289,8 +1344,8 @@ const RoomLobbyPage: React.FC = () => {
     () =>
       currentRoom?.id
         ? settlementHistorySummaries.filter(
-          (item) => item.roomId === currentRoom.id,
-        )
+            (item) => item.roomId === currentRoom.id,
+          )
         : [],
     [currentRoom?.id, settlementHistorySummaries],
   );
@@ -1356,16 +1411,18 @@ const RoomLobbyPage: React.FC = () => {
 
   const settlementRoundKeysByIdentity = useMemo(() => {
     const next: Record<string, string[]> = {};
-    Object.entries(settlementIdentityByRoundKey).forEach(([roundKey, identity]) => {
-      if (!identity) return;
-      if (!next[identity]) {
-        next[identity] = [roundKey];
-        return;
-      }
-      if (!next[identity].includes(roundKey)) {
-        next[identity].push(roundKey);
-      }
-    });
+    Object.entries(settlementIdentityByRoundKey).forEach(
+      ([roundKey, identity]) => {
+        if (!identity) return;
+        if (!next[identity]) {
+          next[identity] = [roundKey];
+          return;
+        }
+        if (!next[identity].includes(roundKey)) {
+          next[identity].push(roundKey);
+        }
+      },
+    );
     return next;
   }, [settlementIdentityByRoundKey]);
 
@@ -1741,7 +1798,7 @@ const RoomLobbyPage: React.FC = () => {
         null;
       const replaySnapshot =
         roomScopedSettlementReplayByRoundKey[
-        resolvedActiveSettlementRoundKey
+          resolvedActiveSettlementRoundKey
         ] ?? null;
       if (!liveSnapshot) return replaySnapshot;
       if (!replaySnapshot) return liveSnapshot;
@@ -1754,9 +1811,12 @@ const RoomLobbyPage: React.FC = () => {
       roomScopedSettlementReplayByRoundKey,
     ]);
 
-  const [settlementFavorited, setSettlementFavorited] = useState<boolean | undefined>(undefined);
+  const [settlementFavorited, setSettlementFavorited] = useState<
+    boolean | undefined
+  >(undefined);
 
-  const settlementCollectionId = activeSettlementSnapshot?.room.playlist.id ?? null;
+  const settlementCollectionId =
+    activeSettlementSnapshot?.room.playlist.id ?? null;
   useEffect(() => {
     if (!settlementCollectionId || !authToken) {
       setSettlementFavorited(undefined);
@@ -1765,18 +1825,21 @@ const RoomLobbyPage: React.FC = () => {
     let cancelled = false;
     apiFetchCollectionFavoriteStatus(API_URL, authToken, settlementCollectionId)
       .then((result) => {
-        if (!cancelled && typeof result.data?.is_favorited === "boolean") {
-          setSettlementFavorited(result.data.is_favorited);
+        const isFavorited = result.payload?.data?.is_favorited;
+        if (!cancelled && typeof isFavorited === "boolean") {
+          setSettlementFavorited(isFavorited);
         }
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [settlementCollectionId, authToken]);
 
   const handleToggleSettlementFavorite = useCallback(async () => {
     const collectionId = activeSettlementSnapshot?.room.playlist.id;
     if (!collectionId) return;
-    const token = authToken ?? await refreshAuthToken();
+    const token = authToken ?? (await refreshAuthToken());
     if (!token) return;
     const current = settlementFavorited ?? false;
     setSettlementFavorited(!current);
@@ -1784,13 +1847,19 @@ const RoomLobbyPage: React.FC = () => {
       const result = current
         ? await apiUnfavoriteCollection(API_URL, token, collectionId)
         : await apiFavoriteCollection(API_URL, token, collectionId);
-      if (typeof result.data?.is_favorited === "boolean") {
-        setSettlementFavorited(result.data.is_favorited);
+      const isFavorited = result.payload?.data?.is_favorited;
+      if (typeof isFavorited === "boolean") {
+        setSettlementFavorited(isFavorited);
       }
     } catch {
       setSettlementFavorited(current);
     }
-  }, [activeSettlementSnapshot, authToken, refreshAuthToken, settlementFavorited]);
+  }, [
+    activeSettlementSnapshot,
+    authToken,
+    refreshAuthToken,
+    settlementFavorited,
+  ]);
 
   const activeSettlementQuestionRecaps = useMemo(() => {
     if (!activeSettlementSnapshot) return undefined;
@@ -1845,8 +1914,9 @@ const RoomLobbyPage: React.FC = () => {
         latestSummary =
           loaded
             .filter((item) => item.roomId === roomId)
-            .sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo)[0] ??
-          null;
+            .sort(
+              (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
+            )[0] ?? null;
       }
 
       if (!latestSummary) return;
@@ -1946,21 +2016,23 @@ const RoomLobbyPage: React.FC = () => {
   const settlementHistoryModel = useMemo(() => {
     const latestSettlementSummary = latestSettlementSnapshot
       ? {
-        matchId: `${latestSettlementSnapshot.room.id}:${latestSettlementSnapshot.roundNo}`,
-        roundKey: latestSettlementSnapshot.roundKey,
-        roundNo: latestSettlementSnapshot.roundNo,
-        roomId: latestSettlementSnapshot.room.id,
-        roomName: latestSettlementSnapshot.room.name,
-        playlistTitle: latestSettlementSnapshot.room.playlist.title ?? null,
-        playlistSourceType: latestSettlementSnapshot.room.playlist.sourceType ?? null,
-        playlistItemCount: latestSettlementSnapshot.room.playlist.totalCount ?? null,
-        startedAt: latestSettlementSnapshot.startedAt,
-        endedAt: latestSettlementSnapshot.endedAt,
-        status: "ended" as const,
-        playerCount: latestSettlementSnapshot.participants.length,
-        questionCount: latestSettlementSnapshot.playedQuestionCount,
-        summaryJson: null,
-      }
+          matchId: `${latestSettlementSnapshot.room.id}:${latestSettlementSnapshot.roundNo}`,
+          roundKey: latestSettlementSnapshot.roundKey,
+          roundNo: latestSettlementSnapshot.roundNo,
+          roomId: latestSettlementSnapshot.room.id,
+          roomName: latestSettlementSnapshot.room.name,
+          playlistTitle: latestSettlementSnapshot.room.playlist.title ?? null,
+          playlistSourceType:
+            latestSettlementSnapshot.room.playlist.sourceType ?? null,
+          playlistItemCount:
+            latestSettlementSnapshot.room.playlist.totalCount ?? null,
+          startedAt: latestSettlementSnapshot.startedAt,
+          endedAt: latestSettlementSnapshot.endedAt,
+          status: "ended" as const,
+          playerCount: latestSettlementSnapshot.participants.length,
+          questionCount: latestSettlementSnapshot.playedQuestionCount,
+          summaryJson: null,
+        }
       : null;
 
     const mergedByRoundKey = new Map<string, RoomSettlementHistorySummary>();
@@ -2078,32 +2150,34 @@ const RoomLobbyPage: React.FC = () => {
   );
   const shouldShowSharedChat = Boolean(
     currentRoom &&
-      !(
-        isTabletOrMobileLobby &&
-        (isSettlementView || (gameState && isGameRoomView))
-      ) &&
-      !(gameState && isGameRoomView && !isSettlementView),
+    !(
+      isTabletOrMobileLobby &&
+      (isSettlementView || (gameState && isGameRoomView))
+    ) &&
+    !(gameState && isGameRoomView && !isSettlementView),
   );
   const sharedChatWindow = shouldShowSharedChat ? <FloatingChatWindow /> : null;
   const desktopInGameSharedChat =
-    currentRoom && gameState && isGameRoomView && !isSettlementView && !isTabletOrMobileLobby
-      ? (
-        <GameRoomDanmuProviderBridge roomId={currentRoom.id}>
-          <FloatingChatWindow />
-        </GameRoomDanmuProviderBridge>
-      )
-      : null;
+    currentRoom &&
+    gameState &&
+    isGameRoomView &&
+    !isSettlementView &&
+    !isTabletOrMobileLobby ? (
+      <GameRoomDanmuProviderBridge roomId={currentRoom.id}>
+        <FloatingChatWindow />
+      </GameRoomDanmuProviderBridge>
+    ) : null;
   const isSettlementViewPreparing = Boolean(
     currentRoom &&
-      isSettlementView &&
-      activeSettlementRoundKey &&
-      !activeSettlementSnapshot,
+    isSettlementView &&
+    activeSettlementRoundKey &&
+    !activeSettlementSnapshot,
   );
   const isTerminalSettlementPreparing = Boolean(
     currentRoom &&
-      gameState?.status === "ended" &&
-      isSettlementViewPreparing &&
-      !activeSettlementSnapshot,
+    gameState?.status === "ended" &&
+    isSettlementViewPreparing &&
+    !activeSettlementSnapshot,
   );
 
   const historyReplaySnapshot = useMemo(() => {
@@ -2274,60 +2348,57 @@ const RoomLobbyPage: React.FC = () => {
   // -------------------------------------------------------------------------
 
   /** Return from game view to the lobby. */
-  const handleBackToLobby = useCallback(
-    () => {
-      setRoomViewMode("lobby");
-      setIsGameView(false);
-    },
-    [setIsGameView],
-  );
+  const handleBackToLobby = useCallback(() => {
+    setRoomViewMode("lobby");
+    setIsGameView(false);
+  }, [setIsGameView]);
 
   /** Return from settlement view to the lobby. */
-  const handleBackFromSettlement = useCallback(
-    () => {
-      settlementActivationVersionRef.current += 1;
-      const dismissedIdentity =
-        getSettlementIdentityFromSnapshot(activeSettlementSnapshot) ??
-        (activeSettlementRoundKey
-          ? settlementIdentityByRoundKey[activeSettlementRoundKey] ?? null
-          : null);
-      dismissedSettlementIdentityRef.current = dismissedIdentity;
-      let nextDismissedRoundKeys =
-        dismissedIdentity && settlementRoundKeysByIdentity[dismissedIdentity]
-          ? [...settlementRoundKeysByIdentity[dismissedIdentity]]
-          : [];
-      nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
-        nextDismissedRoundKeys,
-        activeSettlementRoundKey,
-      );
-      nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
-        nextDismissedRoundKeys,
-        activeSettlementSnapshot?.roundKey,
-      );
-      if (dismissedIdentity && latestKnownSettlementIdentity === dismissedIdentity) {
-        nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
-          nextDismissedRoundKeys,
-          roomScopedSettlementHistory[0]?.roundKey ?? null,
-        );
-        nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
-          nextDismissedRoundKeys,
-          latestRoomScopedSettlementSummary?.roundKey ?? null,
-        );
-      }
-      dismissedSettlementRoundKeysRef.current = nextDismissedRoundKeys;
-      setRoomViewMode("lobby");
-      setActiveSettlementRoundKey(null);
-    },
-    [
+  const handleBackFromSettlement = useCallback(() => {
+    settlementActivationVersionRef.current += 1;
+    const dismissedIdentity =
+      getSettlementIdentityFromSnapshot(activeSettlementSnapshot) ??
+      (activeSettlementRoundKey
+        ? (settlementIdentityByRoundKey[activeSettlementRoundKey] ?? null)
+        : null);
+    dismissedSettlementIdentityRef.current = dismissedIdentity;
+    let nextDismissedRoundKeys =
+      dismissedIdentity && settlementRoundKeysByIdentity[dismissedIdentity]
+        ? [...settlementRoundKeysByIdentity[dismissedIdentity]]
+        : [];
+    nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
+      nextDismissedRoundKeys,
       activeSettlementRoundKey,
-      activeSettlementSnapshot,
-      latestKnownSettlementIdentity,
-      latestRoomScopedSettlementSummary?.roundKey,
-      roomScopedSettlementHistory,
-      settlementRoundKeysByIdentity,
-      settlementIdentityByRoundKey,
-    ],
-  );
+    );
+    nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
+      nextDismissedRoundKeys,
+      activeSettlementSnapshot?.roundKey,
+    );
+    if (
+      dismissedIdentity &&
+      latestKnownSettlementIdentity === dismissedIdentity
+    ) {
+      nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
+        nextDismissedRoundKeys,
+        roomScopedSettlementHistory[0]?.roundKey ?? null,
+      );
+      nextDismissedRoundKeys = appendDismissedSettlementRoundKey(
+        nextDismissedRoundKeys,
+        latestRoomScopedSettlementSummary?.roundKey ?? null,
+      );
+    }
+    dismissedSettlementRoundKeysRef.current = nextDismissedRoundKeys;
+    setRoomViewMode("lobby");
+    setActiveSettlementRoundKey(null);
+  }, [
+    activeSettlementRoundKey,
+    activeSettlementSnapshot,
+    latestKnownSettlementIdentity,
+    latestRoomScopedSettlementSummary?.roundKey,
+    roomScopedSettlementHistory,
+    settlementRoundKeysByIdentity,
+    settlementIdentityByRoundKey,
+  ]);
 
   const backNavigationConfirmText = useMemo(() => {
     if (activeSettlementSnapshot) {
@@ -2630,11 +2701,11 @@ const RoomLobbyPage: React.FC = () => {
   const settlementStartBroadcastRemainingSec =
     gameState?.status === "playing"
       ? Math.max(
-        0,
-        Math.ceil(
-          (gameState.startedAt - settlementStartBroadcastNowMs) / 1000,
-        ),
-      )
+          0,
+          Math.ceil(
+            (gameState.startedAt - settlementStartBroadcastNowMs) / 1000,
+          ),
+        )
       : 0;
   const shouldShowSettlementStartBroadcast =
     Boolean(activeSettlementSnapshot) &&
@@ -2642,27 +2713,27 @@ const RoomLobbyPage: React.FC = () => {
     typeof document !== "undefined";
   const settlementStartBroadcastOverlay = shouldShowSettlementStartBroadcast
     ? createPortal(
-      <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
-        <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
-            Match Settlement
-          </div>
-          <p className="mt-3 text-sm text-slate-200">
-            對戰即將開始結算，{settlementStartBroadcastRemainingSec}{" "}
-            秒後自動切換。
-          </p>
-          <div className="mt-4 flex items-center justify-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
-              {settlementStartBroadcastRemainingSec}
+        <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
+              Match Settlement
             </div>
+            <p className="mt-3 text-sm text-slate-200">
+              對戰即將開始結算，{settlementStartBroadcastRemainingSec}{" "}
+              秒後自動切換。
+            </p>
+            <div className="mt-4 flex items-center justify-center">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
+                {settlementStartBroadcastRemainingSec}
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-300">
+              倒數期間會暫時鎖定操作，避免切換畫面時發生誤觸。
+            </p>
           </div>
-          <p className="mt-3 text-xs text-slate-300">
-            倒數期間會暫時鎖定操作，避免切換畫面時發生誤觸。
-          </p>
-        </div>
-      </div>,
-      document.body,
-    )
+        </div>,
+        document.body,
+      )
     : null;
   const battleHistoryDrawer = (
     <Drawer
@@ -2751,8 +2822,9 @@ const RoomLobbyPage: React.FC = () => {
               return (
                 <div
                   key={summary.roundKey}
-                  className={`room-battle-history-item ${isLatest ? "is-latest" : ""
-                    }`}
+                  className={`room-battle-history-item ${
+                    isLatest ? "is-latest" : ""
+                  }`}
                 >
                   <div className="room-battle-history-item-head">
                     <div>
@@ -2873,8 +2945,8 @@ const RoomLobbyPage: React.FC = () => {
       }
     >
       {historyReplaySummary &&
-        historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
-        !historyReplaySnapshot ? (
+      historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
+      !historyReplaySnapshot ? (
         <HistoryReplaySkeleton />
       ) : historyReplaySnapshot ? (
         <HistoryReplayCompactView
@@ -2968,7 +3040,7 @@ const RoomLobbyPage: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface)]/75 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--mc-text)] transition hover:border-amber-200/25 hover:bg-[var(--mc-surface-strong)]/88"
                   onClick={() => {
                     setKickedNotice(null);
-                    navigate("/rooms/create");
+                    navigate("/rooms", { replace: true });
                   }}
                 >
                   建立新房間
@@ -3029,16 +3101,18 @@ const RoomLobbyPage: React.FC = () => {
                     連線進度
                   </div>
                   <div
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${waitingChecklist.isError
-                      ? "border border-rose-300/30 bg-rose-300/10 text-rose-100"
-                      : "border border-emerald-300/20 bg-emerald-300/10 text-emerald-100/90"
-                      }`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${
+                      waitingChecklist.isError
+                        ? "border border-rose-300/30 bg-rose-300/10 text-rose-100"
+                        : "border border-emerald-300/20 bg-emerald-300/10 text-emerald-100/90"
+                    }`}
                   >
                     <span
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${waitingChecklist.isError
-                        ? "bg-rose-300"
-                        : "animate-pulse bg-emerald-300"
-                        }`}
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${
+                        waitingChecklist.isError
+                          ? "bg-rose-300"
+                          : "animate-pulse bg-emerald-300"
+                      }`}
                     />
                     {waitingChecklist.isError ? "同步失敗" : "同步中"}
                   </div>
@@ -3046,10 +3120,11 @@ const RoomLobbyPage: React.FC = () => {
 
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
                   <div
-                    className={`h-full rounded-full ${waitingChecklist.isError
-                      ? "bg-[linear-gradient(90deg,rgba(251,113,133,0.7),rgba(244,63,94,0.9))]"
-                      : "animate-pulse bg-[linear-gradient(90deg,rgba(245,158,11,0.75),rgba(250,204,21,0.95),rgba(251,191,36,0.7))]"
-                      }`}
+                    className={`h-full rounded-full ${
+                      waitingChecklist.isError
+                        ? "bg-[linear-gradient(90deg,rgba(251,113,133,0.7),rgba(244,63,94,0.9))]"
+                        : "animate-pulse bg-[linear-gradient(90deg,rgba(245,158,11,0.75),rgba(250,204,21,0.95),rgba(251,191,36,0.7))]"
+                    }`}
                     style={{
                       width: `${Math.max(8, Math.round(waitingChecklist.ratio * 100))}%`,
                     }}
@@ -3066,30 +3141,32 @@ const RoomLobbyPage: React.FC = () => {
                   {waitingChecklist.rows.map((step, index) => (
                     <div
                       key={step.key}
-                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${step.state === "done"
-                        ? "border-emerald-300/15 bg-emerald-300/[0.03]"
-                        : step.state === "active"
-                          ? "border-amber-300/15 bg-amber-300/[0.03]"
-                          : step.state === "error"
-                            ? "border-rose-300/15 bg-rose-300/[0.03]"
-                            : "border-white/5 bg-white/[0.02]"
-                        }`}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
+                        step.state === "done"
+                          ? "border-emerald-300/15 bg-emerald-300/[0.03]"
+                          : step.state === "active"
+                            ? "border-amber-300/15 bg-amber-300/[0.03]"
+                            : step.state === "error"
+                              ? "border-rose-300/15 bg-rose-300/[0.03]"
+                              : "border-white/5 bg-white/[0.02]"
+                      }`}
                     >
                       <span
-                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${step.state === "done"
-                          ? "border border-emerald-200/25 bg-emerald-300/12 text-emerald-100"
-                          : step.state === "active"
-                            ? "border border-amber-200/20 bg-amber-300/10 text-amber-100"
-                            : step.state === "error"
-                              ? "border border-rose-200/20 bg-rose-300/10 text-rose-100"
-                              : "border border-slate-300/15 bg-slate-300/5 text-slate-300/80"
-                          }`}
+                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                          step.state === "done"
+                            ? "border border-emerald-200/25 bg-emerald-300/12 text-emerald-100"
+                            : step.state === "active"
+                              ? "border border-amber-200/20 bg-amber-300/10 text-amber-100"
+                              : step.state === "error"
+                                ? "border border-rose-200/20 bg-rose-300/10 text-rose-100"
+                                : "border border-slate-300/15 bg-slate-300/5 text-slate-300/80"
+                        }`}
                         style={
                           step.state === "active"
                             ? {
-                              animation: "pulse 1.6s ease-in-out infinite",
-                              animationDelay: `${index * 0.18}s`,
-                            }
+                                animation: "pulse 1.6s ease-in-out infinite",
+                                animationDelay: `${index * 0.18}s`,
+                              }
                             : undefined
                         }
                       >
@@ -3125,9 +3202,9 @@ const RoomLobbyPage: React.FC = () => {
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)] sm:text-[15px]">
                   {isClosedActiveRoom
                     ? closedRoomNotice?.reason ||
-                    (closedRoomNotice?.kind === "left"
-                      ? "你目前已不在這個房間。你可以回到列表重新加入，或建立新房間。"
-                      : "這個房間已由房主或系統關閉。你可以回到列表加入其他房間，或建立新房間。")
+                      (closedRoomNotice?.kind === "left"
+                        ? "你目前已不在這個房間。你可以回到列表重新加入，或建立新房間。"
+                        : "這個房間已由房主或系統關閉。你可以回到列表加入其他房間，或建立新房間。")
                     : "房間可能已關閉、你已被移出，或邀請連結已失效。你可以回到列表重新加入，或直接建立新房間。"}
                 </p>
 
@@ -3234,12 +3311,15 @@ const RoomLobbyPage: React.FC = () => {
                 room={activeSettlementSnapshot.room}
                 participants={activeSettlementSnapshot.participants}
                 playlistItems={activeSettlementSnapshot.playlistItems ?? []}
-                playedQuestionCount={activeSettlementSnapshot.playedQuestionCount}
+                playedQuestionCount={
+                  activeSettlementSnapshot.playedQuestionCount
+                }
                 meClientId={clientId}
                 matchId={activeSettlementSnapshot.matchId}
                 questionRecaps={activeSettlementQuestionRecaps}
                 rankChangeByClientId={
-                  rankChangeByRoundKey[activeSettlementSnapshot.roundKey] ?? undefined
+                  rankChangeByRoundKey[activeSettlementSnapshot.roundKey] ??
+                  undefined
                 }
                 isFavorited={settlementFavorited}
                 onToggleFavorite={
@@ -3257,7 +3337,9 @@ const RoomLobbyPage: React.FC = () => {
                 messages={activeSettlementSnapshot.messages}
                 playlistItems={activeSettlementSnapshot.playlistItems ?? []}
                 trackOrder={activeSettlementSnapshot.trackOrder}
-                playedQuestionCount={activeSettlementSnapshot.playedQuestionCount}
+                playedQuestionCount={
+                  activeSettlementSnapshot.playedQuestionCount
+                }
                 startedAt={activeSettlementSnapshot.startedAt}
                 endedAt={activeSettlementSnapshot.endedAt}
                 meClientId={clientId}

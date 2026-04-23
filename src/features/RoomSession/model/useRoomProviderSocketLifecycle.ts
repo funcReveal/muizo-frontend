@@ -809,7 +809,30 @@ export const useRoomProviderSocketLifecycle = ({
         onPlaylistUpdated: ({ roomId, playlist }) => {
           if (roomId !== currentRoomIdRef.current) return;
           setCurrentRoom((prev) =>
-            prev ? { ...prev, playlist: { ...playlist, items: [] } } : prev,
+            prev
+              ? {
+                  ...prev,
+                  ...(playlist.id !== undefined ? { playlistId: playlist.id } : {}),
+                  ...(playlist.title !== undefined
+                    ? { playlistTitle: playlist.title }
+                    : {}),
+                  ...(playlist.sourceType !== undefined
+                    ? { playlistSourceType: playlist.sourceType }
+                    : {}),
+                  playlist: {
+                    ...prev.playlist,
+                    ...playlist,
+                    items: [],
+                    ...(playlist.id !== undefined ? { id: playlist.id } : {}),
+                    ...(playlist.title !== undefined
+                      ? { title: playlist.title }
+                      : {}),
+                    ...(playlist.sourceType !== undefined
+                      ? { sourceType: playlist.sourceType }
+                      : {}),
+                  },
+                }
+              : prev,
           );
           setPlaylistProgress({
             received: playlist.receivedCount,

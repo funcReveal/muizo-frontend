@@ -4,6 +4,7 @@ import type {
   CareerCollectionRankSortKey,
   CareerCollectionRankSortOrder,
 } from "../../../types/career";
+import CareerActionButton from "../primitives/CareerActionButton";
 
 interface CareerCollectionRanksToolbarProps {
   sortKey: CareerCollectionRankSortKey;
@@ -23,14 +24,11 @@ const sortOptions: Array<{
   { value: "lastPlayedAt", label: "最近遊玩" },
 ];
 
-const buttonBaseClass =
-  "rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.08em] transition";
-
 const CareerCollectionRanksToolbar: React.FC<
   CareerCollectionRanksToolbarProps
 > = ({ sortKey, sortOrder, setSortKey, setSortOrder }) => {
   return (
-    <div className="flex flex-col gap-3 rounded-[18px] border border-[var(--mc-border)] bg-[rgba(10,18,30,0.4)] p-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 rounded-[18px] border border-[var(--mc-border)] bg-[rgba(10,18,30,0.36)] p-3 xl:flex-row xl:items-center xl:justify-between">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label
           htmlFor="career-collection-rank-sort"
@@ -56,29 +54,19 @@ const CareerCollectionRanksToolbar: React.FC<
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <CareerActionButton
+          tone={sortOrder === "asc" ? "primary" : "secondary"}
           onClick={() => setSortOrder("asc")}
-          className={`${buttonBaseClass} ${
-            sortOrder === "asc"
-              ? "border-sky-300/40 bg-sky-300/12 text-sky-100"
-              : "border-[var(--mc-border)] bg-transparent text-[var(--mc-text-muted)] hover:border-sky-300/24 hover:bg-sky-300/8"
-          }`}
         >
           升冪
-        </button>
+        </CareerActionButton>
 
-        <button
-          type="button"
+        <CareerActionButton
+          tone={sortOrder === "desc" ? "primary" : "secondary"}
           onClick={() => setSortOrder("desc")}
-          className={`${buttonBaseClass} ${
-            sortOrder === "desc"
-              ? "border-sky-300/40 bg-sky-300/12 text-sky-100"
-              : "border-[var(--mc-border)] bg-transparent text-[var(--mc-text-muted)] hover:border-sky-300/24 hover:bg-sky-300/8"
-          }`}
         >
           降冪
-        </button>
+        </CareerActionButton>
       </div>
     </div>
   );

@@ -315,7 +315,39 @@ export const mergeRoomSummaryIntoCurrentRoom = (
   summary: RoomSummary,
 ): RoomState["room"] => ({
   ...current,
-  ...summary,
+  id: summary.id,
+  roomCode: summary.roomCode,
+  name: summary.name,
+  playerCount: summary.playerCount,
+  createdAt: summary.createdAt,
+  hasPassword: summary.hasPassword,
+  ...(summary.hasPin !== undefined ? { hasPin: summary.hasPin } : {}),
+  ...(summary.password !== undefined ? { password: summary.password } : {}),
+  ...(summary.pin !== undefined ? { pin: summary.pin } : {}),
+  playlistCount: summary.playlistCount,
+  ...(summary.playlistId !== undefined
+    ? { playlistId: summary.playlistId }
+    : {}),
+  ...(summary.playlistTitle !== undefined
+    ? { playlistTitle: summary.playlistTitle }
+    : {}),
+  ...(summary.playlistCoverTitle !== undefined
+    ? { playlistCoverTitle: summary.playlistCoverTitle }
+    : {}),
+  ...(summary.playlistCoverThumbnailUrl !== undefined
+    ? { playlistCoverThumbnailUrl: summary.playlistCoverThumbnailUrl }
+    : {}),
+  ...(summary.playlistCoverSourceId !== undefined
+    ? { playlistCoverSourceId: summary.playlistCoverSourceId }
+    : {}),
+  ...(summary.playlistSourceType !== undefined
+    ? { playlistSourceType: summary.playlistSourceType }
+    : {}),
+  ...(summary.visibility !== undefined ? { visibility: summary.visibility } : {}),
+  ...(summary.maxPlayers !== undefined ? { maxPlayers: summary.maxPlayers } : {}),
+  ...(summary.hostClientId !== undefined
+    ? { hostClientId: summary.hostClientId }
+    : {}),
   playlist: {
     ...current.playlist,
     ...(summary.playlistId !== undefined

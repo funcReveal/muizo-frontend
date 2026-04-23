@@ -89,7 +89,9 @@ const CurrentPlaylistCard = ({
     room?.playlistCoverTitle,
     "目前題庫封面",
   );
-  const sourceConfig = getSourceConfig(room?.playlistSourceType ?? null);
+  const sourceConfig = getSourceConfig(
+    room?.playlistSourceType ?? room?.playlist?.sourceType ?? null,
+  );
   const sourceLabel = sourceConfig?.label ?? "匯入題庫";
   const buttonLabel = actionLabel ?? (isHost ? "更換題庫" : "推薦題庫");
   const canOpenSelector = !changeDisabled;

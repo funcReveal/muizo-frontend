@@ -113,6 +113,8 @@ export const useRoomProviderSettingsActions = ({
               uploadId,
               id: room.playlist.id,
               title: room.playlist.title,
+              sourceType:
+                room.playlist.sourceType ?? room.playlistSourceType ?? null,
               totalCount: uploadItems.length,
               items: firstChunk,
               isLast,
