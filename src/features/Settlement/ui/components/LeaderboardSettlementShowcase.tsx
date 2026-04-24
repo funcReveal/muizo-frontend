@@ -351,20 +351,20 @@ const SummaryMetric = memo(function SummaryMetric({
   note: string;
 }) {
   return (
-    <div className="flex items-center justify-center px-2 py-2 text-center xl:text-left">
-      <div className="flex w-full max-w-[220px] flex-col items-center justify-center gap-2 text-center xl:flex-row xl:items-start xl:text-left">
-        <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center text-amber-100">
+    <div className="flex min-w-0 items-center justify-center px-1 py-2 text-center xl:px-2 xl:text-left">
+      <div className="flex w-full min-w-0 max-w-[110px] flex-col items-center justify-center gap-1 text-center xl:max-w-[220px] xl:flex-row xl:items-start xl:gap-3 xl:text-left">
+        <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center text-amber-100 xl:h-10 xl:w-10">
           {icon}
         </div>
 
         <div className="min-w-0">
-          <div className="text-[10px] tracking-[0.16em] text-[var(--mc-text-muted)]">
+          <div className="text-[9px] tracking-[0.12em] text-[var(--mc-text-muted)] sm:text-[10px] xl:tracking-[0.16em]">
             {label}
           </div>
-          <div className="mt-0.5 text-[1.4rem] font-black leading-none text-amber-50">
+          <div className="mt-0.5 text-[1.05rem] font-black leading-none text-amber-50 sm:text-[1.15rem] xl:text-[1.4rem]">
             {value}
           </div>
-          <div className="mt-1 text-xs leading-5 text-[var(--mc-text-muted)]">
+          <div className="mt-1 text-[10px] leading-4 text-[var(--mc-text-muted)] xl:text-xs xl:leading-5">
             {note}
           </div>
         </div>
@@ -710,7 +710,7 @@ const LeaderboardSettlementShowcase: React.FC<
 
     const isDesktopLayout = useMediaQuery("(min-width: 1280px)");
     const listRowHeight = 84;
-    const { ref: questionListRef, width: questionListWidth } = useElementWidth();
+    const { ref: questionListRef } = useElementWidth();
     const [questionFilter, setQuestionFilter] = useState<QuestionFilterType>(null);
     const [mobileSettlementPanel, setMobileSettlementPanel] =
       useState<MobileSettlementPanel>("leaderboard");
@@ -1298,20 +1298,20 @@ const LeaderboardSettlementShowcase: React.FC<
             <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.7fr)]">
               <div className="min-w-0 space-y-3 overflow-hidden">
                 <article className="rounded-[18px] border border-amber-300/16 bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.08),transparent_28%),linear-gradient(180deg,rgba(28,20,10,0.78),rgba(8,10,14,0.92))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(220px,0.9fr)_minmax(0,1.1fr)]">
-                    <div className="border-b border-amber-300/14 pb-3 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(220px,0.9fr)_minmax(0,1.1fr)] lg:gap-3">
+                    <div className="min-w-0 border-r border-amber-300/14 pr-2 lg:pr-4">
                       <div className="text-center text-sm font-semibold text-amber-50/92">
                         本次排名
                       </div>
                       <div className="mt-3 flex items-center justify-center gap-4">
                         <AutoAwesomeRoundedIcon className="hidden text-amber-300/65 sm:block" sx={{ fontSize: 22 }} />
-                        <div className="text-[3rem] font-black leading-none text-amber-200 drop-shadow-[0_14px_32px_rgba(245,158,11,0.3)] sm:text-[3.8rem]">
+                        <div className="text-[2.35rem] font-black leading-none text-amber-200 drop-shadow-[0_14px_32px_rgba(245,158,11,0.3)] sm:text-[3rem] lg:text-[3.8rem]">
                           #{displayedCurrentRank || "--"}
                         </div>
                         <AutoAwesomeRoundedIcon className="hidden rotate-180 text-amber-300/65 sm:block" sx={{ fontSize: 22 }} />
                       </div>
                       <div className="mt-2 flex justify-center">
-                        <span className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-100">
+                        <span className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100 sm:px-2.5 sm:py-1 sm:text-xs">
                           勝過 {meSummary.rankPercentile}% 的玩家
                         </span>
                       </div>
@@ -1321,7 +1321,7 @@ const LeaderboardSettlementShowcase: React.FC<
                       <div className="text-center text-lg font-semibold text-amber-50/92">
                         本場得分
                       </div>
-                      <div className="mt-2 text-center text-[2.4rem] font-black leading-none tracking-tight text-amber-200 drop-shadow-[0_14px_32px_rgba(245,158,11,0.28)] sm:text-[3rem]">
+                      <div className="mt-2 text-center text-[2.15rem] font-black leading-none tracking-tight text-amber-200 drop-shadow-[0_14px_32px_rgba(245,158,11,0.28)] sm:text-[2.6rem] lg:text-[3rem]">
                         {formatScore(currentScore)}
                       </div>
                       {scoreDelta !== null && (
@@ -1380,7 +1380,7 @@ const LeaderboardSettlementShowcase: React.FC<
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-2 lg:grid-cols-3 lg:justify-items-center">
+                  <div className="mt-3 grid grid-cols-3 gap-1 sm:gap-2 lg:justify-items-center">
                     <SummaryMetric
                       icon={<TrackChangesRoundedIcon sx={{ fontSize: 22 }} />}
                       label="答對率"
@@ -1421,17 +1421,16 @@ const LeaderboardSettlementShowcase: React.FC<
                 </article>
                 {(isDesktopLayout || mobileSettlementPanel === "leaderboard") ? (
                   <article
-                    className="overflow-hidden rounded-[18px] border border-amber-300/16 bg-[linear-gradient(180deg,rgba(17,18,20,0.94),rgba(11,12,16,0.96))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-3"
-                    style={{ height: leaderboardCardHeight }}
+                    className={`rounded-[18px] border border-amber-300/16 bg-[linear-gradient(180deg,rgba(17,18,20,0.94),rgba(11,12,16,0.96))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-3 ${isDesktopLayout ? "overflow-hidden" : "overflow-visible"
+                      }`}
+                    style={isDesktopLayout ? { height: leaderboardCardHeight } : undefined}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/12 pb-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/12 pb-2">
-                        <h2 className="text-base font-black tracking-[0.06em] text-amber-100">
-                          排行榜
-                        </h2>
-                        <div className="rounded-full border border-amber-300/18 bg-amber-500/8 px-2.5 py-1 text-xs font-semibold text-amber-100/88">
-                          {rankingSummaryLabel}
-                        </div>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-base font-black tracking-[0.06em] text-amber-100">
+                        排行榜
+                      </h2>
+                      <div className="rounded-full border border-amber-300/18 bg-amber-500/8 px-2.5 py-1 text-xs font-semibold text-amber-100/88">
+                        {rankingSummaryLabel}
                       </div>
                     </div>
 
@@ -1675,8 +1674,9 @@ const LeaderboardSettlementShowcase: React.FC<
                     </div>
 
                     <div ref={questionListRef} className="mt-3 min-h-0">
-                      {filteredQuestionRows.length > 0 && questionListWidth > 0 ? (
+                      {filteredQuestionRows.length > 0 ? (
                         <List
+                          key={`${questionFilter ?? "all"}-${filteredQuestionRows.length}`}
                           rowComponent={QuestionListRow}
                           rowCount={filteredQuestionRows.length}
                           rowHeight={listRowHeight}
