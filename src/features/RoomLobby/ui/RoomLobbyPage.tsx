@@ -215,6 +215,7 @@ const buildLocalCasualSettlementSnapshot = ({
   room,
   participants,
   roundKey,
+  roundNo,
   startedAt,
   endedAt,
   recaps,
@@ -222,6 +223,7 @@ const buildLocalCasualSettlementSnapshot = ({
   room: RoomSettlementSnapshot["room"];
   participants: RoomSettlementSnapshot["participants"];
   roundKey: string;
+  roundNo: number;
   startedAt: number;
   endedAt: number;
   recaps: SettlementQuestionRecap[];
@@ -240,7 +242,7 @@ const buildLocalCasualSettlementSnapshot = ({
 
   return {
     roundKey,
-    roundNo: Math.max(1, Math.floor(startedAt / 1000)),
+    roundNo: Math.max(1, Math.floor(roundNo)),
     startedAt,
     endedAt,
     room,
@@ -1996,11 +1998,18 @@ const RoomLobbyPage: React.FC = () => {
         liveRoundKey ?? `${currentRoom.id}:${fallbackStartedAt}`;
 
       const fallbackRecaps = cloneSettlementRecaps(latestLiveRecapsRef.current);
+      const latestKnownRoundNo = Math.max(
+        0,
+        ...roomScopedSettlementHistory.map((snapshot) => snapshot.roundNo),
+        ...roomScopedSettlementHistorySummaries.map((summary) => summary.roundNo),
+      );
 
+      const fallbackRoundNo = latestKnownRoundNo + 1;
       const fallbackSnapshot = buildLocalCasualSettlementSnapshot({
         room: currentRoom,
         participants,
         roundKey: fallbackRoundKey,
+        roundNo: fallbackRoundNo,
         startedAt: fallbackStartedAt,
         endedAt: Date.now() + serverOffsetMs,
         recaps: fallbackRecaps,
@@ -2029,13 +2038,6 @@ const RoomLobbyPage: React.FC = () => {
           },
         ),
       );
-
-      setSettlementHistorySummaries((prev) => {
-        const summary = buildSettlementSummaryFromSnapshot(fallbackSnapshot);
-        const map = new Map(prev.map((item) => [item.roundKey, item] as const));
-        map.set(summary.roundKey, summary);
-        return limitSettlementSummaries(Array.from(map.values()));
-      });
 
       if (fallbackRecaps.length > 0) {
         setSettlementRecapsByRoundKey((prev) =>
