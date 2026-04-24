@@ -1051,18 +1051,7 @@ const CollectionDetailDrawer = ({
 
   const previewRowCount =
     previewItems.length + (previewHasMore || previewLoadingMore ? 1 : 0);
-  const previewListHeight = isCompact
-    ? getCollectionPreviewListHeight(true)
-    : Math.min(
-        430,
-        Math.max(
-          180,
-          Math.min(
-            previewRowCount || COLLECTION_DESKTOP_PREVIEW_VISIBLE_ROWS,
-            COLLECTION_DESKTOP_PREVIEW_VISIBLE_ROWS,
-          ) * COLLECTION_PREVIEW_ROW_HEIGHT,
-        ),
-      );
+  const previewListHeight = getCollectionPreviewListHeight(true);
   const previewListRowProps = useMemo<CollectionPreviewListRowProps>(
     () => ({
       items: previewItems,
@@ -1483,7 +1472,7 @@ const CollectionDetailDrawer = ({
               ) : null}
 
               <main
-                className={`flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-3 py-2.5 sm:px-6 sm:py-5 md:overflow-y-auto ${
+                className={`flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-3 py-2.5 sm:px-6 sm:py-5 ${
                   isCompact && mobileDetailTab !== "collection" ? "hidden" : ""
                 }`}
               >
@@ -1581,7 +1570,8 @@ const CollectionDetailDrawer = ({
                       <List<CollectionPreviewListRowProps>
                         className={`transient-scrollbar ${previewScrollbarClassName}`}
                         style={{
-                          height: previewListHeight,
+                          height: isCompact ? previewListHeight : "100%",
+                          minHeight: isCompact ? undefined : 0,
                           width: "100%",
                         }}
                         rowCount={previewRowCount}
