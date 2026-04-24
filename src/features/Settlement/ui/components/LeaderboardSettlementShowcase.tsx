@@ -326,18 +326,22 @@ const SummaryMetric = memo(function SummaryMetric({
   note: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-1 px-2 py-2 text-center">
-      <div className="inline-flex h-9 w-9 items-center justify-center text-amber-100">
-        {icon}
-      </div>
-      <div className="w-full min-w-0">
-        <div className="text-[10px] tracking-[0.16em] text-[var(--mc-text-muted)]">
-          {label}
+    <div className="flex items-center justify-center px-2 py-2">
+      <div className="flex w-full max-w-[220px] items-start gap-3 text-left">
+        <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center text-amber-100">
+          {icon}
         </div>
-        <div className="mt-0.5 text-[1.4rem] font-black leading-none text-amber-50">
-          {value}
+        <div className="min-w-0">
+          <div className="text-[10px] tracking-[0.16em] text-[var(--mc-text-muted)]">
+            {label}
+          </div>
+          <div className="mt-0.5 text-[1.4rem] font-black leading-none text-amber-50">
+            {value}
+          </div>
+          <div className="mt-1 text-xs leading-5 text-[var(--mc-text-muted)]">
+            {note}
+          </div>
         </div>
-        <div className="mt-1 text-xs text-[var(--mc-text-muted)]">{note}</div>
       </div>
     </div>
   );
@@ -1061,14 +1065,28 @@ const LeaderboardSettlementShowcase: React.FC<
     return `顯示前 ${Math.min(10, effectiveLeaderboardRows.length || 10)} 名`;
   })();
 
-  const LEADERBOARD_VISIBLE_ROWS = 6;
+  const QUESTION_VISIBLE_ROWS = 6.5;
+  const questionListTargetHeight = QUESTION_VISIBLE_ROWS * listRowHeight;
+  const questionListHeight = useMemo(() => {
+    if (filteredQuestionRows.length <= 0) return 220;
+    return Math.min(
+      filteredQuestionRows.length * listRowHeight,
+      questionListTargetHeight,
+    );
+  }, [filteredQuestionRows.length, listRowHeight, questionListTargetHeight]);
+  const LEADERBOARD_DESKTOP_ROW_HEIGHT = 60;
+  const LEADERBOARD_MOBILE_ROW_HEIGHT = 96;
+  const leaderboardCardHeight = Math.max(
+    questionListHeight - LEADERBOARD_DESKTOP_ROW_HEIGHT,
+    isDesktopLayout ? 300 : 360,
+  );
   const leaderboardDesktopHeight = Math.max(
-    60,
-    Math.min(effectiveLeaderboardRows.length, LEADERBOARD_VISIBLE_ROWS) * 60,
+    LEADERBOARD_DESKTOP_ROW_HEIGHT,
+    leaderboardCardHeight - 190,
   );
   const leaderboardMobileHeight = Math.max(
-    96,
-    Math.min(effectiveLeaderboardRows.length, LEADERBOARD_VISIBLE_ROWS) * 96,
+    LEADERBOARD_MOBILE_ROW_HEIGHT,
+    leaderboardCardHeight - 170,
   );
   const handleLeaderboardRowsRendered = useCallback(() => {}, []);
 
@@ -1088,12 +1106,6 @@ const LeaderboardSettlementShowcase: React.FC<
     return `距離第 ${Math.max(1, displayedCurrentRank - 1)} 名差 ${formatScore(meSummary.scoreGapToPrev)} 分`;
   })();
 
-  const QUESTION_VISIBLE_ROWS = 7;
-  const questionListHeight = useMemo(() => {
-    if (filteredQuestionRows.length <= 0) return 220;
-    return Math.min(filteredQuestionRows.length, QUESTION_VISIBLE_ROWS) * listRowHeight;
-  }, [filteredQuestionRows.length, listRowHeight]);
-
   const filterEmptyMessages: Record<Exclude<QuestionFilterType, null>, string> = {
     correct: "沒有答對的題目",
     wrong: "沒有答錯的題目",
@@ -1101,9 +1113,9 @@ const LeaderboardSettlementShowcase: React.FC<
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1820px] min-w-0 pb-6 pt-2 text-[var(--mc-text)]">
-      <section>
-        <div>
+    <div className="mx-auto w-full max-w-[1820px] min-w-0 overflow-hidden pt-2 text-[var(--mc-text)]">
+      <section className="min-h-0">
+        <div className="min-h-0">
           <div className="flex flex-col gap-2 border-b border-amber-300/14 pb-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex items-start gap-2">
@@ -1140,7 +1152,7 @@ const LeaderboardSettlementShowcase: React.FC<
           </div>
 
           <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.7fr)]">
-            <div className="min-w-0 space-y-3">
+            <div className="min-w-0 space-y-3 overflow-hidden">
               <article className="rounded-[18px] border border-amber-300/16 bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.08),transparent_28%),linear-gradient(180deg,rgba(28,20,10,0.78),rgba(8,10,14,0.92))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 <div className="grid gap-3 lg:grid-cols-[minmax(220px,0.9fr)_minmax(0,1.1fr)]">
                   <div className="border-b border-amber-300/14 pb-3 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
@@ -1224,7 +1236,7 @@ const LeaderboardSettlementShowcase: React.FC<
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                <div className="mt-3 grid gap-2 lg:grid-cols-3 lg:justify-items-center">
                   <SummaryMetric
                     icon={<TrackChangesRoundedIcon sx={{ fontSize: 22 }} />}
                     label="答對率"
@@ -1258,7 +1270,10 @@ const LeaderboardSettlementShowcase: React.FC<
                 </div>
               </article>
 
-              <article className="rounded-[18px] border border-amber-300/16 bg-[linear-gradient(180deg,rgba(17,18,20,0.94),rgba(11,12,16,0.96))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-3">
+              <article
+                className="overflow-hidden rounded-[18px] border border-amber-300/16 bg-[linear-gradient(180deg,rgba(17,18,20,0.94),rgba(11,12,16,0.96))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-3"
+                style={{ height: leaderboardCardHeight }}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/12 pb-2">
                   <h2 className="text-base font-black tracking-[0.06em] text-amber-100">
                     排行榜
@@ -1284,7 +1299,7 @@ const LeaderboardSettlementShowcase: React.FC<
                       <List
                         rowComponent={LeaderboardDesktopRow}
                         rowCount={effectiveLeaderboardRows.length}
-                        rowHeight={60}
+                        rowHeight={LEADERBOARD_DESKTOP_ROW_HEIGHT}
                         rowProps={{
                           rows: effectiveLeaderboardRows,
                           playedQuestionCount,
@@ -1299,7 +1314,7 @@ const LeaderboardSettlementShowcase: React.FC<
                       <List
                         rowComponent={LeaderboardMobileRow}
                         rowCount={effectiveLeaderboardRows.length}
-                        rowHeight={96}
+                        rowHeight={LEADERBOARD_MOBILE_ROW_HEIGHT}
                         rowProps={{
                           rows: effectiveLeaderboardRows,
                           playedQuestionCount,
