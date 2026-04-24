@@ -12,18 +12,19 @@ interface CareerTopOverviewStripProps {
 }
 
 const quickCardClass =
-  "rounded-[16px] border border-[var(--mc-border)] bg-[rgba(10,18,30,0.5)] px-3 py-2.5";
+  "rounded-[16px] border border-white/8 bg-white/[0.045] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]";
 
 const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
   hero,
 }) => {
   return (
-    <section className="shrink-0 rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.96),rgba(8,7,5,0.98))] p-4 shadow-[0_18px_38px_-28px_rgba(0,0,0,0.72)]">
+    <section className="relative shrink-0 overflow-hidden rounded-[26px] border border-cyan-100/14 bg-[radial-gradient(circle_at_16%_0%,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_92%_12%,rgba(251,191,36,0.13),transparent_30%),linear-gradient(180deg,rgba(8,15,28,0.98),rgba(2,6,23,0.99))] p-4 shadow-[0_22px_54px_-34px_rgba(34,211,238,0.7),inset_0_1px_0_rgba(255,255,255,0.055)]">
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/50 to-transparent" />
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-sky-300/40 bg-[radial-gradient(circle_at_30%_30%,rgba(61,160,255,0.9),rgba(18,49,91,1))] text-lg font-bold text-white shadow-[0_0_0_6px_rgba(14,165,233,0.08)]">
-              ZY
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/28 bg-[radial-gradient(circle_at_30%_25%,rgba(125,211,252,0.95),rgba(8,47,73,0.95))] text-lg font-bold text-white shadow-[0_0_0_6px_rgba(34,211,238,0.08),0_18px_34px_-24px_rgba(34,211,238,0.9)]">
+              {hero.displayName.trim().slice(0, 2).toUpperCase() || "MU"}
             </div>
 
             <div className="min-w-0">
@@ -33,16 +34,15 @@ const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
               <div className="mt-0.5 truncate text-sm font-semibold text-sky-300">
                 {hero.displayName} · {hero.descriptor}
               </div>
-              <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--mc-text-muted)]">
-                先把核心 overview 固定在上方，tabs
-                與各工作區再放下面，讓整頁更像單頁 workbench。
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-400">
+                依照你的真實對戰紀錄同步總分、名次、題庫表現與近期成長。
               </p>
             </div>
           </div>
         </div>
 
-        <div className="inline-flex items-center self-start rounded-full border border-sky-300/28 bg-sky-300/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.12em] text-sky-100">
-          CAREER WORKBENCH
+        <div className="inline-flex items-center self-start rounded-full border border-cyan-200/24 bg-cyan-300/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.12em] text-cyan-100">
+          LIVE CAREER DATA
         </div>
       </div>
 

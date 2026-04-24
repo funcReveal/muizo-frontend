@@ -72,7 +72,10 @@ type UseCollectionEditAiBatchArgs = {
   setPlaylistItems: React.Dispatch<React.SetStateAction<EditableItem[]>>;
   markDirty: () => void;
   markItemsDirty: (localIds: string[]) => void;
-  handleSaveCollection: (mode: "manual" | "auto") => Promise<boolean>;
+  handleSaveCollection: (
+    mode: "manual" | "auto",
+    itemsOverride?: EditableItem[],
+  ) => Promise<boolean>;
   saveError: string | null;
 };
 
@@ -413,26 +416,25 @@ export function useCollectionEditAiBatch({
     const updates = new Map(
       aiPreview.changedItems.map((item) => [item.id, item.newAnswer] as const),
     );
-    const changedLocalIds = playlistItems
+    const nextPlaylistItems = playlistItems.map((item) => {
+      const key = item.dbId ?? item.localId;
+      const nextAnswer = updates.get(key);
+      if (!nextAnswer) return item;
+
+      return {
+        ...item,
+        answerText: nextAnswer,
+        answerStatus: "ai_modified",
+        answerAiProvider: AI_PROVIDER,
+        answerAiUpdatedAt: updatedAt,
+        answerAiBatchKey: batchKey,
+      };
+    });
+    const changedLocalIds = nextPlaylistItems
       .filter((item) => updates.has(item.dbId ?? item.localId))
       .map((item) => item.localId);
 
-    setPlaylistItems((prev) =>
-      prev.map((item) => {
-        const key = item.dbId ?? item.localId;
-        const nextAnswer = updates.get(key);
-        if (!nextAnswer) return item;
-
-        return {
-          ...item,
-          answerText: nextAnswer,
-          answerStatus: "ai_modified",
-          answerAiProvider: AI_PROVIDER,
-          answerAiUpdatedAt: updatedAt,
-          answerAiBatchKey: batchKey,
-        };
-      }),
-    );
+    setPlaylistItems(nextPlaylistItems);
 
     if (changedLocalIds.length > 0) {
       markItemsDirty(changedLocalIds);
@@ -461,7 +463,7 @@ export function useCollectionEditAiBatch({
       totalPages,
     });
 
-    const saved = await handleSaveCollection("auto");
+    const saved = await handleSaveCollection("auto", nextPlaylistItems);
 
     if (saved) {
       setAiHelperNotice(

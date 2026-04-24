@@ -32,7 +32,7 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
   error,
 }) => {
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <CareerWorkbenchShell className="shrink-0 p-4">
         <CareerCollectionRanksHeaderSection />
 
@@ -46,8 +46,8 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
         </div>
       </CareerWorkbenchShell>
 
-      <CareerWorkbenchShell className="min-h-0 flex-1 overflow-hidden p-4">
-        <div className="min-h-0 h-full overflow-auto pr-1">
+      <CareerWorkbenchShell className="p-4">
+        <div>
           {isLoading ? (
             <CareerStatePanel>載入題庫戰績中...</CareerStatePanel>
           ) : error ? (

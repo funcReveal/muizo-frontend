@@ -2,15 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@shared/auth/AuthContext";
 
-import { mockCareerOverviewData } from "../mocks/career.mock";
 import type {
   CareerOverviewData,
   CareerOverviewQueryResult,
 } from "../types/career";
-import { fetchCareerOverview } from "./careerOverviewApi";
-
-const ENABLE_CAREER_OVERVIEW_API =
-  import.meta.env.VITE_ENABLE_CAREER_OVERVIEW_API === "true";
+import { emptyCareerOverviewData, fetchCareerOverview } from "./careerOverviewApi";
 
 type RemoteCareerOverviewState = {
   requestKey: string;
@@ -31,7 +27,7 @@ const buildCareerOverviewRequestKey = ({
 export const useCareerOverviewData = (): CareerOverviewQueryResult => {
   const { clientId, authToken, refreshAuthToken } = useAuth();
 
-  const fallbackData = useMemo(() => mockCareerOverviewData, []);
+  const emptyData = useMemo(() => emptyCareerOverviewData, []);
 
   const requestKey = useMemo(
     () =>
@@ -46,8 +42,6 @@ export const useCareerOverviewData = (): CareerOverviewQueryResult => {
     useState<RemoteCareerOverviewState | null>(null);
 
   useEffect(() => {
-    if (!ENABLE_CAREER_OVERVIEW_API) return;
-
     let cancelled = false;
     const currentRequestKey = requestKey;
 
@@ -55,7 +49,6 @@ export const useCareerOverviewData = (): CareerOverviewQueryResult => {
       clientId,
       authToken,
       refreshAuthToken,
-      fallback: fallbackData,
     })
       .then((nextData) => {
         if (cancelled) return;
@@ -84,21 +77,13 @@ export const useCareerOverviewData = (): CareerOverviewQueryResult => {
     return () => {
       cancelled = true;
     };
-  }, [authToken, clientId, fallbackData, refreshAuthToken, requestKey]);
-
-  if (!ENABLE_CAREER_OVERVIEW_API) {
-    return {
-      data: fallbackData,
-      isLoading: false,
-      error: null,
-    };
-  }
+  }, [authToken, clientId, refreshAuthToken, requestKey]);
 
   const matchedRemoteState =
     remoteState?.requestKey === requestKey ? remoteState : null;
 
   return {
-    data: matchedRemoteState?.data ?? fallbackData,
+    data: matchedRemoteState?.data ?? emptyData,
     isLoading: matchedRemoteState === null,
     error: matchedRemoteState?.error ?? null,
   };

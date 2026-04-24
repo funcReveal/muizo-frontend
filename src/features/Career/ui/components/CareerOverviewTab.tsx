@@ -29,13 +29,13 @@ const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
   onOpenShare,
 }) => {
   return (
-    <div className="h-full min-h-0 overflow-auto pr-1 xl:overflow-hidden xl:pr-0">
-      <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[1.28fr_0.72fr]">
-        <div className="min-h-0">
+    <div>
+      <div className="grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
+        <div>
           <CareerCompositeSection composite={composite} />
         </div>
 
-        <div className="grid min-h-0 gap-4 xl:grid-rows-[auto_auto_minmax(0,1fr)]">
+        <div className="grid gap-4">
           <CareerWeeklySection weekly={weekly} />
 
           <CareerCollectionShortcutsSection

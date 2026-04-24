@@ -322,16 +322,18 @@ const RoomSetupPanel = ({
   const leaderboardLockedOverlay = isLeaderboardSettingsLocked ? (
     <div
       aria-hidden="true"
-      className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-center justify-center rounded-2xl border border-amber-200/18 bg-slate-950/62 px-4 backdrop-blur-[2px]"
+      className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-start justify-start rounded-2xl border border-amber-200/18 bg-slate-950/50 px-4 pt-14 backdrop-blur-[2px]"
     >
-      <div className="inline-flex items-center gap-3 rounded-2xl border border-amber-200/24 bg-amber-300/12 px-4 py-3 text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.72)]">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-100/24 bg-amber-200/14">
+      <div className="inline-flex w-full items-center gap-3 rounded-2xl border border-amber-200/24 bg-amber-300/12 px-4 py-3 text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.72)]">
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-100/24 bg-amber-200/14">
           <LockOutlined sx={{ fontSize: 18 }} />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold">僅休閒派對可調整</span>
+          <span className="block text-sm font-semibold">
+            排行挑戰模式下，這個區塊無法在 lobby 修改。
+          </span>
           <span className="mt-0.5 block text-xs text-amber-100/72">
-            排行挑戰使用固定規格
+            會沿用排行榜固定規格
           </span>
         </span>
       </div>
@@ -981,14 +983,14 @@ const RoomSetupPanel = ({
         </div>
 
         <div
-          className={`mt-4 grid gap-4 lg:grid-cols-2 ${
+          className={`mt-4 grid gap-3 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)] ${
             isLeaderboardSettingsLocked
               ? "pointer-events-none opacity-55 saturate-75"
               : ""
           }`}
         >
           <div>
-            <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-3">
+            <div className="rounded-xl border border-white/8 bg-white/[0.035] p-3">
               {supportsCollectionClipTiming ? (
                 <>
                   <div className="flex items-center gap-2">
@@ -1177,7 +1179,7 @@ const RoomSetupPanel = ({
           </div>
 
           <div>
-            <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 p-4">
+            <div className="rounded-xl border border-white/8 bg-white/[0.035] p-3">
               <div className="flex items-center gap-2">
                 <AccessTimeRounded sx={{ fontSize: 18, color: "#fbbf24" }} />
                 <p className="text-sm font-semibold text-[var(--mc-text)]">

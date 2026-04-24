@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { mockCareerCollectionRankRows } from "../mocks/career.mock";
+import { useAuth } from "@shared/auth/AuthContext";
+
 import type {
   CareerCollectionRankRow,
   CareerCollectionRanksQueryResult,
   CareerCollectionRankSortKey,
   CareerCollectionRankSortOrder,
 } from "../types/career";
+import { fetchCareerCollectionRanks } from "./careerOverviewApi";
 
 const normalizeNumber = (
   value: number | null | undefined,
@@ -56,14 +58,53 @@ const sortItems = (
 
 export const useCareerCollectionRanksData =
   (): CareerCollectionRanksQueryResult => {
+    const { clientId, authToken, refreshAuthToken } = useAuth();
     const [sortKey, setSortKey] =
       useState<CareerCollectionRankSortKey>("leaderboardRank");
     const [sortOrder, setSortOrder] =
       useState<CareerCollectionRankSortOrder>("asc");
+    const [rawItems, setRawItems] = useState<CareerCollectionRankRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+      let cancelled = false;
+
+      void Promise.resolve()
+        .then(async () => {
+          setIsLoading(true);
+          setError(null);
+          return fetchCareerCollectionRanks({
+            clientId,
+            authToken,
+            refreshAuthToken,
+          });
+        })
+        .then((items) => {
+          if (cancelled) return;
+          setRawItems(items);
+        })
+        .catch((caughtError) => {
+          if (cancelled) return;
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "讀取題庫戰績失敗",
+          );
+          setRawItems([]);
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [authToken, clientId, refreshAuthToken]);
 
     const items = useMemo(
-      () => sortItems(mockCareerCollectionRankRows, sortKey, sortOrder),
-      [sortKey, sortOrder],
+      () => sortItems(rawItems, sortKey, sortOrder),
+      [rawItems, sortKey, sortOrder],
     );
 
     return {
@@ -72,8 +113,8 @@ export const useCareerCollectionRanksData =
       sortOrder,
       setSortKey,
       setSortOrder,
-      isLoading: false,
-      error: null,
+      isLoading,
+      error,
     };
   };
 

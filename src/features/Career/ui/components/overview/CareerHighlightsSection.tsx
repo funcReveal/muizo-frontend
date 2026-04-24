@@ -13,7 +13,7 @@ const CareerHighlightsSection: React.FC<CareerHighlightsSectionProps> = ({
   onOpenShare,
 }) => {
   return (
-    <CareerSurface className="min-h-0 overflow-hidden">
+    <CareerSurface>
       <div className="flex items-end justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold tracking-tight text-[var(--mc-text)]">
@@ -33,7 +33,7 @@ const CareerHighlightsSection: React.FC<CareerHighlightsSectionProps> = ({
         </button>
       </div>
 
-      <div className="mt-4 grid h-[calc(100%-56px)] min-h-0 gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {highlights.map((item) => (
           <div
             key={`${item.key}-${item.label}`}

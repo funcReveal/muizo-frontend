@@ -33,9 +33,9 @@ const CareerShareTab: React.FC<CareerShareTabProps> = ({
   error,
 }) => {
   return (
-    <div className="h-full min-h-0 overflow-auto pr-1 xl:overflow-hidden xl:pr-0">
-      <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="grid min-h-0 gap-4 xl:grid-rows-[auto_minmax(0,1fr)]">
+    <div>
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-4">
           <CareerShareTemplateSection
             activeTemplate={activeTemplate}
             setActiveTemplate={setActiveTemplate}
@@ -45,7 +45,7 @@ const CareerShareTab: React.FC<CareerShareTabProps> = ({
           <CareerSharePreviewSection preview={preview} />
         </div>
 
-        <div className="grid min-h-0 gap-4 xl:grid-rows-[auto_minmax(0,1fr)]">
+        <div className="grid gap-4">
           <CareerShareActionsSection caption={caption} />
 
           <CareerShareCaptionSection

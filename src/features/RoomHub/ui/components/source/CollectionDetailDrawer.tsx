@@ -12,15 +12,16 @@ import {
   ChairRounded,
   ChevronLeftRounded,
   CloseRounded,
-  EmojiEventsRounded,
   KeyboardArrowDownRounded,
   LoginRounded,
   LockOutlined,
   PlayArrowRounded,
   PublicOutlined,
+  PublicRounded,
   QuizRounded,
   StarBorderRounded,
   StarRounded,
+  AutoAwesome,
   // TimelineRounded,
 } from "@mui/icons-material";
 import {
@@ -61,7 +62,10 @@ import {
   type RoomPlayMode,
 } from "../../../model/leaderboardChallengeOptions";
 import RoomSetupPanel from "../setup/RoomSetupPanel";
-import type { CreateSettingsCard, SourceSummary } from "../../roomsHubViewModels";
+import type {
+  CreateSettingsCard,
+  SourceSummary,
+} from "../../roomsHubViewModels";
 
 type CollectionDetail = {
   id: string;
@@ -95,7 +99,9 @@ type CollectionDetailDrawerProps = {
   onStartCustomRoom?: (collectionId: string) => void | Promise<void>;
   onStartLeaderboardChallenge?: (collectionId: string) => void | Promise<void>;
   onConfirmCustomRoom?: (collectionId: string) => void | Promise<void>;
-  onConfirmLeaderboardChallenge?: (collectionId: string) => void | Promise<void>;
+  onConfirmLeaderboardChallenge?: (
+    collectionId: string,
+  ) => void | Promise<void>;
   onToggleFavorite?: () => void | Promise<void | boolean>;
   formatDurationLabel: (value: number) => string | null;
   roomNameInput: string;
@@ -367,7 +373,9 @@ const LeaderboardPlayerRow = ({
       />
       <span
         className={`w-8 shrink-0 text-left text-sm font-semibold tabular-nums tracking-normal ${
-          isCurrent || variant === "current" ? "text-cyan-100" : "text-slate-300"
+          isCurrent || variant === "current"
+            ? "text-cyan-100"
+            : "text-slate-300"
         }`}
       >
         {rankLabel}
@@ -385,23 +393,24 @@ const LeaderboardPlayerRow = ({
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-slate-100">
           <span className="truncate">{player.name}</span>
-          {isCurrent || variant === "current" ? (
+          {/* {isCurrent || variant === "current" ? (
             <span className="shrink-0 rounded-full border border-cyan-100/16 bg-cyan-300/8 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
               你的紀錄
             </span>
-          ) : null}
+          ) : null} */}
         </p>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
           <span className="min-w-0 truncate">{player.meta}</span>
           <span className="shrink-0 text-slate-600">/</span>
-          <span className="shrink-0 text-slate-300">耗時 {player.duration}</span>
+          <span className="shrink-0 text-slate-300">
+            耗時 {player.duration}
+          </span>
         </div>
       </div>
       <div className="shrink-0 text-right">
         <p className="text-sm font-semibold tabular-nums text-slate-50">
           {player.score}
         </p>
-        <p className="mt-1 text-[11px] text-slate-500">pts</p>
       </div>
     </div>
   );
@@ -421,7 +430,7 @@ const formatLeaderboardEntryMeta = (entry: CollectionLeaderboardEntry) => {
     entry.correctCount !== null &&
     entry.questionCount !== null &&
     entry.questionCount > 0
-      ? `命中 ${Math.round((entry.correctCount / entry.questionCount) * 100)}%`
+      ? `正確率 ${Math.round((entry.correctCount / entry.questionCount) * 100)}%`
       : null;
   const correct =
     entry.correctCount !== null && entry.questionCount !== null
@@ -430,7 +439,7 @@ const formatLeaderboardEntryMeta = (entry: CollectionLeaderboardEntry) => {
         ? `${entry.correctCount} 題`
         : null;
 
-  return [correct, accuracy, `combo ${entry.maxCombo}`]
+  return [correct, accuracy, `Combo x${entry.maxCombo}`]
     .filter(Boolean)
     .join(" · ");
 };
@@ -663,6 +672,8 @@ const CollectionDetailDrawer = ({
 }: CollectionDetailDrawerProps) => {
   const { authToken, refreshAuthToken } = useAuth();
   const isCompact = useMediaQuery("(max-width:767px)");
+  const authTokenRef = useRef(authToken);
+  const refreshAuthTokenRef = useRef(refreshAuthToken);
   const [previewItems, setPreviewItems] = useState<
     CollectionItemPreviewRecord[]
   >([]);
@@ -701,8 +712,7 @@ const CollectionDetailDrawer = ({
   const isPublic = (collection?.visibility ?? "private") === "public";
   const canStartLeaderboardChallenge = isPublic && isAuthenticated;
   const isFavorited = Boolean(collection?.is_favorited);
-  const [drawerView, setDrawerView] =
-    useState<CollectionDrawerView>("detail");
+  const [drawerView, setDrawerView] = useState<CollectionDrawerView>("detail");
   const [isLeaderboardProfileMenuOpen, setIsLeaderboardProfileMenuOpen] =
     useState(false);
   const [leaderboardProfileAnchorEl, setLeaderboardProfileAnchorEl] =
@@ -729,55 +739,12 @@ const CollectionDetailDrawer = ({
   );
   const activeLeaderboardData =
     leaderboardPreviewByVariant[activeLeaderboardVariant.key];
-  const activeLeaderboardProfileSummary = leaderboardOverview?.profiles.find(
-    (profile) => profile.profileKey === activeLeaderboardProfileKey,
-  );
-  const activeLeaderboardEntries =
-    leaderboardEntries.length > 0
-      ? leaderboardEntries
-      : activeLeaderboardData.players.map((player) => ({
-          rank: typeof player.rank === "number" ? player.rank : 0,
-          userId: null,
-          displayName: player.name,
-          avatarUrl: player.avatarUrl ?? null,
-          score: Number(player.score.replaceAll(",", "")) || 0,
-          correctCount: null,
-          questionCount: null,
-          maxCombo: 0,
-          avgCorrectMs: null,
-          durationSec: null,
-          achievedAt: new Date(0).toISOString(),
-          isMe: Boolean(player.isCurrentUser),
-        }));
+  const activeLeaderboardEntries = leaderboardEntries;
   const activeLeaderboardMyBestEntry =
     leaderboardOverview?.activeProfile.profile.profileKey ===
     activeLeaderboardProfileKey
       ? leaderboardOverview.activeProfile.myBestEntry
       : null;
-  const activeLeaderboardSummary = [
-    {
-      label: "最高分",
-      value: leaderboardOverview
-        ? activeLeaderboardEntries[0]?.score != null
-          ? formatLeaderboardScore(activeLeaderboardEntries[0].score)
-          : "--"
-        : activeLeaderboardData.summary[0]?.value ?? "--",
-    },
-    {
-      label: "參與玩家",
-      value: leaderboardOverview
-        ? activeLeaderboardProfileSummary?.totalPlayers != null
-          ? formatLeaderboardScore(activeLeaderboardProfileSummary.totalPlayers)
-          : "0"
-        : activeLeaderboardData.summary[2]?.value ?? "--",
-    },
-    {
-      label: "我的最佳",
-      value: activeLeaderboardProfileSummary?.myBestRank
-        ? `#${activeLeaderboardProfileSummary.myBestRank}`
-        : "尚無紀錄",
-    },
-  ];
   const activeLeaderboardModeLabel = getLeaderboardModeLabel(
     selectedLeaderboardMode,
   );
@@ -811,8 +778,7 @@ const CollectionDetailDrawer = ({
         )?.myBestRank
       : null;
     if (leaderboardOverview) return rank ? `最佳 #${rank}` : "尚無紀錄";
-    const fallbackRank = leaderboardPreviewByVariant[variantKey].currentUser.rank;
-    return fallbackRank === "--" ? "尚無紀錄" : `最佳 #${fallbackRank}`;
+    return leaderboardLoading ? "讀取中" : "尚無紀錄";
   };
   const leaderboardProfileMenuWidth = leaderboardProfileAnchorEl
     ? leaderboardProfileAnchorEl.clientWidth
@@ -822,7 +788,7 @@ const CollectionDetailDrawer = ({
         activeLeaderboardMyBestEntry,
         formatDurationLabel,
       )
-    : activeLeaderboardData.players.find((player) => player.isCurrentUser);
+    : null;
   const currentLeaderboardRecord: LeaderboardPreviewPlayer =
     currentLeaderboardPlayer ?? {
       rank: activeLeaderboardData.currentUser.rank,
@@ -833,19 +799,9 @@ const CollectionDetailDrawer = ({
       clientId: `preview-you-${activeLeaderboardVariant.key}`,
       isCurrentUser: true,
     };
-  const leaderboardPlayersToShow = isCompact && !leaderboardOverview
-    ? [
-        ...activeLeaderboardData.players.slice(0, 3),
-        ...(currentLeaderboardPlayer &&
-        !activeLeaderboardData.players
-          .slice(0, 3)
-          .some((player) => player.rank === currentLeaderboardPlayer.rank)
-          ? [currentLeaderboardPlayer]
-          : []),
-      ]
-    : activeLeaderboardEntries.map((entry) =>
-        toLeaderboardPreviewPlayer(entry, formatDurationLabel),
-      );
+  const leaderboardPlayersToShow = activeLeaderboardEntries.map((entry) =>
+    toLeaderboardPreviewPlayer(entry, formatDurationLabel),
+  );
   const isPreparingLeaderboardChallenge =
     isLeaderboardStartPending || isApplying || isCreatingRoom;
   const isPreparingCustomRoom =
@@ -983,6 +939,11 @@ const CollectionDetailDrawer = ({
   };
 
   useEffect(() => {
+    authTokenRef.current = authToken;
+    refreshAuthTokenRef.current = refreshAuthToken;
+  }, [authToken, refreshAuthToken]);
+
+  useEffect(() => {
     if (!isLeaderboardProfileMenuOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -1015,8 +976,8 @@ const CollectionDetailDrawer = ({
 
       try {
         const token = await ensureFreshAuthToken({
-          token: authToken,
-          refreshAuthToken,
+          token: authTokenRef.current,
+          refreshAuthToken: refreshAuthTokenRef.current,
           leewayMs: 60_000,
         });
         const result = await apiFetchCollectionItemPreview(
@@ -1068,7 +1029,7 @@ const CollectionDetailDrawer = ({
         }
       }
     },
-    [authToken, collection?.id, refreshAuthToken],
+    [collection?.id],
   );
 
   const handleLoadMorePreviewItems = useCallback(() => {
@@ -1124,8 +1085,8 @@ const CollectionDetailDrawer = ({
 
     try {
       const token = await ensureFreshAuthToken({
-        token: authToken,
-        refreshAuthToken,
+        token: authTokenRef.current,
+        refreshAuthToken: refreshAuthTokenRef.current,
         leewayMs: 60_000,
       });
       const result = await apiFetchCollectionLeaderboardOverview(
@@ -1139,9 +1100,7 @@ const CollectionDetailDrawer = ({
       );
       if (requestId !== leaderboardRequestIdRef.current) return;
       if (!result.ok || !result.payload?.data) {
-        setLeaderboardError(
-          result.payload?.error ?? "排行榜資料載入失敗",
-        );
+        setLeaderboardError(result.payload?.error ?? "排行榜資料載入失敗");
         return;
       }
 
@@ -1160,13 +1119,7 @@ const CollectionDetailDrawer = ({
         setLeaderboardLoading(false);
       }
     }
-  }, [
-    activeLeaderboardProfileKey,
-    authToken,
-    collection?.id,
-    isPublic,
-    refreshAuthToken,
-  ]);
+  }, [activeLeaderboardProfileKey, collection?.id, isPublic]);
 
   const handleLoadMoreLeaderboardEntries = useCallback(async () => {
     if (
@@ -1186,8 +1139,8 @@ const CollectionDetailDrawer = ({
 
     try {
       const token = await ensureFreshAuthToken({
-        token: authToken,
-        refreshAuthToken,
+        token: authTokenRef.current,
+        refreshAuthToken: refreshAuthTokenRef.current,
         leewayMs: 60_000,
       });
       const result = await apiFetchCollectionLeaderboardRankings(
@@ -1202,9 +1155,7 @@ const CollectionDetailDrawer = ({
       );
       if (requestId !== leaderboardRequestIdRef.current) return;
       if (!result.ok || !result.payload?.data) {
-        setLeaderboardError(
-          result.payload?.error ?? "排行榜資料載入失敗",
-        );
+        setLeaderboardError(result.payload?.error ?? "排行榜資料載入失敗");
         return;
       }
 
@@ -1234,12 +1185,10 @@ const CollectionDetailDrawer = ({
     }
   }, [
     activeLeaderboardProfileKey,
-    authToken,
     collection?.id,
     leaderboardHasMore,
     leaderboardLoadingMore,
     leaderboardNextOffset,
-    refreshAuthToken,
   ]);
 
   const leaderboardRowCount =
@@ -1356,13 +1305,13 @@ const CollectionDetailDrawer = ({
               </IconButton>
             ) : null}
             <div className="min-w-0">
-            <h2 className="mt-1 truncate text-lg font-semibold text-slate-50 sm:text-xl">
-              {isSetupLeaderboardMode
-                ? "排行挑戰設定"
-                : isSetupView
-                  ? "休閒房設定"
-                  : collection?.title ?? "收藏庫"}
-            </h2>
+              <h2 className="mt-1 truncate text-lg font-semibold text-slate-50 sm:text-xl">
+                {isSetupLeaderboardMode
+                  ? "排行挑戰設定"
+                  : isSetupView
+                    ? "休閒房設定"
+                    : (collection?.title ?? "收藏庫")}
+              </h2>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -1379,462 +1328,452 @@ const CollectionDetailDrawer = ({
           </div>
         </header>
 
-        {collection ? isSetupView ? (
-          <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:grid-cols-[240px_minmax(0,1fr)] md:grid-rows-none">
-            <aside className="border-b border-cyan-300/12 bg-slate-950/30 px-4 py-3 md:border-b-0 md:border-r md:px-5 md:py-5">
-              <div className="flex min-w-0 items-center gap-3 md:block">
-                <div className="h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-900/80 md:h-auto md:w-full md:aspect-[16/9]">
-                  {previewThumbnail ? (
-                    <img
-                      src={previewThumbnail}
-                      alt={collection.cover_title ?? collection.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-                      無封面
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 md:mt-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[11px] font-medium text-slate-300">
-                    {isPublic ? (
-                      <PublicOutlined sx={{ fontSize: 13 }} />
+        {collection ? (
+          isSetupView ? (
+            <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:grid-cols-[240px_minmax(0,1fr)] md:grid-rows-none">
+              <aside className="border-b border-cyan-300/12 bg-slate-950/30 px-4 py-3 md:border-b-0 md:border-r md:px-5 md:py-5">
+                <div className="flex min-w-0 items-center gap-3 md:block">
+                  <div className="h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-900/80 md:h-auto md:w-full md:aspect-[16/9]">
+                    {previewThumbnail ? (
+                      <img
+                        src={previewThumbnail}
+                        alt={collection.cover_title ?? collection.title}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
-                      <LockOutlined sx={{ fontSize: 13 }} />
+                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+                        無封面
+                      </div>
                     )}
-                    {isPublic ? "公開收藏庫" : "私人收藏庫"}
-                  </span>
-                  <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-slate-50">
-                    {collection.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {typeof collection.item_count === "number"
-                      ? `${Math.max(0, collection.item_count)} 題`
-                      : "題數未提供"}
-                  </p>
+                  </div>
+                  <div className="min-w-0 md:mt-3">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[11px] font-medium text-slate-300">
+                      {isPublic ? (
+                        <PublicOutlined sx={{ fontSize: 13 }} />
+                      ) : (
+                        <LockOutlined sx={{ fontSize: 13 }} />
+                      )}
+                      {isPublic ? "公開收藏庫" : "私人收藏庫"}
+                    </span>
+                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-slate-50">
+                      {collection.title}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {typeof collection.item_count === "number"
+                        ? `${Math.max(0, collection.item_count)} 題`
+                        : "題數未提供"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </aside>
+              </aside>
 
-            <main className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-              <RoomSetupPanel
-                roomNameInput={roomNameInput}
-                setRoomNameInput={setRoomNameInput}
-                roomVisibilityInput={roomVisibilityInput}
-                setRoomVisibilityInput={setRoomVisibilityInput}
-                roomPasswordInput={roomPasswordInput}
-                setRoomPasswordInput={setRoomPasswordInput}
-                isPinProtectionEnabled={isPinProtectionEnabled}
-                setIsPinProtectionEnabled={setIsPinProtectionEnabled}
-                pinValidationAttempted={pinValidationAttempted}
-                setRoomMaxPlayersInput={setRoomMaxPlayersInput}
-                parsedMaxPlayers={parsedMaxPlayers}
-                questionCount={questionCount}
-                questionMin={questionMin}
-                questionMaxLimit={questionMaxLimit}
-                updateQuestionCount={updateQuestionCount}
-                roomPlayMode={roomPlayMode}
-                setRoomPlayMode={setRoomPlayMode}
-                roomCreateSourceMode={setupRoomCreateSourceMode}
-                selectedLeaderboardMode={selectedLeaderboardMode}
-                selectedLeaderboardVariant={selectedLeaderboardVariant}
-                onLeaderboardSelectionChange={onLeaderboardSelectionChange}
-                isAuthenticated={isAuthenticated}
-                isAuthLoading={isAuthLoading}
-                onLoginRequired={onLoginRequired}
-                playDurationSec={playDurationSec}
-                revealDurationSec={revealDurationSec}
-                startOffsetSec={startOffsetSec}
-                allowCollectionClipTiming={allowCollectionClipTiming}
-                updatePlayDurationSec={updatePlayDurationSec}
-                updateRevealDurationSec={updateRevealDurationSec}
-                updateStartOffsetSec={updateStartOffsetSec}
-                updateAllowCollectionClipTiming={updateAllowCollectionClipTiming}
-                playbackExtensionMode={playbackExtensionMode}
-                setPlaybackExtensionMode={setPlaybackExtensionMode}
-                supportsCollectionClipTiming={setupSupportsCollectionClipTiming}
-                selectedCreateSourceSummary={setupSourceSummary}
-                isSourceSummaryLoading={isSourceSummaryLoading}
-                createSettingsCards={createSettingsCards}
-                createRequirementsHintText={createRequirementsHintText}
-                createRecommendationHintText={createRecommendationHintText}
-                canCreateRoom={canCreateRoom}
-                isCreatingRoom={isCreatingRoom}
-                onCreateRoom={
-                  isSetupLeaderboardMode
-                    ? handleConfirmLeaderboardChallenge
-                    : handleConfirmCustomRoom
-                }
-              />
-            </main>
-          </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:grid md:grid-cols-[minmax(360px,0.82fr)_minmax(420px,1.18fr)] md:grid-rows-none md:gap-0">
-            <main className="min-h-0 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
-              <section className="overflow-hidden rounded-[22px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                <div className="relative aspect-[16/9] min-h-40 overflow-hidden bg-slate-900/80 sm:aspect-[16/5] sm:min-h-32">
-                  {previewThumbnail ? (
-                    <img
-                      src={previewThumbnail}
-                      alt={collection.cover_title ?? collection.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
-                      無封面
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
-                  <div className="absolute bottom-3 left-3 right-3 sm:left-4 sm:right-4">
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/56 px-2.5 py-1 text-xs font-medium text-slate-100 backdrop-blur">
-                        {isPublic ? (
-                          <PublicOutlined sx={{ fontSize: 14 }} />
-                        ) : (
-                          <LockOutlined sx={{ fontSize: 14 }} />
-                        )}
-                        {isPublic ? "公開收藏庫" : "私人收藏庫"}
-                      </span>
-                      {/* {collection.has_ai_edited ? (
+              <main className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+                <RoomSetupPanel
+                  roomNameInput={roomNameInput}
+                  setRoomNameInput={setRoomNameInput}
+                  roomVisibilityInput={roomVisibilityInput}
+                  setRoomVisibilityInput={setRoomVisibilityInput}
+                  roomPasswordInput={roomPasswordInput}
+                  setRoomPasswordInput={setRoomPasswordInput}
+                  isPinProtectionEnabled={isPinProtectionEnabled}
+                  setIsPinProtectionEnabled={setIsPinProtectionEnabled}
+                  pinValidationAttempted={pinValidationAttempted}
+                  setRoomMaxPlayersInput={setRoomMaxPlayersInput}
+                  parsedMaxPlayers={parsedMaxPlayers}
+                  questionCount={questionCount}
+                  questionMin={questionMin}
+                  questionMaxLimit={questionMaxLimit}
+                  updateQuestionCount={updateQuestionCount}
+                  roomPlayMode={roomPlayMode}
+                  setRoomPlayMode={setRoomPlayMode}
+                  roomCreateSourceMode={setupRoomCreateSourceMode}
+                  selectedLeaderboardMode={selectedLeaderboardMode}
+                  selectedLeaderboardVariant={selectedLeaderboardVariant}
+                  onLeaderboardSelectionChange={onLeaderboardSelectionChange}
+                  isAuthenticated={isAuthenticated}
+                  isAuthLoading={isAuthLoading}
+                  onLoginRequired={onLoginRequired}
+                  playDurationSec={playDurationSec}
+                  revealDurationSec={revealDurationSec}
+                  startOffsetSec={startOffsetSec}
+                  allowCollectionClipTiming={allowCollectionClipTiming}
+                  updatePlayDurationSec={updatePlayDurationSec}
+                  updateRevealDurationSec={updateRevealDurationSec}
+                  updateStartOffsetSec={updateStartOffsetSec}
+                  updateAllowCollectionClipTiming={
+                    updateAllowCollectionClipTiming
+                  }
+                  playbackExtensionMode={playbackExtensionMode}
+                  setPlaybackExtensionMode={setPlaybackExtensionMode}
+                  supportsCollectionClipTiming={
+                    setupSupportsCollectionClipTiming
+                  }
+                  selectedCreateSourceSummary={setupSourceSummary}
+                  isSourceSummaryLoading={isSourceSummaryLoading}
+                  createSettingsCards={createSettingsCards}
+                  createRequirementsHintText={createRequirementsHintText}
+                  createRecommendationHintText={createRecommendationHintText}
+                  canCreateRoom={canCreateRoom}
+                  isCreatingRoom={isCreatingRoom}
+                  onCreateRoom={
+                    isSetupLeaderboardMode
+                      ? handleConfirmLeaderboardChallenge
+                      : handleConfirmCustomRoom
+                  }
+                />
+              </main>
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:grid md:grid-cols-[minmax(360px,0.82fr)_minmax(420px,1.18fr)] md:grid-rows-none md:gap-0">
+              <main className="min-h-0 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+                <section className="overflow-hidden rounded-[22px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <div className="relative aspect-[16/9] min-h-40 overflow-hidden bg-slate-900/80 sm:aspect-[16/5] sm:min-h-32">
+                    {previewThumbnail ? (
+                      <img
+                        src={previewThumbnail}
+                        alt={collection.cover_title ?? collection.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+                        無封面
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
+                    <div className="absolute bottom-3 left-3 right-3 sm:left-4 sm:right-4">
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/56 px-2.5 py-1 text-xs font-medium text-slate-100 backdrop-blur">
+                          {isPublic ? (
+                            <PublicOutlined sx={{ fontSize: 14 }} />
+                          ) : (
+                            <LockOutlined sx={{ fontSize: 14 }} />
+                          )}
+                          {isPublic ? "公開收藏庫" : "私人收藏庫"}
+                        </span>
+                        {/* {collection.has_ai_edited ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-200/16 bg-teal-400/10 px-2.5 py-1 text-xs font-medium text-teal-100">
                           <TimelineRounded sx={{ fontSize: 14 }} />
                           已調整片段
                         </span>
                       ) : null} */}
+                      </div>
+                      <p className="line-clamp-2 text-lg font-semibold leading-tight text-white sm:text-2xl">
+                        {collection.title}
+                      </p>
                     </div>
-                    <p className="line-clamp-2 text-lg font-semibold leading-tight text-white sm:text-2xl">
-                      {collection.title}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 border-b border-white/8 px-3 py-3 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5">
+                    {stats.map((item) => (
+                      <div
+                        key={item.key}
+                        className="flex min-w-0 items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-2.5 py-2 text-sm"
+                      >
+                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-300/8 text-cyan-100">
+                          {item.icon}
+                        </span>
+                        <span className="shrink-0 text-xs text-slate-400">
+                          {item.label}
+                        </span>
+                        <span className="truncate font-semibold text-slate-50">
+                          {item.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="px-3 py-3 sm:px-4">
+                    <p
+                      className={`whitespace-pre-wrap text-sm leading-6 ${
+                        collection.description
+                          ? "text-slate-300"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {collection.description || "題庫未提供說明。"}
                     </p>
                   </div>
-                </div>
+                </section>
 
-                <div className="grid grid-cols-2 gap-2 border-b border-white/8 px-3 py-3 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5">
-                  {stats.map((item) => (
-                    <div
-                      key={item.key}
-                      className="flex min-w-0 items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-2.5 py-2 text-sm"
-                    >
-                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-300/8 text-cyan-100">
-                        {item.icon}
-                      </span>
-                      <span className="shrink-0 text-xs text-slate-400">
-                        {item.label}
-                      </span>
-                      <span className="truncate font-semibold text-slate-50">
-                        {item.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <section className="mt-1 px-1">
+                  <div className="overflow-hidden rounded-xl bg-slate-950/22">
+                    {previewLoading ? (
+                      <div>
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <CollectionPreviewLoadingRow
+                            key={`collection-preview-loading-${index}`}
+                            index={index}
+                          />
+                        ))}
+                      </div>
+                    ) : previewError ? (
+                      <div className="px-2 py-6 text-sm text-rose-200 sm:px-3">
+                        {previewError}
+                      </div>
+                    ) : previewItems.length === 0 ? (
+                      <div className="px-2 py-6 text-sm text-slate-400 sm:px-3">
+                        這個題庫目前沒有可預覽的題目。
+                      </div>
+                    ) : (
+                      <List<CollectionPreviewListRowProps>
+                        className={`transient-scrollbar ${previewScrollbarClassName}`}
+                        style={{
+                          height: previewListHeight,
+                          width: "100%",
+                        }}
+                        rowCount={previewRowCount}
+                        rowHeight={COLLECTION_PREVIEW_ROW_HEIGHT}
+                        rowProps={previewListRowProps}
+                        rowComponent={CollectionPreviewListRow}
+                        onScroll={handlePreviewListScroll}
+                      />
+                    )}
+                  </div>
+                </section>
+              </main>
 
-                <div className="px-3 py-3 sm:px-4">
-                  <p
-                    className={`whitespace-pre-wrap text-sm leading-6 ${
-                      collection.description
-                        ? "text-slate-300"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {collection.description || "題庫未提供說明。"}
-                  </p>
-                </div>
-              </section>
-
-              <section className="mt-1 px-1">
-                <div className="overflow-hidden rounded-xl bg-slate-950/22">
-                  {previewLoading ? (
-                    <div>
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <CollectionPreviewLoadingRow
-                          key={`collection-preview-loading-${index}`}
-                          index={index}
-                        />
-                      ))}
-                    </div>
-                  ) : previewError ? (
-                    <div className="px-2 py-6 text-sm text-rose-200 sm:px-3">
-                      {previewError}
-                    </div>
-                  ) : previewItems.length === 0 ? (
-                    <div className="px-2 py-6 text-sm text-slate-400 sm:px-3">
-                      這個題庫目前沒有可預覽的題目。
-                    </div>
-                  ) : (
-                    <List<CollectionPreviewListRowProps>
-                      className={`transient-scrollbar ${previewScrollbarClassName}`}
-                      style={{
-                        height: previewListHeight,
-                        width: "100%",
-                      }}
-                      rowCount={previewRowCount}
-                      rowHeight={COLLECTION_PREVIEW_ROW_HEIGHT}
-                      rowProps={previewListRowProps}
-                      rowComponent={CollectionPreviewListRow}
-                      onScroll={handlePreviewListScroll}
-                    />
-                  )}
-                </div>
-              </section>
-            </main>
-
-            <aside className="min-h-0 overflow-hidden border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-5">
-              <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3 sm:p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
+              <aside className="min-h-0 overflow-hidden border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-5">
+                <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3 sm:p-4">
+                  <div className="flex items-center gap-3">
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
+                      <PublicRounded className="text-cyan-100" />
                       全球排行榜
                     </h3>
                   </div>
-                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-amber-200/16 bg-amber-300/10 text-amber-100">
-                    <EmojiEventsRounded />
-                  </div>
-                </div>
 
-                {isPublic ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                    <div
-                      ref={setLeaderboardProfileAnchorEl}
-                      role="button"
-                      tabIndex={0}
-                      aria-haspopup="listbox"
-                      aria-expanded={isLeaderboardProfileMenuOpen}
-                      onClick={handleLeaderboardProfileCardClick}
-                      onKeyDown={handleLeaderboardProfileCardKeyDown}
-                      className="group mt-3 shrink-0 cursor-pointer rounded-2xl border border-white/10 bg-slate-950/32 px-3.5 py-3 text-slate-300 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition hover:border-amber-100/22 hover:bg-slate-950/42 focus:border-amber-100/34 focus:ring-2 focus:ring-amber-200/10"
-                    >
-                      <div className="flex items-stretch justify-between gap-3">
-                        <div className="min-w-0 flex-1 text-left">
-                          <span className="block text-base font-semibold text-slate-50">
-                            {activeLeaderboardModeLabel}
-                          </span>
-                          <span className="mt-1 block text-sm leading-5 text-slate-400">
-                            {activeLeaderboardModeDescription}
+                  {isPublic ? (
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                      <div
+                        ref={setLeaderboardProfileAnchorEl}
+                        role="button"
+                        tabIndex={0}
+                        aria-haspopup="listbox"
+                        aria-expanded={isLeaderboardProfileMenuOpen}
+                        onClick={handleLeaderboardProfileCardClick}
+                        onKeyDown={handleLeaderboardProfileCardKeyDown}
+                        className="group mt-3 shrink-0 cursor-pointer rounded-2xl border border-white/10 bg-slate-950/32 px-3.5 py-3 text-slate-300 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition hover:border-amber-100/22 hover:bg-slate-950/42 focus:border-amber-100/34 focus:ring-2 focus:ring-amber-200/10"
+                      >
+                        <div className="flex items-stretch justify-between gap-3">
+                          <div className="min-w-0 flex-1 text-left">
+                            <span className="block text-base font-semibold text-slate-50">
+                              {activeLeaderboardModeLabel}
+                            </span>
+                            <span className="mt-1 block text-sm leading-5 text-slate-400">
+                              {activeLeaderboardModeDescription}
+                            </span>
+                          </div>
+
+                          <span className="inline-flex shrink-0 items-center gap-2 self-center text-base font-semibold text-amber-100 transition group-hover:text-amber-50">
+                            <span className="max-w-[6.5rem] truncate">
+                              {activeLeaderboardOption.label}
+                            </span>
+                            <KeyboardArrowDownRounded
+                              sx={{ fontSize: 24 }}
+                              className={`shrink-0 text-amber-100/72 transition ${
+                                isLeaderboardProfileMenuOpen ? "rotate-180" : ""
+                              }`}
+                            />
                           </span>
                         </div>
-
-                        <span className="inline-flex shrink-0 items-center gap-2 self-center text-base font-semibold text-amber-100 transition group-hover:text-amber-50">
-                          <span className="max-w-[6.5rem] truncate">
-                            {activeLeaderboardOption.label}
-                          </span>
-                          <KeyboardArrowDownRounded
-                            sx={{ fontSize: 24 }}
-                            className={`shrink-0 text-amber-100/72 transition ${
-                              isLeaderboardProfileMenuOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </span>
                       </div>
-                    </div>
 
-                    <Popper
-                      open={Boolean(leaderboardProfileAnchorEl)}
-                      anchorEl={leaderboardProfileAnchorEl}
-                      placement="bottom-end"
-                      modifiers={[
-                        { name: "offset", options: { offset: [0, 8] } },
-                        { name: "flip", enabled: true },
-                        {
-                          name: "preventOverflow",
-                          options: { padding: 12 },
-                        },
-                      ]}
-                      sx={{ zIndex: 1500 }}
-                    >
-                      <ClickAwayListener
-                        onClickAway={() =>
-                          setIsLeaderboardProfileMenuOpen(false)
-                        }
+                      <Popper
+                        open={Boolean(leaderboardProfileAnchorEl)}
+                        anchorEl={leaderboardProfileAnchorEl}
+                        placement="bottom-end"
+                        modifiers={[
+                          { name: "offset", options: { offset: [0, 8] } },
+                          { name: "flip", enabled: true },
+                          {
+                            name: "preventOverflow",
+                            options: { padding: 12 },
+                          },
+                        ]}
+                        sx={{ zIndex: 1500 }}
                       >
-                        <AnimatePresence>
-                          {isLeaderboardProfileMenuOpen ? (
-                            <motion.div
-                              ref={leaderboardProfileMenuRef}
-                              key="collection-leaderboard-profile-menu"
-                              initial={{ opacity: 0, y: -6, scale: 0.985 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -4, scale: 0.985 }}
-                              transition={{
-                                duration: 0.16,
-                                ease: [0.22, 1, 0.36, 1],
-                              }}
-                              className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 text-slate-100 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl"
-                              style={{
-                                width: leaderboardProfileMenuWidth,
-                                transformOrigin: "top right",
-                              }}
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <div
-                                role="listbox"
-                                aria-label="排行榜規格"
-                                className="space-y-1"
+                        <ClickAwayListener
+                          onClickAway={() =>
+                            setIsLeaderboardProfileMenuOpen(false)
+                          }
+                        >
+                          <AnimatePresence>
+                            {isLeaderboardProfileMenuOpen ? (
+                              <motion.div
+                                ref={leaderboardProfileMenuRef}
+                                key="collection-leaderboard-profile-menu"
+                                initial={{ opacity: 0, y: -6, scale: 0.985 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -4, scale: 0.985 }}
+                                transition={{
+                                  duration: 0.16,
+                                  ease: [0.22, 1, 0.36, 1],
+                                }}
+                                className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 text-slate-100 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl"
+                                style={{
+                                  width: leaderboardProfileMenuWidth,
+                                  transformOrigin: "top right",
+                                }}
+                                onClick={(event) => event.stopPropagation()}
                               >
-                                {leaderboardChallengeGroups.map((group) => (
-                                  <div key={group.modeKey}>
-                                    <div className="px-3 pb-1 pt-1.5 text-xs font-semibold tracking-[0.12em] text-amber-100/55">
-                                      {group.label}
-                                    </div>
-                                    <div className="space-y-1">
-                                      {group.options.map((option) => {
-                                        const selected =
-                                          option.variantKey ===
-                                          selectedLeaderboardVariant;
-                                        return (
-                                          <button
-                                            key={option.variantKey}
-                                            type="button"
-                                            role="option"
-                                            aria-selected={selected}
-                                            onClick={() =>
-                                              handleLeaderboardProfileSelect(
-                                                option.modeKey,
-                                                option.variantKey,
-                                              )
-                                            }
-                                            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
-                                              selected
-                                                ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
-                                                : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
-                                            }`}
-                                          >
-                                            <span className="min-w-0">
-                                              <span className="block truncate text-sm font-semibold">
-                                                {option.label}
-                                              </span>
-                                            </span>
-                                            <span
-                                              className={`shrink-0 text-xs font-semibold tabular-nums ${
+                                <div
+                                  role="listbox"
+                                  aria-label="排行榜規格"
+                                  className="space-y-1"
+                                >
+                                  {leaderboardChallengeGroups.map((group) => (
+                                    <div key={group.modeKey}>
+                                      <div className="px-3 pb-1 pt-1.5 text-xs font-semibold tracking-[0.12em] text-amber-100/55">
+                                        {group.label}
+                                      </div>
+                                      <div className="space-y-1">
+                                        {group.options.map((option) => {
+                                          const selected =
+                                            option.variantKey ===
+                                            selectedLeaderboardVariant;
+                                          return (
+                                            <button
+                                              key={option.variantKey}
+                                              type="button"
+                                              role="option"
+                                              aria-selected={selected}
+                                              onClick={() =>
+                                                handleLeaderboardProfileSelect(
+                                                  option.modeKey,
+                                                  option.variantKey,
+                                                )
+                                              }
+                                              className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition ${
                                                 selected
-                                                  ? "text-amber-100"
-                                                  : "text-slate-500"
+                                                  ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
+                                                  : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
                                               }`}
                                             >
-                                              {formatLeaderboardBestRank(
-                                                option.modeKey,
-                                                option.variantKey,
-                                              )}
-                                            </span>
-                                          </button>
-                                        );
-                                      })}
+                                              <span className="min-w-0">
+                                                <span className="block truncate text-sm font-semibold">
+                                                  {option.label}
+                                                </span>
+                                              </span>
+                                              <span
+                                                className={`shrink-0 text-xs font-semibold tabular-nums ${
+                                                  selected
+                                                    ? "text-amber-100"
+                                                    : "text-slate-500"
+                                                }`}
+                                              >
+                                                {formatLeaderboardBestRank(
+                                                  option.modeKey,
+                                                  option.variantKey,
+                                                )}
+                                              </span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
+                              </motion.div>
+                            ) : null}
+                          </AnimatePresence>
+                        </ClickAwayListener>
+                      </Popper>
+
+                      <div
+                        className={`transient-scrollbar mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1 ${leaderboardScrollbarClassName}`}
+                        onMouseEnter={revealLeaderboardScrollbar}
+                        onPointerDown={revealLeaderboardScrollbar}
+                        onScroll={revealLeaderboardScrollbar}
+                      >
+                        {leaderboardLoading ? (
+                          Array.from({ length: 5 }).map((_, index) => (
+                            <div
+                              key={`leaderboard-loading-${index}`}
+                              className="flex items-center gap-3 rounded-xl border border-white/8 bg-slate-950/30 px-3 py-3"
+                            >
+                              <div className="h-4 w-8 rounded-full bg-white/8" />
+                              <div className="h-9 w-9 rounded-full bg-white/8" />
+                              <div className="min-w-0 flex-1 space-y-2">
+                                <div className="h-3 w-1/2 rounded-full bg-white/10" />
+                                <div className="h-2.5 w-2/3 rounded-full bg-white/6" />
                               </div>
-                            </motion.div>
-                          ) : null}
-                        </AnimatePresence>
-                      </ClickAwayListener>
-                    </Popper>
-
-                    <div className="mt-3 grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3">
-                      {activeLeaderboardSummary.map((item, index) => (
-                        <div
-                          key={item.label}
-                          className="rounded-xl border border-amber-100/14 bg-slate-950/30 px-3 py-2"
-                        >
-                          <p className="text-[11px] text-slate-400">
-                            {item.label}
-                          </p>
-                          <p
-                            className={`mt-1 text-base font-semibold ${
-                              index === 0 ? "text-amber-50" : "text-slate-50"
-                            }`}
-                          >
-                            {item.value}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div
-                      className={`transient-scrollbar mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1 ${leaderboardScrollbarClassName}`}
-                      onMouseEnter={revealLeaderboardScrollbar}
-                      onPointerDown={revealLeaderboardScrollbar}
-                      onScroll={revealLeaderboardScrollbar}
-                    >
-                      {leaderboardLoading ? (
-                        Array.from({ length: 5 }).map((_, index) => (
-                          <div
-                            key={`leaderboard-loading-${index}`}
-                            className="flex items-center gap-3 rounded-xl border border-white/8 bg-slate-950/30 px-3 py-3"
-                          >
-                            <div className="h-4 w-8 rounded-full bg-white/8" />
-                            <div className="h-9 w-9 rounded-full bg-white/8" />
-                            <div className="min-w-0 flex-1 space-y-2">
-                              <div className="h-3 w-1/2 rounded-full bg-white/10" />
-                              <div className="h-2.5 w-2/3 rounded-full bg-white/6" />
+                              <div className="h-3 w-12 rounded-full bg-white/8" />
                             </div>
-                            <div className="h-3 w-12 rounded-full bg-white/8" />
+                          ))
+                        ) : leaderboardError ? (
+                          <div className="rounded-xl border border-rose-200/14 bg-rose-500/8 px-3 py-4 text-sm text-rose-100">
+                            {leaderboardError}
                           </div>
-                        ))
-                      ) : leaderboardError ? (
-                        <div className="rounded-xl border border-rose-200/14 bg-rose-500/8 px-3 py-4 text-sm text-rose-100">
-                          {leaderboardError}
-                        </div>
-                      ) : leaderboardOverview ? (
-                        leaderboardEntries.length > 0 ? (
-                          <List<CollectionLeaderboardListRowProps>
-                            className={`transient-scrollbar ${leaderboardScrollbarClassName}`}
-                            style={{
-                              height: "100%",
-                              minHeight: 180,
-                              width: "100%",
-                            }}
-                            rowCount={leaderboardRowCount}
-                            rowHeight={COLLECTION_LEADERBOARD_ROW_HEIGHT}
-                            rowProps={leaderboardListRowProps}
-                            rowComponent={CollectionLeaderboardListRow}
-                            onScroll={revealLeaderboardScrollbar}
+                        ) : leaderboardOverview ? (
+                          leaderboardEntries.length > 0 ? (
+                            <List<CollectionLeaderboardListRowProps>
+                              className={`transient-scrollbar ${leaderboardScrollbarClassName}`}
+                              style={{
+                                height: "100%",
+                                minHeight: 180,
+                                width: "100%",
+                              }}
+                              rowCount={leaderboardRowCount}
+                              rowHeight={COLLECTION_LEADERBOARD_ROW_HEIGHT}
+                              rowProps={leaderboardListRowProps}
+                              rowComponent={CollectionLeaderboardListRow}
+                              onScroll={revealLeaderboardScrollbar}
+                            />
+                          ) : (
+                            <div className="relative overflow-hidden rounded-xl border border-cyan-100/14 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(15,23,42,0.38)_48%,rgba(251,191,36,0.07))] px-4 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                              <div className="mx-auto inline-flex h-11 w-11 items-center justify-center text-cyan-100">
+                                <AutoAwesome sx={{ fontSize: 24 }} />
+                              </div>
+                              <p className="mt-3 text-sm font-semibold text-slate-50">
+                                此模式尚無紀錄
+                              </p>
+                              <p className="mx-auto mt-1 max-w-[15rem] text-xs leading-5 text-slate-400">
+                                成為第一位挑戰者！
+                              </p>
+                            </div>
+                          )
+                        ) : (
+                          leaderboardPlayersToShow.map((player) => (
+                            <LeaderboardPlayerRow
+                              key={`${activeLeaderboardVariant.key}-${player.rank}`}
+                              player={player}
+                            />
+                          ))
+                        )}
+                      </div>
+
+                      <div className="shrink-0 pt-3">
+                        <div className="mb-3 h-px bg-gradient-to-r from-transparent via-cyan-100/18 to-transparent" />
+                        {activeLeaderboardMyBestEntry ? (
+                          <LeaderboardPlayerRow
+                            player={currentLeaderboardRecord}
+                            variant="current"
                           />
                         ) : (
-                          <div className="rounded-xl border border-white/8 bg-slate-950/30 px-3 py-5 text-sm text-slate-400">
-                            這個規格目前還沒有排行榜紀錄。
+                          <div className="rounded-xl border border-cyan-100/14 bg-slate-950/26 px-3 py-3 text-sm text-slate-400">
+                            完成一次挑戰後，這裡會顯示你的最佳紀錄。
                           </div>
-                        )
-                      ) : (
-                        leaderboardPlayersToShow.map((player) => (
-                          <LeaderboardPlayerRow
-                            key={`${activeLeaderboardVariant.key}-${player.rank}`}
-                            player={player}
-                          />
-                        ))
-                      )}
+                        )}
+                      </div>
                     </div>
-
-                    <div className="shrink-0 pt-3">
-                      <div className="mb-3 h-px bg-gradient-to-r from-transparent via-cyan-100/18 to-transparent" />
-                      {activeLeaderboardMyBestEntry || !leaderboardOverview ? (
-                        <LeaderboardPlayerRow
-                          player={currentLeaderboardRecord}
-                          variant="current"
-                        />
-                      ) : (
-                        <div className="rounded-xl border border-cyan-100/14 bg-slate-950/26 px-3 py-3 text-sm text-slate-400">
-                          完成一次排行榜挑戰後，這裡會顯示你的最佳紀錄。
-                        </div>
-                      )}
+                  ) : (
+                    <div className="flex min-h-0 flex-1 items-center justify-center py-10">
+                      <div className="max-w-sm rounded-2xl border border-white/10 bg-slate-950/42 p-5 text-center">
+                        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-100/18 bg-amber-300/10 text-amber-100">
+                          <LockOutlined sx={{ fontSize: 22 }} />
+                        </span>
+                        <p className="mt-4 text-base font-semibold text-slate-50">
+                          收藏庫目前非公開
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                          排行榜與排行挑戰僅支援公開收藏庫。將收藏庫設為公開後，這裡會顯示排行榜資料。
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex min-h-0 flex-1 items-center justify-center py-10">
-                    <div className="max-w-sm rounded-2xl border border-white/10 bg-slate-950/42 p-5 text-center">
-                      <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-100/18 bg-amber-300/10 text-amber-100">
-                        <LockOutlined sx={{ fontSize: 22 }} />
-                      </span>
-                      <p className="mt-4 text-base font-semibold text-slate-50">
-                        收藏庫目前非公開
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        排行榜與排行挑戰僅支援公開收藏庫。將收藏庫設為公開後，這裡會顯示排行榜資料。
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </aside>
-          </div>
+                  )}
+                </div>
+              </aside>
+            </div>
+          )
         ) : null}
 
         {collection ? (

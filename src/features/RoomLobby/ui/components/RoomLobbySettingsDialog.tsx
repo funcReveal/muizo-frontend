@@ -207,10 +207,10 @@ const Section = ({
     {locked ? (
       <div
         aria-hidden="true"
-        className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-center justify-center rounded-3xl bg-slate-950/58 px-4 backdrop-blur-[2px]"
+        className="pointer-events-auto absolute inset-0 z-20 flex cursor-not-allowed items-start justify-start rounded-3xl bg-slate-950/54 px-4 pt-14 backdrop-blur-[2px]"
       >
-        <div className="inline-flex max-w-[320px] items-center gap-3 rounded-2xl border border-amber-200/24 bg-amber-300/12 px-4 py-3 text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.72)]">
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-100/24 bg-amber-200/14">
+        <div className="inline-flex w-full items-center gap-3 rounded-2xl border border-amber-200/24 bg-amber-300/12 px-4 py-3 text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.72)]">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-100/24 bg-amber-200/14">
             <LockOutlinedIcon sx={{ fontSize: 18 }} />
           </span>
           <span className="min-w-0 text-sm font-semibold">{lockedReason}</span>
@@ -1150,11 +1150,11 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                 </div>
 
                 <div
-                  className={`grid gap-4 ${
+                  className={`grid gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)] ${
                     settingsLocked ? "pointer-events-none opacity-55 saturate-75" : ""
                   }`}
                 >
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <div className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     {canUseCollectionTiming ? (
                       <>
                         <div className="flex items-center gap-2">
@@ -1343,7 +1343,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
+                  <div className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-3">
                     <div className="flex items-center gap-2">
                       <TimerRoundedIcon sx={{ fontSize: 18, color: "#fbbf24" }} />
                       <p className="text-sm font-semibold text-slate-100">

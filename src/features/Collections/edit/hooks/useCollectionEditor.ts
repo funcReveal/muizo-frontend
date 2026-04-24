@@ -130,11 +130,16 @@ export const useCollectionEditor = ({
   };
 
   const syncItemsToDb = useCallback(
-    async (collectionId: string, token: string) => {
+    async (
+      collectionId: string,
+      token: string,
+      itemsOverride?: EditableItem[],
+    ) => {
       const shouldResyncAllItems = fullItemResyncRef.current;
       const dirtyItemIds = dirtyItemIdsRef.current;
+      const itemsToSync = itemsOverride ?? playlistItems;
 
-      const updatePayloads = playlistItems.map((item, idx) => {
+      const updatePayloads = itemsToSync.map((item, idx) => {
         const source = resolveItemSource(item, extractVideoId);
         return {
           localId: item.localId,
@@ -260,7 +265,10 @@ export const useCollectionEditor = ({
   );
 
   const handleSaveCollection = useCallback(
-    async (mode: "manual" | "auto" = "manual") => {
+    async (
+      mode: "manual" | "auto" = "manual",
+      itemsOverride?: EditableItem[],
+    ) => {
       if (saveInFlightRef.current) return false;
       if (!authToken || !ownerId || authExpired) {
         if (mode === "auto") {
@@ -310,9 +318,11 @@ export const useCollectionEditor = ({
         }
         return false;
       }
+      const itemsToSave = itemsOverride ?? playlistItems;
+
       if (
         effectiveItemLimit !== null &&
-        playlistItems.length > effectiveItemLimit
+        itemsToSave.length > effectiveItemLimit
       ) {
         const limitMessage =
           `一般使用者每個收藏庫最多只能保留 ${effectiveItemLimit}` + ` 題`;
@@ -417,14 +427,14 @@ export const useCollectionEditor = ({
             const hasPendingItemChanges =
               pendingDeleteIds.length > 0 ||
               fullItemResyncRef.current ||
-              playlistItems.some(
+              itemsToSave.some(
                 (item) =>
                   !item.dbId || dirtyItemIdsRef.current.has(item.localId),
               );
 
             if (hasPendingItemChanges) {
               try {
-                await syncItemsToDb(collectionId, nextToken);
+                await syncItemsToDb(collectionId, nextToken, itemsToSave);
               } catch (error) {
                 if (allowRetry && isAuthError(error)) {
                   const refreshed = await refreshAuthToken();
@@ -447,7 +457,7 @@ export const useCollectionEditor = ({
             collection_id: createdCollection.id,
             collection_visibility:
               createdCollection.visibility ?? collectionVisibility,
-            item_count: playlistItems.length,
+            item_count: itemsToSave.length,
             import_source: "editor",
           });
           setActiveCollectionId(createdCollection.id);
@@ -459,7 +469,7 @@ export const useCollectionEditor = ({
         trackEvent("collection_save_success", {
           collection_id: collectionId ?? createdCollection?.id ?? "new",
           collection_visibility: collectionVisibility,
-          item_count: playlistItems.length,
+          item_count: itemsToSave.length,
           mode,
         });
 

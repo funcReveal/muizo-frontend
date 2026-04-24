@@ -17,7 +17,7 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
   const maxTrend = Math.max(...composite.trend.map((item) => item.score), 1);
 
   return (
-    <CareerSurface className="min-h-0 flex-1">
+    <CareerSurface>
       <div className="flex items-end justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold tracking-tight text-[var(--mc-text)]">

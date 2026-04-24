@@ -2,6 +2,7 @@ import { ensureFreshAuthToken } from "@shared/auth/token";
 
 import type {
   CareerCollectionRankShortcutItem,
+  CareerCollectionRankRow,
   CareerCompositeStats,
   CareerHeroStats,
   CareerHighlightItem,
@@ -19,6 +20,14 @@ type CareerOverviewApiResponse = {
   error?: string;
 };
 
+type CareerCollectionRanksApiResponse = {
+  ok: boolean;
+  data?: {
+    items?: CareerCollectionRankRow[];
+  };
+  error?: string;
+};
+
 type PartialCareerOverviewData = {
   hero?: Partial<CareerHeroStats>;
   composite?: Partial<CareerCompositeStats>;
@@ -31,8 +40,41 @@ interface FetchCareerOverviewParams {
   clientId: string | null;
   authToken: string | null;
   refreshAuthToken: () => Promise<string | null>;
-  fallback: CareerOverviewData;
 }
+
+export const emptyCareerOverviewData: CareerOverviewData = {
+  hero: {
+    displayName: "玩家",
+    descriptor: "尚無生涯紀錄",
+    totalMatches: 0,
+    totalScore: 0,
+    bestScore: null,
+    bestRank: null,
+    playTimeSec: 0,
+    bestCombo: null,
+  },
+  composite: {
+    averagePlacement: null,
+    averageScore: null,
+    top3Rate: null,
+    firstPlaceCount: 0,
+    averageAccuracyRate: null,
+    trend: [],
+  },
+  weekly: {
+    currentMatches: 0,
+    previousMatches: 0,
+    matchesDelta: null,
+    currentScore: 0,
+    previousScore: 0,
+    scoreDelta: null,
+    currentAccuracyRate: null,
+    previousAccuracyRate: null,
+    accuracyDelta: null,
+  },
+  highlights: [],
+  collectionShortcuts: [],
+};
 
 const buildHeaders = async (
   authToken: string | null,
@@ -55,37 +97,34 @@ const buildHeaders = async (
   };
 };
 
-const mergeCareerOverviewData = (
-  fallback: CareerOverviewData,
+const normalizeCareerOverviewData = (
   incoming?: PartialCareerOverviewData,
 ): CareerOverviewData => {
-  if (!incoming) return fallback;
+  const base = emptyCareerOverviewData;
+  if (!incoming) return base;
 
   return {
     hero: {
-      ...fallback.hero,
+      ...base.hero,
       ...(incoming.hero ?? {}),
     },
     composite: {
-      ...fallback.composite,
+      ...base.composite,
       ...(incoming.composite ?? {}),
       trend:
-        incoming.composite?.trend && incoming.composite.trend.length > 0
+        incoming.composite?.trend && Array.isArray(incoming.composite.trend)
           ? incoming.composite.trend
-          : fallback.composite.trend,
+          : base.composite.trend,
     },
     weekly: {
-      ...fallback.weekly,
+      ...base.weekly,
       ...(incoming.weekly ?? {}),
     },
-    highlights:
-      incoming.highlights && incoming.highlights.length > 0
-        ? incoming.highlights
-        : fallback.highlights,
+    highlights: Array.isArray(incoming.highlights) ? incoming.highlights : [],
     collectionShortcuts:
-      incoming.collectionShortcuts && incoming.collectionShortcuts.length > 0
+      incoming.collectionShortcuts && Array.isArray(incoming.collectionShortcuts)
         ? incoming.collectionShortcuts
-        : fallback.collectionShortcuts,
+        : [],
   };
 };
 
@@ -93,10 +132,9 @@ export const fetchCareerOverview = async ({
   clientId,
   authToken,
   refreshAuthToken,
-  fallback,
 }: FetchCareerOverviewParams): Promise<CareerOverviewData> => {
   if (!API_URL) {
-    return fallback;
+    throw new Error("尚未設定生涯 API 位置");
   }
 
   const params = new URLSearchParams();
@@ -121,5 +159,39 @@ export const fetchCareerOverview = async ({
     throw new Error(payload?.error ?? "讀取生涯總覽失敗");
   }
 
-  return mergeCareerOverviewData(fallback, payload.data);
+  return normalizeCareerOverviewData(payload.data);
+};
+
+export const fetchCareerCollectionRanks = async ({
+  clientId,
+  authToken,
+  refreshAuthToken,
+}: FetchCareerOverviewParams): Promise<
+  CareerCollectionRankRow[]
+> => {
+  if (!API_URL) return [];
+
+  const params = new URLSearchParams();
+  if (clientId) params.set("clientId", clientId);
+
+  const url = `${API_URL}/api/career/collection-ranks${
+    params.size ? `?${params.toString()}` : ""
+  }`;
+
+  const headers = await buildHeaders(authToken, refreshAuthToken);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers,
+  });
+
+  const payload = (await response
+    .json()
+    .catch(() => null)) as CareerCollectionRanksApiResponse | null;
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error ?? "讀取題庫戰績失敗");
+  }
+
+  return payload.data?.items ?? [];
 };
