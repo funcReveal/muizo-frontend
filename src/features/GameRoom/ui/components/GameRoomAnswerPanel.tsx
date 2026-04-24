@@ -22,6 +22,10 @@ interface GameRoomAnswerPanelProps {
   phaseEndsAt: number;
   gamePhase: GameState["phase"];
   startedAt: number;
+  isTimeAttackMode?: boolean;
+  timeAttackTimeLimitMs?: number | null;
+  timeAttackRemainingMs?: number | null;
+  timeAttackEndReason?: "time_over" | "completed_all" | null;
   choices: GameState["choices"];
   selectedChoice: number | null;
   correctChoiceIndex: number;
@@ -77,6 +81,16 @@ type InlineStatusSegmentTone =
 interface InlineStatusSegment {
   text: string;
   tone: InlineStatusSegmentTone;
+}
+
+function formatTimeAttackCountdown(valueMs: number | null | undefined): string {
+  if (typeof valueMs !== "number" || !Number.isFinite(valueMs)) return "--:--";
+
+  const totalSec = Math.max(0, Math.ceil(valueMs / 1000));
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 const resolveInlineStatusTone = (text: string): InlineStatusSegmentTone => {
@@ -168,6 +182,8 @@ const GameRoomStartCountdownDisplay = React.memo(function GameRoomStartCountdown
 const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
   isInterTrackWait,
   allAnsweredReadyForReveal,
+  isTimeAttackMode,
+  timeAttackRemainingMs,
   gamePhase,
   startedAt,
   phaseEndsAt,
@@ -177,6 +193,8 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
 }: {
   isInterTrackWait: boolean;
   allAnsweredReadyForReveal: boolean;
+  isTimeAttackMode: boolean;
+  timeAttackRemainingMs: number | null;
   gamePhase: GameState["phase"];
   startedAt: number;
   phaseEndsAt: number;
@@ -190,16 +208,28 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
       return `${Math.max(1, Math.ceil(Math.max(0, startedAt - now) / 1000))}s`;
     }
     if (allAnsweredReadyForReveal) return "READY";
+    if (isTimeAttackMode && gamePhase === "guess") {
+      const stableRemainingMs =
+        typeof timeAttackRemainingMs === "number" && Number.isFinite(timeAttackRemainingMs)
+          ? Math.max(0, timeAttackRemainingMs)
+          : 0;
+      return formatTimeAttackCountdown(
+        Math.max(0, stableRemainingMs - Math.max(0, now - startedAt)),
+      );
+    }
     return `${Math.ceil(Math.max(0, phaseEndsAt - now) / 1000)}s`;
   }, [
     allAnsweredReadyForReveal,
     getLocalNowMs,
+    isTimeAttackMode,
     isInterTrackWait,
+    gamePhase,
     phaseEndsAt,
     startedAt,
+    timeAttackRemainingMs,
   ]);
   const [label, setLabel] = React.useState(resolveLabel);
-  const isNumericCountdownLabel = /^\d+s$/.test(label);
+  const isNumericCountdownLabel = /^(\d+s|\d+:\d{2})$/.test(label);
 
   // ── 優化說明 ────────────────────────────────────────────────────────────────
   // 倒數歸零後停止 timer（phase 結束後伺服器會推送新狀態，不需繼續輪詢）。
@@ -222,6 +252,14 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
       const now = getLocalNowMs();
       const remainingMs = isInterTrackWait
         ? Math.max(0, startedAt - now)
+        : isTimeAttackMode && gamePhase === "guess"
+          ? Math.max(
+              0,
+              (typeof timeAttackRemainingMs === "number" &&
+              Number.isFinite(timeAttackRemainingMs)
+                ? Math.max(0, timeAttackRemainingMs)
+                : 0) - Math.max(0, now - startedAt),
+            )
         : Math.max(0, phaseEndsAt - now);
       // 倒數到 0 → 停止；伺服器推送下一個 phase 時 props 更新，effect 重啟
       if (remainingMs <= 0) {
@@ -242,10 +280,13 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
   }, [
     allAnsweredReadyForReveal,
     getLocalNowMs,
+    isTimeAttackMode,
     isInterTrackWait,
+    gamePhase,
     phaseEndsAt,
     resolveLabel,
     startedAt,
+    timeAttackRemainingMs,
   ]);
 
   return (
@@ -334,6 +375,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   phaseEndsAt,
   gamePhase,
   startedAt,
+  isTimeAttackMode = false,
+  timeAttackRemainingMs = null,
   choices,
   selectedChoice,
   correctChoiceIndex,
@@ -618,6 +661,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   <GameRoomPhaseStatusChip
                     isInterTrackWait={isInterTrackWait}
                     allAnsweredReadyForReveal={allAnsweredReadyForReveal}
+                    isTimeAttackMode={isTimeAttackMode}
+                    timeAttackRemainingMs={timeAttackRemainingMs}
                     gamePhase={gamePhase}
                     startedAt={startedAt}
                     phaseEndsAt={phaseEndsAt}

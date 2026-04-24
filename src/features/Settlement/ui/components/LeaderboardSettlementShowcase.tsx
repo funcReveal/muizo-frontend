@@ -7,7 +7,6 @@ import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
-import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import TrackChangesRoundedIcon from "@mui/icons-material/TrackChangesRounded";
@@ -142,6 +141,18 @@ const formatDurationSec = (value: number | null | undefined) => {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
+const getPositiveScoreImprovementLabel = (
+  scoreDelta: number | null | undefined,
+) => {
+  if (typeof scoreDelta !== "number" || !Number.isFinite(scoreDelta)) {
+    return null;
+  }
+  if (scoreDelta <= 0) {
+    return null;
+  }
+  return `+${formatScore(scoreDelta)}`;
+};
+
 const formatAnswerTime = (value: number | null | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     return "--";
@@ -245,6 +256,9 @@ const getPercentileLabel = (
   ).length;
   return Math.round((compareCount / Math.max(1, values.length - 1)) * 100);
 };
+
+const LEADERBOARD_DESKTOP_GRID_CLASS =
+  "grid-cols-[44px_minmax(0,1.2fr)_92px_88px_104px_84px_108px]";
 
 const useElementWidth = () => {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -487,7 +501,7 @@ function LeaderboardDesktopRow({
   if (row.isSkeleton) {
     return (
       <div style={style} className="box-border pb-1.5">
-        <div className="animate-pulse grid grid-cols-[52px_minmax(180px,1.75fr)_96px_88px_112px_96px_120px] items-center gap-2 rounded-xl border border-white/6 bg-white/[0.02] px-3 py-2">
+        <div className={`animate-pulse grid ${LEADERBOARD_DESKTOP_GRID_CLASS} items-center gap-2 rounded-xl border border-white/6 bg-white/[0.02] px-3 py-2`}>
           <div className="h-3.5 w-6 rounded bg-white/10" />
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 shrink-0 rounded-full bg-white/10" />
@@ -508,7 +522,7 @@ function LeaderboardDesktopRow({
   return (
     <div style={style} className="box-border pb-1.5">
       <div
-        className={`grid grid-cols-[52px_minmax(180px,1.75fr)_96px_88px_112px_96px_120px] items-center gap-2 rounded-xl border px-3 py-2 text-sm ${row.isMe
+        className={`grid ${LEADERBOARD_DESKTOP_GRID_CLASS} items-center gap-2 rounded-xl border px-3 py-2 text-sm ${row.isMe
           ? "border-amber-300/45 bg-amber-500/10 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.08)]"
           : "border-white/6 bg-white/[0.02]"
           }`}
@@ -539,6 +553,9 @@ function LeaderboardDesktopRow({
         </div>
         <div className="text-center text-xs text-[var(--mc-text-muted)]">
           {formatSeconds(row.avgCorrectMs)}
+        </div>
+        <div className="text-center text-xs font-semibold text-slate-300">
+          {formatDurationSec(row.durationSec)}
         </div>
         <div className="text-center text-base font-black text-amber-100">
           {formatScore(row.score)}
@@ -629,7 +646,7 @@ function LeaderboardMobileRow({
           </div>
         </div>
         <div className="mt-2 text-xs text-[var(--mc-text-muted)]">
-          平均答題 {formatSeconds(row.avgCorrectMs)}
+          平均答題 {formatSeconds(row.avgCorrectMs)} · 耗時 {formatDurationSec(row.durationSec)}
         </div>
       </div>
     </div>
@@ -1036,9 +1053,9 @@ const LeaderboardSettlementShowcase: React.FC<
     );
 
     const currentScore = backendCurrentRun?.score ?? meSummary.me?.score ?? 0;
-    const prevBestScore = personalBestComparison?.previousBestScore ?? null;
-    const scoreDelta =
-      prevBestScore !== null ? currentScore - prevBestScore : null;
+    const positiveScoreImprovementLabel = getPositiveScoreImprovementLabel(
+      personalBestComparison?.scoreDelta,
+    );
     const currentRunComparable = useMemo(
       () => ({
         score: currentScore,
@@ -1208,19 +1225,12 @@ const LeaderboardSettlementShowcase: React.FC<
                       <div className="mt-2 text-center text-[2.4rem] font-black leading-none tracking-tight text-amber-200 drop-shadow-[0_14px_32px_rgba(245,158,11,0.28)] sm:text-[3rem]">
                         {formatScore(currentScore)}
                       </div>
-                      {scoreDelta !== null && scoreDelta !== 0 && (
+                      {positiveScoreImprovementLabel && (
                         <div className="mt-1 flex items-center justify-center gap-1">
-                          {scoreDelta > 0 ? (
-                            <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-400">
-                              <AddRoundedIcon sx={{ fontSize: 13 }} />
-                              {formatScore(scoreDelta)}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-rose-400">
-                              <RemoveRoundedIcon sx={{ fontSize: 13 }} />
-                              {formatScore(Math.abs(scoreDelta))}
-                            </span>
-                          )}
+                          <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-400">
+                            <AddRoundedIcon sx={{ fontSize: 13 }} />
+                            {positiveScoreImprovementLabel.slice(1)}
+                          </span>
                         </div>
                       )}
                       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs text-[var(--mc-text-muted)]">
@@ -1311,7 +1321,7 @@ const LeaderboardSettlementShowcase: React.FC<
                     </div>
                   </div>
 
-                  <div className="mt-3 hidden grid-cols-[52px_minmax(180px,1.75fr)_112px_112px_112px_120px] gap-2 px-3 text-xs font-semibold text-amber-100/78 xl:grid">
+                  <div className={`mt-3 hidden ${LEADERBOARD_DESKTOP_GRID_CLASS} gap-2 px-3 text-xs font-semibold text-amber-100/78 xl:grid`}>
                     <div>名次</div>
                     <div>玩家</div>
                     <div className="text-center">答對 / 答錯</div>
@@ -1383,7 +1393,7 @@ const LeaderboardSettlementShowcase: React.FC<
                           {personalBestComparison?.hasPreviousBest === false ? " · 首次紀錄" : ""}
                         </span>
                       </div>
-                      <div className="hidden grid-cols-[52px_minmax(180px,1.75fr)_112px_112px_112px_120px] items-center gap-2 xl:grid">
+                      <div className={`hidden ${LEADERBOARD_DESKTOP_GRID_CLASS} items-center gap-2 xl:grid`}>
                         <div className="text-base font-black text-sky-100">#{personalBestRow.rank}</div>
                         <div className="flex min-w-0 items-center gap-2">
                           <PlayerAvatar

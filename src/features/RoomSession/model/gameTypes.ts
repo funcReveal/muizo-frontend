@@ -81,6 +81,10 @@ export interface GameState {
   lockedClientIds?: string[];
   lockedOrder?: string[];
   questionStats?: GameQuestionStats;
+  timeAttackTimeLimitMs?: number | null;
+  timeAttackGuessElapsedMs?: number;
+  timeAttackRemainingMs?: number | null;
+  timeAttackEndReason?: "time_over" | "completed_all" | null;
 }
 
 export interface PlaybackExtensionVoteState {

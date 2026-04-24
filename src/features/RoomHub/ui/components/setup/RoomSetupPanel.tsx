@@ -199,6 +199,9 @@ const RoomSetupPanel = ({
     selectedLeaderboardMode === "time_attack" &&
     selectedLeaderboardVariant === "15m";
   const effectiveMaxPlayers = parsedMaxPlayers ?? PLAYER_MIN;
+  const displayedMaxPlayers = isTimeAttackLeaderboardRoom
+    ? 1
+    : effectiveMaxPlayers;
   const canDecreaseMaxPlayers = effectiveMaxPlayers > PLAYER_MIN;
   const canIncreaseMaxPlayers = effectiveMaxPlayers < PLAYER_MAX;
   const isMaxPlayersLocked = isTimeAttackLeaderboardRoom;
@@ -743,6 +746,27 @@ const RoomSetupPanel = ({
       </section>
 
       <section className="px-1 py-2">
+        {isTimeAttackLeaderboardRoom ? (
+          <div className="mb-4 rounded-2xl border border-amber-300/18 bg-[linear-gradient(180deg,rgba(24,18,10,0.68),rgba(10,10,14,0.72))] px-4 py-3">
+            <div className="text-sm font-semibold text-amber-100">
+              15 分鐘限時 · 單人挑戰
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                最多玩完整個收藏庫
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                公布答案 5 秒
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                使用收藏庫時間
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                不使用延長投票
+              </span>
+            </div>
+          </div>
+        ) : null}
         <div className="grid gap-5 lg:grid-cols-2">
           <div className="relative select-none overflow-hidden rounded-2xl px-1 py-2">
             <div className="flex items-center justify-between gap-3">
@@ -776,7 +800,7 @@ const RoomSetupPanel = ({
                 <RemoveRounded sx={{ fontSize: 18 }} />
               </button>
               <div className="text-2xl font-semibold text-[var(--mc-text)]">
-                {effectiveMaxPlayers}
+                {displayedMaxPlayers}
                 <span className="ml-1 text-sm text-[var(--mc-text-muted)]">
                   人
                 </span>
@@ -812,7 +836,7 @@ const RoomSetupPanel = ({
                     onClick={() => setRoomMaxPlayersInput(String(count))}
                     disabled={isMaxPlayersLocked}
                     className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                      !isMaxPlayersLocked && effectiveMaxPlayers === count
+                      !isMaxPlayersLocked && displayedMaxPlayers === count
                         ? "border-cyan-300/60 bg-cyan-500/12 text-cyan-50"
                         : isMaxPlayersLocked
                           ? "cursor-not-allowed border-white/8 bg-white/5 text-[var(--mc-text-muted)]/50"

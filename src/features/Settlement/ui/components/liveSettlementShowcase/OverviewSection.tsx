@@ -200,7 +200,7 @@ type RankedLeaderboardRowProps = {
 
 const RANKED_LEADERBOARD_ROW_HEIGHT = 116;
 
-const RankedLeaderboardRow = React.memo(function RankedLeaderboardRow({
+function RankedLeaderboardRow({
   index,
   style,
   entries,
@@ -208,7 +208,9 @@ const RankedLeaderboardRow = React.memo(function RankedLeaderboardRow({
   formatMs,
 }: RowComponentProps<RankedLeaderboardRowProps>) {
   const entry = entries[index];
-  if (!entry) return null;
+  if (!entry) {
+    return <div style={style} />;
+  }
 
   return (
     <div style={style} className="box-border pb-2">
@@ -251,7 +253,7 @@ const RankedLeaderboardRow = React.memo(function RankedLeaderboardRow({
       </div>
     </div>
   );
-});
+}
 
 const OverviewSection: React.FC<OverviewSectionProps> = ({
   isMobileView = false,

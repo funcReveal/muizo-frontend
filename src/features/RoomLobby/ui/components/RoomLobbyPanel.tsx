@@ -31,6 +31,7 @@ import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import KeyRoundedIcon from "@mui/icons-material/KeyRounded";
+import ScienceRoundedIcon from "@mui/icons-material/ScienceRounded";
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import ShareRoundedIcon from "@mui/icons-material/ShareRounded";

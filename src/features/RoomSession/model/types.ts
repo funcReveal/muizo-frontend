@@ -102,6 +102,7 @@ export interface RoomSummary {
   id: string;
   roomCode: string;
   name: string;
+  hostClientId?: string;
   playerCount: number;
   createdAt: number;
   hasPassword: boolean;
