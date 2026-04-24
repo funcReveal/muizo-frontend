@@ -356,7 +356,7 @@ const LeaderboardPlayerRow = ({
 
   return (
     <div
-      className={`group relative flex items-center gap-2.5 overflow-hidden rounded-xl border px-3 py-3 transition duration-200 sm:gap-3 ${
+      className={`group relative flex min-h-[70px] items-center gap-2.5 overflow-hidden rounded-xl border px-3 py-2.5 transition duration-200 sm:min-h-[68px] sm:gap-3 sm:px-3.5 sm:py-2 ${
         isCurrent
           ? "border-cyan-100/22 bg-[linear-gradient(90deg,rgba(34,211,238,0.1),rgba(15,23,42,0.34)_42%,rgba(15,23,42,0.22))] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_16px_34px_-30px_rgba(34,211,238,0.8)]"
           : variant === "current"
@@ -373,7 +373,7 @@ const LeaderboardPlayerRow = ({
         }`}
       />
       <span
-        className={`w-8 shrink-0 text-left text-sm font-semibold tabular-nums tracking-normal ${
+        className={`w-7 shrink-0 text-left text-[13px] font-semibold tabular-nums tracking-normal sm:w-8 sm:text-sm ${
           isCurrent || variant === "current"
             ? "text-cyan-100"
             : "text-slate-300"
@@ -387,20 +387,15 @@ const LeaderboardPlayerRow = ({
         avatarUrl={player.avatarUrl}
         rank={typeof player.rank === "number" ? player.rank : null}
         isMe={isCurrent || variant === "current"}
-        size={38}
+        size={36}
         effectLevel="simple"
         hideRankMark
       />
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-slate-100">
           <span className="truncate">{player.name}</span>
-          {/* {isCurrent || variant === "current" ? (
-            <span className="shrink-0 rounded-full border border-cyan-100/16 bg-cyan-300/8 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
-              你的紀錄
-            </span>
-          ) : null} */}
         </p>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-4 text-slate-400 sm:gap-x-2 sm:text-xs">
           <span className="min-w-0 truncate">{player.meta}</span>
           <span className="shrink-0 text-slate-600">/</span>
           <span className="shrink-0 text-slate-300">
@@ -409,7 +404,7 @@ const LeaderboardPlayerRow = ({
         </div>
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-sm font-semibold tabular-nums text-slate-50">
+        <p className="text-[13px] font-semibold tabular-nums text-slate-50 sm:text-sm">
           {player.score}
         </p>
       </div>
@@ -418,10 +413,18 @@ const LeaderboardPlayerRow = ({
 };
 
 const COLLECTION_PREVIEW_PAGE_SIZE = 12;
-const COLLECTION_PREVIEW_ROW_HEIGHT = 73;
+const COLLECTION_PREVIEW_ROW_HEIGHT = 68;
 const COLLECTION_LEADERBOARD_INITIAL_LIMIT = 10;
 const COLLECTION_LEADERBOARD_PAGE_SIZE = 30;
-const COLLECTION_LEADERBOARD_ROW_HEIGHT = 88;
+const COLLECTION_LEADERBOARD_ROW_HEIGHT = 80;
+
+const COLLECTION_MOBILE_PREVIEW_VISIBLE_ROWS = 3;
+const COLLECTION_DESKTOP_PREVIEW_VISIBLE_ROWS = 4;
+
+const getCollectionPreviewListHeight = (isCompact: boolean) =>
+  (isCompact
+    ? COLLECTION_MOBILE_PREVIEW_VISIBLE_ROWS
+    : COLLECTION_DESKTOP_PREVIEW_VISIBLE_ROWS) * COLLECTION_PREVIEW_ROW_HEIGHT;
 
 const formatLeaderboardScore = (value: number) =>
   new Intl.NumberFormat("en-US").format(value);
@@ -587,7 +590,7 @@ const CollectionLeaderboardListRow = ({
 
   if (isLoaderRow) {
     return (
-      <div style={style} className="box-border pb-2">
+      <div style={style} className="box-border pb-2 sm:pb-1.5">
         <div className="flex h-full items-center gap-3 rounded-xl border border-white/8 bg-slate-950/30 px-3 py-3">
           <div className="h-4 w-8 rounded-full bg-white/8" />
           <div className="h-9 w-9 rounded-full bg-white/8" />
@@ -604,7 +607,7 @@ const CollectionLeaderboardListRow = ({
   if (!item) return <div style={style} />;
 
   return (
-    <div style={style} className="box-border pb-2">
+    <div style={style} className="box-border pb-2 sm:pb-1.5">
       <LeaderboardPlayerRow
         player={toLeaderboardPreviewPlayer(item, formatDurationLabel)}
       />
@@ -1048,10 +1051,18 @@ const CollectionDetailDrawer = ({
 
   const previewRowCount =
     previewItems.length + (previewHasMore || previewLoadingMore ? 1 : 0);
-  const previewListHeight = Math.min(
-    430,
-    Math.max(180, previewRowCount * COLLECTION_PREVIEW_ROW_HEIGHT),
-  );
+  const previewListHeight = isCompact
+    ? getCollectionPreviewListHeight(true)
+    : Math.min(
+        430,
+        Math.max(
+          180,
+          Math.min(
+            previewRowCount || COLLECTION_DESKTOP_PREVIEW_VISIBLE_ROWS,
+            COLLECTION_DESKTOP_PREVIEW_VISIBLE_ROWS,
+          ) * COLLECTION_PREVIEW_ROW_HEIGHT,
+        ),
+      );
   const previewListRowProps = useMemo<CollectionPreviewListRowProps>(
     () => ({
       items: previewItems,
@@ -1472,12 +1483,12 @@ const CollectionDetailDrawer = ({
               ) : null}
 
               <main
-                className={`min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5 ${
+                className={`flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-3 py-2.5 sm:px-6 sm:py-5 md:overflow-y-auto ${
                   isCompact && mobileDetailTab !== "collection" ? "hidden" : ""
                 }`}
               >
-                <section className="overflow-hidden rounded-[22px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div className="relative aspect-[16/9] min-h-40 overflow-hidden bg-slate-900/80 sm:aspect-[16/5] sm:min-h-32">
+                <section className="shrink-0 overflow-hidden rounded-[20px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[22px]">
+                  <div className="relative h-28 overflow-hidden bg-slate-900/80 sm:h-32 md:h-auto md:aspect-[16/5] md:min-h-32">
                     {previewThumbnail ? (
                       <img
                         src={previewThumbnail}
@@ -1490,9 +1501,9 @@ const CollectionDetailDrawer = ({
                       </div>
                     )}
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
-                    <div className="absolute bottom-3 left-3 right-3 sm:left-4 sm:right-4">
-                      <div className="mb-2 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/56 px-2.5 py-1 text-xs font-medium text-slate-100 backdrop-blur">
+                    <div className="absolute bottom-2.5 left-3 right-3 sm:bottom-3 sm:left-4 sm:right-4">
+                      <div className="mb-1.5 flex flex-wrap gap-1.5 sm:mb-2 sm:gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/56 px-2 py-0.5 text-[11px] font-medium text-slate-100 backdrop-blur sm:px-2.5 sm:py-1 sm:text-xs">
                           {isPublic ? (
                             <PublicOutlined sx={{ fontSize: 14 }} />
                           ) : (
@@ -1507,22 +1518,22 @@ const CollectionDetailDrawer = ({
                         </span>
                       ) : null} */}
                       </div>
-                      <p className="line-clamp-2 text-lg font-semibold leading-tight text-white sm:text-2xl">
+                      <p className="line-clamp-1 text-base font-semibold leading-tight text-white sm:line-clamp-2 sm:text-2xl">
                         {collection.title}
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 border-b border-white/8 px-3 py-3 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5">
+                  <div className="grid grid-cols-3 gap-1.5 border-b border-white/8 px-2.5 py-2 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5">
                     {stats.map((item) => (
                       <div
                         key={item.key}
-                        className="flex min-w-0 items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-2.5 py-2 text-sm"
+                        className="flex min-w-0 items-center gap-1.5 rounded-xl border border-white/8 bg-white/[0.03] px-2 py-1.5 text-xs sm:gap-2 sm:px-2.5 sm:py-2 sm:text-sm"
                       >
-                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-300/8 text-cyan-100">
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-cyan-300/8 text-cyan-100 sm:h-6 sm:w-6">
                           {item.icon}
                         </span>
-                        <span className="shrink-0 text-xs text-slate-400">
+                        <span className="hidden shrink-0 text-[11px] text-slate-400 sm:inline sm:text-xs">
                           {item.label}
                         </span>
                         <span className="truncate font-semibold text-slate-50">
@@ -1532,9 +1543,9 @@ const CollectionDetailDrawer = ({
                     ))}
                   </div>
 
-                  <div className="px-3 py-3 sm:px-4">
+                  <div className="px-3 py-2 sm:px-4 sm:py-3">
                     <p
-                      className={`whitespace-pre-wrap text-sm leading-6 ${
+                      className={`line-clamp-2 whitespace-pre-wrap text-xs leading-5 sm:text-sm sm:leading-6 md:line-clamp-none ${
                         collection.description
                           ? "text-slate-300"
                           : "text-slate-500"
@@ -1545,16 +1556,18 @@ const CollectionDetailDrawer = ({
                   </div>
                 </section>
 
-                <section className="mt-1 px-1">
-                  <div className="overflow-hidden rounded-xl bg-slate-950/22">
+                <section className="min-h-0 flex-1 px-0.5 sm:mt-1 sm:px-1">
+                  <div className="h-full min-h-0 overflow-hidden rounded-xl bg-slate-950/22">
                     {previewLoading ? (
                       <div>
-                        {Array.from({ length: 5 }).map((_, index) => (
-                          <CollectionPreviewLoadingRow
-                            key={`collection-preview-loading-${index}`}
-                            index={index}
-                          />
-                        ))}
+                        {Array.from({ length: isCompact ? 3 : 5 }).map(
+                          (_, index) => (
+                            <CollectionPreviewLoadingRow
+                              key={`collection-preview-loading-${index}`}
+                              index={index}
+                            />
+                          ),
+                        )}
                       </div>
                     ) : previewError ? (
                       <div className="px-2 py-6 text-sm text-rose-200 sm:px-3">
@@ -1584,9 +1597,7 @@ const CollectionDetailDrawer = ({
 
               <aside
                 className={`min-h-0 flex-1 overflow-hidden border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-5 ${
-                  isCompact && mobileDetailTab !== "leaderboard"
-                    ? "hidden"
-                    : ""
+                  isCompact && mobileDetailTab !== "leaderboard" ? "hidden" : ""
                 }`}
               >
                 <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3 sm:p-4">

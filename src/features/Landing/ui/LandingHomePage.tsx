@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { USERNAME_MAX } from "@domain/room/constants";
+import { generateGuestUsername } from "@domain/room/guestUsername";
 import { useAuth } from "../../../shared/auth/AuthContext";
 import LandingPage from "./LandingPage";
 
@@ -16,6 +17,8 @@ const LandingHomePage: React.FC = () => {
     loginWithGoogle,
     authLoading,
   } = useAuth();
+
+  const suggestedGuestUsername = useMemo(() => generateGuestUsername(), []);
 
   useEffect(() => {
     if (authUser || username) {
@@ -34,6 +37,10 @@ const LandingHomePage: React.FC = () => {
     loginWithGoogle();
   };
 
+  const handleUseSuggestedUsername = () => {
+    setUsernameInput(suggestedGuestUsername);
+  };
+
   return (
     <LandingPage
       usernameInput={usernameInput}
@@ -42,9 +49,10 @@ const LandingHomePage: React.FC = () => {
       onGoogleLogin={handleGoogleLogin}
       googleLoading={authLoading}
       nicknameMaxLength={USERNAME_MAX}
+      suggestedGuestUsername={suggestedGuestUsername}
+      onUseSuggestedUsername={handleUseSuggestedUsername}
     />
   );
 };
 
 export default LandingHomePage;
-

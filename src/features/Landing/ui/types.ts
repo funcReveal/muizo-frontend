@@ -5,4 +5,6 @@ export interface LandingPageProps {
   onGoogleLogin: () => void;
   googleLoading?: boolean;
   nicknameMaxLength?: number;
+  suggestedGuestUsername?: string;
+  onUseSuggestedUsername?: () => void;
 }

@@ -17,6 +17,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
   onGoogleLogin,
   googleLoading = false,
   nicknameMaxLength = 16,
+  suggestedGuestUsername,
+  onUseSuggestedUsername,
 }) => {
   const shellRef = useRef<HTMLElement | null>(null);
 
@@ -122,6 +124,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 onInputChange={onInputChange}
                 onConfirm={onConfirm}
                 nicknameMaxLength={nicknameMaxLength}
+                suggestedGuestUsername={suggestedGuestUsername}
+                onUseSuggestedUsername={onUseSuggestedUsername}
               />
             </div>
           </div>

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type UIEvent,
+} from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useContext } from "react";
 import { Button, TextField, useMediaQuery } from "@mui/material";
@@ -35,10 +42,9 @@ import {
   USERNAME_MAX,
   YOUTUBE_PLAYLIST_MIN_ITEM_COUNT,
 } from "@domain/room/constants";
+import { generateGuestUsername } from "@domain/room/guestUsername";
 import type { PlaybackExtensionMode } from "@domain/room/types";
-import {
-  PlaylistPreviewRow,
-} from "./components/source/PlaylistPreviewRows";
+import { PlaylistPreviewRow } from "./components/source/PlaylistPreviewRows";
 import JoinRoomPanel from "./components/join/JoinRoomPanel";
 import LibrarySourcePanel from "./components/source/LibrarySourcePanel";
 import LibrarySourceToolbar from "./components/source/LibrarySourceToolbar";
@@ -135,23 +141,6 @@ const buildSkeletonClassName = (shapeClassName: string) =>
 const skeletonLineClass =
   "rounded-full bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]";
 
-const generateGuestUsername = () => {
-  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const values = new Uint8Array(6);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    crypto.getRandomValues(values);
-  } else {
-    for (let index = 0; index < values.length; index += 1) {
-      values[index] = Math.floor(Math.random() * 256);
-    }
-  }
-  const suffix = Array.from(
-    values,
-    (value) => alphabet[value % alphabet.length],
-  ).join("");
-  return `guest-${suffix}`.slice(0, USERNAME_MAX);
-};
-
 const renderYoutubeSkeletonCard = (idx: number, view: "grid" | "list") => {
   if (view === "grid") {
     return (
@@ -235,9 +224,7 @@ type RoomHubSetupPreferences = {
 const isRoomPlayMode = (value: unknown): value is RoomPlayMode =>
   value === "casual" || value === "leaderboard";
 
-const isLeaderboardModeKey = (
-  value: unknown,
-): value is LeaderboardModeKey =>
+const isLeaderboardModeKey = (value: unknown): value is LeaderboardModeKey =>
   typeof value === "string" && value in leaderboardVariants;
 
 const isLeaderboardVariantKey = (
@@ -266,9 +253,7 @@ const readRoomHubSetupPreferences = (): RoomHubSetupPreferences | null => {
   }
 };
 
-const writeRoomHubSetupPreferences = (
-  preferences: RoomHubSetupPreferences,
-) => {
+const writeRoomHubSetupPreferences = (preferences: RoomHubSetupPreferences) => {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(
@@ -365,8 +350,7 @@ const RoomsHubPage: React.FC = () => {
     const stored = window.sessionStorage.getItem(GUIDE_MODE_STORAGE_KEY);
     return stored === "join" ? "join" : "create";
   });
-  const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] =
-    useState(false);
+  const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] = useState(false);
   const [detailCollectionId, setDetailCollectionId] = useState<string | null>(
     null,
   );
@@ -1001,11 +985,11 @@ const RoomsHubPage: React.FC = () => {
     ? "請先輸入房間名稱。"
     : playlistItems.length === 0
       ? "請先準備題庫內容，才能建立房間。"
-    : playlistItems.length < questionMin
-      ? `題庫至少需要 ${questionMin} 題，才能建立房間。`
-    : maxPlayersInvalid
-      ? `玩家上限需介於 ${PLAYER_MIN}-${PLAYER_MAX} 人之間。`
-      : null;
+      : playlistItems.length < questionMin
+        ? `題庫至少需要 ${questionMin} 題，才能建立房間。`
+        : maxPlayersInvalid
+          ? `玩家上限需介於 ${PLAYER_MIN}-${PLAYER_MAX} 人之間。`
+          : null;
   const createRecommendationHintText =
     !createRequirementsHintText &&
     playlistItems.length >= questionMin &&
@@ -1793,176 +1777,162 @@ const RoomsHubPage: React.FC = () => {
                   >
                     <div className="flex min-h-0 flex-1 flex-col bg-[var(--mc-surface)]/10 lg:rounded-none lg:border-l lg:border-[var(--mc-border)]/45 lg:pl-5">
                       <div className="flex min-h-0 flex-1 flex-col">
-                          {createLibraryTab !== "link" && (
-                            <LibrarySourceToolbar
-                              createLibraryTab={createLibraryTab}
-                              publicLibrarySearchPanelRef={
-                                publicLibrarySearchPanelRef
-                              }
-                              publicLibrarySearchActive={
-                                publicLibrarySearchActive
-                              }
-                              createLibrarySearch={createLibrarySearch}
-                              setCreateLibrarySearch={setCreateLibrarySearch}
-                              collectionsLoading={collectionsLoading}
-                              filteredCreateCollectionsLength={
-                                filteredCreateCollections.length
-                              }
-                              filteredCreateYoutubePlaylistsLength={
-                                filteredCreateYoutubePlaylists.length
-                              }
-                              createLibraryView={createLibraryView}
-                              setCreateLibraryView={setCreateLibraryView}
-                              togglePublicLibrarySearch={
-                                togglePublicLibrarySearch
-                              }
-                              publicCollectionsSort={publicCollectionsSort}
-                              setPublicCollectionsSort={
-                                setPublicCollectionsSort
-                              }
-                            />
-                          )}
+                        {createLibraryTab !== "link" && (
+                          <LibrarySourceToolbar
+                            createLibraryTab={createLibraryTab}
+                            publicLibrarySearchPanelRef={
+                              publicLibrarySearchPanelRef
+                            }
+                            publicLibrarySearchActive={
+                              publicLibrarySearchActive
+                            }
+                            createLibrarySearch={createLibrarySearch}
+                            setCreateLibrarySearch={setCreateLibrarySearch}
+                            collectionsLoading={collectionsLoading}
+                            filteredCreateCollectionsLength={
+                              filteredCreateCollections.length
+                            }
+                            filteredCreateYoutubePlaylistsLength={
+                              filteredCreateYoutubePlaylists.length
+                            }
+                            createLibraryView={createLibraryView}
+                            setCreateLibraryView={setCreateLibraryView}
+                            togglePublicLibrarySearch={
+                              togglePublicLibrarySearch
+                            }
+                            publicCollectionsSort={publicCollectionsSort}
+                            setPublicCollectionsSort={setPublicCollectionsSort}
+                          />
+                        )}
 
-                          {!canUseGoogleLibraries &&
-                          (createLibraryTab === "personal" ||
-                            createLibraryTab === "youtube") ? (
-                            <div className="mt-2 rounded-xl border border-dashed border-slate-600/60 bg-slate-900/30 p-3 text-sm text-slate-300 sm:mt-3 sm:p-4">
-                              <p className="text-sm text-slate-200">
-                                私人收藏庫和從 Youtube
-                                匯入清單需先登入，也可以直接點上方已鎖定的來源項目登入。
-                              </p>
-                              <div className="mt-1">
-                                <Button
-                                  variant="contained"
-                                  onClick={loginWithGoogle}
-                                  disabled={authLoading}
-                                >
-                                  {authLoading
-                                    ? "登入中..."
-                                    : "使用 Google 登入"}
-                                </Button>
-                              </div>
+                        {!canUseGoogleLibraries &&
+                        (createLibraryTab === "personal" ||
+                          createLibraryTab === "youtube") ? (
+                          <div className="mt-2 rounded-xl border border-dashed border-slate-600/60 bg-slate-900/30 p-3 text-sm text-slate-300 sm:mt-3 sm:p-4">
+                            <p className="text-sm text-slate-200">
+                              私人收藏庫和從 Youtube
+                              匯入清單需先登入，也可以直接點上方已鎖定的來源項目登入。
+                            </p>
+                            <div className="mt-1">
+                              <Button
+                                variant="contained"
+                                onClick={loginWithGoogle}
+                                disabled={authLoading}
+                              >
+                                {authLoading ? "登入中..." : "使用 Google 登入"}
+                              </Button>
                             </div>
-                          ) : createLibraryTab === "link" ? (
-                            <PlaylistLinkSourceContent
-                              playlistUrlTooltipMessage={
-                                playlistUrlTooltipMessage
+                          </div>
+                        ) : createLibraryTab === "link" ? (
+                          <PlaylistLinkSourceContent
+                            playlistUrlTooltipMessage={
+                              playlistUrlTooltipMessage
+                            }
+                            isPlaylistUrlFieldFocused={
+                              isPlaylistUrlFieldFocused
+                            }
+                            setIsPlaylistUrlFieldFocused={
+                              setIsPlaylistUrlFieldFocused
+                            }
+                            trimmedPlaylistUrlDraft={trimmedPlaylistUrlDraft}
+                            showPlaylistUrlError={showPlaylistUrlError}
+                            showPlaylistUrlWarning={showPlaylistUrlWarning}
+                            playlistUrlDraft={playlistUrlDraft}
+                            isLinkSourceActive={isLinkSourceActive}
+                            handleActivateLinkSource={handleActivateLinkSource}
+                            setPlaylistUrlDraft={setPlaylistUrlDraft}
+                            playlistPreviewError={playlistPreviewError}
+                            setPlaylistPreviewError={setPlaylistPreviewError}
+                            linkPreviewLocked={linkPreviewLocked}
+                            handlePreviewPlaylistByUrl={
+                              handlePreviewPlaylistByUrl
+                            }
+                            playlistLoading={playlistLoading}
+                            playlistUrlLooksValid={playlistUrlLooksValid}
+                            handleClearPlaylistUrlInput={
+                              handleClearPlaylistUrlInput
+                            }
+                            linkPlaylistTitle={linkPlaylistTitle}
+                            linkPlaylistCount={linkPlaylistCount}
+                            playlistItemsLength={playlistItems.length}
+                            handlePickLinkSource={handlePickLinkSourceForDrawer}
+                            linkPlaylistPreviewItems={linkPlaylistPreviewItems}
+                            canAttemptPlaylistPreview={
+                              canAttemptPlaylistPreview
+                            }
+                            linkPlaylistIssueSummary={linkPlaylistIssueSummary}
+                            linkPlaylistIssueTotal={linkPlaylistIssueTotal}
+                            onOpenPlaylistIssueDialog={() =>
+                              setPlaylistIssueDialogOpen(true)
+                            }
+                            playlistPreviewMetaSkippedCount={
+                              playlistPreviewMeta?.skippedCount ?? 0
+                            }
+                            PlaylistPreviewRow={PlaylistPreviewRow}
+                          />
+                        ) : createLibraryTab === "youtube" ? (
+                          <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
+                            <YoutubeSourceContent
+                              youtubePlaylistsLoading={youtubePlaylistsLoading}
+                              createLibraryView={createLibraryView}
+                              filteredCreateYoutubePlaylists={
+                                filteredCreateYoutubePlaylists
                               }
-                              isPlaylistUrlFieldFocused={
-                                isPlaylistUrlFieldFocused
+                              normalizedCreateLibrarySearch={
+                                normalizedCreateLibrarySearch
                               }
-                              setIsPlaylistUrlFieldFocused={
-                                setIsPlaylistUrlFieldFocused
-                              }
-                              trimmedPlaylistUrlDraft={trimmedPlaylistUrlDraft}
-                              showPlaylistUrlError={showPlaylistUrlError}
-                              showPlaylistUrlWarning={showPlaylistUrlWarning}
-                              playlistUrlDraft={playlistUrlDraft}
-                              isLinkSourceActive={isLinkSourceActive}
                               handleActivateLinkSource={
                                 handleActivateLinkSource
                               }
-                              setPlaylistUrlDraft={setPlaylistUrlDraft}
-                              playlistPreviewError={playlistPreviewError}
-                              setPlaylistPreviewError={setPlaylistPreviewError}
-                              linkPreviewLocked={linkPreviewLocked}
-                              handlePreviewPlaylistByUrl={
-                                handlePreviewPlaylistByUrl
+                              setCreateLibraryTab={setCreateLibraryTab}
+                              createLibraryColumns={createLibraryColumns}
+                              youtubeListRowHeight={youtubeListRowHeight}
+                              renderYoutubeSkeletonCard={
+                                renderYoutubeSkeletonCard
                               }
-                              playlistLoading={playlistLoading}
-                              playlistUrlLooksValid={playlistUrlLooksValid}
-                              handleClearPlaylistUrlInput={
-                                handleClearPlaylistUrlInput
-                              }
-                              linkPlaylistTitle={linkPlaylistTitle}
-                              linkPlaylistCount={linkPlaylistCount}
-                              playlistItemsLength={playlistItems.length}
-                              handlePickLinkSource={handlePickLinkSourceForDrawer}
-                              linkPlaylistPreviewItems={
-                                linkPlaylistPreviewItems
-                              }
-                              canAttemptPlaylistPreview={
-                                canAttemptPlaylistPreview
-                              }
-                              linkPlaylistIssueSummary={
-                                linkPlaylistIssueSummary
-                              }
-                              linkPlaylistIssueTotal={linkPlaylistIssueTotal}
-                              onOpenPlaylistIssueDialog={() =>
-                                setPlaylistIssueDialogOpen(true)
-                              }
-                              playlistPreviewMetaSkippedCount={
-                                playlistPreviewMeta?.skippedCount ?? 0
-                              }
-                              PlaylistPreviewRow={PlaylistPreviewRow}
+                              renderYoutubeCard={renderYoutubeCard}
+                              VirtualLibraryListRow={VirtualLibraryListRow}
                             />
-                          ) : createLibraryTab === "youtube" ? (
-                            <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
-                              <YoutubeSourceContent
-                                youtubePlaylistsLoading={
-                                  youtubePlaylistsLoading
-                                }
-                                createLibraryView={createLibraryView}
-                                filteredCreateYoutubePlaylists={
-                                  filteredCreateYoutubePlaylists
-                                }
-                                normalizedCreateLibrarySearch={
-                                  normalizedCreateLibrarySearch
-                                }
-                                handleActivateLinkSource={
-                                  handleActivateLinkSource
-                                }
-                                setCreateLibraryTab={setCreateLibraryTab}
-                                createLibraryColumns={createLibraryColumns}
-                                youtubeListRowHeight={youtubeListRowHeight}
-                                renderYoutubeSkeletonCard={
-                                  renderYoutubeSkeletonCard
-                                }
-                                renderYoutubeCard={renderYoutubeCard}
-                                VirtualLibraryListRow={VirtualLibraryListRow}
-                              />
-                            </div>
-                          ) : (
-                            <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
-                              <CollectionsSourceContent
-                                createLibraryTab={createLibraryTab}
-                                createLibraryView={createLibraryView}
-                                shouldShowCollectionSkeleton={
-                                  shouldShowCollectionSkeleton
-                                }
-                                renderCollectionSkeletonCard={
-                                  renderCollectionSkeletonCard
-                                }
-                                collectionsError={collectionsError}
-                                filteredCreateCollections={
-                                  filteredCreateCollections
-                                }
-                                normalizedCreateLibrarySearch={
-                                  normalizedCreateLibrarySearch
-                                }
-                                setCreateLibraryTab={setCreateLibraryTab}
-                                handleActivateLinkSource={
-                                  handleActivateLinkSource
-                                }
-                                createLibraryScrollRef={createLibraryScrollRef}
-                                handleCollectionGridScroll={
-                                  handleCollectionGridScroll
-                                }
-                                createLibraryColumns={createLibraryColumns}
-                                renderCollectionCard={renderCollectionCard}
-                                collectionsLoading={collectionsLoading}
-                                collectionsLoadingMore={collectionsLoadingMore}
-                                collectionListRowCount={collectionListRowCount}
-                                collectionListRowHeight={
-                                  collectionListRowHeight
-                                }
-                                collectionsHasMore={collectionsHasMore}
-                                loadMoreCollections={loadMoreCollections}
-                                VirtualLibraryListRow={VirtualLibraryListRow}
-                              />
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
+                            <CollectionsSourceContent
+                              createLibraryTab={createLibraryTab}
+                              createLibraryView={createLibraryView}
+                              shouldShowCollectionSkeleton={
+                                shouldShowCollectionSkeleton
+                              }
+                              renderCollectionSkeletonCard={
+                                renderCollectionSkeletonCard
+                              }
+                              collectionsError={collectionsError}
+                              filteredCreateCollections={
+                                filteredCreateCollections
+                              }
+                              normalizedCreateLibrarySearch={
+                                normalizedCreateLibrarySearch
+                              }
+                              setCreateLibraryTab={setCreateLibraryTab}
+                              handleActivateLinkSource={
+                                handleActivateLinkSource
+                              }
+                              createLibraryScrollRef={createLibraryScrollRef}
+                              handleCollectionGridScroll={
+                                handleCollectionGridScroll
+                              }
+                              createLibraryColumns={createLibraryColumns}
+                              renderCollectionCard={renderCollectionCard}
+                              collectionsLoading={collectionsLoading}
+                              collectionsLoadingMore={collectionsLoadingMore}
+                              collectionListRowCount={collectionListRowCount}
+                              collectionListRowHeight={collectionListRowHeight}
+                              collectionsHasMore={collectionsHasMore}
+                              loadMoreCollections={loadMoreCollections}
+                              VirtualLibraryListRow={VirtualLibraryListRow}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </LibrarySourcePanel>
                 </div>
@@ -2181,7 +2151,9 @@ const RoomsHubPage: React.FC = () => {
       <SourceSetupDrawer
         open={Boolean(sourceSetupDrawer)}
         kind={sourceSetupDrawer?.kind ?? null}
-        sourceSummary={sourceSetupDrawer?.summary ?? selectedCreateSourceSummary}
+        sourceSummary={
+          sourceSetupDrawer?.summary ?? selectedCreateSourceSummary
+        }
         onClose={() => setSourceSetupDrawer(null)}
         roomNameInput={roomNameInput}
         setRoomNameInput={setRoomNameInput}

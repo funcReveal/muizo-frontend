@@ -323,6 +323,17 @@
   background: rgba(245, 158, 11, 0.2);
 }
 
+.landing-button-random {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(245, 158, 11, 0.12);
+  color: rgba(254, 243, 199, 0.94);
+}
+
+.landing-button-random:hover {
+  border-color: rgba(251, 191, 36, 0.54);
+  background: rgba(245, 158, 11, 0.18);
+}
+
 .landing-button-google {
   color: #eafaf2;
   border-color: rgba(34, 211, 238, 0.44);
