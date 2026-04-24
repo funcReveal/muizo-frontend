@@ -98,6 +98,7 @@ type LeaderboardListRowProps = {
 };
 
 type QuestionFilterType = "correct" | "wrong" | "unanswered" | null;
+type MobileSettlementPanel = "leaderboard" | "review";
 
 const scoreFormatter = new Intl.NumberFormat("zh-TW");
 
@@ -350,11 +351,12 @@ const SummaryMetric = memo(function SummaryMetric({
   note: string;
 }) {
   return (
-    <div className="flex items-center justify-center px-2 py-2">
-      <div className="flex w-full max-w-[220px] items-start gap-3 text-left">
+    <div className="flex items-center justify-center px-2 py-2 text-center xl:text-left">
+      <div className="flex w-full max-w-[220px] flex-col items-center justify-center gap-2 text-center xl:flex-row xl:items-start xl:text-left">
         <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center text-amber-100">
           {icon}
         </div>
+
         <div className="min-w-0">
           <div className="text-[10px] tracking-[0.16em] text-[var(--mc-text-muted)]">
             {label}
@@ -370,7 +372,41 @@ const SummaryMetric = memo(function SummaryMetric({
     </div>
   );
 });
+const MobileSettlementPanelSwitch = memo(function MobileSettlementPanelSwitch({
+  value,
+  onChange,
+}: {
+  value: MobileSettlementPanel;
+  onChange: (next: MobileSettlementPanel) => void;
+}) {
+  return (
+    <div className="mt-4 rounded-full border border-white/10 bg-white/[0.035] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          onClick={() => onChange("leaderboard")}
+          className={`rounded-full px-3 py-2 text-sm font-black tracking-[0.08em] transition ${value === "leaderboard"
+            ? "bg-amber-400/18 text-amber-50 shadow-[0_0_18px_rgba(251,191,36,0.18)]"
+            : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+            }`}
+        >
+          排行榜
+        </button>
 
+        <button
+          type="button"
+          onClick={() => onChange("review")}
+          className={`rounded-full px-3 py-2 text-sm font-black tracking-[0.08em] transition ${value === "review"
+            ? "bg-amber-400/18 text-amber-50 shadow-[0_0_18px_rgba(251,191,36,0.18)]"
+            : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+            }`}
+        >
+          題目回顧
+        </button>
+      </div>
+    </div>
+  );
+});
 const RankChangeBadge = memo(function RankChangeBadge({
   value,
 }: {
@@ -676,6 +712,8 @@ const LeaderboardSettlementShowcase: React.FC<
     const listRowHeight = 84;
     const { ref: questionListRef, width: questionListWidth } = useElementWidth();
     const [questionFilter, setQuestionFilter] = useState<QuestionFilterType>(null);
+    const [mobileSettlementPanel, setMobileSettlementPanel] =
+      useState<MobileSettlementPanel>("leaderboard");
 
     const { bgmVolume } = useSettingsModel();
     const settlementBgmRef = useRef<HTMLAudioElement | null>(null);
@@ -1374,283 +1412,293 @@ const LeaderboardSettlementShowcase: React.FC<
                       }
                     />
                   </div>
+                  {!isDesktopLayout ? (
+                    <MobileSettlementPanelSwitch
+                      value={mobileSettlementPanel}
+                      onChange={setMobileSettlementPanel}
+                    />
+                  ) : null}
                 </article>
-
-                <article
-                  className="overflow-hidden rounded-[18px] border border-amber-300/16 bg-[linear-gradient(180deg,rgba(17,18,20,0.94),rgba(11,12,16,0.96))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-3"
-                  style={{ height: leaderboardCardHeight }}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/12 pb-2">
-                    <h2 className="text-base font-black tracking-[0.06em] text-amber-100">
-                      排行榜
-                    </h2>
-                    <div className="rounded-full border border-amber-300/18 bg-amber-500/8 px-2.5 py-1 text-xs font-semibold text-amber-100/88">
-                      {rankingSummaryLabel}
-                    </div>
-                  </div>
-
-                  <div className={`mt-3 hidden ${LEADERBOARD_DESKTOP_GRID_CLASS} gap-2 px-3 text-xs font-semibold text-amber-100/78 xl:grid`}>
-                    <div>名次</div>
-                    <div>玩家</div>
-                    <div className="text-center">答對 / 答錯</div>
-                    <div className="text-center">最大 Combo</div>
-                    <div className="text-center">平均答題</div>
-                    <div className="text-center">耗時</div>
-                    <div className="text-center">分數</div>
-                    {/* <div className="text-center">排名變化</div> */}
-                  </div>
-
-                  {effectiveLeaderboardRows.length > 0 ? (
-                    <>
-                      <div className="mt-2 hidden xl:block">
-                        <List
-                          rowComponent={LeaderboardDesktopRow}
-                          rowCount={effectiveLeaderboardRows.length}
-                          rowHeight={LEADERBOARD_DESKTOP_ROW_HEIGHT}
-                          rowProps={{
-                            rows: effectiveLeaderboardRows,
-                            playedQuestionCount,
-                          }}
-                          overscanCount={5}
-                          defaultHeight={leaderboardDesktopHeight}
-                          onRowsRendered={handleLeaderboardRowsRendered}
-                          style={{ height: leaderboardDesktopHeight, width: "100%" }}
-                        />
+                {(isDesktopLayout || mobileSettlementPanel === "leaderboard") ? (
+                  <article
+                    className="overflow-hidden rounded-[18px] border border-amber-300/16 bg-[linear-gradient(180deg,rgba(17,18,20,0.94),rgba(11,12,16,0.96))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-3"
+                    style={{ height: leaderboardCardHeight }}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/12 pb-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/12 pb-2">
+                        <h2 className="text-base font-black tracking-[0.06em] text-amber-100">
+                          排行榜
+                        </h2>
+                        <div className="rounded-full border border-amber-300/18 bg-amber-500/8 px-2.5 py-1 text-xs font-semibold text-amber-100/88">
+                          {rankingSummaryLabel}
+                        </div>
                       </div>
-                      <div className="mt-2 xl:hidden">
-                        <List
-                          rowComponent={LeaderboardMobileRow}
-                          rowCount={effectiveLeaderboardRows.length}
-                          rowHeight={LEADERBOARD_MOBILE_ROW_HEIGHT}
-                          rowProps={{
-                            rows: effectiveLeaderboardRows,
-                            playedQuestionCount,
-                          }}
-                          overscanCount={5}
-                          defaultHeight={leaderboardMobileHeight}
-                          onRowsRendered={handleLeaderboardRowsRendered}
-                          style={{ height: leaderboardMobileHeight, width: "100%" }}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="mt-3 rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center text-sm text-[var(--mc-text-muted)]">
-                      {leaderboardSettlementError
-                        ? "全球排行榜載入失敗，先顯示本場即時結果。"
-                        : "目前僅顯示本場即時結果。"}
                     </div>
-                  )}
-                  {leaderboardSettlementError && onRefreshLeaderboardSettlement && (
-                    <div className="mt-2.5 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={onRefreshLeaderboardSettlement}
-                        className="inline-flex items-center gap-2 rounded-full border border-amber-300/18 bg-amber-500/8 px-3 py-1.5 text-xs font-semibold text-amber-100/88 transition hover:bg-amber-500/14"
-                      >
-                        <RefreshRoundedIcon sx={{ fontSize: 14 }} />
-                        重新載入全球排行榜
-                      </button>
+
+                    <div className={`mt-3 hidden ${LEADERBOARD_DESKTOP_GRID_CLASS} gap-2 px-3 text-xs font-semibold text-amber-100/78 xl:grid`}>
+                      <div>名次</div>
+                      <div>玩家</div>
+                      <div className="text-center">答對 / 答錯</div>
+                      <div className="text-center">最大 Combo</div>
+                      <div className="text-center">平均答題</div>
+                      <div className="text-center">耗時</div>
+                      <div className="text-center">分數</div>
+                      {/* <div className="text-center">排名變化</div> */}
                     </div>
-                  )}
-                  {personalBestRow && (
-                    <div className="mt-3 rounded-[20px] border border-sky-300/20 bg-sky-500/8 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(125,211,252,0.04)]">
-                      <div className="mb-2 flex items-center justify-between gap-3 text-xs text-sky-100/80">
-                        <span className="font-semibold tracking-[0.08em]">個人最佳</span>
-                        <span>
-                          第 {personalBestRow.rank} 名
-                          {personalBestComparison?.hasPreviousBest === false ? " · 首次紀錄" : ""}
-                        </span>
-                      </div>
-                      <div className={`hidden ${LEADERBOARD_DESKTOP_GRID_CLASS} items-center gap-2 xl:grid`}>
-                        <div className="text-base font-black text-sky-100">#{personalBestRow.rank}</div>
-                        <div className="flex min-w-0 items-center gap-2">
-                          <PlayerAvatar
-                            username={personalBestRow.username}
-                            clientId={personalBestRow.clientId}
-                            avatarUrl={personalBestRow.avatarUrl}
-                            size={32}
-                            rank={personalBestRow.rank}
-                            combo={personalBestRow.combo}
-                            isMe
-                            hideRankMark
-                            loading="lazy"
+
+                    {effectiveLeaderboardRows.length > 0 ? (
+                      <>
+                        <div className="mt-2 hidden xl:block">
+                          <List
+                            rowComponent={LeaderboardDesktopRow}
+                            rowCount={effectiveLeaderboardRows.length}
+                            rowHeight={LEADERBOARD_DESKTOP_ROW_HEIGHT}
+                            rowProps={{
+                              rows: effectiveLeaderboardRows,
+                              playedQuestionCount,
+                            }}
+                            overscanCount={5}
+                            defaultHeight={leaderboardDesktopHeight}
+                            onRowsRendered={handleLeaderboardRowsRendered}
+                            style={{ height: leaderboardDesktopHeight, width: "100%" }}
                           />
-                          <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                            {personalBestRow.username}（你）
-                          </div>
                         </div>
-                        <div className="text-center text-xs text-[var(--mc-text-muted)]">
-                          {personalBestRow.correctCount} / {Math.max(playedQuestionCount - personalBestRow.correctCount, 0)}
+                        <div className="mt-2 xl:hidden">
+                          <List
+                            rowComponent={LeaderboardMobileRow}
+                            rowCount={effectiveLeaderboardRows.length}
+                            rowHeight={LEADERBOARD_MOBILE_ROW_HEIGHT}
+                            rowProps={{
+                              rows: effectiveLeaderboardRows,
+                              playedQuestionCount,
+                            }}
+                            overscanCount={5}
+                            defaultHeight={leaderboardMobileHeight}
+                            onRowsRendered={handleLeaderboardRowsRendered}
+                            style={{ height: leaderboardMobileHeight, width: "100%" }}
+                          />
                         </div>
-                        <div className="text-center text-xs font-semibold text-violet-300">
-                          x{personalBestRow.combo}
-                        </div>
-                        <div className="text-center text-xs text-[var(--mc-text-muted)]">
-                          {formatSeconds(personalBestRow.avgCorrectMs)}
-                        </div>
-                        <div className="text-center text-xs font-semibold text-slate-300">
-                          {formatDurationSec(personalBestRow.durationSec)}
-                        </div>
-                        <div className="text-center text-base font-black text-sky-100">
-                          {formatScore(personalBestRow.score)}
-                        </div>
+                      </>
+                    ) : (
+                      <div className="mt-3 rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center text-sm text-[var(--mc-text-muted)]">
+                        {leaderboardSettlementError
+                          ? "全球排行榜載入失敗，先顯示本場即時結果。"
+                          : "目前僅顯示本場即時結果。"}
                       </div>
-                      <div className="xl:hidden">
-                        <div className="flex items-center justify-between gap-2">
+                    )}
+                    {leaderboardSettlementError && onRefreshLeaderboardSettlement && (
+                      <div className="mt-2.5 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={onRefreshLeaderboardSettlement}
+                          className="inline-flex items-center gap-2 rounded-full border border-amber-300/18 bg-amber-500/8 px-3 py-1.5 text-xs font-semibold text-amber-100/88 transition hover:bg-amber-500/14"
+                        >
+                          <RefreshRoundedIcon sx={{ fontSize: 14 }} />
+                          重新載入全球排行榜
+                        </button>
+                      </div>
+                    )}
+                    {personalBestRow && (
+                      <div className="mt-3 rounded-[20px] border border-sky-300/20 bg-sky-500/8 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(125,211,252,0.04)]">
+                        <div className="mb-2 flex items-center justify-between gap-3 text-xs text-sky-100/80">
+                          <span className="font-semibold tracking-[0.08em]">個人最佳</span>
+                          <span>
+                            第 {personalBestRow.rank} 名
+                            {personalBestComparison?.hasPreviousBest === false ? " · 首次紀錄" : ""}
+                          </span>
+                        </div>
+                        <div className={`hidden ${LEADERBOARD_DESKTOP_GRID_CLASS} items-center gap-2 xl:grid`}>
+                          <div className="text-base font-black text-sky-100">#{personalBestRow.rank}</div>
                           <div className="flex min-w-0 items-center gap-2">
-                            <div className="text-base font-black text-sky-100">#{personalBestRow.rank}</div>
                             <PlayerAvatar
                               username={personalBestRow.username}
                               clientId={personalBestRow.clientId}
                               avatarUrl={personalBestRow.avatarUrl}
-                              size={30}
+                              size={32}
                               rank={personalBestRow.rank}
                               combo={personalBestRow.combo}
                               isMe
                               hideRankMark
                               loading="lazy"
                             />
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                                {personalBestRow.username}（你）
+                            <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
+                              {personalBestRow.username}（你）
+                            </div>
+                          </div>
+                          <div className="text-center text-xs text-[var(--mc-text-muted)]">
+                            {personalBestRow.correctCount} / {Math.max(playedQuestionCount - personalBestRow.correctCount, 0)}
+                          </div>
+                          <div className="text-center text-xs font-semibold text-violet-300">
+                            x{personalBestRow.combo}
+                          </div>
+                          <div className="text-center text-xs text-[var(--mc-text-muted)]">
+                            {formatSeconds(personalBestRow.avgCorrectMs)}
+                          </div>
+                          <div className="text-center text-xs font-semibold text-slate-300">
+                            {formatDurationSec(personalBestRow.durationSec)}
+                          </div>
+                          <div className="text-center text-base font-black text-sky-100">
+                            {formatScore(personalBestRow.score)}
+                          </div>
+                        </div>
+                        <div className="xl:hidden">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div className="text-base font-black text-sky-100">#{personalBestRow.rank}</div>
+                              <PlayerAvatar
+                                username={personalBestRow.username}
+                                clientId={personalBestRow.clientId}
+                                avatarUrl={personalBestRow.avatarUrl}
+                                size={30}
+                                rank={personalBestRow.rank}
+                                combo={personalBestRow.combo}
+                                isMe
+                                hideRankMark
+                                loading="lazy"
+                              />
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
+                                  {personalBestRow.username}（你）
+                                </div>
+                                <div className="mt-0.5 text-xs text-[var(--mc-text-muted)]">
+                                  答對 / 答錯 {personalBestRow.correctCount} / {Math.max(playedQuestionCount - personalBestRow.correctCount, 0)}
+                                </div>
                               </div>
-                              <div className="mt-0.5 text-xs text-[var(--mc-text-muted)]">
-                                答對 / 答錯 {personalBestRow.correctCount} / {Math.max(playedQuestionCount - personalBestRow.correctCount, 0)}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-base font-black text-sky-100">
+                                {formatScore(personalBestRow.score)}
+                              </div>
+                              <div className="mt-0.5 text-xs text-violet-300">
+                                Combo x{personalBestRow.combo}
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-base font-black text-sky-100">
-                              {formatScore(personalBestRow.score)}
-                            </div>
-                            <div className="mt-0.5 text-xs text-violet-300">
-                              Combo x{personalBestRow.combo}
-                            </div>
+                          <div className="mt-2 text-xs text-[var(--mc-text-muted)]">
+                            平均答題 {formatSeconds(personalBestRow.avgCorrectMs)} · 耗時 {formatDurationSec(personalBestRow.durationSec)}
                           </div>
                         </div>
-                        <div className="mt-2 text-xs text-[var(--mc-text-muted)]">
-                          平均答題 {formatSeconds(personalBestRow.avgCorrectMs)}· 耗時 {formatDurationSec(personalBestRow.durationSec)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </article>
-
-              </div>
-
-              <aside className="min-w-0">
-                <article className="rounded-[24px] bg-transparent p-0 shadow-none">
-                  <div className="overflow-hidden rounded-[20px] bg-[linear-gradient(180deg,rgba(24,20,14,0.96),rgba(12,12,14,0.96))]">
-                    <div className="relative h-[100px] w-full overflow-hidden bg-[linear-gradient(145deg,rgba(59,130,246,0.25),rgba(147,51,234,0.18))]">
-                      {coverThumbnail ? (
-                        <img
-                          src={coverThumbnail}
-                          alt={playlistSummary.title}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-amber-100/80">
-                          <BarChartRoundedIcon sx={{ fontSize: 30 }} />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
-                      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 px-3 pb-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-black tracking-[0.04em] text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
-                            {playlistSummary.title}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={onToggleFavorite}
-                          disabled={!onToggleFavorite}
-                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-40 ${isFavorited
-                            ? "border-amber-300/60 bg-amber-500/22 text-amber-300 hover:bg-amber-500/16"
-                            : "border-white/30 bg-black/40 text-white hover:bg-black/60"
-                            }`}
-                          aria-label={isFavorited ? "取消收藏" : "加入收藏"}
-                          aria-pressed={isFavorited ?? false}
-                        >
-                          {isFavorited ? <StarRoundedIcon sx={{ fontSize: 18 }} /> : <StarBorderRoundedIcon sx={{ fontSize: 18 }} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="p-3 sm:p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-[18px] bg-white/[0.02] px-3 py-3">
-                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setQuestionFilter(
-                              questionFilter === "correct" ? null : "correct",
-                            )}
-                            className={`rounded-full border px-2.5 py-1 font-semibold transition ${questionFilter === "correct"
-                              ? "border-emerald-300/55 bg-emerald-500/18 text-emerald-100"
-                              : "border-emerald-300/30 bg-emerald-500/10 text-emerald-100/70 hover:bg-emerald-500/14"
-                              }`}
-                            aria-pressed={questionFilter === "correct"}
-                          >
-                            答對 {answerOverview.correct}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setQuestionFilter(
-                              questionFilter === "wrong" ? null : "wrong",
-                            )}
-                            className={`rounded-full border px-2.5 py-1 font-semibold transition ${questionFilter === "wrong"
-                              ? "border-rose-300/55 bg-rose-500/18 text-rose-100"
-                              : "border-rose-300/30 bg-rose-500/10 text-rose-100/70 hover:bg-rose-500/14"
-                              }`}
-                            aria-pressed={questionFilter === "wrong"}
-                          >
-                            答錯 {answerOverview.wrong}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setQuestionFilter(
-                              questionFilter === "unanswered" ? null : "unanswered",
-                            )}
-                            className={`rounded-full border px-2.5 py-1 font-semibold transition ${questionFilter === "unanswered"
-                              ? "border-slate-500/55 bg-slate-700/50 text-slate-100"
-                              : "border-slate-500/35 bg-slate-700/25 text-slate-100/70 hover:bg-slate-700/35"
-                              }`}
-                            aria-pressed={questionFilter === "unanswered"}
-                          >
-                            未作答 {answerOverview.unanswered}
-                          </button>
-                        </div>
-                        <div className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-xs text-[var(--mc-text-muted)]">
-                          共 {questionRows.length} 題
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div ref={questionListRef} className="mt-3 min-h-0">
-                    {filteredQuestionRows.length > 0 && questionListWidth > 0 ? (
-                      <List
-                        rowComponent={QuestionListRow}
-                        rowCount={filteredQuestionRows.length}
-                        rowHeight={listRowHeight}
-                        rowProps={{ items: filteredQuestionRows, isDesktopLayout }}
-                        overscanCount={5}
-                        defaultHeight={questionListHeight}
-                        style={{ height: questionListHeight, width: "100%" }}
-                      />
-                    ) : (
-                      <div
-                        className="flex items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] text-center text-sm text-[var(--mc-text-muted)]"
-                        style={{ height: questionListHeight }}
-                      >
-                        {questionFilter !== null
-                          ? filterEmptyMessages[questionFilter]
-                          : "目前沒有任何題目資訊"}
                       </div>
                     )}
-                  </div>
-                </article>
-              </aside>
+                  </article>
+                ) : null}
+
+              </div>
+              {(isDesktopLayout || mobileSettlementPanel === "review") ? (
+                <aside className="min-w-0">
+                  <article className="rounded-[24px] bg-transparent p-0 shadow-none">
+                    <div className="overflow-hidden rounded-[20px] bg-[linear-gradient(180deg,rgba(24,20,14,0.96),rgba(12,12,14,0.96))]">
+                      <div className="relative h-[100px] w-full overflow-hidden bg-[linear-gradient(145deg,rgba(59,130,246,0.25),rgba(147,51,234,0.18))]">
+                        {coverThumbnail ? (
+                          <img
+                            src={coverThumbnail}
+                            alt={playlistSummary.title}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-amber-100/80">
+                            <BarChartRoundedIcon sx={{ fontSize: 30 }} />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 px-3 pb-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-black tracking-[0.04em] text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
+                              {playlistSummary.title}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={onToggleFavorite}
+                            disabled={!onToggleFavorite}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-40 ${isFavorited
+                              ? "border-amber-300/60 bg-amber-500/22 text-amber-300 hover:bg-amber-500/16"
+                              : "border-white/30 bg-black/40 text-white hover:bg-black/60"
+                              }`}
+                            aria-label={isFavorited ? "取消收藏" : "加入收藏"}
+                            aria-pressed={isFavorited ?? false}
+                          >
+                            {isFavorited ? <StarRoundedIcon sx={{ fontSize: 18 }} /> : <StarBorderRoundedIcon sx={{ fontSize: 18 }} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3 sm:p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[18px] bg-white/[0.02] px-3 py-3">
+                          <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setQuestionFilter(
+                                questionFilter === "correct" ? null : "correct",
+                              )}
+                              className={`rounded-full border px-2.5 py-1 font-semibold transition ${questionFilter === "correct"
+                                ? "border-emerald-300/55 bg-emerald-500/18 text-emerald-100"
+                                : "border-emerald-300/30 bg-emerald-500/10 text-emerald-100/70 hover:bg-emerald-500/14"
+                                }`}
+                              aria-pressed={questionFilter === "correct"}
+                            >
+                              答對 {answerOverview.correct}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setQuestionFilter(
+                                questionFilter === "wrong" ? null : "wrong",
+                              )}
+                              className={`rounded-full border px-2.5 py-1 font-semibold transition ${questionFilter === "wrong"
+                                ? "border-rose-300/55 bg-rose-500/18 text-rose-100"
+                                : "border-rose-300/30 bg-rose-500/10 text-rose-100/70 hover:bg-rose-500/14"
+                                }`}
+                              aria-pressed={questionFilter === "wrong"}
+                            >
+                              答錯 {answerOverview.wrong}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setQuestionFilter(
+                                questionFilter === "unanswered" ? null : "unanswered",
+                              )}
+                              className={`rounded-full border px-2.5 py-1 font-semibold transition ${questionFilter === "unanswered"
+                                ? "border-slate-500/55 bg-slate-700/50 text-slate-100"
+                                : "border-slate-500/35 bg-slate-700/25 text-slate-100/70 hover:bg-slate-700/35"
+                                }`}
+                              aria-pressed={questionFilter === "unanswered"}
+                            >
+                              未作答 {answerOverview.unanswered}
+                            </button>
+                          </div>
+                          <div className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-xs text-[var(--mc-text-muted)]">
+                            共 {questionRows.length} 題
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div ref={questionListRef} className="mt-3 min-h-0">
+                      {filteredQuestionRows.length > 0 && questionListWidth > 0 ? (
+                        <List
+                          rowComponent={QuestionListRow}
+                          rowCount={filteredQuestionRows.length}
+                          rowHeight={listRowHeight}
+                          rowProps={{ items: filteredQuestionRows, isDesktopLayout }}
+                          overscanCount={5}
+                          defaultHeight={questionListHeight}
+                          style={{ height: questionListHeight, width: "100%" }}
+                        />
+                      ) : (
+                        <div
+                          className="flex items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] text-center text-sm text-[var(--mc-text-muted)]"
+                          style={{ height: questionListHeight }}
+                        >
+                          {questionFilter !== null
+                            ? filterEmptyMessages[questionFilter]
+                            : "目前沒有任何題目資訊"}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                </aside>
+              ) : null}
             </div>
           </div>
         </section>
