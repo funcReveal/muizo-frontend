@@ -211,6 +211,48 @@ const buildSettlementSummaryFromSnapshot = (
   summaryJson: null,
 });
 
+const buildLocalCasualSettlementSnapshot = ({
+  room,
+  participants,
+  roundKey,
+  startedAt,
+  endedAt,
+  recaps,
+}: {
+  room: RoomSettlementSnapshot["room"];
+  participants: RoomSettlementSnapshot["participants"];
+  roundKey: string;
+  startedAt: number;
+  endedAt: number;
+  recaps: SettlementQuestionRecap[];
+}): RoomSettlementSnapshot => {
+  const playlistItems = Array.isArray(room.playlist.items)
+    ? room.playlist.items
+    : [];
+
+  const playedQuestionCount = Math.max(
+    recaps.length,
+    Math.min(
+      playlistItems.length,
+      Math.max(0, room.gameSettings?.questionCount ?? recaps.length),
+    ),
+  );
+
+  return {
+    roundKey,
+    roundNo: Math.max(1, Math.floor(startedAt / 1000)),
+    startedAt,
+    endedAt,
+    room,
+    participants,
+    messages: [],
+    playlistItems,
+    trackOrder: playlistItems.map((_, index) => index),
+    playedQuestionCount,
+    questionRecaps: recaps as RoomSettlementQuestionRecap[],
+  };
+};
+
 const getSnapshotRecapCount = (
   snapshot: Pick<RoomSettlementSnapshot, "questionRecaps"> | null | undefined,
 ) =>
@@ -393,13 +435,13 @@ const readSettlementSessionCache = (
       replays:
         parsed.replays && typeof parsed.replays === "object"
           ? pruneSettlementReplayByRoundKey(
-              parsed.replays as Record<string, RoomSettlementSnapshot>,
-              {},
-            )
+            parsed.replays as Record<string, RoomSettlementSnapshot>,
+            {},
+          )
           : {},
       updatedAt:
         typeof parsed.updatedAt === "number" &&
-        Number.isFinite(parsed.updatedAt)
+          Number.isFinite(parsed.updatedAt)
           ? parsed.updatedAt
           : undefined,
     };
@@ -1339,8 +1381,8 @@ const RoomLobbyPage: React.FC = () => {
     () =>
       currentRoom?.id
         ? [...settlementHistory]
-            .filter((item) => item.room.id === currentRoom.id)
-            .sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo)
+          .filter((item) => item.room.id === currentRoom.id)
+          .sort((a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo)
         : [],
     [currentRoom?.id, settlementHistory],
   );
@@ -1349,8 +1391,8 @@ const RoomLobbyPage: React.FC = () => {
     () =>
       currentRoom?.id
         ? settlementHistorySummaries.filter(
-            (item) => item.roomId === currentRoom.id,
-          )
+          (item) => item.roomId === currentRoom.id,
+        )
         : [],
     [currentRoom?.id, settlementHistorySummaries],
   );
@@ -1806,7 +1848,7 @@ const RoomLobbyPage: React.FC = () => {
         null;
       const replaySnapshot =
         roomScopedSettlementReplayByRoundKey[
-          resolvedActiveSettlementRoundKey
+        resolvedActiveSettlementRoundKey
         ] ?? null;
       if (!liveSnapshot) return replaySnapshot;
       if (!replaySnapshot) return liveSnapshot;
@@ -1823,13 +1865,16 @@ const RoomLobbyPage: React.FC = () => {
     boolean | undefined
   >(undefined);
 
+  const isCurrentRoomLeaderboardChallenge = roomIsLeaderboardChallenge(
+    currentRoom ?? null,
+  );
   const isLeaderboardSettlementView = roomIsLeaderboardChallenge(
     activeSettlementSnapshot?.room ?? null,
   );
   const activeLeaderboardSettlementReady =
     activeSettlementSnapshot?.roundKey &&
-    currentRoom?.id &&
-    leaderboardSettlementReadyByRoundKey[activeSettlementSnapshot.roundKey]?.roomId ===
+      currentRoom?.id &&
+      leaderboardSettlementReadyByRoundKey[activeSettlementSnapshot.roundKey]?.roomId ===
       currentRoom.id
       ? leaderboardSettlementReadyByRoundKey[activeSettlementSnapshot.roundKey]
       : null;
@@ -1867,7 +1912,7 @@ const RoomLobbyPage: React.FC = () => {
           setSettlementFavorited(isFavorited);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -1923,8 +1968,8 @@ const RoomLobbyPage: React.FC = () => {
     const expectedSettlementStartedAt = liveRoundStartedAt;
     const liveSnapshot = expectedSettlementStartedAt
       ? roomScopedSettlementHistory.find(
-          (snapshot) => snapshot.startedAt === expectedSettlementStartedAt,
-        ) ?? null
+        (snapshot) => snapshot.startedAt === expectedSettlementStartedAt,
+      ) ?? null
       : roomScopedSettlementHistory[0] ?? null;
     if (liveSnapshot) {
       const liveSettlementIdentity =
@@ -1943,6 +1988,81 @@ const RoomLobbyPage: React.FC = () => {
       }
       return;
     }
+    if (!isCurrentRoomLeaderboardChallenge) {
+      const fallbackStartedAt =
+        expectedSettlementStartedAt ?? Date.now() + serverOffsetMs;
+
+      const fallbackRoundKey =
+        liveRoundKey ?? `${currentRoom.id}:${fallbackStartedAt}`;
+
+      const fallbackRecaps = cloneSettlementRecaps(latestLiveRecapsRef.current);
+
+      const fallbackSnapshot = buildLocalCasualSettlementSnapshot({
+        room: currentRoom,
+        participants,
+        roundKey: fallbackRoundKey,
+        startedAt: fallbackStartedAt,
+        endedAt: Date.now() + serverOffsetMs,
+        recaps: fallbackRecaps,
+      });
+
+      const fallbackIdentity = getSettlementIdentityFromSnapshot(fallbackSnapshot);
+
+      if (
+        isDismissedSettlement({
+          identity: fallbackIdentity,
+          roundKey: fallbackSnapshot.roundKey,
+        })
+      ) {
+        return;
+      }
+
+      setSettlementReplayByRoundKey((prev) =>
+        pruneSettlementReplayByRoundKey(
+          {
+            ...prev,
+            [fallbackSnapshot.roundKey]: fallbackSnapshot,
+          },
+          {
+            roomId: currentRoom.id,
+            pinnedRoundKeys: [fallbackSnapshot.roundKey, activeSettlementRoundKey],
+          },
+        ),
+      );
+
+      setSettlementHistorySummaries((prev) => {
+        const summary = buildSettlementSummaryFromSnapshot(fallbackSnapshot);
+        const map = new Map(prev.map((item) => [item.roundKey, item] as const));
+        map.set(summary.roundKey, summary);
+        return limitSettlementSummaries(Array.from(map.values()));
+      });
+
+      if (fallbackRecaps.length > 0) {
+        setSettlementRecapsByRoundKey((prev) =>
+          pruneSettlementRecapsByRoundKey(
+            {
+              ...prev,
+              [fallbackSnapshot.roundKey]: fallbackRecaps,
+            },
+            {
+              roomId: currentRoom.id,
+              pinnedRoundKeys: [
+                fallbackSnapshot.roundKey,
+                activeSettlementRoundKey,
+              ],
+            },
+          ),
+        );
+      }
+
+      setActiveSettlementRoundKey(fallbackSnapshot.roundKey);
+
+      if (isGameView) {
+        setIsGameView(false);
+      }
+
+      return;
+    }
 
     if (terminalSettlementRecoveryRequestRef.current) return;
 
@@ -1952,24 +2072,24 @@ const RoomLobbyPage: React.FC = () => {
     const request = (async () => {
       let latestSummary = expectedSettlementStartedAt
         ? roomScopedSettlementHistorySummaries.find(
-            (summary) => summary.startedAt === expectedSettlementStartedAt,
-          ) ?? null
+          (summary) => summary.startedAt === expectedSettlementStartedAt,
+        ) ?? null
         : latestRoomScopedSettlementSummary;
       if (!latestSummary) {
         const loaded = await ensureSettlementSummaryListLoaded();
         latestSummary = expectedSettlementStartedAt
           ? loaded.find(
-              (item) => item.startedAt === expectedSettlementStartedAt,
-            ) ??
-            roomScopedSettlementHistorySummaries.find(
-              (item) => item.startedAt === expectedSettlementStartedAt,
-            ) ??
-            null
+            (item) => item.startedAt === expectedSettlementStartedAt,
+          ) ??
+          roomScopedSettlementHistorySummaries.find(
+            (item) => item.startedAt === expectedSettlementStartedAt,
+          ) ??
+          null
           : loaded
-              .filter((item) => item.roomId === roomId)
-              .sort(
-                (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
-              )[0] ?? null;
+            .filter((item) => item.roomId === roomId)
+            .sort(
+              (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
+            )[0] ?? null;
       }
 
       if (!latestSummary) return;
@@ -2030,32 +2150,48 @@ const RoomLobbyPage: React.FC = () => {
     ensureSettlementSummaryListLoaded,
     fetchSettlementReplay,
     gameState?.status,
+    isCurrentRoomLeaderboardChallenge,
     isDismissedSettlement,
     isGameView,
     latestRoomScopedSettlementSummary,
     liveRoundKey,
     liveRoundStartedAt,
+    participants,
     roomViewMode,
     roomScopedSettlementHistory,
     roomScopedSettlementHistorySummaries,
+    serverOffsetMs,
     settlementSummaryByRoundKey,
     setIsGameView,
   ]);
 
   useEffect(() => {
-    if (!currentRoom || roomViewMode !== "settlement" || activeSettlementSnapshot) return;
+    if (
+      !currentRoom ||
+      roomViewMode !== "settlement" ||
+      activeSettlementSnapshot ||
+      !isCurrentRoomLeaderboardChallenge
+    ) {
+      return;
+    }
 
     const payloadCandidates = Object.values(
       leaderboardSettlementReadyByRoundKey,
     ).filter((p) => p.roomId === currentRoom.id);
-    const payload =
-      (liveRoundStartedAt
+    if (payloadCandidates.length === 0) return;
+
+    const matchedPayload =
+      typeof liveRoundStartedAt === "number" &&
+        Number.isFinite(liveRoundStartedAt)
         ? payloadCandidates.find((p) =>
-            p.roundKey.endsWith(`:${liveRoundStartedAt}`),
-          ) ?? null
-        : null) ??
-      payloadCandidates[payloadCandidates.length - 1] ??
-      null;
+          p.roundKey.endsWith(`:${liveRoundStartedAt}`),
+        )
+        : undefined;
+
+    const latestPayload = payloadCandidates[payloadCandidates.length - 1];
+
+    const payload = matchedPayload ?? latestPayload;
+
     if (!payload) return;
     if (
       isDismissedSettlement({ identity: payload.matchId, roundKey: payload.roundKey })
@@ -2123,6 +2259,7 @@ const RoomLobbyPage: React.FC = () => {
     liveSettlementSnapshotByRoundKey,
     roomScopedSettlementReplayByRoundKey,
     roomViewMode,
+    isCurrentRoomLeaderboardChallenge,
     setIsGameView,
   ]);
 
@@ -2157,23 +2294,23 @@ const RoomLobbyPage: React.FC = () => {
   const settlementHistoryModel = useMemo(() => {
     const latestSettlementSummary = latestSettlementSnapshot
       ? {
-          matchId: `${latestSettlementSnapshot.room.id}:${latestSettlementSnapshot.roundNo}`,
-          roundKey: latestSettlementSnapshot.roundKey,
-          roundNo: latestSettlementSnapshot.roundNo,
-          roomId: latestSettlementSnapshot.room.id,
-          roomName: latestSettlementSnapshot.room.name,
-          playlistTitle: latestSettlementSnapshot.room.playlist.title ?? null,
-          playlistSourceType:
-            latestSettlementSnapshot.room.playlist.sourceType ?? null,
-          playlistItemCount:
-            latestSettlementSnapshot.room.playlist.totalCount ?? null,
-          startedAt: latestSettlementSnapshot.startedAt,
-          endedAt: latestSettlementSnapshot.endedAt,
-          status: "ended" as const,
-          playerCount: latestSettlementSnapshot.participants.length,
-          questionCount: latestSettlementSnapshot.playedQuestionCount,
-          summaryJson: null,
-        }
+        matchId: `${latestSettlementSnapshot.room.id}:${latestSettlementSnapshot.roundNo}`,
+        roundKey: latestSettlementSnapshot.roundKey,
+        roundNo: latestSettlementSnapshot.roundNo,
+        roomId: latestSettlementSnapshot.room.id,
+        roomName: latestSettlementSnapshot.room.name,
+        playlistTitle: latestSettlementSnapshot.room.playlist.title ?? null,
+        playlistSourceType:
+          latestSettlementSnapshot.room.playlist.sourceType ?? null,
+        playlistItemCount:
+          latestSettlementSnapshot.room.playlist.totalCount ?? null,
+        startedAt: latestSettlementSnapshot.startedAt,
+        endedAt: latestSettlementSnapshot.endedAt,
+        status: "ended" as const,
+        playerCount: latestSettlementSnapshot.participants.length,
+        questionCount: latestSettlementSnapshot.playedQuestionCount,
+        summaryJson: null,
+      }
       : null;
 
     const mergedByRoundKey = new Map<string, RoomSettlementHistorySummary>();
@@ -2297,10 +2434,10 @@ const RoomLobbyPage: React.FC = () => {
   const sharedChatWindow = shouldShowSharedChat ? <FloatingChatWindow /> : null;
   const desktopInGameSharedChat =
     currentRoom &&
-    gameState &&
-    isGameRoomView &&
-    !isSettlementView &&
-    !isTabletOrMobileLobby ? (
+      gameState &&
+      isGameRoomView &&
+      !isSettlementView &&
+      !isTabletOrMobileLobby ? (
       <GameRoomDanmuProviderBridge roomId={currentRoom.id}>
         <FloatingChatWindow />
       </GameRoomDanmuProviderBridge>
@@ -2673,7 +2810,7 @@ const RoomLobbyPage: React.FC = () => {
         return;
       }
       await openSettlementReviewByRoundKey(latest.roundKey);
-    })().catch(() => {});
+    })().catch(() => { });
   }, [
     ensureSettlementSummaryListLoaded,
     latestSettlementSnapshot,
@@ -2804,11 +2941,11 @@ const RoomLobbyPage: React.FC = () => {
   const settlementStartBroadcastRemainingSec =
     gameState?.status === "playing"
       ? Math.max(
-          0,
-          Math.ceil(
-            (gameState.startedAt - settlementStartBroadcastNowMs) / 1000,
-          ),
-        )
+        0,
+        Math.ceil(
+          (gameState.startedAt - settlementStartBroadcastNowMs) / 1000,
+        ),
+      )
       : 0;
   const shouldShowSettlementStartBroadcast =
     Boolean(activeSettlementSnapshot) &&
@@ -2816,27 +2953,27 @@ const RoomLobbyPage: React.FC = () => {
     typeof document !== "undefined";
   const settlementStartBroadcastOverlay = shouldShowSettlementStartBroadcast
     ? createPortal(
-        <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
-              Match Settlement
-            </div>
-            <p className="mt-3 text-sm text-slate-200">
-              對戰即將開始結算，{settlementStartBroadcastRemainingSec}{" "}
-              秒後自動切換。
-            </p>
-            <div className="mt-4 flex items-center justify-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
-                {settlementStartBroadcastRemainingSec}
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-slate-300">
-              倒數期間會暫時鎖定操作，避免切換畫面時發生誤觸。
-            </p>
+      <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/82 backdrop-blur-sm">
+        <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-300/45 bg-slate-950/90 px-6 py-6 text-center shadow-[0_24px_70px_-30px_rgba(251,191,36,0.8)]">
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/55 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-100">
+            Match Settlement
           </div>
-        </div>,
-        document.body,
-      )
+          <p className="mt-3 text-sm text-slate-200">
+            對戰即將開始結算，{settlementStartBroadcastRemainingSec}{" "}
+            秒後自動切換。
+          </p>
+          <div className="mt-4 flex items-center justify-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/60 bg-amber-500/12 text-5xl font-black text-amber-100 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
+              {settlementStartBroadcastRemainingSec}
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-slate-300">
+            倒數期間會暫時鎖定操作，避免切換畫面時發生誤觸。
+          </p>
+        </div>
+      </div>,
+      document.body,
+    )
     : null;
   const battleHistoryDrawer = (
     <Drawer
@@ -2925,9 +3062,8 @@ const RoomLobbyPage: React.FC = () => {
               return (
                 <div
                   key={summary.roundKey}
-                  className={`room-battle-history-item ${
-                    isLatest ? "is-latest" : ""
-                  }`}
+                  className={`room-battle-history-item ${isLatest ? "is-latest" : ""
+                    }`}
                 >
                   <div className="room-battle-history-item-head">
                     <div>
@@ -3048,8 +3184,8 @@ const RoomLobbyPage: React.FC = () => {
       }
     >
       {historyReplaySummary &&
-      historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
-      !historyReplaySnapshot ? (
+        historyReplayLoadingRoundKey === historyReplaySummary.roundKey &&
+        !historyReplaySnapshot ? (
         <HistoryReplaySkeleton />
       ) : historyReplaySnapshot ? (
         isHistoryReplayLeaderboardView ? (
@@ -3230,18 +3366,16 @@ const RoomLobbyPage: React.FC = () => {
                     連線進度
                   </div>
                   <div
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${
-                      waitingChecklist.isError
-                        ? "border border-rose-300/30 bg-rose-300/10 text-rose-100"
-                        : "border border-emerald-300/20 bg-emerald-300/10 text-emerald-100/90"
-                    }`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${waitingChecklist.isError
+                      ? "border border-rose-300/30 bg-rose-300/10 text-rose-100"
+                      : "border border-emerald-300/20 bg-emerald-300/10 text-emerald-100/90"
+                      }`}
                   >
                     <span
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${
-                        waitingChecklist.isError
-                          ? "bg-rose-300"
-                          : "animate-pulse bg-emerald-300"
-                      }`}
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${waitingChecklist.isError
+                        ? "bg-rose-300"
+                        : "animate-pulse bg-emerald-300"
+                        }`}
                     />
                     {waitingChecklist.isError ? "同步失敗" : "同步中"}
                   </div>
@@ -3249,11 +3383,10 @@ const RoomLobbyPage: React.FC = () => {
 
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
                   <div
-                    className={`h-full rounded-full ${
-                      waitingChecklist.isError
-                        ? "bg-[linear-gradient(90deg,rgba(251,113,133,0.7),rgba(244,63,94,0.9))]"
-                        : "animate-pulse bg-[linear-gradient(90deg,rgba(245,158,11,0.75),rgba(250,204,21,0.95),rgba(251,191,36,0.7))]"
-                    }`}
+                    className={`h-full rounded-full ${waitingChecklist.isError
+                      ? "bg-[linear-gradient(90deg,rgba(251,113,133,0.7),rgba(244,63,94,0.9))]"
+                      : "animate-pulse bg-[linear-gradient(90deg,rgba(245,158,11,0.75),rgba(250,204,21,0.95),rgba(251,191,36,0.7))]"
+                      }`}
                     style={{
                       width: `${Math.max(8, Math.round(waitingChecklist.ratio * 100))}%`,
                     }}
@@ -3270,32 +3403,30 @@ const RoomLobbyPage: React.FC = () => {
                   {waitingChecklist.rows.map((step, index) => (
                     <div
                       key={step.key}
-                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
-                        step.state === "done"
-                          ? "border-emerald-300/15 bg-emerald-300/[0.03]"
-                          : step.state === "active"
-                            ? "border-amber-300/15 bg-amber-300/[0.03]"
-                            : step.state === "error"
-                              ? "border-rose-300/15 bg-rose-300/[0.03]"
-                              : "border-white/5 bg-white/[0.02]"
-                      }`}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${step.state === "done"
+                        ? "border-emerald-300/15 bg-emerald-300/[0.03]"
+                        : step.state === "active"
+                          ? "border-amber-300/15 bg-amber-300/[0.03]"
+                          : step.state === "error"
+                            ? "border-rose-300/15 bg-rose-300/[0.03]"
+                            : "border-white/5 bg-white/[0.02]"
+                        }`}
                     >
                       <span
-                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
-                          step.state === "done"
-                            ? "border border-emerald-200/25 bg-emerald-300/12 text-emerald-100"
-                            : step.state === "active"
-                              ? "border border-amber-200/20 bg-amber-300/10 text-amber-100"
-                              : step.state === "error"
-                                ? "border border-rose-200/20 bg-rose-300/10 text-rose-100"
-                                : "border border-slate-300/15 bg-slate-300/5 text-slate-300/80"
-                        }`}
+                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${step.state === "done"
+                          ? "border border-emerald-200/25 bg-emerald-300/12 text-emerald-100"
+                          : step.state === "active"
+                            ? "border border-amber-200/20 bg-amber-300/10 text-amber-100"
+                            : step.state === "error"
+                              ? "border border-rose-200/20 bg-rose-300/10 text-rose-100"
+                              : "border border-slate-300/15 bg-slate-300/5 text-slate-300/80"
+                          }`}
                         style={
                           step.state === "active"
                             ? {
-                                animation: "pulse 1.6s ease-in-out infinite",
-                                animationDelay: `${index * 0.18}s`,
-                              }
+                              animation: "pulse 1.6s ease-in-out infinite",
+                              animationDelay: `${index * 0.18}s`,
+                            }
                             : undefined
                         }
                       >
@@ -3331,9 +3462,9 @@ const RoomLobbyPage: React.FC = () => {
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)] sm:text-[15px]">
                   {isClosedActiveRoom
                     ? closedRoomNotice?.reason ||
-                      (closedRoomNotice?.kind === "left"
-                        ? "你目前已不在這個房間。你可以回到列表重新加入，或建立新房間。"
-                        : "這個房間已由房主或系統關閉。你可以回到列表加入其他房間，或建立新房間。")
+                    (closedRoomNotice?.kind === "left"
+                      ? "你目前已不在這個房間。你可以回到列表重新加入，或建立新房間。"
+                      : "這個房間已由房主或系統關閉。你可以回到列表加入其他房間，或建立新房間。")
                     : "房間可能已關閉、你已被移出，或邀請連結已失效。你可以回到列表重新加入，或直接建立新房間。"}
                 </p>
 
