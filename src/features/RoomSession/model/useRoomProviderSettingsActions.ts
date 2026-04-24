@@ -7,9 +7,9 @@ import {
   DEFAULT_START_OFFSET_SEC,
 } from "./roomConstants";
 import {
-  applyGameSettingsPatch,
   buildUploadPlaylistItems,
   formatAckError,
+  isLeaderboardChallengeSettings,
   mergeGameSettings,
   mergeRoomSummaryIntoCurrentRoom,
   type RoomGameSettings,
@@ -316,16 +316,9 @@ export const useRoomProviderSettingsActions = ({
               currentRoom,
               ack.data.room,
             );
-            const patchedRoom = applyGameSettingsPatch(
-              mergedRoom,
-              gameSettingsPatch,
-            );
             setCurrentRoom((previous) =>
               previous
-                ? applyGameSettingsPatch(
-                    mergeRoomSummaryIntoCurrentRoom(previous, ack.data.room),
-                    gameSettingsPatch,
-                  )
+                ? mergeRoomSummaryIntoCurrentRoom(previous, ack.data.room)
                 : previous,
             );
 
@@ -340,11 +333,19 @@ export const useRoomProviderSettingsActions = ({
               setHostRoomPassword(nextPassword);
             }
 
-            const shouldSyncTiming =
+            const nextGameSettings = mergeGameSettings(
+              mergedRoom.gameSettings,
+              gameSettingsPatch,
+            );
+            const nextIsLeaderboardChallenge =
+              isLeaderboardChallengeSettings(nextGameSettings);
+            const hasTimingPatch =
               typeof normalizedPayload.playDurationSec === "number" ||
               typeof normalizedPayload.revealDurationSec === "number" ||
               typeof normalizedPayload.startOffsetSec === "number" ||
               typeof normalizedPayload.allowCollectionClipTiming === "boolean";
+            const shouldSyncTiming =
+              hasTimingPatch && !nextIsLeaderboardChallenge;
 
             if (!shouldSyncTiming) {
               setStatusText("房間設定已更新");
@@ -354,7 +355,10 @@ export const useRoomProviderSettingsActions = ({
 
             void (async () => {
               const synced = await syncRoomPlaylistTiming(
-                patchedRoom,
+                {
+                  ...mergedRoom,
+                  gameSettings: nextGameSettings,
+                },
                 gameSettingsPatch,
               );
               setStatusText(

@@ -50,11 +50,64 @@ export type RoomGameSettings = NonNullable<RoomSummary["gameSettings"]>;
 
 const LEADERBOARD_PLAYBACK_EXTENSION_MODE = "disabled" as const;
 
+const LEADERBOARD_CLASSIC_QUESTION_COUNT_BY_PROFILE_KEY: Record<
+  string,
+  number
+> = {
+  classic_30: 30,
+  classic_50: 50,
+};
+
+const LEADERBOARD_CLASSIC_QUESTION_COUNT_BY_VARIANT_KEY: Record<
+  string,
+  number
+> = {
+  "30q": 30,
+  "50q": 50,
+};
+
 export const isLeaderboardChallengeSettings = (
   value: Pick<RoomGameSettings, "leaderboardProfileKey"> | null | undefined,
 ) =>
   typeof value?.leaderboardProfileKey === "string" &&
   value.leaderboardProfileKey.trim().length > 0;
+
+export const resolveLeaderboardTargetQuestionCount = (
+  value:
+    | Pick<
+        RoomGameSettings,
+        | "leaderboardProfileKey"
+        | "leaderboardVariantKey"
+        | "leaderboardTargetQuestionCount"
+      >
+    | null
+    | undefined,
+): number | null => {
+  if (!isLeaderboardChallengeSettings(value)) return null;
+
+  if (typeof value?.leaderboardTargetQuestionCount === "number") {
+    const count = Math.floor(value.leaderboardTargetQuestionCount);
+    if (Number.isFinite(count) && count > 0) return count;
+  }
+
+  const profileKey = value?.leaderboardProfileKey?.trim();
+  if (
+    profileKey &&
+    LEADERBOARD_CLASSIC_QUESTION_COUNT_BY_PROFILE_KEY[profileKey]
+  ) {
+    return LEADERBOARD_CLASSIC_QUESTION_COUNT_BY_PROFILE_KEY[profileKey];
+  }
+
+  const variantKey = value?.leaderboardVariantKey?.trim();
+  if (
+    variantKey &&
+    LEADERBOARD_CLASSIC_QUESTION_COUNT_BY_VARIANT_KEY[variantKey]
+  ) {
+    return LEADERBOARD_CLASSIC_QUESTION_COUNT_BY_VARIANT_KEY[variantKey];
+  }
+
+  return null;
+};
 
 export const normalizeLeaderboardChallengeGameSettings = <
   T extends Partial<RoomGameSettings>,
@@ -62,8 +115,12 @@ export const normalizeLeaderboardChallengeGameSettings = <
   settings: T,
 ): T => {
   if (!isLeaderboardChallengeSettings(settings)) return settings;
+  const targetQuestionCount = resolveLeaderboardTargetQuestionCount(settings);
   return {
     ...settings,
+    ...(targetQuestionCount !== null
+      ? { questionCount: targetQuestionCount }
+      : {}),
     playDurationSec: DEFAULT_PLAY_DURATION_SEC,
     revealDurationSec: DEFAULT_REVEAL_DURATION_SEC,
     startOffsetSec: DEFAULT_START_OFFSET_SEC,

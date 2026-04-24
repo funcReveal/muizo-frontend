@@ -195,6 +195,25 @@ const ROOM_LOBBY_BGM_FADE_IN_MS = 1200;
 
 const noop = () => undefined;
 
+const getLeaderboardModeKeyByVariant = (
+  variant: LeaderboardVariantKey,
+): "classic" | "time_attack" => (variant === "15m" ? "time_attack" : "classic");
+
+const getLeaderboardTargetQuestionCount = (
+  variant: LeaderboardVariantKey,
+): number | null => {
+  if (variant === "30q") return 30;
+  if (variant === "50q") return 50;
+  return null;
+};
+
+const getLeaderboardTimeLimitSec = (
+  variant: LeaderboardVariantKey,
+): number | null => {
+  if (variant === "15m") return 15 * 60;
+  return null;
+};
+
 const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   currentRoom,
   participants,
@@ -927,70 +946,66 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     const basePayload = {
       name: trimmedName,
       visibility: settingsVisibility,
-      maxPlayers:
-        settingsRoomPlayMode === "leaderboard" &&
-        settingsLeaderboardVariant === "15m"
-          ? 1
-          : effectiveMaxPlayers,
-      ...(settingsPasswordDirty ? { pin: normalizedPin } : {}),
-    };
-
-    const payload =
-      settingsRoomPlayMode === "leaderboard"
+      ...(settingsPasswordDirty
         ? {
-            ...basePayload,
-            ...(settingsLeaderboardVariant === "15m"
-              ? {}
-              : {
-                  questionCount: clampQuestionCount(
-                    settingsLeaderboardVariant === "50q" ? 50 : 30,
-                    questionMaxLimit,
-                  ),
-                }),
-            leaderboardProfileKey: getLeaderboardProfileKey(
-              settingsLeaderboardVariant === "15m" ? "time_attack" : "classic",
-              settingsLeaderboardVariant,
-            ),
-            leaderboardModeKey:
-              settingsLeaderboardVariant === "15m" ? "time_attack" : "classic",
-            leaderboardVariantKey: settingsLeaderboardVariant,
-            leaderboardTargetQuestionCount:
-              settingsLeaderboardVariant === "15m"
-                ? null
-                : settingsLeaderboardVariant === "50q"
-                  ? 50
-                  : 30,
-            leaderboardTimeLimitSec:
-              settingsLeaderboardVariant === "15m" ? 15 * 60 : null,
-            leaderboardRuleVersion: null,
-            leaderboardRankingMetric: null,
-            playDurationSec: DEFAULT_PLAY_DURATION_SEC,
-            revealDurationSec: DEFAULT_REVEAL_DURATION_SEC,
-            startOffsetSec: DEFAULT_START_OFFSET_SEC,
-            allowCollectionClipTiming: true,
-            playbackExtensionMode: "disabled" as const,
+            password: normalizedPin || null,
+            pin: normalizedPin || null,
           }
-        : {
-            ...basePayload,
-            questionCount: clampQuestionCount(
-              settingsQuestionCount,
-              questionMaxLimit,
-            ),
-            playDurationSec: clampPlayDurationSec(settingsPlayDurationSec),
-            revealDurationSec: clampRevealDurationSec(
-              settingsRevealDurationSec,
-            ),
-            startOffsetSec: clampStartOffsetSec(settingsStartOffsetSec),
-            allowCollectionClipTiming: settingsAllowCollectionClipTiming,
-            playbackExtensionMode: settingsPlaybackExtensionMode,
-            leaderboardProfileKey: null,
-            leaderboardRuleVersion: null,
-            leaderboardModeKey: null,
-            leaderboardVariantKey: null,
-            leaderboardTargetQuestionCount: null,
-            leaderboardTimeLimitSec: null,
-            leaderboardRankingMetric: null,
-          };
+        : {}),
+    };
+    const maxPlayersPayload =
+      settingsRoomPlayMode === "leaderboard" &&
+      settingsLeaderboardVariant === "15m"
+        ? { maxPlayers: 1 }
+        : { maxPlayers: effectiveMaxPlayers };
+
+    let payload: Parameters<typeof onUpdateRoomSettings>[0];
+
+    if (settingsRoomPlayMode === "leaderboard") {
+      const leaderboardModeKey = getLeaderboardModeKeyByVariant(
+        settingsLeaderboardVariant,
+      );
+
+      payload = {
+        ...basePayload,
+        ...maxPlayersPayload,
+        leaderboardProfileKey: getLeaderboardProfileKey(
+          leaderboardModeKey,
+          settingsLeaderboardVariant,
+        ),
+        leaderboardRuleVersion: 1,
+        leaderboardModeKey,
+        leaderboardVariantKey: settingsLeaderboardVariant,
+        leaderboardTargetQuestionCount: getLeaderboardTargetQuestionCount(
+          settingsLeaderboardVariant,
+        ),
+        leaderboardTimeLimitSec: getLeaderboardTimeLimitSec(
+          settingsLeaderboardVariant,
+        ),
+        leaderboardRankingMetric: "score",
+      };
+    } else {
+      payload = {
+        ...basePayload,
+        ...maxPlayersPayload,
+        leaderboardProfileKey: null,
+        leaderboardRuleVersion: null,
+        leaderboardModeKey: null,
+        leaderboardVariantKey: null,
+        leaderboardTargetQuestionCount: null,
+        leaderboardTimeLimitSec: null,
+        leaderboardRankingMetric: null,
+        questionCount: clampQuestionCount(
+          settingsQuestionCount,
+          questionMaxLimit,
+        ),
+        playDurationSec: clampPlayDurationSec(settingsPlayDurationSec),
+        revealDurationSec: clampRevealDurationSec(settingsRevealDurationSec),
+        startOffsetSec: clampStartOffsetSec(settingsStartOffsetSec),
+        allowCollectionClipTiming: settingsAllowCollectionClipTiming,
+        playbackExtensionMode: settingsPlaybackExtensionMode,
+      };
+    }
 
     if (settingsRoomPlayMode === "leaderboard") {
       if (leaderboardModeLockedReason) {
