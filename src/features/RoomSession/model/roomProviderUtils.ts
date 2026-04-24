@@ -386,7 +386,6 @@ export const capSettlementHistory = (
   limit = MAX_SETTLEMENT_HISTORY_COUNT,
 ) => {
   if (limit <= 0) return [];
-  if (history.length <= limit) return history;
   const sorted = [...history].sort(
     (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
   );
