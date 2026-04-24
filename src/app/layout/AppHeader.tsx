@@ -154,7 +154,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onEditProfile,
   onNavigateRooms,
   onNavigateCollections,
-  onNavigateHistory,
+  // onNavigateHistory,
   onNavigateSettings,
   historyMenuLabel,
   historyMenuDescription,
@@ -608,19 +608,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             )}
 
             <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                if (isAnonymousVisitor) {
-                  onLogin?.();
-                  return;
-                }
-                if (onNavigateHistory) {
-                  onNavigateHistory();
-                  return;
-                }
-                navigate("/history");
-              }}
-              sx={menuItemSx}
+              // onClick={() => {
+              //   handleMenuClose();
+              //   if (isAnonymousVisitor) {
+              //     onLogin?.();
+              //     return;
+              //   }
+              //   if (onNavigateHistory) {
+              //     onNavigateHistory();
+              //     return;
+              //   }
+              //   navigate("/history");
+              // }}
+              disabled
+              sx={{ ...menuItemSx }}
             >
               <ListItemIcon
                 sx={{
@@ -642,10 +643,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       }}
                     >
                       <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                      生涯總覽
+                      生涯總覽 (維護中)
                     </Box>
                   ) : (
-                    (historyMenuLabel ?? "生涯總覽")
+                    (historyMenuLabel ?? "生涯總覽 (維護中)")
                   )
                 }
                 secondary={

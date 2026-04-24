@@ -9,6 +9,7 @@ import {
 
 interface CareerTopOverviewStripProps {
   hero: CareerHeroStats;
+  avatarUrl?: string | null;
 }
 
 const quickCardClass =
@@ -16,15 +17,28 @@ const quickCardClass =
 
 const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
   hero,
+  avatarUrl,
 }) => {
+  const avatarLabel = hero.displayName.trim().slice(0, 2).toUpperCase() || "MU";
+
   return (
     <section className="relative shrink-0 overflow-hidden rounded-[26px] border border-cyan-100/14 bg-[radial-gradient(circle_at_16%_0%,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_92%_12%,rgba(251,191,36,0.13),transparent_30%),linear-gradient(180deg,rgba(8,15,28,0.98),rgba(2,6,23,0.99))] p-4 shadow-[0_22px_54px_-34px_rgba(34,211,238,0.7),inset_0_1px_0_rgba(255,255,255,0.055)]">
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/50 to-transparent" />
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/28 bg-[radial-gradient(circle_at_30%_25%,rgba(125,211,252,0.95),rgba(8,47,73,0.95))] text-lg font-bold text-white shadow-[0_0_0_6px_rgba(34,211,238,0.08),0_18px_34px_-24px_rgba(34,211,238,0.9)]">
-              {hero.displayName.trim().slice(0, 2).toUpperCase() || "MU"}
+            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-cyan-200/28 bg-[radial-gradient(circle_at_30%_25%,rgba(125,211,252,0.95),rgba(8,47,73,0.95))] text-lg font-bold text-white shadow-[0_0_0_6px_rgba(34,211,238,0.08),0_18px_34px_-24px_rgba(34,211,238,0.9)]">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={hero.displayName}
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                avatarLabel
+              )}
+              <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/18" />
             </div>
 
             <div className="min-w-0">

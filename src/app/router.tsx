@@ -21,7 +21,7 @@ const CollectionContentLayoutShell = lazy(
 );
 const RoomsHubPage = lazy(() => import("@features/RoomHub"));
 const RoomLobbyPage = lazy(() => import("@features/RoomLobby"));
-const CareerPage = lazy(() => import("@features/Career"));
+// const CareerPage = lazy(() => import("@features/Career"));
 const InvitedPage = lazy(() => import("@features/Invited"));
 const CollectionsPage = lazy(() => import("@features/Collections"));
 const CollectionsCreatePage = lazy(() =>
@@ -140,7 +140,7 @@ export function AppRouter() {
             </Suspense>
           }
         />
-        <Route
+        {/* <Route
           path="/history"
           element={
             <RequireAuthRoute
@@ -155,7 +155,7 @@ export function AppRouter() {
               </Suspense>
             </RequireAuthRoute>
           }
-        />
+        /> */}
       </Route>
       <Route element={<LegalLayout />}>
         <Route path="/privacy" element={<PrivacyPage />} />

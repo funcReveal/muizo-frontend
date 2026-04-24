@@ -10,14 +10,30 @@ import CareerSurface, { careerMiniCardClass } from "./CareerSurface";
 
 interface CareerHeroSectionProps {
   hero: CareerHeroStats;
+  avatarUrl?: string | null;
 }
 
-const CareerHeroSection: React.FC<CareerHeroSectionProps> = ({ hero }) => {
+const CareerHeroSection: React.FC<CareerHeroSectionProps> = ({
+  hero,
+  avatarUrl,
+}) => {
+  const avatarLabel = hero.displayName.trim().slice(0, 2).toUpperCase() || "MU";
+
   return (
     <CareerSurface className="shrink-0">
       <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-sky-300/40 bg-[radial-gradient(circle_at_30%_30%,rgba(61,160,255,0.9),rgba(18,49,91,1))] text-xl font-bold text-white shadow-[0_0_0_6px_rgba(14,165,233,0.08)]">
-          ZY
+        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sky-300/40 bg-[radial-gradient(circle_at_30%_30%,rgba(61,160,255,0.9),rgba(18,49,91,1))] text-xl font-bold text-white shadow-[0_0_0_6px_rgba(14,165,233,0.08)]">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={hero.displayName}
+              className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            avatarLabel
+          )}
+          <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-white/18" />
         </div>
 
         <div className="min-w-0 flex-1">
