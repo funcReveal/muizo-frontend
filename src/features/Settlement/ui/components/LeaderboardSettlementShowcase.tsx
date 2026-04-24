@@ -7,6 +7,7 @@ import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import TrackChangesRoundedIcon from "@mui/icons-material/TrackChangesRounded";
@@ -23,7 +24,10 @@ import type {
   RoomState,
 } from "@features/RoomSession";
 import type { SettlementQuestionRecap, SettlementQuestionResult } from "../../model/types";
+import { useSettingsModel } from "../../../Setting/model/settingsContext";
 import PlayerAvatar from "@shared/ui/playerAvatar/PlayerAvatar";
+
+const LEADERBOARD_SETTLEMENT_BGM_PATH = "/Muizo_result_bgm.mp3";
 
 type LeaderboardSettlementShowcaseProps = {
   room: RoomState["room"];
@@ -141,17 +145,6 @@ const formatDurationSec = (value: number | null | undefined) => {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-const getPositiveScoreImprovementLabel = (
-  scoreDelta: number | null | undefined,
-) => {
-  if (typeof scoreDelta !== "number" || !Number.isFinite(scoreDelta)) {
-    return null;
-  }
-  if (scoreDelta <= 0) {
-    return null;
-  }
-  return `+${formatScore(scoreDelta)}`;
-};
 
 const formatAnswerTime = (value: number | null | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
@@ -677,6 +670,65 @@ const LeaderboardSettlementShowcase: React.FC<
     const { ref: questionListRef, width: questionListWidth } = useElementWidth();
     const [questionFilter, setQuestionFilter] = useState<QuestionFilterType>(null);
 
+    const { bgmVolume } = useSettingsModel();
+    const settlementBgmRef = useRef<HTMLAudioElement | null>(null);
+
+    useEffect(() => {
+      if (typeof window === "undefined" || typeof Audio === "undefined") return;
+      const audio = new Audio(LEADERBOARD_SETTLEMENT_BGM_PATH);
+      audio.loop = true;
+      audio.preload = "auto";
+      audio.volume = 0;
+      settlementBgmRef.current = audio;
+      return () => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.src = "";
+        settlementBgmRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      const audio = settlementBgmRef.current;
+      if (!audio) return;
+      audio.volume = Math.max(0, Math.min(1, bgmVolume / 100));
+    }, [bgmVolume]);
+
+    useEffect(() => {
+      if (typeof window === "undefined" || typeof document === "undefined") return;
+      const audio = settlementBgmRef.current;
+      if (!audio) return;
+
+      const tryPlay = () => {
+        if (document.hidden) return;
+        void audio.play().catch(() => undefined);
+      };
+      const stopBgm = () => audio.pause();
+
+      const handleVisibilityChange = () => {
+        document.hidden ? stopBgm() : tryPlay();
+      };
+      const handleBlur = () => stopBgm();
+      const handleFocus = () => tryPlay();
+
+      tryPlay();
+      window.addEventListener("pointerdown", tryPlay, { passive: true });
+      window.addEventListener("keydown", tryPlay);
+      window.addEventListener("focus", handleFocus);
+      window.addEventListener("blur", handleBlur);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
+      return () => {
+        window.removeEventListener("pointerdown", tryPlay);
+        window.removeEventListener("keydown", tryPlay);
+        window.removeEventListener("focus", handleFocus);
+        window.removeEventListener("blur", handleBlur);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        audio.pause();
+        audio.currentTime = 0;
+      };
+    }, []);
+
     const challengeVariantLabel = useMemo(
       () => formatVariantLabel(room, playedQuestionCount),
       [playedQuestionCount, room],
@@ -1053,9 +1105,13 @@ const LeaderboardSettlementShowcase: React.FC<
     );
 
     const currentScore = backendCurrentRun?.score ?? meSummary.me?.score ?? 0;
-    const positiveScoreImprovementLabel = getPositiveScoreImprovementLabel(
-      personalBestComparison?.scoreDelta,
-    );
+    const scoreDelta =
+      personalBestComparison?.hasPreviousBest === true &&
+      typeof personalBestComparison.scoreDelta === "number" &&
+      Number.isFinite(personalBestComparison.scoreDelta) &&
+      personalBestComparison.scoreDelta !== 0
+        ? personalBestComparison.scoreDelta
+        : null;
     const currentRunComparable = useMemo(
       () => ({
         score: currentScore,
@@ -1111,14 +1167,7 @@ const LeaderboardSettlementShowcase: React.FC<
     })();
 
     const QUESTION_VISIBLE_ROWS = 6.5;
-    const questionListTargetHeight = QUESTION_VISIBLE_ROWS * listRowHeight;
-    const questionListHeight = useMemo(() => {
-      if (filteredQuestionRows.length <= 0) return 220;
-      return Math.min(
-        filteredQuestionRows.length * listRowHeight,
-        questionListTargetHeight,
-      );
-    }, [filteredQuestionRows.length, listRowHeight, questionListTargetHeight]);
+    const questionListHeight = QUESTION_VISIBLE_ROWS * listRowHeight;
     const LEADERBOARD_DESKTOP_ROW_HEIGHT = 60;
     const LEADERBOARD_MOBILE_ROW_HEIGHT = 96;
     const leaderboardCardHeight = Math.max(
@@ -1225,12 +1274,19 @@ const LeaderboardSettlementShowcase: React.FC<
                       <div className="mt-2 text-center text-[2.4rem] font-black leading-none tracking-tight text-amber-200 drop-shadow-[0_14px_32px_rgba(245,158,11,0.28)] sm:text-[3rem]">
                         {formatScore(currentScore)}
                       </div>
-                      {positiveScoreImprovementLabel && (
+                      {scoreDelta !== null && (
                         <div className="mt-1 flex items-center justify-center gap-1">
-                          <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-400">
-                            <AddRoundedIcon sx={{ fontSize: 13 }} />
-                            {positiveScoreImprovementLabel.slice(1)}
-                          </span>
+                          {scoreDelta > 0 ? (
+                            <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-400">
+                              <AddRoundedIcon sx={{ fontSize: 13 }} />
+                              {formatScore(scoreDelta)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-rose-400">
+                              <RemoveRoundedIcon sx={{ fontSize: 13 }} />
+                              {formatScore(Math.abs(scoreDelta))}
+                            </span>
+                          )}
                         </div>
                       )}
                       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs text-[var(--mc-text-muted)]">
@@ -1571,7 +1627,10 @@ const LeaderboardSettlementShowcase: React.FC<
                         style={{ height: questionListHeight, width: "100%" }}
                       />
                     ) : (
-                      <div className="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center text-sm text-[var(--mc-text-muted)]">
+                      <div
+                        className="flex items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] text-center text-sm text-[var(--mc-text-muted)]"
+                        style={{ height: questionListHeight }}
+                      >
                         {questionFilter !== null
                           ? filterEmptyMessages[questionFilter]
                           : "目前沒有任何題目資訊"}
