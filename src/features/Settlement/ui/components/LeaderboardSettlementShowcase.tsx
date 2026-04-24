@@ -212,13 +212,6 @@ const buildYouTubeUrl = ({
   return null;
 };
 
-const getGapToFirstLabel = (gap: number | null | undefined) => {
-  if (typeof gap !== "number" || !Number.isFinite(gap)) {
-    return "與榜首差距暫時無法取得";
-  }
-  return `距離第 1 名差 ${formatScore(gap)} 分`;
-};
-
 const isRowAheadOfCurrent = (
   row: Pick<LeaderboardMetricRow, "score" | "combo" | "correctCount" | "avgCorrectMs">,
   current: Pick<LeaderboardMetricRow, "score" | "combo" | "correctCount" | "avgCorrectMs">,
@@ -244,11 +237,13 @@ const getPercentileLabel = (
   current: number | null,
   direction: "higher" | "lower",
 ) => {
-  if (current === null || values.length <= 1) return null;
+  if (current === null || values.length <= 0) return null;
+
   const compareCount = values.filter((value) =>
-    direction === "higher" ? current > value : current < value,
+    direction === "higher" ? current >= value : current <= value,
   ).length;
-  return Math.round((compareCount / Math.max(1, values.length - 1)) * 100);
+
+  return Math.round((compareCount / values.length) * 100);
 };
 
 const LEADERBOARD_DESKTOP_GRID_CLASS =
@@ -923,27 +918,68 @@ const LeaderboardSettlementShowcase: React.FC<
       rankChangeByClientId,
       sortedParticipants,
     ]);
-    const percentileMetrics = useMemo(() => {
-      const metricRows = effectiveLeaderboardRows.filter((row) => !row.isSkeleton);
+    const leaderboardComparisonRows = useMemo(
+      () =>
+        effectiveLeaderboardRows
+          .filter((row) => !row.isSkeleton)
+          .slice()
+          .sort((a, b) => a.rank - b.rank),
+      [effectiveLeaderboardRows],
+    );
 
-      const currentAccuracy =
-        backendCurrentRun && backendCurrentRun.questionCount > 0
-          ? (backendCurrentRun.correctCount / backendCurrentRun.questionCount) * 100
-          : meSummary.accuracy;
-
+    const currentLeaderboardRow = useMemo(() => {
+      const currentScore = backendCurrentRun?.score ?? meSummary.me?.score ?? null;
+      const currentCorrectCount =
+        backendCurrentRun?.correctCount ?? meSummary.me?.correctCount ?? null;
       const currentCombo = backendCurrentRun?.maxCombo ?? meSummary.combo;
-      const currentAvgCorrectMs =
-        backendCurrentRun?.avgCorrectMs ?? meSummary.avgCorrectMs;
 
-      const accuracyValues = metricRows.map((row) =>
+      return (
+        leaderboardComparisonRows.find(
+          (row) =>
+            row.isMe &&
+            (currentScore === null || row.score === currentScore) &&
+            (currentCorrectCount === null ||
+              row.correctCount === currentCorrectCount) &&
+            row.combo === currentCombo,
+        ) ??
+        leaderboardComparisonRows.find((row) => row.isMe) ??
+        null
+      );
+    }, [
+      backendCurrentRun?.correctCount,
+      backendCurrentRun?.maxCombo,
+      backendCurrentRun?.score,
+      leaderboardComparisonRows,
+      meSummary.combo,
+      meSummary.me?.correctCount,
+      meSummary.me?.score,
+    ]);
+
+    const percentileMetrics = useMemo(() => {
+      const currentRow = currentLeaderboardRow;
+
+      if (!currentRow) {
+        return {
+          accuracyPercentile: null,
+          comboPercentile: null,
+          speedPercentile: null,
+        };
+      }
+
+      const accuracyValues = leaderboardComparisonRows.map((row) =>
         playedQuestionCount > 0
           ? (row.correctCount / playedQuestionCount) * 100
           : 0,
       );
 
-      const comboValues = metricRows.map((row) => row.combo);
+      const currentAccuracy =
+        playedQuestionCount > 0
+          ? (currentRow.correctCount / playedQuestionCount) * 100
+          : 0;
 
-      const speedValues = metricRows
+      const comboValues = leaderboardComparisonRows.map((row) => row.combo);
+
+      const speedValues = leaderboardComparisonRows
         .map((row) =>
           typeof row.avgCorrectMs === "number" && Number.isFinite(row.avgCorrectMs)
             ? row.avgCorrectMs
@@ -959,23 +995,16 @@ const LeaderboardSettlementShowcase: React.FC<
         ),
         comboPercentile: getPercentileLabel(
           comboValues,
-          currentCombo,
+          currentRow.combo,
           "higher",
         ),
         speedPercentile: getPercentileLabel(
           speedValues,
-          currentAvgCorrectMs,
+          currentRow.avgCorrectMs,
           "lower",
         ),
       };
-    }, [
-      backendCurrentRun,
-      effectiveLeaderboardRows,
-      meSummary.accuracy,
-      meSummary.avgCorrectMs,
-      meSummary.combo,
-      playedQuestionCount,
-    ]);
+    }, [currentLeaderboardRow, leaderboardComparisonRows, playedQuestionCount]);
 
     const aroundMeRows = useMemo<LeaderboardMetricRow[]>(() => {
       const aroundEntries = backendAroundMeEntries ?? [];
@@ -1207,34 +1236,76 @@ const LeaderboardSettlementShowcase: React.FC<
       meSummary.myRankChange === null
         ? null
         : meSummary.myRankChange - (selfBestAheadOfCurrent ? 1 : 0);
-    const gapTargetRank = (() => {
-      if (backendCurrentRun?.rank && backendCurrentRun.rank > 1) {
-        return Math.max(1, backendCurrentRun.rank - 1);
-      }
-      if (displayedCurrentRank > 1) {
-        return Math.max(1, displayedCurrentRank - 1);
-      }
-      return null;
-    })();
+    const displayedTotalPlayers = Math.max(
+      1,
+      (backendCurrentRun?.totalPlayers ?? leaderboardComparisonRows.length) +
+      (selfBestAheadOfCurrent ? 1 : 0),
+    );
+
+    const displayedRankPercentile =
+      displayedCurrentRank > 0
+        ? Math.round(
+          ((displayedTotalPlayers - displayedCurrentRank + 1) /
+            displayedTotalPlayers) *
+          100,
+        )
+        : meSummary.rankPercentile;
+
+    const previousLeaderboardGap = useMemo(() => {
+      if (!currentLeaderboardRow) return null;
+
+      const currentIndex = leaderboardComparisonRows.findIndex(
+        (row) =>
+          row.clientId === currentLeaderboardRow.clientId &&
+          row.rank === currentLeaderboardRow.rank &&
+          row.score === currentLeaderboardRow.score &&
+          row.correctCount === currentLeaderboardRow.correctCount &&
+          row.combo === currentLeaderboardRow.combo,
+      );
+
+      if (currentIndex <= 0) return null;
+
+      const previousRow = leaderboardComparisonRows[currentIndex - 1];
+      if (!previousRow) return null;
+
+      return {
+        rank: previousRow.rank,
+        scoreGap: Math.max(0, previousRow.score - currentLeaderboardRow.score),
+      };
+    }, [currentLeaderboardRow, leaderboardComparisonRows]);
 
     const rankingSummaryLabel = (() => {
-      if (gapTargetRank !== null) {
-        if (backendCurrentRun?.gapToPrevious !== null && backendCurrentRun?.gapToPrevious !== undefined) {
-          return `距離第 ${gapTargetRank} 名差 ${formatScore(backendCurrentRun.gapToPrevious)} 分`;
-        }
-        return `距離第 ${gapTargetRank} 名的差距暫時無法取得`;
-      }
       if (displayedCurrentRank === 1) {
         return "目前位居榜首";
       }
+
+      if (previousLeaderboardGap) {
+        return `距離第 ${previousLeaderboardGap.rank} 名差 ${formatScore(
+          previousLeaderboardGap.scoreGap,
+        )} 分`;
+      }
+
+      if (
+        displayedCurrentRank > 1 &&
+        typeof backendCurrentRun?.gapToPrevious === "number" &&
+        Number.isFinite(backendCurrentRun.gapToPrevious)
+      ) {
+        return `距離第 ${Math.max(1, displayedCurrentRank - 1)} 名差 ${formatScore(
+          backendCurrentRun.gapToPrevious,
+        )} 分`;
+      }
+
       if (effectiveLeaderboardRows.length === 0) {
         return leaderboardSettlementLoading
           ? "正在載入全球排行榜..."
           : "顯示本場即時結算";
       }
+
       return `顯示前 ${Math.min(10, effectiveLeaderboardRows.length || 10)} 名`;
     })();
 
+    const scoreSummaryLabel =
+      displayedCurrentRank === 1 ? "已經位居榜首" : rankingSummaryLabel;
     const QUESTION_VISIBLE_ROWS = 6.5;
     const questionListHeight = QUESTION_VISIBLE_ROWS * listRowHeight;
     const LEADERBOARD_DESKTOP_ROW_HEIGHT = 60;
@@ -1253,22 +1324,6 @@ const LeaderboardSettlementShowcase: React.FC<
     );
     const handleLeaderboardRowsRendered = useCallback(() => { }, []);
 
-    const scoreSummaryLabel = (() => {
-      if (displayedCurrentRank === 1) return "已經位居榜首";
-      if (gapTargetRank !== null) {
-        if (backendCurrentRun?.gapToPrevious !== null && backendCurrentRun?.gapToPrevious !== undefined) {
-          return `距離第 ${gapTargetRank} 名差 ${formatScore(backendCurrentRun.gapToPrevious)} 分`;
-        }
-        return `距離第 ${gapTargetRank} 名的差距暫時無法取得`;
-      }
-      if (backendCurrentRun != null && backendCurrentRun.gapToFirst !== null) {
-        return getGapToFirstLabel(backendCurrentRun.gapToFirst);
-      }
-      if (!meSummary.me) return "顯示本場分數";
-      if (displayedCurrentRank <= 1 || meSummary.scoreGapToPrev === null) return "顯示本場分數";
-      return `距離第 ${Math.max(1, displayedCurrentRank - 1)} 名差 ${formatScore(meSummary.scoreGapToPrev)} 分`;
-    })();
-
     const filterEmptyMessages: Record<Exclude<QuestionFilterType, null>, string> = {
       correct: "沒有答對的題目",
       wrong: "沒有答錯的題目",
@@ -1279,38 +1334,40 @@ const LeaderboardSettlementShowcase: React.FC<
       <div className="mx-auto w-full max-w-[1820px] min-w-0 overflow-hidden pt-2 text-[var(--mc-text)]">
         <section className="min-h-0">
           <div className="min-h-0">
-            <div className="flex flex-col gap-2 border-b border-amber-300/14 pb-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-start gap-2">
-                  <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(180deg,rgba(245,158,11,0.12),rgba(120,53,15,0.1))] text-amber-100">
-                    <BarChartRoundedIcon sx={{ fontSize: 20 }} />
-                  </div>
-                  <div className="min-w-0">
-                    <h1 className="mt-0.5 text-xl font-black tracking-[0.07em] text-amber-50 sm:text-[1.5rem]">
-                      排行挑戰（{challengeVariantLabel}）
-                    </h1>
-                  </div>
+            <div className="flex items-center justify-between gap-3 border-b border-amber-300/14 pb-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(180deg,rgba(245,158,11,0.12),rgba(120,53,15,0.1))] text-amber-100">
+                  <BarChartRoundedIcon sx={{ fontSize: 20 }} />
                 </div>
+
+                <h1 className="min-w-0 truncate text-xl font-black tracking-[0.07em] text-amber-50 sm:text-[1.5rem]">
+                  排行挑戰（{challengeVariantLabel}）
+                </h1>
               </div>
 
-              <div className="flex flex-wrap gap-2 lg:justify-end">
+              <div className="flex shrink-0 items-center gap-2">
                 {canRetryChallenge && onRetry ? (
                   <button
                     type="button"
                     onClick={onRetry}
-                    className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded-lg border border-amber-300/45 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-500/18"
+                    aria-label="再挑戰一次"
+                    title="再挑戰一次"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/45 bg-amber-500/10 text-amber-50 transition hover:bg-amber-500/18 xl:h-auto xl:w-auto xl:min-w-[110px] xl:gap-1.5 xl:px-3 xl:py-1.5 xl:text-xs xl:font-semibold"
                   >
-                    <RefreshRoundedIcon sx={{ fontSize: 14 }} />
-                    再挑戰一次
+                    <RefreshRoundedIcon sx={{ fontSize: 22 }} />
+                    <span className="hidden xl:inline">再挑戰一次</span>
                   </button>
                 ) : null}
+
                 <button
                   type="button"
                   onClick={onBackToLobby}
-                  className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold text-[var(--mc-text)] transition hover:border-white/20 hover:bg-white/[0.04]"
+                  aria-label="返回大廳"
+                  title="返回大廳"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-amber-50 transition hover:border-white/20 hover:bg-white/[0.04] xl:h-auto xl:w-auto xl:min-w-[110px] xl:gap-1.5 xl:px-3 xl:py-1.5 xl:text-xs xl:font-semibold xl:text-[var(--mc-text)]"
                 >
-                  <HomeRoundedIcon sx={{ fontSize: 14 }} />
-                  返回大廳
+                  <HomeRoundedIcon sx={{ fontSize: 22 }} />
+                  <span className="hidden xl:inline">返回大廳</span>
                 </button>
               </div>
             </div>
@@ -1332,7 +1389,7 @@ const LeaderboardSettlementShowcase: React.FC<
                       </div>
                       <div className="mt-2 flex justify-center">
                         <span className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100 sm:px-2.5 sm:py-1 sm:text-xs">
-                          勝過 {meSummary.rankPercentile}% 的玩家
+                          勝過 {displayedRankPercentile}% 的玩家
                         </span>
                       </div>
                     </div>
