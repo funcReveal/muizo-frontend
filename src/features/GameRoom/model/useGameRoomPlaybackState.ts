@@ -9,6 +9,21 @@ import {
 import { normalizeRoomDisplayText } from "../../../shared/utils/text";
 import { extractYouTubeId } from "./gameRoomUtils";
 
+const parseDurationToSeconds = (duration?: string): number | null => {
+  if (!duration) return null;
+  const parts = duration.split(":").map((part) => Number(part));
+  if (parts.some((value) => Number.isNaN(value))) return null;
+  if (parts.length === 2) {
+    const [m, s] = parts;
+    return m * 60 + s;
+  }
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    return h * 3600 + m * 60 + s;
+  }
+  return null;
+};
+
 interface UseGameRoomPlaybackStateInput {
   gameState: GameState;
   playlist: PlaylistItem[];
@@ -158,11 +173,32 @@ export function useGameRoomPlaybackState({
       ? gameState.clipEndSec
       : null;
 
-  const clipStartSec = serverClipStartSec ?? derivedClipStartSec;
-  const clipEndSec =
-    serverClipEndSec !== null && serverClipEndSec > clipStartSec
+  const rawClipStartSec = serverClipStartSec ?? derivedClipStartSec;
+  const rawClipEndSec =
+    serverClipEndSec !== null && serverClipEndSec > rawClipStartSec
       ? serverClipEndSec
       : derivedClipEndSec;
+  const trackDurationSec = parseDurationToSeconds(item?.duration);
+  const hasTrackDuration =
+    typeof trackDurationSec === "number" &&
+    Number.isFinite(trackDurationSec) &&
+    trackDurationSec > 0;
+  const clipStartSec = hasTrackDuration
+    ? rawClipStartSec >= trackDurationSec
+      ? 0
+      : Math.max(0, rawClipStartSec)
+    : rawClipStartSec;
+  const clipEndSec = hasTrackDuration
+    ? Math.min(
+        trackDurationSec,
+        Math.max(
+          clipStartSec + 1,
+          rawClipEndSec > clipStartSec
+            ? rawClipEndSec
+            : clipStartSec + fallbackDurationSec,
+        ),
+      )
+    : rawClipEndSec;
 
   const shouldLoopRoomSettingsClip = effectiveClipSource === "room_settings";
 
@@ -214,6 +250,9 @@ export function useGameRoomPlaybackState({
     derivedClipEndSec,
     serverClipStartSec,
     serverClipEndSec,
+    rawClipStartSec,
+    rawClipEndSec,
+    trackDurationSec,
     clipStartSec,
     clipEndSec,
     shouldLoopRoomSettingsClip,

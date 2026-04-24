@@ -665,6 +665,13 @@ const LeaderboardSettlementShowcase: React.FC<
   onRetry,
   onBackToLobby,
 }) => {
+    const isCurrentClientHost = Boolean(
+      meClientId && room.hostClientId === meClientId,
+    );
+
+    const canRetryChallenge =
+      isCurrentClientHost && typeof onRetry === "function";
+
     const isDesktopLayout = useMediaQuery("(min-width: 1280px)");
     const listRowHeight = 84;
     const { ref: questionListRef, width: questionListWidth } = useElementWidth();
@@ -1111,9 +1118,9 @@ const LeaderboardSettlementShowcase: React.FC<
     const currentScore = backendCurrentRun?.score ?? meSummary.me?.score ?? 0;
     const scoreDelta =
       personalBestComparison?.hasPreviousBest === true &&
-      typeof personalBestComparison.scoreDelta === "number" &&
-      Number.isFinite(personalBestComparison.scoreDelta) &&
-      personalBestComparison.scoreDelta !== 0
+        typeof personalBestComparison.scoreDelta === "number" &&
+        Number.isFinite(personalBestComparison.scoreDelta) &&
+        personalBestComparison.scoreDelta !== 0
         ? personalBestComparison.scoreDelta
         : null;
     const currentRunComparable = useMemo(
@@ -1229,15 +1236,16 @@ const LeaderboardSettlementShowcase: React.FC<
               </div>
 
               <div className="flex flex-wrap gap-2 lg:justify-end">
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  disabled={!onRetry}
-                  className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded-lg border border-amber-300/45 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-500/18 disabled:cursor-not-allowed disabled:border-amber-300/15 disabled:bg-white/[0.02] disabled:text-amber-100/35"
-                >
-                  <RefreshRoundedIcon sx={{ fontSize: 14 }} />
-                  再挑戰一次
-                </button>
+                {canRetryChallenge && onRetry ? (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded-lg border border-amber-300/45 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-500/18"
+                  >
+                    <RefreshRoundedIcon sx={{ fontSize: 14 }} />
+                    再挑戰一次
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={onBackToLobby}

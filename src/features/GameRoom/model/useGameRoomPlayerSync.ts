@@ -151,10 +151,10 @@ const useGameRoomPlayerSync = ({
   const postStartDriftRetriedRef = useRef(false);
   const silentAudioStartTimerRef = useRef<number | null>(null);
   const silentAudioPlayPromiseRef = useRef<Promise<void> | null>(null);
+  const mobileUnlockKickTimerRef = useRef<number | null>(null);
   const hasMediaSessionMetadataRef = useRef(false);
-  const lastMediaSessionPlaybackStateRef = useRef<
-    MediaSessionPlaybackState | null
-  >(null);
+  const lastMediaSessionPlaybackStateRef =
+    useRef<MediaSessionPlaybackState | null>(null);
   const pendingResumeSyncReasonRef = useRef("resume");
   const lastWaitingToStartRef = useRef(waitingToStart);
   const prestartWarmupActiveRef = useRef(false);
@@ -233,6 +233,12 @@ const useGameRoomPlayerSync = ({
       silentAudioStartTimerRef.current = null;
     }
   }, []);
+  const clearMobileUnlockKickTimer = useCallback(() => {
+    if (mobileUnlockKickTimerRef.current !== null) {
+      window.clearTimeout(mobileUnlockKickTimerRef.current);
+      mobileUnlockKickTimerRef.current = null;
+    }
+  }, []);
 
   const markAudioUnlocked = useCallback(() => {
     if (audioUnlockedRef.current) return;
@@ -273,10 +279,12 @@ const useGameRoomPlayerSync = ({
       clearGuessLoopRestartTimer();
       clearPostStartDriftTimers();
       clearSilentAudioStartTimer();
+      clearMobileUnlockKickTimer();
     };
   }, [
     clearBufferingRecoveryTimer,
     clearGuessLoopRestartTimer,
+    clearMobileUnlockKickTimer,
     clearPlaybackStartTimer,
     clearPlaybackWarmupTimers,
     clearPostStartDriftTimers,
@@ -370,7 +378,12 @@ const useGameRoomPlayerSync = ({
     postStartDriftRetriedRef.current = false;
     awaitingFirstPlaySyncRef.current = false;
     clearBufferingRecoveryTimer();
-  }, [clearBufferingRecoveryTimer, trackSessionKey]);
+    clearMobileUnlockKickTimer();
+  }, [
+    clearBufferingRecoveryTimer,
+    clearMobileUnlockKickTimer,
+    trackSessionKey,
+  ]);
 
   const postCommand = useCallback(
     (func: string, args: unknown[] = []) => {
@@ -717,10 +730,68 @@ const useGameRoomPlayerSync = ({
     ],
   );
 
+  const kickPlaybackAfterMobileUnlock = useCallback(() => {
+    clearMobileUnlockKickTimer();
+
+    const run = () => {
+      if (
+        !audioUnlockedRef.current ||
+        !playerReadyRef.current ||
+        !videoId ||
+        isEnded ||
+        isReveal
+      ) {
+        return;
+      }
+
+      const serverNowMs = getServerNowMs();
+
+      // 如果還沒到 startedAt，不要提早出聲。
+      // 但要在 startedAt 到時主動再踢一次 play + unMute。
+      if (serverNowMs < startedAt) {
+        const delayMs = Math.max(40, startedAt - serverNowMs + 80);
+        mobileUnlockKickTimerRef.current = window.setTimeout(() => {
+          mobileUnlockKickTimerRef.current = null;
+          run();
+        }, delayMs);
+        return;
+      }
+
+      // 手機第一首最容易卡在「已 play 但仍 mute」。
+      // 這裡在真正開始後強制解除初始 hold，並用 server 位置重新播放。
+      initialAudioSyncPendingRef.current = false;
+      clearInitialAudioHoldReleaseTimer();
+
+      postCommand("unMute");
+      applyVolume(gameVolume);
+
+      startPlayback(undefined, true, {
+        holdAudio: false,
+        reason: "startPlayback-startedAt",
+      });
+
+      requestPlayerTime("mobile-unlock-kick");
+    };
+
+    run();
+  }, [
+    applyVolume,
+    clearInitialAudioHoldReleaseTimer,
+    clearMobileUnlockKickTimer,
+    gameVolume,
+    getServerNowMs,
+    isEnded,
+    isReveal,
+    postCommand,
+    requestPlayerTime,
+    startPlayback,
+    startedAt,
+    videoId,
+  ]);
+
   const scheduleGuessLoopRestart = useCallback(() => {
     clearGuessLoopRestartTimer();
     if (
-      !isTimeAttackMode ||
       phase !== "guess" ||
       !shouldLoopRoomSettingsClip ||
       waitingToStart ||
@@ -744,11 +815,17 @@ const useGameRoomPlayerSync = ({
       120,
       Math.ceil((clipEndSec - normalizedPositionSec) * 1000),
     );
+    const guessEndsAt = startedAt + effectiveGuessDurationMs;
+    if (!isTimeAttackMode) {
+      const remainingGuessMs = Math.max(0, guessEndsAt - serverNow);
+      if (remainingGuessMs <= remainingLoopMs) {
+        return;
+      }
+    }
 
     guessLoopRestartTimerRef.current = window.setTimeout(() => {
       guessLoopRestartTimerRef.current = null;
       if (
-        !isTimeAttackMode ||
         phase !== "guess" ||
         !shouldLoopRoomSettingsClip ||
         waitingToStart ||
@@ -776,9 +853,11 @@ const useGameRoomPlayerSync = ({
       scheduleGuessLoopRestartRef.current();
     }, remainingLoopMs + 80);
   }, [
+    startedAt,
     clearGuessLoopRestartTimer,
     clipEndSec,
     clipStartSec,
+    effectiveGuessDurationMs,
     getDesiredPositionSec,
     getFreshPlayerTimeSec,
     getRecentMeasuredEstimatedPositionSec,
@@ -791,7 +870,10 @@ const useGameRoomPlayerSync = ({
     startPlayback,
     waitingToStart,
   ]);
-  scheduleGuessLoopRestartRef.current = scheduleGuessLoopRestart;
+
+  useEffect(() => {
+    scheduleGuessLoopRestartRef.current = scheduleGuessLoopRestart;
+  }, [scheduleGuessLoopRestart]);
 
   useEffect(() => {
     scheduleGuessLoopRestart();
@@ -821,7 +903,9 @@ const useGameRoomPlayerSync = ({
         });
         startPlayback(undefined, true, {
           holdAudio: initialAudioSyncPendingRef.current,
-          holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 220 : undefined,
+          holdReleaseDelayMs: initialAudioSyncPendingRef.current
+            ? 220
+            : undefined,
           reason: "post-start-drift",
         });
       }, PLAYER_TIME_RESPONSE_FALLBACK_MS);
@@ -933,13 +1017,10 @@ const useGameRoomPlayerSync = ({
     // Schedule warmup only if there's enough lead.
     const scheduleWarmup = delayMs > PRESTART_WARMUP_LEAD_MS;
     if (scheduleWarmup) {
-      playbackWarmupTimerRef.current = window.setTimeout(
-        () => {
-          playbackWarmupTimerRef.current = null;
-          startPrestartWarmup();
-        },
-        delayMs - PRESTART_WARMUP_LEAD_MS,
-      );
+      playbackWarmupTimerRef.current = window.setTimeout(() => {
+        playbackWarmupTimerRef.current = null;
+        startPrestartWarmup();
+      }, delayMs - PRESTART_WARMUP_LEAD_MS);
     }
 
     // Schedule the actual T0 start.
@@ -948,7 +1029,9 @@ const useGameRoomPlayerSync = ({
       if (!playerReadyRef.current || !videoId || isEnded) return;
       const warmupWasActive = prestartWarmupActiveRef.current;
       prestartWarmupActiveRef.current = false;
-      const holdMs = warmupWasActive ? PRESTART_FINAL_HOLD_MS : NO_WARMUP_HOLD_MS;
+      const holdMs = warmupWasActive
+        ? PRESTART_FINAL_HOLD_MS
+        : NO_WARMUP_HOLD_MS;
       armInitialAudioSync(holdMs);
       startPlayback(undefined, true, {
         holdAudio: true,
@@ -1010,7 +1093,7 @@ const useGameRoomPlayerSync = ({
   const unlockAudioAndStart = useCallback(() => {
     primeSfxAudio();
 
-    if (!playerReadyRef.current) {
+    if (!playerReadyRef.current || !videoId) {
       resumeNeedsSyncRef.current = true;
       return false;
     }
@@ -1022,40 +1105,47 @@ const useGameRoomPlayerSync = ({
     startSilentAudio();
 
     const serverNow = getServerNowMs();
+
     if (serverNow < startedAt) {
-      // Gesture happened before T0 ??do a short play/pause to unlock the
-      // codec, then hold at clipStart. The normal schedulePlaybackStart flow
-      // will take over for the actual T0 start.
+      // Gesture happened before T0.
+      // Do a muted short warmup to satisfy mobile audio unlock,
+      // then schedule a real audible kick at startedAt.
       debugSync("gesture-unlock-warmup", { targetSec: clipStartSec });
+
+      postCommand("mute");
       postCommand("seekTo", [clipStartSec, true]);
       postCommand("playVideo");
+
       window.setTimeout(() => {
+        if (getServerNowMs() >= startedAt) return;
         postCommand("pauseVideo");
         postCommand("seekTo", [clipStartSec, true]);
       }, 120);
+
+      kickPlaybackAfterMobileUnlock();
       return true;
     }
 
-    // Gesture happened after T0 ??start muted, let recovery/drift check align.
-    armInitialAudioSync(NO_WARMUP_HOLD_MS);
-    startPlayback(undefined, false, {
-      holdAudio: true,
-      holdReleaseDelayMs: NO_WARMUP_HOLD_MS,
-      reason: "startPlayback-startedAt",
-    });
+    // Gesture happened after T0.
+    // Force YouTube into an audible state immediately, then start at server position.
+    postCommand("unMute");
+    applyVolume(gameVolume);
+    kickPlaybackAfterMobileUnlock();
 
     return true;
   }, [
-    armInitialAudioSync,
+    applyVolume,
     clipStartSec,
     debugSync,
+    gameVolume,
     getServerNowMs,
+    kickPlaybackAfterMobileUnlock,
     markAudioUnlocked,
     postCommand,
     primeSfxAudio,
-    startPlayback,
     startSilentAudio,
     startedAt,
+    videoId,
   ]);
 
   const handleGestureOverlayTrigger = useCallback(
@@ -1228,7 +1318,10 @@ const useGameRoomPlayerSync = ({
         bufferingRecoveryTimerRef.current = null;
         if (!playerReadyRef.current) return;
         if (getServerNowMs() < startedAt || isEnded) return;
-        if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        if (
+          typeof document !== "undefined" &&
+          document.visibilityState !== "visible"
+        ) {
           resumeNeedsSyncRef.current = true;
         }
         debugSync("buffering-recovery-force-seek", {
@@ -1238,7 +1331,9 @@ const useGameRoomPlayerSync = ({
         });
         startPlayback(undefined, true, {
           holdAudio: initialAudioSyncPendingRef.current,
-          holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+          holdReleaseDelayMs: initialAudioSyncPendingRef.current
+            ? 180
+            : undefined,
           reason: "resume",
         });
         scheduleResumeResync();
@@ -1257,11 +1352,7 @@ const useGameRoomPlayerSync = ({
 
   const recoverPlaybackIfNeeded = useCallback(
     (
-      reason:
-        | "resume"
-        | "buffering-recovery"
-        | "pause-recovery"
-        | "media-seek",
+      reason: "resume" | "buffering-recovery" | "pause-recovery" | "media-seek",
       options?: {
         requireAlignedPlayback?: boolean;
         holdAudio?: boolean;
@@ -1335,11 +1426,7 @@ const useGameRoomPlayerSync = ({
     recoverPlaybackIfNeededRef.current = recoverPlaybackIfNeeded;
     scheduleResumeResyncRef.current = scheduleResumeResync;
     updateMediaSessionRef.current = updateMediaSession;
-  }, [
-    recoverPlaybackIfNeeded,
-    scheduleResumeResync,
-    updateMediaSession,
-  ]);
+  }, [recoverPlaybackIfNeeded, scheduleResumeResync, updateMediaSession]);
 
   useEffect(
     () => () => {
@@ -1348,6 +1435,7 @@ const useGameRoomPlayerSync = ({
       clearPlaybackStartTimer();
       clearPlaybackWarmupTimers();
       clearPostStartDriftTimers();
+      clearMobileUnlockKickTimer();
       resyncTimersRef.current.forEach((timerId) =>
         window.clearTimeout(timerId),
       );
@@ -1356,6 +1444,7 @@ const useGameRoomPlayerSync = ({
     [
       clearBufferingRecoveryTimer,
       clearInitialAudioHoldReleaseTimer,
+      clearMobileUnlockKickTimer,
       clearPlaybackStartTimer,
       clearPlaybackWarmupTimers,
       clearPostStartDriftTimers,
@@ -1369,7 +1458,6 @@ const useGameRoomPlayerSync = ({
     }
     lastWaitingToStartRef.current = waitingToStart;
   }, [debugSync, waitingToStart]);
-
 
   useEffect(() => {
     applyVolume(gameVolume);
@@ -1416,7 +1504,9 @@ const useGameRoomPlayerSync = ({
         recoverPlaybackIfNeededRef.current("media-seek", {
           requireAlignedPlayback: true,
           holdAudio: initialAudioSyncPendingRef.current,
-          holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+          holdReleaseDelayMs: initialAudioSyncPendingRef.current
+            ? 180
+            : undefined,
         });
         scheduleResumeResyncRef.current();
       };
@@ -1545,7 +1635,10 @@ const useGameRoomPlayerSync = ({
           scheduleBufferingRecovery("buffering-state");
         } else if (bufferingStartedAtRef.current !== null) {
           clearBufferingRecoveryTimer();
-          const durationMs = Math.max(0, getServerNowMs() - bufferingStartedAtRef.current);
+          const durationMs = Math.max(
+            0,
+            getServerNowMs() - bufferingStartedAtRef.current,
+          );
           debugSync("buffering-end", {
             ...getPlayerDebugPayload(state ?? undefined),
             durationMs,
@@ -1581,7 +1674,9 @@ const useGameRoomPlayerSync = ({
                 });
                 startPlayback(undefined, true, {
                   holdAudio: initialAudioSyncPendingRef.current,
-                  holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 220 : undefined,
+                  holdReleaseDelayMs: initialAudioSyncPendingRef.current
+                    ? 220
+                    : undefined,
                   reason: "post-start-drift",
                 });
               }, PLAYER_TIME_RESPONSE_FALLBACK_MS);
@@ -1624,7 +1719,9 @@ const useGameRoomPlayerSync = ({
           const didHardRecover = recoverPlaybackIfNeeded("pause-recovery", {
             requireAlignedPlayback,
             holdAudio: initialAudioSyncPendingRef.current,
-            holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+            holdReleaseDelayMs: initialAudioSyncPendingRef.current
+              ? 180
+              : undefined,
           });
           // Verify drift only after a hard recovery. A soft resume is already
           // continuing on the current timeline; a follow-up time probe there
@@ -1865,14 +1962,17 @@ const useGameRoomPlayerSync = ({
     if (state === 1 || (state === 3 && recentBuffering)) {
       return;
     }
-    const fallbackTimer = window.setTimeout(() => {
-      if (lastPlayerStateRef.current !== 1 && !hasRecentBuffering()) {
-        postCommand("playVideo");
-        postCommand("unMute");
-        applyVolume(gameVolume);
-        startSilentAudio();
-      }
-    }, recentBuffering ? 780 : 420);
+    const fallbackTimer = window.setTimeout(
+      () => {
+        if (lastPlayerStateRef.current !== 1 && !hasRecentBuffering()) {
+          postCommand("playVideo");
+          postCommand("unMute");
+          applyVolume(gameVolume);
+          startSilentAudio();
+        }
+      },
+      recentBuffering ? 780 : 420,
+    );
     return () => window.clearTimeout(fallbackTimer);
   }, [
     applyVolume,
@@ -1957,8 +2057,7 @@ const useGameRoomPlayerSync = ({
             ? "visibility-pageshow"
             : "visibility";
       const shouldProbeUnknownForegroundState =
-        !requiresAudioGesture &&
-        lastPlayerStateRef.current === null;
+        !requiresAudioGesture && lastPlayerStateRef.current === null;
       // Separate position health from player state. On desktop, the iframe can
       // briefly report paused/buffering during foreground return even when the
       // timeline is still aligned. Treating that as an immediate hard-recover
@@ -2037,7 +2136,9 @@ const useGameRoomPlayerSync = ({
       const didHardRecover = recoverPlaybackIfNeeded("resume", {
         requireAlignedPlayback: !isPositionOnTrack,
         holdAudio: initialAudioSyncPendingRef.current,
-        holdReleaseDelayMs: initialAudioSyncPendingRef.current ? 180 : undefined,
+        holdReleaseDelayMs: initialAudioSyncPendingRef.current
+          ? 180
+          : undefined,
       });
       if (didHardRecover) {
         scheduleResumeResync();
@@ -2127,4 +2228,3 @@ const useGameRoomPlayerSync = ({
 };
 
 export default useGameRoomPlayerSync;
-
