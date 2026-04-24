@@ -497,7 +497,7 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
                   人數
                 </div>
                 <div className="text-sm font-semibold">
-                  {settingsMaxPlayers || "未設定"}
+                  {displayedMaxPlayers}
                 </div>
               </div>
             </div>
@@ -546,6 +546,27 @@ const RoomLobbySettingsDialog: React.FC<RoomLobbySettingsDialogProps> = ({
           overflowX: "hidden",
         }}
       >
+        {isTimeAttackLeaderboard ? (
+          <div className="mb-5 rounded-2xl border border-amber-300/18 bg-[linear-gradient(180deg,rgba(24,18,10,0.68),rgba(10,10,14,0.72))] px-4 py-3">
+            <div className="text-sm font-semibold text-amber-100">
+              15 分鐘限時 · 單人挑戰
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                最多玩完整個收藏庫
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                公布答案 5 秒
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                使用收藏庫時間
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                不使用延長投票
+              </span>
+            </div>
+          </div>
+        ) : null}
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,1.18fr)]">
           <Section
             icon={<MeetingRoomRoundedIcon sx={{ fontSize: 20, color: "#7dd3fc" }} />}

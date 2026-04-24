@@ -30,6 +30,10 @@ export {
   setStoredShowVideoPreference,
 } from "./model/roomStorage";
 export type {
+  LeaderboardSettlementEntry,
+  LeaderboardSettlementReadyPayload,
+  LeaderboardSettlementResponse,
+  PersonalBestComparison,
   Ack,
   ChatMessage,
   ClientSocket,

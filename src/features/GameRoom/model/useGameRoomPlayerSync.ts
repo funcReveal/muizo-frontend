@@ -13,6 +13,7 @@ interface UseGameRoomPlayerSyncParams {
   revealDurationMs: number;
   effectiveGuessDurationMs: number;
   fallbackDurationSec: number;
+  isTimeAttackMode: boolean;
   shouldLoopRoomSettingsClip: boolean;
   clipStartSec: number;
   clipEndSec: number;
@@ -89,6 +90,7 @@ const useGameRoomPlayerSync = ({
   revealDurationMs,
   effectiveGuessDurationMs,
   fallbackDurationSec,
+  isTimeAttackMode,
   shouldLoopRoomSettingsClip,
   clipStartSec,
   clipEndSec,
@@ -143,6 +145,7 @@ const useGameRoomPlayerSync = ({
   const playbackWarmupTimerRef = useRef<number | null>(null);
   const playbackWarmupStopTimerRef = useRef<number | null>(null);
   const bufferingRecoveryTimerRef = useRef<number | null>(null);
+  const guessLoopRestartTimerRef = useRef<number | null>(null);
   const postStartDriftTimersRef = useRef<number[]>([]);
   const postStartDriftRetriedRef = useRef(false);
   const silentAudioStartTimerRef = useRef<number | null>(null);
@@ -209,6 +212,13 @@ const useGameRoomPlayerSync = ({
     }
   }, []);
 
+  const clearGuessLoopRestartTimer = useCallback(() => {
+    if (guessLoopRestartTimerRef.current !== null) {
+      window.clearTimeout(guessLoopRestartTimerRef.current);
+      guessLoopRestartTimerRef.current = null;
+    }
+  }, []);
+
   const clearPostStartDriftTimers = useCallback(() => {
     postStartDriftTimersRef.current.forEach((timerId) =>
       window.clearTimeout(timerId),
@@ -259,11 +269,13 @@ const useGameRoomPlayerSync = ({
       clearPlaybackStartTimer();
       clearPlaybackWarmupTimers();
       clearBufferingRecoveryTimer();
+      clearGuessLoopRestartTimer();
       clearPostStartDriftTimers();
       clearSilentAudioStartTimer();
     };
   }, [
     clearBufferingRecoveryTimer,
+    clearGuessLoopRestartTimer,
     clearPlaybackStartTimer,
     clearPlaybackWarmupTimers,
     clearPostStartDriftTimers,
@@ -703,6 +715,88 @@ const useGameRoomPlayerSync = ({
       startedAt,
     ],
   );
+
+  const scheduleGuessLoopRestart = useCallback(() => {
+    clearGuessLoopRestartTimer();
+    if (
+      !isTimeAttackMode ||
+      phase !== "guess" ||
+      !shouldLoopRoomSettingsClip ||
+      waitingToStart ||
+      isEnded ||
+      !isStartedByServerTime()
+    ) {
+      return;
+    }
+
+    const serverNow = getServerNowMs();
+    const clipSpanSec = Math.max(0.25, clipEndSec - clipStartSec);
+    const estimatedPositionSec =
+      getRecentMeasuredEstimatedPositionSec(serverNow) ??
+      getFreshPlayerTimeSec() ??
+      getDesiredPositionSec();
+    const normalizedPositionSec = Math.min(
+      clipEndSec,
+      Math.max(clipStartSec, estimatedPositionSec),
+    );
+    const remainingLoopMs = Math.max(
+      120,
+      Math.ceil((clipEndSec - normalizedPositionSec) * 1000),
+    );
+
+    guessLoopRestartTimerRef.current = window.setTimeout(() => {
+      guessLoopRestartTimerRef.current = null;
+      if (
+        !isTimeAttackMode ||
+        phase !== "guess" ||
+        !shouldLoopRoomSettingsClip ||
+        waitingToStart ||
+        isEnded ||
+        !isStartedByServerTime()
+      ) {
+        return;
+      }
+
+      const latestPositionSec = lastPlayerTimeSecRef.current;
+      const playerStillMidClip =
+        lastPlayerStateRef.current === 1 &&
+        typeof latestPositionSec === "number" &&
+        latestPositionSec < clipEndSec - 0.18;
+
+      if (playerStillMidClip) {
+        scheduleGuessLoopRestart();
+        return;
+      }
+
+      guessLoopSpanRef.current = clipSpanSec;
+      startPlayback(clipStartSec, true, {
+        reason: "guess-loop",
+      });
+      scheduleGuessLoopRestart();
+    }, remainingLoopMs + 80);
+  }, [
+    clearGuessLoopRestartTimer,
+    clipEndSec,
+    clipStartSec,
+    getDesiredPositionSec,
+    getFreshPlayerTimeSec,
+    getRecentMeasuredEstimatedPositionSec,
+    getServerNowMs,
+    isEnded,
+    isStartedByServerTime,
+    isTimeAttackMode,
+    phase,
+    shouldLoopRoomSettingsClip,
+    startPlayback,
+    waitingToStart,
+  ]);
+
+  useEffect(() => {
+    scheduleGuessLoopRestart();
+    return () => {
+      clearGuessLoopRestartTimer();
+    };
+  }, [clearGuessLoopRestartTimer, scheduleGuessLoopRestart, trackSessionKey]);
 
   // Schedule a single drift check at T0 + POST_START_DRIFT_CHECK_MS. The
   // infoDelivery handler picks up the response and calls syncToServerPosition
@@ -1545,7 +1639,7 @@ const useGameRoomPlayerSync = ({
             shouldLoopRoomSettingsClip &&
             !isEnded &&
             isStartedByServerTime() &&
-            serverNow < guessEndsAt
+            (isTimeAttackMode || serverNow < guessEndsAt)
           ) {
             const latestPlayerTime = lastPlayerTimeSecRef.current;
             if (
@@ -1659,6 +1753,7 @@ const useGameRoomPlayerSync = ({
     isBufferingGraceActive,
     isLikelyContinuousPlayback,
     isReveal,
+    isTimeAttackMode,
     isStartedByServerTime,
     loadTrack,
     phase,

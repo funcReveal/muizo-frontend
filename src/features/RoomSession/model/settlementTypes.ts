@@ -86,6 +86,7 @@ export interface LeaderboardSettlementEntry {
   questionCount: number;
   maxCombo: number;
   avgCorrectMs: number | null;
+  durationSec: number | null;
   isMe: boolean;
 }
 
@@ -139,6 +140,7 @@ export interface LeaderboardSettlementResponse {
     questionCount: number;
     maxCombo: number;
     avgCorrectMs: number | null;
+    durationSec: number | null;
     percentile: number | null;
     rankChange: number | null;
     gapToFirst: number | null;
