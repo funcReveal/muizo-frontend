@@ -66,7 +66,9 @@ const TEXT = {
   loginHint: "請先使用 Google 登入，才能查看與管理收藏。",
   public: "公開",
   private: "私人",
-  publicConfirm: "公開後其他人可以瀏覽與使用這份收藏，確定要設為公開嗎？",
+  publicConfirm: "公開後其他玩家可以瀏覽與使用這份收藏，確定要設為公開嗎？",
+  privateConfirm:
+    "設為私人後，其他玩家將無法再瀏覽或使用這份收藏。已分享出去的公開連結也可能失效，確定要設為私人嗎？",
 };
 
 const SKELETON_COUNT = 6;
@@ -114,7 +116,7 @@ const CollectionsPage = () => {
   const [visibilityUpdatingId, setVisibilityUpdatingId] = useState<
     string | null
   >(null);
-  const [confirmPublicOpen, setConfirmPublicOpen] = useState(false);
+  const [confirmVisibilityOpen, setConfirmVisibilityOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [pendingVisibility, setPendingVisibility] = useState<{
     id: string;
@@ -136,6 +138,19 @@ const CollectionsPage = () => {
   const hasReachedCollectionLimit =
     !isAdmin && collections.length >= MAX_COLLECTIONS_PER_USER;
   const showSkeleton = loading && collections.length === 0;
+
+  const visibilityConfirmContent =
+    pendingVisibility?.visibility === "private"
+      ? {
+          title: "設為私人",
+          description: TEXT.privateConfirm,
+          confirmLabel: "設為私人",
+        }
+      : {
+          title: "設為公開",
+          description: TEXT.publicConfirm,
+          confirmLabel: "設為公開",
+        };
 
   useEffect(() => {
     if (!authLoading) {
@@ -492,18 +507,13 @@ const CollectionsPage = () => {
                               size="small"
                               checked={collection.visibility === "public"}
                               disabled={visibilityUpdatingId === collection.id}
-                              onChange={(_, checked) =>
-                                checked
-                                  ? (setPendingVisibility({
-                                      id: collection.id,
-                                      visibility: "public",
-                                    }),
-                                    setConfirmPublicOpen(true))
-                                  : applyVisibilityChange(
-                                      collection.id,
-                                      "private",
-                                    )
-                              }
+                              onChange={(_, checked) => {
+                                setPendingVisibility({
+                                  id: collection.id,
+                                  visibility: checked ? "public" : "private",
+                                });
+                                setConfirmVisibilityOpen(true);
+                              }}
                               sx={{
                                 "& .MuiSwitch-thumb": {
                                   backgroundColor: "white",
@@ -619,23 +629,22 @@ const CollectionsPage = () => {
             })}
           </Box>
           <ConfirmDialog
-            open={confirmPublicOpen}
-            title="設為公開"
-            description={TEXT.publicConfirm}
-            confirmLabel="設為公開"
+            open={confirmVisibilityOpen}
+            title={visibilityConfirmContent.title}
+            description={visibilityConfirmContent.description}
+            confirmLabel={visibilityConfirmContent.confirmLabel}
             onConfirm={() => {
-              if (pendingVisibility) {
-                applyVisibilityChange(
-                  pendingVisibility.id,
-                  pendingVisibility.visibility,
-                );
-              }
+              const target = pendingVisibility;
               setPendingVisibility(null);
-              setConfirmPublicOpen(false);
+              setConfirmVisibilityOpen(false);
+
+              if (target) {
+                void applyVisibilityChange(target.id, target.visibility);
+              }
             }}
             onCancel={() => {
               setPendingVisibility(null);
-              setConfirmPublicOpen(false);
+              setConfirmVisibilityOpen(false);
             }}
           />
           <ConfirmDialog

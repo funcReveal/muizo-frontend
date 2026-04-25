@@ -1,4 +1,5 @@
-﻿import React from "react";
+﻿import { TextField } from "@mui/material";
+import React from "react";
 
 interface GuestEntryCardProps {
   usernameInput: string;
@@ -15,12 +16,7 @@ const GuestEntryCard: React.FC<GuestEntryCardProps> = ({
   onConfirm,
   nicknameMaxLength,
   suggestedGuestUsername,
-  onUseSuggestedUsername,
 }) => {
-  const canUseSuggestedUsername = Boolean(
-    suggestedGuestUsername && onUseSuggestedUsername,
-  );
-
   return (
     <article className="landing-card landing-card-guest">
       <header className="space-y-3">
@@ -45,32 +41,44 @@ const GuestEntryCard: React.FC<GuestEntryCardProps> = ({
         </div>
 
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <input
-            id="nickname"
+          <TextField
+            fullWidth
+            size="small"
+            placeholder={suggestedGuestUsername}
             value={usernameInput}
             onChange={(e) =>
               onInputChange(e.target.value.slice(0, nicknameMaxLength))
             }
             autoComplete="off"
-            placeholder={
-              suggestedGuestUsername
-                ? `例如 ${suggestedGuestUsername}`
-                : `上限 ${nicknameMaxLength} 字...`
-            }
-            maxLength={nicknameMaxLength}
-            className="landing-input w-full rounded-2xl px-4 py-3 text-sm"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "16px",
+                backgroundColor: "rgba(15, 23, 42, 0.78)",
+                color: "var(--mc-text)",
+                "& fieldset": {
+                  borderColor: "rgba(245, 158, 11, 0.28)",
+                },
+                "&:hover fieldset": {
+                  borderColor: "rgba(251, 191, 36, 0.52)",
+                },
+                "&.Mui-focused fieldset": {
+                  borderColor: "rgba(251, 191, 36, 0.72)",
+                  boxShadow: "0 0 0 2px rgba(245, 158, 11, 0.14)",
+                },
+              },
+              "& .MuiInputLabel-root": {
+                color: "var(--mc-text-muted)",
+                letterSpacing: "0.14em",
+              },
+              "& .MuiInputBase-input::placeholder": {
+                color: "rgba(252, 211, 77, 0.46)",
+                opacity: 1,
+              },
+            }}
+            slotProps={{
+              htmlInput: { maxLength: nicknameMaxLength },
+            }}
           />
-
-          {canUseSuggestedUsername ? (
-            <button
-              type="button"
-              onClick={onUseSuggestedUsername}
-              className="landing-button landing-button-random cursor-pointer rounded-2xl px-4 py-3 text-xs font-medium whitespace-nowrap"
-              title={`使用 ${suggestedGuestUsername}`}
-            >
-              隨機產生
-            </button>
-          ) : null}
         </div>
 
         <button
@@ -78,7 +86,7 @@ const GuestEntryCard: React.FC<GuestEntryCardProps> = ({
           onClick={onConfirm}
           className="landing-button landing-button-guest cursor-pointer w-full rounded-2xl px-4 py-3 text-sm uppercase tracking-[0.18em]"
         >
-          以訪客進入
+          {usernameInput.trim() ? "以訪客身份繼續" : `使用隨機暱稱開始`}
         </button>
       </div>
     </article>

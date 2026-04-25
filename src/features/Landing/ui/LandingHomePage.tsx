@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { USERNAME_MAX } from "@domain/room/constants";
@@ -18,7 +18,9 @@ const LandingHomePage: React.FC = () => {
     authLoading,
   } = useAuth();
 
-  const suggestedGuestUsername = useMemo(() => generateGuestUsername(), []);
+  const [suggestedGuestUsername, setSuggestedGuestUsername] = useState(() =>
+    generateGuestUsername(),
+  );
 
   useEffect(() => {
     if (authUser || username) {
@@ -27,9 +29,16 @@ const LandingHomePage: React.FC = () => {
   }, [authUser, navigate, username]);
 
   const handleGuestContinue = () => {
-    const trimmed = usernameInput.trim();
-    if (!trimmed) return;
-    handleSetUsername();
+    const fallbackName = suggestedGuestUsername;
+    const nextUsername = usernameInput.trim() || fallbackName;
+
+    if (!nextUsername) return;
+
+    if (!usernameInput.trim()) {
+      setUsernameInput(nextUsername);
+    }
+
+    handleSetUsername(nextUsername);
     navigate("/rooms", { replace: true });
   };
 
@@ -38,7 +47,10 @@ const LandingHomePage: React.FC = () => {
   };
 
   const handleUseSuggestedUsername = () => {
-    setUsernameInput(suggestedGuestUsername);
+    const nextGuestUsername = generateGuestUsername();
+
+    setSuggestedGuestUsername(nextGuestUsername);
+    setUsernameInput(nextGuestUsername);
   };
 
   return (

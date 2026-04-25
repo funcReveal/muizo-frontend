@@ -1490,12 +1490,7 @@ const RoomsHubPage: React.FC = () => {
   return (
     <div className="mx-auto flex h-full min-h-0 w-full flex-1 flex-col text-[var(--mc-text)]">
       {!currentRoom?.id && !username && (
-        <section className="relative w-full overflow-hidden rounded-3xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 p-5 sm:p-6">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -left-12 top-0 h-40 w-40 rounded-full bg-cyan-500/10 blur-3xl" />
-            <div className="absolute -right-14 bottom-0 h-44 w-44 rounded-full bg-amber-400/10 blur-3xl" />
-          </div>
-
+        <section className="relative w-full overflow-hidden p-5 sm:p-6">
           <div className="relative">
             <h2 className="mt-2 text-2xl font-semibold text-[var(--mc-text)]">
               選擇進入方式，開始遊戲
@@ -1572,16 +1567,27 @@ const RoomsHubPage: React.FC = () => {
                 </header>
 
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label
+                      htmlFor="nickname"
+                      className="text-[15px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]"
+                    >
+                      暱稱
+                    </label>
+                    <span className="text-[11px] text-[var(--mc-text-muted)]">
+                      {usernameInput.length}/{USERNAME_MAX}
+                    </span>
+                  </div>
+
                   <TextField
                     fullWidth
                     size="small"
-                    label="暱稱"
                     placeholder={suggestedGuestUsername}
                     value={usernameInput}
                     onChange={(e) =>
                       setUsernameInput(e.target.value.slice(0, USERNAME_MAX))
                     }
-                    inputProps={{ maxLength: USERNAME_MAX }}
+                    autoComplete="off"
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         borderRadius: "16px",
@@ -1609,7 +1615,7 @@ const RoomsHubPage: React.FC = () => {
                     }}
                     slotProps={{
                       input: { sx: { mb: "10px" } },
-                      inputLabel: { shrink: true },
+                      htmlInput: { maxLength: USERNAME_MAX },
                     }}
                   />
                   <Button

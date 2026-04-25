@@ -5,6 +5,7 @@ const VERSION_MANIFEST_URL = "/version.json";
 const VERSION_TOAST_ID = "app-version-update";
 const VERSION_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 const INITIAL_VERSION_CHECK_DELAY_MS = 15 * 1000;
+const MIN_FOREGROUND_CHECK_INTERVAL_MS = 15 * 1000;
 
 type VersionManifest = {
   buildId: string;
@@ -26,19 +27,24 @@ function isVersionManifest(value: unknown): value is VersionManifest {
   );
 }
 
-async function fetchVersionManifest(signal: AbortSignal): Promise<VersionManifest | null> {
+async function fetchVersionManifest(
+  signal: AbortSignal,
+): Promise<VersionManifest | null> {
   const searchParams = new URLSearchParams({
     t: String(Date.now()),
   });
 
-  const response = await fetch(`${VERSION_MANIFEST_URL}?${searchParams.toString()}`, {
-    cache: "no-store",
-    headers: {
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
+  const response = await fetch(
+    `${VERSION_MANIFEST_URL}?${searchParams.toString()}`,
+    {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+      signal,
     },
-    signal,
-  });
+  );
 
   if (!response.ok) {
     return null;
@@ -66,33 +72,46 @@ export function VersionUpdateNotifier() {
   const requestRef = useRef<AbortController | null>(null);
   const lastCheckedAtRef = useRef<number>(0);
 
-  const checkForUpdates = useCallback(async (source: "interval" | "visibility") => {
-    if (updateDetectedRef.current || document.visibilityState === "hidden") {
-      return;
-    }
-    // Visibility-triggered checks are debounced to at most once per interval.
-    // The periodic timer always runs regardless.
-    if (source === "visibility") {
-      const now = Date.now();
-      if (now - lastCheckedAtRef.current < VERSION_CHECK_INTERVAL_MS) return;
-    }
-    lastCheckedAtRef.current = Date.now();
-
-    requestRef.current?.abort();
-    const controller = new AbortController();
-    requestRef.current = controller;
-
-    try {
-      const latestManifest = await fetchVersionManifest(controller.signal);
-      if (!latestManifest) return;
-      if (latestManifest.buildId !== __APP_BUILD_ID__) {
-        updateDetectedRef.current = true;
-        showUpdateToast();
+  const checkForUpdates = useCallback(
+    async (source: "interval" | "visibility") => {
+      if (updateDetectedRef.current || document.visibilityState === "hidden") {
+        return;
       }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-    }
-  }, []);
+
+      const now = Date.now();
+
+      // Foreground checks should be responsive on mobile, where timers are often
+      // paused in the background. Keep only a short debounce to avoid duplicate
+      // visibilitychange events from issuing back-to-back requests.
+      if (
+        source === "visibility" &&
+        now - lastCheckedAtRef.current < MIN_FOREGROUND_CHECK_INTERVAL_MS
+      ) {
+        return;
+      }
+
+      lastCheckedAtRef.current = now;
+
+      requestRef.current?.abort();
+      const controller = new AbortController();
+      requestRef.current = controller;
+
+      try {
+        const latestManifest = await fetchVersionManifest(controller.signal);
+        if (!latestManifest) return;
+
+        if (latestManifest.buildId !== __APP_BUILD_ID__) {
+          updateDetectedRef.current = true;
+          showUpdateToast();
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const initialCheckId = window.setTimeout(() => {
