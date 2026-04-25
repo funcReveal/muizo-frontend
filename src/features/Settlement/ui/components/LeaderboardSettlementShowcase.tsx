@@ -237,13 +237,13 @@ const getPercentileLabel = (
   current: number | null,
   direction: "higher" | "lower",
 ) => {
-  if (current === null || values.length <= 0) return null;
+  if (current === null || values.length <= 1) return null;
 
   const compareCount = values.filter((value) =>
-    direction === "higher" ? current >= value : current <= value,
+    direction === "higher" ? current > value : current < value,
   ).length;
 
-  return Math.round((compareCount / values.length) * 100);
+  return Math.round((compareCount / Math.max(1, values.length - 1)) * 100);
 };
 
 const LEADERBOARD_DESKTOP_GRID_CLASS =
@@ -636,41 +636,51 @@ function LeaderboardMobileRow({
           : "border-white/6 bg-white/[0.02]"
           }`}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="text-base font-black text-amber-100">#{row.rank}</div>
-            <PlayerAvatar
-              username={row.username}
-              clientId={row.clientId}
-              avatarUrl={row.avatarUrl}
-              size={30}
-              rank={row.rank}
-              combo={row.combo}
-              isMe={row.isMe}
-              hideRankMark
-              loading="lazy"
-            />
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                {row.username}
-                {row.isMe ? "（你）" : ""}
-              </div>
-              <div className="mt-0.5 text-xs text-[var(--mc-text-muted)]">
-                答對 / 答錯 {row.correctCount} / {wrongCount}
-              </div>
+        <div className="flex items-center gap-2">
+          <div className="w-8 shrink-0 text-base font-black text-amber-100">
+            #{row.rank}
+          </div>
+
+          <PlayerAvatar
+            username={row.username}
+            clientId={row.clientId}
+            avatarUrl={row.avatarUrl}
+            size={30}
+            rank={row.rank}
+            combo={row.combo}
+            isMe={row.isMe}
+            hideRankMark
+            loading="lazy"
+          />
+
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
+              {row.username}
+              {row.isMe ? "（你）" : ""}
+            </div>
+
+            <div className="mt-1 grid grid-cols-[minmax(42px,0.9fr)_minmax(36px,0.75fr)_minmax(48px,0.95fr)_minmax(42px,0.8fr)_minmax(54px,1fr)] items-center gap-1 text-[11px] font-semibold text-[var(--mc-text-muted)]">
+              <span className="tabular-nums text-amber-50/90">
+                {row.correctCount}/{wrongCount}
+              </span>
+
+              <span className="tabular-nums text-violet-300">
+                x{row.combo}
+              </span>
+
+              <span className="tabular-nums text-slate-300">
+                {formatAnswerTime(row.avgCorrectMs)}
+              </span>
+
+              <span className="tabular-nums text-slate-300">
+                {formatDurationSec(row.durationSec)}
+              </span>
+
+              <span className="truncate text-right tabular-nums font-black text-amber-100">
+                {formatScore(row.score)}
+              </span>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-base font-black text-amber-100">
-              {formatScore(row.score)}
-            </div>
-            <div className="mt-0.5 text-xs text-violet-300">
-              Combo x{row.combo}
-            </div>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-[var(--mc-text-muted)]">
-          平均答題 {formatSeconds(row.avgCorrectMs)} · 耗時 {formatDurationSec(row.durationSec)}
         </div>
       </div>
     </div>
@@ -956,36 +966,61 @@ const LeaderboardSettlementShowcase: React.FC<
     ]);
 
     const percentileMetrics = useMemo(() => {
-      const currentRow = currentLeaderboardRow;
+      const currentRunScore = backendCurrentRun?.score ?? meSummary.me?.score ?? 0;
+      const currentCorrectCount =
+        backendCurrentRun?.correctCount ?? meSummary.me?.correctCount ?? 0;
+      const currentCombo = backendCurrentRun?.maxCombo ?? meSummary.combo;
+      const currentAvgCorrectMs =
+        backendCurrentRun?.avgCorrectMs ?? meSummary.avgCorrectMs;
 
-      if (!currentRow) {
-        return {
-          accuracyPercentile: null,
-          comboPercentile: null,
-          speedPercentile: null,
-        };
-      }
+      const currentAccuracy =
+        playedQuestionCount > 0
+          ? (currentCorrectCount / playedQuestionCount) * 100
+          : 0;
 
-      const accuracyValues = leaderboardComparisonRows.map((row) =>
+      const metricRows = leaderboardComparisonRows;
+
+      const currentRunAlreadyInRows = metricRows.some((row) => {
+        const sameAvgCorrectMs =
+          row.avgCorrectMs === currentAvgCorrectMs ||
+          (row.avgCorrectMs === null && currentAvgCorrectMs === null);
+
+        return (
+          row.isMe &&
+          row.score === currentRunScore &&
+          row.correctCount === currentCorrectCount &&
+          row.combo === currentCombo &&
+          sameAvgCorrectMs
+        );
+      });
+
+      const accuracyValues = metricRows.map((row) =>
         playedQuestionCount > 0
           ? (row.correctCount / playedQuestionCount) * 100
           : 0,
       );
 
-      const currentAccuracy =
-        playedQuestionCount > 0
-          ? (currentRow.correctCount / playedQuestionCount) * 100
-          : 0;
+      const comboValues = metricRows.map((row) => row.combo);
 
-      const comboValues = leaderboardComparisonRows.map((row) => row.combo);
-
-      const speedValues = leaderboardComparisonRows
+      const speedValues = metricRows
         .map((row) =>
           typeof row.avgCorrectMs === "number" && Number.isFinite(row.avgCorrectMs)
             ? row.avgCorrectMs
             : null,
         )
         .filter((value): value is number => value !== null);
+
+      if (!currentRunAlreadyInRows) {
+        accuracyValues.push(currentAccuracy);
+        comboValues.push(currentCombo);
+
+        if (
+          typeof currentAvgCorrectMs === "number" &&
+          Number.isFinite(currentAvgCorrectMs)
+        ) {
+          speedValues.push(currentAvgCorrectMs);
+        }
+      }
 
       return {
         accuracyPercentile: getPercentileLabel(
@@ -995,16 +1030,27 @@ const LeaderboardSettlementShowcase: React.FC<
         ),
         comboPercentile: getPercentileLabel(
           comboValues,
-          currentRow.combo,
+          currentCombo,
           "higher",
         ),
         speedPercentile: getPercentileLabel(
           speedValues,
-          currentRow.avgCorrectMs,
+          currentAvgCorrectMs,
           "lower",
         ),
       };
-    }, [currentLeaderboardRow, leaderboardComparisonRows, playedQuestionCount]);
+    }, [
+      backendCurrentRun?.avgCorrectMs,
+      backendCurrentRun?.correctCount,
+      backendCurrentRun?.maxCombo,
+      backendCurrentRun?.score,
+      leaderboardComparisonRows,
+      meSummary.avgCorrectMs,
+      meSummary.combo,
+      meSummary.me?.correctCount,
+      meSummary.me?.score,
+      playedQuestionCount,
+    ]);
 
     const aroundMeRows = useMemo<LeaderboardMetricRow[]>(() => {
       const aroundEntries = backendAroundMeEntries ?? [];
@@ -1238,16 +1284,18 @@ const LeaderboardSettlementShowcase: React.FC<
         : meSummary.myRankChange - (selfBestAheadOfCurrent ? 1 : 0);
     const displayedTotalPlayers = Math.max(
       1,
-      (backendCurrentRun?.totalPlayers ?? leaderboardComparisonRows.length) +
-      (selfBestAheadOfCurrent ? 1 : 0),
+      backendCurrentRun?.totalPlayers ?? leaderboardComparisonRows.length,
     );
 
     const displayedRankPercentile =
       displayedCurrentRank > 0
-        ? Math.round(
-          ((displayedTotalPlayers - displayedCurrentRank + 1) /
-            displayedTotalPlayers) *
-          100,
+        ? Math.max(
+          0,
+          Math.round(
+            ((displayedTotalPlayers - displayedCurrentRank) /
+              displayedTotalPlayers) *
+            100,
+          ),
         )
         : meSummary.rankPercentile;
 
@@ -1309,7 +1357,7 @@ const LeaderboardSettlementShowcase: React.FC<
     const QUESTION_VISIBLE_ROWS = 6.5;
     const questionListHeight = QUESTION_VISIBLE_ROWS * listRowHeight;
     const LEADERBOARD_DESKTOP_ROW_HEIGHT = 60;
-    const LEADERBOARD_MOBILE_ROW_HEIGHT = 96;
+    const LEADERBOARD_MOBILE_ROW_HEIGHT = 82;
     const leaderboardCardHeight = Math.max(
       questionListHeight - LEADERBOARD_DESKTOP_ROW_HEIGHT,
       isDesktopLayout ? 300 : 360,
@@ -1618,40 +1666,50 @@ const LeaderboardSettlementShowcase: React.FC<
                           </div>
                         </div>
                         <div className="xl:hidden">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <div className="text-base font-black text-sky-100">#{personalBestRow.rank}</div>
-                              <PlayerAvatar
-                                username={personalBestRow.username}
-                                clientId={personalBestRow.clientId}
-                                avatarUrl={personalBestRow.avatarUrl}
-                                size={30}
-                                rank={personalBestRow.rank}
-                                combo={personalBestRow.combo}
-                                isMe
-                                hideRankMark
-                                loading="lazy"
-                              />
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                                  {personalBestRow.username}（你）
-                                </div>
-                                <div className="mt-0.5 text-xs text-[var(--mc-text-muted)]">
-                                  答對 / 答錯 {personalBestRow.correctCount} / {Math.max(playedQuestionCount - personalBestRow.correctCount, 0)}
-                                </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 shrink-0 text-base font-black text-sky-100">
+                              #{personalBestRow.rank}
+                            </div>
+
+                            <PlayerAvatar
+                              username={personalBestRow.username}
+                              clientId={personalBestRow.clientId}
+                              avatarUrl={personalBestRow.avatarUrl}
+                              size={30}
+                              rank={personalBestRow.rank}
+                              combo={personalBestRow.combo}
+                              isMe
+                              hideRankMark
+                              loading="lazy"
+                            />
+
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
+                                {personalBestRow.username}（你）
+                              </div>
+
+                              <div className="mt-1 grid grid-cols-[minmax(42px,0.9fr)_minmax(36px,0.75fr)_minmax(48px,0.95fr)_minmax(42px,0.8fr)_minmax(54px,1fr)] items-center gap-1 text-[11px] font-semibold text-[var(--mc-text-muted)]">
+                                <span className="tabular-nums text-sky-50/90">
+                                  {personalBestRow.correctCount}/{Math.max(playedQuestionCount - personalBestRow.correctCount, 0)}
+                                </span>
+
+                                <span className="tabular-nums text-violet-300">
+                                  x{personalBestRow.combo}
+                                </span>
+
+                                <span className="tabular-nums text-slate-300">
+                                  {formatAnswerTime(personalBestRow.avgCorrectMs)}
+                                </span>
+
+                                <span className="tabular-nums text-slate-300">
+                                  {formatDurationSec(personalBestRow.durationSec)}
+                                </span>
+
+                                <span className="truncate text-right tabular-nums font-black text-sky-100">
+                                  {formatScore(personalBestRow.score)}
+                                </span>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className="text-base font-black text-sky-100">
-                                {formatScore(personalBestRow.score)}
-                              </div>
-                              <div className="mt-0.5 text-xs text-violet-300">
-                                Combo x{personalBestRow.combo}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="mt-2 text-xs text-[var(--mc-text-muted)]">
-                            平均答題 {formatSeconds(personalBestRow.avgCorrectMs)} · 耗時 {formatDurationSec(personalBestRow.durationSec)}
                           </div>
                         </div>
                       </div>
