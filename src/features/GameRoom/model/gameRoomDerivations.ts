@@ -24,7 +24,9 @@ export const sortParticipantsByScore = (participants: RoomParticipant[]) =>
     if (b.score !== a.score) {
       return b.score - a.score;
     }
-    const joinedAtDelta = (a.joinedAt ?? Number.MAX_SAFE_INTEGER) - (b.joinedAt ?? Number.MAX_SAFE_INTEGER);
+    const joinedAtDelta =
+      (a.joinedAt ?? Number.MAX_SAFE_INTEGER) -
+      (b.joinedAt ?? Number.MAX_SAFE_INTEGER);
     if (joinedAtDelta !== 0) {
       return joinedAtDelta;
     }
@@ -49,9 +51,7 @@ export const buildScoreboardRows = (
   const scoreboardEntries = scoreboardPlayers.slice(0, slots);
   // Effective limit: how many slots are "open" (players + available seats)
   const effectiveMax =
-    maxPlayers && maxPlayers > 0
-      ? Math.min(maxPlayers, slots)
-      : slots;
+    maxPlayers && maxPlayers > 0 ? Math.min(maxPlayers, slots) : slots;
   const rows: ScoreboardRow[] = scoreboardEntries.map((player) => ({
     type: "player" as const,
     player,
@@ -177,7 +177,6 @@ export const buildMyFeedbackModel = ({
   myIsCorrect,
   myResolvedGain,
   myResolvedScoreBreakdownTotalGain,
-  myHasChangedAnswer,
 }: BuildMyFeedbackModelParams): MyFeedbackModel => {
   const guessBadges: string[] = [];
   if (myAnswerRank !== null) {
@@ -226,21 +225,15 @@ export const buildMyFeedbackModel = ({
     }
     return {
       tone: "locked",
-      title: myHasChangedAnswer ? "已改答，可再改" : "已鎖定，可修改",
+      title: "答案已鎖定",
       detail:
         myAnswerRank !== null
-          ? myHasChangedAnswer
-            ? "目前答案已更新，倒數前仍可再改。"
-            : "已提交答案，倒數前仍可修改。"
-          : myHasChangedAnswer
-            ? "目前答案已更新，倒數結束前仍可再修改。"
-            : "你已提交答案，倒數結束前仍可修改。",
+          ? "答案已送出並鎖定，請等待公布結果。"
+          : "你的答案已鎖定，請等待公布結果。",
       badges,
-      pillText: myHasChangedAnswer ? "已改答" : "已鎖定",
+      pillText: "已鎖定",
       lines: [
-        myHasChangedAnswer
-          ? "答案已更新，系統以最後提交為準"
-          : "答案已送出，倒數前仍可修改",
+        "答案已送出，鎖定後不可修改",
         liveParticipantCount > 0
           ? `已答 ${liveAnsweredCount}/${liveParticipantCount}`
           : "已答統計載入中",
@@ -439,4 +432,3 @@ export const buildSettlementQuestionRecap = ({
     answersByClientId,
   };
 };
-

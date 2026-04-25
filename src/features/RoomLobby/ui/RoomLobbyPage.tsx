@@ -1149,6 +1149,7 @@ const RoomLobbyPage: React.FC = () => {
   const terminalSettlementRecoveryRequestRef = useRef<Promise<void> | null>(
     null,
   );
+  const isOpeningExplicitSettlementRef = useRef(false);
 
   const waitingChecklist = useMemo(() => {
     const backendOrder = [
@@ -1275,6 +1276,7 @@ const RoomLobbyPage: React.FC = () => {
     prevGameStatusRef.current = null;
     latestLiveRecapsRef.current = [];
     liveRoundStartedAtRef.current = null;
+    pendingSettlementGameSessionIdRef.current = null;
     lastTopSettlementRoundKeyRef.current = null;
     dismissedSettlementIdentityRef.current = null;
     dismissedSettlementRoundKeysRef.current = [];
@@ -1881,6 +1883,7 @@ const RoomLobbyPage: React.FC = () => {
     const nextStatus = gameState?.status ?? null;
 
     if (prevGameStatusRef.current === "ended" && nextStatus === "playing") {
+      isOpeningExplicitSettlementRef.current = false;
       dismissedSettlementIdentityRef.current = null;
       dismissedSettlementRoundKeysRef.current = [];
       pendingSettlementGameSessionIdRef.current = currentGameSessionId;
@@ -1890,6 +1893,7 @@ const RoomLobbyPage: React.FC = () => {
     }
 
     if (prevGameStatusRef.current === "playing" && nextStatus === "ended") {
+      isOpeningExplicitSettlementRef.current = false;
       settlementActivationVersionRef.current += 1;
       pendingSettlementGameSessionIdRef.current = currentGameSessionId;
       setActiveSettlementRoundKey(null);
@@ -2808,6 +2812,8 @@ const RoomLobbyPage: React.FC = () => {
     (roundKey: string) => {
       dismissedSettlementIdentityRef.current = null;
       dismissedSettlementRoundKeysRef.current = [];
+      isOpeningExplicitSettlementRef.current = true;
+      pendingSettlementGameSessionIdRef.current = null;
       setRoomViewMode("settlement");
       void openSettlementReviewByRoundKey(roundKey);
     },
