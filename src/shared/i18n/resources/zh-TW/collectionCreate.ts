@@ -1,0 +1,172 @@
+const collectionCreate = {
+  page: {
+    title: "建立收藏庫",
+    description:
+      "匯入 YouTube 播放清單、檢查可用題目，最後發布成可開房使用的收藏庫。",
+    loginRequired: "請先使用 Google 登入後再建立收藏庫。",
+  },
+
+  steps: {
+    source: {
+      label: "來源",
+      description: "匯入播放清單",
+    },
+    review: {
+      label: "檢查",
+      description: "確認匯入結果",
+    },
+    publish: {
+      label: "發布",
+      description: "完成建立設定",
+    },
+  },
+
+  source: {
+    title: "選擇來源",
+    description:
+      "透過 YouTube 播放清單連結匯入，或從你的 Google 帳號選擇播放清單。",
+    urlTab: "播放清單連結",
+    youtubeTab: "我的 YouTube 清單",
+    playlistUrlLabel: "YouTube 播放清單連結",
+    playlistUrlPlaceholder: "https://www.youtube.com/playlist?list=...",
+    playlistUrlHint:
+      "貼上播放清單連結後，Muizo 會自動分析可用項目，並盡可能移除重複歌曲。",
+    invalidPlaylistUrl:
+      "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。",
+    loading: "載入中...",
+    selectFromYoutube: "從 YouTube 選擇",
+    googleLoginHint: "登入 Google 後可直接載入你的 YouTube 播放清單。",
+    googleLogin: "登入 Google",
+    playlistSelectPlaceholder: "請選擇 YouTube 播放清單",
+    playlistSelectLoading: "載入播放清單中...",
+    importingYoutube: "正在匯入 YouTube 播放清單...",
+    importFailed: "匯入失敗，請稍後再試。",
+    selectPlaylistFirst: "請先選擇 YouTube 播放清單。",
+  },
+
+  review: {
+    title: "檢查匯入結果",
+    description: "發布前確認可用題目、超長曲目、重複項目與未成功匯入的影片。",
+    playableItems: "{{count}} 個可遊玩項目",
+    itemLimitHint: "每個收藏庫最多可收錄 {{limit}} 題。",
+    itemLimitUnlimited: "每個收藏庫可收錄無上限題目。",
+    summary: {
+      ready: "可用",
+      long: "超長",
+      duplicates: "重複",
+      skipped: "略過",
+    },
+    alerts: {
+      duplicatesRemoved: "已移除重複項目",
+      duplicatesRemovedDetail: "{{count}} 個項目 · 查看明細",
+      itemLimitExceeded: "超過題目上限",
+      itemLimitExceededDetail: "還需要移除 {{count}} 個項目",
+      skippedItems: "未成功匯入項目",
+      skippedItemsDetail: "{{count}} 個項目 · 查看明細",
+      cleanResult: "匯入結果看起來正常，可以繼續設定發布內容。",
+    },
+    filters: {
+      all: "全部",
+      ready: "可用",
+      long: "超長",
+      issues: "問題",
+    },
+    searchPlaceholder: "搜尋歌曲名稱或上傳者",
+    issuesHint:
+      "問題已整理在上方。請透過未成功匯入、重複項目或超過上限查看與處理明細。",
+    emptyFilter: "目前篩選條件下沒有符合的項目。",
+    empty: "請先匯入播放清單，匯入結果會顯示在這裡。",
+    importing: {
+      urlTitle: "正在匯入播放清單",
+      youtubeTitle: "正在匯入 YouTube 播放清單",
+      fallback: "正在準備匯入...",
+      hint: "匯入完成後，檢查列表會自動更新。",
+    },
+  },
+
+  publish: {
+    title: "發布收藏庫",
+    description: "建立前確認最後設定，這份收藏庫之後可以用來開房遊玩。",
+    readyBadge: "可以建立",
+    attentionBadge: "需要確認",
+
+    details: {
+      title: "收藏庫資訊",
+      nameLabel: "收藏庫名稱",
+      namePlaceholder: "輸入收藏庫名稱",
+      nameRequired: "收藏庫名稱為必填。",
+      descriptionLabel: "描述",
+      descriptionPlaceholder:
+        "描述這份收藏庫的主題、適合誰玩，或包含哪些類型的歌曲。",
+      descriptionCounter: "{{count}}/500",
+    },
+
+    visibility: {
+      title: "公開狀態",
+      publicTitle: "公開收藏庫",
+      privateTitle: "私人收藏庫",
+      publicDescription: "其他玩家可以瀏覽並使用這份收藏庫。",
+      privateDescription: "只有你可以查看與使用這份收藏庫。",
+      privateLimit: "私人收藏最多只能建立 {{count}} 個。",
+    },
+
+    checklist: {
+      title: "建立前檢查",
+      titleReady: "收藏庫名稱已設定。",
+      titleMissing: "建立前需要設定收藏庫名稱。",
+      itemsReady: "已有 {{count}} 個可遊玩項目。",
+      itemsMissing: "至少需要一個可遊玩項目。",
+      withinLimit: "題目數量在允許範圍內。",
+      limitExceeded: "已超過題目上限，還需要移除 {{count}} 個項目。",
+      quotaAvailable: "收藏庫建立額度可用。",
+      quotaReached: "收藏庫已達建立上限，請先整理現有收藏庫。",
+      skippedWarning: "{{count}} 個未成功匯入項目不會被建立。",
+      longWarning: "包含 {{count}} 個超長曲目，仍可使用，但建議之後再檢查。",
+    },
+
+    summary: {
+      title: "最終摘要",
+      ready: "可用",
+      longTracks: "超長曲目",
+      skipped: "略過",
+      duplicatesRemoved: "已移除重複",
+    },
+  },
+
+  inspector: {
+    importSummary: "匯入摘要",
+    totalItems: "總項目",
+    readyItems: "可用項目",
+    longTracks: "超長曲目",
+    duplicatesRemoved: "已移除重複",
+    skippedItems: "略過項目",
+    itemLimit: "題目上限：{{current}} / {{limit}}",
+    overflow: "建立前還需要移除 {{count}} 個項目。",
+
+    publishReadiness: "發布狀態",
+    visibility: "公開狀態",
+    public: "公開",
+    private: "私人",
+    collections: "收藏庫",
+    privateCollections: "私人收藏",
+    collectionSlots: "收藏庫額度",
+    privateSlots: "私人額度",
+    collectionLimitReached: "收藏庫已達建立上限，請先整理現有收藏庫。",
+    privateLimitReached: "私人收藏已達上限，目前只能建立公開收藏。",
+  },
+
+  actionBar: {
+    createCollection: "建立收藏庫",
+    creating: "建立中...",
+  },
+
+  dialogs: {
+    duplicateTitle: "已自動移除的重複歌曲",
+    duplicateDescription:
+      "共自動移除 {{count}} 個重複項目，建立時不會再被重複擋下。",
+    issueTitle: "未成功匯入原因",
+    issueDescription: "共 {{count}} 個項目未能匯入收藏庫。",
+  },
+};
+
+export default collectionCreate;

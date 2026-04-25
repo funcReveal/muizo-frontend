@@ -7,7 +7,6 @@ import CloseRounded from "@mui/icons-material/CloseRounded";
 import PlaylistAddRounded from "@mui/icons-material/PlaylistAddRounded";
 import {
   Box,
-  Button,
   CircularProgress,
   Dialog,
   DialogContent,
@@ -28,8 +27,12 @@ import {
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
 } from "../../shared/model/collectionLimits";
-import CollectionCreatePreviewPanel from "../components/CollectionCreatePreviewPanel";
+import CollectionCreateActionBar from "../components/CollectionCreateActionBar";
+import CollectionCreateInspectorPanel from "../components/CollectionCreateInspectorPanel";
+import CollectionCreateReviewPanel from "../components/CollectionCreateReviewPanel";
+import CollectionCreatePublishPanel from "../components/CollectionCreatePublishPanel";
 import CollectionCreateSourcePanel from "../components/CollectionCreateSourcePanel";
+import CollectionCreateStepNav from "../components/CollectionCreateStepNav";
 import CollectionItemLimitDialog from "../components/CollectionItemLimitDialog";
 import { useCollectionCreateDraft } from "../hooks/useCollectionCreateDraft";
 import { useCollectionCreateSubmit } from "../hooks/useCollectionCreateSubmit";
@@ -39,6 +42,8 @@ const API_URL =
   (typeof window !== "undefined" ? window.location.origin : "");
 
 const LONG_DURATION_THRESHOLD_SEC = 600;
+
+type CreateStep = "source" | "review" | "publish";
 
 type PlaylistIssueTab =
   | "duplicate"
@@ -56,6 +61,7 @@ const CollectionCreatePage = () => {
     refreshAuthToken,
     loginWithGoogle,
   } = useAuth();
+
   const {
     playlistUrl,
     playlistItems,
@@ -73,10 +79,13 @@ const CollectionCreatePage = () => {
     fetchYoutubePlaylists,
     importYoutubePlaylist,
   } = usePlaylistSource();
+
   const { collections, collectionScope, fetchCollections } =
     useCollectionContent();
 
+  const [createStep, setCreateStep] = useState<CreateStep>("source");
   const [collectionTitle, setCollectionTitle] = useState("");
+  const [collectionDescription, setCollectionDescription] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("public");
   const [playlistSource, setPlaylistSource] = useState<"url" | "youtube">(
     "url",
@@ -105,21 +114,27 @@ const CollectionCreatePage = () => {
 
   const ownerId = authUser?.id ?? null;
   const isAdmin = isAdminRole(authUser?.role);
+
   const privateCollectionsCount = collections.filter(
     (item) => item.visibility !== "public",
   ).length;
+
   const remainingCollectionSlots = Math.max(
     0,
     MAX_COLLECTIONS_PER_USER - collections.length,
   );
+
   const remainingPrivateCollectionSlots = Math.max(
     0,
     MAX_PRIVATE_COLLECTIONS_PER_USER - privateCollectionsCount,
   );
+
   const reachedCollectionLimit =
     !isAdmin && collections.length >= MAX_COLLECTIONS_PER_USER;
+
   const reachedPrivateCollectionLimit =
     !isAdmin && privateCollectionsCount >= MAX_PRIVATE_COLLECTIONS_PER_USER;
+
   const collectionItemLimit = resolveCollectionItemLimit({
     role: authUser?.role,
     plan: authUser?.plan,
@@ -162,6 +177,7 @@ const CollectionCreatePage = () => {
     ownerId,
     refreshAuthToken,
     collectionTitle,
+    collectionDescription,
     visibility,
     draftPlaylistItems,
     reachedCollectionLimit,
@@ -178,8 +194,10 @@ const CollectionCreatePage = () => {
   });
 
   const trimmedPlaylistUrl = playlistUrl.trim();
+
   const playlistUrlLooksValid = useMemo(() => {
     if (!trimmedPlaylistUrl) return false;
+
     try {
       const parsed = new URL(trimmedPlaylistUrl);
       return Boolean(parsed.searchParams.get("list"));
@@ -198,6 +216,7 @@ const CollectionCreatePage = () => {
 
   useEffect(() => {
     handleResetPlaylist();
+
     return () => {
       handleResetPlaylist();
     };
@@ -226,9 +245,11 @@ const CollectionCreatePage = () => {
 
   useEffect(() => {
     if (!isTitleEditing) return;
+
     window.requestAnimationFrame(() => {
       const input = titleInputRef.current;
       if (!input) return;
+
       input.focus();
       const end = input.value.length;
       input.setSelectionRange(end, end);
@@ -243,6 +264,7 @@ const CollectionCreatePage = () => {
 
     const timer = window.setTimeout(() => {
       lastAutoImportUrlRef.current = trimmedPlaylistUrl;
+
       void handleFetchPlaylist({ url: trimmedPlaylistUrl }).catch(() => {
         // Errors are surfaced through playlistError in room state.
       });
@@ -257,21 +279,28 @@ const CollectionCreatePage = () => {
     trimmedPlaylistUrl,
   ]);
 
+  const effectiveCollectionTitle = (
+    collectionTitle ||
+    lastFetchedPlaylistTitle ||
+    ""
+  ).trim();
+
   const collectionPreview = useMemo(() => {
     if (!hasDraftPlaylistItems) return null;
+
     return {
-      title: collectionTitle || lastFetchedPlaylistTitle || "未命名收藏",
+      title: effectiveCollectionTitle || "未命名收藏",
       count: draftPlaylistItems.length,
     };
   }, [
-    collectionTitle,
+    effectiveCollectionTitle,
     hasDraftPlaylistItems,
-    lastFetchedPlaylistTitle,
-    draftPlaylistItems,
+    draftPlaylistItems.length,
   ]);
 
   const importProgressPercent = useMemo(() => {
     if (playlistProgress.total <= 0) return null;
+
     return Math.min(
       100,
       Math.round((playlistProgress.received / playlistProgress.total) * 100),
@@ -280,9 +309,11 @@ const CollectionCreatePage = () => {
 
   const importProgressLabel = useMemo(() => {
     if (!playlistLoading) return null;
+
     if (playlistProgress.total > 0) {
       return `目前已處理 ${playlistProgress.received} / ${playlistProgress.total} 首`;
     }
+
     return playlistSource === "youtube"
       ? "正在整理 YouTube 播放清單內容..."
       : "正在載入播放清單內容...";
@@ -295,6 +326,7 @@ const CollectionCreatePage = () => {
 
   const createProgressPercent = useMemo(() => {
     if (!createProgress || createProgress.total <= 0) return null;
+
     return Math.min(
       100,
       Math.round((createProgress.completed / createProgress.total) * 100),
@@ -317,18 +349,22 @@ const CollectionCreatePage = () => {
           duplicate.push(label);
           return;
         }
+
         if (item.status === "removed") {
           removed.push(label);
           return;
         }
+
         if (item.status === "private") {
           privateRestricted.push(label);
           return;
         }
+
         if (item.status === "blocked") {
           embedBlocked.push(label);
           return;
         }
+
         if (item.status === "unavailable") {
           unavailable.push(label);
           return;
@@ -433,9 +469,11 @@ const CollectionCreatePage = () => {
 
   useEffect(() => {
     if (!playlistIssueDialogOpen) return;
+
     const firstGroupWithItems = playlistIssueGroups.find(
       (group) => group.count > 0,
     );
+
     if (firstGroupWithItems) {
       setPlaylistIssueTab(firstGroupWithItems.key);
     }
@@ -445,13 +483,60 @@ const CollectionCreatePage = () => {
     if (playlistSource !== "youtube") return;
     if (!authUser) return;
     if (youtubeFetchedRef.current) return;
+
     youtubeFetchedRef.current = true;
     void fetchYoutubePlaylists();
   }, [playlistSource, authUser, fetchYoutubePlaylists]);
 
+  const hasImportedItems = draftPlaylistItems.length > 0;
+
+  const canGoReview =
+    hasImportedItems && !playlistLoading && !isImportingYoutubePlaylist;
+
+  const canGoPublish =
+    canGoReview &&
+    !isDraftOverflow &&
+    !reachedCollectionLimit &&
+    Boolean(effectiveCollectionTitle);
+
+  const canCreateCollection =
+    canGoPublish &&
+    !isCreating &&
+    !authLoading &&
+    Boolean(authToken) &&
+    !reachedCollectionLimit &&
+    !isDraftOverflow;
+
+  const canGoNext = createStep === "source" ? canGoReview : canGoPublish;
+
+  const handleGoNextStep = () => {
+    if (createStep === "source") {
+      if (!canGoReview) return;
+      setCreateStep("review");
+      return;
+    }
+
+    if (createStep === "review") {
+      if (!canGoPublish) return;
+      setCreateStep("publish");
+    }
+  };
+
+  const handleGoPreviousStep = () => {
+    if (createStep === "publish") {
+      setCreateStep("review");
+      return;
+    }
+
+    if (createStep === "review") {
+      setCreateStep("source");
+    }
+  };
+
   const ensureYoutubePlaylists = () => {
     if (!authUser) return;
     if (youtubeFetchedRef.current) return;
+
     youtubeFetchedRef.current = true;
     void fetchYoutubePlaylists();
   };
@@ -476,11 +561,13 @@ const CollectionCreatePage = () => {
 
   const handleTitleSave = () => {
     const nextTitle = titleDraft.trim();
+
     if (!nextTitle) {
       setTitleDraft(collectionTitle);
       setIsTitleEditing(false);
       return;
     }
+
     setCollectionTitle(nextTitle);
     setTitleDraft(nextTitle);
     setIsTitleEditing(false);
@@ -504,12 +591,13 @@ const CollectionCreatePage = () => {
       );
       return;
     }
+
     setVisibility(nextVisibility);
   };
 
   return (
-    <Box className="mx-auto w-full max-w-6xl px-4 pb-6 pt-4">
-      <Box className="relative overflow-hidden p-5 text-[var(--mc-text)]">
+    <Box className="mx-auto w-full max-w-7xl px-4 pb-6 pt-4">
+      <Box className="relative overflow-hidden text-[var(--mc-text)]">
         {isCreating && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(2,6,23,0.72)] backdrop-blur-md">
             <div className="w-full max-w-md rounded-[28px] border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(8,15,28,0.96),rgba(10,18,32,0.9))] p-6 shadow-[0_32px_120px_-48px_rgba(34,211,238,0.5)]">
@@ -534,6 +622,7 @@ const CollectionCreatePage = () => {
                     }}
                   />
                 </div>
+
                 <div className="min-w-0">
                   <div className="text-lg font-semibold text-[var(--mc-text)]">
                     {createStageLabel ?? "正在建立收藏庫"}
@@ -543,6 +632,7 @@ const CollectionCreatePage = () => {
                   </div>
                 </div>
               </div>
+
               <div className="mt-5">
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800/80">
                   <div
@@ -550,6 +640,7 @@ const CollectionCreatePage = () => {
                     style={{ width: `${createProgressPercent ?? 16}%` }}
                   />
                 </div>
+
                 <div className="mt-2 flex items-center justify-between text-xs text-[var(--mc-text-muted)]">
                   <span>{createStageLabel ?? "準備中"}</span>
                   <span>
@@ -564,8 +655,8 @@ const CollectionCreatePage = () => {
         )}
 
         <div className="relative">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
               <button
                 type="button"
                 onClick={() => navigate("/collections")}
@@ -574,26 +665,17 @@ const CollectionCreatePage = () => {
               >
                 <ArrowBackIosNew fontSize="small" />
               </button>
-              <div className="text-2xl font-semibold leading-none text-[var(--mc-text)]">
-                建立收藏庫
+
+              <div className="min-w-0">
+                <div className="text-2xl font-semibold leading-none text-[var(--mc-text)]">
+                  Create Collection
+                </div>
+                <div className="mt-2 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)]">
+                  Import a YouTube playlist, review the playable items, then
+                  publish it as a collection.
+                </div>
               </div>
             </div>
-
-            <Button
-              variant="contained"
-              onClick={() => void handleCreateCollection()}
-              disabled={
-                isCreating ||
-                authLoading ||
-                !authToken ||
-                reachedCollectionLimit ||
-                isDraftOverflow
-              }
-              size="small"
-              className="shrink-0"
-            >
-              {isCreating ? "建立中..." : "建立收藏"}
-            </Button>
           </div>
 
           {!authToken && !authLoading && (
@@ -602,77 +684,146 @@ const CollectionCreatePage = () => {
             </div>
           )}
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <CollectionCreateSourcePanel
-              authUserExists={Boolean(authUser)}
-              needsGoogleReauth={needsGoogleReauth}
-              onLoginWithGoogle={loginWithGoogle}
-              playlistSource={playlistSource}
-              onPlaylistSourceChange={setPlaylistSource}
-              playlistUrl={playlistUrl}
-              trimmedPlaylistUrl={trimmedPlaylistUrl}
-              showPlaylistUrlError={showPlaylistUrlError}
-              playlistUrlTooltipMessage={playlistUrlTooltipMessage}
-              isPlaylistUrlFocused={isPlaylistUrlFocused}
-              onPlaylistUrlFocusChange={setIsPlaylistUrlFocused}
-              onPlaylistUrlChange={setPlaylistUrl}
-              onFetchPlaylist={() => {
-                void handleFetchPlaylist();
-              }}
-              onClearPlaylistUrl={handleClearPlaylistUrl}
-              playlistLoading={playlistLoading}
-              playlistError={playlistError}
-              youtubePlaylistsLoading={youtubePlaylistsLoading}
-              youtubePlaylistsError={youtubePlaylistsError}
-              youtubePlaylists={youtubePlaylists}
-              selectedYoutubePlaylistId={selectedYoutubePlaylistId}
-              onSelectedYoutubePlaylistIdChange={setSelectedYoutubePlaylistId}
-              youtubeActionError={youtubeActionError}
-              isImportingYoutubePlaylist={isImportingYoutubePlaylist}
-              onEnsureYoutubePlaylists={ensureYoutubePlaylists}
-              onImportSelectedYoutubePlaylist={
-                handleImportSelectedYoutubePlaylist
-              }
-              visibility={visibility}
-              onVisibilityChange={handleVisibilityChange}
-              isAdmin={isAdmin}
-              collectionsCount={collections.length}
-              privateCollectionsCount={privateCollectionsCount}
-              remainingCollectionSlots={remainingCollectionSlots}
-              remainingPrivateCollectionSlots={remainingPrivateCollectionSlots}
-              maxCollectionsPerUser={MAX_COLLECTIONS_PER_USER}
-              maxPrivateCollectionsPerUser={MAX_PRIVATE_COLLECTIONS_PER_USER}
-              reachedCollectionLimit={reachedCollectionLimit}
-              reachedPrivateCollectionLimit={reachedPrivateCollectionLimit}
-              createError={createError}
+          <div className="mt-5 space-y-4">
+            <CollectionCreateStepNav
+              currentStep={createStep}
+              onStepChange={setCreateStep}
+              canOpenReview={canGoReview}
+              canOpenPublish={canGoPublish}
             />
 
-            <CollectionCreatePreviewPanel
-              playlistLoading={playlistLoading}
-              isImportingYoutubePlaylist={isImportingYoutubePlaylist}
-              importProgressPercent={importProgressPercent}
-              importProgressLabel={importProgressLabel}
-              playlistSource={playlistSource}
-              playlistProgressTotal={playlistProgress.total}
-              collectionPreview={collectionPreview}
-              isTitleEditing={isTitleEditing}
-              titleDraft={titleDraft}
-              titleInputRef={titleInputRef}
-              onTitleDraftChange={setTitleDraft}
-              onStartEditTitle={() => setIsTitleEditing(true)}
-              onSaveTitle={handleTitleSave}
-              onCancelTitle={handleTitleCancel}
-              isAdmin={isAdmin}
-              collectionItemLimit={collectionItemLimit}
-              normalDraftPlaylistItems={normalDraftPlaylistItems}
-              longDraftPlaylistItems={longDraftPlaylistItems}
-              removedDuplicateCount={removedDuplicateCount}
-              onOpenDuplicateDialog={() => setDuplicateDialogOpen(true)}
-              isDraftOverflow={isDraftOverflow}
-              draftOverflowCount={draftOverflowCount}
-              onOpenLimitDialog={() => setLimitDialogOpen(true)}
-              playlistIssueTotal={playlistIssueTotal}
-              onOpenPlaylistIssueDialog={() => setPlaylistIssueDialogOpen(true)}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="min-w-0">
+                {createStep === "source" && (
+                  <CollectionCreateSourcePanel
+                    authUserExists={Boolean(authUser)}
+                    needsGoogleReauth={needsGoogleReauth}
+                    onLoginWithGoogle={loginWithGoogle}
+                    playlistSource={playlistSource}
+                    onPlaylistSourceChange={setPlaylistSource}
+                    playlistUrl={playlistUrl}
+                    trimmedPlaylistUrl={trimmedPlaylistUrl}
+                    showPlaylistUrlError={showPlaylistUrlError}
+                    playlistUrlTooltipMessage={playlistUrlTooltipMessage}
+                    isPlaylistUrlFocused={isPlaylistUrlFocused}
+                    onPlaylistUrlFocusChange={setIsPlaylistUrlFocused}
+                    onPlaylistUrlChange={setPlaylistUrl}
+                    onFetchPlaylist={() => {
+                      void handleFetchPlaylist();
+                    }}
+                    onClearPlaylistUrl={handleClearPlaylistUrl}
+                    playlistLoading={playlistLoading}
+                    playlistError={playlistError}
+                    youtubePlaylistsLoading={youtubePlaylistsLoading}
+                    youtubePlaylistsError={youtubePlaylistsError}
+                    youtubePlaylists={youtubePlaylists}
+                    selectedYoutubePlaylistId={selectedYoutubePlaylistId}
+                    onSelectedYoutubePlaylistIdChange={
+                      setSelectedYoutubePlaylistId
+                    }
+                    youtubeActionError={youtubeActionError}
+                    isImportingYoutubePlaylist={isImportingYoutubePlaylist}
+                    onEnsureYoutubePlaylists={ensureYoutubePlaylists}
+                    onImportSelectedYoutubePlaylist={
+                      handleImportSelectedYoutubePlaylist
+                    }
+                  />
+                )}
+
+                {createStep === "review" && (
+                  <CollectionCreateReviewPanel
+                    playlistLoading={playlistLoading}
+                    isImportingYoutubePlaylist={isImportingYoutubePlaylist}
+                    importProgressPercent={importProgressPercent}
+                    importProgressLabel={importProgressLabel}
+                    playlistSource={playlistSource}
+                    playlistProgressTotal={playlistProgress.total}
+                    collectionPreview={collectionPreview}
+                    isTitleEditing={isTitleEditing}
+                    titleDraft={titleDraft}
+                    titleInputRef={titleInputRef}
+                    onTitleDraftChange={setTitleDraft}
+                    onStartEditTitle={() => setIsTitleEditing(true)}
+                    onSaveTitle={handleTitleSave}
+                    onCancelTitle={handleTitleCancel}
+                    isAdmin={isAdmin}
+                    collectionItemLimit={collectionItemLimit}
+                    normalDraftPlaylistItems={normalDraftPlaylistItems}
+                    longDraftPlaylistItems={longDraftPlaylistItems}
+                    removedDuplicateCount={removedDuplicateCount}
+                    onOpenDuplicateDialog={() => setDuplicateDialogOpen(true)}
+                    isDraftOverflow={isDraftOverflow}
+                    draftOverflowCount={draftOverflowCount}
+                    onOpenLimitDialog={() => setLimitDialogOpen(true)}
+                    playlistIssueTotal={playlistIssueTotal}
+                    onOpenPlaylistIssueDialog={() =>
+                      setPlaylistIssueDialogOpen(true)
+                    }
+                  />
+                )}
+
+                {createStep === "publish" && (
+                  <CollectionCreatePublishPanel
+                    title={collectionTitle}
+                    onTitleChange={(value) => {
+                      setCollectionTitle(value);
+                      setTitleDraft(value);
+                    }}
+                    description={collectionDescription}
+                    onDescriptionChange={setCollectionDescription}
+                    visibility={visibility}
+                    onVisibilityChange={handleVisibilityChange}
+                    reachedPrivateCollectionLimit={
+                      reachedPrivateCollectionLimit
+                    }
+                    reachedCollectionLimit={reachedCollectionLimit}
+                    maxPrivateCollectionsPerUser={
+                      MAX_PRIVATE_COLLECTIONS_PER_USER
+                    }
+                    readyItems={draftPlaylistItems.length}
+                    longItems={longDraftPlaylistItems.length}
+                    skippedItems={playlistIssueTotal}
+                    removedDuplicateCount={removedDuplicateCount}
+                    isDraftOverflow={isDraftOverflow}
+                    draftOverflowCount={draftOverflowCount}
+                    isReadyToCreate={canCreateCollection}
+                  />
+                )}
+              </div>
+
+              <CollectionCreateInspectorPanel
+                totalItems={playlistItems.length}
+                readyItems={draftPlaylistItems.length}
+                longItems={longDraftPlaylistItems.length}
+                removedDuplicateCount={removedDuplicateCount}
+                skippedCount={playlistIssueTotal}
+                isDraftOverflow={isDraftOverflow}
+                draftOverflowCount={draftOverflowCount}
+                collectionItemLimit={collectionItemLimit}
+                collectionsCount={collections.length}
+                privateCollectionsCount={privateCollectionsCount}
+                remainingCollectionSlots={remainingCollectionSlots}
+                remainingPrivateCollectionSlots={
+                  remainingPrivateCollectionSlots
+                }
+                maxCollectionsPerUser={MAX_COLLECTIONS_PER_USER}
+                maxPrivateCollectionsPerUser={MAX_PRIVATE_COLLECTIONS_PER_USER}
+                reachedCollectionLimit={reachedCollectionLimit}
+                reachedPrivateCollectionLimit={reachedPrivateCollectionLimit}
+                isAdmin={isAdmin}
+                visibility={visibility}
+                createError={createError}
+              />
+            </div>
+
+            <CollectionCreateActionBar
+              currentStep={createStep}
+              canGoNext={canGoNext}
+              canCreate={canCreateCollection}
+              isCreating={isCreating}
+              onBack={handleGoPreviousStep}
+              onNext={handleGoNextStep}
+              onCreate={() => void handleCreateCollection()}
             />
           </div>
         </div>
@@ -703,6 +854,7 @@ const CollectionCreatePage = () => {
                   首重複項目，建立時不會再被重複擋下
                 </div>
               </div>
+
               <IconButton
                 size="small"
                 onClick={() => setDuplicateDialogOpen(false)}
@@ -713,6 +865,7 @@ const CollectionCreatePage = () => {
               </IconButton>
             </div>
           </DialogTitle>
+
           <DialogContent>
             <div className="space-y-3">
               {removedDuplicateGroups.map((group) => (
@@ -723,18 +876,22 @@ const CollectionCreatePage = () => {
                   <div className="text-sm font-semibold text-[var(--mc-text)]">
                     {group.title}
                   </div>
+
                   <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
                     {group.uploader || "未知上傳者"}
                   </div>
+
                   <div className="mt-2 text-xs text-emerald-100">
                     原清單共出現 {group.totalCount} 次，已保留第{" "}
                     {group.keptIndex + 1} 首，另外移除 {group.removedCount} 首
                   </div>
+
                   <div className="mt-1 text-[11px] text-emerald-200">
                     已移除位置：第{" "}
                     {group.removedIndexes.map((index) => index + 1).join("、")}{" "}
                     首
                   </div>
+
                   {group.url && (
                     <a
                       href={group.url}
@@ -780,6 +937,7 @@ const CollectionCreatePage = () => {
                   共 {playlistIssueTotal} 首未能匯入收藏庫
                 </div>
               </div>
+
               <IconButton
                 size="small"
                 onClick={() => setPlaylistIssueDialogOpen(false)}
@@ -790,6 +948,7 @@ const CollectionCreatePage = () => {
               </IconButton>
             </div>
           </DialogTitle>
+
           <DialogContent sx={{ pt: 1 }}>
             <Tabs
               value={playlistIssueTab}
@@ -850,6 +1009,7 @@ const CollectionCreatePage = () => {
                     <span>{activePlaylistIssueGroup.label}</span>
                     <span>{activePlaylistIssueGroup.count} 首</span>
                   </div>
+
                   <div className="mt-3 max-h-64 overflow-y-auto pr-1">
                     {activePlaylistIssueGroup.items.length > 0 ? (
                       <div className="space-y-1.5">
@@ -861,6 +1021,7 @@ const CollectionCreatePage = () => {
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8 text-[11px] font-semibold">
                               {index + 1}
                             </div>
+
                             <div className="min-w-0 flex-1 truncate text-xs leading-5">
                               {item}
                             </div>
@@ -903,4 +1064,3 @@ const CollectionCreatePage = () => {
 };
 
 export default CollectionCreatePage;
-

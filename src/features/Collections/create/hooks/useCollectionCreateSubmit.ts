@@ -41,6 +41,7 @@ type UseCollectionCreateSubmitArgs = {
   ownerId: string | null;
   refreshAuthToken: RefreshAuthToken;
   collectionTitle: string;
+  collectionDescription: string;
   visibility: "private" | "public";
   draftPlaylistItems: DraftPlaylistItem[];
   reachedCollectionLimit: boolean;
@@ -60,6 +61,7 @@ export function useCollectionCreateSubmit({
   ownerId,
   refreshAuthToken,
   collectionTitle,
+  collectionDescription,
   visibility,
   draftPlaylistItems,
   reachedCollectionLimit,
@@ -169,10 +171,13 @@ export function useCollectionCreateSubmit({
       setCreateStageLabel("正在建立收藏庫並寫入歌曲資料");
       setCreateProgress({ completed: 2, total: 3 });
 
+      const normalizedDescription = collectionDescription.trim();
+
       const created = await collectionsApi.createCollectionWithItems(token, {
         owner_id: ownerId,
         title: collectionTitle.trim(),
-        description: null,
+        description:
+          normalizedDescription.length > 0 ? normalizedDescription : null,
         visibility,
         items: insertItems,
       });
@@ -204,6 +209,7 @@ export function useCollectionCreateSubmit({
     authToken,
     ownerId,
     collectionTitle,
+    collectionDescription,
     draftPlaylistItems,
     reachedCollectionLimit,
     maxCollectionsPerUser,

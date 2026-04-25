@@ -5,6 +5,7 @@ import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { AuthSessionProvider } from "@features/RoomSession";
 import { SettingsProvider } from "@features/Setting/model/settingsModel";
 import { AppToaster } from "@shared/ui/toast";
+import { I18nProvider } from "@shared/i18n/I18nProvider";
 import { VersionUpdateNotifier } from "./VersionUpdateNotifier";
 
 const queryClient = new QueryClient({
@@ -39,13 +40,15 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
-        <SettingsProvider>
-          <AuthSessionProvider>
-            {children}
-            <VersionUpdateNotifier />
-            <AppToaster />
-          </AuthSessionProvider>
-        </SettingsProvider>
+        <I18nProvider>
+          <SettingsProvider>
+            <AuthSessionProvider>
+              {children}
+              <VersionUpdateNotifier />
+              <AppToaster />
+            </AuthSessionProvider>
+          </SettingsProvider>
+        </I18nProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
