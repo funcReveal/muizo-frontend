@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 
 import type {
   GameState,
+  GameSyncVersion,
   PlaybackExtensionMode,
   PlaylistItem,
   SubmitAnswerResult,
@@ -10,6 +11,7 @@ import type {
 export interface RoomGameContextValue {
   // 遊戲狀態
   gameState: GameState | null;
+  gameSyncVersion: GameSyncVersion | null;
   gamePlaylist: PlaylistItem[];
   isGameView: boolean;
   setIsGameView: (value: boolean) => void;
@@ -25,7 +27,9 @@ export interface RoomGameContextValue {
   // 遊戲操作
   handleStartGame: () => void;
   handleSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
-  handleRequestPlaybackExtensionVote: (remainingMs?: number) => Promise<boolean>;
+  handleRequestPlaybackExtensionVote: (
+    remainingMs?: number,
+  ) => Promise<boolean>;
   handleCastPlaybackExtensionVote: (
     vote: "approve" | "reject",
   ) => Promise<boolean>;
@@ -51,12 +55,10 @@ export interface RoomGameContextValue {
   }) => Promise<boolean>;
 }
 
-export const RoomGameContext =
-  createContext<RoomGameContextValue | null>(null);
+export const RoomGameContext = createContext<RoomGameContextValue | null>(null);
 
 export const useRoomGame = (): RoomGameContextValue => {
   const ctx = useContext(RoomGameContext);
-  if (!ctx)
-    throw new Error("useRoomGame must be used within a RoomProvider");
+  if (!ctx) throw new Error("useRoomGame must be used within a RoomProvider");
   return ctx;
 };

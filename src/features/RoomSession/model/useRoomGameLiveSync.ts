@@ -9,16 +9,19 @@ import { shouldApplyGameSyncVersion } from "./gameSyncVersion";
 
 type UseRoomGameLiveSyncParams = {
   setGameState: Dispatch<SetStateAction<GameState | null>>;
+  setGameSyncVersion: Dispatch<SetStateAction<GameSyncVersion | null>>;
 };
 
 export function useRoomGameLiveSync({
   setGameState,
+  setGameSyncVersion,
 }: UseRoomGameLiveSyncParams) {
   const lastGameSyncVersionRef = useRef<GameSyncVersion | null>(null);
 
   const resetGameSyncVersion = useCallback(() => {
     lastGameSyncVersionRef.current = null;
-  }, []);
+    setGameSyncVersion(null);
+  }, [setGameSyncVersion]);
 
   const applyGameLiveUpdate = useCallback(
     (payload: GameLiveUpdatePayload) => {
@@ -32,10 +35,11 @@ export function useRoomGameLiveSync({
       }
 
       lastGameSyncVersionRef.current = payload.syncVersion;
+      setGameSyncVersion(payload.syncVersion);
       setGameState(payload.gameState);
       return true;
     },
-    [setGameState],
+    [setGameState, setGameSyncVersion],
   );
 
   return {
