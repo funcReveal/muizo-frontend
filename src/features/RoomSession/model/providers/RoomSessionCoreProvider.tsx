@@ -53,10 +53,7 @@ import {
   type RoomRealtimeContextValue,
   type RoomUiContextValue,
 } from "../RoomContext";
-import {
-  API_URL,
-  SOCKET_URL,
-} from "../roomConstants";
+import { API_URL, SOCKET_URL } from "../roomConstants";
 import { getStoredRoomId } from "../roomStorage";
 import { formatAckError } from "../roomProviderUtils";
 import { useHostRoomPasswordCache } from "../useHostRoomPasswordCache";
@@ -218,16 +215,13 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     setKickedNotice,
     setRouteRoomResolved,
   });
-  const {
-    isRecoveringConnection,
-    recoveryStatusText,
-    setPostResumeGate,
-  } = useRoomSessionRecoveryState({
-    currentRoomId,
-    currentRoomObjectId: currentRoom?.id,
-    isConnected,
-    sessionProgress,
-  });
+  const { isRecoveringConnection, recoveryStatusText, setPostResumeGate } =
+    useRoomSessionRecoveryState({
+      currentRoomId,
+      currentRoomObjectId: currentRoom?.id,
+      isConnected,
+      sessionProgress,
+    });
   const {
     allowCollectionClipTiming,
     playDurationSec,
@@ -302,11 +296,11 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
 
   const { fetchRooms, fetchRoomById, fetchSitePresence } =
     useRoomDirectoryActions({
-    apiUrl: API_URL,
-    setRooms,
-    setStatusText,
-    setSitePresence,
-  });
+      apiUrl: API_URL,
+      setRooms,
+      setStatusText,
+      setSitePresence,
+    });
 
   const { fetchSettlementHistorySummaries, fetchSettlementReplay } =
     useRoomSettlementReadActions({
@@ -551,6 +545,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     handleResetPlaylist,
     setPlaylistUrl,
     setPlaylistProgress,
+    setCurrentRoom,
     fetchPlaylistPage,
     handleRoomGoneAck,
   });
