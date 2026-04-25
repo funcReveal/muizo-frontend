@@ -55,7 +55,9 @@ export const usePlaylistSourcePaging = ({
   onPagePayload,
   handleTerminalRoomAckRef,
 }: UsePlaylistSourcePagingArgs): UsePlaylistSourcePagingResult => {
-  const [playlistViewItems, setPlaylistViewItems] = useState<PlaylistItem[]>([]);
+  const [playlistViewItems, setPlaylistViewItems] = useState<PlaylistItem[]>(
+    [],
+  );
   const [playlistHasMore, setPlaylistHasMore] = useState(false);
   const [playlistLoadingMore, setPlaylistLoadingMore] = useState(false);
   const [playlistPageCursor, setPlaylistPageCursor] = useState(1);
@@ -77,6 +79,7 @@ export const usePlaylistSourcePaging = ({
       opts?: { reset?: boolean },
     ) => {
       const socket = getSocket();
+
       if (!socket) {
         if (opts?.reset) {
           setPlaylistViewItems([]);
@@ -84,27 +87,37 @@ export const usePlaylistSourcePaging = ({
         }
         return;
       }
+
       if (opts?.reset) {
         setPlaylistViewItems([]);
         setPlaylistHasMore(false);
         setPlaylistPageCursor(1);
-        setPlaylistLoadingMore(true);
-      } else {
-        setPlaylistLoadingMore(true);
       }
+
+      setPlaylistLoadingMore(true);
+
       socket.emit(
         "getPlaylistPage",
         { roomId, page, pageSize },
         (ack: PlaylistSourceAck<PlaylistPagePayload>) => {
           if (ack?.ok) {
+            const receivedItems = ack.data.items;
+            const totalCount = ack.data.totalCount;
+            const shouldReset = Boolean(opts?.reset);
+
+            let nextLength = receivedItems.length;
+
             setPlaylistViewItems((prev) => {
-              const next = opts?.reset
-                ? ack.data.items
-                : [...prev, ...ack.data.items];
-              const total = ack.data.totalCount;
-              setPlaylistHasMore(next.length < total);
+              const next = shouldReset
+                ? receivedItems
+                : [...prev, ...receivedItems];
+
+              nextLength = next.length;
+
               return next;
             });
+
+            setPlaylistHasMore(nextLength < totalCount);
             setPlaylistPageCursor(ack.data.page);
             setPlaylistPageSize(ack.data.pageSize);
             onPagePayload?.(ack.data);
@@ -112,6 +125,7 @@ export const usePlaylistSourcePaging = ({
             setPlaylistViewItems([]);
             setPlaylistHasMore(false);
           }
+
           setPlaylistLoadingMore(false);
         },
       );
@@ -123,10 +137,12 @@ export const usePlaylistSourcePaging = ({
     (roomId: string) =>
       new Promise<PlaylistItem[]>((resolve) => {
         const socket = getSocket();
+
         if (!socket) {
           resolve([]);
           return;
         }
+
         const aggregated: PlaylistItem[] = [];
         const pageSize = Math.max(playlistPageSize, DEFAULT_PAGE_SIZE);
 
@@ -137,18 +153,21 @@ export const usePlaylistSourcePaging = ({
             (ack: PlaylistSourceAck<PlaylistPagePayload>) => {
               if (ack?.ok) {
                 aggregated.push(...ack.data.items);
+
                 if (
                   aggregated.length < ack.data.totalCount &&
                   ack.data.items.length > 0
                 ) {
                   loadPage(page + 1);
-                } else {
-                  resolve(normalizePlaylistItems(aggregated));
+                  return;
                 }
-              } else {
-                handleTerminalRoomAckRef?.current(roomId, ack);
+
                 resolve(normalizePlaylistItems(aggregated));
+                return;
               }
+
+              handleTerminalRoomAckRef?.current(roomId, ack);
+              resolve(normalizePlaylistItems(aggregated));
             },
           );
         };
