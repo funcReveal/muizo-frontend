@@ -20,16 +20,16 @@ import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import QuizRounded from "@mui/icons-material/QuizRounded";
 import ShareRounded from "@mui/icons-material/ShareRounded";
 import StarBorderRounded from "@mui/icons-material/StarBorderRounded";
-import { useAuth } from "../../../shared/auth/AuthContext";
-import { isAdminRole } from "../../../shared/auth/roles";
-import { ensureFreshAuthToken } from "../../../shared/auth/token";
+import { useAuth } from "@/shared/auth/AuthContext";
+import { isAdminRole } from "@/shared/auth/roles";
+import { ensureFreshAuthToken } from "@/shared/auth/token";
 import { collectionsApi } from "../shared/api/collectionsApi";
 import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
 } from "../shared/model/collectionLimits";
-import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
-import { appToast } from "../../../shared/ui/toastApi";
+import ConfirmDialog from "@/shared/ui/ConfirmDialog";
+import { appToast } from "@/shared/ui/toastApi";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -635,7 +635,6 @@ const CollectionsPage = () => {
             confirmLabel={visibilityConfirmContent.confirmLabel}
             onConfirm={() => {
               const target = pendingVisibility;
-              setPendingVisibility(null);
               setConfirmVisibilityOpen(false);
 
               if (target) {
@@ -643,8 +642,10 @@ const CollectionsPage = () => {
               }
             }}
             onCancel={() => {
-              setPendingVisibility(null);
               setConfirmVisibilityOpen(false);
+            }}
+            onExited={() => {
+              setPendingVisibility(null);
             }}
           />
           <ConfirmDialog
@@ -654,15 +655,17 @@ const CollectionsPage = () => {
             confirmLabel="確認"
             onConfirm={() => {
               const targetId = pendingDeleteId;
-              setPendingDeleteId(null);
               setConfirmDeleteOpen(false);
+
               if (targetId) {
                 void handleDeleteCollection(targetId);
               }
             }}
             onCancel={() => {
-              setPendingDeleteId(null);
               setConfirmDeleteOpen(false);
+            }}
+            onExited={() => {
+              setPendingDeleteId(null);
             }}
           />
         </>

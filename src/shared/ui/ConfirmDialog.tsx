@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import {
   Button,
   Dialog,
@@ -20,14 +20,6 @@ const CONFIRM_DIALOG_SX = {
   },
 } as const;
 
-type ConfirmDialogContent = {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  cancelLabel: string;
-  extraContent?: ReactNode;
-};
-
 type ConfirmDialogProps = {
   open: boolean;
   title: string;
@@ -37,6 +29,7 @@ type ConfirmDialogProps = {
   extraContent?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
+  onExited?: () => void;
 };
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = React.memo(
@@ -49,64 +42,45 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = React.memo(
     extraContent,
     onConfirm,
     onCancel,
-  }) => {
-    const incomingContent = useMemo<ConfirmDialogContent>(
-      () => ({
-        title,
-        description,
-        confirmLabel,
-        cancelLabel,
-        extraContent,
-      }),
-      [title, description, confirmLabel, cancelLabel, extraContent],
-    );
-
-    const [lastOpenContent, setLastOpenContent] =
-      useState<ConfirmDialogContent>(incomingContent);
-
-    useEffect(() => {
-      if (!open) return;
-      setLastOpenContent(incomingContent);
-    }, [open, incomingContent]);
-
-    const renderedContent = open ? incomingContent : lastOpenContent;
-
-    return (
-      <Dialog
-        open={open}
-        onClose={onCancel}
-        maxWidth="xs"
-        fullWidth
-        sx={CONFIRM_DIALOG_SX}
-      >
-        <DialogTitle className="!font-black !text-slate-50">
-          {renderedContent.title}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText className="!text-[15px] !font-semibold !leading-relaxed !text-slate-200">
-            {renderedContent.description}
-          </DialogContentText>
-          {renderedContent.extraContent}
-        </DialogContent>
-        <DialogActions className="px-6 pb-5">
-          <Button
-            variant="outlined"
-            onClick={onCancel}
-            className="!border-[var(--mc-border)] !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60"
-          >
-            {renderedContent.cancelLabel}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={onConfirm}
-            className="!bg-[var(--mc-accent)]/80 !text-[var(--mc-text)] hover:!bg-[var(--mc-accent)]"
-          >
-            {renderedContent.confirmLabel}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  },
+    onExited,
+  }) => (
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      maxWidth="xs"
+      fullWidth
+      sx={CONFIRM_DIALOG_SX}
+      slotProps={{
+        transition: {
+          onExited,
+        },
+      }}
+    >
+      <DialogTitle className="!font-black !text-slate-50">{title}</DialogTitle>
+      <DialogContent>
+        <DialogContentText className="!text-[15px] !font-semibold !leading-relaxed !text-slate-200">
+          {description}
+        </DialogContentText>
+        {extraContent}
+      </DialogContent>
+      <DialogActions className="px-6 pb-5">
+        <Button
+          variant="outlined"
+          onClick={onCancel}
+          className="!border-[var(--mc-border)] !text-[var(--mc-text)] hover:!border-[var(--mc-accent)]/60"
+        >
+          {cancelLabel}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={onConfirm}
+          className="!bg-[var(--mc-accent)]/80 !text-[var(--mc-text)] hover:!bg-[var(--mc-accent)]"
+        >
+          {confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  ),
 );
 
 export default ConfirmDialog;
