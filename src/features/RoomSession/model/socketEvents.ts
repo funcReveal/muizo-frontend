@@ -188,7 +188,13 @@ export interface ClientToServerEvents {
       };
     },
     callback?: (
-      ack: Ack<{ receivedCount: number; totalCount: number; ready: boolean }>,
+      ack: Ack<{
+        room: RoomSummary;
+        receivedCount: number;
+        totalCount: number;
+        ready: boolean;
+        committed: boolean;
+      }>,
     ) => void,
   ) => void;
   uploadPlaylistChunk: (
@@ -199,7 +205,13 @@ export interface ClientToServerEvents {
       isLast: boolean;
     },
     callback?: (
-      ack: Ack<{ receivedCount: number; totalCount: number; ready: boolean }>,
+      ack: Ack<{
+        room: RoomSummary;
+        receivedCount: number;
+        totalCount: number;
+        ready: boolean;
+        committed: boolean;
+      }>,
     ) => void,
   ) => void;
   listSettlementHistorySummaries: (
