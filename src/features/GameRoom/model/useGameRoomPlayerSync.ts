@@ -1986,11 +1986,27 @@ const useGameRoomPlayerSync = ({
       return;
     }
 
-    revealReplayRef.current = false;
+    // Arm reveal-replay so that if the clip ends during the reveal
+    // window, state=0 correctly loops back to clipStartSec.
+    // Previously this was set to false, which caused two problems:
+    // 1) A race-condition where state=0 fired in the old (isReveal=false)
+    //    handleMessage closure and correctly set revealReplayRef=true, but
+    //    this effect then immediately overwrote it back to false.
+    // 2) Clips that were still playing when reveal began had no replay arm,
+    //    so they would end in silence rather than looping.
+    revealReplayRef.current = true;
+    const revealPos = computeRevealPositionSec();
+    const freshPos = getFreshPlayerTimeSec();
     const state = lastPlayerStateRef.current;
     const recentBuffering = hasRecentBuffering();
     startSilentAudio();
     if (!recentBuffering) {
+      // Seek to the reveal-synced position when the clip is meaningfully
+      // off (e.g. just restarted from a guess-loop at the guess boundary
+      // and landed a second or two past the reveal start point).
+      if (freshPos !== null && Math.abs(freshPos - revealPos) > DRIFT_TOLERANCE_SEC) {
+        postCommand("seekTo", [revealPos, true]);
+      }
       postCommand("playVideo");
       postCommand("unMute");
       applyVolume(gameVolume);

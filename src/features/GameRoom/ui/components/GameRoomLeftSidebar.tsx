@@ -604,6 +604,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
                 combo={player.combo}
                 isMe={isMeRow}
                 size={32}
+                contentSize={24}
                 effectLevel={avatarEffectLevel}
                 className="player-avatar--scoreboard"
               />

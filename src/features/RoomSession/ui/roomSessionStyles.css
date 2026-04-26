@@ -24444,8 +24444,8 @@
   position: relative;
   z-index: 2;
   display: inline-flex;
-  width: 100%;
-  height: 100%;
+  width: var(--player-avatar-content-size, 100%);
+  height: var(--player-avatar-content-size, 100%);
   align-items: center;
   justify-content: center;
   overflow: hidden;

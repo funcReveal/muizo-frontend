@@ -406,12 +406,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   >(null);
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
-  // Tracks the previous restart-vote status to detect transitions for toasts.
-  // Initialised to the current value to suppress toasts on mount (e.g. joining
-  // a room that already has an active vote).
-  const prevRestartVoteStatusRef = useRef<
-    RestartGameVoteState["status"] | null
-  >(gameState.restartGameVote?.status ?? null);
+  // The restart-game vote is persisted in local state so it survives question
+  // advances (the server sends restartGameVote: null on each new question, but
+  // the vote itself has no timeout and must stay visible until the game
+  // restarts, the vote is rejected, or the game's startedAt changes).
+  const [persistedRestartVote, setPersistedRestartVote] =
+    useState<RestartGameVoteState | null>(gameState.restartGameVote ?? null);
+  // Ref mirrors the state for use inside effects without stale-closure issues.
+  const persistedRestartVoteRef = useRef<RestartGameVoteState | null>(
+    gameState.restartGameVote ?? null,
+  );
+  // Tracks the game session so we can clear the vote when a new game starts.
+  const persistedVoteGameStartedAtRef = useRef(gameState.startedAt);
 
   const previousPhaseRef = useRef<GameState["phase"]>(gameState.phase);
   const lastAutoOverlayTransitionAtRef = useRef(0);
@@ -635,8 +641,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     meClientId,
     playbackVoteRequestPending,
   });
-  const restartGameVote: RestartGameVoteState | null =
-    gameState.restartGameVote ?? null;
+  // Use the locally-persisted vote rather than the raw server value so that
+  // the vote UI stays visible across question changes within the same game.
+  const restartGameVote: RestartGameVoteState | null = persistedRestartVote;
   const restartVoteApproveCount = restartGameVote?.approveClientIds.length ?? 0;
   const restartVoteRejectCount = restartGameVote?.rejectClientIds.length ?? 0;
   const restartVoteEligibleCount = restartGameVote?.eligibleClientIds.length ?? 0;
@@ -664,30 +671,69 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     !isRestartVoteActive &&
     !!onRequestRestartGameVote;
 
-  // Show a toast when the vote state transitions — all players receive the same
-  // gameUpdated event so everyone sees the notification at roughly the same time.
-  // Ref is initialised to the current status to suppress stale toasts on mount.
+  // Sync the server's restartGameVote into local persistedRestartVote state.
+  // The server clears the vote on every question advance (sends null), but we
+  // intentionally keep an "active" vote alive across question changes because
+  // the vote has no timeout — it only resolves when the game restarts or enough
+  // players vote to reject it.  We clear on a new game (startedAt change) or
+  // when the server explicitly sends a resolved (approved/rejected) vote.
+  //
+  // Toast notifications are computed here rather than in a separate effect so
+  // we can compare against the *persisted* previous status rather than the raw
+  // server status (which drops to null on question changes and would otherwise
+  // produce incorrect prev→next transitions for the toast logic).
   useEffect(() => {
-    const status = restartGameVote?.status ?? null;
-    const prev = prevRestartVoteStatusRef.current;
-    prevRestartVoteStatusRef.current = status;
+    const serverVote = gameState.restartGameVote ?? null;
+    const currentStartedAt = gameState.startedAt;
+    const prevVote = persistedRestartVoteRef.current;
+    const prevStatus = prevVote?.status ?? null;
 
-    if (prev !== "active" && status === "active") {
-      appToast.info("有人發起了重新開始投票", {
-        id: "restart-vote-started",
-        duration: 4000,
-      });
-    } else if (prev === "active" && status === "rejected") {
+    // New game session — clear everything unconditionally.
+    if (currentStartedAt !== persistedVoteGameStartedAtRef.current) {
+      persistedVoteGameStartedAtRef.current = currentStartedAt;
+      persistedRestartVoteRef.current = null;
+      setPersistedRestartVote(null);
+      return;
+    }
+
+    let nextVote: RestartGameVoteState | null;
+    if (serverVote !== null) {
+      // Server has explicit vote data: a new vote, an update (new approvals),
+      // or a resolution (approved / rejected).
+      nextVote = serverVote;
+    } else {
+      // Server sent null (question advanced).  Preserve an active vote; drop a
+      // resolved one (it was already shown to the user).
+      nextVote = prevVote?.status === "active" ? prevVote : null;
+    }
+
+    const nextStatus = nextVote?.status ?? null;
+
+    // --- Toast notifications for vote transitions ---
+    if (prevStatus !== "active" && nextStatus === "active") {
+      // Someone started a vote.  The initiator doesn't need to see this — they
+      // triggered it themselves and already have UI feedback.
+      const isInitiator = nextVote?.requestedByClientId === meClientId;
+      if (!isInitiator) {
+        appToast.info("有人發起了重新開始投票", {
+          id: "restart-vote-started",
+          duration: 4000,
+        });
+      }
+    } else if (prevStatus === "active" && nextStatus === "rejected") {
       appToast.error(
-        `重新開始投票未通過（${restartVoteApproveCount} / ${restartVoteEligibleCount} 票贊成）`,
+        `重新開始投票未通過（${nextVote?.approveClientIds.length ?? 0} / ${nextVote?.eligibleClientIds.length ?? 0} 票贊成）`,
         { id: "restart-vote-rejected", duration: 5000 },
       );
     }
     // "approved" needs no toast — the game restart event is self-evident.
+
+    persistedRestartVoteRef.current = nextVote;
+    setPersistedRestartVote(nextVote);
   }, [
-    restartGameVote?.status,
-    restartVoteApproveCount,
-    restartVoteEligibleCount,
+    gameState.restartGameVote,
+    gameState.startedAt,
+    meClientId,
   ]);
 
   const effectiveMobileScoreboardHeight = clampMobileVh(

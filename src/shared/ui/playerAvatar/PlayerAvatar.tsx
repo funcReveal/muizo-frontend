@@ -11,7 +11,15 @@ type PlayerAvatarProps = {
   username?: string | null;
   clientId?: string | null;
   avatarUrl?: string | null;
+  /** Overall container (hit-target / hover-area) size in px. */
   size?: number;
+  /**
+   * Size of the inner visual content (image or monogram circle) in px.
+   * Defaults to `size` when omitted, giving the original behaviour.
+   * Set this smaller than `size` when you want a larger interactive area
+   * but the same visual weight as a smaller avatar.
+   */
+  contentSize?: number;
   rank?: number | null;
   combo?: number | null;
   isMe?: boolean;
@@ -29,6 +37,7 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = React.memo(
     clientId,
     avatarUrl,
     size = 40,
+    contentSize,
     rank,
     combo = 0,
     isMe = false,
@@ -59,16 +68,22 @@ const PlayerAvatar: React.FC<PlayerAvatarProps> = React.memo(
       [combo, effectLevel, rank, stateTone],
     );
     const effectiveSize = Math.max(20, Math.round(size));
+    // When contentSize is provided, the inner visual circle is sized
+    // independently of the container; otherwise it fills the container.
+    const effectiveContentSize = contentSize != null
+      ? Math.max(20, Math.round(contentSize))
+      : effectiveSize;
     const comboValue = combo ?? 0;
-    const isCompact = effectiveSize <= 32;
+    const isCompact = effectiveContentSize <= 32;
     const monogramFontSize = Math.max(
       isCompact ? 9 : 11,
-      Math.round(effectiveSize * (monogram.length >= 2 ? 0.34 : 0.44)),
+      Math.round(effectiveContentSize * (monogram.length >= 2 ? 0.34 : 0.44)),
     );
 
     const style = {
       width: `${effectiveSize}px`,
       height: `${effectiveSize}px`,
+      ["--player-avatar-content-size" as const]: `${effectiveContentSize}px`,
       ["--player-avatar-bg-from" as const]: palette.from,
       ["--player-avatar-bg-to" as const]: palette.to,
       ["--player-avatar-accent" as const]: palette.accent,

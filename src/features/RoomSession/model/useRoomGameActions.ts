@@ -350,7 +350,14 @@ export const useRoomGameActions = ({
         if (!ack) return;
         if (ack.ok) {
           syncServerOffset(ack.data.serverNow);
-          setGamePlaylist([]);
+          // Do NOT call setGamePlaylist([]) here.  Clearing the playlist
+          // immediately creates a videoId=null gap: the iframe fires a load
+          // event with no video, handlePlaybackIframeLoad skips the
+          // setPlayerVideoId call (videoId is null), and the stale playerVideoId
+          // is then used for all subsequent tracks — causing clients to appear
+          // stuck on the first track even though the visual state advances.
+          // The old playlist is safe to keep; fetchCompletePlaylist will
+          // replace it atomically once the fetch resolves.
           applyGameLiveUpdate(ack.data);
           setIsGameView(true);
           void fetchCompletePlaylist(currentRoom.id).then(setGamePlaylist);

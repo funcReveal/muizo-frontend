@@ -871,7 +871,13 @@ export const useRoomProviderSocketLifecycle = ({
           ) {
             return;
           }
-          setGamePlaylist([]);
+          // Do NOT call setGamePlaylist([]) here.  Clearing the playlist
+          // immediately creates a videoId=null gap that causes the YouTube
+          // iframe to fire a load event with no video — handlePlaybackIframeLoad
+          // then skips setPlayerVideoId (videoId is null), leaving playerVideoId
+          // stale, so effectivePlayerVideoId resolves to the wrong (first) track
+          // on every subsequent question.  The old playlist is harmless to keep;
+          // fetchCompletePlaylist replaces it atomically once the fetch resolves.
           const preStartRemainingSec = Math.max(
             0,
             Math.ceil((gameState.startedAt - serverNow) / 1000),

@@ -39,6 +39,7 @@ const RevealChoiceAvatarRow: React.FC<RevealChoiceAvatarRowProps> = React.memo(
                   clientId={pick.clientId}
                   avatarUrl={pick.avatarUrl ?? undefined}
                   size={44}
+                  contentSize={36}
                   isMe={pick.isMe}
                   stateTone={pick.result}
                   effectLevel={avatarEffectLevel}
