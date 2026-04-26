@@ -1,4 +1,9 @@
-import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import {
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import {
   BarChartRounded,
   LockOutlined,
@@ -153,7 +158,9 @@ const CollectionCard = ({
       <>
         <IconButton
           aria-label="更多收藏庫功能"
-          aria-controls={menuAnchor ? `collection-actions-${collection.id}` : undefined}
+          aria-controls={
+            menuAnchor ? `collection-actions-${collection.id}` : undefined
+          }
           aria-haspopup="menu"
           aria-expanded={Boolean(menuAnchor)}
           onClick={openMenu}
@@ -185,7 +192,9 @@ const CollectionCard = ({
             disabled={isFavoriteUpdating || !onToggleFavorite}
           >
             {isFavorited ? (
-              <StarRounded sx={{ fontSize: 18, color: "rgba(250,204,21,0.95)" }} />
+              <StarRounded
+                sx={{ fontSize: 18, color: "rgba(250,204,21,0.95)" }}
+              />
             ) : (
               <StarBorderRounded
                 sx={{ fontSize: 18, color: "rgba(250,204,21,0.9)" }}
@@ -205,15 +214,7 @@ const CollectionCard = ({
         tabIndex={0}
         onClick={onSelect}
         onKeyDown={handleCardKeyDown}
-        className={`group relative h-full cursor-pointer overflow-hidden rounded-[22px] border text-left transition ${
-          selected
-            ? "border-cyan-300/55 bg-slate-950/70 shadow-[0_24px_44px_-28px_rgba(34,211,238,0.45)]"
-            : `border-cyan-300/18 bg-slate-950/55 ${
-                suppressCardHover
-                  ? ""
-                  : "hover:border-cyan-300/38 hover:bg-slate-950/72 hover:shadow-[0_22px_42px_-30px_rgba(34,211,238,0.32)]"
-              }`
-        }`}
+        className={`group relative h-full cursor-pointer overflow-hidden rounded-[22px] border-gray-50 text-left transition `}
       >
         <div className="relative h-36 w-full overflow-hidden bg-slate-900/60">
           {previewThumbnail ? (
@@ -288,13 +289,7 @@ const CollectionCard = ({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={handleCardKeyDown}
-      className={`w-full cursor-pointer rounded-xl border px-3 py-2 text-left transition ${
-        selected
-          ? "border-cyan-300/55 bg-cyan-500/10"
-          : `border-cyan-300/25 bg-slate-950/25 ${
-              suppressCardHover ? "" : "hover:border-cyan-300/45"
-            }`
-      }`}
+      className={`w-full cursor-pointer px-3 py-2 text-left transition border-b-gray-600`}
     >
       <div className="flex items-center gap-3">
         <div className="h-11 w-16 shrink-0 overflow-hidden rounded-md bg-slate-900/40">
