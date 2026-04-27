@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import {
@@ -373,7 +372,7 @@ const LeaderboardPlayerRow = ({
         }`}
       />
       <span
-        className={`w-7 shrink-0 text-left text-[13px] font-semibold tabular-nums tracking-normal sm:w-8 sm:text-sm ${
+        className={`w-6 shrink-0 text-left text-[13px] font-semibold tabular-nums tracking-normal sm:w-8 sm:text-sm ${
           isCurrent || variant === "current"
             ? "text-cyan-100"
             : "text-slate-300"
@@ -417,6 +416,7 @@ const COLLECTION_PREVIEW_ROW_HEIGHT = 68;
 const COLLECTION_LEADERBOARD_INITIAL_LIMIT = 10;
 const COLLECTION_LEADERBOARD_PAGE_SIZE = 30;
 const COLLECTION_LEADERBOARD_ROW_HEIGHT = 80;
+const COLLECTION_MOBILE_LEADERBOARD_ROW_HEIGHT = 82;
 
 const COLLECTION_MOBILE_PREVIEW_VISIBLE_ROWS = 3;
 const COLLECTION_DESKTOP_PREVIEW_VISIBLE_ROWS = 4;
@@ -590,7 +590,7 @@ const CollectionLeaderboardListRow = ({
 
   if (isLoaderRow) {
     return (
-      <div style={style} className="box-border pb-2 sm:pb-1.5">
+      <div style={style} className="box-border pb-[10px] md:pb-1.5">
         <div className="flex h-full items-center gap-3 rounded-xl border border-white/8 bg-slate-950/30 px-3 py-3">
           <div className="h-4 w-8 rounded-full bg-white/8" />
           <div className="h-9 w-9 rounded-full bg-white/8" />
@@ -607,7 +607,7 @@ const CollectionLeaderboardListRow = ({
   if (!item) return <div style={style} />;
 
   return (
-    <div style={style} className="box-border pb-2 sm:pb-1.5">
+    <div style={style} className="box-border pb-3 md:pb-1.5">
       <LeaderboardPlayerRow
         player={toLeaderboardPreviewPlayer(item, formatDurationLabel)}
       />
@@ -787,7 +787,7 @@ const CollectionDetailDrawer = ({
     return leaderboardLoading ? "讀取中" : "尚無紀錄";
   };
   const leaderboardProfileMenuWidth = leaderboardProfileAnchorEl
-    ? leaderboardProfileAnchorEl.clientWidth
+    ? Math.max(leaderboardProfileAnchorEl.clientWidth, isCompact ? 220 : 280)
     : 280;
   const currentLeaderboardPlayer = activeLeaderboardMyBestEntry
     ? toLeaderboardPreviewPlayer(
@@ -918,19 +918,6 @@ const CollectionDetailDrawer = ({
     void (onConfirmCustomRoom ?? onStartCustomRoom ?? onUseCollection)(
       collection.id,
     );
-  };
-
-  const handleLeaderboardProfileCardClick = () => {
-    if (!isPublic) return;
-    setIsLeaderboardProfileMenuOpen((current) => !current);
-  };
-
-  const handleLeaderboardProfileCardKeyDown = (
-    event: KeyboardEvent<HTMLDivElement>,
-  ) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    handleLeaderboardProfileCardClick();
   };
 
   const handleLeaderboardProfileSelect = (
@@ -1273,6 +1260,62 @@ const CollectionDetailDrawer = ({
     selectedLeaderboardVariant,
   ]);
 
+  const renderLeaderboardProfileSelector = (
+    variant: "desktop" | "mobile" = "desktop",
+  ) => {
+    const isMobile = variant === "mobile";
+
+    return (
+      <div
+        ref={setLeaderboardProfileAnchorEl}
+        className={isMobile ? "shrink-0" : "w-full"}
+      >
+        <button
+          type="button"
+          onClick={() => setIsLeaderboardProfileMenuOpen((open) => !open)}
+          className={
+            isMobile
+              ? "inline-flex h-9 max-w-[152px] items-center justify-between gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 text-xs font-semibold text-slate-100 transition hover:border-cyan-200/30 hover:bg-white/[0.08]"
+              : "flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-left transition hover:border-cyan-200/30 hover:bg-slate-950/50"
+          }
+        >
+          {isMobile ? (
+            <>
+              <span className="min-w-0 truncate">
+                {activeLeaderboardModeLabel}
+              </span>
+
+              <span className="shrink-0 text-[11px] font-semibold text-cyan-100/80">
+                {activeLeaderboardOption.label}
+              </span>
+            </>
+          ) : (
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-slate-100">
+                {activeLeaderboardModeLabel}
+              </span>
+
+              <span className="mt-1 block text-xs leading-5 text-slate-400">
+                {activeLeaderboardModeDescription}
+              </span>
+            </span>
+          )}
+
+          <KeyboardArrowDownRounded
+            sx={{
+              fontSize: isMobile ? 16 : 20,
+              transform: isLeaderboardProfileMenuOpen
+                ? "rotate(180deg)"
+                : "rotate(0deg)",
+              transition: "transform 160ms ease",
+            }}
+            className="shrink-0 text-slate-300"
+          />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <Drawer
       anchor={isCompact ? "bottom" : "right"}
@@ -1590,52 +1633,28 @@ const CollectionDetailDrawer = ({
                   isCompact && mobileDetailTab !== "leaderboard" ? "hidden" : ""
                 }`}
               >
-                <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-200/12 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(15,23,42,0.2))] p-3 sm:p-4">
-                  <div className="flex items-center gap-3">
-                    <h3 className="flex items-center gap-2 text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
-                      <PublicRounded className="text-cyan-100" />
-                      全球排行榜
+                <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden p-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="min-w-0 flex items-center gap-2 truncate text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
+                      <PublicRounded className="shrink-0 text-cyan-100" />
+                      <span className="truncate">全球排行榜</span>
                     </h3>
+
+                    {isPublic && isCompact
+                      ? renderLeaderboardProfileSelector("mobile")
+                      : null}
                   </div>
 
                   {isPublic ? (
                     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                      <div
-                        ref={setLeaderboardProfileAnchorEl}
-                        role="button"
-                        tabIndex={0}
-                        aria-haspopup="listbox"
-                        aria-expanded={isLeaderboardProfileMenuOpen}
-                        onClick={handleLeaderboardProfileCardClick}
-                        onKeyDown={handleLeaderboardProfileCardKeyDown}
-                        className="group mt-3 shrink-0 cursor-pointer rounded-2xl border border-white/10 bg-slate-950/32 px-3.5 py-3 text-slate-300 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition hover:border-amber-100/22 hover:bg-slate-950/42 focus:border-amber-100/34 focus:ring-2 focus:ring-amber-200/10"
-                      >
-                        <div className="flex items-stretch justify-between gap-3">
-                          <div className="min-w-0 flex-1 text-left">
-                            <span className="block text-base font-semibold text-slate-50">
-                              {activeLeaderboardModeLabel}
-                            </span>
-                            <span className="mt-1 block text-sm leading-5 text-slate-400">
-                              {activeLeaderboardModeDescription}
-                            </span>
-                          </div>
-
-                          <span className="inline-flex shrink-0 items-center gap-2 self-center text-base font-semibold text-amber-100 transition group-hover:text-amber-50">
-                            <span className="max-w-[6.5rem] truncate">
-                              {activeLeaderboardOption.label}
-                            </span>
-                            <KeyboardArrowDownRounded
-                              sx={{ fontSize: 24 }}
-                              className={`shrink-0 text-amber-100/72 transition ${
-                                isLeaderboardProfileMenuOpen ? "rotate-180" : ""
-                              }`}
-                            />
-                          </span>
-                        </div>
-                      </div>
-
+                      {!isCompact
+                        ? renderLeaderboardProfileSelector("desktop")
+                        : null}
                       <Popper
-                        open={Boolean(leaderboardProfileAnchorEl)}
+                        open={
+                          isLeaderboardProfileMenuOpen &&
+                          Boolean(leaderboardProfileAnchorEl)
+                        }
                         anchorEl={leaderboardProfileAnchorEl}
                         placement="bottom-end"
                         modifiers={[
@@ -1770,7 +1789,11 @@ const CollectionDetailDrawer = ({
                                 width: "100%",
                               }}
                               rowCount={leaderboardRowCount}
-                              rowHeight={COLLECTION_LEADERBOARD_ROW_HEIGHT}
+                              rowHeight={
+                                isCompact
+                                  ? COLLECTION_MOBILE_LEADERBOARD_ROW_HEIGHT
+                                  : COLLECTION_LEADERBOARD_ROW_HEIGHT
+                              }
                               rowProps={leaderboardListRowProps}
                               rowComponent={CollectionLeaderboardListRow}
                               onScroll={revealLeaderboardScrollbar}

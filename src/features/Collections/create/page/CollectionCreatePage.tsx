@@ -87,6 +87,8 @@ const CollectionCreatePage = () => {
   const youtubeFetchedRef = useRef(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const lastAutoImportUrlRef = useRef("");
+  const pageRootRef = useRef<HTMLDivElement | null>(null);
+  const previousCreateStepRef = useRef<CollectionCreateStep>("source");
 
   const [selectedYoutubePlaylistId, setSelectedYoutubePlaylistId] =
     useState("");
@@ -322,6 +324,20 @@ const CollectionCreatePage = () => {
     setYoutubeActionError(null);
   }, [handleResetPlaylist]);
 
+  const scrollCreatePageToTop = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      pageRootRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      document.scrollingElement?.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    });
+  }, []);
+
   useCollectionCreateAutoImport({
     hasResolvedPlaylist,
     lastFetchedPlaylistId,
@@ -338,6 +354,13 @@ const CollectionCreatePage = () => {
   });
 
   useEffect(() => {
+    if (previousCreateStepRef.current === createStep) return;
+
+    previousCreateStepRef.current = createStep;
+    scrollCreatePageToTop();
+  }, [createStep, scrollCreatePageToTop]);
+
+  useEffect(() => {
     handleResetPlaylist();
 
     return () => {
@@ -348,6 +371,7 @@ const CollectionCreatePage = () => {
   useEffect(() => {
     if (!authToken || !authUser?.id) return;
     if (collectionScope === "owner") return;
+
     void fetchCollections("owner");
   }, [authToken, authUser?.id, collectionScope, fetchCollections]);
 
@@ -477,8 +501,11 @@ const CollectionCreatePage = () => {
   };
 
   return (
-    <Box className="mx-auto w-full max-w-7xl px-4 pb-6 pt-4">
-      <Box className="relative overflow-hidden text-[var(--mc-text)]">
+    <Box
+      ref={pageRootRef}
+      className="mx-auto w-full max-w-6xl px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pb-6 sm:pt-4"
+    >
+      <Box className="relative overflow-visible p-0 text-[var(--mc-text)] sm:p-5">
         {isCreating && (
           <CollectionCreateProgressOverlay
             createStageLabel={createStageLabel}
@@ -487,7 +514,7 @@ const CollectionCreatePage = () => {
         )}
 
         <div className="relative">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <button
                 type="button"
@@ -499,7 +526,7 @@ const CollectionCreatePage = () => {
               </button>
 
               <div className="min-w-0">
-                <div className="text-2xl font-semibold leading-none text-[var(--mc-text)]">
+                <div className="text-xl font-semibold leading-none text-[var(--mc-text)] sm:text-2xl">
                   {t("page.title")}
                 </div>
                 <div className="mt-2 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)]">
