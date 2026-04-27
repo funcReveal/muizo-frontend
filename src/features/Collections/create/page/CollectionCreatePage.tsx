@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 
 import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
@@ -54,6 +55,7 @@ type PlaylistIssueTab =
 
 const CollectionCreatePage = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation("collectionCreate");
   const {
     authToken,
     authUser,
@@ -668,11 +670,10 @@ const CollectionCreatePage = () => {
 
               <div className="min-w-0">
                 <div className="text-2xl font-semibold leading-none text-[var(--mc-text)]">
-                  Create Collection
+                  {t("page.title")}
                 </div>
                 <div className="mt-2 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)]">
-                  Import a YouTube playlist, review the playable items, then
-                  publish it as a collection.
+                  {t("page.description")}
                 </div>
               </div>
             </div>
@@ -680,7 +681,7 @@ const CollectionCreatePage = () => {
 
           {!authToken && !authLoading && (
             <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
-              請先使用 Google 登入後再建立收藏
+              {t("page.loginRequired")}
             </div>
           )}
 

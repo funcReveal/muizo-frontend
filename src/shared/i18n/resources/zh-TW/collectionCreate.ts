@@ -29,19 +29,29 @@ const collectionCreate = {
     youtubeTab: "我的 YouTube 清單",
     playlistUrlLabel: "YouTube 播放清單連結",
     playlistUrlPlaceholder: "https://www.youtube.com/playlist?list=...",
-    playlistUrlHint:
-      "貼上播放清單連結後，Muizo 會自動分析可用項目，並盡可能移除重複歌曲。",
+    playlistUrlHint: "貼上播放清單連結後，會自動分析可用項目，並移除重複歌曲。",
     invalidPlaylistUrl:
       "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。",
     loading: "載入中...",
-    selectFromYoutube: "從 YouTube 選擇",
     googleLoginHint: "登入 Google 後可直接載入你的 YouTube 播放清單。",
     googleLogin: "登入 Google",
-    playlistSelectPlaceholder: "請選擇 YouTube 播放清單",
+    playlistSelectPlaceholder: "選擇 YouTube 播放清單",
     playlistSelectLoading: "載入播放清單中...",
+    playlistOption: "{{title}}（{{count}} 首）",
+    playlistOptionUnknownCount: "{{title}}",
+    playlistLoadingHint: "正在載入你的播放清單...",
     importingYoutube: "正在匯入 YouTube 播放清單...",
     importFailed: "匯入失敗，請稍後再試。",
     selectPlaylistFirst: "請先選擇 YouTube 播放清單。",
+    clearPlaylistUrl: "清除播放清單連結",
+    reselectPlaylist: "重新選擇播放清單",
+    clearPlaylistDialogTitle: "重新選擇播放清單？",
+    clearPlaylistDialogDescription:
+      "目前已解析的播放清單與匯入結果會被清除，你可以重新貼上或選擇另一份清單。",
+    clearPlaylistDialogCancel: "取消",
+    clearPlaylistDialogConfirm: "清除並重選",
+    playlistLockedHint:
+      "播放清單已解析完成。若要更換清單，請點擊右側的 X 清除後重新選擇。",
   },
 
   review: {

@@ -30,19 +30,30 @@ const collectionCreate = {
     playlistUrlLabel: "YouTube playlist URL",
     playlistUrlPlaceholder: "https://www.youtube.com/playlist?list=...",
     playlistUrlHint:
-      "Paste a playlist URL. Muizo will automatically analyze available items and remove duplicates when possible.",
+      "Paste a playlist URL. will automatically analyze available items and remove duplicates when possible.",
     invalidPlaylistUrl:
       "Please paste a valid YouTube playlist URL that contains a list parameter.",
     loading: "Loading...",
-    selectFromYoutube: "Select from YouTube",
     googleLoginHint:
       "Sign in with Google to load your YouTube playlists directly.",
     googleLogin: "Sign in with Google",
     playlistSelectPlaceholder: "Select a YouTube playlist",
     playlistSelectLoading: "Loading playlists...",
+    playlistOption: "{{title}} ({{count}} items)",
+    playlistOptionUnknownCount: "{{title}}",
+    playlistLoadingHint: "Loading your playlists...",
     importingYoutube: "Importing YouTube playlist...",
     importFailed: "Import failed. Please try again later.",
     selectPlaylistFirst: "Please select a YouTube playlist first.",
+    clearPlaylistUrl: "Clear playlist URL",
+    reselectPlaylist: "Reselect playlist",
+    clearPlaylistDialogTitle: "Reselect playlist?",
+    clearPlaylistDialogDescription:
+      "The current parsed playlist and import result will be cleared. You can paste or select another playlist afterward.",
+    clearPlaylistDialogCancel: "Cancel",
+    clearPlaylistDialogConfirm: "Clear and reselect",
+    playlistLockedHint:
+      "The playlist has been parsed. To change it, click the X button and choose another playlist.",
   },
 
   review: {

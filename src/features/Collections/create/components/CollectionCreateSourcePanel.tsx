@@ -9,10 +9,13 @@ import {
   Tooltip,
 } from "@mui/material";
 
+import { MuizoSelect, type MuizoSelectOption } from "@shared/ui/select";
+
 type YoutubePlaylistOption = {
   id: string;
   title: string;
   itemCount: number;
+  thumbnail?: string;
 };
 
 type Props = {
@@ -78,6 +81,27 @@ export default function CollectionCreateSourcePanel({
 }: Props) {
   const { t } = useTranslation("collectionCreate");
 
+  const youtubePlaylistOptions: MuizoSelectOption[] = youtubePlaylists.map(
+    (playlist) => ({
+      value: playlist.id,
+      label: playlist.title,
+      thumbnail: playlist.thumbnail,
+      description: t("source.playlistOption", {
+        title: "",
+        count: playlist.itemCount,
+      }).trim(),
+    }),
+  );
+
+  const youtubeSelectLoading =
+    youtubePlaylistsLoading || isImportingYoutubePlaylist;
+
+  const youtubeSelectPlaceholder = youtubePlaylistsLoading
+    ? t("source.playlistSelectLoading")
+    : isImportingYoutubePlaylist
+      ? t("source.importingYoutube")
+      : t("source.playlistSelectPlaceholder");
+
   return (
     <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-4">
       <div>
@@ -123,7 +147,7 @@ export default function CollectionCreateSourcePanel({
           }`}
           hidden={playlistSource !== "url"}
         >
-          <div className="rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(2,6,23,0.34),rgba(15,23,42,0.22))] p-4 sm:p-5">
+          <div className="p-2 sm:p-3">
             <Tooltip
               title={playlistUrlTooltipMessage}
               placement="top"
@@ -148,6 +172,7 @@ export default function CollectionCreateSourcePanel({
                   if (event.key !== "Enter" || playlistLoading) {
                     return;
                   }
+
                   event.preventDefault();
                   onFetchPlaylist();
                 }}
@@ -259,71 +284,56 @@ export default function CollectionCreateSourcePanel({
           }`}
           hidden={playlistSource !== "youtube"}
         >
-          <div className="rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(2,6,23,0.34),rgba(15,23,42,0.22))] p-4 sm:p-5">
-            <div className="text-sm font-semibold text-[var(--mc-text)]">
-              {t("source.selectFromYoutube")}
-            </div>
+          <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+            {(!authUserExists || needsGoogleReauth) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span>{t("source.googleLoginHint")}</span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={onLoginWithGoogle}
+                >
+                  {t("source.googleLogin")}
+                </Button>
+              </div>
+            )}
 
-            <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-              {(!authUserExists || needsGoogleReauth) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span>{t("source.googleLoginHint")}</span>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={onLoginWithGoogle}
-                  >
-                    {t("source.googleLogin")}
-                  </Button>
-                </div>
-              )}
-              {youtubePlaylistsError && (
-                <span className="text-[11px] text-rose-300">
-                  {youtubePlaylistsError}
-                </span>
-              )}
-            </div>
+            {youtubePlaylistsError && (
+              <span className="text-[11px] text-rose-300">
+                {youtubePlaylistsError}
+              </span>
+            )}
+          </div>
 
-            <div className="mt-4 space-y-2">
-              <select
-                value={selectedYoutubePlaylistId}
-                onFocus={onEnsureYoutubePlaylists}
-                onChange={async (e) => {
-                  const nextId = e.target.value;
-                  onSelectedYoutubePlaylistIdChange(nextId);
-                  if (!nextId) return;
-                  await onImportSelectedYoutubePlaylist(nextId);
-                }}
-                disabled={youtubePlaylistsLoading || isImportingYoutubePlaylist}
-                className="w-full rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/75 px-3 py-2 text-sm text-[var(--mc-text)] disabled:cursor-not-allowed disabled:opacity-65"
-              >
-                <option value="">
-                  {youtubePlaylistsLoading
-                    ? t("source.playlistSelectLoading")
-                    : t("source.playlistSelectPlaceholder")}
-                </option>
-                {youtubePlaylists.map((playlist) => (
-                  <option key={playlist.id} value={playlist.id}>
-                    {t("source.playlistOption", {
-                      title: playlist.title,
-                      count: playlist.itemCount,
-                    })}
-                  </option>
-                ))}
-              </select>
+          <div className="mt-4 space-y-2">
+            <MuizoSelect
+              value={selectedYoutubePlaylistId}
+              options={youtubePlaylistOptions}
+              placeholder={youtubeSelectPlaceholder}
+              loading={youtubeSelectLoading}
+              disabled={!authUserExists || needsGoogleReauth}
+              emptyText={t("source.playlistSelectPlaceholder")}
+              onOpen={onEnsureYoutubePlaylists}
+              onChange={(nextId) => {
+                onSelectedYoutubePlaylistIdChange(nextId);
 
-              {youtubePlaylistsLoading && (
-                <div className="animate-pulse rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 px-3 py-2 text-xs text-[var(--mc-text-muted)]">
-                  {t("source.playlistLoadingHint")}
-                </div>
-              )}
+                if (!nextId) return;
 
-              {youtubeActionError && (
-                <div className="rounded-lg border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
-                  {youtubeActionError}
-                </div>
-              )}
-            </div>
+                void onImportSelectedYoutubePlaylist(nextId);
+              }}
+            />
+
+            {youtubePlaylistsLoading && (
+              <div className="animate-pulse rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 px-3 py-2 text-xs text-[var(--mc-text-muted)]">
+                {t("source.playlistLoadingHint")}
+              </div>
+            )}
+
+            {youtubeActionError && (
+              <div className="rounded-lg border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
+                {youtubeActionError}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -57,7 +57,7 @@ const menuPaperSx = {
 const CollectionCard = ({
   collection,
   view,
-  selected,
+  // selected,
   isPublicLibraryTab,
   isFavoriteUpdating = false,
   onSelect,
