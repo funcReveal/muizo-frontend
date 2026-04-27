@@ -13,6 +13,8 @@ type RevealChoiceAvatarRowProps = {
 };
 
 const VISIBLE_AVATARS = 3;
+const CHOICE_AVATAR_SIZE = 34;
+const CHOICE_AVATAR_CONTENT_SIZE = 34;
 
 const RevealChoiceAvatarRow: React.FC<RevealChoiceAvatarRowProps> = React.memo(
   ({ picks }) => {
@@ -39,7 +41,8 @@ const RevealChoiceAvatarRow: React.FC<RevealChoiceAvatarRowProps> = React.memo(
                   username={pick.username}
                   clientId={pick.clientId}
                   avatarUrl={pick.avatarUrl ?? undefined}
-                  size={28}
+                  size={CHOICE_AVATAR_SIZE}
+                  contentSize={CHOICE_AVATAR_CONTENT_SIZE}
                   isMe={pick.isMe}
                   stateTone={pick.result}
                   effectLevel={avatarEffectLevel}

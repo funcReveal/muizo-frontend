@@ -659,6 +659,25 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     !isRestartVoteActive &&
     !!onRequestRestartGameVote &&
     !(gameState.restartVoteInitiatedClientIds ?? []).includes(meClientId ?? "");
+  const hasRequestedRestartVote =
+    !!meClientId &&
+    (gameState.restartVoteInitiatedClientIds ?? []).includes(meClientId);
+
+  const isMyRestartVoteRejected =
+    isLeaderboardRoom &&
+    restartGameVote?.status === "rejected" &&
+    restartGameVote.requestedByClientId === meClientId;
+
+  const restartVoteButtonLabel = isMyRestartVoteRejected
+    ? "重啟投票失敗"
+    : isLeaderboardRoom && hasRequestedRestartVote
+      ? "已發起重啟投票"
+      : "重新開始";
+
+  const restartVoteButtonDisabled =
+    restartVoteRequestPending ||
+    restartVoteSubmitPending !== null ||
+    (!canRequestRestartVote && !isRestartVoteActive);
 
   // Toast notifications for restart vote transitions.
   // The backend is now authoritative: it preserves restartGameVote across
@@ -1435,12 +1454,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           size="small"
           startIcon={<HowToVoteRoundedIcon />}
           className={`game-room-extend-vote-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${playbackExtensionVote?.status === "active"
-              ? "game-room-extend-vote-btn--active"
-              : playbackExtensionVote?.status === "approved"
-                ? "game-room-extend-vote-btn--approved"
-                : playbackExtensionVote?.status === "rejected"
-                  ? "game-room-extend-vote-btn--rejected"
-                  : ""
+            ? "game-room-extend-vote-btn--active"
+            : playbackExtensionVote?.status === "approved"
+              ? "game-room-extend-vote-btn--approved"
+              : playbackExtensionVote?.status === "rejected"
+                ? "game-room-extend-vote-btn--rejected"
+                : ""
             } ${canOpenPlaybackVotePrompt ? "game-room-extend-vote-btn--prompt" : ""}`}
           disabled={playbackVoteButtonDisabled}
           onClick={handleRequestPlaybackVote}
@@ -1449,15 +1468,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         </Button>
       ) : null;
     const showRestartBtn = gameState.status === "playing";
-    const isRestartBtnDisabled =
-      !canRequestRestartVote &&
-      !isRestartVoteActive;
     if (!showRestartBtn && !isHostInGame && !voteButton) return null;
     const restartBtnLabel = restartVoteRequestPending
       ? "投票中..."
       : isRestartVoteActive
         ? `重新開始投票 ${restartVoteApproveCount}/${restartVoteMajorityCount}`
-        : "重新開始";
+        : restartVoteButtonLabel;
     return (
       <Stack
         direction="row"
@@ -1473,7 +1489,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             startIcon={<RestartAltRoundedIcon />}
             className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${showRestartVoteRedDot ? "game-room-restart-vote-btn--notify" : ""
               }`}
-            disabled={isRestartBtnDisabled || restartVoteRequestPending || restartVoteSubmitPending !== null}
+            disabled={restartVoteButtonDisabled}
             onClick={handleRequestRestartVote}
           >
             {restartBtnLabel}
@@ -1500,7 +1516,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     );
   }, [
     canOpenPlaybackVotePrompt,
-    canRequestRestartVote,
     gameState.status,
     handleOpenHostManagement,
     handleRequestPlaybackVote,
@@ -1512,10 +1527,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     playbackVoteButtonDisabled,
     playbackVoteButtonLabel,
     restartVoteApproveCount,
+    restartVoteButtonDisabled,
+    restartVoteButtonLabel,
     restartVoteMajorityCount,
-    restartVoteRequestPending,
-    restartVoteSubmitPending,
     showRestartVoteRedDot,
+    restartVoteRequestPending,
   ]);
   const mobilePlaybackVoteAction = useMemo(() => {
     if (
@@ -1529,12 +1545,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       <button
         type="button"
         className={`game-room-extend-vote-btn game-room-extend-vote-btn--mobile-inline ${playbackExtensionVote?.status === "active"
-            ? "game-room-extend-vote-btn--active"
-            : playbackExtensionVote?.status === "approved"
-              ? "game-room-extend-vote-btn--approved"
-              : playbackExtensionVote?.status === "rejected"
-                ? "game-room-extend-vote-btn--rejected"
-                : ""
+          ? "game-room-extend-vote-btn--active"
+          : playbackExtensionVote?.status === "approved"
+            ? "game-room-extend-vote-btn--approved"
+            : playbackExtensionVote?.status === "rejected"
+              ? "game-room-extend-vote-btn--rejected"
+              : ""
           } ${canOpenPlaybackVotePrompt ? "game-room-extend-vote-btn--prompt" : ""}`}
         disabled={playbackVoteButtonDisabled}
         onClick={handleRequestPlaybackVote}
@@ -1565,8 +1581,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const mobileScoreboardDrawerPaperProps = useMemo<MuiDrawerPaperProps>(
     () => ({
       className: `game-room-mobile-scoreboard-drawer game-room-mobile-scoreboard-drawer--single ${mobileScoreboardOpen
-          ? "game-room-mobile-scoreboard-drawer--open"
-          : "game-room-mobile-scoreboard-drawer--closed"
+        ? "game-room-mobile-scoreboard-drawer--open"
+        : "game-room-mobile-scoreboard-drawer--closed"
         } ${isMobileDrawerGestureActive
           ? "game-room-mobile-scoreboard-drawer--dragging"
           : ""
@@ -1858,8 +1874,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             {isMobileGameViewport && (
               <div
                 className={`game-room-mobile-action-dock lg:hidden ${mobileAutoOverlayTransition !== "idle"
-                    ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
-                    : ""
+                  ? `game-room-mobile-action-dock--${mobileAutoOverlayTransition}`
+                  : ""
                   }`}
               >
                 <button
@@ -1877,8 +1893,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </button>
                 <div
                   className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
-                      ? "game-room-mobile-action-subdock--compact"
-                      : ""
+                    ? "game-room-mobile-action-subdock--compact"
+                    : ""
                     }`}
                 >
                   {gameState.status === "playing" && (
@@ -1886,7 +1902,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       type="button"
                       className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--warning game-room-mobile-toggle-chip--wide ${isRestartVoteActive ? "game-room-mobile-toggle-chip--active" : ""
                         } ${showRestartVoteRedDot ? "game-room-restart-vote-btn--notify" : ""}`}
-                      disabled={(!canRequestRestartVote && !isRestartVoteActive) || restartVoteRequestPending || restartVoteSubmitPending !== null}
+                      disabled={restartVoteButtonDisabled}
                       onClick={handleRequestRestartVote}
                     >
                       <span
@@ -1901,7 +1917,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       <span>
                         {isRestartVoteActive
                           ? `${restartVoteApproveCount}/${restartVoteMajorityCount}`
-                          : "重新開始"}
+                          : restartVoteButtonLabel}
                       </span>
                     </button>
                   )}
@@ -1909,8 +1925,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     <button
                       type="button"
                       className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--wide game-room-mobile-toggle-chip--host ${hostManagementOpen
-                          ? "game-room-mobile-toggle-chip--active"
-                          : ""
+                        ? "game-room-mobile-toggle-chip--active"
+                        : ""
                         }`}
                       onClick={handleOpenHostManagement}
                     >
@@ -1929,8 +1945,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <button
                     type="button"
                     className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor ${isHostInGame ? "game-room-mobile-toggle-chip--half" : ""} game-room-mobile-toggle-chip--overlay ${mobileRevealAutoOverlayEnabled
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
+                      ? "game-room-mobile-toggle-chip--active"
+                      : ""
                       }`}
                     onClick={handleToggleMobileRevealAutoOverlay}
                     aria-pressed={mobileRevealAutoOverlayEnabled}
@@ -1946,8 +1962,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <button
                     type="button"
                     className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--minor ${isHostInGame ? "game-room-mobile-toggle-chip--half" : ""} game-room-mobile-toggle-chip--anchor ${mobileGuessAnchorEnabled
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
+                      ? "game-room-mobile-toggle-chip--active"
+                      : ""
                       }`}
                     onClick={handleToggleMobileGuessAnchor}
                     aria-pressed={mobileGuessAnchorEnabled}
@@ -1984,8 +2000,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               )}
               <Drawer
                 className={`game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard lg:!hidden ${mobileAutoOverlayTransition !== "idle"
-                    ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
-                    : ""
+                  ? `game-room-mobile-drawer-root--${mobileAutoOverlayTransition}`
+                  : ""
                   }`}
                 anchor="bottom"
                 open={mobileScoreboardOpen}
