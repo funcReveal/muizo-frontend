@@ -369,7 +369,7 @@ function SongRow({
       {variant === "removed" && onRestore && (
         <button
           type="button"
-          onClick={() => onRestore(item.draftKey)}
+          onClick={() => onRestore(item.importItemKey ?? item.draftKey)}
           className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-emerald-400/10 hover:text-emerald-200"
           aria-label={t("review.restoreItem", { defaultValue: "復原曲目" })}
         >

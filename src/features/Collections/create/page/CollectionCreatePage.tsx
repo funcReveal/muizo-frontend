@@ -515,7 +515,9 @@ const CollectionCreatePage = () => {
   const handleConfirmRemoveImportItem = () => {
     if (!pendingRemoveItem) return;
 
-    removeImportItem(pendingRemoveItem.draftKey);
+    removeImportItem(
+      pendingRemoveItem.importItemKey ?? pendingRemoveItem.draftKey,
+    );
     setPendingRemoveItem(null);
   };
 
