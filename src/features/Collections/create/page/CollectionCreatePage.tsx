@@ -33,6 +33,7 @@ import CollectionCreatePublishPanel from "../components/CollectionCreatePublishP
 import CollectionCreateSourcePanel from "../components/CollectionCreateSourcePanel";
 import CollectionCreateStepNav from "../components/CollectionCreateStepNav";
 import CollectionPlaylistIssueDrawer from "../components/CollectionPlaylistIssueDrawer";
+import CollectionDuplicateDialog from "../components/CollectionDuplicateDialog";
 import CollectionItemLimitDialog from "../components/CollectionItemLimitDialog";
 import { useCollectionCreateDraft } from "../hooks/useCollectionCreateDraft";
 import { useCollectionCreateSubmit } from "../hooks/useCollectionCreateSubmit";
@@ -809,6 +810,13 @@ const CollectionCreatePage = () => {
           skippedCount={playlistIssueTotal}
         />
 
+        <CollectionDuplicateDialog
+          open={duplicateDialogOpen}
+          onClose={() => setDuplicateDialogOpen(false)}
+          removedDuplicateCount={removedDuplicateCount}
+          removedDuplicateGroups={removedDuplicateGroups}
+        />
+
         <Dialog
           open={clearPlaylistDialogOpen}
           onClose={() => setClearPlaylistDialogOpen(false)}
@@ -871,85 +879,6 @@ const CollectionCreatePage = () => {
               {t("source.clearPlaylistDialogConfirm")}
             </Button>
           </DialogActions>
-        </Dialog>
-        <Dialog
-          open={duplicateDialogOpen}
-          onClose={() => setDuplicateDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              border: "1px solid rgba(148, 163, 184, 0.22)",
-              background:
-                "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
-              color: "var(--mc-text)",
-            },
-          }}
-        >
-          <DialogTitle sx={{ pb: 1 }}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-base font-semibold">
-                  已自動移除的重複歌曲
-                </div>
-                <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                  共自動移除 {removedDuplicateCount}{" "}
-                  首重複項目，建立時不會再被重複擋下
-                </div>
-              </div>
-
-              <IconButton
-                size="small"
-                onClick={() => setDuplicateDialogOpen(false)}
-                aria-label="關閉重複歌曲明細"
-                sx={{ color: "var(--mc-text-muted)" }}
-              >
-                <CloseRounded fontSize="small" />
-              </IconButton>
-            </div>
-          </DialogTitle>
-
-          <DialogContent>
-            <div className="space-y-3">
-              {removedDuplicateGroups.map((group) => (
-                <div
-                  key={group.key}
-                  className="rounded-xl border border-emerald-400/25 bg-emerald-950/20 px-3 py-3"
-                >
-                  <div className="text-sm font-semibold text-[var(--mc-text)]">
-                    {group.title}
-                  </div>
-
-                  <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                    {group.uploader || "未知上傳者"}
-                  </div>
-
-                  <div className="mt-2 text-xs text-emerald-100">
-                    原清單共出現 {group.totalCount} 次，已保留第{" "}
-                    {group.keptIndex + 1} 首，另外移除 {group.removedCount} 首
-                  </div>
-
-                  <div className="mt-1 text-[11px] text-emerald-200">
-                    已移除位置：第{" "}
-                    {group.removedIndexes.map((index) => index + 1).join("、")}{" "}
-                    首
-                  </div>
-
-                  {group.url && (
-                    <a
-                      href={group.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 block break-all text-[11px] text-cyan-300 underline"
-                    >
-                      {group.url}
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </DialogContent>
         </Dialog>
 
         <CollectionItemLimitDialog

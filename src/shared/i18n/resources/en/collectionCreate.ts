@@ -292,6 +292,12 @@ const collectionCreate = {
     duplicateTitle: "Automatically removed duplicate songs",
     duplicateDescription:
       "{{count}} duplicate items were automatically removed and will not block creation.",
+    closeDuplicateDialog: "Close duplicate song details",
+    duplicateUnknownUploader: "Unknown uploader",
+    duplicateOccurrenceSummary:
+      "This item appeared {{totalCount}} times. Kept item #{{keptIndex}} and removed {{removedCount}} duplicate items.",
+    duplicateRemovedPositions: "Removed positions: #{{positions}}",
+    duplicateEmpty: "No automatically removed duplicate songs.",
     issueTitle: "Skipped item reasons",
     issueDescription: "{{count}} items could not be imported.",
   },

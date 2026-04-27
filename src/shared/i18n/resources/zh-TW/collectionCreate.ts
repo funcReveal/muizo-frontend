@@ -276,6 +276,12 @@ const collectionCreate = {
     duplicateTitle: "已自動移除的重複歌曲",
     duplicateDescription:
       "共自動移除 {{count}} 個重複項目，建立時不會再被重複擋下。",
+    closeDuplicateDialog: "關閉重複歌曲明細",
+    duplicateUnknownUploader: "未知上傳者",
+    duplicateOccurrenceSummary:
+      "原清單共出現 {{totalCount}} 次，已保留第 {{keptIndex}} 首，另外移除 {{removedCount}} 首",
+    duplicateRemovedPositions: "已移除位置：第 {{positions}} 首",
+    duplicateEmpty: "目前沒有被自動移除的重複歌曲。",
     issueTitle: "未成功匯入原因",
     issueDescription: "共 {{count}} 個項目未能匯入收藏庫。",
   },
