@@ -30,6 +30,10 @@ import { useCollectionCreateDraft } from "../hooks/useCollectionCreateDraft";
 import { useCollectionCreateSubmit } from "../hooks/useCollectionCreateSubmit";
 import { useCollectionCreateImportSources } from "../hooks/useCollectionCreateImportSources";
 import { useEditableCollectionTitle } from "../hooks/useEditableCollectionTitle";
+import {
+  useCollectionCreateReadiness,
+  type CollectionCreateStep,
+} from "../hooks/useCollectionCreateReadiness";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -37,11 +41,10 @@ const API_URL =
 
 const LONG_DURATION_THRESHOLD_SEC = 600;
 
-type CreateStep = "source" | "review" | "publish";
-
 const CollectionCreatePage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation("collectionCreate");
+
   const {
     authToken,
     authUser,
@@ -73,15 +76,17 @@ const CollectionCreatePage = () => {
   const { collections, collectionScope, fetchCollections } =
     useCollectionContent();
 
-  const [createStep, setCreateStep] = useState<CreateStep>("source");
+  const [createStep, setCreateStep] = useState<CollectionCreateStep>("source");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("public");
   const [playlistSource, setPlaylistSource] = useState<"url" | "youtube">(
     "url",
   );
+
   const youtubeFetchedRef = useRef(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const lastAutoImportUrlRef = useRef("");
+
   const [selectedYoutubePlaylistId, setSelectedYoutubePlaylistId] =
     useState("");
   const [isImportingYoutubePlaylist, setIsImportingYoutubePlaylist] =
@@ -100,26 +105,6 @@ const CollectionCreatePage = () => {
 
   const ownerId = authUser?.id ?? null;
   const isAdmin = isAdminRole(authUser?.role);
-
-  const privateCollectionsCount = collections.filter(
-    (item) => item.visibility !== "public",
-  ).length;
-
-  const remainingCollectionSlots = Math.max(
-    0,
-    MAX_COLLECTIONS_PER_USER - collections.length,
-  );
-
-  const remainingPrivateCollectionSlots = Math.max(
-    0,
-    MAX_PRIVATE_COLLECTIONS_PER_USER - privateCollectionsCount,
-  );
-
-  const reachedCollectionLimit =
-    !isAdmin && collections.length >= MAX_COLLECTIONS_PER_USER;
-
-  const reachedPrivateCollectionLimit =
-    !isAdmin && privateCollectionsCount >= MAX_PRIVATE_COLLECTIONS_PER_USER;
 
   const collectionItemLimit = resolveCollectionItemLimit({
     role: authUser?.role,
@@ -179,34 +164,6 @@ const CollectionCreatePage = () => {
     longDurationThresholdSec: LONG_DURATION_THRESHOLD_SEC,
   });
 
-  const {
-    createError,
-    isCreating,
-    createStageLabel,
-    createProgress,
-    handleCreateCollection,
-  } = useCollectionCreateSubmit({
-    apiUrl: API_URL,
-    authToken,
-    ownerId,
-    refreshAuthToken,
-    collectionTitle,
-    collectionDescription,
-    visibility,
-    draftPlaylistItems,
-    reachedCollectionLimit,
-    reachedPrivateCollectionLimit,
-    maxCollectionsPerUser: MAX_COLLECTIONS_PER_USER,
-    maxPrivateCollectionsPerUser: MAX_PRIVATE_COLLECTIONS_PER_USER,
-    isDraftOverflow,
-    draftOverflowCount,
-    playlistSource,
-    onDraftOverflow: () => setLimitDialogOpen(true),
-    onCreated: (collectionId) => {
-      navigate(`/collections/${collectionId}/edit`, { replace: true });
-    },
-  });
-
   const trimmedPlaylistUrl = playlistUrl.trim();
 
   const playlistUrlLooksValid = useMemo(() => {
@@ -239,78 +196,87 @@ const CollectionCreatePage = () => {
       ? t("source.playlistLockedHint")
       : "";
 
-  useEffect(() => {
-    handleResetPlaylist();
-
-    return () => {
-      handleResetPlaylist();
-    };
-  }, [handleResetPlaylist]);
-
-  useEffect(() => {
-    if (!authToken || !authUser?.id) return;
-    if (collectionScope === "owner") return;
-    void fetchCollections("owner");
-  }, [authToken, authUser?.id, collectionScope, fetchCollections]);
-
-  useEffect(() => {
-    if (!reachedPrivateCollectionLimit) return;
-    setVisibility((current) => (current === "private" ? "public" : current));
-  }, [reachedPrivateCollectionLimit]);
-
-  useEffect(() => {
-    if (!isTitleEditing) return;
-
-    window.requestAnimationFrame(() => {
-      const input = titleInputRef.current;
-      if (!input) return;
-
-      input.focus();
-      const end = input.value.length;
-      input.setSelectionRange(end, end);
-    });
-  }, [isTitleEditing]);
-
-  useEffect(() => {
-    if (playlistSource !== "url") return;
-    if (!playlistUrlLooksValid) return;
-    if (playlistLoading) return;
-    if (trimmedPlaylistUrl === lastAutoImportUrlRef.current) return;
-
-    const timer = window.setTimeout(() => {
-      lastAutoImportUrlRef.current = trimmedPlaylistUrl;
-
-      void handleFetchPlaylist({ url: trimmedPlaylistUrl }).catch(() => {
-        // Errors are surfaced through playlistError in room state.
-      });
-    }, 450);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    handleFetchPlaylist,
-    playlistLoading,
-    playlistSource,
-    playlistUrlLooksValid,
-    trimmedPlaylistUrl,
-  ]);
-
   const effectiveCollectionTitle = (
     collectionTitle ||
     lastFetchedPlaylistTitle ||
     ""
   ).trim();
 
+  const hasImportedItems = draftPlaylistItems.length > 0;
+
+  const {
+    privateCollectionsCount,
+    remainingCollectionSlots,
+    remainingPrivateCollectionSlots,
+    reachedCollectionLimit,
+    reachedPrivateCollectionLimit,
+    canGoReview,
+    canGoPublish,
+    canGoNext,
+  } = useCollectionCreateReadiness({
+    collections,
+    isAdmin,
+    createStep,
+    hasImportedItems,
+    playlistLoading,
+    isImportingYoutubePlaylist,
+    isDraftOverflow,
+    effectiveCollectionTitle,
+  });
+
+  const effectiveVisibility =
+    reachedPrivateCollectionLimit && visibility === "private"
+      ? "public"
+      : visibility;
+
+  const {
+    createError,
+    isCreating,
+    createStageLabel,
+    createProgress,
+    handleCreateCollection,
+  } = useCollectionCreateSubmit({
+    apiUrl: API_URL,
+    authToken,
+    ownerId,
+    refreshAuthToken,
+    collectionTitle,
+    collectionDescription,
+    visibility: effectiveVisibility,
+    draftPlaylistItems,
+    reachedCollectionLimit,
+    reachedPrivateCollectionLimit,
+    maxCollectionsPerUser: MAX_COLLECTIONS_PER_USER,
+    maxPrivateCollectionsPerUser: MAX_PRIVATE_COLLECTIONS_PER_USER,
+    isDraftOverflow,
+    draftOverflowCount,
+    playlistSource,
+    onDraftOverflow: () => setLimitDialogOpen(true),
+    onCreated: (collectionId) => {
+      navigate(`/collections/${collectionId}/edit`, { replace: true });
+    },
+  });
+
+  const canCreateCollection =
+    canGoPublish &&
+    !isCreating &&
+    !authLoading &&
+    Boolean(authToken) &&
+    !reachedCollectionLimit &&
+    !isDraftOverflow;
+
   const collectionPreview = useMemo(() => {
     if (!hasDraftPlaylistItems) return null;
 
     return {
-      title: effectiveCollectionTitle || "未命名收藏",
+      title: effectiveCollectionTitle || t("review.untitledCollection"),
       count: draftPlaylistItems.length,
     };
   }, [
+    draftPlaylistItems.length,
     effectiveCollectionTitle,
     hasDraftPlaylistItems,
-    draftPlaylistItems.length,
+    t,
   ]);
 
   const importProgressPercent = useMemo(() => {
@@ -358,6 +324,56 @@ const CollectionCreatePage = () => {
     importSources.length > 0 ? totalSkippedItemCount : activePlaylistIssueTotal;
 
   useEffect(() => {
+    handleResetPlaylist();
+
+    return () => {
+      handleResetPlaylist();
+    };
+  }, [handleResetPlaylist]);
+
+  useEffect(() => {
+    if (!authToken || !authUser?.id) return;
+    if (collectionScope === "owner") return;
+    void fetchCollections("owner");
+  }, [authToken, authUser?.id, collectionScope, fetchCollections]);
+
+  useEffect(() => {
+    if (!isTitleEditing) return;
+
+    window.requestAnimationFrame(() => {
+      const input = titleInputRef.current;
+      if (!input) return;
+
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    });
+  }, [isTitleEditing]);
+
+  useEffect(() => {
+    if (playlistSource !== "url") return;
+    if (!playlistUrlLooksValid) return;
+    if (playlistLoading) return;
+    if (trimmedPlaylistUrl === lastAutoImportUrlRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      lastAutoImportUrlRef.current = trimmedPlaylistUrl;
+
+      void handleFetchPlaylist({ url: trimmedPlaylistUrl }).catch(() => {
+        // Errors are surfaced through playlistError in room state.
+      });
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    handleFetchPlaylist,
+    playlistLoading,
+    playlistSource,
+    playlistUrlLooksValid,
+    trimmedPlaylistUrl,
+  ]);
+
+  useEffect(() => {
     if (playlistSource !== "youtube") return;
     if (!authUser) return;
     if (youtubeFetchedRef.current) return;
@@ -365,27 +381,6 @@ const CollectionCreatePage = () => {
     youtubeFetchedRef.current = true;
     void fetchYoutubePlaylists();
   }, [playlistSource, authUser, fetchYoutubePlaylists]);
-
-  const hasImportedItems = draftPlaylistItems.length > 0;
-
-  const canGoReview =
-    hasImportedItems && !playlistLoading && !isImportingYoutubePlaylist;
-
-  const canGoPublish =
-    canGoReview &&
-    !isDraftOverflow &&
-    !reachedCollectionLimit &&
-    Boolean(effectiveCollectionTitle);
-
-  const canCreateCollection =
-    canGoPublish &&
-    !isCreating &&
-    !authLoading &&
-    Boolean(authToken) &&
-    !reachedCollectionLimit &&
-    !isDraftOverflow;
-
-  const canGoNext = createStep === "source" ? canGoReview : canGoPublish;
 
   const handleGoNextStep = () => {
     if (createStep === "source") {
@@ -489,12 +484,11 @@ const CollectionCreatePage = () => {
     });
 
     resetPlaylistSelection();
-
     initializeCollectionTitleIfEmpty(sourceTitle);
   }, [
     addImportSource,
-    initializeCollectionTitleIfEmpty,
     hasResolvedPlaylist,
+    initializeCollectionTitleIfEmpty,
     lastFetchedPlaylistId,
     lastFetchedPlaylistTitle,
     playlistItems,
@@ -713,7 +707,7 @@ const CollectionCreatePage = () => {
                     }}
                     description={collectionDescription}
                     onDescriptionChange={setCollectionDescription}
-                    visibility={visibility}
+                    visibility={effectiveVisibility}
                     onVisibilityChange={handleVisibilityChange}
                     reachedPrivateCollectionLimit={
                       reachedPrivateCollectionLimit
@@ -755,7 +749,7 @@ const CollectionCreatePage = () => {
                 reachedCollectionLimit={reachedCollectionLimit}
                 reachedPrivateCollectionLimit={reachedPrivateCollectionLimit}
                 isAdmin={isAdmin}
-                visibility={visibility}
+                visibility={effectiveVisibility}
                 createError={createError}
               />
             </div>
