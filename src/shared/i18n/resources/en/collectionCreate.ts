@@ -4,6 +4,7 @@ const collectionCreate = {
     description:
       "Import a YouTube playlist, review the playable items, then publish it as a collection.",
     loginRequired: "Please sign in with Google before creating a collection.",
+    backToCollections: "Back to collections",
   },
 
   steps: {
@@ -19,6 +20,20 @@ const collectionCreate = {
       label: "Publish",
       description: "Finalize settings",
     },
+  },
+
+  importProgress: {
+    processed: "Processed {{received}} / {{total}} songs",
+    youtubeFallback: "Preparing YouTube playlist items...",
+    urlFallback: "Loading playlist items...",
+  },
+
+  creatingOverlay: {
+    title: "Creating collection",
+    description:
+      "This will create the collection and write all songs in one flow. If it fails, no incomplete collection will be left behind.",
+    fallbackStage: "Preparing",
+    pendingCount: "0/0",
   },
 
   source: {
@@ -210,6 +225,8 @@ const collectionCreate = {
       publicDescription: "Other players can browse and use this collection.",
       privateDescription: "Only you can view and use this collection.",
       privateLimit: "You can create up to {{count}} private collections.",
+      privateLimitToast:
+        "You can create up to {{count}} private collections. Please make this collection public or clean up existing private collections.",
     },
 
     checklist: {

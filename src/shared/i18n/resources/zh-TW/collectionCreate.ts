@@ -4,6 +4,7 @@ const collectionCreate = {
     description:
       "匯入 YouTube 播放清單、檢查可用題目，最後發布成可開房使用的收藏庫。",
     loginRequired: "請先使用 Google 登入後再建立收藏庫。",
+    backToCollections: "返回收藏列表",
   },
 
   steps: {
@@ -19,6 +20,20 @@ const collectionCreate = {
       label: "發布",
       description: "完成建立設定",
     },
+  },
+
+  importProgress: {
+    processed: "目前已處理 {{received}} / {{total}} 首",
+    youtubeFallback: "正在整理 YouTube 播放清單內容...",
+    urlFallback: "正在載入播放清單內容...",
+  },
+
+  creatingOverlay: {
+    title: "正在建立收藏庫",
+    description:
+      "這一步會一次建立收藏庫並寫入歌曲資料，若中途失敗不會留下不完整的收藏庫。",
+    fallbackStage: "準備中",
+    pendingCount: "0/0",
   },
 
   source: {
@@ -199,6 +214,8 @@ const collectionCreate = {
       publicDescription: "其他玩家可以瀏覽並使用這份收藏庫。",
       privateDescription: "只有你可以查看與使用這份收藏庫。",
       privateLimit: "私人收藏最多只能建立 {{count}} 個。",
+      privateLimitToast:
+        "私人收藏最多只能建立 {{count}} 個，請改為公開收藏或先整理現有私人收藏。",
     },
 
     checklist: {

@@ -333,17 +333,21 @@ const CollectionCreatePage = () => {
     if (!playlistLoading) return null;
 
     if (playlistProgress.total > 0) {
-      return `目前已處理 ${playlistProgress.received} / ${playlistProgress.total} 首`;
+      return t("importProgress.processed", {
+        received: playlistProgress.received,
+        total: playlistProgress.total,
+      });
     }
 
     return playlistSource === "youtube"
-      ? "正在整理 YouTube 播放清單內容..."
-      : "正在載入播放清單內容...";
+      ? t("importProgress.youtubeFallback")
+      : t("importProgress.urlFallback");
   }, [
     playlistLoading,
     playlistProgress.received,
     playlistProgress.total,
     playlistSource,
+    t,
   ]);
 
   const createProgressPercent = useMemo(() => {
@@ -424,7 +428,7 @@ const CollectionCreatePage = () => {
 
   const handleImportSelectedYoutubePlaylist = async (playlistId: string) => {
     if (!playlistId) {
-      setYoutubeActionError("請先選擇 YouTube 播放清單");
+      setYoutubeActionError(t("source.selectPlaylistFirst"));
       return;
     }
 
@@ -434,7 +438,7 @@ const CollectionCreatePage = () => {
     try {
       await importYoutubePlaylist(playlistId);
     } catch {
-      setYoutubeActionError("匯入失敗，請稍後再試");
+      setYoutubeActionError(t("source.importFailed"));
     } finally {
       setIsImportingYoutubePlaylist(false);
     }
@@ -536,7 +540,9 @@ const CollectionCreatePage = () => {
   const handleVisibilityChange = (nextVisibility: "private" | "public") => {
     if (nextVisibility === "private" && reachedPrivateCollectionLimit) {
       appToast.warning(
-        `私人收藏最多只能建立 ${MAX_PRIVATE_COLLECTIONS_PER_USER} 個，請改為公開收藏或先整理現有私人收藏。`,
+        t("publish.visibility.privateLimitToast", {
+          count: MAX_PRIVATE_COLLECTIONS_PER_USER,
+        }),
         { id: "private-collection-limit" },
       );
       return;
@@ -575,10 +581,10 @@ const CollectionCreatePage = () => {
 
                 <div className="min-w-0">
                   <div className="text-lg font-semibold text-[var(--mc-text)]">
-                    {createStageLabel ?? "正在建立收藏庫"}
+                    {createStageLabel ?? t("creatingOverlay.title")}
                   </div>
                   <div className="mt-1 text-sm text-[var(--mc-text-muted)]">
-                    這一步會一次建立收藏庫並寫入歌曲資料，若中途失敗不會留下不完整的收藏庫。
+                    {t("creatingOverlay.description")}
                   </div>
                 </div>
               </div>
@@ -592,11 +598,13 @@ const CollectionCreatePage = () => {
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-xs text-[var(--mc-text-muted)]">
-                  <span>{createStageLabel ?? "準備中"}</span>
+                  <span>
+                    {createStageLabel ?? t("creatingOverlay.fallbackStage")}
+                  </span>
                   <span>
                     {createProgress
                       ? `${createProgress.completed}/${createProgress.total}`
-                      : "0/0"}
+                      : t("creatingOverlay.pendingCount")}
                   </span>
                 </div>
               </div>
@@ -610,7 +618,7 @@ const CollectionCreatePage = () => {
               <button
                 type="button"
                 onClick={() => navigate("/collections")}
-                aria-label="返回收藏列表"
+                aria-label={t("page.backToCollections")}
                 className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--mc-surface-strong)]/40 text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/60"
               >
                 <ArrowBackIosNew fontSize="small" />

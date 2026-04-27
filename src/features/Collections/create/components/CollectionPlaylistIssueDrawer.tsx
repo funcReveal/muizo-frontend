@@ -58,7 +58,8 @@ export default function CollectionPlaylistIssueDrawer({
   skippedCount,
 }: Props) {
   const { t } = useTranslation("collectionCreate");
-  const [activeTab, setActiveTab] = useState<PlaylistIssueTab>("duplicate");
+  const [selectedTabOverride, setSelectedTabOverride] =
+    useState<PlaylistIssueTab | null>(null);
 
   const groups = useMemo<IssueGroup[]>(() => {
     const grouped = skippedItems.reduce<
@@ -118,16 +119,27 @@ export default function CollectionPlaylistIssueDrawer({
     ];
   }, [skippedItems, t]);
 
+  const defaultActiveTab = useMemo<PlaylistIssueTab>(() => {
+    return groups.find((group) => group.items.length > 0)?.key ?? "duplicate";
+  }, [groups]);
+
+  const activeTab = selectedTabOverride ?? defaultActiveTab;
+
   const activeGroup =
     groups.find((group) => group.key === activeTab) ?? groups[0];
 
   const unresolvedDetailCount = Math.max(0, skippedCount - skippedItems.length);
 
+  const handleClose = () => {
+    setSelectedTabOverride(null);
+    onClose();
+  };
+
   return (
     <Drawer
       anchor="right"
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       PaperProps={{
         sx: {
           width: {
@@ -158,7 +170,7 @@ export default function CollectionPlaylistIssueDrawer({
 
             <IconButton
               size="small"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label={t("issueDrawer.close")}
               sx={{ color: "var(--mc-text-muted)" }}
             >
@@ -184,7 +196,7 @@ export default function CollectionPlaylistIssueDrawer({
           <Tabs
             value={activeTab}
             onChange={(_, nextValue: PlaylistIssueTab) => {
-              setActiveTab(nextValue);
+              setSelectedTabOverride(nextValue);
             }}
             variant="scrollable"
             scrollButtons="auto"
