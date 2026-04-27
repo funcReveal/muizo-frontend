@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "motion/react";
 
 import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
 import CloseRounded from "@mui/icons-material/CloseRounded";
@@ -15,13 +14,10 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  Tab,
-  Tabs,
 } from "@mui/material";
 import { useAuth } from "../../../../shared/auth/AuthContext";
 import { isAdminRole } from "../../../../shared/auth/roles";
 import { isGoogleReauthRequired } from "../../../../shared/auth/providerAuth";
-import { fadeInUp } from "../../../../shared/motion/motionPresets";
 import { appToast } from "../../../../shared/ui/toastApi";
 import { usePlaylistSource } from "@features/PlaylistSource";
 import { useCollectionContent } from "@features/CollectionContent";
@@ -36,6 +32,7 @@ import CollectionCreateReviewPanel from "../components/CollectionCreateReviewPan
 import CollectionCreatePublishPanel from "../components/CollectionCreatePublishPanel";
 import CollectionCreateSourcePanel from "../components/CollectionCreateSourcePanel";
 import CollectionCreateStepNav from "../components/CollectionCreateStepNav";
+import CollectionPlaylistIssueDrawer from "../components/CollectionPlaylistIssueDrawer";
 import CollectionItemLimitDialog from "../components/CollectionItemLimitDialog";
 import { useCollectionCreateDraft } from "../hooks/useCollectionCreateDraft";
 import { useCollectionCreateSubmit } from "../hooks/useCollectionCreateSubmit";
@@ -48,13 +45,6 @@ const API_URL =
 const LONG_DURATION_THRESHOLD_SEC = 600;
 
 type CreateStep = "source" | "review" | "publish";
-
-type PlaylistIssueTab =
-  | "duplicate"
-  | "removed"
-  | "privateRestricted"
-  | "embedBlocked"
-  | "unavailable";
 
 const CollectionCreatePage = () => {
   const navigate = useNavigate();
@@ -110,9 +100,7 @@ const CollectionCreatePage = () => {
     null,
   );
   const [isPlaylistUrlFocused, setIsPlaylistUrlFocused] = useState(false);
-  const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] = useState(false);
-  const [playlistIssueTab, setPlaylistIssueTab] =
-    useState<PlaylistIssueTab>("removed");
+  const [playlistIssueDrawerOpen, setPlaylistIssueDrawerOpen] = useState(false);
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [clearPlaylistDialogOpen, setClearPlaylistDialogOpen] = useState(false);
 
@@ -152,6 +140,7 @@ const CollectionCreatePage = () => {
     importSources,
     importedPlaylistItems,
     removedImportItems,
+    skippedImportItems,
     totalImportedItemCount,
     totalSkippedItemCount,
     removedImportItemCount,
@@ -366,154 +355,10 @@ const CollectionCreatePage = () => {
     );
   }, [createProgress]);
 
-  const playlistIssueSummary = useMemo(() => {
-    if (playlistPreviewMeta?.skippedItems?.length) {
-      const removed: string[] = [];
-      const duplicate: string[] = [];
-      const privateRestricted: string[] = [];
-      const embedBlocked: string[] = [];
-      const unavailable: string[] = [];
-      const unknown: string[] = [];
-
-      playlistPreviewMeta.skippedItems.forEach((item) => {
-        const label = item.title?.trim() || item.videoId || "未知項目";
-
-        if (item.status === "duplicate") {
-          duplicate.push(label);
-          return;
-        }
-
-        if (item.status === "removed") {
-          removed.push(label);
-          return;
-        }
-
-        if (item.status === "private") {
-          privateRestricted.push(label);
-          return;
-        }
-
-        if (item.status === "blocked") {
-          embedBlocked.push(label);
-          return;
-        }
-
-        if (item.status === "unavailable") {
-          unavailable.push(label);
-          return;
-        }
-
-        unknown.push(label);
-      });
-
-      return {
-        removed,
-        duplicate,
-        privateRestricted,
-        embedBlocked,
-        unavailable,
-        unknown,
-        unknownCount: 0,
-      };
-    }
-
-    return {
-      removed: [] as string[],
-      duplicate: [] as string[],
-      privateRestricted: [] as string[],
-      embedBlocked: [] as string[],
-      unavailable: [] as string[],
-      unknown: [] as string[],
-      unknownCount: playlistPreviewMeta?.skippedCount ?? 0,
-    };
-  }, [playlistPreviewMeta]);
-
-  const activePlaylistIssueTotal =
-    playlistIssueSummary.removed.length +
-    playlistIssueSummary.duplicate.length +
-    playlistIssueSummary.privateRestricted.length +
-    playlistIssueSummary.embedBlocked.length +
-    playlistIssueSummary.unavailable.length +
-    playlistIssueSummary.unknown.length +
-    playlistIssueSummary.unknownCount;
+  const activePlaylistIssueTotal = playlistPreviewMeta?.skippedCount ?? 0;
 
   const playlistIssueTotal =
     importSources.length > 0 ? totalSkippedItemCount : activePlaylistIssueTotal;
-
-  const playlistIssueGroups = useMemo(
-    () => [
-      {
-        key: "duplicate" as const,
-        label: "重複略過",
-        count: playlistIssueSummary.duplicate.length,
-        items: playlistIssueSummary.duplicate,
-        className: "border-emerald-300/30 bg-emerald-300/10 text-emerald-100",
-      },
-      {
-        key: "removed" as const,
-        label: "已移除",
-        count: playlistIssueSummary.removed.length,
-        items: playlistIssueSummary.removed,
-        className: "border-amber-300/30 bg-amber-300/10 text-amber-100",
-      },
-      {
-        key: "privateRestricted" as const,
-        label: "隱私限制",
-        count: playlistIssueSummary.privateRestricted.length,
-        items: playlistIssueSummary.privateRestricted,
-        className: "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100",
-      },
-      {
-        key: "embedBlocked" as const,
-        label: "嵌入限制",
-        count: playlistIssueSummary.embedBlocked.length,
-        items: playlistIssueSummary.embedBlocked,
-        className: "border-rose-300/30 bg-rose-300/10 text-rose-100",
-      },
-      {
-        key: "unavailable" as const,
-        label: "其他不可用",
-        count:
-          playlistIssueSummary.unavailable.length +
-          playlistIssueSummary.unknown.length +
-          playlistIssueSummary.unknownCount,
-        items: [
-          ...playlistIssueSummary.unavailable,
-          ...playlistIssueSummary.unknown,
-        ],
-        fallback:
-          playlistIssueSummary.unknownCount > 0
-            ? `共 ${playlistIssueSummary.unknownCount} 首，後端未提供明細`
-            : "無",
-        className: "border-red-300/30 bg-red-300/10 text-red-100",
-      },
-    ],
-    [
-      playlistIssueSummary.duplicate,
-      playlistIssueSummary.removed,
-      playlistIssueSummary.privateRestricted,
-      playlistIssueSummary.embedBlocked,
-      playlistIssueSummary.unavailable,
-      playlistIssueSummary.unknown,
-      playlistIssueSummary.unknownCount,
-    ],
-  );
-
-  const activePlaylistIssueGroup =
-    playlistIssueGroups.find((group) => group.key === playlistIssueTab) ??
-    playlistIssueGroups[0];
-
-  useEffect(() => {
-    if (!playlistIssueDialogOpen) return;
-
-    const firstGroupWithItems = playlistIssueGroups.find(
-      (group) => group.count > 0,
-    );
-
-    if (firstGroupWithItems) {
-      setPlaylistIssueTab(firstGroupWithItems.key);
-    }
-  }, [playlistIssueDialogOpen, playlistIssueGroups]);
 
   useEffect(() => {
     if (playlistSource !== "youtube") return;
@@ -662,6 +507,7 @@ const CollectionCreatePage = () => {
       url: playlistSource === "url" ? trimmedPlaylistUrl : undefined,
       expectedCount: playlistPreviewMeta?.expectedCount ?? playlistItems.length,
       skippedCount: playlistPreviewMeta?.skippedCount ?? 0,
+      skippedItems: playlistPreviewMeta?.skippedItems ?? [],
       items: playlistItems,
     });
 
@@ -875,17 +721,7 @@ const CollectionCreatePage = () => {
                     onOpenLimitDialog={() => setLimitDialogOpen(true)}
                     playlistIssueTotal={playlistIssueTotal}
                     onOpenPlaylistIssueDialog={() => {
-                      if (importSources.length > 0) {
-                        appToast.info(
-                          "多來源的略過明細會在下一階段整理，目前先顯示總數。",
-                          {
-                            id: "multi-source-skipped-detail-pending",
-                          },
-                        );
-                        return;
-                      }
-
-                      setPlaylistIssueDialogOpen(true);
+                      setPlaylistIssueDrawerOpen(true);
                     }}
                   />
                 )}
@@ -957,6 +793,13 @@ const CollectionCreatePage = () => {
             />
           </div>
         </div>
+
+        <CollectionPlaylistIssueDrawer
+          open={playlistIssueDrawerOpen}
+          onClose={() => setPlaylistIssueDrawerOpen(false)}
+          skippedItems={skippedImportItems}
+          skippedCount={playlistIssueTotal}
+        />
 
         <Dialog
           open={clearPlaylistDialogOpen}
@@ -1097,138 +940,6 @@ const CollectionCreatePage = () => {
                   )}
                 </div>
               ))}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog
-          open={playlistIssueDialogOpen}
-          onClose={() => setPlaylistIssueDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-          sx={{
-            "& .MuiDialog-container": {
-              alignItems: "flex-start",
-            },
-          }}
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              border: "1px solid rgba(148, 163, 184, 0.22)",
-              background:
-                "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
-              color: "var(--mc-text)",
-              mt: { xs: 12, sm: 14 },
-            },
-          }}
-        >
-          <DialogTitle sx={{ pb: 1 }}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-base font-semibold">未成功匯入原因</div>
-                <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                  共 {playlistIssueTotal} 首未能匯入收藏庫
-                </div>
-              </div>
-
-              <IconButton
-                size="small"
-                onClick={() => setPlaylistIssueDialogOpen(false)}
-                aria-label="關閉未成功匯入原因"
-                sx={{ color: "var(--mc-text-muted)" }}
-              >
-                <CloseRounded fontSize="small" />
-              </IconButton>
-            </div>
-          </DialogTitle>
-
-          <DialogContent sx={{ pt: 1 }}>
-            <Tabs
-              value={playlistIssueTab}
-              onChange={(_, value: PlaylistIssueTab) =>
-                setPlaylistIssueTab(value)
-              }
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                minHeight: 36,
-                borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
-                "& .MuiTabs-indicator": {
-                  height: 2,
-                  borderRadius: 999,
-                  backgroundColor: "var(--mc-accent)",
-                },
-                "& .MuiTab-root": {
-                  minHeight: 36,
-                  px: 1.5,
-                  color: "var(--mc-text-muted)",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textTransform: "none",
-                },
-                "& .Mui-selected": {
-                  color: "var(--mc-text)",
-                },
-              }}
-            >
-              {playlistIssueGroups.map((group) => (
-                <Tab
-                  key={group.key}
-                  value={group.key}
-                  label={`${group.label} ${group.count}`}
-                />
-              ))}
-            </Tabs>
-
-            <div className="min-h-[180px] pb-2 pt-3">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activePlaylistIssueGroup.key}
-                  variants={fadeInUp}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  layout
-                  style={{ originY: 0 }}
-                  transition={{
-                    layout: {
-                      duration: 0.2,
-                      ease: [0.22, 1, 0.36, 1],
-                    },
-                  }}
-                  className={`rounded-2xl border px-4 py-3 ${activePlaylistIssueGroup.className}`}
-                >
-                  <div className="flex items-center justify-between gap-3 text-sm font-semibold">
-                    <span>{activePlaylistIssueGroup.label}</span>
-                    <span>{activePlaylistIssueGroup.count} 首</span>
-                  </div>
-
-                  <div className="mt-3 max-h-64 overflow-y-auto pr-1">
-                    {activePlaylistIssueGroup.items.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {activePlaylistIssueGroup.items.map((item, index) => (
-                          <div
-                            key={`${activePlaylistIssueGroup.key}-${item}-${index}`}
-                            className="flex items-center gap-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2"
-                          >
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8 text-[11px] font-semibold">
-                              {index + 1}
-                            </div>
-
-                            <div className="min-w-0 flex-1 truncate text-xs leading-5">
-                              {item}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-white/8 bg-black/15 px-3 py-3 text-xs opacity-90">
-                        {activePlaylistIssueGroup.fallback ?? "無"}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
             </div>
           </DialogContent>
         </Dialog>

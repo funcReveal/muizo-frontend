@@ -43,6 +43,8 @@ const collectionCreate = {
     playlistSelectLoading: "Loading playlists...",
     playlistOption: "{{title}} ({{count}} items)",
     playlistOptionUnknownCount: "{{title}}",
+    playlistAlreadyImported: "This playlist has already been imported",
+    importedBadge: "Imported",
     playlistLoadingHint: "Loading your playlists...",
     importingYoutube: "Importing YouTube playlist...",
     importFailed: "Import failed. Please try again later.",
@@ -67,8 +69,6 @@ const collectionCreate = {
     sourceTypeYoutubeUrl: "URL",
     sourceTypeYoutubeAccount: "YouTube",
     untitledSource: "Untitled source",
-    playlistAlreadyImported: "This playlist has already been imported",
-    importedBadge: "Imported",
   },
 
   review: {
@@ -84,6 +84,13 @@ const collectionCreate = {
     titlePlaceholder: "Enter collection name",
     editTitleAria: "Edit collection name",
     clearSearch: "Clear search",
+    sourceLabel: "Source",
+    removeItem: "Remove song",
+    restoreItem: "Restore song",
+    removeSource: "Remove source",
+    removeSourceConfirm:
+      'Remove "{{title}}"? All songs from this source will be removed from this collection draft.',
+
     summary: {
       ready: "Ready",
       long: "Long",
@@ -91,6 +98,7 @@ const collectionCreate = {
       skipped: "Skipped",
       removed: "Removed",
     },
+
     alerts: {
       duplicatesRemoved: "Duplicates removed",
       duplicatesRemovedDetail: "{{count}} items · View details",
@@ -103,42 +111,77 @@ const collectionCreate = {
       removedItems: "Manually removed items",
       removedItemsDetail: "{{count}} items · View and restore",
     },
+
     filters: {
       all: "All",
       ready: "Ready",
       long: "Long",
-      issues: "Issues",
       removed: "Removed",
+      issues: "Issues",
     },
-    searchPlaceholder: "Search title or uploader",
-    issuesHint:
-      "Issues are grouped above. Use skipped items, duplicates removed, or item limit exceeded to view details and resolve them.",
-    emptyFilter: "No items match the current filter.",
-    empty: "Import a playlist first. The review result will appear here.",
-    importing: {
-      urlTitle: "Importing playlist",
-      youtubeTitle: "Importing YouTube playlist",
-      fallback: "Preparing import...",
-      hint: "The review list will update automatically after import.",
-    },
-    sourceLabel: "Source",
-    removeItem: "Remove song",
-    restoreItem: "Restore song",
+
     display: {
       list: "List",
       source: "By source",
     },
-    removeSource: "Remove source",
-    removeSourceConfirm:
-      'Remove "{{title}}"? All songs from this source will be removed from this collection draft.',
+
+    sourcePicker: {
+      all: "All sources",
+    },
+
     sourceGroup: {
       selected: "{{count}} selected",
       removed: "{{count}} removed",
       total: "{{count}} total",
       skipped: "{{count}} skipped",
     },
-    sourcePicker: {
-      all: "All sources",
+
+    searchPlaceholder: "Search title or uploader",
+    issuesHint:
+      "Issues are grouped above. Use skipped items, duplicates removed, or item limit exceeded to view details and resolve them.",
+    emptyFilter: "No items match the current filter.",
+    empty: "Import a playlist first. The review result will appear here.",
+
+    importing: {
+      urlTitle: "Importing playlist",
+      youtubeTitle: "Importing YouTube playlist",
+      fallback: "Preparing import...",
+      hint: "The review list will update automatically after import.",
+    },
+  },
+
+  issueDrawer: {
+    title: "Skipped import items",
+    description:
+      "{{count}} items could not be imported and will not be included in this collection.",
+    close: "Close skipped import items",
+    missingDetails:
+      "{{count}} items do not have detailed information because the backend only returned a skipped count.",
+    emptyTab: "No items in this category.",
+    untitledItem: "Untitled item",
+    videoId: "Video ID: {{videoId}}",
+    sourceTypeYoutubeUrl: "Playlist URL",
+    sourceTypeYoutubeAccount: "YouTube playlist",
+    tabs: {
+      duplicate: "Duplicate",
+      removed: "Removed",
+      private: "Private",
+      blocked: "Embed blocked",
+      unavailable: "Unavailable",
+      unknown: "Unknown",
+    },
+    descriptions: {
+      duplicate:
+        "These videos were skipped because they duplicated existing imported items.",
+      removed:
+        "These videos may have been removed by the uploader or can no longer be accessed.",
+      private: "These videos may be private and cannot be read by the system.",
+      blocked:
+        "These videos block embedded playback and may not work as quiz items.",
+      unavailable:
+        "These videos are currently unavailable due to region, license, or status restrictions.",
+      unknown:
+        "The exact reason is unknown. You may need to review the playlist again.",
     },
   },
 

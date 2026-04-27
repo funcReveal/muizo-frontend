@@ -17,8 +17,31 @@ export type CollectionCreateSourcePlaylistItem = {
   sourceId?: string | null;
 };
 
+export type CollectionCreateSkippedItemStatus =
+  | "removed"
+  | "unavailable"
+  | "private"
+  | "blocked"
+  | "duplicate"
+  | "unknown";
+
+export type CollectionCreateSourceSkippedItem = {
+  title?: string | null;
+  videoId?: string | null;
+  reason?: string | null;
+  status?: CollectionCreateSkippedItemStatus;
+};
+
 export type CollectionCreateImportItem = CollectionCreateSourcePlaylistItem & {
   importItemKey: string;
+  sourceImportId: string;
+  sourceTitle: string;
+  sourceType: CollectionCreateImportSourceType;
+  sourceItemIndex: number;
+};
+
+export type CollectionCreateSkippedItem = CollectionCreateSourceSkippedItem & {
+  skippedItemKey: string;
   sourceImportId: string;
   sourceTitle: string;
   sourceType: CollectionCreateImportSourceType;
@@ -37,6 +60,7 @@ export type CollectionCreateImportSource = {
   duplicateCount: number;
   createdAt: number;
   items: CollectionCreateImportItem[];
+  skippedItems: CollectionCreateSkippedItem[];
 };
 
 type AddImportSourceInput = {
@@ -48,6 +72,7 @@ type AddImportSourceInput = {
   skippedCount?: number;
   duplicateCount?: number;
   items: CollectionCreateSourcePlaylistItem[];
+  skippedItems?: CollectionCreateSourceSkippedItem[];
 };
 
 const buildImportSourceId = (
@@ -57,6 +82,9 @@ const buildImportSourceId = (
 
 const buildImportItemKey = (sourceImportId: string, index: number) =>
   `${sourceImportId}:${index}`;
+
+const buildSkippedItemKey = (sourceImportId: string, index: number) =>
+  `${sourceImportId}:skipped:${index}`;
 
 const isItemFromSource = (itemKey: string, sourceImportId: string) =>
   itemKey.startsWith(`${sourceImportId}:`);
@@ -88,7 +116,7 @@ export function useCollectionCreateImportSources() {
       url: input.url,
       expectedCount: input.expectedCount ?? input.items.length,
       itemCount: input.items.length,
-      skippedCount: input.skippedCount ?? 0,
+      skippedCount: input.skippedCount ?? input.skippedItems?.length ?? 0,
       duplicateCount: input.duplicateCount ?? 0,
       createdAt: Date.now(),
       items: input.items.map((item, index) => ({
@@ -98,6 +126,15 @@ export function useCollectionCreateImportSources() {
         sourceTitle: title,
         sourceType: input.type,
         sourceItemIndex: index,
+      })),
+      skippedItems: (input.skippedItems ?? []).map((item, index) => ({
+        ...item,
+        skippedItemKey: buildSkippedItemKey(id, index),
+        sourceImportId: id,
+        sourceTitle: title,
+        sourceType: input.type,
+        sourceItemIndex: index,
+        status: item.status ?? "unknown",
       })),
     };
 
@@ -152,6 +189,11 @@ export function useCollectionCreateImportSources() {
     [importSources],
   );
 
+  const allSkippedItems = useMemo(
+    () => importSources.flatMap((source) => source.skippedItems),
+    [importSources],
+  );
+
   const removedImportItemKeySet = useMemo(
     () => new Set(removedImportItemKeys),
     [removedImportItemKeys],
@@ -192,6 +234,7 @@ export function useCollectionCreateImportSources() {
     importedPlaylistItems,
     removedImportItems,
     removedImportItemKeys,
+    skippedImportItems: allSkippedItems,
     totalImportedItemCount,
     selectedImportedItemCount,
     removedImportItemCount,

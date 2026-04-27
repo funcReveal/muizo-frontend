@@ -40,6 +40,8 @@ const collectionCreate = {
     playlistSelectLoading: "載入播放清單中...",
     playlistOption: "{{title}}（{{count}} 首）",
     playlistOptionUnknownCount: "{{title}}",
+    playlistAlreadyImported: "已匯入過這份清單",
+    importedBadge: "已匯入",
     playlistLoadingHint: "正在載入你的播放清單...",
     importingYoutube: "正在匯入 YouTube 播放清單...",
     importFailed: "匯入失敗，請稍後再試。",
@@ -64,8 +66,6 @@ const collectionCreate = {
     sourceTypeYoutubeUrl: "連結",
     sourceTypeYoutubeAccount: "YouTube",
     untitledSource: "未命名來源",
-    playlistAlreadyImported: "已匯入過這份清單",
-    importedBadge: "已匯入",
   },
 
   review: {
@@ -80,6 +80,13 @@ const collectionCreate = {
     titlePlaceholder: "輸入收藏庫名稱",
     editTitleAria: "編輯收藏庫名稱",
     clearSearch: "清除搜尋",
+    sourceLabel: "來源",
+    removeItem: "移除歌曲",
+    restoreItem: "還原歌曲",
+    removeSource: "移除此來源",
+    removeSourceConfirm:
+      "確定要移除「{{title}}」這個來源嗎？此來源底下的歌曲會一併從建立內容中移除。",
+
     summary: {
       ready: "可用",
       long: "超長",
@@ -87,6 +94,7 @@ const collectionCreate = {
       skipped: "略過",
       removed: "已移除",
     },
+
     alerts: {
       duplicatesRemoved: "已移除重複項目",
       duplicatesRemovedDetail: "{{count}} 個項目 · 查看明細",
@@ -98,42 +106,72 @@ const collectionCreate = {
       removedItems: "已手動移除項目",
       removedItemsDetail: "{{count}} 個項目 · 查看與還原",
     },
+
     filters: {
       all: "全部",
       ready: "可用",
       long: "超長",
-      issues: "問題",
       removed: "已移除",
+      issues: "問題",
     },
-    searchPlaceholder: "搜尋歌曲名稱或上傳者",
-    issuesHint:
-      "問題已整理在上方。請透過未成功匯入、重複項目或超過上限查看與處理明細。",
-    emptyFilter: "目前篩選條件下沒有符合的項目。",
-    empty: "請先匯入播放清單，匯入結果會顯示在這裡。",
-    importing: {
-      urlTitle: "正在匯入播放清單",
-      youtubeTitle: "正在匯入 YouTube 播放清單",
-      fallback: "正在準備匯入...",
-      hint: "匯入完成後，檢查列表會自動更新。",
-    },
-    sourceLabel: "來源",
-    removeItem: "移除歌曲",
-    restoreItem: "還原歌曲",
+
     display: {
       list: "列表",
       source: "依來源",
     },
-    removeSource: "移除此來源",
-    removeSourceConfirm:
-      "確定要移除「{{title}}」這個來源嗎？此來源底下的歌曲會一併從建立內容中移除。",
+
+    sourcePicker: {
+      all: "全部來源",
+    },
+
     sourceGroup: {
       selected: "保留 {{count}} 首",
       removed: "已移除 {{count}} 首",
       total: "共 {{count}} 首",
       skipped: "略過 {{count}} 首",
     },
-    sourcePicker: {
-      all: "全部來源",
+
+    searchPlaceholder: "搜尋歌曲名稱或上傳者",
+    issuesHint:
+      "問題已整理在上方。請透過未成功匯入、重複項目或超過上限查看與處理明細。",
+    emptyFilter: "目前篩選條件下沒有符合的項目。",
+    empty: "請先匯入播放清單，匯入結果會顯示在這裡。",
+
+    importing: {
+      urlTitle: "正在匯入播放清單",
+      youtubeTitle: "正在匯入 YouTube 播放清單",
+      fallback: "正在準備匯入...",
+      hint: "匯入完成後，檢查列表會自動更新。",
+    },
+  },
+
+  issueDrawer: {
+    title: "未成功匯入項目",
+    description:
+      "共有 {{count}} 個項目未成功匯入，這些項目不會被建立到收藏庫中。",
+    close: "關閉未成功匯入項目",
+    missingDetails:
+      "其中 {{count}} 個項目目前沒有詳細資料，可能是後端只回傳了略過數量。",
+    emptyTab: "這個分類目前沒有項目。",
+    untitledItem: "未命名項目",
+    videoId: "影片 ID：{{videoId}}",
+    sourceTypeYoutubeUrl: "播放清單連結",
+    sourceTypeYoutubeAccount: "YouTube 清單",
+    tabs: {
+      duplicate: "重複",
+      removed: "已移除",
+      private: "隱私限制",
+      blocked: "嵌入限制",
+      unavailable: "不可用",
+      unknown: "未知",
+    },
+    descriptions: {
+      duplicate: "這些影片與已匯入項目重複，因此被略過。",
+      removed: "這些影片可能已被上傳者移除或無法再存取。",
+      private: "這些影片可能是私人影片，無法被系統讀取。",
+      blocked: "這些影片限制嵌入播放，可能無法正常作為題目使用。",
+      unavailable: "這些影片目前不可用，可能是地區、授權或狀態限制。",
+      unknown: "這些項目無法判斷具體原因，建議重新檢查播放清單。",
     },
   },
 
