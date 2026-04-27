@@ -12,7 +12,7 @@ interface UseGameRoomPlayerSyncParams {
   effectiveGuessDurationMs: number;
   fallbackDurationSec: number;
   isTimeAttackMode: boolean;
-  shouldLoopRoomSettingsClip: boolean;
+  shouldLoopCurrentClip: boolean;
   clipStartSec: number;
   clipEndSec: number;
   waitingToStart: boolean;
@@ -91,7 +91,7 @@ const useGameRoomPlayerSync = ({
   effectiveGuessDurationMs,
   fallbackDurationSec,
   isTimeAttackMode,
-  shouldLoopRoomSettingsClip,
+  shouldLoopCurrentClip,
   clipStartSec,
   clipEndSec,
   waitingToStart,
@@ -136,7 +136,6 @@ const useGameRoomPlayerSync = ({
   const lastPlayerTimeSecRef = useRef<number | null>(null);
   const lastPlayerTimeAtMsRef = useRef<number>(0);
   const lastTimeRequestReasonRef = useRef("init");
-  const guessLoopSpanRef = useRef<number | null>(null);
   const revealReplayRef = useRef(false);
   const lastRevealStartKeyRef = useRef<string | null>(null);
   // Stays true from when reveal begins until trackSessionKey changes (new question).
@@ -415,7 +414,6 @@ const useGameRoomPlayerSync = ({
   }, [computeServerPositionSec, getClipGuardPositionSec]);
 
   useEffect(() => {
-    guessLoopSpanRef.current = null;
     clearClipEndGuardTimer();
     lastClipReplayAtMsRef.current = 0;
     revealReplayRef.current = false;
@@ -478,11 +476,23 @@ const useGameRoomPlayerSync = ({
     (nowMs = getServerNowMs()) => {
       const measuredAt = lastPlayerTimeAtMsRef.current;
       const measuredTime = lastPlayerTimeSecRef.current;
+
       if (measuredTime === null) return null;
       if (nowMs - measuredAt > 10_000) return null;
-      return Math.min(clipEndSec, measuredTime + (nowMs - measuredAt) / 1000);
+
+      const minPlayableSec = Math.min(clipStartSec, clipReplayStartSec);
+      const maxPlayableSec = Math.max(clipEndSec, clipReplayEndSec);
+      const estimated = measuredTime + (nowMs - measuredAt) / 1000;
+
+      return Math.min(maxPlayableSec, Math.max(minPlayableSec, estimated));
     },
-    [clipEndSec, getServerNowMs],
+    [
+      clipEndSec,
+      clipReplayEndSec,
+      clipReplayStartSec,
+      clipStartSec,
+      getServerNowMs,
+    ],
   );
 
   const isLikelyContinuousPlayback = useCallback(
@@ -808,6 +818,69 @@ const useGameRoomPlayerSync = ({
     [clipReplayStartSec, debugSync, getServerNowMs, startPlayback],
   );
 
+  const computeNextGuessLoop = useCallback(() => {
+    if (phase !== "guess" || !shouldLoopCurrentClip) {
+      return null;
+    }
+
+    const nowMs = getServerNowMs();
+
+    if (nowMs < startedAt) {
+      return null;
+    }
+
+    if (!isTimeAttackMode) {
+      const guessEndsAt = startedAt + effectiveGuessDurationMs;
+      if (nowMs >= guessEndsAt) {
+        return null;
+      }
+    }
+
+    const elapsedSec = Math.max(0, (nowMs - startedAt) / 1000);
+    const firstSpanSec = Math.max(0.01, clipEndSec - clipStartSec);
+    const replaySpanSec = Math.max(0.01, clipReplayEndSec - clipReplayStartSec);
+
+    let remainingToBoundarySec: number;
+
+    if (elapsedSec < firstSpanSec) {
+      remainingToBoundarySec = firstSpanSec - elapsedSec;
+    } else {
+      const replayElapsedSec = elapsedSec - firstSpanSec;
+      const replayOffsetSec = replayElapsedSec % replaySpanSec;
+      remainingToBoundarySec = replaySpanSec - replayOffsetSec;
+    }
+
+    const delayMs = Math.max(
+      MIN_CLIP_END_REPLAY_GUARD_DELAY_MS,
+      Math.round(remainingToBoundarySec * 1000) - CLIP_END_REPLAY_GUARD_LEAD_MS,
+    );
+
+    if (!isTimeAttackMode) {
+      const guessEndsAt = startedAt + effectiveGuessDurationMs;
+      const remainingGuessMs = guessEndsAt - nowMs;
+
+      if (remainingGuessMs <= delayMs + 120) {
+        return null;
+      }
+    }
+
+    return {
+      delayMs,
+      targetSec: clipReplayStartSec,
+    };
+  }, [
+    clipEndSec,
+    clipReplayEndSec,
+    clipReplayStartSec,
+    clipStartSec,
+    effectiveGuessDurationMs,
+    getServerNowMs,
+    isTimeAttackMode,
+    phase,
+    shouldLoopCurrentClip,
+    startedAt,
+  ]);
+
   const scheduleRevealClipEndGuard = useCallback(() => {
     clearClipEndGuardTimer();
 
@@ -942,9 +1015,10 @@ const useGameRoomPlayerSync = ({
 
   const scheduleGuessLoopRestart = useCallback(() => {
     clearGuessLoopRestartTimer();
+
     if (
-      phase !== "guess" ||
-      !shouldLoopRoomSettingsClip ||
+      !videoId ||
+      !audioUnlockedRef.current ||
       waitingToStart ||
       isEnded ||
       !isStartedByServerTime()
@@ -952,43 +1026,19 @@ const useGameRoomPlayerSync = ({
       return;
     }
 
-    const serverNow = getServerNowMs();
-    const clipSpanSec = Math.max(0.25, clipEndSec - clipStartSec);
-
-    const measuredPositionSec =
-      getRecentMeasuredEstimatedPositionSec(serverNow) ??
-      getFreshPlayerTimeSec();
-
-    if (measuredPositionSec === null) {
-      requestPlayerTime("guess-loop-schedule-probe");
-      guessLoopRestartTimerRef.current = window.setTimeout(() => {
-        guessLoopRestartTimerRef.current = null;
-        scheduleGuessLoopRestartRef.current();
-      }, 220);
+    const nextLoop = computeNextGuessLoop();
+    if (nextLoop === null) {
       return;
-    }
-
-    const normalizedPositionSec = Math.min(
-      clipEndSec,
-      Math.max(clipStartSec, measuredPositionSec),
-    );
-    const remainingLoopMs = Math.max(
-      120,
-      Math.ceil((clipEndSec - normalizedPositionSec) * 1000),
-    );
-    const guessEndsAt = startedAt + effectiveGuessDurationMs;
-    if (!isTimeAttackMode) {
-      const remainingGuessMs = Math.max(0, guessEndsAt - serverNow);
-      if (remainingGuessMs <= remainingLoopMs) {
-        return;
-      }
     }
 
     guessLoopRestartTimerRef.current = window.setTimeout(() => {
       guessLoopRestartTimerRef.current = null;
+
       if (
+        !videoId ||
+        !audioUnlockedRef.current ||
         phase !== "guess" ||
-        !shouldLoopRoomSettingsClip ||
+        !shouldLoopCurrentClip ||
         waitingToStart ||
         isEnded ||
         !isStartedByServerTime()
@@ -996,51 +1046,23 @@ const useGameRoomPlayerSync = ({
         return;
       }
 
-      const latestPositionSec =
-        getRecentMeasuredEstimatedPositionSec(getServerNowMs()) ??
-        getFreshPlayerTimeSec();
-
-      if (latestPositionSec === null) {
-        requestPlayerTime("guess-loop-fire-probe");
-        scheduleGuessLoopRestartRef.current();
-        return;
-      }
-
-      const latestRemainingMs = Math.round(
-        (clipEndSec - latestPositionSec) * 1000,
-      );
-      const playerStillMidClip =
-        lastPlayerStateRef.current === 1 && latestRemainingMs > 180;
-
-      if (playerStillMidClip) {
-        scheduleGuessLoopRestartRef.current();
-        return;
-      }
-
-      guessLoopSpanRef.current = clipSpanSec;
-      startPlayback(computeServerPositionSec(), true, {
+      startPlayback(nextLoop.targetSec, true, {
+        holdAudio: false,
         reason: "guess-loop",
       });
+
       scheduleGuessLoopRestartRef.current();
-    }, remainingLoopMs + 80);
+    }, nextLoop.delayMs);
   }, [
-    startedAt,
     clearGuessLoopRestartTimer,
-    clipEndSec,
-    clipStartSec,
-    effectiveGuessDurationMs,
-    getFreshPlayerTimeSec,
-    getRecentMeasuredEstimatedPositionSec,
-    getServerNowMs,
+    computeNextGuessLoop,
     isEnded,
     isStartedByServerTime,
-    isTimeAttackMode,
     phase,
-    requestPlayerTime,
-    shouldLoopRoomSettingsClip,
+    shouldLoopCurrentClip,
     startPlayback,
+    videoId,
     waitingToStart,
-    computeServerPositionSec,
   ]);
 
   useEffect(() => {
@@ -1799,7 +1821,7 @@ const useGameRoomPlayerSync = ({
         loadTrack(
           currentId,
           startSec,
-          clipEndSec,
+          undefined,
           !beforeStart,
           beforeStart ? "loadTrack-cue" : "loadTrack-autoplay",
         );
@@ -1950,29 +1972,17 @@ const useGameRoomPlayerSync = ({
           const guessEndsAt = startedAt + effectiveGuessDurationMs;
           if (
             phase === "guess" &&
-            shouldLoopRoomSettingsClip &&
+            shouldLoopCurrentClip &&
             !isEnded &&
             isStartedByServerTime() &&
             (isTimeAttackMode || serverNow < guessEndsAt)
           ) {
-            const latestPlayerTime = lastPlayerTimeSecRef.current;
-            if (
-              typeof latestPlayerTime === "number" &&
-              latestPlayerTime > clipStartSec + 0.05
-            ) {
-              guessLoopSpanRef.current = Math.max(
-                0.25,
-                latestPlayerTime - clipStartSec,
-              );
-            } else if (!guessLoopSpanRef.current) {
-              guessLoopSpanRef.current = Math.max(
-                0.5,
-                Math.min(5, fallbackDurationSec),
-              );
-            }
-            startPlayback(computeServerPositionSec(), true, {
+            startPlayback(clipReplayStartSec, true, {
+              holdAudio: false,
               reason: "guess-loop",
             });
+
+            scheduleGuessLoopRestartRef.current();
             return;
           }
           if (isReveal && isStartedByServerTime()) {
@@ -2099,7 +2109,7 @@ const useGameRoomPlayerSync = ({
     schedulePostStartDriftChecks,
     scheduleResumeResync,
     scheduleRevealClipEndGuard,
-    shouldLoopRoomSettingsClip,
+    shouldLoopCurrentClip,
     startPlayback,
     startSilentAudio,
     startedAt,
@@ -2107,6 +2117,7 @@ const useGameRoomPlayerSync = ({
     trackLoadKey,
     videoId,
     replayClipFromStart,
+    clipReplayStartSec,
   ]);
 
   useEffect(() => {
@@ -2127,7 +2138,7 @@ const useGameRoomPlayerSync = ({
     loadTrack(
       videoId,
       startSec,
-      clipEndSec,
+      undefined,
       autoplay,
       autoplay ? "loadTrack-autoplay" : "loadTrack-cue",
     );

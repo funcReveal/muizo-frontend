@@ -776,7 +776,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     clipEndSec,
     clipReplayStartSec,
     clipReplayEndSec,
-    shouldLoopRoomSettingsClip,
     videoId,
     phaseEndsAt,
     isEnded,
@@ -803,7 +802,16 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const timeAttackEndReason = isTimeAttackMode
     ? gameState.timeAttackEndReason ?? null
     : null;
-  const shouldLoopCurrentClip = shouldLoopRoomSettingsClip || isTimeAttackMode;
+  const firstClipSpanMs = Math.max(0, (clipEndSec - clipStartSec) * 1000);
+
+  const replayClipSpanMs = Math.max(
+    0,
+    (clipReplayEndSec - clipReplayStartSec) * 1000,
+  );
+
+  const shouldLoopCurrentClip =
+    replayClipSpanMs >= 250 &&
+    (isTimeAttackMode || effectiveGuessDurationMs > firstClipSpanMs + 250);
   const audioGestureSessionKeyRef = useRef<string>("");
   if (trackCursor === 0 || !audioGestureSessionKeyRef.current) {
     audioGestureSessionKeyRef.current = `${room.id}:${gameState.startedAt}:${currentTrackIndex}`;
@@ -863,7 +871,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     effectiveGuessDurationMs,
     fallbackDurationSec,
     isTimeAttackMode,
-    shouldLoopRoomSettingsClip: shouldLoopCurrentClip,
+    shouldLoopCurrentClip: shouldLoopCurrentClip,
     clipStartSec,
     clipEndSec,
     waitingToStart,
