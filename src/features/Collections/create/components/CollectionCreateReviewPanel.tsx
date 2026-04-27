@@ -13,7 +13,6 @@ import WarningAmberRounded from "@mui/icons-material/WarningAmberRounded";
 import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import ErrorOutlineRounded from "@mui/icons-material/ErrorOutlineRounded";
 import LibraryMusicRounded from "@mui/icons-material/LibraryMusicRounded";
-import RestoreRounded from "@mui/icons-material/RestoreRounded";
 import FolderRounded from "@mui/icons-material/FolderRounded";
 import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 import { CircularProgress } from "@mui/material";
@@ -24,38 +23,26 @@ import type {
   CollectionCreateImportItem,
   CollectionCreateImportSource,
 } from "../hooks/useCollectionCreateImportSources";
+import CollectionReviewItemRow, {
+  type CollectionReviewItemView,
+} from "./CollectionReviewItemRow";
 
 const REVIEW_ROW_HEIGHT = 80;
 
 type ReviewFilterMode = "all" | "ready" | "long" | "removed";
 type ReviewDisplayMode = "list" | "source";
 
-type ReviewItemStatus = "ready" | "long" | "removed";
-
-type ReviewItemView = {
-  draftKey: string;
-  importItemKey?: string;
-  sourceImportId?: string;
-  title: string;
-  answerText?: string;
-  uploader?: string;
-  duration?: string;
-  thumbnail?: string;
-  sourceTitle?: string;
-  status: ReviewItemStatus;
-};
-
 type SourceReviewGroup = {
   source: CollectionCreateImportSource;
-  selectedItems: ReviewItemView[];
-  removedItems: ReviewItemView[];
-  visibleItems: ReviewItemView[];
+  selectedItems: CollectionReviewItemView[];
+  removedItems: CollectionReviewItemView[];
+  visibleItems: CollectionReviewItemView[];
   selectedCount: number;
   removedCount: number;
 };
 
 type ReviewVirtualRowProps = {
-  items: ReviewItemView[];
+  items: CollectionReviewItemView[];
   readyLabel: string;
   longLabel: string;
   removedLabel: string;
@@ -120,7 +107,7 @@ const toSelectedReviewItems = ({
   normalItems: DraftPlaylistItem[];
   longItems: DraftPlaylistItem[];
   untitledItemLabel: string;
-}): ReviewItemView[] => {
+}): CollectionReviewItemView[] => {
   const normal = normalItems.map((item) => ({
     draftKey: item.draftKey,
     importItemKey: item.importItemKey,
@@ -156,7 +143,7 @@ const toRemovedReviewItems = ({
 }: {
   removedItems: CollectionCreateImportItem[];
   untitledItemLabel: string;
-}): ReviewItemView[] => {
+}): CollectionReviewItemView[] => {
   return removedItems.map((item) => ({
     draftKey: item.importItemKey,
     importItemKey: item.importItemKey,
@@ -169,155 +156,6 @@ const toRemovedReviewItems = ({
     sourceTitle: item.sourceTitle,
     status: "removed" as const,
   }));
-};
-
-const StatusBadge = ({
-  status,
-  readyLabel,
-  longLabel,
-  removedLabel,
-}: {
-  status: ReviewItemStatus;
-  readyLabel: string;
-  longLabel: string;
-  removedLabel: string;
-}) => {
-  if (status === "removed") {
-    return (
-      <span className="inline-flex items-center rounded-full border border-rose-300/30 bg-rose-300/10 px-2 py-0.5 text-[10px] font-semibold text-rose-100">
-        {removedLabel}
-      </span>
-    );
-  }
-
-  if (status === "long") {
-    return (
-      <span className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-        {longLabel}
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
-      {readyLabel}
-    </span>
-  );
-};
-
-const ReviewItemRow = ({
-  item,
-  index,
-  readyLabel,
-  longLabel,
-  removedLabel,
-  noCoverLabel,
-  unknownUploaderLabel,
-  sourceLabel,
-  removeLabel,
-  restoreLabel,
-  onRemoveImportItem,
-  onRestoreImportItem,
-}: {
-  item: ReviewItemView;
-  index?: number;
-  readyLabel: string;
-  longLabel: string;
-  removedLabel: string;
-  noCoverLabel: string;
-  unknownUploaderLabel: string;
-  sourceLabel: string;
-  removeLabel: string;
-  restoreLabel: string;
-  onRemoveImportItem: (itemKey: string) => void;
-  onRestoreImportItem: (itemKey: string) => void;
-}) => {
-  const canManageItem = Boolean(item.importItemKey);
-  const isRemoved = item.status === "removed";
-
-  return (
-    <div
-      className={`flex h-[72px] items-center gap-3 rounded-xl border px-2 transition ${
-        isRemoved
-          ? "border-rose-300/15 bg-rose-950/10 opacity-80"
-          : "border-transparent hover:border-[var(--mc-border)] hover:bg-[var(--mc-surface-strong)]/35"
-      }`}
-    >
-      {typeof index === "number" && (
-        <div className="w-8 shrink-0 text-right text-[11px] tabular-nums text-[var(--mc-text-muted)]">
-          {index + 1}
-        </div>
-      )}
-
-      {item.thumbnail ? (
-        <img
-          src={item.thumbnail}
-          alt={item.title}
-          loading="lazy"
-          className="h-10 w-[72px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover"
-        />
-      ) : (
-        <div className="flex h-10 w-[72px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.18),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)]">
-          {noCoverLabel}
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div
-          className={`truncate text-sm font-medium ${
-            isRemoved
-              ? "text-[var(--mc-text-muted)] line-through"
-              : "text-[var(--mc-text)]"
-          }`}
-        >
-          {item.title}
-        </div>
-        <div className="mt-0.5 truncate text-[11px] text-[var(--mc-text-muted)]">
-          {item.uploader || unknownUploaderLabel}
-          {item.duration ? ` · ${item.duration}` : ""}
-          {item.sourceTitle ? ` · ${sourceLabel}: ${item.sourceTitle}` : ""}
-        </div>
-      </div>
-
-      <div className="hidden shrink-0 sm:block">
-        <StatusBadge
-          status={item.status}
-          readyLabel={readyLabel}
-          longLabel={longLabel}
-          removedLabel={removedLabel}
-        />
-      </div>
-
-      {canManageItem && (
-        <button
-          type="button"
-          onClick={() => {
-            if (!item.importItemKey) return;
-
-            if (isRemoved) {
-              onRestoreImportItem(item.importItemKey);
-              return;
-            }
-
-            onRemoveImportItem(item.importItemKey);
-          }}
-          className={`inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border transition ${
-            isRemoved
-              ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15"
-              : "border-rose-300/25 bg-rose-300/10 text-rose-100 hover:bg-rose-300/15"
-          }`}
-          aria-label={isRemoved ? restoreLabel : removeLabel}
-          title={isRemoved ? restoreLabel : removeLabel}
-        >
-          {isRemoved ? (
-            <RestoreRounded sx={{ fontSize: 16 }} />
-          ) : (
-            <DeleteOutlineRounded sx={{ fontSize: 16 }} />
-          )}
-        </button>
-      )}
-    </div>
-  );
 };
 
 const ReviewVirtualRow = ({
@@ -340,7 +178,7 @@ const ReviewVirtualRow = ({
 
   return (
     <div style={style} className="px-2">
-      <ReviewItemRow
+      <CollectionReviewItemRow
         item={item}
         index={index}
         readyLabel={readyLabel}
@@ -386,6 +224,7 @@ const SummaryCard = ({
         </div>
         <div className={toneClass}>{icon}</div>
       </div>
+
       <div className={`mt-2 text-xl font-semibold tabular-nums ${toneClass}`}>
         {value}
       </div>
@@ -467,7 +306,7 @@ export default function CollectionCreateReviewPanel({
   const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
 
   const filterReviewItem = useCallback(
-    (item: ReviewItemView) => {
+    (item: CollectionReviewItemView) => {
       if (filterMode === "all" && item.status === "removed") return false;
       if (filterMode === "ready" && item.status !== "ready") return false;
       if (filterMode === "long" && item.status !== "long") return false;
@@ -630,6 +469,7 @@ export default function CollectionCreateReviewPanel({
                 value={importProgressPercent ?? undefined}
                 sx={{ color: "#38bdf8" }}
               />
+
               <span className="absolute text-[10px] font-semibold text-[var(--mc-text)]">
                 {importProgressPercent === null
                   ? "..."
@@ -643,9 +483,11 @@ export default function CollectionCreateReviewPanel({
                   ? t("review.importing.youtubeTitle")
                   : t("review.importing.urlTitle")}
               </div>
+
               <div className="mt-0.5 text-xs text-[var(--mc-text-muted)]">
                 {importProgressLabel ?? t("review.importing.fallback")}
               </div>
+
               {playlistProgressTotal > 0 && (
                 <div className="mt-1 text-[11px] text-cyan-100/90">
                   {t("review.importing.hint")}
@@ -702,6 +544,7 @@ export default function CollectionCreateReviewPanel({
                       {collectionPreview.title}
                     </div>
                   </button>
+
                   <button
                     type="button"
                     onClick={onStartEditTitle}
@@ -738,18 +581,21 @@ export default function CollectionCreateReviewPanel({
               tone="success"
               icon={<CheckCircleOutlineRounded sx={{ fontSize: 17 }} />}
             />
+
             <SummaryCard
               label={t("review.summary.long")}
               value={longDraftPlaylistItems.length}
               tone={longDraftPlaylistItems.length > 0 ? "warning" : "default"}
               icon={<WarningAmberRounded sx={{ fontSize: 17 }} />}
             />
+
             <SummaryCard
               label={t("review.summary.duplicates")}
               value={removedDuplicateCount}
               tone={removedDuplicateCount > 0 ? "success" : "default"}
               icon={<LibraryMusicRounded sx={{ fontSize: 17 }} />}
             />
+
             <SummaryCard
               label={t("review.summary.skipped")}
               value={playlistIssueTotal}
@@ -772,6 +618,7 @@ export default function CollectionCreateReviewPanel({
                 <span className="font-semibold">
                   {t("review.alerts.removedItems")}
                 </span>
+
                 <span>
                   {t("review.alerts.removedItemsDetail", {
                     count: removedImportItemCount,
@@ -789,6 +636,7 @@ export default function CollectionCreateReviewPanel({
                 <span className="font-semibold">
                   {t("review.alerts.duplicatesRemoved")}
                 </span>
+
                 <span>
                   {t("review.alerts.duplicatesRemovedDetail", {
                     count: removedDuplicateCount,
@@ -806,6 +654,7 @@ export default function CollectionCreateReviewPanel({
                 <span className="font-semibold">
                   {t("review.alerts.itemLimitExceeded")}
                 </span>
+
                 <span>
                   {t("review.alerts.itemLimitExceededDetail", {
                     count: draftOverflowCount,
@@ -823,6 +672,7 @@ export default function CollectionCreateReviewPanel({
                 <span className="font-semibold">
                   {t("review.alerts.skippedItems")}
                 </span>
+
                 <span>
                   {t("review.alerts.skippedItemsDetail", {
                     count: playlistIssueTotal,
@@ -907,6 +757,7 @@ export default function CollectionCreateReviewPanel({
 
                 <label className="flex min-w-0 items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 px-3 py-1.5 text-[var(--mc-text)] sm:w-[260px]">
                   <SearchRounded sx={{ fontSize: 16 }} className="shrink-0" />
+
                   <input
                     type="text"
                     value={searchQuery}
@@ -914,6 +765,7 @@ export default function CollectionCreateReviewPanel({
                     placeholder={t("review.searchPlaceholder")}
                     className="min-w-0 flex-1 bg-transparent text-sm text-[var(--mc-text)] outline-none placeholder:text-[var(--mc-text-muted)]"
                   />
+
                   {searchQuery ? (
                     <button
                       type="button"
@@ -936,6 +788,7 @@ export default function CollectionCreateReviewPanel({
                       <div className="text-xs font-semibold text-[var(--mc-text)]">
                         {t("review.sourcePicker.title")}
                       </div>
+
                       <div className="mt-0.5 text-[11px] text-[var(--mc-text-muted)]">
                         {t("review.sourcePicker.description")}
                       </div>
@@ -964,6 +817,7 @@ export default function CollectionCreateReviewPanel({
                                 sx={{ fontSize: 18 }}
                                 className="shrink-0 text-cyan-100"
                               />
+
                               <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
                                 {group.source.title}
                               </div>
@@ -975,16 +829,19 @@ export default function CollectionCreateReviewPanel({
                                   count: group.selectedCount,
                                 })}
                               </span>
+
                               <span>
                                 {t("review.sourceGroup.removed", {
                                   count: group.removedCount,
                                 })}
                               </span>
+
                               <span>
                                 {t("review.sourceGroup.total", {
                                   count: group.source.itemCount,
                                 })}
                               </span>
+
                               {group.source.skippedCount > 0 && (
                                 <span className="text-amber-200">
                                   {t("review.sourceGroup.skipped", {
@@ -1018,7 +875,7 @@ export default function CollectionCreateReviewPanel({
 
                         <div className="max-h-[420px] overflow-y-auto px-2 py-2">
                           {group.visibleItems.map((item, index) => (
-                            <ReviewItemRow
+                            <CollectionReviewItemRow
                               key={item.importItemKey ?? item.draftKey}
                               item={item}
                               index={index}
