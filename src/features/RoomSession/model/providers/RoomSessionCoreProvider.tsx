@@ -21,6 +21,7 @@ import { useLocation } from "react-router-dom";
 import type {
   ClientSocket,
   GameState,
+  GameSyncVersion,
   PlaylistItem,
   RoomParticipant,
   RoomState,
@@ -189,6 +190,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     useState<RoomClosedNotice | null>(null);
   const isInviteMode = Boolean(inviteRoomId);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [gameSyncVersion, setGameSyncVersion] =
+    useState<GameSyncVersion | null>(null);
   const [gamePlaylist, setGamePlaylist] = useState<PlaylistItem[]>([]);
   const [isGameView, setIsGameView] = useState(false);
   const [routeRoomResolved, setRouteRoomResolved] = useState<boolean>(() =>
@@ -251,6 +254,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
 
   const { applyGameLiveUpdate, resetGameSyncVersion } = useRoomGameLiveSync({
     setGameState,
+    setGameSyncVersion,
   });
 
   const {
@@ -708,6 +712,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const roomGameCtxValue = useMemo<RoomGameContextValue>(
     () => ({
       gameState,
+      gameSyncVersion,
       gamePlaylist,
       isGameView,
       setIsGameView,
@@ -727,6 +732,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     }),
     [
       gameState,
+      gameSyncVersion,
       gamePlaylist,
       isGameView,
       playDurationSec,

@@ -43,7 +43,10 @@ const getCacheKey = (
 
 const getInflightRequest = (
   key: string,
-  factory: () => { controller: AbortController; promise: Promise<LeaderboardSettlementResponse> },
+  factory: () => {
+    controller: AbortController;
+    promise: Promise<LeaderboardSettlementResponse>;
+  },
 ) => {
   const existing = inflightRequests.get(key);
   if (existing) {
@@ -66,7 +69,10 @@ const getInflightRequest = (
   return entry;
 };
 
-const releaseInflightRequest = (key: string | null, entry: InflightRequest | null) => {
+const releaseInflightRequest = (
+  key: string | null,
+  entry: InflightRequest | null,
+) => {
   if (!key || !entry) return;
   const current = inflightRequests.get(key);
   if (!current || current.promise !== entry.promise) return;
@@ -90,17 +96,22 @@ export const useLeaderboardSettlement = ({
     [matchId, roomId, roundKey],
   );
   const requestKeyRef = useRef(0);
-  const subscriptionRef = useRef<{ key: string | null; entry: InflightRequest | null }>({
+  const subscriptionRef = useRef<{
+    key: string | null;
+    entry: InflightRequest | null;
+  }>({
     key: null,
     entry: null,
   });
 
   const [state, setState] = useState<{
+    key: string | null;
     data: LeaderboardSettlementResponse | null;
     isLoading: boolean;
     error: string | null;
   }>(() => ({
-    data: cacheKey ? settlementCache.get(cacheKey) ?? null : null,
+    key: cacheKey,
+    data: cacheKey ? (settlementCache.get(cacheKey) ?? null) : null,
     isLoading: false,
     error: null,
   }));
@@ -108,18 +119,24 @@ export const useLeaderboardSettlement = ({
   const runFetch = useCallback(
     async (force = false) => {
       if (!enabled || !matchId?.trim() || !cacheKey) {
-        setState((current) => ({
-          data: current.data,
+        setState({
+          key: cacheKey,
+          data: null,
           isLoading: false,
           error: null,
-        }));
+        });
         return;
       }
 
       if (!force) {
         const cached = settlementCache.get(cacheKey) ?? null;
         if (cached) {
-          setState({ data: cached, isLoading: false, error: null });
+          setState({
+            key: cacheKey,
+            data: cached,
+            isLoading: false,
+            error: null,
+          });
           return;
         }
       } else {
@@ -135,11 +152,14 @@ export const useLeaderboardSettlement = ({
       );
       subscriptionRef.current = { key: null, entry: null };
 
-      setState((current) => ({
-        data: current.data ?? settlementCache.get(cacheKey) ?? null,
+      const cachedForKey = settlementCache.get(cacheKey) ?? null;
+
+      setState({
+        key: cacheKey,
+        data: cachedForKey,
         isLoading: true,
         error: null,
-      }));
+      });
 
       const entry = getInflightRequest(cacheKey, () => {
         const controller = new AbortController();
@@ -163,37 +183,55 @@ export const useLeaderboardSettlement = ({
       subscriptionRef.current = { key: cacheKey, entry };
 
       try {
+        const requestedMatchId = matchId.trim();
+
         const data = await entry.promise;
-        settlementCache.set(cacheKey, data);
-        if (requestKeyRef.current !== requestKey) return;
-        setState({ data, isLoading: false, error: null });
-      } catch (error) {
-        if (entry.controller.signal.aborted || requestKeyRef.current !== requestKey) {
+
+        if (data.match.matchId !== requestedMatchId) {
           return;
         }
-        setState((current) => ({
-          data: current.data,
+
+        settlementCache.set(cacheKey, data);
+
+        if (requestKeyRef.current !== requestKey) return;
+
+        setState({
+          key: cacheKey,
+          data,
           isLoading: false,
-          error:
-            error instanceof Error ? error.message : "載入排行榜結算失敗",
-        }));
+          error: null,
+        });
+      } catch (error) {
+        if (
+          entry.controller.signal.aborted ||
+          requestKeyRef.current !== requestKey
+        ) {
+          return;
+        }
+
+        setState((current) => {
+          if (current.key !== cacheKey) return current;
+
+          return {
+            key: cacheKey,
+            data: current.data,
+            isLoading: false,
+            error:
+              error instanceof Error ? error.message : "載入排行榜結算失敗",
+          };
+        });
       }
     },
     [authToken, cacheKey, clientId, enabled, matchId, refreshAuthToken],
   );
 
   useEffect(() => {
-    const cached = cacheKey ? settlementCache.get(cacheKey) ?? null : null;
-    setState({
-      data: cached,
-      isLoading: false,
-      error: null,
-    });
-  }, [cacheKey]);
+    const timer = window.setTimeout(() => {
+      void runFetch(false);
+    }, 0);
 
-  useEffect(() => {
-    void runFetch(false);
     return () => {
+      window.clearTimeout(timer);
       requestKeyRef.current += 1;
       releaseInflightRequest(
         subscriptionRef.current.key,
@@ -207,10 +245,14 @@ export const useLeaderboardSettlement = ({
     await runFetch(true);
   }, [runFetch]);
 
+  const stateMatchesCurrentRequest = state.key === cacheKey;
+
   return {
-    data: state.data,
-    isLoading: state.isLoading,
-    error: state.error,
+    data: stateMatchesCurrentRequest ? state.data : null,
+    isLoading: stateMatchesCurrentRequest
+      ? state.isLoading
+      : Boolean(enabled && matchId?.trim() && cacheKey),
+    error: stateMatchesCurrentRequest ? state.error : null,
     refresh,
   };
 };
