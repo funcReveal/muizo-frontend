@@ -1,58 +1,33 @@
-import {
-  useCallback,
-  useMemo,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+
 import EditOutlined from "@mui/icons-material/EditOutlined";
-import SearchRounded from "@mui/icons-material/SearchRounded";
-import CloseRounded from "@mui/icons-material/CloseRounded";
-import WarningAmberRounded from "@mui/icons-material/WarningAmberRounded";
-import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
-import ErrorOutlineRounded from "@mui/icons-material/ErrorOutlineRounded";
-import LibraryMusicRounded from "@mui/icons-material/LibraryMusicRounded";
-import FolderRounded from "@mui/icons-material/FolderRounded";
 import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
-import { CircularProgress } from "@mui/material";
-import { MuizoSelect, type MuizoSelectOption } from "@shared/ui/select";
-import { List, type RowComponentProps } from "react-window";
+import RestoreRounded from "@mui/icons-material/RestoreRounded";
+import CircularProgress from "@mui/material/CircularProgress";
+
 import type { DraftPlaylistItem } from "../utils/createCollectionImport";
-import type {
-  CollectionCreateImportItem,
-  CollectionCreateImportSource,
-} from "../hooks/useCollectionCreateImportSources";
-import CollectionReviewItemRow, {
-  type CollectionReviewItemView,
-} from "./CollectionReviewItemRow";
 
-const REVIEW_ROW_HEIGHT = 80;
-
-type ReviewFilterMode = "all" | "ready" | "long" | "removed";
-type ReviewDisplayMode = "list" | "source";
-
-type SourceReviewGroup = {
-  source: CollectionCreateImportSource;
-  selectedItems: CollectionReviewItemView[];
-  removedItems: CollectionReviewItemView[];
-  visibleItems: CollectionReviewItemView[];
-  selectedCount: number;
-  removedCount: number;
+type CollectionPreview = {
+  title: string;
+  count: number;
 };
 
-type ReviewVirtualRowProps = {
-  items: CollectionReviewItemView[];
-  readyLabel: string;
-  longLabel: string;
-  removedLabel: string;
-  noCoverLabel: string;
-  unknownUploaderLabel: string;
-  sourceLabel: string;
-  removeLabel: string;
-  restoreLabel: string;
-  onRemoveImportItem: (itemKey: string) => void;
-  onRestoreImportItem: (itemKey: string) => void;
+type ImportSourceSummary = {
+  id?: string;
+  key?: string;
+  sourceKey?: string;
+  playlistId?: string;
+  title?: string;
+  label?: string;
+  sourceTitle?: string;
+  source?: "url" | "youtube" | string;
+  url?: string;
+  importedCount?: number;
+  itemCount?: number;
+  totalCount?: number;
+  skippedCount?: number;
+  removedCount?: number;
 };
 
 type Props = {
@@ -63,10 +38,7 @@ type Props = {
   playlistSource: "url" | "youtube";
   playlistProgressTotal: number;
 
-  collectionPreview: {
-    title: string;
-    count: number;
-  } | null;
+  collectionPreview: CollectionPreview | null;
 
   isTitleEditing: boolean;
   titleDraft: string;
@@ -79,14 +51,15 @@ type Props = {
   isAdmin: boolean;
   collectionItemLimit: number | null;
 
-  importSources: CollectionCreateImportSource[];
+  importSources: ImportSourceSummary[];
   normalDraftPlaylistItems: DraftPlaylistItem[];
   longDraftPlaylistItems: DraftPlaylistItem[];
-  removedImportItems: CollectionCreateImportItem[];
+
+  removedImportItems: DraftPlaylistItem[];
   removedImportItemCount: number;
-  onRemoveImportSource: (sourceId: string) => void;
-  onRemoveImportItem: (itemKey: string) => void;
-  onRestoreImportItem: (itemKey: string) => void;
+  onRemoveImportSource: (sourceKey: string) => void;
+  onRemoveImportItem: (draftKey: string) => void;
+  onRestoreImportItem: (draftKey: string) => void;
 
   removedDuplicateCount: number;
   onOpenDuplicateDialog: () => void;
@@ -99,138 +72,369 @@ type Props = {
   onOpenPlaylistIssueDialog: () => void;
 };
 
-const toSelectedReviewItems = ({
-  normalItems,
-  longItems,
-  untitledItemLabel,
-}: {
-  normalItems: DraftPlaylistItem[];
-  longItems: DraftPlaylistItem[];
-  untitledItemLabel: string;
-}): CollectionReviewItemView[] => {
-  const normal = normalItems.map((item) => ({
-    draftKey: item.draftKey,
-    importItemKey: item.importItemKey,
-    sourceImportId: item.sourceImportId,
-    title: item.title || item.answerText || untitledItemLabel,
-    answerText: item.answerText,
-    uploader: item.uploader,
-    duration: item.duration,
-    thumbnail: item.thumbnail,
-    sourceTitle: item.sourceTitle,
-    status: "ready" as const,
-  }));
+function getSourceKey(source: ImportSourceSummary, index: number) {
+  return (
+    source.sourceKey ||
+    source.id ||
+    source.key ||
+    source.playlistId ||
+    `source-${index}`
+  );
+}
 
-  const long = longItems.map((item) => ({
-    draftKey: item.draftKey,
-    importItemKey: item.importItemKey,
-    sourceImportId: item.sourceImportId,
-    title: item.title || item.answerText || untitledItemLabel,
-    answerText: item.answerText,
-    uploader: item.uploader,
-    duration: item.duration,
-    thumbnail: item.thumbnail,
-    sourceTitle: item.sourceTitle,
-    status: "long" as const,
-  }));
+function getSourceTitle(source: ImportSourceSummary) {
+  return (
+    source.title ||
+    source.label ||
+    source.sourceTitle ||
+    source.url ||
+    "未命名來源"
+  );
+}
 
-  return [...normal, ...long];
-};
+function getSourceCount(source: ImportSourceSummary) {
+  return source.importedCount ?? source.itemCount ?? source.totalCount ?? 0;
+}
 
-const toRemovedReviewItems = ({
-  removedItems,
-  untitledItemLabel,
-}: {
-  removedItems: CollectionCreateImportItem[];
-  untitledItemLabel: string;
-}): CollectionReviewItemView[] => {
-  return removedItems.map((item) => ({
-    draftKey: item.importItemKey,
-    importItemKey: item.importItemKey,
-    sourceImportId: item.sourceImportId,
-    title: item.title || item.answerText || untitledItemLabel,
-    answerText: item.answerText,
-    uploader: item.uploader,
-    duration: item.duration,
-    thumbnail: item.thumbnail,
-    sourceTitle: item.sourceTitle,
-    status: "removed" as const,
-  }));
-};
+function getItemTitle(item: DraftPlaylistItem) {
+  return item.title || item.answerText || "未命名歌曲";
+}
 
-const ReviewVirtualRow = ({
-  index,
-  style,
-  items,
-  readyLabel,
-  longLabel,
-  removedLabel,
-  noCoverLabel,
-  unknownUploaderLabel,
-  sourceLabel,
-  removeLabel,
-  restoreLabel,
-  onRemoveImportItem,
-  onRestoreImportItem,
-}: RowComponentProps<ReviewVirtualRowProps>) => {
-  const item = items[index];
-  if (!item) return <div style={style} />;
+function getItemMeta(item: DraftPlaylistItem) {
+  const uploader = item.uploader || "未知上傳者";
+  return item.duration ? `${uploader} ・ ${item.duration}` : uploader;
+}
+
+function ImportProgressCard({
+  playlistLoading,
+  isImportingYoutubePlaylist,
+  importProgressPercent,
+  importProgressLabel,
+  playlistSource,
+  playlistProgressTotal,
+}: Pick<
+  Props,
+  | "playlistLoading"
+  | "isImportingYoutubePlaylist"
+  | "importProgressPercent"
+  | "importProgressLabel"
+  | "playlistSource"
+  | "playlistProgressTotal"
+>) {
+  const { t } = useTranslation("collectionCreate");
+
+  if (!playlistLoading && !isImportingYoutubePlaylist) return null;
 
   return (
-    <div style={style} className="px-2">
-      <CollectionReviewItemRow
-        item={item}
-        index={index}
-        readyLabel={readyLabel}
-        longLabel={longLabel}
-        removedLabel={removedLabel}
-        noCoverLabel={noCoverLabel}
-        unknownUploaderLabel={unknownUploaderLabel}
-        sourceLabel={sourceLabel}
-        removeLabel={removeLabel}
-        restoreLabel={restoreLabel}
-        onRemoveImportItem={onRemoveImportItem}
-        onRestoreImportItem={onRestoreImportItem}
-      />
+    <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/8 px-3 py-3">
+      <div className="flex items-center gap-3">
+        <div className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center">
+          <CircularProgress
+            size={40}
+            thickness={4}
+            variant={
+              importProgressPercent === null ? "indeterminate" : "determinate"
+            }
+            value={importProgressPercent ?? undefined}
+            sx={{ color: "#38bdf8" }}
+          />
+          <span className="absolute text-[10px] font-semibold text-[var(--mc-text)]">
+            {importProgressPercent === null
+              ? "..."
+              : `${importProgressPercent}%`}
+          </span>
+        </div>
+
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-[var(--mc-text)]">
+            {playlistSource === "youtube"
+              ? t("review.importingYoutube", {
+                  defaultValue: "正在匯入 YouTube 清單",
+                })
+              : t("review.importingPlaylist", {
+                  defaultValue: "正在匯入播放清單",
+                })}
+          </div>
+
+          <div className="mt-0.5 overflow-hidden text-xs leading-5 text-[var(--mc-text-muted)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+            {importProgressLabel ||
+              t("review.importPreparing", {
+                defaultValue: "正在準備匯入內容...",
+              })}
+          </div>
+
+          {playlistProgressTotal > 0 && (
+            <div className="mt-1 hidden text-[11px] text-cyan-100/90 sm:block">
+              {t("review.importAfterDone", {
+                defaultValue: "完成後會自動更新清單預覽",
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
-};
+}
 
-const SummaryCard = ({
+function CompactStatCard({
   label,
   value,
   tone = "default",
-  icon,
 }: {
   label: string;
-  value: number;
-  tone?: "default" | "success" | "warning" | "danger";
-  icon: ReactNode;
-}) => {
-  const toneClass =
-    tone === "success"
-      ? "text-emerald-100"
-      : tone === "warning"
-        ? "text-amber-100"
-        : tone === "danger"
-          ? "text-rose-100"
-          : "text-[var(--mc-text)]";
+  value: string | number;
+  tone?: "default" | "warning" | "danger" | "success";
+}) {
+  const toneClassName = {
+    default:
+      "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 text-[var(--mc-text)]",
+    warning: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+    danger: "border-rose-300/25 bg-rose-300/10 text-rose-100",
+    success: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+  }[tone];
 
   return (
-    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-[11px] font-medium text-[var(--mc-text-muted)]">
-          {label}
-        </div>
-        <div className={toneClass}>{icon}</div>
-      </div>
-
-      <div className={`mt-2 text-xl font-semibold tabular-nums ${toneClass}`}>
+    <div className={`min-w-0 rounded-xl border px-3 py-2 ${toneClassName}`}>
+      <div className="truncate text-[11px] leading-4 opacity-75">{label}</div>
+      <div className="mt-0.5 truncate text-base font-semibold leading-6">
         {value}
       </div>
     </div>
   );
-};
+}
+
+function ReviewActionCard({
+  tone,
+  title,
+  description,
+  actionLabel,
+  onClick,
+}: {
+  tone: "emerald" | "amber" | "rose";
+  title: string;
+  description: string;
+  actionLabel: string;
+  onClick: () => void;
+}) {
+  const toneClassName = {
+    emerald:
+      "border-emerald-300/25 bg-emerald-300/10 text-emerald-100 hover:border-emerald-300/45 hover:bg-emerald-300/15",
+    amber:
+      "border-amber-300/25 bg-amber-300/10 text-amber-100 hover:border-amber-300/45 hover:bg-amber-300/15",
+    rose: "border-rose-300/25 bg-rose-300/10 text-rose-100 hover:border-rose-300/45 hover:bg-rose-300/15",
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full cursor-pointer flex-col items-start gap-1 rounded-xl border px-3 py-2 text-left text-xs transition sm:flex-row sm:items-center sm:justify-between ${toneClassName}`}
+    >
+      <span className="font-semibold">{title}</span>
+      <span className="leading-5 opacity-90">{description}</span>
+      <span className="text-[11px] font-semibold underline underline-offset-4 sm:hidden">
+        {actionLabel}
+      </span>
+    </button>
+  );
+}
+
+function ImportSourceList({
+  importSources,
+  onRemoveImportSource,
+}: {
+  importSources: ImportSourceSummary[];
+  onRemoveImportSource: (sourceKey: string) => void;
+}) {
+  const { t } = useTranslation("collectionCreate");
+
+  if (importSources.length <= 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-[var(--mc-text)]">
+            {t("review.importSources", { defaultValue: "已匯入來源" })}
+          </div>
+          <div className="mt-0.5 hidden text-xs text-[var(--mc-text-muted)] sm:block">
+            {t("review.importSourcesHint", {
+              defaultValue: "可移除不需要的來源，內容會同步更新。",
+            })}
+          </div>
+        </div>
+
+        <div className="shrink-0 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-2 py-1 text-[11px] text-[var(--mc-text-muted)]">
+          {importSources.length}
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {importSources.map((source, index) => {
+          const sourceKey = getSourceKey(source, index);
+
+          return (
+            <div
+              key={sourceKey}
+              className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 px-3 py-2"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="overflow-hidden text-xs font-semibold leading-5 text-[var(--mc-text)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:1] sm:text-sm">
+                  {getSourceTitle(source)}
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-[var(--mc-text-muted)]">
+                  {source.source === "youtube" ? "YouTube" : "URL"} ・{" "}
+                  {getSourceCount(source)}{" "}
+                  {t("common.items", { defaultValue: "首" })}
+                  {source.skippedCount ? ` ・ 略過 ${source.skippedCount}` : ""}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onRemoveImportSource(sourceKey)}
+                className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-rose-400/10 hover:text-rose-200"
+                aria-label={t("review.removeImportSource", {
+                  defaultValue: "移除匯入來源",
+                })}
+              >
+                <DeleteOutlineRounded sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SongRow({
+  item,
+  variant,
+  onRemove,
+  onRestore,
+}: {
+  item: DraftPlaylistItem;
+  variant: "normal" | "long" | "removed";
+  onRemove?: (draftKey: string) => void;
+  onRestore?: (draftKey: string) => void;
+}) {
+  const { t } = useTranslation("collectionCreate");
+
+  const rowTone =
+    variant === "long"
+      ? "border-amber-300/20 bg-amber-300/8"
+      : variant === "removed"
+        ? "border-slate-300/15 bg-slate-500/8 opacity-80"
+        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25";
+
+  return (
+    <div
+      className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-2.5 py-2 sm:gap-3 sm:px-3 ${rowTone}`}
+    >
+      {item.thumbnail ? (
+        <img
+          src={item.thumbnail}
+          alt={getItemTitle(item)}
+          loading="lazy"
+          className="h-10 w-[70px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover sm:h-11 sm:w-20"
+        />
+      ) : (
+        <div className="flex h-10 w-[70px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.16),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)] sm:h-11 sm:w-20">
+          No Cover
+        </div>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="overflow-hidden text-xs font-semibold leading-5 text-[var(--mc-text)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-sm">
+          {getItemTitle(item)}
+        </div>
+
+        <div className="mt-0.5 overflow-hidden text-[11px] leading-4 text-[var(--mc-text-muted)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:1]">
+          {getItemMeta(item)}
+        </div>
+      </div>
+
+      {variant !== "removed" && onRemove && (
+        <button
+          type="button"
+          onClick={() => onRemove(item.draftKey)}
+          className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-rose-400/10 hover:text-rose-200"
+          aria-label={t("review.removeItem", { defaultValue: "移除曲目" })}
+        >
+          <DeleteOutlineRounded sx={{ fontSize: 18 }} />
+        </button>
+      )}
+
+      {variant === "removed" && onRestore && (
+        <button
+          type="button"
+          onClick={() => onRestore(item.draftKey)}
+          className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-emerald-400/10 hover:text-emerald-200"
+          aria-label={t("review.restoreItem", { defaultValue: "復原曲目" })}
+        >
+          <RestoreRounded sx={{ fontSize: 18 }} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SongSection({
+  title,
+  count,
+  items,
+  emptyText,
+  variant,
+  maxHeightClassName = "max-h-[420px]",
+  onRemoveImportItem,
+  onRestoreImportItem,
+}: {
+  title: string;
+  count: number;
+  items: DraftPlaylistItem[];
+  emptyText: string;
+  variant: "normal" | "long" | "removed";
+  maxHeightClassName?: string;
+  onRemoveImportItem?: (draftKey: string) => void;
+  onRestoreImportItem?: (draftKey: string) => void;
+}) {
+  return (
+    <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-[var(--mc-text)]">
+            {title}
+          </div>
+        </div>
+
+        <div className="shrink-0 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-2 py-1 text-[11px] text-[var(--mc-text-muted)]">
+          {count}
+        </div>
+      </div>
+
+      {items.length > 0 ? (
+        <div
+          className={`space-y-2 overflow-y-auto overscroll-contain pr-1 ${maxHeightClassName}`}
+        >
+          {items.map((item) => (
+            <SongRow
+              key={item.draftKey}
+              item={item}
+              variant={variant}
+              onRemove={onRemoveImportItem}
+              onRestore={onRestoreImportItem}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-[var(--mc-border)] px-3 py-3 text-xs text-[var(--mc-text-muted)]">
+          {emptyText}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function CollectionCreateReviewPanel({
   playlistLoading,
@@ -256,6 +460,7 @@ export default function CollectionCreateReviewPanel({
   importSources,
   normalDraftPlaylistItems,
   longDraftPlaylistItems,
+
   removedImportItems,
   removedImportItemCount,
   onRemoveImportSource,
@@ -274,248 +479,68 @@ export default function CollectionCreateReviewPanel({
 }: Props) {
   const { t } = useTranslation("collectionCreate");
 
-  const [filterMode, setFilterMode] = useState<ReviewFilterMode>("all");
-  const [displayMode, setDisplayMode] = useState<ReviewDisplayMode>("list");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSourceId, setSelectedSourceId] = useState<string>("all");
+  const totalReadyItems =
+    normalDraftPlaylistItems.length + longDraftPlaylistItems.length;
 
-  const selectedReviewItems = useMemo(
-    () =>
-      toSelectedReviewItems({
-        normalItems: normalDraftPlaylistItems,
-        longItems: longDraftPlaylistItems,
-        untitledItemLabel: t("review.untitledItem"),
-      }),
-    [normalDraftPlaylistItems, longDraftPlaylistItems, t],
-  );
-
-  const removedReviewItems = useMemo(
-    () =>
-      toRemovedReviewItems({
-        removedItems: removedImportItems,
-        untitledItemLabel: t("review.untitledItem"),
-      }),
-    [removedImportItems, t],
-  );
-
-  const allReviewItems = useMemo(
-    () => [...selectedReviewItems, ...removedReviewItems],
-    [selectedReviewItems, removedReviewItems],
-  );
-
-  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
-
-  const filterReviewItem = useCallback(
-    (item: CollectionReviewItemView) => {
-      if (filterMode === "all" && item.status === "removed") return false;
-      if (filterMode === "ready" && item.status !== "ready") return false;
-      if (filterMode === "long" && item.status !== "long") return false;
-      if (filterMode === "removed" && item.status !== "removed") return false;
-
-      if (!normalizedSearchQuery) return true;
-
-      const haystack = [
-        item.title,
-        item.answerText,
-        item.uploader,
-        item.duration,
-        item.sourceTitle,
-        item.status,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase();
-
-      return haystack.includes(normalizedSearchQuery);
-    },
-    [filterMode, normalizedSearchQuery],
-  );
-
-  const filteredItems = useMemo(
-    () => allReviewItems.filter(filterReviewItem),
-    [allReviewItems, filterReviewItem],
-  );
-
-  const sourceGroups = useMemo<SourceReviewGroup[]>(() => {
-    return importSources
-      .map((source) => {
-        const selectedItems = selectedReviewItems.filter(
-          (item) => item.sourceImportId === source.id,
-        );
-        const removedItems = removedReviewItems.filter(
-          (item) => item.sourceImportId === source.id,
-        );
-        const visibleItems = [...selectedItems, ...removedItems].filter(
-          filterReviewItem,
-        );
-
-        return {
-          source,
-          selectedItems,
-          removedItems,
-          visibleItems,
-          selectedCount: selectedItems.length,
-          removedCount: removedItems.length,
-        };
-      })
-      .filter((group) => {
-        return (
-          group.visibleItems.length > 0 || normalizedSearchQuery.length === 0
-        );
-      });
-  }, [
-    filterReviewItem,
-    importSources,
-    normalizedSearchQuery.length,
-    removedReviewItems,
-    selectedReviewItems,
-  ]);
-
-  const sourcePickerOptions = useMemo<MuizoSelectOption[]>(
+  const statItems = useMemo(
     () => [
       {
-        value: "all",
-        label: t("review.sourcePicker.all"),
-        description: t("review.sourcePicker.allDescription", {
-          count: sourceGroups.length,
-        }),
+        label: t("review.stats.normal", { defaultValue: "一般" }),
+        value: normalDraftPlaylistItems.length,
+        tone: "success" as const,
       },
-      ...sourceGroups.map((group) => ({
-        value: group.source.id,
-        label: group.source.title,
-        description: t("review.sourcePicker.sourceDescription", {
-          selected: group.selectedCount,
-          total: group.source.itemCount,
-          removed: group.removedCount,
-          skipped: group.source.skippedCount,
-        }),
-        meta:
-          group.source.skippedCount > 0
-            ? t("review.sourcePicker.hasSkipped")
-            : undefined,
-      })),
+      {
+        label: t("review.stats.long", { defaultValue: "超長" }),
+        value: longDraftPlaylistItems.length,
+        tone:
+          longDraftPlaylistItems.length > 0
+            ? ("warning" as const)
+            : ("default" as const),
+      },
+      {
+        label: t("review.stats.removed", { defaultValue: "移除" }),
+        value: removedImportItemCount,
+        tone:
+          removedImportItemCount > 0
+            ? ("warning" as const)
+            : ("default" as const),
+      },
+      {
+        label: t("review.stats.skipped", { defaultValue: "略過" }),
+        value: playlistIssueTotal,
+        tone:
+          playlistIssueTotal > 0 ? ("warning" as const) : ("default" as const),
+      },
     ],
-    [sourceGroups, t],
+    [
+      longDraftPlaylistItems.length,
+      normalDraftPlaylistItems.length,
+      playlistIssueTotal,
+      removedImportItemCount,
+      t,
+    ],
   );
-
-  const selectedSourceGroup = useMemo(() => {
-    if (selectedSourceId === "all") return null;
-
-    return (
-      sourceGroups.find((group) => group.source.id === selectedSourceId) ?? null
-    );
-  }, [selectedSourceId, sourceGroups]);
-
-  const visibleSourceGroups =
-    selectedSourceId === "all"
-      ? sourceGroups
-      : selectedSourceGroup
-        ? [selectedSourceGroup]
-        : [];
-
-  const reviewRowProps = useMemo<ReviewVirtualRowProps>(
-    () => ({
-      items: filteredItems,
-      readyLabel: t("review.summary.ready"),
-      longLabel: t("review.summary.long"),
-      removedLabel: t("review.summary.removed"),
-      noCoverLabel: t("review.noCover"),
-      unknownUploaderLabel: t("review.unknownUploader"),
-      sourceLabel: t("review.sourceLabel"),
-      removeLabel: t("review.removeItem"),
-      restoreLabel: t("review.restoreItem"),
-      onRemoveImportItem,
-      onRestoreImportItem,
-    }),
-    [filteredItems, onRemoveImportItem, onRestoreImportItem, t],
-  );
-
-  const listHeight = Math.min(
-    520,
-    Math.max(REVIEW_ROW_HEIGHT * 3, filteredItems.length * REVIEW_ROW_HEIGHT),
-  );
-
-  const hasIssues =
-    removedDuplicateCount > 0 ||
-    playlistIssueTotal > 0 ||
-    isDraftOverflow ||
-    longDraftPlaylistItems.length > 0;
-
-  const commonRowLabels = {
-    readyLabel: t("review.summary.ready"),
-    longLabel: t("review.summary.long"),
-    removedLabel: t("review.summary.removed"),
-    noCoverLabel: t("review.noCover"),
-    unknownUploaderLabel: t("review.unknownUploader"),
-    sourceLabel: t("review.sourceLabel"),
-    removeLabel: t("review.removeItem"),
-    restoreLabel: t("review.restoreItem"),
-  };
 
   return (
-    <div className="h-full rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4">
-      {(playlistLoading || isImportingYoutubePlaylist) && (
-        <div className="mb-4 rounded-2xl border border-cyan-400/25 bg-cyan-500/8 px-3 py-3">
-          <div className="flex items-center gap-3">
-            <div className="relative inline-flex h-12 w-12 items-center justify-center">
-              <CircularProgress
-                size={44}
-                thickness={4}
-                variant={
-                  importProgressPercent === null
-                    ? "indeterminate"
-                    : "determinate"
-                }
-                value={importProgressPercent ?? undefined}
-                sx={{ color: "#38bdf8" }}
-              />
-
-              <span className="absolute text-[10px] font-semibold text-[var(--mc-text)]">
-                {importProgressPercent === null
-                  ? "..."
-                  : `${importProgressPercent}%`}
-              </span>
-            </div>
-
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-[var(--mc-text)]">
-                {playlistSource === "youtube"
-                  ? t("review.importing.youtubeTitle")
-                  : t("review.importing.urlTitle")}
-              </div>
-
-              <div className="mt-0.5 text-xs text-[var(--mc-text-muted)]">
-                {importProgressLabel ?? t("review.importing.fallback")}
-              </div>
-
-              {playlistProgressTotal > 0 && (
-                <div className="mt-1 text-[11px] text-cyan-100/90">
-                  {t("review.importing.hint")}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="min-w-0 space-y-3">
+      <ImportProgressCard
+        playlistLoading={playlistLoading}
+        isImportingYoutubePlaylist={isImportingYoutubePlaylist}
+        importProgressPercent={importProgressPercent}
+        importProgressLabel={importProgressLabel}
+        playlistSource={playlistSource}
+        playlistProgressTotal={playlistProgressTotal}
+      />
 
       {collectionPreview ? (
-        <div>
+        <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-3 sm:p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-lg font-semibold text-[var(--mc-text)]">
-                {t("review.title")}
-              </div>
-              <div className="mt-1 text-sm text-[var(--mc-text-muted)]">
-                {t("review.description")}
-              </div>
-            </div>
-
-            <div className="shrink-0 text-left sm:text-right">
+            <div className="min-w-0 flex-1">
               {isTitleEditing ? (
                 <input
                   ref={titleInputRef}
                   value={titleDraft}
-                  onChange={(e) => onTitleDraftChange(e.target.value)}
+                  onChange={(event) => onTitleDraftChange(event.target.value)}
                   onBlur={onSaveTitle}
                   onKeyDown={(event) => {
                     if (event.key === "Escape") {
@@ -529,18 +554,22 @@ export default function CollectionCreateReviewPanel({
                       onSaveTitle();
                     }
                   }}
-                  placeholder={t("review.titlePlaceholder")}
-                  className="min-w-0 rounded-none border-0 border-b border-[var(--mc-border)] bg-transparent px-0 py-1 text-base font-semibold text-[var(--mc-text)] outline-none"
+                  placeholder={t("review.titlePlaceholder", {
+                    defaultValue: "請輸入收藏標題",
+                  })}
+                  className="w-full min-w-0 rounded-none border-0 border-b border-[var(--mc-border)] bg-transparent px-0 py-1 text-base font-semibold text-[var(--mc-text)] outline-none"
                 />
               ) : (
-                <div className="flex min-w-0 items-center gap-1 sm:justify-end">
+                <div className="flex min-w-0 items-start gap-2">
                   <button
                     type="button"
                     onClick={onStartEditTitle}
-                    className="min-w-0 cursor-pointer text-left sm:text-right"
-                    aria-label={t("review.editTitleAria")}
+                    className="min-w-0 cursor-pointer text-left"
+                    aria-label={t("review.editTitle", {
+                      defaultValue: "編輯收藏標題",
+                    })}
                   >
-                    <div className="max-w-[280px] truncate text-base font-semibold text-[var(--mc-text)]">
+                    <div className="overflow-hidden text-base font-semibold leading-6 text-[var(--mc-text)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-lg">
                       {collectionPreview.title}
                     </div>
                   </button>
@@ -548,374 +577,170 @@ export default function CollectionCreateReviewPanel({
                   <button
                     type="button"
                     onClick={onStartEditTitle}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-[var(--mc-surface)]/60 hover:text-[var(--mc-text)]"
-                    aria-label={t("review.editTitleAria")}
+                    className="mt-0.5 inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-[var(--mc-surface)]/60 hover:text-[var(--mc-text)]"
+                    aria-label={t("review.editTitle", {
+                      defaultValue: "編輯收藏標題",
+                    })}
                   >
                     <EditOutlined sx={{ fontSize: 16 }} />
                   </button>
                 </div>
               )}
 
-              <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                {t("review.playableItems", {
+              {!isAdmin && (
+                <div className="mt-2 text-[11px] leading-5 text-[var(--mc-text-muted)]">
+                  {t("review.itemLimitHint", {
+                    limit:
+                      collectionItemLimit === null ? "∞" : collectionItemLimit,
+                    defaultValue: `一般使用者每個收藏庫最多可收錄 ${
+                      collectionItemLimit === null ? "∞" : collectionItemLimit
+                    } 題。`,
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 px-3 py-1 text-xs font-semibold text-[var(--mc-text)]">
+                {t("review.songCount", {
                   count: collectionPreview.count,
+                  defaultValue: `${collectionPreview.count} 首`,
                 })}
               </div>
             </div>
           </div>
 
-          {!isAdmin && (
-            <div className="mt-3 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 px-3 py-2 text-[11px] text-[var(--mc-text-muted)]">
-              {collectionItemLimit === null
-                ? t("review.itemLimitUnlimited")
-                : t("review.itemLimitHint", {
-                    limit: collectionItemLimit,
-                  })}
-            </div>
-          )}
-
-          <div className="mt-4 grid gap-2 sm:grid-cols-4">
-            <SummaryCard
-              label={t("review.summary.ready")}
-              value={normalDraftPlaylistItems.length}
-              tone="success"
-              icon={<CheckCircleOutlineRounded sx={{ fontSize: 17 }} />}
-            />
-
-            <SummaryCard
-              label={t("review.summary.long")}
-              value={longDraftPlaylistItems.length}
-              tone={longDraftPlaylistItems.length > 0 ? "warning" : "default"}
-              icon={<WarningAmberRounded sx={{ fontSize: 17 }} />}
-            />
-
-            <SummaryCard
-              label={t("review.summary.duplicates")}
-              value={removedDuplicateCount}
-              tone={removedDuplicateCount > 0 ? "success" : "default"}
-              icon={<LibraryMusicRounded sx={{ fontSize: 17 }} />}
-            />
-
-            <SummaryCard
-              label={t("review.summary.skipped")}
-              value={playlistIssueTotal}
-              tone={playlistIssueTotal > 0 ? "danger" : "default"}
-              icon={<ErrorOutlineRounded sx={{ fontSize: 17 }} />}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-2">
-            {removedImportItemCount > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterMode("removed");
-                  setDisplayMode("list");
-                  setSelectedSourceId("all");
-                }}
-                className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-2 text-left text-xs text-rose-100 transition hover:border-rose-300/45 hover:bg-rose-300/15"
-              >
-                <span className="font-semibold">
-                  {t("review.alerts.removedItems")}
-                </span>
-
-                <span>
-                  {t("review.alerts.removedItemsDetail", {
-                    count: removedImportItemCount,
-                  })}
-                </span>
-              </button>
-            )}
-
-            {removedDuplicateCount > 0 && (
-              <button
-                type="button"
-                onClick={onOpenDuplicateDialog}
-                className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-left text-xs text-emerald-100 transition hover:border-emerald-300/45 hover:bg-emerald-300/15"
-              >
-                <span className="font-semibold">
-                  {t("review.alerts.duplicatesRemoved")}
-                </span>
-
-                <span>
-                  {t("review.alerts.duplicatesRemovedDetail", {
-                    count: removedDuplicateCount,
-                  })}
-                </span>
-              </button>
-            )}
-
-            {isDraftOverflow && (
-              <button
-                type="button"
-                onClick={onOpenLimitDialog}
-                className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-left text-xs text-amber-100 transition hover:border-amber-300/45 hover:bg-amber-300/15"
-              >
-                <span className="font-semibold">
-                  {t("review.alerts.itemLimitExceeded")}
-                </span>
-
-                <span>
-                  {t("review.alerts.itemLimitExceededDetail", {
-                    count: draftOverflowCount,
-                  })}
-                </span>
-              </button>
-            )}
-
-            {playlistIssueTotal > 0 && (
-              <button
-                type="button"
-                onClick={onOpenPlaylistIssueDialog}
-                className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-2 text-left text-xs text-rose-100 transition hover:border-rose-300/45 hover:bg-rose-300/15"
-              >
-                <span className="font-semibold">
-                  {t("review.alerts.skippedItems")}
-                </span>
-
-                <span>
-                  {t("review.alerts.skippedItemsDetail", {
-                    count: playlistIssueTotal,
-                  })}
-                </span>
-              </button>
-            )}
-
-            {!hasIssues && (
-              <div className="rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100">
-                {t("review.alerts.cleanResult")}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 space-y-3 border-t border-[var(--mc-border)]/70 pt-4">
-            <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-              <div className="inline-flex flex-wrap rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 p-1 text-[11px]">
-                {[
-                  {
-                    key: "all",
-                    label: `${t("review.filters.all")} (${
-                      normalDraftPlaylistItems.length +
-                      longDraftPlaylistItems.length
-                    })`,
-                  },
-                  {
-                    key: "ready",
-                    label: `${t("review.filters.ready")} (${normalDraftPlaylistItems.length})`,
-                  },
-                  {
-                    key: "long",
-                    label: `${t("review.filters.long")} (${longDraftPlaylistItems.length})`,
-                  },
-                  {
-                    key: "removed",
-                    label: `${t("review.filters.removed")} (${removedImportItemCount})`,
-                  },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setFilterMode(item.key as ReviewFilterMode)}
-                    className={`rounded-full px-3 py-1 transition ${
-                      filterMode === item.key
-                        ? "bg-[var(--mc-accent)]/15 text-[var(--mc-text)]"
-                        : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <div className="inline-flex rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 p-1 text-[11px]">
-                  {[
-                    { key: "list", label: t("review.display.list") },
-                    { key: "source", label: t("review.display.source") },
-                  ].map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => {
-                        const nextDisplayMode = item.key as ReviewDisplayMode;
-                        setDisplayMode(nextDisplayMode);
-
-                        if (nextDisplayMode !== "source") {
-                          setSelectedSourceId("all");
-                        }
-                      }}
-                      className={`rounded-full px-3 py-1 transition ${
-                        displayMode === item.key
-                          ? "bg-[var(--mc-accent-2)]/15 text-[var(--mc-text)]"
-                          : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-
-                <label className="flex min-w-0 items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 px-3 py-1.5 text-[var(--mc-text)] sm:w-[260px]">
-                  <SearchRounded sx={{ fontSize: 16 }} className="shrink-0" />
-
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder={t("review.searchPlaceholder")}
-                    className="min-w-0 flex-1 bg-transparent text-sm text-[var(--mc-text)] outline-none placeholder:text-[var(--mc-text-muted)]"
-                  />
-
-                  {searchQuery ? (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-[var(--mc-surface)]/70 hover:text-[var(--mc-text)]"
-                      aria-label={t("review.clearSearch")}
-                    >
-                      <CloseRounded sx={{ fontSize: 12 }} />
-                    </button>
-                  ) : null}
-                </label>
-              </div>
-            </div>
-
-            {displayMode === "source" ? (
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-3">
-                  <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <div className="text-xs font-semibold text-[var(--mc-text)]">
-                        {t("review.sourcePicker.title")}
-                      </div>
-
-                      <div className="mt-0.5 text-[11px] text-[var(--mc-text-muted)]">
-                        {t("review.sourcePicker.description")}
-                      </div>
-                    </div>
-                  </div>
-
-                  <MuizoSelect
-                    value={selectedSourceId}
-                    options={sourcePickerOptions}
-                    placeholder={t("review.sourcePicker.placeholder")}
-                    onChange={setSelectedSourceId}
-                  />
-                </div>
-
-                {visibleSourceGroups.length > 0 ? (
-                  <>
-                    {visibleSourceGroups.map((group) => (
-                      <div
-                        key={group.source.id}
-                        className="overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45"
-                      >
-                        <div className="flex flex-col gap-3 border-b border-[var(--mc-border)]/70 bg-[var(--mc-surface-strong)]/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="min-w-0">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <FolderRounded
-                                sx={{ fontSize: 18 }}
-                                className="shrink-0 text-cyan-100"
-                              />
-
-                              <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                                {group.source.title}
-                              </div>
-                            </div>
-
-                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--mc-text-muted)]">
-                              <span>
-                                {t("review.sourceGroup.selected", {
-                                  count: group.selectedCount,
-                                })}
-                              </span>
-
-                              <span>
-                                {t("review.sourceGroup.removed", {
-                                  count: group.removedCount,
-                                })}
-                              </span>
-
-                              <span>
-                                {t("review.sourceGroup.total", {
-                                  count: group.source.itemCount,
-                                })}
-                              </span>
-
-                              {group.source.skippedCount > 0 && (
-                                <span className="text-amber-200">
-                                  {t("review.sourceGroup.skipped", {
-                                    count: group.source.skippedCount,
-                                  })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const confirmed = window.confirm(
-                                t("review.removeSourceConfirm", {
-                                  title: group.source.title,
-                                }),
-                              );
-
-                              if (!confirmed) return;
-
-                              onRemoveImportSource(group.source.id);
-                              setSelectedSourceId("all");
-                            }}
-                            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/15"
-                          >
-                            <DeleteOutlineRounded sx={{ fontSize: 15 }} />
-                            {t("review.removeSource")}
-                          </button>
-                        </div>
-
-                        <div className="max-h-[420px] overflow-y-auto px-2 py-2">
-                          {group.visibleItems.map((item, index) => (
-                            <CollectionReviewItemRow
-                              key={item.importItemKey ?? item.draftKey}
-                              item={item}
-                              index={index}
-                              {...commonRowLabels}
-                              onRemoveImportItem={onRemoveImportItem}
-                              onRestoreImportItem={onRestoreImportItem}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 px-4 py-6 text-sm text-[var(--mc-text-muted)]">
-                    {t("review.emptyFilter")}
-                  </div>
-                )}
-              </div>
-            ) : filteredItems.length > 0 ? (
-              <div className="overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45">
-                <List<ReviewVirtualRowProps>
-                  style={{ height: listHeight, width: "100%" }}
-                  rowCount={filteredItems.length}
-                  rowHeight={REVIEW_ROW_HEIGHT}
-                  rowProps={reviewRowProps}
-                  rowComponent={ReviewVirtualRow}
-                />
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 px-4 py-6 text-sm text-[var(--mc-text-muted)]">
-                {t("review.emptyFilter")}
-              </div>
-            )}
+          <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-4 sm:gap-2">
+            {statItems.map((item) => (
+              <CompactStatCard
+                key={item.label}
+                label={item.label}
+                value={item.value}
+                tone={item.tone}
+              />
+            ))}
           </div>
         </div>
       ) : !(playlistLoading || isImportingYoutubePlaylist) ? (
-        <div className="rounded-xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-4 text-sm text-[var(--mc-text-muted)]">
-          {t("review.empty")}
+        <div className="rounded-2xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-4 text-xs leading-5 text-[var(--mc-text-muted)]">
+          {t("review.empty", {
+            defaultValue: "匯入播放清單後，這裡會顯示收藏內容預覽。",
+          })}
         </div>
       ) : null}
+
+      <ImportSourceList
+        importSources={importSources}
+        onRemoveImportSource={onRemoveImportSource}
+      />
+
+      {collectionPreview && (
+        <>
+          <div className="grid grid-cols-1 gap-2">
+            {removedDuplicateCount > 0 && (
+              <ReviewActionCard
+                tone="emerald"
+                title={t("review.duplicatesRemoved", {
+                  defaultValue: "已自動移除重複歌曲",
+                })}
+                description={t("review.duplicatesRemovedDescription", {
+                  count: removedDuplicateCount,
+                  defaultValue: `${removedDuplicateCount} 首，查看明細`,
+                })}
+                actionLabel={t("review.viewDetails", {
+                  defaultValue: "查看明細",
+                })}
+                onClick={onOpenDuplicateDialog}
+              />
+            )}
+
+            {isDraftOverflow && (
+              <ReviewActionCard
+                tone="rose"
+                title={t("review.overflow", {
+                  defaultValue: "已超過收藏上限",
+                })}
+                description={t("review.overflowDescription", {
+                  count: draftOverflowCount,
+                  defaultValue: `還需移除 ${draftOverflowCount} 首`,
+                })}
+                actionLabel={t("review.adjustItems", {
+                  defaultValue: "調整曲目",
+                })}
+                onClick={onOpenLimitDialog}
+              />
+            )}
+
+            {playlistIssueTotal > 0 && (
+              <ReviewActionCard
+                tone="amber"
+                title={t("review.skippedReason", {
+                  defaultValue: "未成功匯入原因",
+                })}
+                description={t("review.skippedReasonDescription", {
+                  count: playlistIssueTotal,
+                  defaultValue: `${playlistIssueTotal} 首，查看明細`,
+                })}
+                actionLabel={t("review.viewDetails", {
+                  defaultValue: "查看明細",
+                })}
+                onClick={onOpenPlaylistIssueDialog}
+              />
+            )}
+          </div>
+
+          <SongSection
+            title={t("review.normalTracks", { defaultValue: "一般曲目" })}
+            count={normalDraftPlaylistItems.length}
+            items={normalDraftPlaylistItems}
+            emptyText={t("review.noNormalTracks", {
+              defaultValue: "沒有一般曲目",
+            })}
+            variant="normal"
+            maxHeightClassName="max-h-[460px] sm:max-h-[520px]"
+            onRemoveImportItem={onRemoveImportItem}
+          />
+
+          <SongSection
+            title={t("review.longTracks", {
+              defaultValue: "超長曲目（> 10:00）",
+            })}
+            count={longDraftPlaylistItems.length}
+            items={longDraftPlaylistItems}
+            emptyText={t("review.noLongTracks", {
+              defaultValue: "沒有超長曲目",
+            })}
+            variant="long"
+            maxHeightClassName="max-h-[320px]"
+            onRemoveImportItem={onRemoveImportItem}
+          />
+
+          {removedImportItems.length > 0 && (
+            <SongSection
+              title={t("review.removedTracks", {
+                defaultValue: "已移除曲目",
+              })}
+              count={removedImportItems.length}
+              items={removedImportItems}
+              emptyText={t("review.noRemovedTracks", {
+                defaultValue: "沒有已移除曲目",
+              })}
+              variant="removed"
+              maxHeightClassName="max-h-[260px]"
+              onRestoreImportItem={onRestoreImportItem}
+            />
+          )}
+
+          {totalReadyItems <= 0 && (
+            <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-3 text-xs leading-5 text-amber-100">
+              {t("review.noReadyItemsWarning", {
+                defaultValue:
+                  "目前沒有可建立的曲目，請回到匯入來源重新選擇播放清單。",
+              })}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
