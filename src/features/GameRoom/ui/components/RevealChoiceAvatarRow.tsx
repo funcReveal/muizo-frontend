@@ -35,11 +35,12 @@ const RevealChoiceAvatarRow: React.FC<RevealChoiceAvatarRowProps> = React.memo(
                 style={{ zIndex: visiblePicks.length - index }}
               >
                 <PlayerAvatar
+                  className="player-avatar--review-choice"
                   username={pick.username}
                   clientId={pick.clientId}
                   avatarUrl={pick.avatarUrl ?? undefined}
-                  size={44}
-                  contentSize={36}
+                  size={40}
+                  contentSize={38}
                   isMe={pick.isMe}
                   stateTone={pick.result}
                   effectLevel={avatarEffectLevel}

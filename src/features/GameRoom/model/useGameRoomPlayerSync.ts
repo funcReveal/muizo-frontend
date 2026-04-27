@@ -150,6 +150,7 @@ const useGameRoomPlayerSync = ({
   const playbackWarmupStopTimerRef = useRef<number | null>(null);
   const bufferingRecoveryTimerRef = useRef<number | null>(null);
   const guessLoopRestartTimerRef = useRef<number | null>(null);
+  const clipEndGuardTimerRef = useRef<number | null>(null);
   const scheduleGuessLoopRestartRef = useRef<() => void>(() => undefined);
   const postStartDriftTimersRef = useRef<number[]>([]);
   const postStartDriftRetriedRef = useRef(false);
@@ -224,6 +225,13 @@ const useGameRoomPlayerSync = ({
     }
   }, []);
 
+  const clearClipEndGuardTimer = useCallback(() => {
+    if (clipEndGuardTimerRef.current !== null) {
+      window.clearTimeout(clipEndGuardTimerRef.current);
+      clipEndGuardTimerRef.current = null;
+    }
+  }, []);
+
   const clearPostStartDriftTimers = useCallback(() => {
     postStartDriftTimersRef.current.forEach((timerId) =>
       window.clearTimeout(timerId),
@@ -281,12 +289,14 @@ const useGameRoomPlayerSync = ({
       clearPlaybackWarmupTimers();
       clearBufferingRecoveryTimer();
       clearGuessLoopRestartTimer();
+      clearClipEndGuardTimer();
       clearPostStartDriftTimers();
       clearSilentAudioStartTimer();
       clearMobileUnlockKickTimer();
     };
   }, [
     clearBufferingRecoveryTimer,
+    clearClipEndGuardTimer,
     clearGuessLoopRestartTimer,
     clearMobileUnlockKickTimer,
     clearPlaybackStartTimer,
@@ -374,8 +384,22 @@ const useGameRoomPlayerSync = ({
 
   useEffect(() => {
     guessLoopSpanRef.current = null;
-    keepRevealAliveRef.current = false;
-  }, [trackLoadKey, trackSessionKey]);
+    // Clear the clip-end guard timer when the track changes — the old timer
+    // targets the previous clip's endSec and is no longer relevant.
+    clearClipEndGuardTimer();
+    // keepRevealAliveRef is intentionally NOT cleared here.
+    //
+    // When a new question arrives (trackSessionKey changes), the old clip is
+    // still playing in the YouTube iframe until `loadVideoById` takes effect.
+    // Clearing keepRevealAliveRef synchronously in this effect means that if
+    // the old clip reaches clipEndSec (state=0) in the window between this
+    // effect and the new track's first state=1, there is nothing left to loop
+    // it — producing a silence gap.
+    //
+    // Instead, keepRevealAliveRef is cleared in the state=1 handler below,
+    // when we have positive confirmation that the new track is actually playing.
+    // See the "state === 1 && !hasStartedPlaybackRef.current" block.
+  }, [clearClipEndGuardTimer, trackLoadKey, trackSessionKey]);
 
   useEffect(() => {
     bufferingStartedAtRef.current = null;
@@ -1439,6 +1463,7 @@ const useGameRoomPlayerSync = ({
       clearBufferingRecoveryTimer();
       clearPlaybackStartTimer();
       clearPlaybackWarmupTimers();
+      clearClipEndGuardTimer();
       clearPostStartDriftTimers();
       clearMobileUnlockKickTimer();
       resyncTimersRef.current.forEach((timerId) =>
@@ -1448,6 +1473,7 @@ const useGameRoomPlayerSync = ({
     },
     [
       clearBufferingRecoveryTimer,
+      clearClipEndGuardTimer,
       clearInitialAudioHoldReleaseTimer,
       clearMobileUnlockKickTimer,
       clearPlaybackStartTimer,
@@ -1657,6 +1683,26 @@ const useGameRoomPlayerSync = ({
         }
         if (state === 1) {
           setLoadedTrackKey(trackLoadKey);
+          if (!hasStartedPlaybackRef.current) {
+            // The new track is playing for the first time. It is now safe to
+            // retire any carry-overs from the previous question's reveal phase:
+            //
+            // • keepRevealAliveRef keeps the old clip looping after reveal ends
+            //   so there is no silence gap between questions.  We defer its
+            //   reset (instead of clearing it in [trackLoadKey,trackSessionKey])
+            //   to here so the old clip can still loop during the YouTube
+            //   transition window.  Once the new track actually plays, the
+            //   keep-alive is no longer needed.
+            //
+            // • revealReplayRef may have been set by the keepRevealAlive branch
+            //   in the state=0 handler when the old clip last looped.  If left
+            //   true it would cause getDesiredPositionSec() to return
+            //   computeRevealPositionSec() for the new question's guess phase,
+            //   producing erroneous seek targets.  Clear it here so the normal
+            //   server-position sync takes over.
+            keepRevealAliveRef.current = false;
+            revealReplayRef.current = false;
+          }
           if (prestartWarmupActiveRef.current) {
             debugSync("player-state-playing-warmup");
           } else {
@@ -1765,11 +1811,18 @@ const useGameRoomPlayerSync = ({
             });
             return;
           }
-          if (isReveal) {
+          if (isReveal && isStartedByServerTime()) {
+            // Clip ended during the reveal window — loop back to clipStartSec.
+            // Uses the closure's isReveal value (always current) rather than
+            // keepRevealAliveRef alone, which avoids a race where the ref is
+            // set by the isReveal useEffect *after* this message fires.
             revealReplayRef.current = true;
-            startPlayback(undefined, true, {
-              reason: "reveal-replay",
+            debugSync("reveal-loop-state0", {
+              reason: "reveal-loop",
+              clipStartSec,
+              keepRevealAlive: keepRevealAliveRef.current,
             });
+            startPlayback(clipStartSec, true, { reason: "reveal-replay" });
           } else if (
             phase === "guess" &&
             !isTimeAttackMode &&
@@ -2011,8 +2064,47 @@ const useGameRoomPlayerSync = ({
       postCommand("unMute");
       applyVolume(gameVolume);
     }
+
+    // Clip-end guard: schedule a one-shot timer to fire ~200ms before clipEndSec
+    // so we can pre-empt the YouTube "replay" overlay by seeking back to
+    // clipStartSec before state=0 fires.  This handles the edge case where
+    // state=0 arrives while the handleMessage closure still has isReveal=false
+    // (race between the clip ending and the phase-update re-render completing).
+    // Minimum clip length of 1s prevents a rapid-fire guard on degenerate clips.
+    clearClipEndGuardTimer();
+    const currentPos = freshPos ?? revealPos;
+    const clipLengthForGuard = clipEndSec - clipStartSec;
+    if (clipLengthForGuard >= 1) {
+      const timeUntilEndMs = Math.max(0, (clipEndSec - currentPos) * 1000) - 200;
+      if (timeUntilEndMs > 50) {
+        clipEndGuardTimerRef.current = window.setTimeout(() => {
+          clipEndGuardTimerRef.current = null;
+          // Only act if we are still in reveal and player is playing.
+          if (!keepRevealAliveRef.current) return;
+          if (lastPlayerStateRef.current !== 1) return;
+          const currentPlayerPos = lastPlayerTimeSecRef.current;
+          // Confirm player is actually near the end (not already looped).
+          if (
+            typeof currentPlayerPos === "number" &&
+            currentPlayerPos < clipEndSec - 0.5
+          ) {
+            return;
+          }
+          // Pre-empt the YouTube clip-end overlay: seek to clipStartSec while
+          // still in state=1 (playing), before YouTube can show the overlay.
+          debugSync("reveal-clip-end-guard", {
+            reason: "reveal-clip-end-guard",
+            currentPlayerPos,
+            clipEndSec,
+            clipStartSec,
+          });
+          startPlayback(clipStartSec, true, { reason: "reveal-replay" });
+        }, timeUntilEndMs);
+      }
+    }
+
     if (state === 1 || (state === 3 && recentBuffering)) {
-      return;
+      return () => clearClipEndGuardTimer();
     }
     const fallbackTimer = window.setTimeout(
       () => {
@@ -2025,11 +2117,17 @@ const useGameRoomPlayerSync = ({
       },
       recentBuffering ? 780 : 420,
     );
-    return () => window.clearTimeout(fallbackTimer);
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      clearClipEndGuardTimer();
+    };
   }, [
     applyVolume,
+    clearClipEndGuardTimer,
     clipEndSec,
+    clipStartSec,
     computeRevealPositionSec,
+    debugSync,
     gameVolume,
     hasRecentBuffering,
     getFreshPlayerTimeSec,

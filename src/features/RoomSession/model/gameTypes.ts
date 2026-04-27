@@ -79,6 +79,7 @@ export interface GameState {
   playbackExtensionMs?: number;
   playbackExtensionVote?: PlaybackExtensionVoteState | null;
   restartGameVote?: RestartGameVoteState | null;
+  restartVoteInitiatedClientIds?: string[];
   lockedClientIds?: string[];
   lockedOrder?: string[];
   questionStats?: GameQuestionStats;

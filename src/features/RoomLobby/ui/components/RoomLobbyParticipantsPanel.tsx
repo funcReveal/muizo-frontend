@@ -94,7 +94,7 @@ const RoomLobbyParticipantRow = React.memo(function RoomLobbyParticipantRow({
             username={participantName}
             clientId={participant.clientId}
             avatarUrl={participantAvatarUrl ?? undefined}
-            size={56}
+            size={64}
             effectLevel={avatarEffectLevel}
             isMe={isSelf}
           />

@@ -116,11 +116,11 @@ const renderPodiumAvatar = (
         className={`mx-auto inline-flex items-center justify-center rounded-full text-white/78 ${
           rank === 1
             ? isMobileView
-              ? "h-20 w-20 bg-[radial-gradient(circle_at_35%_28%,rgba(255,248,214,0.2),rgba(250,204,21,0.08)_32%,rgba(12,18,30,0.22)_72%,transparent_100%)] text-[1.7rem]"
-              : "h-24 w-24 bg-[radial-gradient(circle_at_35%_28%,rgba(255,248,214,0.2),rgba(250,204,21,0.08)_32%,rgba(12,18,30,0.22)_72%,transparent_100%)] text-[2rem]"
+              ? "h-[92px] w-[92px] bg-[radial-gradient(circle_at_35%_28%,rgba(255,248,214,0.2),rgba(250,204,21,0.08)_32%,rgba(12,18,30,0.22)_72%,transparent_100%)] text-[1.9rem]"
+              : "h-[110px] w-[110px] bg-[radial-gradient(circle_at_35%_28%,rgba(255,248,214,0.2),rgba(250,204,21,0.08)_32%,rgba(12,18,30,0.22)_72%,transparent_100%)] text-[2.2rem]"
             : isMobileView
-              ? "h-16 w-16 bg-[radial-gradient(circle_at_35%_28%,rgba(241,245,249,0.14),rgba(148,163,184,0.05)_36%,rgba(12,18,30,0.18)_72%,transparent_100%)] text-[1.2rem]"
-              : "h-20 w-20 bg-[radial-gradient(circle_at_35%_28%,rgba(241,245,249,0.14),rgba(148,163,184,0.05)_36%,rgba(12,18,30,0.18)_72%,transparent_100%)] text-[1.5rem]"
+              ? "h-[74px] w-[74px] bg-[radial-gradient(circle_at_35%_28%,rgba(241,245,249,0.14),rgba(148,163,184,0.05)_36%,rgba(12,18,30,0.18)_72%,transparent_100%)] text-[1.35rem]"
+              : "h-[92px] w-[92px] bg-[radial-gradient(circle_at_35%_28%,rgba(241,245,249,0.14),rgba(148,163,184,0.05)_36%,rgba(12,18,30,0.18)_72%,transparent_100%)] text-[1.65rem]"
         }`}
       >
         --
@@ -130,7 +130,7 @@ const renderPodiumAvatar = (
 
   const isMe = Boolean(meClientId && participant.clientId === meClientId);
   const avatarUrl = participant.avatar_url ?? participant.avatarUrl ?? null;
-  const avatarSize = rank === 1 ? (isMobileView ? 80 : 96) : isMobileView ? 64 : 80;
+  const avatarSize = rank === 1 ? (isMobileView ? 92 : 110) : isMobileView ? 74 : 92;
 
   return (
     <RoomUiTooltip title={participant.username} wrapperClassName="mx-auto inline-flex">
@@ -443,7 +443,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({
                     {podiumLabel(rank)}
                   </div>
 
-                  <div className={`relative z-10 ${isMobileView ? "mt-3 min-h-[5.8rem]" : "mt-4 min-h-[6.8rem]"} ${nameToneClass}`}>
+                  <div className={`relative z-10 ${isMobileView ? "mt-4 pt-2 min-h-[6.8rem]" : "mt-5 pt-3 min-h-[8rem]"} ${nameToneClass}`}>
                     {renderPodiumAvatar(
                       participant,
                       rank,
