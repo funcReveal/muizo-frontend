@@ -184,6 +184,10 @@ const collectionCreate = {
   inspector: {
     importSummary: "匯入摘要",
     totalItems: "總項目",
+    totalImportedItems: "總匯入",
+    selectedItems: "已選用",
+    removedItems: "已移除",
+    removedItemsHint: "已手動移除 {{count}} 首歌曲，建立時不會包含這些項目。",
     readyItems: "可用項目",
     longTracks: "超長曲目",
     duplicatesRemoved: "已移除重複",

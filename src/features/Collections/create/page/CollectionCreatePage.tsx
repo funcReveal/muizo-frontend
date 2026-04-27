@@ -920,7 +920,9 @@ const CollectionCreatePage = () => {
               </div>
 
               <CollectionCreateInspectorPanel
-                totalItems={importedPlaylistItems.length}
+                totalImportedItems={totalImportedItemCount}
+                selectedItems={importedPlaylistItems.length}
+                removedItems={removedImportItemCount}
                 readyItems={draftPlaylistItems.length}
                 longItems={longDraftPlaylistItems.length}
                 removedDuplicateCount={removedDuplicateCount}

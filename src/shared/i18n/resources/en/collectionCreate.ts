@@ -192,6 +192,11 @@ const collectionCreate = {
   inspector: {
     importSummary: "Import Summary",
     totalItems: "Total items",
+    totalImportedItems: "Total imported",
+    selectedItems: "Selected",
+    removedItems: "Removed",
+    removedItemsHint:
+      "{{count}} songs were manually removed and will not be included when creating this collection.",
     readyItems: "Ready items",
     longTracks: "Long tracks",
     duplicatesRemoved: "Duplicates removed",

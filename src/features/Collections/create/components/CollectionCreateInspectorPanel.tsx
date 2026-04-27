@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next";
 
 type Props = {
-  totalItems: number;
+  totalImportedItems: number;
+  selectedItems: number;
+  removedItems: number;
   readyItems: number;
   longItems: number;
   removedDuplicateCount: number;
@@ -51,7 +53,9 @@ const StatRow = ({
 };
 
 export default function CollectionCreateInspectorPanel({
-  totalItems,
+  totalImportedItems,
+  selectedItems,
+  removedItems,
   readyItems,
   longItems,
   removedDuplicateCount,
@@ -74,6 +78,9 @@ export default function CollectionCreateInspectorPanel({
   const { t } = useTranslation("collectionCreate");
 
   const readyTone = readyItems > 0 && !isDraftOverflow ? "success" : "default";
+  const selectedTone =
+    selectedItems > 0 && !isDraftOverflow ? "success" : "default";
+  const removedTone = removedItems > 0 ? "warning" : "default";
 
   return (
     <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
@@ -83,7 +90,20 @@ export default function CollectionCreateInspectorPanel({
         </div>
 
         <div className="mt-3 space-y-2">
-          <StatRow label={t("inspector.totalItems")} value={totalItems} />
+          <StatRow
+            label={t("inspector.totalImportedItems")}
+            value={totalImportedItems}
+          />
+          <StatRow
+            label={t("inspector.selectedItems")}
+            value={selectedItems}
+            tone={selectedTone}
+          />
+          <StatRow
+            label={t("inspector.removedItems")}
+            value={removedItems}
+            tone={removedTone}
+          />
           <StatRow
             label={t("inspector.readyItems")}
             value={readyItems}
@@ -104,9 +124,15 @@ export default function CollectionCreateInspectorPanel({
         {collectionItemLimit !== null && (
           <div className="mt-4 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-3 py-2 text-xs text-[var(--mc-text-muted)]">
             {t("inspector.itemLimit", {
-              current: readyItems,
+              current: selectedItems,
               limit: collectionItemLimit,
             })}
+          </div>
+        )}
+
+        {removedItems > 0 && (
+          <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+            {t("inspector.removedItemsHint", { count: removedItems })}
           </div>
         )}
 
