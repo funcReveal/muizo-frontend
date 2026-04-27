@@ -8,8 +8,10 @@ import CloseRounded from "@mui/icons-material/CloseRounded";
 import PlaylistAddRounded from "@mui/icons-material/PlaylistAddRounded";
 import {
   Box,
+  Button,
   CircularProgress,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
@@ -67,6 +69,8 @@ const CollectionCreatePage = () => {
   const {
     playlistUrl,
     playlistItems,
+    playlistLocked,
+    lastFetchedPlaylistId,
     lastFetchedPlaylistTitle,
     playlistError,
     playlistLoading,
@@ -109,6 +113,7 @@ const CollectionCreatePage = () => {
   const [playlistIssueTab, setPlaylistIssueTab] =
     useState<PlaylistIssueTab>("removed");
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [clearPlaylistDialogOpen, setClearPlaylistDialogOpen] = useState(false);
 
   const needsGoogleReauth = isGoogleReauthRequired({
     error: youtubePlaylistsError ?? youtubeActionError,
@@ -212,9 +217,21 @@ const CollectionCreatePage = () => {
     trimmedPlaylistUrl && !playlistUrlLooksValid,
   );
 
+  const hasResolvedPlaylist = Boolean(
+    playlistLocked && lastFetchedPlaylistId && draftPlaylistItems.length > 0,
+  );
+
+  const playlistUrlReadOnly =
+    playlistSource === "url" &&
+    Boolean(trimmedPlaylistUrl) &&
+    playlistUrlLooksValid &&
+    !playlistError;
+
   const playlistUrlTooltipMessage = showPlaylistUrlError
-    ? "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。"
-    : "";
+    ? t("source.invalidPlaylistUrl")
+    : playlistUrlReadOnly
+      ? t("source.playlistLockedHint")
+      : "";
 
   useEffect(() => {
     handleResetPlaylist();
@@ -580,9 +597,28 @@ const CollectionCreatePage = () => {
     setIsTitleEditing(false);
   };
 
-  const handleClearPlaylistUrl = () => {
-    setPlaylistUrl("");
+  const resetPlaylistSelection = () => {
+    handleResetPlaylist();
     lastAutoImportUrlRef.current = "";
+    setSelectedYoutubePlaylistId("");
+    setYoutubeActionError(null);
+  };
+
+  const handleRequestClearPlaylistUrl = () => {
+    if (hasResolvedPlaylist) {
+      setClearPlaylistDialogOpen(true);
+      return;
+    }
+
+    resetPlaylistSelection();
+  };
+
+  const handleConfirmClearPlaylist = () => {
+    resetPlaylistSelection();
+    setCollectionTitle("");
+    setTitleDraft("");
+    setCreateStep("source");
+    setClearPlaylistDialogOpen(false);
   };
 
   const handleVisibilityChange = (nextVisibility: "private" | "public") => {
@@ -712,7 +748,9 @@ const CollectionCreatePage = () => {
                     onFetchPlaylist={() => {
                       void handleFetchPlaylist();
                     }}
-                    onClearPlaylistUrl={handleClearPlaylistUrl}
+                    onClearPlaylistUrl={handleRequestClearPlaylistUrl}
+                    playlistUrlReadOnly={playlistUrlReadOnly}
+                    hasResolvedPlaylist={hasResolvedPlaylist}
                     playlistLoading={playlistLoading}
                     playlistError={playlistError}
                     youtubePlaylistsLoading={youtubePlaylistsLoading}
@@ -829,6 +867,69 @@ const CollectionCreatePage = () => {
           </div>
         </div>
 
+        <Dialog
+          open={clearPlaylistDialogOpen}
+          onClose={() => setClearPlaylistDialogOpen(false)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: "1px solid rgba(148, 163, 184, 0.22)",
+              background:
+                "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
+              color: "var(--mc-text)",
+            },
+          }}
+        >
+          <DialogTitle sx={{ pb: 1 }}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-base font-semibold">
+                {t("source.clearPlaylistDialogTitle")}
+              </div>
+
+              <IconButton
+                size="small"
+                onClick={() => setClearPlaylistDialogOpen(false)}
+                aria-label={t("source.clearPlaylistDialogCancel")}
+                sx={{ color: "var(--mc-text-muted)" }}
+              >
+                <CloseRounded fontSize="small" />
+              </IconButton>
+            </div>
+          </DialogTitle>
+
+          <DialogContent sx={{ pt: 1 }}>
+            <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-100">
+              {t("source.clearPlaylistDialogDescription")}
+            </div>
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              variant="text"
+              onClick={() => setClearPlaylistDialogOpen(false)}
+              sx={{ color: "var(--mc-text-muted)" }}
+            >
+              {t("source.clearPlaylistDialogCancel")}
+            </Button>
+
+            <Button
+              variant="contained"
+              onClick={handleConfirmClearPlaylist}
+              sx={{
+                borderRadius: 999,
+                background:
+                  "linear-gradient(135deg, rgba(251,191,36,0.96), rgba(34,211,238,0.9))",
+                color: "#0f172a",
+                fontWeight: 800,
+                boxShadow: "0 14px 32px rgba(251,191,36,0.18)",
+              }}
+            >
+              {t("source.clearPlaylistDialogConfirm")}
+            </Button>
+          </DialogActions>
+        </Dialog>
         <Dialog
           open={duplicateDialogOpen}
           onClose={() => setDuplicateDialogOpen(false)}

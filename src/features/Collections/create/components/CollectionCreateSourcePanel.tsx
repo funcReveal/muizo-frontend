@@ -35,6 +35,8 @@ type Props = {
   onPlaylistUrlChange: (value: string) => void;
   onFetchPlaylist: () => void;
   onClearPlaylistUrl: () => void;
+  playlistUrlReadOnly: boolean;
+  hasResolvedPlaylist: boolean;
   playlistLoading: boolean;
   playlistError: string | null;
 
@@ -66,6 +68,8 @@ export default function CollectionCreateSourcePanel({
   onPlaylistUrlChange,
   onFetchPlaylist,
   onClearPlaylistUrl,
+  playlistUrlReadOnly,
+  hasResolvedPlaylist,
   playlistLoading,
   playlistError,
 
@@ -167,9 +171,16 @@ export default function CollectionCreateSourcePanel({
                 error={showPlaylistUrlError}
                 onFocus={() => onPlaylistUrlFocusChange(true)}
                 onBlur={() => onPlaylistUrlFocusChange(false)}
-                onChange={(e) => onPlaylistUrlChange(e.target.value)}
+                onChange={(e) => {
+                  if (playlistUrlReadOnly) return;
+                  onPlaylistUrlChange(e.target.value);
+                }}
                 onKeyDown={(event) => {
-                  if (event.key !== "Enter" || playlistLoading) {
+                  if (
+                    event.key !== "Enter" ||
+                    playlistLoading ||
+                    playlistUrlReadOnly
+                  ) {
                     return;
                   }
 
@@ -185,7 +196,11 @@ export default function CollectionCreateSourcePanel({
                           size="small"
                           onClick={onClearPlaylistUrl}
                           edge="end"
-                          aria-label={t("source.clearPlaylistUrl")}
+                          aria-label={
+                            hasResolvedPlaylist
+                              ? t("source.reselectPlaylist")
+                              : t("source.clearPlaylistUrl")
+                          }
                           sx={{ color: "rgba(148,163,184,0.92)" }}
                         >
                           <CloseRounded fontSize="small" />
@@ -194,6 +209,7 @@ export default function CollectionCreateSourcePanel({
                     ) : undefined,
                   },
                   htmlInput: {
+                    readOnly: playlistUrlReadOnly,
                     lang: "en",
                     autoComplete: "off",
                     autoCorrect: "off",
@@ -252,7 +268,9 @@ export default function CollectionCreateSourcePanel({
             </Tooltip>
 
             <div className="mt-3 text-xs text-[var(--mc-text-muted)]">
-              {t("source.playlistUrlHint")}
+              {hasResolvedPlaylist
+                ? t("source.playlistLockedHint")
+                : t("source.playlistUrlHint")}
             </div>
 
             {playlistLoading ? (
