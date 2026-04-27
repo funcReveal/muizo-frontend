@@ -67,6 +67,8 @@ const collectionCreate = {
     sourceTypeYoutubeUrl: "URL",
     sourceTypeYoutubeAccount: "YouTube",
     untitledSource: "Untitled source",
+    playlistAlreadyImported: "This playlist has already been imported",
+    importedBadge: "Imported",
   },
 
   review: {
@@ -134,6 +136,9 @@ const collectionCreate = {
       removed: "{{count}} removed",
       total: "{{count}} total",
       skipped: "{{count}} skipped",
+    },
+    sourcePicker: {
+      all: "All sources",
     },
   },
 

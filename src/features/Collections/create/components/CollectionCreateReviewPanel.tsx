@@ -26,7 +26,7 @@ import type {
 
 const REVIEW_ROW_HEIGHT = 80;
 
-type ReviewFilterMode = "all" | "ready" | "long" | "removed" | "issues";
+type ReviewFilterMode = "all" | "ready" | "long" | "removed";
 type ReviewDisplayMode = "list" | "source";
 
 type ReviewItemStatus = "ready" | "long" | "removed";
@@ -49,6 +49,8 @@ type SourceReviewGroup = {
   selectedItems: ReviewItemView[];
   removedItems: ReviewItemView[];
   visibleItems: ReviewItemView[];
+  selectedCount: number;
+  removedCount: number;
 };
 
 type ReviewVirtualRowProps = {
@@ -309,7 +311,7 @@ const ReviewItemRow = ({
           {isRemoved ? (
             <RestoreRounded sx={{ fontSize: 16 }} />
           ) : (
-            <CloseRounded sx={{ fontSize: 16 }} />
+            <DeleteOutlineRounded sx={{ fontSize: 16 }} />
           )}
         </button>
       )}
@@ -435,6 +437,7 @@ export default function CollectionCreateReviewPanel({
   const [filterMode, setFilterMode] = useState<ReviewFilterMode>("all");
   const [displayMode, setDisplayMode] = useState<ReviewDisplayMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSourceId, setSelectedSourceId] = useState<string>("all");
 
   const selectedReviewItems = useMemo(
     () =>
@@ -468,7 +471,6 @@ export default function CollectionCreateReviewPanel({
       if (filterMode === "ready" && item.status !== "ready") return false;
       if (filterMode === "long" && item.status !== "long") return false;
       if (filterMode === "removed" && item.status !== "removed") return false;
-      if (filterMode === "issues") return false;
 
       if (!normalizedSearchQuery) return true;
 
@@ -512,22 +514,37 @@ export default function CollectionCreateReviewPanel({
           selectedItems,
           removedItems,
           visibleItems,
+          selectedCount: selectedItems.length,
+          removedCount: removedItems.length,
         };
       })
       .filter((group) => {
-        if (filterMode === "issues") return false;
         return (
           group.visibleItems.length > 0 || normalizedSearchQuery.length === 0
         );
       });
   }, [
-    filterMode,
     filterReviewItem,
     importSources,
     normalizedSearchQuery.length,
     removedReviewItems,
     selectedReviewItems,
   ]);
+
+  const selectedSourceGroup = useMemo(() => {
+    if (selectedSourceId === "all") return null;
+
+    return (
+      sourceGroups.find((group) => group.source.id === selectedSourceId) ?? null
+    );
+  }, [selectedSourceId, sourceGroups]);
+
+  const visibleSourceGroups =
+    selectedSourceId === "all"
+      ? sourceGroups
+      : selectedSourceGroup
+        ? [selectedSourceGroup]
+        : [];
 
   const reviewRowProps = useMemo<ReviewVirtualRowProps>(
     () => ({
@@ -720,6 +737,7 @@ export default function CollectionCreateReviewPanel({
                 onClick={() => {
                   setFilterMode("removed");
                   setDisplayMode("list");
+                  setSelectedSourceId("all");
                 }}
                 className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-2 text-left text-xs text-rose-100 transition hover:border-rose-300/45 hover:bg-rose-300/15"
               >
@@ -815,10 +833,6 @@ export default function CollectionCreateReviewPanel({
                     key: "removed",
                     label: `${t("review.filters.removed")} (${removedImportItemCount})`,
                   },
-                  {
-                    key: "issues",
-                    label: `${t("review.filters.issues")} (${playlistIssueTotal})`,
-                  },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -844,9 +858,14 @@ export default function CollectionCreateReviewPanel({
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() =>
-                        setDisplayMode(item.key as ReviewDisplayMode)
-                      }
+                      onClick={() => {
+                        const nextDisplayMode = item.key as ReviewDisplayMode;
+                        setDisplayMode(nextDisplayMode);
+
+                        if (nextDisplayMode !== "source") {
+                          setSelectedSourceId("all");
+                        }
+                      }}
                       className={`rounded-full px-3 py-1 transition ${
                         displayMode === item.key
                           ? "bg-[var(--mc-accent-2)]/15 text-[var(--mc-text)]"
@@ -857,6 +876,24 @@ export default function CollectionCreateReviewPanel({
                     </button>
                   ))}
                 </div>
+
+                {displayMode === "source" && (
+                  <select
+                    value={selectedSourceId}
+                    onChange={(event) =>
+                      setSelectedSourceId(event.target.value)
+                    }
+                    className="h-8 min-w-[220px] rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 px-3 text-xs font-semibold text-[var(--mc-text)] outline-none"
+                  >
+                    <option value="all">{t("review.sourcePicker.all")}</option>
+                    {sourceGroups.map((group) => (
+                      <option key={group.source.id} value={group.source.id}>
+                        {group.source.title} · {group.selectedCount}/
+                        {group.source.itemCount}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 <label className="flex min-w-0 items-center gap-2 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/55 px-3 py-1.5 text-[var(--mc-text)] sm:w-[260px]">
                   <SearchRounded sx={{ fontSize: 16 }} className="shrink-0" />
@@ -881,14 +918,10 @@ export default function CollectionCreateReviewPanel({
               </div>
             </div>
 
-            {filterMode === "issues" ? (
-              <div className="rounded-2xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 px-4 py-6 text-sm text-[var(--mc-text-muted)]">
-                {t("review.issuesHint")}
-              </div>
-            ) : displayMode === "source" ? (
-              sourceGroups.length > 0 ? (
+            {displayMode === "source" ? (
+              visibleSourceGroups.length > 0 ? (
                 <div className="space-y-3">
-                  {sourceGroups.map((group) => (
+                  {visibleSourceGroups.map((group) => (
                     <div
                       key={group.source.id}
                       className="overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45"
@@ -908,12 +941,12 @@ export default function CollectionCreateReviewPanel({
                           <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--mc-text-muted)]">
                             <span>
                               {t("review.sourceGroup.selected", {
-                                count: group.selectedItems.length,
+                                count: group.selectedCount,
                               })}
                             </span>
                             <span>
                               {t("review.sourceGroup.removed", {
-                                count: group.removedItems.length,
+                                count: group.removedCount,
                               })}
                             </span>
                             <span>
@@ -943,6 +976,7 @@ export default function CollectionCreateReviewPanel({
                             if (!confirmed) return;
 
                             onRemoveImportSource(group.source.id);
+                            setSelectedSourceId("all");
                           }}
                           className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/15"
                         >

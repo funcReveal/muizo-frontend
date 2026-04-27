@@ -64,6 +64,8 @@ const collectionCreate = {
     sourceTypeYoutubeUrl: "連結",
     sourceTypeYoutubeAccount: "YouTube",
     untitledSource: "未命名來源",
+    playlistAlreadyImported: "已匯入過這份清單",
+    importedBadge: "已匯入",
   },
 
   review: {
@@ -129,6 +131,9 @@ const collectionCreate = {
       removed: "已移除 {{count}} 首",
       total: "共 {{count}} 首",
       skipped: "略過 {{count}} 首",
+    },
+    sourcePicker: {
+      all: "全部來源",
     },
   },
 

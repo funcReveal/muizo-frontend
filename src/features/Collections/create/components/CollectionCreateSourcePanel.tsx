@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import CloseRounded from "@mui/icons-material/CloseRounded";
+import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 import {
   Button,
   CircularProgress,
@@ -106,16 +108,34 @@ export default function CollectionCreateSourcePanel({
 }: Props) {
   const { t } = useTranslation("collectionCreate");
 
+  const importedYoutubePlaylistIds = useMemo(
+    () =>
+      new Set(
+        importSources
+          .filter((source) => source.type === "youtube_account_playlist")
+          .map((source) => source.sourceId),
+      ),
+    [importSources],
+  );
+
   const youtubePlaylistOptions: MuizoSelectOption[] = youtubePlaylists.map(
-    (playlist) => ({
-      value: playlist.id,
-      label: playlist.title,
-      thumbnail: playlist.thumbnail,
-      description: t("source.playlistOption", {
-        title: "",
-        count: playlist.itemCount,
-      }).trim(),
-    }),
+    (playlist) => {
+      const alreadyImported = importedYoutubePlaylistIds.has(playlist.id);
+
+      return {
+        value: playlist.id,
+        label: playlist.title,
+        thumbnail: playlist.thumbnail,
+        description: alreadyImported
+          ? t("source.playlistAlreadyImported")
+          : t("source.playlistOption", {
+              title: "",
+              count: playlist.itemCount,
+            }).trim(),
+        disabled: alreadyImported,
+        meta: alreadyImported ? t("source.importedBadge") : undefined,
+      };
+    },
   );
 
   const youtubeSelectLoading =
@@ -466,7 +486,7 @@ export default function CollectionCreateSourcePanel({
                     },
                   }}
                 >
-                  <CloseRounded fontSize="small" />
+                  <DeleteOutlineRounded fontSize="small" />
                 </IconButton>
               </div>
             ))}
