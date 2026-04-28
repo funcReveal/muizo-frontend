@@ -84,6 +84,8 @@ export interface GameState {
   playbackExtensionRejectedInitiatedClientIds?: string[];
   restartGameVote?: RestartGameVoteState | null;
   restartVoteInitiatedClientIds?: string[];
+  restartNowVoteInitiatedClientIds?: string[];
+  returnToLobbyVoteInitiatedClientIds?: string[];
   lockedClientIds?: string[];
   lockedOrder?: string[];
   questionStats?: GameQuestionStats;
