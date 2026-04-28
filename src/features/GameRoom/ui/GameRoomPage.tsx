@@ -423,6 +423,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => room.hostClientId === meClientId,
     [room.hostClientId, meClientId],
   );
+
+  const onlineGameParticipantCount = useMemo(
+    () => participants.filter((participant) => participant.isOnline).length,
+    [participants],
+  );
+
+  const isSoloGameSession = onlineGameParticipantCount <= 1;
+
   const hostManageParticipants = useMemo(
     () =>
       sortParticipantsByScore(participants).filter(
@@ -690,13 +698,30 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   const restartVoteDialogTitle =
     restartVoteAction === "return_to_lobby"
-      ? "要發起回到房間投票嗎？"
-      : "要發起重新開始投票嗎？";
+      ? isSoloGameSession
+        ? "要返回房間嗎？"
+        : "要發起回到房間投票嗎？"
+      : isSoloGameSession
+        ? "要重新開始嗎？"
+        : "要發起重新開始投票嗎？";
 
   const restartVoteDialogDescription =
     restartVoteAction === "return_to_lobby"
-      ? "通過後會結束目前這一局，保留房間、玩家、歌單與設定，回到房間大廳。"
-      : "通過後會直接進入 5 秒倒數，並開始新一局。";
+      ? isSoloGameSession
+        ? "確認後會結束目前這一局，保留房間、歌單與設定，回到房間大廳。"
+        : "投票通過後會結束目前這一局，保留房間、玩家、歌單與設定，回到房間大廳。"
+      : isSoloGameSession
+        ? "確認後會直接進入 5 秒倒數，並開始新一局。"
+        : "投票通過後會直接進入 5 秒倒數，並開始新一局。";
+
+  const restartVoteConfirmButtonLabel =
+    restartVoteAction === "return_to_lobby"
+      ? isSoloGameSession
+        ? "確認返回房間"
+        : "確認發起回到房間投票"
+      : isSoloGameSession
+        ? "確認重新開始"
+        : "確認發起重新開始投票";
 
   const restartVoteButtonDisabled =
     restartVoteRequestPending ||
@@ -2411,7 +2436,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     {restartVoteDialogDescription}
                   </Typography>
                   <Typography variant="caption" className="text-slate-500">
-                    發起後需要多數玩家同意才會執行。若投票未通過，本局你將不能再次發起這類投票。
+                    {isSoloGameSession
+                      ? "目前只有你在遊戲中，確認後會直接執行，不需要投票。"
+                      : "發起後需要多數玩家同意才會執行。若投票未通過，本局你將不能再次發起這類投票。"}
                   </Typography>
                 </Stack>
               </DialogContent>
@@ -2430,7 +2457,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   color={pendingRestartVoteAction === "return_to_lobby" ? "info" : "warning"}
                   disabled={restartVoteRequestPending}
                 >
-                  {restartVoteRequestPending ? "發起中..." : `確認發起${restartVoteActionLabel}投票`}
+                  {restartVoteRequestPending ? "處理中..." : restartVoteConfirmButtonLabel}
                 </Button>
               </DialogActions>
             </Dialog>
