@@ -23,6 +23,11 @@ import type {
   SubmitAnswerResult,
 } from "./types";
 
+const getRestartVoteRequestFailurePrefix = (action: RestartGameVoteAction) =>
+  action === "return_to_lobby"
+    ? "發起返回房間投票失敗"
+    : "發起重新開始投票失敗";
+
 type UseRoomGameActionsParams = {
   getSocket: () => ClientSocket | null;
   currentRoom: RoomState["room"] | null;
@@ -414,18 +419,25 @@ export const useRoomGameActions = ({
           },
           (ack: Ack<GameLiveUpdatePayload>) => {
             if (!ack) {
-              setStatusText("發起重新投票失敗，請稍後再試");
+              setStatusText(
+                `${getRestartVoteRequestFailurePrefix(normalizedAction)}，請稍後再試`,
+              );
               resolve(false);
               return;
             }
             if (!ack.ok) {
-              console.warn("[requestPlaybackExtensionVote] failed", ack.error);
+              console.warn("[requestRestartGameVote] failed", ack.error);
 
               if (handleRoomGoneAck(currentRoom.id, ack)) {
                 resolve(false);
                 return;
               }
-              setStatusText(formatAckError("發起延長投票失敗", ack.error));
+              setStatusText(
+                formatAckError(
+                  getRestartVoteRequestFailurePrefix(normalizedAction),
+                  ack.error,
+                ),
+              );
               resolve(false);
               return;
             }

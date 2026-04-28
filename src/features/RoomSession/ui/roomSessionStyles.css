@@ -15930,13 +15930,13 @@
   }
 
   .game-room-mobile-action-icon {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.1rem;
-    height: 1.1rem;
-    font-size: 1.1rem;
-    color: rgba(186, 230, 253, 0.95);
+    flex: 0 0 auto;
+    font-size: 1rem;
+    line-height: 1;
   }
 
   .game-room-mobile-action-label {
@@ -16097,10 +16097,6 @@
     color: rgba(241, 245, 249, 0.96);
     justify-content: center;
     text-align: center;
-  }
-
-  .game-room-mobile-toggle-chip--leave .game-room-mobile-action-icon {
-    display: none;
   }
 
   .game-room-mobile-toggle-chip--neutral {
@@ -17647,9 +17643,7 @@
   }
 
   .game-room-mobile-toggle-chip {
-    min-height: 40px;
-    padding: 7px 8px;
-    font-size: 10px;
+    gap: 0.45rem;
   }
 
   .game-room-mobile-toggle-chip--compact {
@@ -25873,18 +25867,14 @@
   cursor: not-allowed;
 }
 
-.game-room-mobile-toggle-chip--request-locked::after {
-  content: none;
-}
-
 .game-room-mobile-toggle-chip--request-locked:disabled {
   opacity: 1;
 }
 
 .game-room-mobile-toggle-chip__lock-corner {
   position: absolute;
-  top: -5px;
-  right: 0.1rem;
+  top: 0.18rem;
+  right: 0.28rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -25895,6 +25885,216 @@
   pointer-events: none;
 }
 
+.game-room-mobile-toggle-chip--request-locked::after {
+  content: none;
+}
+
 .game-room-mobile-toggle-chip--request-locked.game-room-mobile-vote-row__btn {
   padding-right: 1rem;
+}
+
+.game-room-mobile-toggle-chip--desktop-secondary {
+  color: rgba(226, 232, 240, 0.9);
+  border-color: rgba(71, 85, 105, 0.72);
+  background: linear-gradient(
+    180deg,
+    rgba(30, 41, 59, 0.92),
+    rgba(15, 23, 42, 0.9)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+}
+
+.game-room-mobile-toggle-chip--desktop-secondary:hover:not(:disabled) {
+  color: rgba(248, 250, 252, 0.98);
+  border-color: rgba(148, 163, 184, 0.68);
+  background: linear-gradient(
+    180deg,
+    rgba(51, 65, 85, 0.96),
+    rgba(30, 41, 59, 0.92)
+  );
+}
+
+.game-room-mobile-toggle-chip--desktop-secondary:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.game-room-mobile-toggle-chip--host {
+  color: #d9f6ff;
+  border-color: rgba(56, 189, 248, 0.44);
+  background:
+    radial-gradient(
+      140px 70px at 18% 12%,
+      rgba(56, 189, 248, 0.2),
+      transparent 72%
+    ),
+    rgba(7, 24, 41, 0.74);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 28px -22px rgba(56, 189, 248, 0.92);
+}
+
+.game-room-mobile-toggle-chip--host:hover:not(:disabled),
+.game-room-mobile-toggle-chip--host.game-room-mobile-toggle-chip--active {
+  color: #d9f6ff;
+  border-color: rgba(125, 211, 252, 0.7);
+  background:
+    radial-gradient(
+      160px 80px at 18% 12%,
+      rgba(56, 189, 248, 0.24),
+      transparent 74%
+    ),
+    rgba(7, 24, 41, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 16px 30px -20px rgba(14, 165, 233, 0.95);
+}
+
+.game-room-mobile-toggle-chip--host .game-room-mobile-action-icon {
+  color: rgba(186, 230, 253, 0.96);
+}
+
+.game-room-mobile-toggle-chip--host .game-room-mobile-action-meta {
+  color: rgba(186, 230, 253, 0.78);
+}
+
+.game-room-mobile-toggle-chip--return {
+  color: rgba(191, 219, 254, 0.96);
+  border-color: rgba(56, 189, 248, 0.58);
+  background: linear-gradient(
+    180deg,
+    rgba(14, 116, 144, 0.32),
+    rgba(15, 23, 42, 0.9)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(56, 189, 248, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+}
+
+.game-room-mobile-toggle-chip--return:hover:not(:disabled) {
+  color: rgba(224, 242, 254, 1);
+  border-color: rgba(125, 211, 252, 0.72);
+  background: linear-gradient(
+    180deg,
+    rgba(14, 165, 233, 0.36),
+    rgba(15, 23, 42, 0.94)
+  );
+}
+
+.game-room-mobile-toggle-chip--return .game-room-mobile-action-icon {
+  color: rgba(125, 211, 252, 0.96);
+}
+
+.game-room-mobile-toggle-chip--restart {
+  color: rgba(254, 243, 199, 0.96);
+  border-color: rgba(245, 158, 11, 0.62);
+  background: linear-gradient(
+    180deg,
+    rgba(146, 64, 14, 0.34),
+    rgba(15, 23, 42, 0.9)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(245, 158, 11, 0.1),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+}
+
+.game-room-mobile-toggle-chip--restart:hover:not(:disabled) {
+  color: rgba(255, 251, 235, 1);
+  border-color: rgba(251, 191, 36, 0.78);
+  background: linear-gradient(
+    180deg,
+    rgba(180, 83, 9, 0.4),
+    rgba(15, 23, 42, 0.94)
+  );
+}
+
+.game-room-mobile-toggle-chip--restart .game-room-mobile-action-icon {
+  color: rgba(251, 191, 36, 0.96);
+}
+
+.game-room-mobile-toggle-chip--leave {
+  color: rgba(254, 226, 226, 0.96);
+  border-color: rgba(248, 113, 113, 0.58);
+  background: linear-gradient(
+    180deg,
+    rgba(127, 29, 29, 0.38),
+    rgba(15, 23, 42, 0.9)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(248, 113, 113, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+}
+
+.game-room-mobile-toggle-chip--leave:hover:not(:disabled) {
+  color: rgba(254, 242, 242, 1);
+  border-color: rgba(252, 165, 165, 0.76);
+  background: linear-gradient(
+    180deg,
+    rgba(153, 27, 27, 0.46),
+    rgba(15, 23, 42, 0.94)
+  );
+}
+
+.game-room-mobile-toggle-chip--leave .game-room-mobile-action-icon {
+  color: rgba(252, 165, 165, 0.96);
+}
+
+.game-room-extend-vote-btn--mobile-inline {
+  color: rgba(254, 243, 199, 0.96);
+  border-color: rgba(245, 158, 11, 0.62);
+  background: linear-gradient(
+    180deg,
+    rgba(146, 64, 14, 0.34),
+    rgba(15, 23, 42, 0.9)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(245, 158, 11, 0.1),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+}
+
+.game-room-extend-vote-btn--mobile-inline:hover:not(:disabled) {
+  color: rgba(255, 251, 235, 1);
+  border-color: rgba(251, 191, 36, 0.78);
+  background: linear-gradient(
+    180deg,
+    rgba(180, 83, 9, 0.4),
+    rgba(15, 23, 42, 0.94)
+  );
+}
+
+.game-room-extend-vote-btn--mobile-inline .game-room-extend-vote-btn__icon {
+  color: rgba(251, 191, 36, 0.96);
+}
+
+.game-room-vote-btn--request-locked.MuiButton-root,
+.game-room-vote-btn--request-locked.MuiButton-root.Mui-disabled,
+.game-room-mobile-toggle-chip--request-locked,
+.game-room-mobile-toggle-chip--request-locked:hover:not(:disabled) {
+  color: rgba(226, 232, 240, 0.64);
+  border-color: rgba(71, 85, 105, 0.58);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.84));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 8px 18px -18px rgba(2, 6, 23, 0.45);
+  filter: grayscale(0.35) saturate(0.58);
+  cursor: not-allowed;
+}
+
+.game-room-mobile-toggle-chip--request-locked .game-room-mobile-action-icon {
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.game-room-mobile-toggle-chip--request-locked .game-room-mobile-action-meta {
+  color: rgba(148, 163, 184, 0.72);
+}
+
+.game-room-vote-btn--request-locked.MuiButton-root .MuiButton-startIcon {
+  color: rgba(148, 163, 184, 0.82);
 }

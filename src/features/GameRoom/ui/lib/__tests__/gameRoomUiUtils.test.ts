@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getRestartVoteButtonLabel,
+  getRestartVoteRequestErrorLabel,
   isComboMilestone,
   resolveComboBreakTier,
   resolveComboTier,
@@ -46,5 +48,52 @@ describe("GameRoomPage combo helpers", () => {
     expect(resolveComboBreakTier(-12)).toBe(3);
     expect(resolveComboBreakTier(-13)).toBe(4);
     expect(resolveComboBreakTier(-25)).toBe(4);
+  });
+
+  it("keeps restart vote labels action-specific", () => {
+    expect(
+      getRestartVoteButtonLabel({
+        action: "return_to_lobby",
+        hasRequested: false,
+        isRejected: false,
+      }),
+    ).toBe("返回房間");
+    expect(
+      getRestartVoteButtonLabel({
+        action: "restart_now",
+        hasRequested: false,
+        isRejected: false,
+      }),
+    ).toBe("重新開始");
+    expect(
+      getRestartVoteButtonLabel({
+        action: "return_to_lobby",
+        hasRequested: true,
+        isRejected: false,
+      }),
+    ).toBe("本局已發起");
+    expect(
+      getRestartVoteButtonLabel({
+        action: "return_to_lobby",
+        hasRequested: true,
+        isRejected: true,
+      }),
+    ).toBe("返回房間投票失敗");
+    expect(
+      getRestartVoteButtonLabel({
+        action: "restart_now",
+        hasRequested: true,
+        isRejected: true,
+      }),
+    ).toBe("重新開始投票失敗");
+  });
+
+  it("keeps restart vote request errors action-specific", () => {
+    expect(getRestartVoteRequestErrorLabel("return_to_lobby")).toBe(
+      "發起返回房間投票失敗",
+    );
+    expect(getRestartVoteRequestErrorLabel("restart_now")).toBe(
+      "發起重新開始投票失敗",
+    );
   });
 });
