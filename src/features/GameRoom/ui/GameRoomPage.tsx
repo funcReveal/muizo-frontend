@@ -2151,7 +2151,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
                     <button
                       type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--warning game-room-mobile-vote-row__btn ${isRestartVoteActive && restartVoteAction === "restart_now"
+                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--neutral game-room-mobile-vote-row__btn ${isRestartVoteActive && restartVoteAction === "restart_now"
                         ? "game-room-mobile-toggle-chip--active"
                         : ""
                         } ${showRestartVoteRedDot && restartVoteAction === "restart_now"

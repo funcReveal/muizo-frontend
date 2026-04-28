@@ -16103,6 +16103,19 @@
     display: none;
   }
 
+  .game-room-mobile-toggle-chip--neutral {
+    color: rgba(226, 232, 240, 0.9);
+    border-color: rgba(51, 65, 85, 0.95);
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow: none;
+  }
+
+  .game-room-mobile-toggle-chip--neutral:hover:not(:disabled) {
+    color: rgba(248, 250, 252, 0.96);
+    border-color: rgba(148, 163, 184, 0.5);
+    background: rgba(30, 41, 59, 0.92);
+  }
+
   .game-room-mobile-toggle-chip:hover {
     transform: translateY(-1px);
     filter: saturate(1.05);
@@ -25864,10 +25877,6 @@
   content: none;
 }
 
-.game-room-mobile-toggle-chip--request-locked .game-room-mobile-action-icon {
-  color: rgba(251, 191, 36, 0.78);
-}
-
 .game-room-mobile-toggle-chip--request-locked:disabled {
   opacity: 1;
 }
@@ -25882,6 +25891,10 @@
   width: 0.85rem;
   height: 0.85rem;
   font-size: 0.68rem;
-  color: rgba(251, 191, 36, 0.82);
+  color: rgba(251, 191, 36, 0.78);
   pointer-events: none;
+}
+
+.game-room-mobile-toggle-chip--request-locked.game-room-mobile-vote-row__btn {
+  padding-right: 1rem;
 }
