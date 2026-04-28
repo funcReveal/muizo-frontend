@@ -81,6 +81,7 @@ export interface GameState {
   trackCursor: number;
   playbackExtensionMs?: number;
   playbackExtensionVote?: PlaybackExtensionVoteState | null;
+  playbackExtensionRejectedInitiatedClientIds?: string[];
   restartGameVote?: RestartGameVoteState | null;
   restartVoteInitiatedClientIds?: string[];
   lockedClientIds?: string[];
@@ -96,7 +97,6 @@ export interface PlaybackExtensionVoteState {
   requestedByClientId: string;
   requestedByUsername: string;
   startedAt: number;
-  endsAt: number;
   extendMs: number;
   eligibleClientIds: string[];
   approveClientIds: string[];

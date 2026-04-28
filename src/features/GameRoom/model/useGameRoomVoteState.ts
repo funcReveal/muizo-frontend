@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 
-import type { GameState, PlaybackExtensionMode, RoomState } from "@features/RoomSession";
+import type {
+  GameState,
+  PlaybackExtensionMode,
+  RoomState,
+} from "@features/RoomSession";
 import { DEFAULT_PLAYBACK_EXTENSION_MODE } from "@domain/room/constants";
 import { normalizePlaybackExtensionMode } from "@features/RoomSession";
 import { normalizeRoomDisplayText } from "../../../shared/utils/text";
@@ -28,9 +32,11 @@ export function useGameRoomVoteState({
   // ------------------------------------------------------------------
   // Mode resolution
   // ------------------------------------------------------------------
-  const playbackExtensionMode: PlaybackExtensionMode = normalizePlaybackExtensionMode(
-    room.gameSettings?.playbackExtensionMode ?? DEFAULT_PLAYBACK_EXTENSION_MODE,
-  );
+  const playbackExtensionMode: PlaybackExtensionMode =
+    normalizePlaybackExtensionMode(
+      room.gameSettings?.playbackExtensionMode ??
+        DEFAULT_PLAYBACK_EXTENSION_MODE,
+    );
   const isManualPlaybackExtensionMode = playbackExtensionMode === "manual_vote";
   const isAutoPlaybackExtensionMode = playbackExtensionMode === "auto_once";
 
@@ -50,23 +56,26 @@ export function useGameRoomVoteState({
       ? Math.floor(playbackVoteEligibleCount / 2) + 1
       : 0;
 
-  const playbackVoteEndsAt =
-    playbackExtensionVote?.status === "active"
-      ? playbackExtensionVote.endsAt
-      : null;
-
   const playbackExtensionSeconds = Math.max(
     0,
     Math.round((gameState.playbackExtensionMs ?? 0) / 1000),
   );
+
+  const hasRequestedRejectedPlaybackExtensionVote =
+    !!meClientId &&
+    (gameState.playbackExtensionRejectedInitiatedClientIds ?? []).includes(
+      meClientId,
+    );
 
   // ------------------------------------------------------------------
   // My vote + metadata
   // ------------------------------------------------------------------
   const myPlaybackVote = useMemo<"approve" | "reject" | null>(() => {
     if (!playbackExtensionVote || !meClientId) return null;
-    if (playbackExtensionVote.approveClientIds.includes(meClientId)) return "approve";
-    if (playbackExtensionVote.rejectClientIds.includes(meClientId)) return "reject";
+    if (playbackExtensionVote.approveClientIds.includes(meClientId))
+      return "approve";
+    if (playbackExtensionVote.rejectClientIds.includes(meClientId))
+      return "reject";
     return null;
   }, [meClientId, playbackExtensionVote]);
 
@@ -94,13 +103,16 @@ export function useGameRoomVoteState({
       ? myPlaybackVote === null
         ? `延長投票 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
         : `已投票 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
-      : playbackExtensionVote?.status === "approved" && playbackVoteResolvedSeconds > 0
+      : playbackExtensionVote?.status === "approved" &&
+          playbackVoteResolvedSeconds > 0
         ? `已延長 ${playbackVoteResolvedSeconds} 秒`
-        : playbackExtensionVote?.status === "rejected"
-          ? "投票未通過"
-          : playbackExtensionSeconds > 0
-            ? `已延長 ${playbackExtensionSeconds} 秒`
-            : "延長播放";
+        : hasRequestedRejectedPlaybackExtensionVote
+          ? "本局已發起失敗"
+          : playbackExtensionVote?.status === "rejected"
+            ? "投票未通過"
+            : playbackExtensionSeconds > 0
+              ? `已延長 ${playbackExtensionSeconds} 秒`
+              : "延長播放";
 
   return {
     playbackExtensionMode,
@@ -111,8 +123,8 @@ export function useGameRoomVoteState({
     playbackVoteRejectCount,
     playbackVoteEligibleCount,
     playbackVoteMajorityCount,
-    playbackVoteEndsAt,
     playbackExtensionSeconds,
+    hasRequestedRejectedPlaybackExtensionVote,
     myPlaybackVote,
     playbackVoteRequesterName,
     playbackVoteProposalSeconds,
@@ -120,4 +132,3 @@ export function useGameRoomVoteState({
     playbackVoteButtonLabel,
   };
 }
-

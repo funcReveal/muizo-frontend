@@ -284,11 +284,9 @@ const useGameRoomGuessUrgencyFlag = ({
 const useGameRoomUiClock = ({
   getServerNowMs,
   startedAt,
-  playbackVoteEndsAt,
 }: {
   getServerNowMs: () => number;
   startedAt: number;
-  playbackVoteEndsAt: number | null;
 }) => {
   const [nowMs, setNowMs] = useState(getServerNowMs);
   const renderNowMs = Math.max(nowMs, getServerNowMs());
@@ -308,20 +306,11 @@ const useGameRoomUiClock = ({
       );
     };
 
-    // 只保留開局前倒數
     if (currentNowMs < startedAt) {
       const remainingMs = startedAt - currentNowMs;
-
-      // 只在秒數邊界更新，不要最後 4.2 秒切成 125ms
       const nextDelay =
         remainingMs > 1000 ? remainingMs % 1000 || 1000 : remainingMs;
 
-      scheduleTick(nextDelay);
-    }
-    // 只保留投票 dialog 倒數
-    else if (playbackVoteEndsAt !== null && playbackVoteEndsAt > currentNowMs) {
-      const remainingMs = playbackVoteEndsAt - currentNowMs;
-      const nextDelay = remainingMs <= 1200 ? 160 : currentNowMs % 1000 || 1000;
       scheduleTick(nextDelay);
     }
 
@@ -330,7 +319,7 @@ const useGameRoomUiClock = ({
         window.clearTimeout(timerId);
       }
     };
-  }, [getServerNowMs, playbackVoteEndsAt, renderNowMs, startedAt]);
+  }, [getServerNowMs, renderNowMs, startedAt]);
 
   return renderNowMs;
 };
@@ -623,8 +612,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     playbackVoteApproveCount,
     playbackVoteRejectCount,
     playbackVoteMajorityCount,
-    playbackVoteEndsAt,
     playbackExtensionSeconds,
+    hasRequestedRejectedPlaybackExtensionVote,
     myPlaybackVote,
     playbackVoteRequesterName,
     playbackVoteProposalSeconds,
@@ -871,7 +860,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const uiNowMs = useGameRoomUiClock({
     getServerNowMs,
     startedAt: gameState.startedAt,
-    playbackVoteEndsAt: playbackVoteDialogOpen ? playbackVoteEndsAt : null,
   });
 
   const waitingToStart = gameState.startedAt > uiNowMs;
@@ -884,12 +872,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     ? "border-rose-400/70 bg-rose-500/20 text-rose-100 shadow-[0_0_35px_rgba(244,63,94,0.45)]"
     : "border-amber-400/60 bg-amber-400/15 text-amber-100 shadow-[0_0_28px_rgba(251,191,36,0.35)]";
 
-  const playbackVoteRemainingMs =
-    playbackVoteEndsAt !== null ? Math.max(0, playbackVoteEndsAt - uiNowMs) : 0;
-  const playbackVoteRemainingSeconds = Math.max(
-    0,
-    Math.ceil(playbackVoteRemainingMs / 1000),
-  );
   const {
     audioUnlocked,
     isPlayerReady,
@@ -1003,21 +985,25 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       : typeof gameState.questionStats?.unansweredCount === "number"
         ? Math.max(0, Math.floor(gameState.questionStats.unansweredCount))
         : null;
-  const hasPlaybackExtensionApplied =
-    Math.max(0, gameState.playbackExtensionMs ?? 0) > 0;
 
   const isPlaybackExtensionVoteActive =
     playbackExtensionVote?.status === "active";
 
+  const isPlaybackVoteEligible =
+    !!meClientId &&
+    (playbackExtensionVote?.eligibleClientIds.includes(meClientId) ?? false);
+
+  const showPlaybackVoteRedDot =
+    isPlaybackExtensionVoteActive &&
+    myPlaybackVote === null &&
+    isPlaybackVoteEligible;
+
   const canRequestPlaybackExtensionVote =
-    isManualPlaybackExtensionMode &&
     gameState.status === "playing" &&
     gameState.phase === "guess" &&
-    !waitingToStart &&
-    !isEnded &&
-    !allAnsweredReadyForReveal &&
-    !isPlaybackExtensionVoteActive &&
-    !hasPlaybackExtensionApplied &&
+    isManualPlaybackExtensionMode &&
+    !playbackExtensionVote &&
+    !hasRequestedRejectedPlaybackExtensionVote &&
     !!onRequestPlaybackExtensionVote;
 
   const canViewPlaybackVoteDialog =
@@ -1049,11 +1035,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     playbackVoteSubmitPending !== null ||
     (!canRequestPlaybackExtensionVote && !canViewPlaybackVoteDialog);
 
-  const playbackVoteActionLabel =
-    canRequestPlaybackExtensionVote &&
-      playbackExtensionVote?.status === "rejected"
-      ? "再次發起延長播放"
-      : playbackVoteButtonLabel;
+  const playbackVoteActionLabel = playbackVoteButtonLabel;
+
   const shouldHideVideoInGuessPhase = gameState.phase === "guess" && !isEnded;
   const showGuessMask =
     shouldHideVideoInGuessPhase &&
@@ -1562,13 +1545,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               : playbackExtensionVote?.status === "rejected"
                 ? "game-room-extend-vote-btn--rejected"
                 : ""
-            } ${canOpenPlaybackVotePrompt ? "game-room-extend-vote-btn--prompt" : ""}`}
+            } ${showPlaybackVoteRedDot ? "game-room-extend-vote-btn--prompt game-room-restart-vote-btn--notify" : ""}`}
           disabled={playbackVoteButtonDisabled}
           onClick={handleRequestPlaybackVote}
         >
           {playbackVoteActionLabel}
-          {canOpenPlaybackVotePrompt && (
-            <span className="game-room-playback-vote-red-dot" aria-hidden="true" />
+          {showPlaybackVoteRedDot && (
+            <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
           )}
         </Button>
       ) : null;
@@ -1675,6 +1658,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     restartVoteMajorityCount,
     showRestartVoteRedDot,
     restartVoteRequestPending,
+    showPlaybackVoteRedDot,
   ]);
   const mobilePlaybackVoteAction = useMemo(() => {
     if (
@@ -1694,7 +1678,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             : playbackExtensionVote?.status === "rejected"
               ? "game-room-extend-vote-btn--rejected"
               : ""
-          } ${canOpenPlaybackVotePrompt ? "game-room-extend-vote-btn--prompt" : ""}`}
+          } ${showPlaybackVoteRedDot ? "game-room-extend-vote-btn--prompt game-room-restart-vote-btn--notify" : ""}`}
         disabled={playbackVoteButtonDisabled}
         onClick={handleRequestPlaybackVote}
       >
@@ -1718,6 +1702,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     playbackExtensionVote?.status,
     playbackVoteButtonDisabled,
     playbackVoteActionLabel,
+    showPlaybackVoteRedDot,
   ]);
 
   const shouldMountMobileScoreboardDrawer =
@@ -2264,12 +2249,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <Stack spacing={1.2}>
                   <Typography variant="body2" className="text-slate-200">
                     {playbackVoteRequesterName}{" "}
-                    {`提議將本題多播放 ${playbackVoteProposalSeconds} 秒，請在時限內表態。`}
+                    {`提議將本題多播放 ${playbackVoteProposalSeconds} 秒。`}
                   </Typography>
                   <div className="game-room-playback-vote-dialog__stats">
                     <span>{`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
                     <span>{`不同意 ${playbackVoteRejectCount}`}</span>
-                    <span>{`剩 ${playbackVoteRemainingSeconds} 秒`}</span>
+                    <Typography variant="body2" className="text-slate-300">
+                      這個投票會持續到目前歌曲結束前。多數玩家同意後，會立即延長播放時間。
+                    </Typography>
                   </div>
                 </Stack>
               </DialogContent>
