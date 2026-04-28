@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getRestartVoteButtonLabel,
   getRestartVoteRequestErrorLabel,
+  getRestartVoteActionViewState,
   isComboMilestone,
   resolveComboBreakTier,
   resolveComboTier,
@@ -95,5 +96,67 @@ describe("GameRoomPage combo helpers", () => {
     expect(getRestartVoteRequestErrorLabel("restart_now")).toBe(
       "發起重新開始投票失敗",
     );
+  });
+
+  it("keeps a previously initiated inactive action locked during another active vote", () => {
+    const returnView = getRestartVoteActionViewState({
+      action: "return_to_lobby",
+      activeAction: "return_to_lobby",
+      approveCount: 1,
+      canRequest: false,
+      hasRequested: true,
+      isGamePlaying: true,
+      isRejected: false,
+      majorityCount: 2,
+      requestPending: false,
+      submitPending: false,
+    });
+    const restartView = getRestartVoteActionViewState({
+      action: "restart_now",
+      activeAction: "return_to_lobby",
+      approveCount: 1,
+      canRequest: false,
+      hasRequested: true,
+      isGamePlaying: true,
+      isRejected: false,
+      majorityCount: 2,
+      requestPending: false,
+      submitPending: false,
+    });
+
+    expect(returnView).toMatchObject({
+      isActive: true,
+      isLocked: false,
+      disabled: false,
+      countLabel: "1/2",
+    });
+    expect(restartView).toMatchObject({
+      isActive: false,
+      isLocked: true,
+      disabled: true,
+      buttonLabel: "本局已發起",
+    });
+  });
+
+  it("disables the inactive action without showing locked state for players who did not initiate it", () => {
+    const restartView = getRestartVoteActionViewState({
+      action: "restart_now",
+      activeAction: "return_to_lobby",
+      approveCount: 1,
+      canRequest: false,
+      hasRequested: false,
+      isGamePlaying: true,
+      isRejected: false,
+      majorityCount: 2,
+      requestPending: false,
+      submitPending: false,
+    });
+
+    expect(restartView).toMatchObject({
+      isActive: false,
+      isLocked: false,
+      disabled: true,
+      buttonLabel: "重新開始",
+    });
   });
 });

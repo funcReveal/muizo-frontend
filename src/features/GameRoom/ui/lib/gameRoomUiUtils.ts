@@ -51,3 +51,55 @@ export const getRestartVoteButtonLabel = ({
   if (hasRequested) return "本局已發起";
   return getRestartVoteActionLabel(action);
 };
+
+export type RestartVoteActionViewState = {
+  isActive: boolean;
+  isLocked: boolean;
+  disabled: boolean;
+  buttonLabel: string;
+  countLabel: string;
+  desktopActiveLabel: string;
+};
+
+export const getRestartVoteActionViewState = ({
+  action,
+  activeAction,
+  approveCount,
+  canRequest,
+  hasRequested,
+  isGamePlaying,
+  isRejected,
+  majorityCount,
+  requestPending,
+  submitPending,
+}: {
+  action: RestartGameVoteAction;
+  activeAction: RestartGameVoteAction | null;
+  approveCount: number;
+  canRequest: boolean;
+  hasRequested: boolean;
+  isGamePlaying: boolean;
+  isRejected: boolean;
+  majorityCount: number;
+  requestPending: boolean;
+  submitPending: boolean;
+}): RestartVoteActionViewState => {
+  const isActive = activeAction === action;
+  const isLocked = isGamePlaying && hasRequested && !isActive;
+  const countLabel = `${approveCount}/${majorityCount}`;
+  const actionLabel = getRestartVoteActionLabel(action);
+
+  return {
+    isActive,
+    isLocked,
+    disabled:
+      requestPending || submitPending || isLocked || (!canRequest && !isActive),
+    buttonLabel: getRestartVoteButtonLabel({
+      action,
+      hasRequested,
+      isRejected,
+    }),
+    countLabel,
+    desktopActiveLabel: `${actionLabel}投票 ${countLabel}`,
+  };
+};

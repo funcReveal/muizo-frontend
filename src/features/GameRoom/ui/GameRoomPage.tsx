@@ -79,7 +79,7 @@ import useTopTwoSwapState from "../model/useTopTwoSwapState";
 import PlayerAvatar from "../../../shared/ui/playerAvatar/PlayerAvatar";
 import {
   getRestartVoteActionLabel,
-  getRestartVoteButtonLabel,
+  getRestartVoteActionViewState,
 } from "./lib/gameRoomUiUtils";
 import useGameRoomChoiceHotkeys from "./lib/useGameRoomChoiceHotkeys";
 import useGameRoomAnswerPanelAutoScroll from "./lib/useGameRoomAnswerPanelAutoScroll";
@@ -708,17 +708,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ? restartGameVote.action
       : null;
 
-  const returnToLobbyVoteButtonLabel = getRestartVoteButtonLabel({
-    action: "return_to_lobby",
-    hasRequested: hasRequestedReturnToLobbyVote,
-    isRejected: rejectedRestartVoteAction === "return_to_lobby",
-  });
-  const restartNowVoteButtonLabel = getRestartVoteButtonLabel({
-    action: "restart_now",
-    hasRequested: hasRequestedRestartNowVote,
-    isRejected: rejectedRestartVoteAction === "restart_now",
-  });
-
   const activeRestartVoteAction: RestartGameVoteAction | null =
     isRestartVoteActive &&
       (restartGameVote?.action === "return_to_lobby" ||
@@ -761,25 +750,65 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         ? "確認重新開始"
         : "確認發起重新開始投票";
 
-  const returnToLobbyButtonDisabled =
-    restartVoteRequestPending ||
-    restartVoteSubmitPending !== null ||
-    (!canRequestRestartVoteAction("return_to_lobby") && !isRestartVoteActive);
+  const isGamePlaying = gameState.status === "playing";
+  const isRestartVoteSubmitPending = restartVoteSubmitPending !== null;
+  const canRequestReturnToLobbyVote =
+    canRequestRestartVoteAction("return_to_lobby");
+  const canRequestRestartNowVote = canRequestRestartVoteAction("restart_now");
 
-  const restartNowButtonDisabled =
-    restartVoteRequestPending ||
-    restartVoteSubmitPending !== null ||
-    (!canRequestRestartVoteAction("restart_now") && !isRestartVoteActive);
+  const returnToLobbyVoteView = useMemo(
+    () =>
+      getRestartVoteActionViewState({
+        action: "return_to_lobby",
+        activeAction: activeRestartVoteAction,
+        approveCount: restartVoteApproveCount,
+        canRequest: canRequestReturnToLobbyVote,
+        hasRequested: hasRequestedReturnToLobbyVote,
+        isGamePlaying,
+        isRejected: rejectedRestartVoteAction === "return_to_lobby",
+        majorityCount: restartVoteMajorityCount,
+        requestPending: restartVoteRequestPending,
+        submitPending: isRestartVoteSubmitPending,
+      }),
+    [
+      activeRestartVoteAction,
+      canRequestReturnToLobbyVote,
+      hasRequestedReturnToLobbyVote,
+      isGamePlaying,
+      isRestartVoteSubmitPending,
+      rejectedRestartVoteAction,
+      restartVoteApproveCount,
+      restartVoteMajorityCount,
+      restartVoteRequestPending,
+    ],
+  );
 
-  const isReturnToLobbyVoteLocked =
-    gameState.status === "playing" &&
-    hasRequestedReturnToLobbyVote &&
-    activeRestartVoteAction !== "return_to_lobby";
-
-  const isRestartNowVoteLocked =
-    gameState.status === "playing" &&
-    hasRequestedRestartNowVote &&
-    activeRestartVoteAction !== "restart_now";
+  const restartNowVoteView = useMemo(
+    () =>
+      getRestartVoteActionViewState({
+        action: "restart_now",
+        activeAction: activeRestartVoteAction,
+        approveCount: restartVoteApproveCount,
+        canRequest: canRequestRestartNowVote,
+        hasRequested: hasRequestedRestartNowVote,
+        isGamePlaying,
+        isRejected: rejectedRestartVoteAction === "restart_now",
+        majorityCount: restartVoteMajorityCount,
+        requestPending: restartVoteRequestPending,
+        submitPending: isRestartVoteSubmitPending,
+      }),
+    [
+      activeRestartVoteAction,
+      canRequestRestartNowVote,
+      hasRequestedRestartNowVote,
+      isGamePlaying,
+      isRestartVoteSubmitPending,
+      rejectedRestartVoteAction,
+      restartVoteApproveCount,
+      restartVoteMajorityCount,
+      restartVoteRequestPending,
+    ],
+  );
 
   // Toast notifications for restart vote transitions.
   // The backend is now authoritative: it preserves restartGameVote across
@@ -1665,7 +1694,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ? "投票中..."
       : isRestartVoteActive
         ? `${restartVoteActionLabel}投票 ${restartVoteApproveCount}/${restartVoteMajorityCount}`
-        : restartNowVoteButtonLabel;
+        : restartNowVoteView.buttonLabel;
     return (
       <Stack
         direction="row"
@@ -1684,16 +1713,16 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="info"
               size="small"
               startIcon={<MeetingRoomRoundedIcon fontSize="inherit" />}
-              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${isReturnToLobbyVoteLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
+              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${returnToLobbyVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
                 ? "game-room-restart-vote-btn--notify"
                 : ""
                 }`}
-              disabled={returnToLobbyButtonDisabled || isReturnToLobbyVoteLocked}
+              disabled={returnToLobbyVoteView.disabled}
               onClick={() => handleRequestRestartVote("return_to_lobby")}
             >
               {isRestartVoteActive && restartVoteAction === "return_to_lobby"
-                ? `回到房間投票 ${restartVoteApproveCount}/${restartVoteMajorityCount}`
-                : returnToLobbyVoteButtonLabel}
+                ? returnToLobbyVoteView.desktopActiveLabel
+                : returnToLobbyVoteView.buttonLabel}
               {showRestartVoteRedDot && restartVoteAction === "return_to_lobby" && (
                 <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
               )}
@@ -1709,16 +1738,16 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="warning"
               size="small"
               startIcon={<RestartAltRoundedIcon />}
-              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${isRestartNowVoteLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "restart_now"
+              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${restartNowVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "restart_now"
                 ? "game-room-restart-vote-btn--notify"
                 : ""
                 }`}
-              disabled={restartNowButtonDisabled || isRestartNowVoteLocked}
+              disabled={restartNowVoteView.disabled}
               onClick={() => handleRequestRestartVote("restart_now")}
             >
               {isRestartVoteActive && restartVoteAction === "restart_now"
                 ? restartBtnLabel
-                : restartNowVoteButtonLabel}
+                : restartNowVoteView.buttonLabel}
               {showRestartVoteRedDot && restartVoteAction === "restart_now" && (
                 <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
               )}
@@ -1757,12 +1786,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     restartVoteAction,
     restartVoteActionLabel,
     restartVoteApproveCount,
-    returnToLobbyButtonDisabled,
-    returnToLobbyVoteButtonLabel,
-    restartNowButtonDisabled,
-    restartNowVoteButtonLabel,
-    isReturnToLobbyVoteLocked,
-    isRestartNowVoteLocked,
+    returnToLobbyVoteView,
+    restartNowVoteView,
     restartVoteMajorityCount,
     showRestartVoteRedDot,
     restartVoteRequestPending,
@@ -2201,11 +2226,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                         } ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
                           ? "game-room-restart-vote-btn--notify"
                           : ""
-                        } ${isReturnToLobbyVoteLocked
+                        } ${returnToLobbyVoteView.isLocked
                           ? "game-room-mobile-toggle-chip--request-locked"
                           : ""
                         }`}
-                      disabled={returnToLobbyButtonDisabled || isReturnToLobbyVoteLocked}
+                      disabled={returnToLobbyVoteView.disabled}
                       onClick={() => handleRequestRestartVote("return_to_lobby")}
                     >
                       <span className="game-room-mobile-action-icon" aria-hidden>
@@ -2216,11 +2241,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       </span>
                       <span>
                         {isRestartVoteActive && restartVoteAction === "return_to_lobby"
-                          ? `${restartVoteApproveCount}/${restartVoteMajorityCount}`
-                          : returnToLobbyVoteButtonLabel}
+                          ? returnToLobbyVoteView.countLabel
+                          : returnToLobbyVoteView.buttonLabel}
                       </span>
 
-                      {isReturnToLobbyVoteLocked && (
+                      {returnToLobbyVoteView.isLocked && (
                         <span
                           className="game-room-mobile-toggle-chip__lock-corner"
                           aria-hidden="true"
@@ -2238,11 +2263,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                         } ${showRestartVoteRedDot && restartVoteAction === "restart_now"
                           ? "game-room-restart-vote-btn--notify"
                           : ""
-                        } ${isRestartNowVoteLocked
+                        } ${restartNowVoteView.isLocked
                           ? "game-room-mobile-toggle-chip--request-locked"
                           : ""
                         }`}
-                      disabled={restartNowButtonDisabled || isRestartNowVoteLocked}
+                      disabled={restartNowVoteView.disabled}
                       onClick={() => handleRequestRestartVote("restart_now")}
                     >
                       <span className="game-room-mobile-action-icon" aria-hidden>
@@ -2254,11 +2279,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
                       <span>
                         {isRestartVoteActive && restartVoteAction === "restart_now"
-                          ? `${restartVoteApproveCount}/${restartVoteMajorityCount}`
-                          : restartNowVoteButtonLabel}
+                          ? restartNowVoteView.countLabel
+                          : restartNowVoteView.buttonLabel}
                       </span>
 
-                      {isRestartNowVoteLocked && (
+                      {restartNowVoteView.isLocked && (
                         <span
                           className="game-room-mobile-toggle-chip__lock-corner"
                           aria-hidden="true"
