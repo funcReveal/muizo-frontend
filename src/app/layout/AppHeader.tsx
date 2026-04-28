@@ -30,8 +30,9 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { isAdminRole } from "../../shared/auth/roles";
-import BrandLogo from "../../shared/ui/BrandLogo";
+import SiteAnnouncementNotice from "@/shared/announcement/SiteAnnouncementNotice";
+import { isAdminRole } from "@/shared/auth/roles";
+import BrandLogo from "@/shared/ui/BrandLogo";
 
 interface AppHeaderProps {
   displayUsername: string;
@@ -380,16 +381,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         ];
 
   return (
-    <header className="flex w-full min-w-0 items-center justify-between gap-3 text-(--mc-text) sm:gap-4">
-      <button
-        type="button"
-        onClick={handleBrandNavigate}
-        className="inline-flex shrink-0 cursor-pointer items-center px-3 py-2 transition"
-      >
-        <BrandLogo compact />
-      </button>
+    <header className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 text-(--mc-text) sm:gap-x-4 md:flex-nowrap">
+      <div className="order-1 flex min-w-0 shrink-0 items-center gap-2 md:flex-1 md:shrink">
+        <button
+          type="button"
+          onClick={handleBrandNavigate}
+          className="inline-flex shrink-0 cursor-pointer items-center px-2 py-2 transition sm:px-3"
+        >
+          <BrandLogo compact />
+        </button>
 
-      <div className="relative flex min-w-0 flex-1 items-center justify-end">
+        <SiteAnnouncementNotice className="hidden max-w-[520px] md:flex" />
+      </div>
+
+      <div className="relative order-2 flex min-w-0 flex-1 items-center justify-end md:flex-[0_1_auto]">
         {authUser ? (
           <button
             type="button"
@@ -958,6 +963,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       {systemStatus?.os.memory.usedPercent ?? 0}%)
                     </Typography>
                   </Box>
+
                   <Box
                     sx={{
                       p: 1.4,
@@ -994,6 +1000,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             )}
           </DialogContent>
         </Dialog>
+      </div>
+
+      <div className="order-3 w-full min-w-0 px-2 md:hidden">
+        <SiteAnnouncementNotice className="flex w-full max-w-none" />
       </div>
     </header>
   );

@@ -14,27 +14,57 @@ const AI_PROVIDER_BASE_URL = "https://gemini.google.com/app";
 
 const copyTextWithTextarea = (text: string) => {
   if (!text.trim()) return false;
+  if (typeof document === "undefined") return false;
 
   const textarea = document.createElement("textarea");
+  const activeElement = document.activeElement as HTMLElement | null;
+  const selection = window.getSelection();
+  const selectedRanges: Range[] = [];
+
+  if (selection) {
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      selectedRanges.push(selection.getRangeAt(index));
+    }
+  }
 
   textarea.value = text;
   textarea.setAttribute("readonly", "");
+  textarea.setAttribute("autocapitalize", "off");
+  textarea.setAttribute("autocomplete", "off");
+  textarea.setAttribute("autocorrect", "off");
+  textarea.setAttribute("spellcheck", "false");
+
   textarea.style.position = "fixed";
-  textarea.style.top = "0";
-  textarea.style.left = "0";
+  textarea.style.top = "-1000px";
+  textarea.style.left = "-1000px";
   textarea.style.width = "1px";
   textarea.style.height = "1px";
-  textarea.style.opacity = "0";
-  textarea.style.pointerEvents = "none";
+  textarea.style.padding = "0";
+  textarea.style.border = "0";
+  textarea.style.outline = "0";
+  textarea.style.boxShadow = "none";
+  textarea.style.background = "transparent";
+  textarea.style.fontSize = "16px";
 
   document.body.appendChild(textarea);
 
-  textarea.focus();
-  textarea.select();
-  textarea.setSelectionRange(0, textarea.value.length);
-
   try {
-    return document.execCommand("copy");
+    textarea.focus({ preventScroll: true });
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    const copied = document.execCommand("copy");
+
+    if (selection) {
+      selection.removeAllRanges();
+      selectedRanges.forEach((range) => selection.addRange(range));
+    }
+
+    activeElement?.focus?.({ preventScroll: true });
+
+    return copied;
+  } catch {
+    return false;
   } finally {
     document.body.removeChild(textarea);
   }
@@ -42,23 +72,20 @@ const copyTextWithTextarea = (text: string) => {
 
 const copyTextToClipboard = async (text: string) => {
   if (!text.trim()) return false;
+  if (typeof window === "undefined") return false;
 
-  // 優先走傳統複製，避免瀏覽器跳出 Clipboard API 權限提示。
-  if (copyTextWithTextarea(text)) {
-    return true;
-  }
-
-  // fallback：有些環境 execCommand 失敗，再嘗試 Clipboard API。
+  // 現代瀏覽器優先使用 Clipboard API。
+  // 這對長文字、手機瀏覽器、Safari 會比 execCommand 穩定。
   if (navigator.clipboard && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(text);
       return true;
     } catch {
-      return false;
+      // 繼續 fallback
     }
   }
 
-  return false;
+  return copyTextWithTextarea(text);
 };
 
 type AiAnswerUpdate = {
@@ -437,9 +464,24 @@ export function useCollectionEditAiBatch({
   }, [aiPromptText]);
 
   const handleOpenAiAssistant = useCallback(async () => {
-    const copied = await copyTextToClipboard(aiPromptText);
+    const copyPromise = copyTextToClipboard(aiPromptText);
 
-    window.open(AI_PROVIDER_BASE_URL, "_blank", "noopener,noreferrer");
+    const aiWindow = window.open(
+      AI_PROVIDER_BASE_URL,
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    const copied = await copyPromise;
+
+    if (!aiWindow) {
+      setAiHelperNotice(
+        copied
+          ? `Prompt 已複製，但瀏覽器阻擋了開啟 ${AI_PROVIDER_LABEL}。請手動開啟 ${AI_PROVIDER_LABEL} 後貼上。`
+          : `無法自動複製，且瀏覽器阻擋了開啟 ${AI_PROVIDER_LABEL}。請手動複製下方內容。`,
+      );
+      return;
+    }
 
     if (copied) {
       setAiHelperNotice(
