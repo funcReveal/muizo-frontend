@@ -107,7 +107,7 @@ export function useGameRoomVoteState({
           playbackVoteResolvedSeconds > 0
         ? `已延長 ${playbackVoteResolvedSeconds} 秒`
         : hasRequestedRejectedPlaybackExtensionVote
-          ? "本局已發起失敗"
+          ? "本題已發起失敗"
           : playbackExtensionVote?.status === "rejected"
             ? "投票未通過"
             : playbackExtensionSeconds > 0

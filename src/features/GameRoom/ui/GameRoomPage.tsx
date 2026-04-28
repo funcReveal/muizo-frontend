@@ -2307,7 +2307,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     發起後，所有符合資格的玩家都可以投票。多數玩家同意後，本題會延長播放時間。
                   </Typography>
                   <Typography variant="caption" className="text-slate-500">
-                    投票會持續到目前歌曲結束前。若投票未通過，本局你將不能再次發起延長播放投票。
+                    投票會持續到目前歌曲結束前。若投票未通過，本題你將不能再次發起延長播放投票。
                   </Typography>
                 </Stack>
               </DialogContent>
