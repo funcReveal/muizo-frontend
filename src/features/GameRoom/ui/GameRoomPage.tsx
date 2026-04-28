@@ -723,11 +723,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ? "已發起重啟投票"
       : "重新開始";
 
-  const restartVoteAction: RestartGameVoteAction =
-    restartGameVote?.action === "return_to_lobby" ||
-      restartGameVote?.action === "restart_now"
+  const activeRestartVoteAction: RestartGameVoteAction | null =
+    isRestartVoteActive &&
+      (restartGameVote?.action === "return_to_lobby" ||
+        restartGameVote?.action === "restart_now")
       ? restartGameVote.action
-      : pendingRestartVoteAction;
+      : null;
+
+  const restartVoteAction: RestartGameVoteAction =
+    activeRestartVoteAction ?? pendingRestartVoteAction;
 
   const canRequestPendingRestartVoteAction =
     canRequestRestartVoteAction(restartVoteAction);
