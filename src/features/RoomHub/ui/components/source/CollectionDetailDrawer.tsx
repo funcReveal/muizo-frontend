@@ -345,8 +345,8 @@ const leaderboardPreviewByVariant: Record<
 const getLeaderboardPodiumTone = (rank: number | null) => {
   if (rank === 1) {
     return {
-      row: "border-amber-200/38 bg-[linear-gradient(90deg,rgba(251,191,36,0.2),rgba(120,53,15,0.12)_28%,rgba(15,23,42,0.48)_56%,rgba(15,23,42,0.26))] shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_18px_46px_-32px_rgba(251,191,36,0.95)]",
-      accent: "bg-amber-200/72",
+      row: "border-amber-200/34 bg-[linear-gradient(90deg,rgba(251,191,36,0.18),rgba(120,53,15,0.08)_32%,rgba(15,23,42,0.46)_62%,rgba(15,23,42,0.28))] shadow-[inset_0_1px_0_rgba(255,255,255,0.11),inset_0_0_0_1px_rgba(251,191,36,0.045)]",
+      accent: "bg-amber-200/68",
       rank: "text-amber-50",
       score: "text-amber-50",
     };
@@ -354,8 +354,8 @@ const getLeaderboardPodiumTone = (rank: number | null) => {
 
   if (rank === 2) {
     return {
-      row: "border-slate-100/32 bg-[linear-gradient(90deg,rgba(226,232,240,0.18),rgba(100,116,139,0.11)_30%,rgba(15,23,42,0.48)_56%,rgba(15,23,42,0.26))] shadow-[inset_0_1px_0_rgba(255,255,255,0.095),0_18px_44px_-32px_rgba(226,232,240,0.82)]",
-      accent: "bg-slate-100/64",
+      row: "border-slate-100/28 bg-[linear-gradient(90deg,rgba(226,232,240,0.15),rgba(100,116,139,0.08)_32%,rgba(15,23,42,0.46)_62%,rgba(15,23,42,0.28))] shadow-[inset_0_1px_0_rgba(255,255,255,0.105),inset_0_0_0_1px_rgba(226,232,240,0.04)]",
+      accent: "bg-slate-100/58",
       rank: "text-slate-50",
       score: "text-slate-50",
     };
@@ -363,8 +363,8 @@ const getLeaderboardPodiumTone = (rank: number | null) => {
 
   if (rank === 3) {
     return {
-      row: "border-orange-200/32 bg-[linear-gradient(90deg,rgba(251,146,60,0.17),rgba(154,52,18,0.11)_30%,rgba(15,23,42,0.48)_56%,rgba(15,23,42,0.26))] shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_18px_44px_-32px_rgba(251,146,60,0.82)]",
-      accent: "bg-orange-200/62",
+      row: "border-orange-200/28 bg-[linear-gradient(90deg,rgba(251,146,60,0.15),rgba(154,52,18,0.08)_32%,rgba(15,23,42,0.46)_62%,rgba(15,23,42,0.28))] shadow-[inset_0_1px_0_rgba(255,255,255,0.095),inset_0_0_0_1px_rgba(251,146,60,0.04)]",
+      accent: "bg-orange-200/56",
       rank: "text-orange-50",
       score: "text-orange-50",
     };
