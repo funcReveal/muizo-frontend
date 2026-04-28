@@ -2107,7 +2107,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   <div className="game-room-mobile-vote-row col-span-2 grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--wide ${isRestartVoteActive && restartVoteAction === "return_to_lobby"
+                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--primary game-room-mobile-vote-row__btn ${isRestartVoteActive && restartVoteAction === "return_to_lobby"
                         ? "game-room-mobile-toggle-chip--active"
                         : ""
                         } ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
@@ -2132,7 +2132,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
                     <button
                       type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--warning game-room-mobile-toggle-chip--wide ${isRestartVoteActive && restartVoteAction === "restart_now"
+                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--warning game-room-mobile-vote-row__btn ${isRestartVoteActive && restartVoteAction === "restart_now"
                         ? "game-room-mobile-toggle-chip--active"
                         : ""
                         } ${showRestartVoteRedDot && restartVoteAction === "restart_now"
