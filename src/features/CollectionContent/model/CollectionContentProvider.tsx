@@ -28,10 +28,7 @@ type CollectionContentProviderProps = {
 
 export const CollectionContentProvider: React.FC<
   CollectionContentProviderProps
-> = ({
-  children,
-  setStatusText = () => {},
-}) => {
+> = ({ children, setStatusText = () => {} }) => {
   const { authToken, authUser, refreshAuthToken } = useAuth();
   const {
     applyPlaylistSource,
@@ -57,6 +54,7 @@ export const CollectionContentProvider: React.FC<
     collectionItemsError,
     selectCollection,
     fetchCollections,
+    fetchCollectionById,
     loadMoreCollections,
     toggleCollectionFavorite,
     loadCollectionItems,
@@ -111,6 +109,7 @@ export const CollectionContentProvider: React.FC<
       collectionItemsLoading,
       collectionItemsError,
       fetchCollections,
+      fetchCollectionById,
       loadMoreCollections,
       toggleCollectionFavorite,
       selectCollection,
@@ -131,6 +130,7 @@ export const CollectionContentProvider: React.FC<
       collectionItemsLoading,
       collectionItemsError,
       fetchCollections,
+      fetchCollectionById,
       loadMoreCollections,
       toggleCollectionFavorite,
       selectCollection,

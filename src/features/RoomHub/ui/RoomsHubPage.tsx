@@ -297,6 +297,7 @@ const RoomsHubPage: React.FC = () => {
     setPublicCollectionsSort,
     collectionFavoriteUpdatingId,
     fetchCollections,
+    fetchCollectionById,
     loadMoreCollections,
     toggleCollectionFavorite,
     loadCollectionItems,
@@ -722,6 +723,7 @@ const RoomsHubPage: React.FC = () => {
     setSharedCollectionMeta,
     handleResetPlaylist,
     loadCollectionItems,
+    fetchCollectionById,
     openCollectionDrawer: setDetailCollectionId,
   });
   const {

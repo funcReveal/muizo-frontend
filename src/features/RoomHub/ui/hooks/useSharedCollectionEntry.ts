@@ -1,5 +1,11 @@
 import { useEffect, useRef } from "react";
 
+type SharedCollectionEntry = {
+  id: string;
+  title: string;
+  visibility?: "private" | "public";
+};
+
 type UseSharedCollectionEntryArgs = {
   sharedCollectionId: string | null;
   roomCreateSourceMode: string;
@@ -26,11 +32,15 @@ type UseSharedCollectionEntryArgs = {
     } | null,
   ) => void;
   handleResetPlaylist: () => void;
+  fetchCollectionById: (
+    collectionId: string,
+    options?: { readToken?: string | null },
+  ) => Promise<SharedCollectionEntry | null>;
   loadCollectionItems: (
     collectionId: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; readToken?: string | null },
   ) => Promise<unknown>;
-  openCollectionDrawer?: (collectionId: string) => void;
+  openCollectionDrawer: (collectionId: string) => void;
 };
 
 export const useSharedCollectionEntry = ({
@@ -49,7 +59,9 @@ export const useSharedCollectionEntry = ({
   setSelectedCreateCollectionId,
   setSharedCollectionMeta,
   handleResetPlaylist,
+  fetchCollectionById,
   loadCollectionItems,
+  openCollectionDrawer,
 }: UseSharedCollectionEntryArgs) => {
   const handledSharedCollectionRef = useRef<string | null>(null);
 
@@ -57,8 +69,12 @@ export const useSharedCollectionEntry = ({
     if (!sharedCollectionId) return;
 
     const signature = sharedCollectionId;
+
     if (handledSharedCollectionRef.current === signature) return;
+
     handledSharedCollectionRef.current = signature;
+
+    let cancelled = false;
 
     setGuideMode("create");
     setCreateLibraryTab("public");
@@ -67,27 +83,48 @@ export const useSharedCollectionEntry = ({
     setRoomCreateSourceMode("publicCollection");
     setSelectedCreateYoutubeId(null);
     setSelectedCreateCollectionId(sharedCollectionId);
-    openCollectionDrawer?.(sharedCollectionId);
     setSharedCollectionMeta({
       id: sharedCollectionId,
       title: "分享收藏庫",
       scope: "public",
     });
     handleResetPlaylist();
-    void loadCollectionItems(sharedCollectionId, { force: true });
+
+    void (async () => {
+      const collection = await fetchCollectionById(sharedCollectionId);
+
+      if (cancelled || !collection) return;
+
+      const scope = collection.visibility === "private" ? "private" : "public";
+
+      setSharedCollectionMeta({
+        id: collection.id,
+        title: collection.title,
+        scope,
+      });
+
+      openCollectionDrawer(collection.id);
+
+      void loadCollectionItems(collection.id, { force: true });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
+    fetchCollectionById,
     handleResetPlaylist,
     loadCollectionItems,
+    openCollectionDrawer,
     setCreateLeftTab,
     setCreateLibraryTab,
     setGuideMode,
     setRoomCreateSourceMode,
-    updateAllowCollectionClipTiming,
     setSelectedCreateCollectionId,
-    openCollectionDrawer,
     setSelectedCreateYoutubeId,
     setSharedCollectionMeta,
     sharedCollectionId,
+    updateAllowCollectionClipTiming,
   ]);
 
   useEffect(() => {

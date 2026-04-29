@@ -355,6 +355,96 @@ export const useCollectionContentState = ({
     [authToken, ownerId, publicCollectionsSort, refreshAuthToken, apiUrl],
   );
 
+  const fetchCollectionById = useCallback(
+    async (
+      collectionId: string,
+      options?: { readToken?: string | null },
+    ): Promise<CollectionEntry | null> => {
+      if (!apiUrl) {
+        setCollectionsError("尚未設定收藏庫 API 位置 (API_URL)");
+        return null;
+      }
+
+      const normalizedCollectionId = collectionId.trim();
+
+      if (!normalizedCollectionId) {
+        setCollectionsError("收藏庫 ID 不正確");
+        return null;
+      }
+
+      try {
+        const initialToken = authToken
+          ? await ensureFreshAuthToken({
+              token: authToken,
+              refreshAuthToken,
+            })
+          : null;
+
+        if (authToken && !initialToken) {
+          throw new Error("登入已過期，請重新登入");
+        }
+
+        const run = async (
+          token: string | null,
+          allowRetry: boolean,
+        ): Promise<CollectionEntry> => {
+          const { ok, status, payload } = await apiFetchCollectionById(
+            apiUrl,
+            token,
+            normalizedCollectionId,
+            options?.readToken ?? null,
+          );
+
+          if (ok && payload?.data?.collection) {
+            return normalizeCollectionEntry(payload.data.collection);
+          }
+
+          if (status === 401 && allowRetry) {
+            const refreshed = await refreshAuthToken();
+
+            if (refreshed) {
+              return run(refreshed, false);
+            }
+          }
+
+          throw new Error(payload?.error ?? "載入收藏庫資料失敗");
+        };
+
+        const collection = await run(initialToken, Boolean(authToken));
+
+        setCollections((prev) => {
+          const existingIndex = prev.findIndex(
+            (item) => item.id === collection.id,
+          );
+
+          if (existingIndex < 0) {
+            return [collection, ...prev];
+          }
+
+          return prev.map((item) =>
+            item.id === collection.id
+              ? {
+                  ...item,
+                  ...collection,
+                }
+              : item,
+          );
+        });
+
+        setCollectionsLastFetchedAt(Date.now());
+        setCollectionsError(null);
+
+        return collection;
+      } catch (error) {
+        setCollectionsError(
+          error instanceof Error ? error.message : "載入收藏庫資料失敗",
+        );
+        return null;
+      }
+    },
+    [apiUrl, authToken, refreshAuthToken],
+  );
+
   const loadMoreCollections = useCallback(async () => {
     if (!apiUrl) return;
     const resolvedScope = collectionRequestScopeRef.current ?? collectionScope;
@@ -858,6 +948,7 @@ export const useCollectionContentState = ({
     collectionItemsError,
     selectCollection,
     fetchCollections,
+    fetchCollectionById,
     loadMoreCollections,
     toggleCollectionFavorite,
     loadCollectionItems,
