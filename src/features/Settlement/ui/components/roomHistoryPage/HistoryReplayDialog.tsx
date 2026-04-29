@@ -164,6 +164,7 @@ const HistoryReplayDialog: React.FC<HistoryReplayDialogProps> = ({
           endedAt={selectedReplay.endedAt}
           meClientId={meClientId}
           questionRecaps={questionRecaps}
+          matchId={selectedReplay.matchId ?? selectedSummary?.matchId ?? null}
         />
       ) : (
         <div className="rounded-[24px] border border-amber-300/16 bg-amber-300/5 px-4 py-5 text-sm text-amber-100/90">

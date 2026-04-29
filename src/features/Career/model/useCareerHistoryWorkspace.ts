@@ -4,6 +4,7 @@ import { useAuth } from "@shared/auth/AuthContext";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import {
   useRoomSession,
+  useResultHistoryAnalytics,
   type RoomSettlementHistorySummary,
   type RoomSettlementQuestionRecap,
   type RoomSettlementSnapshot,
@@ -200,6 +201,10 @@ const normalizeQuestionRecap = (
 export const useCareerHistoryWorkspace = () => {
   const { clientId, authToken, refreshAuthToken } = useAuth();
   const { setStatusText } = useRoomSession();
+  const {
+    trackResultHistoryEvent,
+    trackResultHistoryEventOnce,
+  } = useResultHistoryAnalytics();
 
   const [items, setItems] = useState<RoomSettlementHistorySummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -237,6 +242,18 @@ export const useCareerHistoryWorkspace = () => {
     () => buildHistoryGuardKey(clientId),
     [clientId],
   );
+
+  useEffect(() => {
+    trackResultHistoryEventOnce(
+      {
+        eventName: "match_history.opened",
+        source: "profile",
+        entryPoint: "profile_recent_match",
+        viewType: "summary",
+      },
+      "match_history.opened:profile:summary",
+    );
+  }, [trackResultHistoryEventOnce]);
 
   const isHistoryRequestBlocked = historyRequestBlockedUntil > 0;
 
@@ -726,6 +743,24 @@ export const useCareerHistoryWorkspace = () => {
   const openReplayDetail = useCallback(
     async (summary: RoomSettlementHistorySummary) => {
       const matchId = summary.matchId;
+      trackResultHistoryEvent({
+        eventName: "match_history.result.opened",
+        roomId: summary.roomId,
+        matchId,
+        source: "profile",
+        entryPoint: "profile_recent_match",
+        viewType: "full_result",
+        isRevisit: true,
+      });
+      trackResultHistoryEvent({
+        eventName: "result.page.revisited",
+        roomId: summary.roomId,
+        matchId,
+        source: "profile",
+        entryPoint: "profile_recent_match",
+        viewType: "full_result",
+        isRevisit: true,
+      });
 
       if (replayByMatchId[matchId]) {
         setSelectedMatchId(matchId);
@@ -757,7 +792,13 @@ export const useCareerHistoryWorkspace = () => {
         setLoadingReplayMatchId((prev) => (prev === matchId ? null : prev));
       }
     },
-    [acquireHistoryRequestPermit, fetchReplay, replayByMatchId, setStatusText],
+    [
+      acquireHistoryRequestPermit,
+      fetchReplay,
+      replayByMatchId,
+      setStatusText,
+      trackResultHistoryEvent,
+    ],
   );
 
   const closeReplayDetail = useCallback(() => {

@@ -239,7 +239,44 @@ export interface ClientToServerEvents {
     payload: { roomId: string; matchId: string; roundKey?: string | null },
     callback?: (ack: Ack<RoomSettlementSnapshot>) => void,
   ) => void;
+  trackResultYoutubeCtaClicked: (
+    payload: TrackResultYoutubeCtaClickedPayload,
+    callback?: (ack: Ack<null>) => void,
+  ) => void;
+  trackResultHistoryEvent: (
+    payload: TrackResultHistoryEventPayload,
+    callback?: (ack: Ack<null>) => void,
+  ) => void;
 }
+
+export type TrackResultYoutubeCtaClickedPayload = {
+  roomId?: string;
+  matchId?: string;
+  videoId?: string;
+  questionIndex?: number;
+  source: "result_summary" | "result_review" | "question_review";
+  buttonPlacement: string;
+};
+
+export type TrackResultHistoryEventPayload = {
+  eventName:
+    | "result.page.viewed"
+    | "result.page.revisited"
+    | "match_history.opened"
+    | "match_history.result.opened";
+  roomId?: string;
+  matchId?: string;
+  source?: "post_game" | "profile" | "lobby" | "history_page" | "share_link";
+  entryPoint?:
+    | "auto_result"
+    | "result_button"
+    | "history_list"
+    | "profile_recent_match"
+    | "shared_result_link";
+  viewType?: "summary" | "question_review" | "scoreboard" | "full_result";
+  isRevisit?: boolean;
+  questionIndex?: number;
+};
 
 export interface ServerToClientEvents {
   sitePresenceUpdated: (payload: SitePresencePayload) => void;

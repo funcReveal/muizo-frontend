@@ -16,6 +16,20 @@ export {
   useSitePresence,
   useRoomRealtime,
 } from "./model/runtimeHooks";
+export {
+  emitResultYoutubeCtaClicked,
+  openTrackedResultYoutubeCta,
+  resolveTrackableYoutubeVideoId,
+  sanitizeResultYoutubeCtaPayload,
+  useTrackResultYoutubeCta,
+  type ResultYoutubeCtaSource,
+} from "./model/resultYoutubeCtaTracking";
+export {
+  buildResultHistoryTrackingKey,
+  emitResultHistoryEvent,
+  sanitizeResultHistoryPayload,
+  useResultHistoryAnalytics,
+} from "./model/resultHistoryTracking";
 export { translateRoomErrorDetail } from "./model/roomErrorText";
 export {
   clampPlayDurationSec,
