@@ -6,6 +6,7 @@ import {
   shouldApplySettlementAsyncActivation,
   shouldAutoOpenSettlementCandidate,
   shouldClearDismissedSettlementIdentity,
+  shouldRequireCurrentGameSettlement,
 } from "../lib/roomLobbySettlementOrchestration";
 
 describe("roomLobbySettlementOrchestration", () => {
@@ -105,5 +106,27 @@ describe("roomLobbySettlementOrchestration", () => {
         autoOpenedIdentity: "room-1:12",
       }),
     ).toBe(true);
+  });
+
+  it("constrains automatic leaderboard settlement to the current game session", () => {
+    expect(
+      shouldRequireCurrentGameSettlement({
+        isLeaderboardChallenge: true,
+        isSettlementView: true,
+        isExplicitReview: false,
+        targetGameSessionId: 7,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not constrain explicit settlement review to the current game session", () => {
+    expect(
+      shouldRequireCurrentGameSettlement({
+        isLeaderboardChallenge: true,
+        isSettlementView: true,
+        isExplicitReview: true,
+        targetGameSessionId: 7,
+      }),
+    ).toBe(false);
   });
 });

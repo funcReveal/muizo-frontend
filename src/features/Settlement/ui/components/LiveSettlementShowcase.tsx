@@ -15,6 +15,11 @@ import type {
   RoomParticipant,
   RoomState,
 } from "@features/RoomSession";
+import {
+  resolveTrackableYoutubeVideoId,
+  useTrackResultYoutubeCta,
+  type ResultYoutubeCtaSource,
+} from "@features/RoomSession";
 import type { PlaylistItem } from "@features/PlaylistSource";
 import type { SettlementQuestionRecap } from "../../model/types";
 import { type RecommendCategory } from "../lib/settlementUtils";
@@ -60,6 +65,10 @@ type PreviewPlaybackMode = "idle" | "auto" | "manual";
 
 type ExtendedRecap = SettlementExtendedRecap;
 type RecommendationCard = SettlementRecommendationCard<ExtendedRecap>;
+type YoutubeCtaTrackingContext = {
+  source: ResultYoutubeCtaSource;
+  buttonPlacement: string;
+};
 
 interface LiveSettlementShowcaseProps {
   room: RoomState["room"];
@@ -811,6 +820,7 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
     autoAdvanceAtMs,
     canAutoGuideLoop,
   );
+  const trackResultYoutubeCta = useTrackResultYoutubeCta();
   const displayedPreviewCountdownSec =
     canAutoGuideLoop &&
     previewPlaybackMode === "auto" &&
@@ -819,7 +829,14 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
       : previewCountdownSec;
 
   const handleOpenTrackLink = useCallback(
-    (link: SettlementTrackLink, recap: ExtendedRecap) => {
+    (
+      link: SettlementTrackLink,
+      recap: ExtendedRecap,
+      trackingContext: YoutubeCtaTrackingContext = {
+        source: "result_review",
+        buttonPlacement: "review_open_youtube_button",
+      },
+    ) => {
       if (!link.href) return;
       trackEvent("settlement_outbound_click", {
         surface: "settlement",
@@ -829,14 +846,32 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         track_order: recap.order,
         source_id: link.sourceId ?? "",
       });
+      if (link.provider === "youtube" || link.provider === "youtube_music") {
+        trackResultYoutubeCta({
+          roomId: room.id,
+          matchId: matchId ?? undefined,
+          source: trackingContext.source,
+          buttonPlacement: trackingContext.buttonPlacement,
+          questionIndex: recap.order,
+          videoId: resolveTrackableYoutubeVideoId({
+            videoId: recap.videoId,
+            sourceId: link.sourceId ?? recap.sourceId,
+            href: link.href,
+            url: recap.url,
+          }),
+        });
+      }
       window.open(link.href, "_blank", "noopener,noreferrer");
     },
-    [room.id],
+    [matchId, room.id, trackResultYoutubeCta],
   );
 
   const handleOpenRecommendationTitle = useCallback(() => {
     if (!currentRecommendation || !currentRecommendationLink) return;
-    handleOpenTrackLink(currentRecommendationLink, currentRecommendation.recap);
+    handleOpenTrackLink(currentRecommendationLink, currentRecommendation.recap, {
+      source: "result_summary",
+      buttonPlacement: "support_creator_button",
+    });
   }, [currentRecommendation, currentRecommendationLink, handleOpenTrackLink]);
 
   const dispatchPreviewCommand = useCallback(
@@ -1007,7 +1042,10 @@ const LiveSettlementShowcase: React.FC<LiveSettlementShowcaseProps> = ({
         (entry) => entry.key === card.recap.key,
       );
       if (!recap) return;
-      handleOpenTrackLink(buildRecommendationLink(recap), recap);
+      handleOpenTrackLink(buildRecommendationLink(recap), recap, {
+        source: "result_summary",
+        buttonPlacement: "support_creator_button",
+      });
     },
     [handleOpenTrackLink, normalizedRecaps],
   );

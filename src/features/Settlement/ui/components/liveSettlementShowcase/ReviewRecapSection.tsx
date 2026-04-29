@@ -17,7 +17,7 @@ import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import KeyboardDoubleArrowRightRoundedIcon from "@mui/icons-material/KeyboardDoubleArrowRightRounded";
 
 import type { SettlementTrackLink } from "../../../model/settlementLinks";
-import type { RoomParticipant } from "@features/RoomSession";
+import type { ResultYoutubeCtaSource, RoomParticipant } from "@features/RoomSession";
 import RoomUiTooltip from "../../../../../shared/ui/RoomUiTooltip";
 import PlayerAvatar from "../../../../../shared/ui/playerAvatar/PlayerAvatar";
 import useAutoHideScrollbar from "../../../../../shared/hooks/useAutoHideScrollbar";
@@ -90,6 +90,10 @@ interface ReviewRecapSectionProps {
   onOpenTrackLink: (
     link: SettlementTrackLink,
     recap: SettlementQuestionRecap,
+    trackingContext?: {
+      source: ResultYoutubeCtaSource;
+      buttonPlacement: string;
+    },
   ) => void;
   selectedRecapAnswer: RecapAnswerSnapshot;
   selectedRecapFastestCorrectMeta: {
@@ -619,7 +623,14 @@ const RecapListItem: React.FC<{
 const YouTubePlayerArea: React.FC<{
   recap: SettlementQuestionRecap | null;
   selectedRecapLink: SettlementTrackLink | null;
-  onOpenTrackLink: (link: SettlementTrackLink, recap: SettlementQuestionRecap) => void;
+  onOpenTrackLink: (
+    link: SettlementTrackLink,
+    recap: SettlementQuestionRecap,
+    trackingContext?: {
+      source: ResultYoutubeCtaSource;
+      buttonPlacement: string;
+    },
+  ) => void;
   isMobileView?: boolean;
 }> = ({ recap, selectedRecapLink, onOpenTrackLink, isMobileView = false }) => {
   const previewUrl = React.useMemo(() => {
@@ -716,7 +727,12 @@ const YouTubePlayerArea: React.FC<{
           {selectedRecapLink?.href ? (
             <button
               type="button"
-              onClick={() => onOpenTrackLink(selectedRecapLink, recap)}
+              onClick={() =>
+                onOpenTrackLink(selectedRecapLink, recap, {
+                  source: "result_review",
+                  buttonPlacement: "review_open_youtube_button",
+                })
+              }
               className="mq-title-link mq-title-link--compact block max-w-full truncate bg-transparent p-0 text-left text-sm font-semibold text-slate-100"
             >
               {recap.title}
@@ -742,7 +758,12 @@ const YouTubePlayerArea: React.FC<{
         {supportLabel && selectedRecapLink?.href ? (
           <button
             type="button"
-            onClick={() => onOpenTrackLink(selectedRecapLink, recap)}
+            onClick={() =>
+              onOpenTrackLink(selectedRecapLink, recap, {
+                source: "result_review",
+                buttonPlacement: "review_open_youtube_button",
+              })
+            }
             className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-rose-300/35 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-50 transition hover:bg-rose-500/18"
           >
             <OpenInNewRoundedIcon className="text-[0.85rem]" />

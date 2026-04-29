@@ -96,3 +96,21 @@ export const shouldApplySettlementAsyncActivation = ({
   }
   return true;
 };
+
+export const shouldRequireCurrentGameSettlement = ({
+  isLeaderboardChallenge,
+  isSettlementView,
+  isExplicitReview,
+  targetGameSessionId,
+}: {
+  isLeaderboardChallenge: boolean;
+  isSettlementView: boolean;
+  isExplicitReview: boolean;
+  targetGameSessionId: number | null;
+}) =>
+  Boolean(
+    isLeaderboardChallenge &&
+      isSettlementView &&
+      !isExplicitReview &&
+      targetGameSessionId !== null,
+  );

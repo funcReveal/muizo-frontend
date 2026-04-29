@@ -26,8 +26,13 @@ import {
 } from "../../model/settlementLinks";
 import type {
   ChatMessage,
+  ResultYoutubeCtaSource,
   RoomParticipant,
   RoomState,
+} from "@features/RoomSession";
+import {
+  resolveTrackableYoutubeVideoId,
+  useTrackResultYoutubeCta,
 } from "@features/RoomSession";
 import type { PlaylistItem } from "@features/PlaylistSource";
 import type { SettlementQuestionRecap } from "./GameSettlementPanel";
@@ -57,7 +62,13 @@ interface HistoryReplayCompactViewProps {
   endedAt?: number;
   meClientId?: string;
   questionRecaps?: SettlementQuestionRecap[];
+  matchId?: string | null;
 }
+
+type YoutubeCtaTrackingContext = {
+  source: ResultYoutubeCtaSource;
+  buttonPlacement: string;
+};
 
 const HISTORY_PREVIEW_AUTOPLAY_STORAGE_KEY = "history_preview_autoplay";
 const HISTORY_PREVIEW_VOLUME_STORAGE_KEY = "history_preview_volume";
@@ -509,6 +520,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   playedQuestionCount,
   meClientId,
   questionRecaps = [],
+  matchId,
 }) => {
   const isWide = useMediaQuery("(min-width: 640px)");
   const rankedParticipants = useMemo(
@@ -751,8 +763,17 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const selectedPreviewTitle = selectedRecap?.title?.trim() || "未提供歌名";
   const selectedPreviewMeta = selectedRecap?.uploader?.trim() || "";
 
+  const trackResultYoutubeCta = useTrackResultYoutubeCta();
+
   const openLink = useCallback(
-    (link: SettlementTrackLink, recap: ExtendedRecap) => {
+    (
+      link: SettlementTrackLink,
+      recap: ExtendedRecap,
+      trackingContext: YoutubeCtaTrackingContext = {
+        source: "result_review",
+        buttonPlacement: "review_open_youtube_button",
+      },
+    ) => {
       if (!link.href) return;
       trackEvent("settlement_outbound_click", {
         surface: "history",
@@ -762,9 +783,24 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
         track_order: recap.order,
         source_id: link.sourceId ?? "",
       });
+      if (link.provider === "youtube" || link.provider === "youtube_music") {
+        trackResultYoutubeCta({
+          roomId: room.id,
+          matchId: matchId ?? undefined,
+          source: trackingContext.source,
+          buttonPlacement: trackingContext.buttonPlacement,
+          questionIndex: recap.order,
+          videoId: resolveTrackableYoutubeVideoId({
+            videoId: recap.videoId,
+            sourceId: link.sourceId ?? recap.sourceId,
+            href: link.href,
+            url: recap.url,
+          }),
+        });
+      }
       window.open(link.href, "_blank", "noopener,noreferrer");
     },
-    [room.id],
+    [matchId, room.id, trackResultYoutubeCta],
   );
 
   const postYouTubeCommand = useCallback((func: string, args: unknown[] = []) => {

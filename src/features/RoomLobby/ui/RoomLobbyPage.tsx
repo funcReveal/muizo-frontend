@@ -39,6 +39,7 @@ import {
   getSettlementIdentityFromSummary,
   shouldApplySettlementAsyncActivation,
   shouldClearDismissedSettlementIdentity,
+  shouldRequireCurrentGameSettlement,
   type SettlementIdentity,
 } from "./lib/roomLobbySettlementOrchestration";
 import type {
@@ -48,7 +49,11 @@ import type {
 } from "@features/RoomSession";
 import { translateRoomErrorDetail } from "@features/RoomSession";
 import { useAuth } from "@shared/auth/AuthContext";
-import { useRoomSession, useRoomGame } from "@features/RoomSession";
+import {
+  useResultHistoryAnalytics,
+  useRoomSession,
+  useRoomGame,
+} from "@features/RoomSession";
 import { useCollectionContent } from "@features/CollectionContent";
 import { usePlaylistSource } from "@features/PlaylistSource";
 
@@ -1051,6 +1056,7 @@ const RoomLobbyPage: React.FC = () => {
     fetchSettlementHistorySummaries,
     fetchSettlementReplay,
   } = useRoomSession();
+  const { trackResultHistoryEvent } = useResultHistoryAnalytics();
   const {
     playlistViewItems,
     playlistHasMore,
@@ -1160,7 +1166,12 @@ const RoomLobbyPage: React.FC = () => {
   const terminalSettlementRecoveryRequestRef = useRef<Promise<void> | null>(
     null,
   );
+  const settlementReplayRecoveryAttemptedRoundKeysRef = useRef<Set<string>>(
+    new Set(),
+  );
   const isOpeningExplicitSettlementRef = useRef(false);
+  const settlementOpenSourceRef = useRef<"post_game" | "lobby" | null>(null);
+  const trackedPostGameResultViewRef = useRef<Set<string>>(new Set());
 
   const waitingChecklist = useMemo(() => {
     const backendOrder = [
@@ -1282,6 +1293,17 @@ const RoomLobbyPage: React.FC = () => {
     roomViewMode === "settlement"
       ? pendingSettlementGameSessionIdRef.current ?? currentGameSessionId
       : currentGameSessionId;
+  const isExplicitSettlementReview =
+    roomViewMode === "settlement" &&
+    (isOpeningExplicitSettlementRef.current ||
+      settlementOpenSourceRef.current === "lobby");
+  const shouldConstrainSettlementToCurrentGameSession =
+    shouldRequireCurrentGameSettlement({
+      isLeaderboardChallenge: isCurrentRoomLeaderboardChallenge,
+      isSettlementView: roomViewMode === "settlement",
+      isExplicitReview: isExplicitSettlementReview,
+      targetGameSessionId: targetSettlementGameSessionId,
+    });
 
   useEffect(() => {
     prevGameStatusRef.current = null;
@@ -1293,6 +1315,7 @@ const RoomLobbyPage: React.FC = () => {
     dismissedSettlementRoundKeysRef.current = [];
     settlementActivationVersionRef.current = 0;
     settlementSummaryListRequestRef.current = null;
+    settlementReplayRecoveryAttemptedRoundKeysRef.current.clear();
     const timer = window.setTimeout(() => {
       setRoomViewMode("lobby");
       setActiveSettlementRoundKey(null);
@@ -1548,6 +1571,7 @@ const RoomLobbyPage: React.FC = () => {
     if (roomViewMode !== "settlement") return;
     if (gameState?.status !== "ended") return;
     if (!isCurrentRoomLeaderboardChallenge) return;
+    if (isExplicitSettlementReview) return;
     if (!currentRoundSettlementSnapshot) return;
 
     if (activeSettlementRoundKey === currentRoundSettlementSnapshot.roundKey) {
@@ -1574,6 +1598,7 @@ const RoomLobbyPage: React.FC = () => {
     currentRoundSettlementSnapshot,
     gameState?.status,
     isCurrentRoomLeaderboardChallenge,
+    isExplicitSettlementReview,
     isDismissedSettlement,
     isGameView,
     roomViewMode,
@@ -1751,9 +1776,13 @@ const RoomLobbyPage: React.FC = () => {
         return;
       }
 
+      settlementReplayRecoveryAttemptedRoundKeysRef.current.add(roundKey);
       setLoadingSettlementRoundKey(roundKey);
       try {
         const snapshot = await fetchSettlementReplay(summary.matchId);
+        settlementReplayRecoveryAttemptedRoundKeysRef.current.add(
+          snapshot.roundKey,
+        );
         const resultIdentity = getSettlementIdentityFromSnapshot(snapshot);
         setSettlementReplayByRoundKey((prev) =>
           pruneSettlementReplayByRoundKey(
@@ -1895,6 +1924,8 @@ const RoomLobbyPage: React.FC = () => {
 
     if (prevGameStatusRef.current === "ended" && nextStatus === "playing") {
       isOpeningExplicitSettlementRef.current = false;
+      settlementOpenSourceRef.current = null;
+      settlementReplayRecoveryAttemptedRoundKeysRef.current.clear();
       dismissedSettlementIdentityRef.current = null;
       dismissedSettlementRoundKeysRef.current = [];
       pendingSettlementGameSessionIdRef.current = currentGameSessionId;
@@ -1905,6 +1936,8 @@ const RoomLobbyPage: React.FC = () => {
 
     if (prevGameStatusRef.current === "playing" && nextStatus === "ended") {
       isOpeningExplicitSettlementRef.current = false;
+      settlementOpenSourceRef.current = "post_game";
+      settlementReplayRecoveryAttemptedRoundKeysRef.current.clear();
       settlementActivationVersionRef.current += 1;
       pendingSettlementGameSessionIdRef.current = currentGameSessionId;
       setActiveSettlementRoundKey(null);
@@ -1938,11 +1971,7 @@ const RoomLobbyPage: React.FC = () => {
       return null;
     }
 
-    if (
-      isCurrentRoomLeaderboardChallenge &&
-      roomViewMode === "settlement" &&
-      targetSettlementGameSessionId !== null
-    ) {
+    if (shouldConstrainSettlementToCurrentGameSession) {
       const snapshot =
         liveSettlementSnapshotByRoundKey[activeSettlementRoundKey] ??
         roomScopedSettlementReplayByRoundKey[activeSettlementRoundKey] ??
@@ -1957,10 +1986,9 @@ const RoomLobbyPage: React.FC = () => {
   }, [
     activeSettlementRoundKey,
     currentRoom?.id,
-    isCurrentRoomLeaderboardChallenge,
     liveSettlementSnapshotByRoundKey,
     roomScopedSettlementReplayByRoundKey,
-    roomViewMode,
+    shouldConstrainSettlementToCurrentGameSession,
     targetSettlementGameSessionId,
   ]);
 
@@ -1984,6 +2012,33 @@ const RoomLobbyPage: React.FC = () => {
       resolvedActiveSettlementRoundKey,
       roomScopedSettlementReplayByRoundKey,
     ]);
+
+  useEffect(() => {
+    if (roomViewMode !== "settlement") return;
+    if (!activeSettlementSnapshot) return;
+    if (settlementOpenSourceRef.current !== "post_game") return;
+
+    const resultKey =
+      activeSettlementSnapshot.matchId ??
+      getSettlementIdentityFromSnapshot(activeSettlementSnapshot) ??
+      activeSettlementSnapshot.roundKey;
+    if (trackedPostGameResultViewRef.current.has(resultKey)) return;
+    trackedPostGameResultViewRef.current.add(resultKey);
+
+    trackResultHistoryEvent({
+      eventName: "result.page.viewed",
+      roomId: activeSettlementSnapshot.room.id,
+      matchId: activeSettlementSnapshot.matchId ?? undefined,
+      source: "post_game",
+      entryPoint: "auto_result",
+      viewType: "summary",
+      isRevisit: false,
+    });
+  }, [
+    activeSettlementSnapshot,
+    roomViewMode,
+    trackResultHistoryEvent,
+  ]);
 
   const [settlementFavorited, setSettlementFavorited] = useState<
     boolean | undefined
@@ -2098,6 +2153,7 @@ const RoomLobbyPage: React.FC = () => {
       activeSettlementSnapshot
     )
       return;
+    if (isExplicitSettlementReview) return;
 
     if (isCurrentRoomLeaderboardChallenge) {
       return;
@@ -2289,6 +2345,7 @@ const RoomLobbyPage: React.FC = () => {
     fetchSettlementReplay,
     gameState?.status,
     isCurrentRoomLeaderboardChallenge,
+    isExplicitSettlementReview,
     isDismissedSettlement,
     isGameView,
     latestRoomScopedSettlementSummary,
@@ -2306,6 +2363,13 @@ const RoomLobbyPage: React.FC = () => {
   useEffect(() => {
     if (!resolvedActiveSettlementRoundKey) return;
     if (loadingSettlementRoundKey === resolvedActiveSettlementRoundKey) return;
+    if (
+      settlementReplayRecoveryAttemptedRoundKeysRef.current.has(
+        resolvedActiveSettlementRoundKey,
+      )
+    ) {
+      return;
+    }
     const snapshot =
       roomScopedSettlementReplayByRoundKey[resolvedActiveSettlementRoundKey] ??
       liveSettlementSnapshotByRoundKey[resolvedActiveSettlementRoundKey] ??
@@ -2483,9 +2547,7 @@ const RoomLobbyPage: React.FC = () => {
       </GameRoomDanmuProviderBridge>
     ) : null;
   const activeSnapshotIsCurrentLeaderboardSettlement =
-    !isCurrentRoomLeaderboardChallenge ||
-    roomViewMode !== "settlement" ||
-    targetSettlementGameSessionId === null ||
+    !shouldConstrainSettlementToCurrentGameSession ||
     activeSettlementSnapshot?.roundNo === targetSettlementGameSessionId;
 
   const isSettlementViewPreparing = Boolean(
@@ -2530,6 +2592,24 @@ const RoomLobbyPage: React.FC = () => {
 
   const openHistoryReplayModal = useCallback(
     async (summary: RoomSettlementHistorySummary) => {
+      trackResultHistoryEvent({
+        eventName: "match_history.result.opened",
+        roomId: currentRoom?.id ?? summary.roomId,
+        matchId: summary.matchId,
+        source: "history_page",
+        entryPoint: "history_list",
+        viewType: "full_result",
+        isRevisit: true,
+      });
+      trackResultHistoryEvent({
+        eventName: "result.page.revisited",
+        roomId: currentRoom?.id ?? summary.roomId,
+        matchId: summary.matchId,
+        source: "history_page",
+        entryPoint: "history_list",
+        viewType: "full_result",
+        isRevisit: true,
+      });
       setHistoryReplaySummary(summary);
       const cached = roomSnapshotByRoundKey[summary.roundKey] ?? null;
       if (
@@ -2567,6 +2647,7 @@ const RoomLobbyPage: React.FC = () => {
       currentRoom?.id,
       fetchSettlementReplay,
       roomSnapshotByRoundKey,
+      trackResultHistoryEvent,
     ],
   );
 
@@ -2685,12 +2766,16 @@ const RoomLobbyPage: React.FC = () => {
 
   /** Return from game view to the lobby. */
   const handleBackToLobby = useCallback(() => {
+    isOpeningExplicitSettlementRef.current = false;
+    settlementOpenSourceRef.current = null;
     setRoomViewMode("lobby");
     setIsGameView(false);
   }, [setIsGameView]);
 
   /** Return from settlement view to the lobby. */
   const handleBackFromSettlement = useCallback(() => {
+    isOpeningExplicitSettlementRef.current = false;
+    settlementOpenSourceRef.current = null;
     settlementActivationVersionRef.current += 1;
     const dismissedIdentity =
       getSettlementIdentityFromSnapshot(activeSettlementSnapshot) ??
@@ -2822,6 +2907,17 @@ const RoomLobbyPage: React.FC = () => {
   /** Open a specific settlement round by key. */
   const handleOpenSettlementByRoundKey = useCallback(
     (roundKey: string) => {
+      settlementOpenSourceRef.current = "lobby";
+      const summary = settlementSummaryByRoundKey[roundKey];
+      trackResultHistoryEvent({
+        eventName: "result.page.revisited",
+        roomId: currentRoom?.id,
+        matchId: summary?.matchId,
+        source: "lobby",
+        entryPoint: "result_button",
+        viewType: "full_result",
+        isRevisit: true,
+      });
       dismissedSettlementIdentityRef.current = null;
       dismissedSettlementRoundKeysRef.current = [];
       isOpeningExplicitSettlementRef.current = true;
@@ -2829,11 +2925,18 @@ const RoomLobbyPage: React.FC = () => {
       setRoomViewMode("settlement");
       void openSettlementReviewByRoundKey(roundKey);
     },
-    [openSettlementReviewByRoundKey],
+    [
+      currentRoom?.id,
+      openSettlementReviewByRoundKey,
+      settlementSummaryByRoundKey,
+      trackResultHistoryEvent,
+    ],
   );
 
   /** Switch from settlement view into the active game. */
   const handleOpenGame = useCallback(() => {
+    isOpeningExplicitSettlementRef.current = false;
+    settlementOpenSourceRef.current = null;
     setRoomViewMode("game");
     setActiveSettlementRoundKey(null);
     setIsGameView(true);
@@ -2841,10 +2944,21 @@ const RoomLobbyPage: React.FC = () => {
 
   /** Open the most-recent settlement, fetching summaries if needed. */
   const handleOpenLastSettlement = useCallback(() => {
+    isOpeningExplicitSettlementRef.current = true;
+    settlementOpenSourceRef.current = "lobby";
     dismissedSettlementIdentityRef.current = null;
     dismissedSettlementRoundKeysRef.current = [];
     setRoomViewMode("settlement");
     if (latestSettlementSnapshot) {
+      trackResultHistoryEvent({
+        eventName: "result.page.revisited",
+        roomId: currentRoom?.id,
+        matchId: latestSettlementSnapshot.matchId ?? undefined,
+        source: "lobby",
+        entryPoint: "result_button",
+        viewType: "full_result",
+        isRevisit: true,
+      });
       setActiveSettlementRoundKey(latestSettlementSnapshot.roundKey);
       return;
     }
@@ -2859,13 +2973,24 @@ const RoomLobbyPage: React.FC = () => {
       if (!latest) {
         return;
       }
+      trackResultHistoryEvent({
+        eventName: "result.page.revisited",
+        roomId: currentRoom?.id ?? latest.roomId,
+        matchId: latest.matchId,
+        source: "lobby",
+        entryPoint: "result_button",
+        viewType: "full_result",
+        isRevisit: true,
+      });
       await openSettlementReviewByRoundKey(latest.roundKey);
     })().catch(() => { });
   }, [
+    currentRoom?.id,
     ensureSettlementSummaryListLoaded,
     latestSettlementSnapshot,
     mergedSettlementSummaries,
     openSettlementReviewByRoundKey,
+    trackResultHistoryEvent,
   ]);
 
   const loginConfirmText = useMemo(() => {
@@ -2922,9 +3047,16 @@ const RoomLobbyPage: React.FC = () => {
     startGoogleLogin,
   ]);
   const openHistoryDrawer = useCallback(() => {
+    trackResultHistoryEvent({
+      eventName: "match_history.opened",
+      roomId: currentRoom?.id,
+      source: "lobby",
+      entryPoint: "result_button",
+      viewType: "summary",
+    });
     setHistoryDrawerOpen(true);
     void loadHistoryDrawerPage({ reset: true });
-  }, [loadHistoryDrawerPage]);
+  }, [currentRoom?.id, loadHistoryDrawerPage, trackResultHistoryEvent]);
   const historyListRef = useAutoHideScrollbar<HTMLDivElement>();
   const closeHistoryDrawer = useCallback(() => {
     setHistoryDrawerOpen(false);
@@ -3281,6 +3413,11 @@ const RoomLobbyPage: React.FC = () => {
             endedAt={historyReplaySnapshot.endedAt}
             meClientId={clientId}
             questionRecaps={historyReplayQuestionRecaps}
+            matchId={
+              historyReplaySnapshot.matchId ??
+              historyReplaySummary?.matchId ??
+              null
+            }
           />
         )
       ) : (
