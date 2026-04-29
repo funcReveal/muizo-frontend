@@ -17,10 +17,7 @@ import {
   videoUrlFromId,
 } from "../../../shared/utils/youtube";
 import { formatSeconds } from "../../../shared/utils/format";
-import {
-  DEFAULT_CLIP_SEC,
-  DEFAULT_PAGE_SIZE,
-} from "@domain/room/constants";
+import { DEFAULT_CLIP_SEC, DEFAULT_PAGE_SIZE } from "@domain/room/constants";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
 
 const EMPTY_COLLECTION_RETRY_LIMIT = 2;
@@ -783,7 +780,7 @@ export const useCollectionContentState = ({
     setCollectionsHasMore(false);
     setCollectionsError(null);
     setCollectionScope(null);
-    setPublicCollectionsSort("updated");
+    setPublicCollectionsSort("rating");
     setCollectionFavoriteUpdatingId(null);
     setCollectionsLastFetchedAt(null);
     collectionPageRef.current = 1;
