@@ -63,55 +63,38 @@ export const useSharedCollectionEntry = ({
   openCollectionDrawer,
 }: UseSharedCollectionEntryArgs) => {
   const handledSharedCollectionRef = useRef<string | null>(null);
+  const inFlightSharedCollectionRef = useRef<string | null>(null);
+  const requestSeqRef = useRef(0);
+
+  const latestHandlersRef = useRef({
+    setGuideMode,
+    setCreateLibraryTab,
+    setCreateLeftTab,
+    setRoomCreateSourceMode,
+    updateAllowCollectionClipTiming,
+    setSelectedCreateYoutubeId,
+    setSelectedCreateCollectionId,
+    setSharedCollectionMeta,
+    handleResetPlaylist,
+    fetchCollectionById,
+    loadCollectionItems,
+    openCollectionDrawer,
+  });
 
   useEffect(() => {
-    if (!sharedCollectionId) {
-      handledSharedCollectionRef.current = null;
-      return;
-    }
-
-    const signature = sharedCollectionId;
-
-    if (handledSharedCollectionRef.current === signature) return;
-
-    handledSharedCollectionRef.current = signature;
-
-    let cancelled = false;
-
-    setGuideMode("create");
-    setCreateLibraryTab("public");
-    setCreateLeftTab("library");
-    updateAllowCollectionClipTiming(true);
-    setRoomCreateSourceMode("publicCollection");
-    setSelectedCreateYoutubeId(null);
-    setSelectedCreateCollectionId(sharedCollectionId);
-    setSharedCollectionMeta({
-      id: sharedCollectionId,
-      title: "分享收藏庫",
-      scope: "public",
-    });
-    handleResetPlaylist();
-
-    void (async () => {
-      const collection = await fetchCollectionById(sharedCollectionId);
-
-      if (cancelled || !collection) return;
-
-      const scope = collection.visibility === "private" ? "private" : "public";
-
-      setSharedCollectionMeta({
-        id: collection.id,
-        title: collection.title,
-        scope,
-      });
-
-      openCollectionDrawer(collection, "sharedLink");
-
-      void loadCollectionItems(collection.id, { force: true });
-    })();
-
-    return () => {
-      cancelled = true;
+    latestHandlersRef.current = {
+      setGuideMode,
+      setCreateLibraryTab,
+      setCreateLeftTab,
+      setRoomCreateSourceMode,
+      updateAllowCollectionClipTiming,
+      setSelectedCreateYoutubeId,
+      setSelectedCreateCollectionId,
+      setSharedCollectionMeta,
+      handleResetPlaylist,
+      fetchCollectionById,
+      loadCollectionItems,
+      openCollectionDrawer,
     };
   }, [
     fetchCollectionById,
@@ -125,24 +108,100 @@ export const useSharedCollectionEntry = ({
     setSelectedCreateCollectionId,
     setSelectedCreateYoutubeId,
     setSharedCollectionMeta,
-    sharedCollectionId,
     updateAllowCollectionClipTiming,
   ]);
 
   useEffect(() => {
     if (!sharedCollectionId) {
       handledSharedCollectionRef.current = null;
+      inFlightSharedCollectionRef.current = null;
+      requestSeqRef.current += 1;
       return;
     }
+
+    const signature = sharedCollectionId;
+
+    if (handledSharedCollectionRef.current === signature) return;
+    if (inFlightSharedCollectionRef.current === signature) return;
+
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
+    inFlightSharedCollectionRef.current = signature;
+
+    let cancelled = false;
+
+    const handlers = latestHandlersRef.current;
+
+    handlers.setGuideMode("create");
+    handlers.setCreateLibraryTab("public");
+    handlers.setCreateLeftTab("library");
+    handlers.updateAllowCollectionClipTiming(true);
+    handlers.setRoomCreateSourceMode("publicCollection");
+    handlers.setSelectedCreateYoutubeId(null);
+    handlers.setSelectedCreateCollectionId(signature);
+    handlers.setSharedCollectionMeta({
+      id: signature,
+      title: "分享收藏庫",
+      scope: "public",
+    });
+    handlers.handleResetPlaylist();
+
+    void (async () => {
+      const collection =
+        await latestHandlersRef.current.fetchCollectionById(signature);
+
+      if (cancelled) return;
+      if (requestSeqRef.current !== requestSeq) return;
+
+      if (!collection) {
+        inFlightSharedCollectionRef.current = null;
+        latestHandlersRef.current.setSharedCollectionMeta({
+          id: signature,
+          title: "找不到分享收藏庫",
+          scope: "public",
+        });
+        return;
+      }
+
+      const scope = collection.visibility === "private" ? "private" : "public";
+
+      latestHandlersRef.current.setSharedCollectionMeta({
+        id: collection.id,
+        title: collection.title,
+        scope,
+      });
+
+      latestHandlersRef.current.openCollectionDrawer(collection, "sharedLink");
+
+      handledSharedCollectionRef.current = signature;
+      inFlightSharedCollectionRef.current = null;
+
+      void latestHandlersRef.current.loadCollectionItems(collection.id, {
+        force: true,
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+
+      if (inFlightSharedCollectionRef.current === signature) {
+        inFlightSharedCollectionRef.current = null;
+      }
+    };
+  }, [sharedCollectionId]);
+
+  useEffect(() => {
+    if (!sharedCollectionId) return;
     if (roomCreateSourceMode !== "publicCollection") return;
     if (selectedCreateCollectionId !== sharedCollectionId) return;
     if (playlistItemsLength > 0 || playlistLoading) return;
     if (collectionItemsError) return;
 
-    void loadCollectionItems(sharedCollectionId, { force: true });
+    void latestHandlersRef.current.loadCollectionItems(sharedCollectionId, {
+      force: true,
+    });
   }, [
     collectionItemsError,
-    loadCollectionItems,
     playlistItemsLength,
     playlistLoading,
     roomCreateSourceMode,
