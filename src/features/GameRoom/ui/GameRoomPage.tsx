@@ -94,6 +94,7 @@ import GameRoomDanmuProviderBridge from "./components/GameRoomDanmuProviderBridg
 interface GameRoomPageProps {
   room: RoomState["room"];
   gameState: GameState;
+  gameSessionId?: number | null;
   playlist: PlaylistItem[];
   onExitGame: () => void;
   onBackToLobby?: () => void;
@@ -333,6 +334,7 @@ const useGameRoomUiClock = ({
 const GameRoomPage: React.FC<GameRoomPageProps> = ({
   room,
   gameState,
+  gameSessionId = null,
   playlist,
   onExitGame,
   onSubmitChoice,
@@ -924,6 +926,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     trackLoadKey,
   } = useGameRoomPlaybackState({
     gameState,
+    gameSessionId,
     playlist,
     room,
     showVideoOverride,
@@ -953,7 +956,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     (isTimeAttackMode || effectiveGuessDurationMs > firstClipSpanMs + 250);
   const audioGestureSessionKeyRef = useRef<string>("");
   if (trackCursor === 0 || !audioGestureSessionKeyRef.current) {
-    audioGestureSessionKeyRef.current = `${room.id}:${gameState.startedAt}:${currentTrackIndex}`;
+    audioGestureSessionKeyRef.current = `${room.id}:${gameSessionId ?? gameState.startedAt}:${gameState.startedAt}:${currentTrackIndex}`;
   }
   const audioGestureSessionKey = audioGestureSessionKeyRef.current;
   const {

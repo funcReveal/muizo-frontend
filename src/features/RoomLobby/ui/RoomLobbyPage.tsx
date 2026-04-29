@@ -3654,6 +3654,7 @@ const RoomLobbyPage: React.FC = () => {
             <GameRoomPage
               room={currentRoom}
               gameState={gameState}
+              gameSessionId={gameSyncVersion?.gameSessionId ?? null}
               playlist={gamePlaylist}
               onBackToLobby={handleBackToLobby}
               onExitGame={leaveRoomAndNavigate}

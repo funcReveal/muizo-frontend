@@ -29,6 +29,7 @@ interface UseGameRoomPlaybackStateInput {
   playlist: PlaylistItem[];
   room: RoomState["room"];
   showVideoOverride: boolean | null;
+  gameSessionId?: number | null;
 }
 
 /**
@@ -46,6 +47,7 @@ export function useGameRoomPlaybackState({
   playlist,
   room,
   showVideoOverride,
+  gameSessionId,
 }: UseGameRoomPlaybackStateInput) {
   // ------------------------------------------------------------------
   // Track cursor / order resolution
@@ -245,7 +247,11 @@ export function useGameRoomPlaybackState({
   const showVideo = showVideoOverride ?? gameState.showVideo ?? true;
 
   const clipIdentityStartSec = Math.round(clipStartSec * 1000) / 1000;
-  const trackSessionKey = `${gameState.startedAt}:${trackCursor}:${currentTrackIndex}`;
+  const gameSessionIdentity =
+    typeof gameSessionId === "number" && Number.isFinite(gameSessionId)
+      ? gameSessionId
+      : gameState.startedAt;
+  const trackSessionKey = `${gameSessionIdentity}:${gameState.startedAt}:${trackCursor}:${currentTrackIndex}`;
   const trackLoadKey = `${videoId ?? "none"}:${trackSessionKey}:${clipIdentityStartSec}`;
 
   return {
@@ -293,6 +299,7 @@ export function useGameRoomPlaybackState({
     isReveal,
     showVideo,
     clipIdentityStartSec,
+    gameSessionIdentity,
     trackSessionKey,
     trackLoadKey,
     serverTrackDurationSec,

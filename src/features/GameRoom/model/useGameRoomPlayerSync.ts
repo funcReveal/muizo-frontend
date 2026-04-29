@@ -419,9 +419,14 @@ const useGameRoomPlayerSync = ({
     revealReplayRef.current = false;
     lastRevealStartKeyRef.current = null;
 
-    // keepRevealAliveRef is intentionally NOT cleared here.
-    // It is cleared when the new track actually starts playing.
-  }, [clearClipEndGuardTimer, trackLoadKey, trackSessionKey]);
+    // Between regular questions startedAt is already due, so keeping reveal
+    // audio alive avoids a silence gap. A restart has a fresh pre-start
+    // countdown; that is a new session boundary and must not inherit the
+    // previous reveal/loop playback position.
+    if (waitingToStart) {
+      keepRevealAliveRef.current = false;
+    }
+  }, [clearClipEndGuardTimer, trackLoadKey, trackSessionKey, waitingToStart]);
 
   useEffect(() => {
     bufferingStartedAtRef.current = null;
@@ -1872,6 +1877,9 @@ const useGameRoomPlayerSync = ({
           handleTrackPrepared(data.info ?? state);
         }
         if (state === 1) {
+          if (waitingToStart && !prestartWarmupActiveRef.current) {
+            return;
+          }
           setLoadedTrackKey(trackLoadKey);
           if (!hasStartedPlaybackRef.current) {
             // The new track is playing for the first time. It is now safe to
@@ -2115,6 +2123,7 @@ const useGameRoomPlayerSync = ({
     startedAt,
     syncToServerPosition,
     trackLoadKey,
+    waitingToStart,
     videoId,
     replayClipFromStart,
     clipReplayStartSec,
