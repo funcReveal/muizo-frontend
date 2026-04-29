@@ -43,6 +43,10 @@ export interface CollectionContentContextValue {
     scope?: "owner" | "public",
     options?: { query?: string },
   ) => Promise<void>;
+  fetchCollectionById: (
+    collectionId: string,
+    options?: { readToken?: string | null },
+  ) => Promise<CollectionEntry | null>;
   loadMoreCollections: () => Promise<void>;
   toggleCollectionFavorite: (collectionId: string) => Promise<boolean>;
   selectCollection: (collectionId: string | null) => void;

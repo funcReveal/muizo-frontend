@@ -217,6 +217,37 @@ export const apiFetchCollections = (
   });
 };
 
+export const apiFetchCollectionById = (
+  apiUrl: string,
+  token: string | null,
+  collectionId: string,
+  readToken?: string | null,
+) => {
+  const url = new URL(
+    `${apiUrl}/api/collections/${encodeURIComponent(collectionId)}`,
+  );
+
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (readToken) {
+    headers["X-Collection-Read-Token"] = readToken;
+  }
+
+  return fetchJson<{
+    ok?: boolean;
+    data?: {
+      collection: CollectionSummary;
+    };
+    error?: string;
+  }>(url.toString(), {
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
+  });
+};
+
 export const apiFavoriteCollection = (
   apiUrl: string,
   token: string,
@@ -307,7 +338,9 @@ export const apiFetchCollectionItemPreview = (
     readToken?: string | null;
   },
 ) => {
-  const url = new URL(`${apiUrl}/api/collections/${collectionId}/items/preview`);
+  const url = new URL(
+    `${apiUrl}/api/collections/${collectionId}/items/preview`,
+  );
   if (options?.page !== undefined) {
     url.searchParams.set("page", String(options.page));
   }

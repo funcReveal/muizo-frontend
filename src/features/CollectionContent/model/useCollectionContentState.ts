@@ -5,12 +5,15 @@ import {
   type PlaylistItem,
 } from "@features/PlaylistSource";
 import {
+  apiFetchCollectionById,
   apiFetchCollectionItems,
   apiFetchCollections,
   apiFavoriteCollection,
   apiUnfavoriteCollection,
   type CollectionItemRecord,
+  type CollectionSummary,
 } from "./collectionContentApi";
+import type { CollectionEntry } from "./CollectionContentContext";
 import {
   extractYoutubeChannelId,
   thumbnailFromId,
@@ -35,6 +38,34 @@ type UseCollectionContentStateOptions = {
   ) => void;
   onPlaylistReset: () => void;
 };
+
+const normalizeCollectionEntry = (
+  item: CollectionSummary,
+): CollectionEntry => ({
+  id: item.id,
+  title: item.title,
+  description: item.description ?? null,
+  visibility: item.visibility === "public" ? "public" : "private",
+  cover_title: item.cover_title ?? null,
+  cover_channel_title: item.cover_channel_title ?? null,
+  cover_thumbnail_url: item.cover_thumbnail_url ?? null,
+  cover_duration_sec:
+    item.cover_duration_sec === null || item.cover_duration_sec === undefined
+      ? null
+      : Math.max(0, Number(item.cover_duration_sec ?? 0)),
+  cover_source_id: item.cover_source_id ?? null,
+  cover_provider: item.cover_provider ?? null,
+  item_count: Math.max(0, Number(item.item_count ?? 0)),
+  use_count: Math.max(0, Number(item.use_count ?? 0)),
+  favorite_count: Math.max(0, Number(item.favorite_count ?? 0)),
+  rating_count: Math.max(0, Number(item.rating_count ?? 0)),
+  rating_avg: Math.max(0, Number(item.rating_avg ?? 0)),
+  is_favorited: Boolean(item.is_favorited),
+  created_at: Math.max(0, Number(item.created_at ?? 0)),
+  updated_at: Math.max(0, Number(item.updated_at ?? 0)),
+  ai_edited_count: Math.max(0, Number(item.ai_edited_count ?? 0)),
+  has_ai_edited: Boolean(item.has_ai_edited),
+});
 
 export type UseCollectionContentStateResult = {
   collections: Array<{
@@ -78,6 +109,10 @@ export type UseCollectionContentStateResult = {
     scope?: "owner" | "public",
     options?: { query?: string },
   ) => Promise<void>;
+  fetchCollectionById: (
+    collectionId: string,
+    options?: { readToken?: string | null },
+  ) => Promise<CollectionEntry | null>;
   loadMoreCollections: () => Promise<void>;
   toggleCollectionFavorite: (collectionId: string) => Promise<boolean>;
   loadCollectionItems: (
