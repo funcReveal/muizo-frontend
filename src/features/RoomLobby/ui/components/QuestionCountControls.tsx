@@ -41,7 +41,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => onChange(safeMin)}
             disabled={disabled || value === safeMin}
           >
@@ -50,7 +49,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(-step)}
             disabled={disabled || value <= safeMin}
           >
@@ -59,7 +57,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(-1)}
             disabled={disabled || value <= safeMin}
           >
@@ -72,7 +69,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(1)}
             disabled={disabled || value >= safeMax}
           >
@@ -81,7 +77,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(step)}
             disabled={disabled || value >= safeMax}
           >
@@ -90,7 +85,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => onChange(safeMax)}
             disabled={disabled || value === safeMax}
           >
@@ -98,7 +92,7 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           </Button>
         </div>
         {showRangeHint && (
-          <Typography variant="caption" className="room-create-muted">
+          <Typography variant="caption" className="room-question-muted">
             可調範圍 {rangeLabel}
           </Typography>
         )}
@@ -129,7 +123,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => onChange(safeMin)}
             disabled={disabled || value === safeMin}
           >
@@ -138,7 +131,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(-step)}
             disabled={disabled || value <= safeMin}
           >
@@ -147,7 +139,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(-1)}
             disabled={disabled || value <= safeMin}
           >
@@ -167,7 +158,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(1)}
             disabled={disabled || value >= safeMax}
           >
@@ -176,7 +166,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => adjust(step)}
             disabled={disabled || value >= safeMax}
           >
@@ -185,7 +174,6 @@ const QuestionCountControls: React.FC<QuestionCountControlsProps> = ({
           <Button
             variant="outlined"
             size="small"
-            className="room-create-accent-button"
             onClick={() => onChange(safeMax)}
             disabled={disabled || value === safeMax}
           >
