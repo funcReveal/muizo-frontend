@@ -612,7 +612,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   const isLeaderboardRoom = Boolean(
     currentRoom?.gameSettings?.leaderboardProfileKey,
   );
-  const leaderboardCollectionOnlyReason = "排行挑戰僅支援收藏庫";
+  const leaderboardCollectionOnlyReason = "排行挑戰僅支援公開收藏庫";
   const canUseLeaderboard30 = questionMaxLimit >= 30;
   const canUseLeaderboard50 = questionMaxLimit >= 50;
   const canUseLeaderboard15m =
