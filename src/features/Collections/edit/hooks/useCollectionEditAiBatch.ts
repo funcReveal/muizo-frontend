@@ -144,7 +144,6 @@ export type AiPageStatus = {
 export type AiPromptMode =
   | "official-title"
   | "split-fields"
-  | "translate"
   | "custom";
 
 export type AiLanguageMode =
@@ -233,10 +232,6 @@ const buildAiPromptInstructions = (settings: AiPromptSettings) => {
         .map((field, index) => `${index + 1}. ${field.trim() || `欄位 ${index + 1}`}`)
         .join(" / ")}`,
       "Use only fields supported by the source. Do not add empty fields or extra separators.",
-    ],
-    translate: [
-      "Task: rewrite each answer into the selected language.",
-      "Keep it concise and quiz-friendly. Prefer official/common translations when they exist.",
     ],
     custom: [
       "Task: follow the custom instruction below.",

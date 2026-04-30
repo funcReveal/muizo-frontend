@@ -13,7 +13,7 @@ const BrandLogo: React.FC<BrandLogoProps> = ({
     <div className={`inline-flex items-center gap-3 ${className ?? ""}`.trim()}>
       <div className="leading-none">
         <div
-          className={`${compact ? "text-base" : "text-lg"} font-semibold tracking-[0.08em] text-(--mc-text)`}
+          className={`${compact ? "text-xl" : "text-lg"} font-semibold tracking-[0.08em] text-(--mc-text)`}
           style={{ fontFamily: '"OpenHuninn", "Noto Sans TC", sans-serif' }}
         >
           Muizo

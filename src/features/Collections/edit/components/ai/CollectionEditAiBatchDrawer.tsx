@@ -16,11 +16,10 @@ import {
   Drawer,
   FormControlLabel,
   IconButton,
-  MenuItem,
   Switch,
-  TextField,
   useMediaQuery,
 } from "@mui/material";
+import { MuizoSelectField, MuizoTextField } from "../../../../../shared/ui/form";
 import type {
   AiBatchWriteState,
   AiPromptSettings,
@@ -103,12 +102,6 @@ const promptModeOptions: Array<{
     hint: "適合想把答案統一成「歌手 - 曲名 - 作品名稱」這類可預期格式。",
   },
   {
-    value: "translate",
-    label: "統一語言",
-    description: "翻譯/改寫",
-    hint: "適合把答案統一成繁中、英文、日文等語言，但仍保留常見官方名稱。",
-  },
-  {
     value: "custom",
     label: "自訂規則",
     description: "特殊題庫",
@@ -133,6 +126,60 @@ const uncertainPolicyHints: Record<
   "infer-from-title":
     "積極模式，AI 會從標題和上傳者推測，適合空答案或答案品質很差時。",
 };
+
+const languageOptions = [
+  {
+    value: "preserve",
+    label: "跟隨原文",
+    description: "不強制翻譯",
+  },
+  {
+    value: "zh-TW",
+    label: "繁體中文",
+    description: "台灣常用答案",
+  },
+  {
+    value: "ja",
+    label: "日文",
+    description: "統一日文表記",
+  },
+  {
+    value: "en",
+    label: "英文",
+    description: "國際曲庫",
+  },
+  {
+    value: "ko",
+    label: "韓文",
+    description: "K-pop 題庫",
+  },
+  {
+    value: "custom",
+    label: "自訂語言規則",
+    description: "例如原文加中文括號",
+  },
+] satisfies Array<{
+  value: AiPromptSettings["languageMode"];
+  label: string;
+  description: string;
+}>;
+
+const uncertainPolicyOptions = [
+  {
+    value: "keep-current",
+    label: "保守：保留原答案",
+    description: "避免誤修",
+  },
+  {
+    value: "infer-from-title",
+    label: "積極：從標題推測",
+    description: "適合空答案或品質較差",
+  },
+] satisfies Array<{
+  value: AiPromptSettings["uncertainPolicy"];
+  label: string;
+  description: string;
+}>;
 
 const getPageStatusMeta = ({
   page,
@@ -516,30 +563,24 @@ export default function CollectionEditAiBatchDrawer({
 
                         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
                           <div>
-                            <TextField
-                              select
+                            <MuizoSelectField
                               size="small"
                               label="答案語言"
                               value={aiPromptSettings.languageMode}
+                              options={languageOptions}
                               disabled={controlsDisabled}
-                              onChange={(event) =>
+                              helper={
+                                languageModeHints[
+                                  aiPromptSettings.languageMode
+                                ]
+                              }
+                              onChange={(languageMode) =>
                                 onAiPromptSettingsChange({
-                                  languageMode: event.target
-                                    .value as AiPromptSettings["languageMode"],
+                                  languageMode,
                                 })
                               }
                               fullWidth
-                            >
-                              <MenuItem value="preserve">跟隨原文</MenuItem>
-                              <MenuItem value="zh-TW">繁體中文</MenuItem>
-                              <MenuItem value="ja">日文</MenuItem>
-                              <MenuItem value="en">英文</MenuItem>
-                              <MenuItem value="ko">韓文</MenuItem>
-                              <MenuItem value="custom">自訂語言規則</MenuItem>
-                            </TextField>
-                            <div className="mt-1.5 px-1 text-xs leading-5 text-[var(--mc-text-muted)]">
-                              {languageModeHints[aiPromptSettings.languageMode]}
-                            </div>
+                            />
                           </div>
 
                           <FormControlLabel
@@ -569,7 +610,7 @@ export default function CollectionEditAiBatchDrawer({
                         </div>
 
                         {aiPromptSettings.languageMode === "custom" ? (
-                          <TextField
+                          <MuizoTextField
                             className="!mt-3"
                             size="small"
                             label="自訂輸出語言"
@@ -592,7 +633,7 @@ export default function CollectionEditAiBatchDrawer({
                               會依順序組合，資料不足的欄位會略過。
                             </div>
                             <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
-                              <TextField
+                              <MuizoTextField
                                 size="small"
                                 label="分隔符號"
                                 value={aiPromptSettings.separator}
@@ -611,7 +652,7 @@ export default function CollectionEditAiBatchDrawer({
                                       key={index}
                                       className="flex min-w-[180px] flex-1 items-center gap-2 rounded-xl border border-[var(--mc-border)] bg-[#050b14]/70 px-2 py-2"
                                     >
-                                      <TextField
+                                      <MuizoTextField
                                         size="small"
                                         label={`第 ${index + 1} 格`}
                                         value={field}
@@ -661,37 +702,27 @@ export default function CollectionEditAiBatchDrawer({
 
                         <div className="mt-4 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
                           <div>
-                            <TextField
-                              select
+                            <MuizoSelectField
                               size="small"
                               label="AI 不確定時"
                               value={aiPromptSettings.uncertainPolicy}
+                              options={uncertainPolicyOptions}
                               disabled={controlsDisabled}
-                              onChange={(event) =>
-                                onAiPromptSettingsChange({
-                                  uncertainPolicy: event.target
-                                    .value as AiPromptSettings["uncertainPolicy"],
-                                })
-                              }
-                              fullWidth
-                            >
-                              <MenuItem value="keep-current">
-                                保守：保留原答案
-                              </MenuItem>
-                              <MenuItem value="infer-from-title">
-                                積極：從標題推測
-                              </MenuItem>
-                            </TextField>
-                            <div className="mt-1.5 px-1 text-xs leading-5 text-[var(--mc-text-muted)]">
-                              {
+                              helper={
                                 uncertainPolicyHints[
                                   aiPromptSettings.uncertainPolicy
                                 ]
                               }
-                            </div>
+                              onChange={(uncertainPolicy) =>
+                                onAiPromptSettingsChange({
+                                  uncertainPolicy,
+                                })
+                              }
+                              fullWidth
+                            />
                           </div>
 
-                          <TextField
+                          <MuizoTextField
                             size="small"
                             label="補充規則"
                             value={aiPromptSettings.customPrompt}
@@ -800,7 +831,7 @@ export default function CollectionEditAiBatchDrawer({
                         ))}
                       </div>
 
-                      <TextField
+                      <MuizoTextField
                         value={currentAiJsonDraft}
                         disabled={pendingAiBatchSave !== null}
                         onChange={(event) => {
