@@ -187,7 +187,7 @@ const DEFAULT_AI_PROMPT_SETTINGS: AiPromptSettings = {
 };
 
 const AI_LANGUAGE_LABELS: Record<AiLanguageMode, string> = {
-  preserve: "保留原文主要語言",
+  preserve: "原文主要語言",
   "zh-TW": "繁體中文",
   ja: "日文",
   en: "英文",
@@ -201,45 +201,45 @@ const buildAiPromptInstructions = (settings: AiPromptSettings) => {
       ? settings.customLanguage.trim() || "使用者指定語言"
       : AI_LANGUAGE_LABELS[settings.languageMode];
 
-  const baseRules = [
-    "Rules:",
+  const outputRules = [
+    "Output rules:",
     "1. Return exactly one ```json``` code block and nothing else.",
-    "2. Keep every original id. Do not add or remove items.",
-    "3. Return only answerText for each item. Do not output any other fields.",
-    '4. The output format must be {"items":[{"id":"...","answerText":"..."}]}.',
+    "2. Keep every original id, item count, and item order.",
+    "3. Return only answerText for each item.",
+    '4. Format: {"items":[{"id":"...","answerText":"..."}]}.',
   ];
 
-  const languageRules = [
-    settings.keepOriginalText
-      ? "Keep original proper nouns, artist names, song titles, and official romanization when they are already recognizable."
-      : "You may rewrite or translate proper nouns if it improves consistency with the selected target language.",
+  const editingPreferences = [
     settings.languageMode === "preserve"
-      ? "Preserve each song title's original dominant language whenever possible. Do not translate unless the translated form is clearly the official/common primary title."
-      : `Use ${targetLanguage} for the generated answerText when a natural official/common form exists.`,
+      ? "Language: keep each answer in its original/main language."
+      : `Language: use ${targetLanguage} when a natural answer exists.`,
+    settings.keepOriginalText
+      ? "Names: keep recognizable original titles, artist names, and romanization."
+      : "Names: rewrite or translate names when it makes the answer clearer.",
     settings.uncertainPolicy === "keep-current"
-      ? "If you are uncertain, keep the original answerText unchanged."
-      : "If you are uncertain, infer the best concise answer from title and uploader, but avoid inventing facts not present in the source data.",
+      ? "Uncertain: keep the current answerText."
+      : "Uncertain: infer from title and uploader, without inventing facts.",
   ];
 
   const modeInstructions: Record<AiPromptMode, string[]> = {
     "official-title": [
-      "Task: normalize each answerText into the most official and commonly recognized song title for music quiz answers.",
-      "Prefer the primary title. Remove noisy playlist tags, episode numbers, brackets, upload notes, MV/live/lyrics labels, and unnecessary channel wording.",
+      "Task: clean each answer into the official/common song title.",
+      "Remove upload noise such as MV, live, lyrics, playlist tags, episode labels, brackets, and channel wording.",
     ],
     "split-fields": [
-      "Task: rebuild answerText as structured fields separated by the exact separator below.",
+      "Task: rebuild each answer as structured fields.",
       `Separator: ${JSON.stringify(settings.separator || " ")}`,
       `Field order: ${settings.splitFields
         .map((field, index) => `${index + 1}. ${field.trim() || `欄位 ${index + 1}`}`)
         .join(" / ")}`,
-      "Only include a field when the source data supports it. Keep the same field order and separator. Do not add leading or trailing separators.",
+      "Use only fields supported by the source. Do not add empty fields or extra separators.",
     ],
     translate: [
-      "Task: rewrite answerText into the selected target language while preserving official names and recognizable music-title conventions.",
-      "Prefer concise quiz-friendly answers over long descriptive translations.",
+      "Task: rewrite each answer into the selected language.",
+      "Keep it concise and quiz-friendly. Prefer official/common translations when they exist.",
     ],
     custom: [
-      "Task: follow the user's custom prompt below while still obeying the JSON output rules.",
+      "Task: follow the custom instruction below.",
     ],
   };
 
@@ -248,13 +248,14 @@ const buildAiPromptInstructions = (settings: AiPromptSettings) => {
     : [];
 
   return [
-    "You are a music quiz answer normalization assistant.",
+    "You edit music quiz answers.",
+    "",
     ...modeInstructions[settings.mode],
     "",
-    ...baseRules,
-    ...languageRules.map(
-      (rule, index) => `${baseRules.length + index + 1}. ${rule}`,
-    ),
+    "Preferences:",
+    ...editingPreferences.map((rule, index) => `${index + 1}. ${rule}`),
+    "",
+    ...outputRules,
     ...(customRules.length > 0 ? ["", ...customRules] : []),
   ].join("\n");
 };

@@ -85,28 +85,51 @@ const promptModeOptions: Array<{
   value: AiPromptSettings["mode"];
   label: string;
   description: string;
+  hint: string;
 }> = [
   {
     value: "official-title",
-    label: "官方曲名",
-    description: "清掉雜訊，保留最常見曲名",
+    label: "清理成曲名",
+    description: "最常用",
+    hint: "適合 YouTube 標題很長、含 MV/歌詞/live/集數時，把答案收成正式曲名。",
   },
   {
     value: "split-fields",
     label: "分隔欄位",
-    description: "歌手、曲名、作品名等欄位組合",
+    description: "固定格式",
+    hint: "適合想把答案統一成「歌手 - 曲名 - 作品名稱」這類可預期格式。",
   },
   {
     value: "translate",
-    label: "語言統一",
-    description: "依指定語言改寫答案",
+    label: "統一語言",
+    description: "翻譯/改寫",
+    hint: "適合把答案統一成繁中、英文、日文等語言，但仍保留常見官方名稱。",
   },
   {
     value: "custom",
     label: "自訂規則",
-    description: "完全依你的補充 prompt 執行",
+    description: "特殊題庫",
+    hint: "適合動漫、VTuber、翻唱、遊戲歌等需要你自己補規則的題庫。",
   },
 ];
+
+const languageModeHints: Record<AiPromptSettings["languageMode"], string> = {
+  preserve: "不強制翻譯，日文歌名仍保留日文，英文歌名仍保留英文。",
+  "zh-TW": "盡量產生繁體中文答案；官方原名很常見時可保留。",
+  ja: "盡量產生日文答案；適合日文題庫或想統一日文表記。",
+  en: "盡量產生英文答案；適合國際曲庫或英文房間。",
+  ko: "盡量產生韓文答案；適合 K-pop 題庫。",
+  custom: "用你輸入的語言規則，例如台灣常用譯名或原文加中文括號。",
+};
+
+const uncertainPolicyHints: Record<
+  AiPromptSettings["uncertainPolicy"],
+  string
+> = {
+  "keep-current": "保守模式，AI 不確定時不改答案，適合避免誤修。",
+  "infer-from-title":
+    "積極模式，AI 會從標題和上傳者推測，適合空答案或答案品質很差時。",
+};
 
 const getPageStatusMeta = ({
   page,
@@ -194,6 +217,10 @@ export default function CollectionEditAiBatchDialog({
   const controlsDisabled = pendingAiBatchSave !== null;
   const isIdle = aiBatchWriteState.status === "idle";
   const activePage = aiPromptPages[aiBatchPageIndex];
+  const activePromptMode =
+    promptModeOptions.find(
+      (option) => option.value === aiPromptSettings.mode,
+    ) ?? promptModeOptions[0];
 
   const handleRequestClose = () => {
     if (!canCloseAiBatchModal) return;
@@ -286,12 +313,6 @@ export default function CollectionEditAiBatchDialog({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {isIdle ? (
-              <span className="hidden rounded-full bg-[var(--mc-accent)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--mc-accent)] sm:inline-flex">
-                已完成 {totalAppliedPages}/{aiPromptPages.length} 批
-              </span>
-            ) : null}
-
             <IconButton
               aria-label="關閉 AI 批次修正"
               onClick={handleRequestClose}
@@ -380,14 +401,15 @@ export default function CollectionEditAiBatchDialog({
 
               <main className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
                 <div className="mx-auto max-w-5xl space-y-4">
-                  <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                  <section>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-[var(--mc-text)]">
                           Step 1. 產生 Prompt
                         </div>
                         <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                          選擇規則後複製 prompt 到 AI，再把回傳 JSON 貼回下方。
+                          先選一種修正目標；右側預覽會同步更新實際送給 AI
+                          的內容。
                         </div>
                       </div>
 
@@ -399,11 +421,22 @@ export default function CollectionEditAiBatchDialog({
                         disabled={pendingAiBatchSave !== null}
                         className="!rounded-xl !bg-[var(--mc-accent)] !font-semibold !text-slate-950 hover:!bg-[var(--mc-accent)]/90"
                       >
-                        複製，並在 {aiProviderLabel} 開啟
+                        複製並開啟 {aiProviderLabel}
                       </Button>
                     </div>
 
-                    <div className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-[#050b14]/70 p-4">
+                    <div className="mt-4">
+                      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
+                            修正目標
+                          </div>
+                          <div className="mt-1 text-sm text-[var(--mc-text)]">
+                            {activePromptMode.hint}
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="grid gap-3 md:grid-cols-4">
                         {promptModeOptions.map((option) => {
                           const active = aiPromptSettings.mode === option.value;
@@ -422,11 +455,22 @@ export default function CollectionEditAiBatchDialog({
                                   : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 hover:border-[var(--mc-accent)]/45"
                               } disabled:cursor-not-allowed disabled:opacity-55`}
                             >
-                              <div className="text-sm font-semibold text-[var(--mc-text)]">
-                                {option.label}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-semibold text-[var(--mc-text)]">
+                                  {option.label}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    active
+                                      ? "bg-[var(--mc-accent)]/18 text-[var(--mc-accent)]"
+                                      : "bg-white/[0.05] text-[var(--mc-text-muted)]"
+                                  }`}
+                                >
+                                  {option.description}
+                                </span>
                               </div>
-                              <div className="mt-1 text-xs leading-5 text-[var(--mc-text-muted)]">
-                                {option.description}
+                              <div className="mt-2 text-xs leading-5 text-[var(--mc-text-muted)]">
+                                {option.hint}
                               </div>
                             </button>
                           );
@@ -434,29 +478,35 @@ export default function CollectionEditAiBatchDialog({
                       </div>
 
                       <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-                        <TextField
-                          select
-                          size="small"
-                          label="輸出語言"
-                          value={aiPromptSettings.languageMode}
-                          disabled={controlsDisabled}
-                          onChange={(event) =>
-                            onAiPromptSettingsChange({
-                              languageMode: event.target
-                                .value as AiPromptSettings["languageMode"],
-                            })
-                          }
-                        >
-                          <MenuItem value="preserve">保留原文主要語言</MenuItem>
-                          <MenuItem value="zh-TW">繁體中文</MenuItem>
-                          <MenuItem value="ja">日文</MenuItem>
-                          <MenuItem value="en">英文</MenuItem>
-                          <MenuItem value="ko">韓文</MenuItem>
-                          <MenuItem value="custom">自訂語言</MenuItem>
-                        </TextField>
+                        <div>
+                          <TextField
+                            select
+                            size="small"
+                            label="答案語言"
+                            value={aiPromptSettings.languageMode}
+                            disabled={controlsDisabled}
+                            onChange={(event) =>
+                              onAiPromptSettingsChange({
+                                languageMode: event.target
+                                  .value as AiPromptSettings["languageMode"],
+                              })
+                            }
+                            fullWidth
+                          >
+                            <MenuItem value="preserve">跟隨原文</MenuItem>
+                            <MenuItem value="zh-TW">繁體中文</MenuItem>
+                            <MenuItem value="ja">日文</MenuItem>
+                            <MenuItem value="en">英文</MenuItem>
+                            <MenuItem value="ko">韓文</MenuItem>
+                            <MenuItem value="custom">自訂語言規則</MenuItem>
+                          </TextField>
+                          <div className="mt-1.5 px-1 text-xs leading-5 text-[var(--mc-text-muted)]">
+                            {languageModeHints[aiPromptSettings.languageMode]}
+                          </div>
+                        </div>
 
                         <FormControlLabel
-                          className="!m-0 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 !px-3"
+                          className="!m-0 self-start rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 !px-3 !py-1"
                           control={
                             <Switch
                               checked={aiPromptSettings.keepOriginalText}
@@ -469,8 +519,13 @@ export default function CollectionEditAiBatchDialog({
                             />
                           }
                           label={
-                            <span className="text-sm text-[var(--mc-text)]">
-                              保留原文名稱
+                            <span className="block">
+                              <span className="block text-sm text-[var(--mc-text)]">
+                                保留原文名稱
+                              </span>
+                              <span className="block text-xs leading-5 text-[var(--mc-text-muted)]">
+                                避免把專有名詞硬翻譯
+                              </span>
                             </span>
                           }
                         />
@@ -488,13 +543,17 @@ export default function CollectionEditAiBatchDialog({
                               customLanguage: event.target.value,
                             })
                           }
-                          placeholder="例如：粵語、台灣常用譯名、原文加中文括號"
+                          placeholder="例如：台灣常用譯名、原文加中文括號、粵語常用名"
                           fullWidth
                         />
                       ) : null}
 
                       {aiPromptSettings.mode === "split-fields" ? (
                         <div className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3">
+                          <div className="mb-3 text-xs leading-5 text-[var(--mc-text-muted)]">
+                            欄位代表答案裡每一段要放什麼；AI
+                            會依順序組合，資料不足的欄位會略過。
+                          </div>
                           <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
                             <TextField
                               size="small"
@@ -563,28 +622,40 @@ export default function CollectionEditAiBatchDialog({
                       ) : null}
 
                       <div className="mt-4 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
-                        <TextField
-                          select
-                          size="small"
-                          label="不確定時"
-                          value={aiPromptSettings.uncertainPolicy}
-                          disabled={controlsDisabled}
-                          onChange={(event) =>
-                            onAiPromptSettingsChange({
-                              uncertainPolicy: event.target
-                                .value as AiPromptSettings["uncertainPolicy"],
-                            })
-                          }
-                        >
-                          <MenuItem value="keep-current">保留原答案</MenuItem>
-                          <MenuItem value="infer-from-title">
-                            從標題推測
-                          </MenuItem>
-                        </TextField>
+                        <div>
+                          <TextField
+                            select
+                            size="small"
+                            label="AI 不確定時"
+                            value={aiPromptSettings.uncertainPolicy}
+                            disabled={controlsDisabled}
+                            onChange={(event) =>
+                              onAiPromptSettingsChange({
+                                uncertainPolicy: event.target
+                                  .value as AiPromptSettings["uncertainPolicy"],
+                              })
+                            }
+                            fullWidth
+                          >
+                            <MenuItem value="keep-current">
+                              保守：保留原答案
+                            </MenuItem>
+                            <MenuItem value="infer-from-title">
+                              積極：從標題推測
+                            </MenuItem>
+                          </TextField>
+                          <div className="mt-1.5 px-1 text-xs leading-5 text-[var(--mc-text-muted)]">
+                            {
+                              uncertainPolicyHints[
+                                aiPromptSettings.uncertainPolicy
+                              ]
+                            }
+                          </div>
+                        </div>
 
                         <TextField
                           size="small"
-                          label="自訂補充 Prompt"
+                          label="補充規則"
                           value={aiPromptSettings.customPrompt}
                           disabled={controlsDisabled}
                           onChange={(event) =>
@@ -600,7 +671,7 @@ export default function CollectionEditAiBatchDialog({
 
                     <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[#050b14]">
                       <div className="flex items-center justify-between gap-3 border-b border-[var(--mc-border)] px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
-                        <span>Prompt Preview</span>
+                        <span>Prompt 預覽</span>
                         <IconButton
                           size="small"
                           aria-label="複製 Prompt"
