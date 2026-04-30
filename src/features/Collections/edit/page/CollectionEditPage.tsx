@@ -593,6 +593,11 @@ const CollectionEditPage = () => {
     aiBatchWriteState,
     resetAiBatchWriteState,
     aiPromptPages,
+    aiPromptSettings,
+    updateAiPromptSettings,
+    updateAiSplitField,
+    addAiSplitField,
+    removeAiSplitField,
     aiPromptText,
     aiParsedResult,
     aiPreview,
@@ -1456,6 +1461,11 @@ const CollectionEditPage = () => {
         aiParsedResult={aiParsedResult}
         aiPreview={aiPreview}
         aiPageStatuses={aiPageStatuses}
+        aiPromptSettings={aiPromptSettings}
+        onAiPromptSettingsChange={updateAiPromptSettings}
+        onAiSplitFieldChange={updateAiSplitField}
+        onAddAiSplitField={addAiSplitField}
+        onRemoveAiSplitField={removeAiSplitField}
         aiPromptText={aiPromptText}
         onCopyAiPrompt={handleCopyAiPrompt}
         onOpenAiAssistant={handleOpenAiAssistant}

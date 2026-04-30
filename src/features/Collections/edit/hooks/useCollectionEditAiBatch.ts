@@ -141,11 +141,122 @@ export type AiPageStatus = {
   isPartial: boolean;
 };
 
+export type AiPromptMode =
+  | "official-title"
+  | "split-fields"
+  | "translate"
+  | "custom";
+
+export type AiLanguageMode =
+  | "preserve"
+  | "zh-TW"
+  | "ja"
+  | "en"
+  | "ko"
+  | "custom";
+
+export type AiUncertainPolicy = "keep-current" | "infer-from-title";
+
+export type AiPromptSettings = {
+  mode: AiPromptMode;
+  separator: string;
+  splitFields: string[];
+  keepOriginalText: boolean;
+  languageMode: AiLanguageMode;
+  customLanguage: string;
+  uncertainPolicy: AiUncertainPolicy;
+  customPrompt: string;
+};
+
 export type AiPreviewItem = {
   id: string;
   title: string;
   oldAnswer: string;
   newAnswer: string;
+};
+
+const DEFAULT_AI_PROMPT_SETTINGS: AiPromptSettings = {
+  mode: "official-title",
+  separator: " - ",
+  splitFields: ["歌手", "曲名", "作品名稱"],
+  keepOriginalText: true,
+  languageMode: "preserve",
+  customLanguage: "",
+  uncertainPolicy: "keep-current",
+  customPrompt: "",
+};
+
+const AI_LANGUAGE_LABELS: Record<AiLanguageMode, string> = {
+  preserve: "保留原文主要語言",
+  "zh-TW": "繁體中文",
+  ja: "日文",
+  en: "英文",
+  ko: "韓文",
+  custom: "自訂語言",
+};
+
+const buildAiPromptInstructions = (settings: AiPromptSettings) => {
+  const targetLanguage =
+    settings.languageMode === "custom"
+      ? settings.customLanguage.trim() || "使用者指定語言"
+      : AI_LANGUAGE_LABELS[settings.languageMode];
+
+  const baseRules = [
+    "Rules:",
+    "1. Return exactly one ```json``` code block and nothing else.",
+    "2. Keep every original id. Do not add or remove items.",
+    "3. Return only answerText for each item. Do not output any other fields.",
+    '4. The output format must be {"items":[{"id":"...","answerText":"..."}]}.',
+  ];
+
+  const languageRules = [
+    settings.keepOriginalText
+      ? "Keep original proper nouns, artist names, song titles, and official romanization when they are already recognizable."
+      : "You may rewrite or translate proper nouns if it improves consistency with the selected target language.",
+    settings.languageMode === "preserve"
+      ? "Preserve each song title's original dominant language whenever possible. Do not translate unless the translated form is clearly the official/common primary title."
+      : `Use ${targetLanguage} for the generated answerText when a natural official/common form exists.`,
+    settings.uncertainPolicy === "keep-current"
+      ? "If you are uncertain, keep the original answerText unchanged."
+      : "If you are uncertain, infer the best concise answer from title and uploader, but avoid inventing facts not present in the source data.",
+  ];
+
+  const modeInstructions: Record<AiPromptMode, string[]> = {
+    "official-title": [
+      "Task: normalize each answerText into the most official and commonly recognized song title for music quiz answers.",
+      "Prefer the primary title. Remove noisy playlist tags, episode numbers, brackets, upload notes, MV/live/lyrics labels, and unnecessary channel wording.",
+    ],
+    "split-fields": [
+      "Task: rebuild answerText as structured fields separated by the exact separator below.",
+      `Separator: ${JSON.stringify(settings.separator || " ")}`,
+      `Field order: ${settings.splitFields
+        .map((field, index) => `${index + 1}. ${field.trim() || `欄位 ${index + 1}`}`)
+        .join(" / ")}`,
+      "Only include a field when the source data supports it. Keep the same field order and separator. Do not add leading or trailing separators.",
+    ],
+    translate: [
+      "Task: rewrite answerText into the selected target language while preserving official names and recognizable music-title conventions.",
+      "Prefer concise quiz-friendly answers over long descriptive translations.",
+    ],
+    custom: [
+      "Task: follow the user's custom prompt below while still obeying the JSON output rules.",
+    ],
+  };
+
+  const customRules = settings.customPrompt.trim()
+    ? ["User custom prompt:", settings.customPrompt.trim()]
+    : [];
+
+  return [
+    "You are a music quiz answer normalization assistant.",
+    ...modeInstructions[settings.mode],
+    "",
+    ...baseRules,
+    ...languageRules.map(
+      (rule, index) => `${baseRules.length + index + 1}. ${rule}`,
+    ),
+    ...(customRules.length > 0 ? ["", ...customRules] : []),
+  ].join("\n");
 };
 
 type UseCollectionEditAiBatchArgs = {
@@ -175,6 +286,9 @@ export function useCollectionEditAiBatch({
     {},
   );
   const [aiHelperNotice, setAiHelperNotice] = useState<string | null>(null);
+  const [aiPromptSettings, setAiPromptSettings] = useState<AiPromptSettings>(
+    DEFAULT_AI_PROMPT_SETTINGS,
+  );
   const [aiBatchWriteState, setAiBatchWriteState] = useState<AiBatchWriteState>(
     {
       status: "idle",
@@ -231,22 +345,12 @@ export function useCollectionEditAiBatch({
   const aiPromptText = useMemo(
     () =>
       [
-        "You are a music quiz answer normalization assistant.",
-        "Use each item's song title and uploader to revise answerText into the most official and commonly recognized song title.",
-        "",
-        "Rules:",
-        "1. Return exactly one ```json``` code block and nothing else.",
-        "2. Keep every original id. Do not add or remove items.",
-        "3. Return only answerText for each item. Do not output any other fields.",
-        "4. Preserve the song title's original dominant language whenever possible. Do not translate the title unless the translated form is clearly the official/common primary title.",
-        "5. If the title is mixed-language, prefer the most official and widely recognized primary form.",
-        "6. If you are uncertain, keep the original answerText unchanged.",
-        '7. The output format must be {"items":[{"id":"...","answerText":"..."}]}.',
+        buildAiPromptInstructions(aiPromptSettings),
         "",
         "Items to normalize:",
         aiPromptPayload,
       ].join("\n"),
-    [aiPromptPayload],
+    [aiPromptPayload, aiPromptSettings],
   );
 
   const aiParsedResult = useMemo(() => {
@@ -447,6 +551,48 @@ export function useCollectionEditAiBatch({
     },
     [effectiveAiBatchPageIndex],
   );
+
+  const updateAiPromptSettings = useCallback(
+    (patch: Partial<AiPromptSettings>) => {
+      setAiHelperNotice(null);
+      setAiPromptSettings((prev) => ({
+        ...prev,
+        ...patch,
+      }));
+    },
+    [],
+  );
+
+  const updateAiSplitField = useCallback((index: number, value: string) => {
+    setAiHelperNotice(null);
+    setAiPromptSettings((prev) => ({
+      ...prev,
+      splitFields: prev.splitFields.map((field, fieldIndex) =>
+        fieldIndex === index ? value : field,
+      ),
+    }));
+  }, []);
+
+  const addAiSplitField = useCallback(() => {
+    setAiHelperNotice(null);
+    setAiPromptSettings((prev) => ({
+      ...prev,
+      splitFields: [...prev.splitFields, `欄位 ${prev.splitFields.length + 1}`],
+    }));
+  }, []);
+
+  const removeAiSplitField = useCallback((index: number) => {
+    setAiHelperNotice(null);
+    setAiPromptSettings((prev) => {
+      if (prev.splitFields.length <= 1) return prev;
+      return {
+        ...prev,
+        splitFields: prev.splitFields.filter(
+          (_field, fieldIndex) => fieldIndex !== index,
+        ),
+      };
+    });
+  }, []);
 
   const resetAiBatchWriteState = useCallback(() => {
     setAiBatchWriteState({ status: "idle" });
@@ -688,6 +834,11 @@ export function useCollectionEditAiBatch({
     resetAiBatchWriteState,
     aiPromptPages,
     currentAiPromptPage,
+    aiPromptSettings,
+    updateAiPromptSettings,
+    updateAiSplitField,
+    addAiSplitField,
+    removeAiSplitField,
     aiPromptText,
     aiParsedResult,
     aiPreview,

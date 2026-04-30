@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChartRounded,
   ChairRounded,
@@ -20,8 +13,8 @@ import {
   PublicOutlined,
   PublicRounded,
   QuizRounded,
+  ShareRounded,
   AutoAwesome,
-  // TimelineRounded,
 } from "@mui/icons-material";
 import {
   Button,
@@ -470,6 +463,39 @@ const COLLECTION_LEADERBOARD_PAGE_SIZE = 30;
 const COLLECTION_LEADERBOARD_ROW_HEIGHT = 80;
 const COLLECTION_MOBILE_LEADERBOARD_ROW_HEIGHT = 82;
 
+const buildSharedCollectionUrl = (collectionId: string) => {
+  const url = new URL("/rooms", window.location.origin);
+  url.searchParams.set("sharedCollection", collectionId);
+  return url.toString();
+};
+
+const shareCollectionLink = async (collection: CollectionDetail) => {
+  const shareUrl = buildSharedCollectionUrl(collection.id);
+  const title = collection.title?.trim() || "Muizo 收藏庫";
+
+  const shareData: ShareData = {
+    title,
+    text: `來看看這個 Muizo 收藏庫：${title}`,
+    url: shareUrl,
+  };
+
+  if (
+    typeof navigator.share === "function" &&
+    (typeof navigator.canShare !== "function" ||
+      navigator.canShare({ url: shareUrl }))
+  ) {
+    await navigator.share(shareData);
+    return "native-share" as const;
+  }
+
+  if (!navigator.clipboard?.writeText) {
+    throw new Error("此瀏覽器不支援複製分享連結");
+  }
+
+  await navigator.clipboard.writeText(shareUrl);
+  return "clipboard" as const;
+};
+
 const formatLeaderboardScore = (value: number) =>
   new Intl.NumberFormat("en-US").format(value);
 
@@ -778,6 +804,14 @@ const CollectionDetailDrawer = ({
   const isCompact = useMediaQuery("(max-width:767px)");
   const authTokenRef = useRef(authToken);
   const refreshAuthTokenRef = useRef(refreshAuthToken);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const shareFeedbackTimerRef = useRef<number | null>(null);
+  const [optimisticFavoriteState, setOptimisticFavoriteState] = useState<{
+    collectionId: string;
+    isFavorited: boolean;
+    favoriteCount: number;
+  } | null>(null);
   const [previewItems, setPreviewItems] = useState<
     CollectionItemPreviewRecord[]
   >([]);
@@ -814,8 +848,126 @@ const CollectionDetailDrawer = ({
       ? `https://i.ytimg.com/vi/${collection.cover_source_id}/hqdefault.jpg`
       : "");
   const isPublic = (collection?.visibility ?? "private") === "public";
+  const canShareCollection = isPublic;
   const canStartLeaderboardChallenge = isPublic && isAuthenticated;
-  const isFavorited = Boolean(collection?.is_favorited);
+  const baseFavoriteCount = Math.max(
+    0,
+    Number(collection?.favorite_count ?? 0),
+  );
+  const activeOptimisticFavoriteState =
+    optimisticFavoriteState?.collectionId === collection?.id
+      ? optimisticFavoriteState
+      : null;
+  const isFavorited = activeOptimisticFavoriteState
+    ? activeOptimisticFavoriteState.isFavorited
+    : Boolean(collection?.is_favorited);
+  const favoriteCount = activeOptimisticFavoriteState
+    ? activeOptimisticFavoriteState.favoriteCount
+    : baseFavoriteCount;
+  const formattedFavoriteCount = favoriteCount.toLocaleString("zh-TW");
+  const drawerMetaItems = [
+    {
+      key: "questions",
+      icon: <QuizRounded sx={{ fontSize: 15 }} />,
+      label: `${Math.max(0, Number(collection?.item_count ?? 0))} 題`,
+    },
+    {
+      key: "uses",
+      icon: <BarChartRounded sx={{ fontSize: 15 }} />,
+      label: `使用 ${Math.max(0, Number(collection?.use_count ?? 0))} 次`,
+    },
+  ];
+
+  const handleToggleFavorite = useCallback(async () => {
+    if (!collection || !onToggleFavorite || isFavoriteUpdating) return;
+
+    const previousIsFavorited = isFavorited;
+    const previousFavoriteCount = favoriteCount;
+    const nextIsFavorited = !previousIsFavorited;
+    const nextFavoriteCount = Math.max(
+      0,
+      previousFavoriteCount + (nextIsFavorited ? 1 : -1),
+    );
+
+    setOptimisticFavoriteState({
+      collectionId: collection.id,
+      isFavorited: nextIsFavorited,
+      favoriteCount: nextFavoriteCount,
+    });
+
+    try {
+      const confirmedIsFavorited = await onToggleFavorite();
+
+      if (typeof confirmedIsFavorited === "boolean") {
+        setOptimisticFavoriteState({
+          collectionId: collection.id,
+          isFavorited: confirmedIsFavorited,
+          favoriteCount: Math.max(
+            0,
+            previousFavoriteCount +
+              (confirmedIsFavorited === previousIsFavorited
+                ? 0
+                : confirmedIsFavorited
+                  ? 1
+                  : -1),
+          ),
+        });
+      }
+    } catch {
+      setOptimisticFavoriteState({
+        collectionId: collection.id,
+        isFavorited: previousIsFavorited,
+        favoriteCount: previousFavoriteCount,
+      });
+    }
+  }, [
+    collection,
+    favoriteCount,
+    isFavoriteUpdating,
+    isFavorited,
+    onToggleFavorite,
+  ]);
+
+  const handleShareCollection = useCallback(async () => {
+    if (!collection) return;
+
+    if (!canShareCollection) {
+      setShareError("只有公開收藏庫可以分享");
+      return;
+    }
+
+    try {
+      await shareCollectionLink(collection);
+
+      if (shareFeedbackTimerRef.current !== null) {
+        window.clearTimeout(shareFeedbackTimerRef.current);
+      }
+
+      setShareCopied(true);
+      setShareError(null);
+
+      shareFeedbackTimerRef.current = window.setTimeout(() => {
+        setShareCopied(false);
+        shareFeedbackTimerRef.current = null;
+      }, 1400);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+
+      setShareError(
+        error instanceof Error ? error.message : "建立分享連結失敗",
+      );
+    }
+  }, [canShareCollection, collection]);
+
+  useEffect(() => {
+    return () => {
+      if (shareFeedbackTimerRef.current !== null) {
+        window.clearTimeout(shareFeedbackTimerRef.current);
+      }
+    };
+  }, []);
   const { summary: reviewSummary } = useCollectionReview({
     collectionId: collection?.id,
     enabled: open,
@@ -995,6 +1147,9 @@ const CollectionDetailDrawer = ({
     setLeaderboardError(null);
     setLeaderboardNextOffset(null);
     setLeaderboardHasMore(false);
+    setShareCopied(false);
+    setShareError(null);
+    setOptimisticFavoriteState(null);
     setTitleMarqueeRunKey((current) => current + 1);
   }, [open, collection?.id]);
 
@@ -1043,54 +1198,6 @@ const CollectionDetailDrawer = ({
     : isApplying || isCustomRoomStartPending
       ? "載入題庫中..."
       : "建立休閒房";
-  const stats: Array<{
-    key: string;
-    label: string;
-    value: string;
-    icon: ReactNode;
-    onClick?: () => void;
-    disabled?: boolean;
-    active?: boolean;
-  }> = [
-    {
-      key: "questions",
-      label: "題數",
-      value:
-        typeof collection?.item_count === "number"
-          ? `${Math.max(0, collection.item_count)} 題`
-          : "未提供",
-      icon: <QuizRounded sx={{ fontSize: 19 }} />,
-    },
-    {
-      key: "plays",
-      label: "使用",
-      value:
-        typeof collection?.use_count === "number"
-          ? `${Math.max(0, collection.use_count)} 次`
-          : "尚無資料",
-      icon: <BarChartRounded sx={{ fontSize: 20 }} />,
-    },
-    {
-      key: "favorites",
-      label: "收藏",
-      value:
-        typeof collection?.favorite_count === "number"
-          ? `${Math.max(0, collection.favorite_count)}`
-          : "尚無資料",
-      icon: isFavorited ? (
-        <FavoriteRounded sx={{ fontSize: 19 }} />
-      ) : (
-        <FavoriteBorderRounded sx={{ fontSize: 19 }} />
-      ),
-      onClick: onToggleFavorite
-        ? () => {
-            void onToggleFavorite();
-          }
-        : undefined,
-      disabled: isFavoriteUpdating || !onToggleFavorite,
-      active: isFavorited,
-    },
-  ];
   const setupSourceSummary: SourceSummary = collection
     ? {
         label: isPublic ? "公開收藏庫" : "私人收藏庫",
@@ -1594,8 +1701,25 @@ const CollectionDetailDrawer = ({
                 <ChevronLeftRounded />
               </IconButton>
             ) : null}
-            <div className="min-w-0 flex-1">
-              <h2 className="mt-1 truncate text-lg font-semibold text-slate-50 sm:text-xl">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              {collection && !isSetupView ? (
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                    isPublic
+                      ? "border-cyan-200/18 bg-cyan-300/8 text-cyan-100"
+                      : "border-slate-200/14 bg-white/[0.035] text-slate-300"
+                  }`}
+                >
+                  {isPublic ? (
+                    <PublicOutlined sx={{ fontSize: 13 }} />
+                  ) : (
+                    <LockOutlined sx={{ fontSize: 13 }} />
+                  )}
+                  {isPublic ? "公開" : "私人"}
+                </span>
+              ) : null}
+
+              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-slate-50 sm:text-xl">
                 <DrawerTitleMarquee
                   key={titleMarqueeRunKey}
                   text={
@@ -1797,47 +1921,70 @@ const CollectionDetailDrawer = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-1.5 border-b border-white/8 px-2.5 py-2 sm:flex sm:flex-wrap sm:gap-x-4 sm:gap-y-2 sm:px-4 sm:py-2.5">
-                    {stats.map((item) => {
-                      const StatTag = item.onClick ? "button" : "div";
-                      return (
-                        <StatTag
-                          key={item.key}
-                          type={item.onClick ? "button" : undefined}
-                          disabled={item.onClick ? item.disabled : undefined}
-                          onClick={item.onClick}
-                          aria-pressed={item.onClick ? item.active : undefined}
-                          className={[
-                            "flex min-w-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 text-xs transition sm:gap-2 sm:px-2.5 sm:py-2 sm:text-sm",
-                            item.onClick
-                              ? "cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                              : "",
-                            item.active
-                              ? "border-white/8 bg-white/[0.03] hover:border-amber-300/26 hover:bg-white/[0.055]"
-                              : item.onClick
-                                ? "border-white/8 bg-white/[0.03] hover:border-amber-300/26 hover:bg-white/[0.055]"
-                                : "border-white/8 bg-white/[0.03]",
-                          ].join(" ")}
-                        >
+                  <div className="border-b border-white/8 px-3 py-3 sm:px-4 sm:py-3.5">
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-xs leading-5 text-slate-400 sm:gap-3">
+                        {drawerMetaItems.map((item) => (
                           <span
-                            className={[
-                              "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-lg sm:h-6 sm:w-6",
-                              item.active
-                                ? "bg-transparent text-amber-300"
-                                : "bg-cyan-300/8 text-cyan-100",
-                            ].join(" ")}
+                            key={`${collection.id}-drawer-meta-${item.key}`}
+                            className="inline-flex min-w-0 shrink-0 items-center gap-x-2 whitespace-nowrap"
                           >
-                            {item.icon}
+                            <span className="inline-flex items-center gap-1.5 text-slate-300">
+                              <span className="inline-flex text-cyan-100/80">
+                                {item.icon}
+                              </span>
+                              {item.label}
+                            </span>
                           </span>
-                          <span className="hidden shrink-0 text-[11px] text-slate-400 sm:inline sm:text-xs">
-                            {item.label}
+                        ))}
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={
+                            isFavorited ? (
+                              <FavoriteRounded sx={{ fontSize: 17 }} />
+                            ) : (
+                              <FavoriteBorderRounded sx={{ fontSize: 17 }} />
+                            )
+                          }
+                          onClick={() => void handleToggleFavorite()}
+                          disabled={isFavoriteUpdating || !onToggleFavorite}
+                          className={`!rounded-full !px-2.5 !text-xs !font-semibold !normal-case !transition sm:!px-3 ${
+                            isFavorited
+                              ? "!border-rose-300/35 !bg-rose-400/16 !text-rose-100 !shadow-[0_12px_26px_-22px_rgba(251,113,133,0.95)] hover:!border-rose-200/50 hover:!bg-rose-400/20"
+                              : "!border-white/10 !bg-white/[0.03] !text-slate-100 hover:!border-rose-200/24 hover:!bg-rose-400/10"
+                          } disabled:!border-white/8 disabled:!text-slate-500`}
+                        >
+                          <span className="whitespace-nowrap">
+                            {isFavorited
+                              ? `已收藏 ${formattedFavoriteCount}`
+                              : `收藏 ${formattedFavoriteCount}`}
                           </span>
-                          <span className="truncate font-semibold text-slate-50">
-                            {item.value}
+                        </Button>
+
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<ShareRounded sx={{ fontSize: 17 }} />}
+                          onClick={() => void handleShareCollection()}
+                          disabled={!canShareCollection}
+                          className="!rounded-full !border-white/10 !bg-white/[0.03] !px-2.5 !text-xs !font-semibold !text-slate-100 !normal-case hover:!border-cyan-200/30 hover:!bg-cyan-400/10 disabled:!border-white/8 disabled:!text-slate-500 sm:!px-3"
+                        >
+                          <span className="whitespace-nowrap">
+                            {shareCopied ? "已複製" : "分享"}
                           </span>
-                        </StatTag>
-                      );
-                    })}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {shareError ? (
+                      <p className="mt-2 text-xs leading-5 text-rose-200/90">
+                        {shareError}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="px-3 py-2 sm:px-4 sm:py-3">
@@ -1931,12 +2078,12 @@ const CollectionDetailDrawer = ({
               </main>
 
               <aside
-                className={`min-h-0 flex-1 overflow-hidden border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-5 ${
+                className={`min-h-0 flex-1 overflow-hidden border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-3 ${
                   isCompact && mobileDetailTab !== "leaderboard" ? "hidden" : ""
                 }`}
               >
                 <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden p-1">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-1 mb-2">
                     <h3 className="min-w-0 flex items-center gap-2 truncate text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
                       <PublicRounded className="shrink-0 text-cyan-100" />
                       <span className="truncate">全球排行榜</span>
@@ -2072,7 +2219,7 @@ const CollectionDetailDrawer = ({
                       </Popper>
 
                       <div
-                        className={`transient-scrollbar mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1 ${leaderboardScrollbarClassName}`}
+                        className={`transient-scrollbar mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto ${leaderboardScrollbarClassName}`}
                         onMouseEnter={revealLeaderboardScrollbar}
                         onPointerDown={revealLeaderboardScrollbar}
                         onScroll={revealLeaderboardScrollbar}

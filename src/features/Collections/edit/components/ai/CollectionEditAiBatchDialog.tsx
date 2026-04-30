@@ -1,5 +1,7 @@
 import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import ContentCopyRounded from "@mui/icons-material/ContentCopyRounded";
+import AddRounded from "@mui/icons-material/AddRounded";
+import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 import MoreHorizRounded from "@mui/icons-material/MoreHorizRounded";
 import {
   Button,
@@ -8,11 +10,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
+  MenuItem,
+  Switch,
   TextField,
 } from "@mui/material";
 import type {
   AiBatchWriteState,
+  AiPromptSettings,
   AiPageStatus,
   AiPromptPage,
   NonIdleAiBatchWriteState,
@@ -53,6 +59,11 @@ type Props = {
   };
   aiPageStatuses: AiPageStatus[];
 
+  aiPromptSettings: AiPromptSettings;
+  onAiPromptSettingsChange: (patch: Partial<AiPromptSettings>) => void;
+  onAiSplitFieldChange: (index: number, value: string) => void;
+  onAddAiSplitField: () => void;
+  onRemoveAiSplitField: (index: number) => void;
   aiPromptText: string;
   onCopyAiPrompt: () => Promise<void>;
   onOpenAiAssistant: () => Promise<void>;
@@ -89,6 +100,11 @@ export default function CollectionEditAiBatchDialog({
   aiPreview,
   aiPageStatuses,
 
+  aiPromptSettings,
+  onAiPromptSettingsChange,
+  onAiSplitFieldChange,
+  onAddAiSplitField,
+  onRemoveAiSplitField,
   aiPromptText,
   onCopyAiPrompt,
   onOpenAiAssistant,
@@ -104,6 +120,34 @@ export default function CollectionEditAiBatchDialog({
   onRetryAiBatchWrite,
   onBackToPreview,
 }: Props) {
+  const promptModeOptions: Array<{
+    value: AiPromptSettings["mode"];
+    label: string;
+    description: string;
+  }> = [
+    {
+      value: "official-title",
+      label: "官方曲名",
+      description: "清掉雜訊，保留最常見曲名",
+    },
+    {
+      value: "split-fields",
+      label: "分隔欄位",
+      description: "歌手、曲名、作品名等欄位組合",
+    },
+    {
+      value: "translate",
+      label: "語言統一",
+      description: "依指定語言改寫答案",
+    },
+    {
+      value: "custom",
+      label: "自訂規則",
+      description: "完全依你的補充 prompt 執行",
+    },
+  ];
+  const controlsDisabled = pendingAiBatchSave !== null;
+
   return (
     <Dialog
       open={open}
@@ -198,6 +242,9 @@ export default function CollectionEditAiBatchDialog({
                   <div className="text-sm font-semibold text-[var(--mc-text)]">
                     Step 1. 產生 Prompt
                   </div>
+                  <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                    先選擇批次修正方式，再複製下方 prompt 到 AI。
+                  </div>
                 </div>
                 <Button
                   variant="contained"
@@ -208,6 +255,190 @@ export default function CollectionEditAiBatchDialog({
                 >
                   複製，並在 {aiProviderLabel} 開啟
                 </Button>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-[#050b14]/70 p-4">
+                <div className="grid gap-3 md:grid-cols-4">
+                  {promptModeOptions.map((option) => {
+                    const active = aiPromptSettings.mode === option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={controlsDisabled}
+                        onClick={() =>
+                          onAiPromptSettingsChange({ mode: option.value })
+                        }
+                        className={`rounded-2xl border px-3 py-3 text-left transition ${
+                          active
+                            ? "border-[var(--mc-accent)] bg-[var(--mc-accent)]/12"
+                            : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 hover:border-[var(--mc-accent)]/45"
+                        }`}
+                      >
+                        <div className="text-sm font-semibold text-[var(--mc-text)]">
+                          {option.label}
+                        </div>
+                        <div className="mt-1 text-xs leading-5 text-[var(--mc-text-muted)]">
+                          {option.description}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                  <TextField
+                    select
+                    size="small"
+                    label="輸出語言"
+                    value={aiPromptSettings.languageMode}
+                    disabled={controlsDisabled}
+                    onChange={(event) =>
+                      onAiPromptSettingsChange({
+                        languageMode: event.target
+                          .value as AiPromptSettings["languageMode"],
+                      })
+                    }
+                  >
+                    <MenuItem value="preserve">保留原文主要語言</MenuItem>
+                    <MenuItem value="zh-TW">繁體中文</MenuItem>
+                    <MenuItem value="ja">日文</MenuItem>
+                    <MenuItem value="en">英文</MenuItem>
+                    <MenuItem value="ko">韓文</MenuItem>
+                    <MenuItem value="custom">自訂語言</MenuItem>
+                  </TextField>
+
+                  <FormControlLabel
+                    className="!m-0 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 !px-3"
+                    control={
+                      <Switch
+                        checked={aiPromptSettings.keepOriginalText}
+                        disabled={controlsDisabled}
+                        onChange={(event) =>
+                          onAiPromptSettingsChange({
+                            keepOriginalText: event.target.checked,
+                          })
+                        }
+                      />
+                    }
+                    label={
+                      <span className="text-sm text-[var(--mc-text)]">
+                        保留原文名稱
+                      </span>
+                    }
+                  />
+                </div>
+
+                {aiPromptSettings.languageMode === "custom" ? (
+                  <TextField
+                    className="!mt-3"
+                    size="small"
+                    label="自訂輸出語言"
+                    value={aiPromptSettings.customLanguage}
+                    disabled={controlsDisabled}
+                    onChange={(event) =>
+                      onAiPromptSettingsChange({
+                        customLanguage: event.target.value,
+                      })
+                    }
+                    placeholder="例如：粵語、台灣常用譯名、原文加中文括號"
+                    fullWidth
+                  />
+                ) : null}
+
+                {aiPromptSettings.mode === "split-fields" ? (
+                  <div className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3">
+                    <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
+                      <TextField
+                        size="small"
+                        label="分隔符號"
+                        value={aiPromptSettings.separator}
+                        disabled={controlsDisabled}
+                        onChange={(event) =>
+                          onAiPromptSettingsChange({
+                            separator: event.target.value,
+                          })
+                        }
+                        placeholder=" - "
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {aiPromptSettings.splitFields.map((field, index) => (
+                          <div
+                            key={index}
+                            className="flex min-w-[180px] flex-1 items-center gap-2 rounded-xl border border-[var(--mc-border)] bg-[#050b14]/70 px-2 py-2"
+                          >
+                            <TextField
+                              size="small"
+                              label={`第 ${index + 1} 格`}
+                              value={field}
+                              disabled={controlsDisabled}
+                              onChange={(event) =>
+                                onAiSplitFieldChange(index, event.target.value)
+                              }
+                              fullWidth
+                            />
+                            <IconButton
+                              size="small"
+                              aria-label="移除欄位"
+                              disabled={
+                                controlsDisabled ||
+                                aiPromptSettings.splitFields.length <= 1
+                              }
+                              onClick={() => onRemoveAiSplitField(index)}
+                              className="!text-[var(--mc-text-muted)] hover:!text-rose-200"
+                            >
+                              <DeleteOutlineRounded sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<AddRounded />}
+                          disabled={controlsDisabled}
+                          onClick={onAddAiSplitField}
+                          className="!rounded-xl"
+                        >
+                          增加欄位
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+                  <TextField
+                    select
+                    size="small"
+                    label="不確定時"
+                    value={aiPromptSettings.uncertainPolicy}
+                    disabled={controlsDisabled}
+                    onChange={(event) =>
+                      onAiPromptSettingsChange({
+                        uncertainPolicy: event.target
+                          .value as AiPromptSettings["uncertainPolicy"],
+                      })
+                    }
+                  >
+                    <MenuItem value="keep-current">保留原答案</MenuItem>
+                    <MenuItem value="infer-from-title">從標題推測</MenuItem>
+                  </TextField>
+
+                  <TextField
+                    size="small"
+                    label="自訂補充 Prompt"
+                    value={aiPromptSettings.customPrompt}
+                    disabled={controlsDisabled}
+                    onChange={(event) =>
+                      onAiPromptSettingsChange({
+                        customPrompt: event.target.value,
+                      })
+                    }
+                    placeholder="例如：動漫歌請保留作品名；VTuber 翻唱請用原曲曲名"
+                    fullWidth
+                  />
+                </div>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[#050b14]">
