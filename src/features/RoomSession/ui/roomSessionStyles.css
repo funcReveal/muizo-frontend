@@ -1915,7 +1915,6 @@
 }
 
 @media (max-width: 980px) {
-
   .room-lobby-source-panel-fixed,
   .room-lobby-source-panel-suggestions {
     min-height: unset;
@@ -2115,6 +2114,165 @@
 .game-room-chip.MuiChip-root .MuiChip-label {
   padding-left: 10px;
   padding-right: 10px;
+}
+/* Scoreboard state chip.
+   排行榜右側「第 N 答 / 答對 / 答錯」共用尺寸。
+   寬度自適應文字，高度維持與原本 MUI small chip 接近。 */
+.game-room-chip--scoreboard-answer-rank.MuiChip-root,
+.game-room-chip--scoreboard-result.MuiChip-root {
+  width: auto;
+  min-width: 0;
+  min-height: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border-width: 1px !important;
+  border-style: solid !important;
+  background-clip: padding-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -8px 16px rgba(2, 6, 23, 0.12),
+    0 10px 22px -20px rgba(15, 23, 42, 0.9) !important;
+  backdrop-filter: blur(10px) saturate(1.08);
+}
+
+.game-room-chip--scoreboard-answer-rank .MuiChip-label,
+.game-room-chip--scoreboard-result .MuiChip-label {
+  padding-left: 10px;
+  padding-right: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+}
+
+/* 第 1 答：暗金屬金。保留首答感，但降低高光與發光。 */
+.game-room-chip--scoreboard-answer-rank-first.MuiChip-root {
+  border-color: rgba(234, 179, 8, 0.66) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.09), transparent 34%),
+    radial-gradient(
+      72px 28px at 50% 12%,
+      rgba(250, 204, 21, 0.2),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(121, 88, 18, 0.62), rgba(57, 42, 13, 0.54)) !important;
+  color: rgba(254, 240, 138, 0.95) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -10px 18px rgba(36, 26, 10, 0.16),
+    0 8px 20px -18px rgba(234, 179, 8, 0.48) !important;
+}
+
+/* 第 2 答：暗銀。避免太白，走霧面銀灰。 */
+.game-room-chip--scoreboard-answer-rank-second.MuiChip-root {
+  border-color: rgba(203, 213, 225, 0.58) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 36%),
+    radial-gradient(
+      72px 28px at 50% 12%,
+      rgba(226, 232, 240, 0.16),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(71, 85, 105, 0.62), rgba(30, 41, 59, 0.52)) !important;
+  color: rgba(241, 245, 249, 0.94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -10px 18px rgba(15, 23, 42, 0.16),
+    0 8px 20px -18px rgba(203, 213, 225, 0.36) !important;
+}
+
+/* 第 3 答：暗銅。降低橘色飽和，避免像亮橘按鈕。 */
+.game-room-chip--scoreboard-answer-rank-third.MuiChip-root {
+  border-color: rgba(217, 119, 6, 0.6) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 35%),
+    radial-gradient(
+      72px 28px at 50% 12%,
+      rgba(251, 146, 60, 0.18),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(124, 61, 26, 0.6), rgba(67, 34, 20, 0.52)) !important;
+  color: rgba(254, 215, 170, 0.94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 -10px 18px rgba(35, 18, 12, 0.16),
+    0 8px 20px -18px rgba(217, 119, 6, 0.42) !important;
+}
+
+/* 第 4 答以後：低亮度灰藍。 */
+.game-room-chip--scoreboard-answer-rank-default.MuiChip-root {
+  border-color: rgba(125, 211, 252, 0.36) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 36%),
+    radial-gradient(
+      72px 28px at 50% 12%,
+      rgba(125, 211, 252, 0.11),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(30, 64, 95, 0.44), rgba(15, 23, 42, 0.42)) !important;
+  color: rgba(219, 234, 254, 0.9) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 20px -20px rgba(125, 211, 252, 0.36) !important;
+}
+
+/* Reveal 答對：深綠玻璃，不用 MUI 預設亮綠。 */
+.game-room-chip--scoreboard-result-correct.MuiChip-root {
+  border-color: rgba(52, 211, 153, 0.42) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 35%),
+    radial-gradient(
+      72px 28px at 50% 12%,
+      rgba(52, 211, 153, 0.13),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(6, 95, 70, 0.43), rgba(6, 45, 39, 0.4)) !important;
+  color: rgba(187, 247, 208, 0.92) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 18px rgba(4, 28, 24, 0.14),
+    0 8px 20px -20px rgba(16, 185, 129, 0.38) !important;
+}
+
+/* Reveal 答錯：深紅玻璃，不用 MUI 預設亮紅。 */
+.game-room-chip--scoreboard-result-wrong.MuiChip-root {
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 35%),
+    radial-gradient(
+      72px 28px at 50% 12%,
+      rgba(248, 113, 113, 0.12),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(127, 29, 29, 0.42), rgba(69, 10, 10, 0.38)) !important;
+  color: rgba(254, 202, 202, 0.91) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 18px rgba(35, 8, 8, 0.14),
+    0 8px 20px -20px rgba(248, 113, 113, 0.36) !important;
+}
+
+/* Reveal 已答但未進入 success/error 的保底狀態。 */
+.game-room-chip--scoreboard-result-answered.MuiChip-root {
+  border-color: rgba(234, 179, 8, 0.38) !important;
+  background:
+    radial-gradient(
+      72px 28px at 50% 12%,
+      rgba(234, 179, 8, 0.1),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(92, 65, 16, 0.36), rgba(49, 36, 12, 0.32)) !important;
+  color: rgba(254, 240, 138, 0.9) !important;
+}
+
+/* Reveal 中性保底。 */
+.game-room-chip--scoreboard-result-neutral.MuiChip-root {
+  border-color: rgba(148, 163, 184, 0.34) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(30, 41, 59, 0.4),
+    rgba(15, 23, 42, 0.36)
+  ) !important;
+  color: rgba(203, 213, 225, 0.88) !important;
 }
 
 .game-room-chip--countdown.MuiChip-root {
@@ -6387,7 +6545,6 @@
 }
 
 @media (max-width: 980px) {
-
   .room-question-inline {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -21590,8 +21747,11 @@
 .game-room-mobile-toggle-chip--request-locked:hover:not(:disabled) {
   color: rgba(226, 232, 240, 0.64);
   border-color: rgba(71, 85, 105, 0.58);
-  background:
-    linear-gradient(180deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.84));
+  background: linear-gradient(
+    180deg,
+    rgba(30, 41, 59, 0.62),
+    rgba(15, 23, 42, 0.84)
+  );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.035),
     0 8px 18px -18px rgba(2, 6, 23, 0.45);

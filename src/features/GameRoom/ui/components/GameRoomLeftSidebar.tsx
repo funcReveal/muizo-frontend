@@ -183,6 +183,40 @@ const resolveFloatingScoreSegments = (
   return segments;
 };
 
+const resolveScoreboardAnswerRankToneClass = (answerRank: number): string => {
+  if (answerRank === 1) {
+    return "game-room-chip--scoreboard-answer-rank-first";
+  }
+
+  if (answerRank === 2) {
+    return "game-room-chip--scoreboard-answer-rank-second";
+  }
+
+  if (answerRank === 3) {
+    return "game-room-chip--scoreboard-answer-rank-third";
+  }
+
+  return "game-room-chip--scoreboard-answer-rank-default";
+};
+
+const resolveScoreboardAnswerResultToneClass = (
+  answerChipColor: "default" | "success" | "error" | "warning",
+): string => {
+  if (answerChipColor === "success") {
+    return "game-room-chip--scoreboard-result-correct";
+  }
+
+  if (answerChipColor === "error") {
+    return "game-room-chip--scoreboard-result-wrong";
+  }
+
+  if (answerChipColor === "warning") {
+    return "game-room-chip--scoreboard-result-answered";
+  }
+
+  return "game-room-chip--scoreboard-result-neutral";
+};
+
 const WaitingJoinDots = React.memo(function WaitingJoinDots() {
   return (
     <span className="game-room-waiting-join">
@@ -622,15 +656,28 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
             )}
           </span>
           <div className="relative flex items-center gap-2 overflow-visible">
-            {typeof answerRank === "number" ? (
-              <Chip
-                label={`第 ${answerRank} 答`}
-                size="small"
-                color={answerChipColor}
-                variant="filled"
-                className="game-room-chip game-room-chip--scoreboard-state"
-              />
-            ) : (
+            {typeof answerRank === "number" ? (() => {
+              const shouldUseAnswerOrderTone = !isReveal;
+
+              return (
+                <Chip
+                  label={`第 ${answerRank} 答`}
+                  size="small"
+                  color="default"
+                  variant="outlined"
+                  className={[
+                    "game-room-chip",
+                    "game-room-chip--scoreboard-state",
+                    shouldUseAnswerOrderTone
+                      ? "game-room-chip--scoreboard-answer-rank"
+                      : "game-room-chip--scoreboard-result",
+                    shouldUseAnswerOrderTone
+                      ? resolveScoreboardAnswerRankToneClass(answerRank)
+                      : resolveScoreboardAnswerResultToneClass(answerChipColor),
+                  ].filter(Boolean).join(" ")}
+                />
+              );
+            })() : (
               <Chip
                 label={isReveal ? "未作答" : "待答"}
                 size="small"
@@ -1296,275 +1343,275 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         </>
       )}
       <div className="relative min-h-0 overflow-visible">
-      <div className="game-room-scoreboard-stack space-y-1.5 overflow-visible">
-        {playerRowCount === 0 ? (
-          <>
-            <div className="text-xs text-slate-500">目前正在等待玩家進入排行榜...</div>
-            <div className="text-xs text-slate-500">玩家加入後，這裡會即時顯示分數與排名變化。</div>
-          </>
-        ) : (
-          scoreboardRows.map((row, idx) => {
-            if (row.type === "locked") {
-              return (
-                <div
-                  key={row.key}
-                  className="game-room-score-row game-room-score-row--locked flex items-center justify-between text-sm"
-                  aria-hidden="true"
-                >
-                  <span className="truncate flex items-center gap-2 opacity-35">
-                    <span className="game-room-score-row-avatar-wrap">
-                      <LockedAvatarIcon />
-                      <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--locked" />
+        <div className="game-room-scoreboard-stack space-y-1.5 overflow-visible">
+          {playerRowCount === 0 ? (
+            <>
+              <div className="text-xs text-slate-500">目前正在等待玩家進入排行榜...</div>
+              <div className="text-xs text-slate-500">玩家加入後，這裡會即時顯示分數與排名變化。</div>
+            </>
+          ) : (
+            scoreboardRows.map((row, idx) => {
+              if (row.type === "locked") {
+                return (
+                  <div
+                    key={row.key}
+                    className="game-room-score-row game-room-score-row--locked flex items-center justify-between text-sm"
+                    aria-hidden="true"
+                  >
+                    <span className="truncate flex items-center gap-2 opacity-35">
+                      <span className="game-room-score-row-avatar-wrap">
+                        <LockedAvatarIcon />
+                        <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--locked" />
+                      </span>
+                      已鎖定
                     </span>
-                    已鎖定
-                  </span>
-                  <span className="text-[11px] text-slate-600">--</span>
-                </div>
-              );
-            }
-            if (row.type === "placeholder") {
-              return (
-                <div
-                  key={row.key}
-                  className="game-room-score-row game-room-score-row--placeholder flex items-center justify-between text-sm"
-                  aria-hidden="true"
-                >
-                  <span className="truncate flex items-center gap-2">
-                    <span className="game-room-score-row-avatar-wrap">
-                      <PlaceholderAvatarIcon />
-                      <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--vacant" />
+                    <span className="text-[11px] text-slate-600">--</span>
+                  </div>
+                );
+              }
+              if (row.type === "placeholder") {
+                return (
+                  <div
+                    key={row.key}
+                    className="game-room-score-row game-room-score-row--placeholder flex items-center justify-between text-sm"
+                    aria-hidden="true"
+                  >
+                    <span className="truncate flex items-center gap-2">
+                      <span className="game-room-score-row-avatar-wrap">
+                        <PlaceholderAvatarIcon />
+                        <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--vacant" />
+                      </span>
+                      <span className="truncate">
+                        <WaitingJoinDots />
+                      </span>
                     </span>
-                    <span className="truncate">
-                      <WaitingJoinDots />
-                    </span>
-                  </span>
-                  <span className="text-[11px] text-slate-500">--</span>
-                </div>
-              );
-            }
+                    <span className="text-[11px] text-slate-500">--</span>
+                  </div>
+                );
+              }
 
-            const p = row.player as RoomParticipant;
-            const hasAnswered = answeredClientIdSet.has(p.clientId);
-            const answerRank = answeredRankByClientId.get(p.clientId);
-            const scoreParts = scorePartsByClientId.get(p.clientId) ?? {
-              base: p.score,
-              gain: 0,
-            };
-            const scoreBreakdown = scoreBreakdownByClientId?.get(p.clientId);
-            const isMeRow = p.clientId === meClientId;
-            const rowAnswerState = isReveal
-              ? hasAnswered
-                ? scoreParts.gain > 0
-                  ? "correct"
-                  : "wrong"
-                : "unanswered"
-              : hasAnswered
-                ? "answered"
-                : "pending";
-            // The dot badge now shows only online/offline status, NOT answer state.
-            // Answer state (correct/wrong/answered) is still tracked via rowAnswerState
-            // for the chip color and row CSS class — just no longer on the dot.
-            const answerDotClass = p.isOnline ? "bg-emerald-400" : "bg-slate-500";
-            const answerDotTitle = p.isOnline ? "在線" : "離線";
-            const answerChipColor: "default" | "success" | "error" | "warning" =
-              rowAnswerState === "correct"
-                ? "success"
-                : rowAnswerState === "wrong"
-                  ? "error"
-                  : rowAnswerState === "answered"
-                    ? "warning"
-                    : "default";
+              const p = row.player as RoomParticipant;
+              const hasAnswered = answeredClientIdSet.has(p.clientId);
+              const answerRank = answeredRankByClientId.get(p.clientId);
+              const scoreParts = scorePartsByClientId.get(p.clientId) ?? {
+                base: p.score,
+                gain: 0,
+              };
+              const scoreBreakdown = scoreBreakdownByClientId?.get(p.clientId);
+              const isMeRow = p.clientId === meClientId;
+              const rowAnswerState = isReveal
+                ? hasAnswered
+                  ? scoreParts.gain > 0
+                    ? "correct"
+                    : "wrong"
+                  : "unanswered"
+                : hasAnswered
+                  ? "answered"
+                  : "pending";
+              // The dot badge now shows only online/offline status, NOT answer state.
+              // Answer state (correct/wrong/answered) is still tracked via rowAnswerState
+              // for the chip color and row CSS class — just no longer on the dot.
+              const answerDotClass = p.isOnline ? "bg-emerald-400" : "bg-slate-500";
+              const answerDotTitle = p.isOnline ? "在線" : "離線";
+              const answerChipColor: "default" | "success" | "error" | "warning" =
+                rowAnswerState === "correct"
+                  ? "success"
+                  : rowAnswerState === "wrong"
+                    ? "error"
+                    : rowAnswerState === "answered"
+                      ? "warning"
+                      : "default";
 
-            const rankSwapOffsetRows =
-              rankSwapState?.offsetByClientId[p.clientId] ?? 0;
-            const topSwapRole =
-              topTwoSwapState &&
-                idx === 0 &&
-                p.clientId === topTwoSwapState.firstClientId
-                ? "first"
-                : topTwoSwapState &&
-                  idx === 1 &&
-                  p.clientId === topTwoSwapState.secondClientId
-                  ? "second"
-                  : null;
-            const shouldUseCssSwapAnimation = mobileOverlayMode;
-            const hasTopSwapAnimation = topSwapRole !== null && !mobileOverlayMode;
-            const topSwapOffsetRows =
-              topSwapRole === "first"
-                ? (topTwoSwapState?.firstOffsetRows ?? 1)
-                : topSwapRole === "second"
-                  ? (topTwoSwapState?.secondOffsetRows ?? -1)
+              const rankSwapOffsetRows =
+                rankSwapState?.offsetByClientId[p.clientId] ?? 0;
+              const topSwapRole =
+                topTwoSwapState &&
+                  idx === 0 &&
+                  p.clientId === topTwoSwapState.firstClientId
+                  ? "first"
+                  : topTwoSwapState &&
+                    idx === 1 &&
+                    p.clientId === topTwoSwapState.secondClientId
+                    ? "second"
+                    : null;
+              const shouldUseCssSwapAnimation = mobileOverlayMode;
+              const hasTopSwapAnimation = topSwapRole !== null && !mobileOverlayMode;
+              const topSwapOffsetRows =
+                topSwapRole === "first"
+                  ? (topTwoSwapState?.firstOffsetRows ?? 1)
+                  : topSwapRole === "second"
+                    ? (topTwoSwapState?.secondOffsetRows ?? -1)
+                    : 0;
+              const rowSwapOffsetRows =
+                rankSwapOffsetRows !== 0 ? rankSwapOffsetRows : topSwapOffsetRows;
+              const hasRowSwapAnimation = rowSwapOffsetRows !== 0;
+              const isTopSwapParticipant = Boolean(
+                topTwoSwapState &&
+                (p.clientId === topTwoSwapState.firstClientId ||
+                  p.clientId === topTwoSwapState.secondClientId),
+              );
+              const rowSwapDistanceRows = Math.abs(rowSwapOffsetRows);
+              const swapRowHeightPx = mobileOverlayMode ? 58 : 60;
+              const rowSwapStartPx = rowSwapOffsetRows * swapRowHeightPx;
+              const rowSwapMidPx = Math.round(rowSwapStartPx * 0.52);
+              const rowSwapOvershootPx =
+                rowSwapOffsetRows > 0
+                  ? -Math.min(12, 6 + rowSwapDistanceRows * 1.8)
+                  : Math.min(12, 6 + rowSwapDistanceRows * 1.8);
+              const rowSwapDurationMs = Math.min(
+                1680,
+                RANK_SWAP_DURATION_MS +
+                Math.max(0, rowSwapDistanceRows - 1) * 128,
+              );
+              const rowSwapDelayMs =
+                rowSwapOffsetRows < 0
+                  ? Math.min(
+                    260,
+                    90 + Math.max(0, rowSwapDistanceRows - 1) * 40,
+                  )
                   : 0;
-            const rowSwapOffsetRows =
-              rankSwapOffsetRows !== 0 ? rankSwapOffsetRows : topSwapOffsetRows;
-            const hasRowSwapAnimation = rowSwapOffsetRows !== 0;
-            const isTopSwapParticipant = Boolean(
-              topTwoSwapState &&
-              (p.clientId === topTwoSwapState.firstClientId ||
-                p.clientId === topTwoSwapState.secondClientId),
-            );
-            const rowSwapDistanceRows = Math.abs(rowSwapOffsetRows);
-            const swapRowHeightPx = mobileOverlayMode ? 58 : 60;
-            const rowSwapStartPx = rowSwapOffsetRows * swapRowHeightPx;
-            const rowSwapMidPx = Math.round(rowSwapStartPx * 0.52);
-            const rowSwapOvershootPx =
-              rowSwapOffsetRows > 0
-                ? -Math.min(12, 6 + rowSwapDistanceRows * 1.8)
-                : Math.min(12, 6 + rowSwapDistanceRows * 1.8);
-            const rowSwapDurationMs = Math.min(
-              1680,
-              RANK_SWAP_DURATION_MS +
-              Math.max(0, rowSwapDistanceRows - 1) * 128,
-            );
-            const rowSwapDelayMs =
-              rowSwapOffsetRows < 0
-                ? Math.min(
-                  260,
-                  90 + Math.max(0, rowSwapDistanceRows - 1) * 40,
-                )
-                : 0;
-            const topSwapDistanceRows = Math.max(1, Math.abs(topSwapOffsetRows));
-            const topSwapStartPx = topSwapOffsetRows * swapRowHeightPx;
-            const topSwapMidPx = Math.round(topSwapStartPx * 0.42);
-            const topSwapOvershootPx =
-              topSwapOffsetRows > 0
-                ? -Math.min(12, 5 + topSwapDistanceRows * 1.2)
-                : Math.min(12, 5 + topSwapDistanceRows * 1.2);
-            const topSwapDurationMs = Math.min(
-              1880,
-              1320 + Math.max(0, topSwapDistanceRows - 1) * 130,
-            );
-            const topSwapDelayMs = topSwapRole === "second" ? 80 : 0;
-            const swapReplayNudgeMs =
-              rankSwapState !== null ? (rankSwapState.key % 17) * 0.07 : 0;
-            const rowSwapStyle = shouldUseCssSwapAnimation && hasRowSwapAnimation
-              ? ({
-                "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
-                "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
-                "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
-                "--game-room-rank-swap-duration": `${rowSwapDurationMs + swapReplayNudgeMs}ms`,
-                "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
-                ...(hasTopSwapAnimation
-                  ? {
-                    "--game-room-swap-start": `${topSwapStartPx}px`,
-                    "--game-room-swap-mid": `${topSwapMidPx}px`,
-                    "--game-room-swap-overshoot": `${topSwapOvershootPx}px`,
-                    "--game-room-swap-duration": `${topSwapDurationMs}ms`,
-                    "--game-room-swap-second-delay": `${topSwapDelayMs}ms`,
-                    "--game-room-swap-tilt-start":
-                      topSwapRole === "first" ? "-2.2deg" : "1.6deg",
-                    "--game-room-swap-tilt-end":
-                      topSwapRole === "first" ? "1.1deg" : "-1deg",
-                  }
-                  : {}),
-              } as React.CSSProperties)
-              : undefined;
-            const desktopFlipBurstDelayMs =
-              desktopFlipBurstDelayByClientId[p.clientId] ?? 0;
+              const topSwapDistanceRows = Math.max(1, Math.abs(topSwapOffsetRows));
+              const topSwapStartPx = topSwapOffsetRows * swapRowHeightPx;
+              const topSwapMidPx = Math.round(topSwapStartPx * 0.42);
+              const topSwapOvershootPx =
+                topSwapOffsetRows > 0
+                  ? -Math.min(12, 5 + topSwapDistanceRows * 1.2)
+                  : Math.min(12, 5 + topSwapDistanceRows * 1.2);
+              const topSwapDurationMs = Math.min(
+                1880,
+                1320 + Math.max(0, topSwapDistanceRows - 1) * 130,
+              );
+              const topSwapDelayMs = topSwapRole === "second" ? 80 : 0;
+              const swapReplayNudgeMs =
+                rankSwapState !== null ? (rankSwapState.key % 17) * 0.07 : 0;
+              const rowSwapStyle = shouldUseCssSwapAnimation && hasRowSwapAnimation
+                ? ({
+                  "--game-room-rank-swap-start": `${rowSwapStartPx}px`,
+                  "--game-room-rank-swap-mid": `${rowSwapMidPx}px`,
+                  "--game-room-rank-swap-overshoot": `${rowSwapOvershootPx}px`,
+                  "--game-room-rank-swap-duration": `${rowSwapDurationMs + swapReplayNudgeMs}ms`,
+                  "--game-room-rank-swap-delay": `${rowSwapDelayMs}ms`,
+                  ...(hasTopSwapAnimation
+                    ? {
+                      "--game-room-swap-start": `${topSwapStartPx}px`,
+                      "--game-room-swap-mid": `${topSwapMidPx}px`,
+                      "--game-room-swap-overshoot": `${topSwapOvershootPx}px`,
+                      "--game-room-swap-duration": `${topSwapDurationMs}ms`,
+                      "--game-room-swap-second-delay": `${topSwapDelayMs}ms`,
+                      "--game-room-swap-tilt-start":
+                        topSwapRole === "first" ? "-2.2deg" : "1.6deg",
+                      "--game-room-swap-tilt-end":
+                        topSwapRole === "first" ? "1.1deg" : "-1deg",
+                    }
+                    : {}),
+                } as React.CSSProperties)
+                : undefined;
+              const desktopFlipBurstDelayMs =
+                desktopFlipBurstDelayByClientId[p.clientId] ?? 0;
 
-            const isComboLeader = p.clientId === comboLeaderClientId;
-            const rowComboTier = isComboLeader ? resolveComboTier(p.combo ?? 0) : 0;
-            const rowComboTierClass =
-              rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
-            const comboDisplayTier = resolveComboTier(p.combo ?? 0);
-            const comboDisplayClass =
-              comboDisplayTier > 0
-                ? `game-room-score-row-combo-text game-room-score-row-combo-text--tier-${comboDisplayTier}`
+              const isComboLeader = p.clientId === comboLeaderClientId;
+              const rowComboTier = isComboLeader ? resolveComboTier(p.combo ?? 0) : 0;
+              const rowComboTierClass =
+                rowComboTier > 0 ? `game-room-score-row--combo-tier-${rowComboTier}` : "";
+              const comboDisplayTier = resolveComboTier(p.combo ?? 0);
+              const comboDisplayClass =
+                comboDisplayTier > 0
+                  ? `game-room-score-row-combo-text game-room-score-row-combo-text--tier-${comboDisplayTier}`
+                  : "";
+              const shouldShowComboFlare = isComboLeader && rowComboTier > 0;
+              const shouldShowComboChampion =
+                shouldShowComboFlare && scoreboardBorderEnabled;
+              const rowComboThemeClass = shouldShowComboFlare
+                ? getScoreboardBorderThemeClassName(scoreboardBorderTheme)
                 : "";
-            const shouldShowComboFlare = isComboLeader && rowComboTier > 0;
-            const shouldShowComboChampion =
-              shouldShowComboFlare && scoreboardBorderEnabled;
-            const rowComboThemeClass = shouldShowComboFlare
-              ? getScoreboardBorderThemeClassName(scoreboardBorderTheme)
-              : "";
-            const displayName = normalizeRoomDisplayText(
-              p.username,
-              `玩家 ${idx + 1}`,
-            );
+              const displayName = normalizeRoomDisplayText(
+                p.username,
+                `玩家 ${idx + 1}`,
+              );
 
-            const rowClassName = `game-room-score-row flex items-center justify-between text-sm ${enableDesktopFloatingScoreBursts ? "game-room-score-row--desktop-floating-score" : ""} ${isReveal ? "game-room-score-row--revealed" : ""
-              } ${rowAnswerState === "correct"
-                ? "game-room-score-row--correct"
-                : rowAnswerState === "wrong"
-                  ? "game-room-score-row--wrong"
-                  : rowAnswerState === "answered"
-                    ? "game-room-score-row--answered"
-                    : rowAnswerState === "unanswered"
-                      ? "game-room-score-row--unanswered"
-                      : ""
-              } ${isMeRow ? "game-room-score-row--me" : ""} ${shouldUseCssSwapAnimation && hasTopSwapAnimation
-                ? topSwapRole === "first"
-                  ? "game-room-score-row--top-swap-first"
-                  : "game-room-score-row--top-swap-second"
-                : ""
-              } ${shouldUseCssSwapAnimation && hasRowSwapAnimation
-                ? rowSwapOffsetRows > 0
-                  ? "game-room-score-row--rank-swap-up"
-                  : "game-room-score-row--rank-swap-down"
-                : ""
-              } ${hasRowSwapAnimation && isTopSwapParticipant
-                ? "game-room-score-row--rank-swap-focus"
-                : ""
-              } ${rowComboTierClass} ${shouldShowComboFlare ? "game-room-score-row--combo-flare" : ""
-              } ${shouldShowComboFlare ? "game-room-score-row--combo-flare-active" : ""
-              } ${shouldShowComboChampion ? "game-room-score-row--combo-champion game-room-score-row--combo-champion-active" : ""
-              } ${rowComboThemeClass}`;
+              const rowClassName = `game-room-score-row flex items-center justify-between text-sm ${enableDesktopFloatingScoreBursts ? "game-room-score-row--desktop-floating-score" : ""} ${isReveal ? "game-room-score-row--revealed" : ""
+                } ${rowAnswerState === "correct"
+                  ? "game-room-score-row--correct"
+                  : rowAnswerState === "wrong"
+                    ? "game-room-score-row--wrong"
+                    : rowAnswerState === "answered"
+                      ? "game-room-score-row--answered"
+                      : rowAnswerState === "unanswered"
+                        ? "game-room-score-row--unanswered"
+                        : ""
+                } ${isMeRow ? "game-room-score-row--me" : ""} ${shouldUseCssSwapAnimation && hasTopSwapAnimation
+                  ? topSwapRole === "first"
+                    ? "game-room-score-row--top-swap-first"
+                    : "game-room-score-row--top-swap-second"
+                  : ""
+                } ${shouldUseCssSwapAnimation && hasRowSwapAnimation
+                  ? rowSwapOffsetRows > 0
+                    ? "game-room-score-row--rank-swap-up"
+                    : "game-room-score-row--rank-swap-down"
+                  : ""
+                } ${hasRowSwapAnimation && isTopSwapParticipant
+                  ? "game-room-score-row--rank-swap-focus"
+                  : ""
+                } ${rowComboTierClass} ${shouldShowComboFlare ? "game-room-score-row--combo-flare" : ""
+                } ${shouldShowComboFlare ? "game-room-score-row--combo-flare-active" : ""
+                } ${shouldShowComboChampion ? "game-room-score-row--combo-champion game-room-score-row--combo-champion-active" : ""
+                } ${rowComboThemeClass}`;
 
-            return (
-              <div
-                key={p.clientId}
-                ref={(node) => {
-                  if (node) {
-                    rowShellByClientIdRef.current.set(p.clientId, node);
-                    return;
-                  }
-                  rowShellByClientIdRef.current.delete(p.clientId);
-                }}
-              >
-                <GameRoomScorePlayerRow
-                  player={p}
-                  isReveal={isReveal}
-                  answerRank={answerRank}
-                  scoreBreakdown={scoreBreakdown}
-                  isMeRow={isMeRow}
-                  answerDotClass={answerDotClass}
-                  answerDotTitle={answerDotTitle}
-                  answerChipColor={answerChipColor}
-                  rowSwapStyle={rowSwapStyle}
-                  rowClassName={rowClassName}
-                  rowShellRef={undefined}
-                  rowElementRef={(node) => {
+              return (
+                <div
+                  key={p.clientId}
+                  ref={(node) => {
                     if (node) {
-                      rowElementByClientIdRef.current.set(p.clientId, node);
+                      rowShellByClientIdRef.current.set(p.clientId, node);
                       return;
                     }
-                    rowElementByClientIdRef.current.delete(p.clientId);
+                    rowShellByClientIdRef.current.delete(p.clientId);
                   }}
-                  displayName={displayName}
-                  comboDisplayClass={comboDisplayClass}
-                  shouldShowComboChampion={shouldShowComboChampion}
-                  rowComboTier={rowComboTier}
-                  effectiveScoreboardBorderMotion={effectiveScoreboardBorderMotion}
-                  scoreboardBorderTheme={scoreboardBorderTheme}
-                  scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
-                  scoreboardBorderLineStyle={scoreboardBorderLineStyle}
-                  scoreboardBorderParticleCount={scoreboardBorderParticleCount}
-                  avatarEffectLevel={avatarEffectLevel}
-                  enableSegmentedScoreAnimation={enableDesktopFloatingScoreBursts}
-                  enableFloatingScoreBursts={enableDesktopFloatingScoreBursts && isMeRow}
-                  burstDelayMs={Math.max(
-                    hasRowSwapAnimation
-                      ? rowSwapDelayMs + rowSwapDurationMs + 80
-                      : 0,
-                    desktopFlipBurstDelayMs,
-                  )}
-                  onFloatingBurstsChange={handleFloatingBurstsChange}
-                />
-              </div>
-            );
-          })
-        )}
-      </div>
+                >
+                  <GameRoomScorePlayerRow
+                    player={p}
+                    isReveal={isReveal}
+                    answerRank={answerRank}
+                    scoreBreakdown={scoreBreakdown}
+                    isMeRow={isMeRow}
+                    answerDotClass={answerDotClass}
+                    answerDotTitle={answerDotTitle}
+                    answerChipColor={answerChipColor}
+                    rowSwapStyle={rowSwapStyle}
+                    rowClassName={rowClassName}
+                    rowShellRef={undefined}
+                    rowElementRef={(node) => {
+                      if (node) {
+                        rowElementByClientIdRef.current.set(p.clientId, node);
+                        return;
+                      }
+                      rowElementByClientIdRef.current.delete(p.clientId);
+                    }}
+                    displayName={displayName}
+                    comboDisplayClass={comboDisplayClass}
+                    shouldShowComboChampion={shouldShowComboChampion}
+                    rowComboTier={rowComboTier}
+                    effectiveScoreboardBorderMotion={effectiveScoreboardBorderMotion}
+                    scoreboardBorderTheme={scoreboardBorderTheme}
+                    scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
+                    scoreboardBorderLineStyle={scoreboardBorderLineStyle}
+                    scoreboardBorderParticleCount={scoreboardBorderParticleCount}
+                    avatarEffectLevel={avatarEffectLevel}
+                    enableSegmentedScoreAnimation={enableDesktopFloatingScoreBursts}
+                    enableFloatingScoreBursts={enableDesktopFloatingScoreBursts && isMeRow}
+                    burstDelayMs={Math.max(
+                      hasRowSwapAnimation
+                        ? rowSwapDelayMs + rowSwapDurationMs + 80
+                        : 0,
+                      desktopFlipBurstDelayMs,
+                    )}
+                    onFloatingBurstsChange={handleFloatingBurstsChange}
+                  />
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
     </aside>
