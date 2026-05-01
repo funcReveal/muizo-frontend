@@ -14,6 +14,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../../shared/auth/AuthContext";
 import { USERNAME_MAX } from "@domain/room/constants";
+import { generateGuestUsername } from "@domain/room/guestUsername";
 import { roomIsLeaderboardChallenge } from "@domain/room/viewModels";
 import {
   useRoomCreate,
@@ -36,6 +37,7 @@ const TEXT = {
   guestLabel: "訪客名稱",
   guestPlaceholder: "例如 Night DJ",
   guestAction: "使用訪客加入",
+  guestRandomAction: "使用隨機暱稱加入",
   or: "或",
   googleAction: "使用 Google 登入",
   joinNow: "加入房間",
@@ -141,6 +143,21 @@ const InvitedPage: React.FC = () => {
     roomReference: string;
     result: RoomLookupResult;
   } | null>(null);
+  const [suggestedGuestUsername, setSuggestedGuestUsername] = useState(() =>
+    generateGuestUsername(),
+  );
+
+  const handleGuestJoin = () => {
+    const nextUsername = usernameInput.trim() || suggestedGuestUsername;
+    if (!nextUsername) return;
+
+    if (!usernameInput.trim()) {
+      setUsernameInput(nextUsername);
+      setSuggestedGuestUsername(generateGuestUsername());
+    }
+
+    handleSetUsername(nextUsername);
+  };
 
   useEffect(() => {
     setInviteRoomId(inviteReference ?? null);
@@ -454,13 +471,13 @@ const InvitedPage: React.FC = () => {
                           onChange={(event) =>
                             setUsernameInput(event.target.value.slice(0, USERNAME_MAX))
                           }
-                          placeholder={TEXT.guestPlaceholder}
+                          placeholder={suggestedGuestUsername || TEXT.guestPlaceholder}
                           inputProps={{ maxLength: USERNAME_MAX }}
                         />
                       </div>
                       <Button
                         variant="outlined"
-                        onClick={() => handleSetUsername()}
+                        onClick={handleGuestJoin}
                         sx={{
                           borderColor: "rgba(245, 158, 11, 0.4)",
                           color: "var(--mc-text)",
@@ -471,7 +488,9 @@ const InvitedPage: React.FC = () => {
                           },
                         }}
                       >
-                        {TEXT.guestAction}
+                        {usernameInput.trim()
+                          ? TEXT.guestAction
+                          : TEXT.guestRandomAction}
                       </Button>
                     </div>
 

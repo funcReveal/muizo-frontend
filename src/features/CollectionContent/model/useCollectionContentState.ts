@@ -634,6 +634,8 @@ export const useCollectionContentState = ({
           throw new Error("登入已過期，請重新登入");
         }
 
+        let confirmedFavoriteState = optimisticFavorited;
+
         const run = async (
           token: string,
           allowRetry: boolean,
@@ -642,6 +644,9 @@ export const useCollectionContentState = ({
             ? await apiUnfavoriteCollection(apiUrl, token, collectionId)
             : await apiFavoriteCollection(apiUrl, token, collectionId);
           if (result.ok && result.payload?.data) {
+            confirmedFavoriteState = Boolean(
+              result.payload.data.is_favorited,
+            );
             setCollections((prev) =>
               prev.map((item) =>
                 item.id === collectionId
@@ -670,7 +675,7 @@ export const useCollectionContentState = ({
 
         await run(freshToken, true);
         setStatusText(optimisticFavorited ? "已加入收藏" : "已取消收藏");
-        return true;
+        return confirmedFavoriteState;
       } catch (error) {
         setCollections((prev) =>
           prev.map((item) =>

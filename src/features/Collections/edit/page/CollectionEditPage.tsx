@@ -587,6 +587,7 @@ const CollectionEditPage = () => {
     setAiBatchPageIndex,
     aiJsonDrafts,
     aiAppliedPages,
+    aiAppliedBatchRecords,
     currentAiJsonDraft,
     setCurrentAiJsonDraft,
     aiBatchWriteState,
@@ -597,6 +598,7 @@ const CollectionEditPage = () => {
     updateAiSplitField,
     addAiSplitField,
     removeAiSplitField,
+    reorderAiSplitField,
     aiPromptText,
     aiParsedResult,
     aiPreview,
@@ -1454,6 +1456,7 @@ const CollectionEditPage = () => {
         onAiBatchPageChange={setAiBatchPageIndex}
         aiJsonDrafts={aiJsonDrafts}
         aiAppliedPages={aiAppliedPages}
+        aiAppliedBatchRecords={aiAppliedBatchRecords}
         currentAiJsonDraft={currentAiJsonDraft}
         onCurrentAiJsonDraftChange={setCurrentAiJsonDraft}
         aiParsedResult={aiParsedResult}
@@ -1464,6 +1467,7 @@ const CollectionEditPage = () => {
         onAiSplitFieldChange={updateAiSplitField}
         onAddAiSplitField={addAiSplitField}
         onRemoveAiSplitField={removeAiSplitField}
+        onReorderAiSplitField={reorderAiSplitField}
         aiPromptText={aiPromptText}
         onCopyAiPrompt={handleCopyAiPrompt}
         onOpenAiAssistant={handleOpenAiAssistant}

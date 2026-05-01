@@ -149,6 +149,7 @@ type CollectionDetailDrawerProps = {
   onLeaderboardModeChange: (value: LeaderboardModeKey) => void;
   onLeaderboardVariantChange: (value: LeaderboardVariantKey) => void;
   isAuthenticated?: boolean;
+  hasGuestIdentity?: boolean;
   isAuthLoading?: boolean;
   onLoginRequired?: () => void;
 };
@@ -797,6 +798,7 @@ const CollectionDetailDrawer = ({
   onLeaderboardModeChange,
   onLeaderboardVariantChange,
   isAuthenticated = false,
+  hasGuestIdentity = false,
   isAuthLoading = false,
   onLoginRequired,
 }: CollectionDetailDrawerProps) => {
@@ -849,6 +851,7 @@ const CollectionDetailDrawer = ({
       : "");
   const isPublic = (collection?.visibility ?? "private") === "public";
   const canShareCollection = isPublic;
+  const hasPlayableIdentity = isAuthenticated || hasGuestIdentity;
   const canStartLeaderboardChallenge = isPublic && isAuthenticated;
   const baseFavoriteCount = Math.max(
     0,
@@ -1010,13 +1013,23 @@ const CollectionDetailDrawer = ({
     (!Number.isInteger(parsedMaxPlayers) ||
       parsedMaxPlayers < PLAYER_MIN ||
       parsedMaxPlayers > PLAYER_MAX);
-  const setupCanCreateRoom =
-    (isSetupView && collection
+  const setupBaseCanCreateRoom =
+    isSetupView && collection
       ? Boolean(roomNameInput.trim()) &&
         collectionQuestionCount >= questionMin &&
         !setupMaxPlayersInvalid &&
         !isCreatingRoom
-      : canCreateRoom) &&
+      : canCreateRoom;
+  const setupCanSubmitCustomRoom =
+    setupBaseCanCreateRoom &&
+    (!isSetupLeaderboardMode || !isActiveLeaderboardQuestionCountInsufficient);
+  const setupCanCreateRoom =
+    (isSetupView &&
+    collection &&
+    !isSetupLeaderboardMode &&
+    !hasPlayableIdentity
+      ? setupCanSubmitCustomRoom
+      : setupBaseCanCreateRoom) &&
     (!isSetupLeaderboardMode || !isActiveLeaderboardQuestionCountInsufficient);
   const setupCreateRequirementsHintText =
     isSetupView && collection
@@ -1197,6 +1210,8 @@ const CollectionDetailDrawer = ({
     ? "建立房間中..."
     : isApplying || isCustomRoomStartPending
       ? "載入題庫中..."
+      : !hasPlayableIdentity
+        ? "開始遊戲"
       : "建立休閒房";
   const setupSourceSummary: SourceSummary = collection
     ? {
@@ -1213,6 +1228,7 @@ const CollectionDetailDrawer = ({
   const handleStartCustomRoom = () => {
     if (!collection) return;
     setRoomPlayMode("casual");
+    void (onStartCustomRoom ?? onUseCollection)(collection.id);
     setDrawerView("casualSetup");
   };
 
@@ -1246,7 +1262,7 @@ const CollectionDetailDrawer = ({
 
   const handleConfirmCustomRoom = () => {
     if (!collection) return;
-    if (!setupCanCreateRoom) return;
+    if (!setupCanSubmitCustomRoom) return;
     void (onConfirmCustomRoom ?? onStartCustomRoom ?? onUseCollection)(
       collection.id,
     );
@@ -2324,7 +2340,7 @@ const CollectionDetailDrawer = ({
           <footer className="grid shrink-0 gap-3 border-t border-cyan-200/14 bg-[linear-gradient(90deg,rgba(8,47,73,0.16),rgba(15,23,42,0.7)_44%,rgba(120,53,15,0.1))] px-4 py-3 shadow-[0_-18px_48px_-42px_rgba(34,211,238,0.75)] sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             {isSetupView ? (
               <>
-                <div className="min-w-0">
+                <div className="hidden min-w-0 md:block">
                   <p className="text-[11px] font-semibold tracking-[0.16em] text-cyan-100/55">
                     {isSetupLeaderboardMode ? "確認挑戰" : "確認房間"}
                   </p>

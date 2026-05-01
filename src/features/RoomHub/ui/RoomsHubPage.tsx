@@ -430,6 +430,7 @@ const RoomsHubPage: React.FC = () => {
   const [pendingCustomRoomStart, setPendingCustomRoomStart] = useState<{
     collectionId: string;
   } | null>(null);
+  const [pendingGuestRoomCreate, setPendingGuestRoomCreate] = useState(false);
   const {
     passwordDialog,
     setPasswordDialog,
@@ -1003,11 +1004,16 @@ const RoomsHubPage: React.FC = () => {
   const detailCollection = useMemo(() => {
     if (!detailCollectionId) return null;
 
+    const liveCollection =
+      collections.find((item) => item.id === detailCollectionId) ?? null;
+
+    if (liveCollection) return liveCollection;
+
     if (detailCollectionOverride?.id === detailCollectionId) {
       return detailCollectionOverride;
     }
 
-    return collections.find((item) => item.id === detailCollectionId) ?? null;
+    return null;
   }, [collections, detailCollectionId, detailCollectionOverride]);
   const selectedSharedCollection =
     selectedCreateCollectionId &&
@@ -1113,11 +1119,49 @@ const RoomsHubPage: React.FC = () => {
     }
     return true;
   };
+  const prepareGuestIdentity = useCallback(() => {
+    if (username) return false;
+
+    handleSetUsername(suggestedGuestUsername);
+    if (!roomNameInput.trim() || roomNameInput.trim() === "未命名房間") {
+      setRoomNameInput(`${suggestedGuestUsername}'s room`);
+    }
+    return true;
+  }, [
+    handleSetUsername,
+    roomNameInput,
+    setRoomNameInput,
+    suggestedGuestUsername,
+    username,
+  ]);
   const handleCreateCasualRoomFromDrawer = () => {
     if (!canSubmitRoomCreate()) return;
+    if (prepareGuestIdentity()) {
+      setPendingGuestRoomCreate(true);
+      return;
+    }
+    if (!isConnected) {
+      setPendingGuestRoomCreate(true);
+      return;
+    }
     setRoomPlayMode("casual");
     void handleCreateRoom(buildCreateRoomOptions());
   };
+  useEffect(() => {
+    if (!pendingGuestRoomCreate) return;
+    if (!username) return;
+    if (!isConnected) return;
+
+    setPendingGuestRoomCreate(false);
+    setRoomPlayMode("casual");
+    void handleCreateRoom(buildCreateRoomOptions());
+  }, [
+    buildCreateRoomOptions,
+    handleCreateRoom,
+    isConnected,
+    pendingGuestRoomCreate,
+    username,
+  ]);
   useEffect(() => {
     if (!pendingLeaderboardStart) return;
     if (collectionItemsLoading) return;
@@ -1161,6 +1205,8 @@ const RoomsHubPage: React.FC = () => {
       return;
     }
     if (playlistItems.length === 0) return;
+    if (prepareGuestIdentity()) return;
+    if (!isConnected) return;
 
     setPendingCustomRoomStart(null);
     void handleCreateRoom(buildCreateRoomOptions());
@@ -1169,8 +1215,10 @@ const RoomsHubPage: React.FC = () => {
     collectionItemsLoading,
     buildCreateRoomOptions,
     handleCreateRoom,
+    isConnected,
     pendingCustomRoomStart,
     playlistItems.length,
+    prepareGuestIdentity,
     roomCreateSourceMode,
     selectedCreateCollectionId,
   ]);
@@ -1273,12 +1321,18 @@ const RoomsHubPage: React.FC = () => {
     view: "grid" | "list",
   ) => {
     const collection = collectionValue as (typeof collections)[number];
+    const suppressSharedLinkHighlight =
+      detailDrawerState?.source === "sharedLink" &&
+      detailDrawerState.collectionId === collection.id;
 
     return (
       <CollectionCard
         collection={collection}
         view={view}
-        selected={selectedCreateCollectionId === collection.id}
+        selected={
+          selectedCreateCollectionId === collection.id &&
+          !suppressSharedLinkHighlight
+        }
         isPublicLibraryTab={createLibraryTab === "public"}
         isFavoriteUpdating={collectionFavoriteUpdatingId === collection.id}
         onSelect={() => {
@@ -2133,12 +2187,9 @@ const RoomsHubPage: React.FC = () => {
             detailCollection?.visibility === "public" ? "public" : "owner",
           );
         }}
-        onStartCustomRoom={(collectionId) => {
+        onStartCustomRoom={() => {
+          prepareGuestIdentity();
           setRoomPlayMode("casual");
-          void handlePickCollectionSource(
-            collectionId,
-            detailCollection?.visibility === "public" ? "public" : "owner",
-          );
         }}
         onConfirmCustomRoom={(collectionId) => {
           if (!canSubmitRoomCreate()) return;
@@ -2228,6 +2279,7 @@ const RoomsHubPage: React.FC = () => {
         onLeaderboardModeChange={handleLeaderboardModeChange}
         onLeaderboardVariantChange={handleLeaderboardVariantChange}
         isAuthenticated={Boolean(authUser)}
+        hasGuestIdentity={Boolean(username)}
         isAuthLoading={authLoading}
         onLoginRequired={loginWithGoogle}
       />

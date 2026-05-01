@@ -12,6 +12,14 @@ const AI_MODIFIED_STATUS: AnswerStatus = "ai_modified";
 const AI_PROVIDER_LABEL = "Gemini";
 const AI_PROVIDER_BASE_URL = "https://gemini.google.com/app";
 
+const reorderItems = <T,>(items: T[], fromIndex: number, toIndex: number) => {
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+  if (movedItem === undefined) return items;
+  nextItems.splice(toIndex, 0, movedItem);
+  return nextItems;
+};
+
 const copyTextWithTextarea = (text: string) => {
   if (!text.trim()) return false;
   if (typeof document === "undefined") return false;
@@ -174,10 +182,24 @@ export type AiPreviewItem = {
   newAnswer: string;
 };
 
+export type AiAppliedResultItem = {
+  id: string;
+  title: string;
+  answerText: string;
+};
+
+export type AiAppliedBatchRecord = {
+  pageIndex: number;
+  batchKey: string;
+  appliedAt: number;
+  changedItems: AiPreviewItem[];
+  unchangedItems: AiAppliedResultItem[];
+};
+
 const DEFAULT_AI_PROMPT_SETTINGS: AiPromptSettings = {
   mode: "official-title",
   separator: " - ",
-  splitFields: ["歌手", "曲名", "作品名稱"],
+  splitFields: ["作品名稱", "曲名", "歌手"],
   keepOriginalText: true,
   languageMode: "preserve",
   customLanguage: "",
@@ -281,6 +303,9 @@ export function useCollectionEditAiBatch({
   const [aiAppliedPages, setAiAppliedPages] = useState<Record<number, boolean>>(
     {},
   );
+  const [aiAppliedBatchRecords, setAiAppliedBatchRecords] = useState<
+    Record<number, AiAppliedBatchRecord>
+  >({});
   const [aiPromptSettings, setAiPromptSettings] = useState<AiPromptSettings>(
     DEFAULT_AI_PROMPT_SETTINGS,
   );
@@ -483,6 +508,58 @@ export function useCollectionEditAiBatch({
     [aiPromptPages, playlistItems],
   );
 
+  const savedAiAppliedBatchRecords = useMemo<
+    Record<number, AiAppliedBatchRecord>
+  >(() => {
+    const records: Record<number, AiAppliedBatchRecord> = {};
+
+    aiPromptPages.forEach((page) => {
+      const pageItems = playlistItems.slice(page.start, page.end);
+      const appliedItems = pageItems.filter(
+        (item) => item.answerAiBatchKey !== null,
+      );
+
+      if (appliedItems.length === 0) return;
+
+      const newestAppliedAt = appliedItems.reduce(
+        (latest, item) => Math.max(latest, item.answerAiUpdatedAt ?? 0),
+        0,
+      );
+      const batchKey =
+        appliedItems.find((item) => item.answerAiBatchKey)?.answerAiBatchKey ??
+        `saved-ai-page-${page.pageIndex}`;
+
+      records[page.pageIndex] = {
+        pageIndex: page.pageIndex,
+        batchKey,
+        appliedAt: newestAppliedAt,
+        changedItems: appliedItems.map((item) => ({
+          id: item.dbId ?? item.localId,
+          title: item.title ?? "未命名題目",
+          oldAnswer: "",
+          newAnswer: item.answerText ?? "",
+        })),
+        unchangedItems: pageItems
+          .filter((item) => item.answerAiBatchKey === null)
+          .map((item) => ({
+            id: item.dbId ?? item.localId,
+            title: item.title ?? "未命名題目",
+            answerText: item.answerText ?? "",
+          })),
+      };
+    });
+
+    return records;
+  }, [aiPromptPages, playlistItems]);
+
+  const displayedAiAppliedBatchRecords = useMemo(
+    () => ({
+      ...savedAiAppliedBatchRecords,
+      ...aiAppliedBatchRecords,
+    }),
+    [aiAppliedBatchRecords, savedAiAppliedBatchRecords],
+  );
+
   const canApplyAiBatch =
     !aiParsedResult.error && aiPreview.changedItems.length > 0;
 
@@ -540,6 +617,11 @@ export function useCollectionEditAiBatch({
         ...prev,
         [effectiveAiBatchPageIndex]: false,
       }));
+      setAiAppliedBatchRecords((prev) => {
+        const next = { ...prev };
+        delete next[effectiveAiBatchPageIndex];
+        return next;
+      });
     },
     [effectiveAiBatchPageIndex],
   );
@@ -582,6 +664,28 @@ export function useCollectionEditAiBatch({
     });
   }, []);
 
+  const reorderAiSplitField = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      setAiPromptSettings((prev) => {
+        if (
+          fromIndex === toIndex ||
+          fromIndex < 0 ||
+          toIndex < 0 ||
+          fromIndex >= prev.splitFields.length ||
+          toIndex >= prev.splitFields.length
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          splitFields: reorderItems(prev.splitFields, fromIndex, toIndex),
+        };
+      });
+    },
+    [],
+  );
+
   const resetAiBatchWriteState = useCallback(() => {
     setAiBatchWriteState({ status: "idle" });
   }, []);
@@ -613,6 +717,13 @@ export function useCollectionEditAiBatch({
     const updates = new Map(
       aiPreview.changedItems.map((item) => [item.id, item.newAnswer] as const),
     );
+    const unchangedItems = (currentAiPromptPage?.items ?? [])
+      .filter((item) => !updates.has(item.id))
+      .map((item) => ({
+        id: item.id,
+        title: item.title || "未命名題目",
+        answerText: item.answerText ?? "",
+      }));
     const nextPlaylistItems: EditableItem[] = playlistItems.map((item) => {
       const key = item.dbId ?? item.localId;
       const nextAnswer = updates.get(key);
@@ -647,6 +758,18 @@ export function useCollectionEditAiBatch({
       ...prev,
       [appliedPageIndex]: true,
     }));
+    setAiAppliedBatchRecords((prev) => {
+      return {
+        ...prev,
+        [appliedPageIndex]: {
+          pageIndex: appliedPageIndex,
+          batchKey,
+          appliedAt: updatedAt,
+          changedItems: aiPreview.changedItems,
+          unchangedItems,
+        },
+      };
+    });
     const totalPages = aiPromptPages.length;
 
     setAiBatchWriteState({
@@ -696,6 +819,7 @@ export function useCollectionEditAiBatch({
     aiPreview.changedItems,
     aiPromptPages.length,
     canApplyAiBatch,
+    currentAiPromptPage?.items,
     effectiveAiBatchPageIndex,
     handleSaveCollection,
     markDirty,
@@ -776,6 +900,7 @@ export function useCollectionEditAiBatch({
     setAiBatchPageIndex,
     aiJsonDrafts,
     aiAppliedPages,
+    aiAppliedBatchRecords: displayedAiAppliedBatchRecords,
     currentAiJsonDraft,
     setCurrentAiJsonDraft,
     aiBatchWriteState,
@@ -787,6 +912,7 @@ export function useCollectionEditAiBatch({
     updateAiSplitField,
     addAiSplitField,
     removeAiSplitField,
+    reorderAiSplitField,
     aiPromptText,
     aiParsedResult,
     aiPreview,
