@@ -56,6 +56,11 @@ const normalizeCollectionEntry = (
   cover_source_id: item.cover_source_id ?? null,
   cover_provider: item.cover_provider ?? null,
   item_count: Math.max(0, Number(item.item_count ?? 0)),
+  playable_item_count:
+    item.playable_item_count === null || item.playable_item_count === undefined
+      ? null
+      : Math.max(0, Number(item.playable_item_count ?? 0)),
+  readToken: item.readToken ?? null,
   use_count: Math.max(0, Number(item.use_count ?? 0)),
   favorite_count: Math.max(0, Number(item.favorite_count ?? 0)),
   rating_count: Math.max(0, Number(item.rating_count ?? 0)),
@@ -80,6 +85,8 @@ export type UseCollectionContentStateResult = {
     cover_source_id?: string | null;
     cover_provider?: string | null;
     item_count?: number;
+    playable_item_count?: number | null;
+    readToken?: string | null;
     use_count?: number;
     favorite_count?: number;
     rating_count?: number;
@@ -146,6 +153,8 @@ export const useCollectionContentState = ({
       cover_source_id?: string | null;
       cover_provider?: string | null;
       item_count?: number;
+      playable_item_count?: number | null;
+      readToken?: string | null;
       use_count?: number;
       favorite_count?: number;
       rating_count?: number;
@@ -246,6 +255,8 @@ export const useCollectionContentState = ({
             cover_source_id?: string | null;
             cover_provider?: string | null;
             item_count?: number;
+            playable_item_count?: number | null;
+            readToken?: string | null;
             use_count?: number;
             favorite_count?: number;
             rating_count?: number;
@@ -265,6 +276,12 @@ export const useCollectionContentState = ({
             items.map((item) => ({
               ...item,
               item_count: Math.max(0, Number(item.item_count ?? 0)),
+              playable_item_count:
+                item.playable_item_count === null ||
+                item.playable_item_count === undefined
+                  ? null
+                  : Math.max(0, Number(item.playable_item_count ?? 0)),
+              readToken: item.readToken ?? null,
               use_count: Math.max(0, Number(item.use_count ?? 0)),
               favorite_count: Math.max(0, Number(item.favorite_count ?? 0)),
               rating_count: Math.max(0, Number(item.rating_count ?? 0)),
@@ -476,6 +493,8 @@ export const useCollectionContentState = ({
         cover_source_id?: string | null;
         cover_provider?: string | null;
         item_count?: number;
+        playable_item_count?: number | null;
+        readToken?: string | null;
         use_count?: number;
         favorite_count?: number;
         rating_count?: number;
@@ -490,6 +509,12 @@ export const useCollectionContentState = ({
       const normalizedItems = items.map((item) => ({
         ...item,
         item_count: Math.max(0, Number(item.item_count ?? 0)),
+        playable_item_count:
+          item.playable_item_count === null ||
+          item.playable_item_count === undefined
+            ? null
+            : Math.max(0, Number(item.playable_item_count ?? 0)),
+        readToken: item.readToken ?? null,
         use_count: Math.max(0, Number(item.use_count ?? 0)),
         favorite_count: Math.max(0, Number(item.favorite_count ?? 0)),
         rating_count: Math.max(0, Number(item.rating_count ?? 0)),

@@ -28,6 +28,7 @@ type SnapshotResult = {
   title?: string | null;
   totalCount?: number;
   sourceId?: string | null;
+  readToken?: string | null;
 };
 
 type PlaylistApplyAckData = {
@@ -60,6 +61,9 @@ const isPlaylistApplyReady = (progress: PlaylistApplyProgress) =>
   progress.totalCount > 0 &&
   progress.receivedCount >= progress.totalCount;
 
+const isCollectionSourceType = (sourceType: PlaylistSourceType) =>
+  sourceType === "public_collection" || sourceType === "private_collection";
+
 const getAckError = <T>(
   ack: Ack<T> | null | undefined,
   fallback = "操作失敗",
@@ -76,7 +80,14 @@ interface UseRoomProviderPlaylistActionsParams {
     roomId: string | null | undefined,
     ack: Ack<unknown> | null | undefined,
   ) => boolean;
-  collections: Array<{ id: string; visibility?: string }>;
+  collections: Array<{
+    id: string;
+    title?: string | null;
+    visibility?: string;
+    readToken?: string | null;
+    item_count?: number | null;
+    playable_item_count?: number | null;
+  }>;
   authUserId: string | null;
   authToken: string | null;
   createCollectionReadToken: (collectionId: string) => Promise<string>;
@@ -280,6 +291,24 @@ export const useRoomProviderPlaylistActions = ({
     [authToken, collections, resolveCollectionSourceType],
   );
 
+  const resolveCollectionReadToken = useCallback(
+    async (collectionId: string) => {
+      const selectedCollection = collections.find(
+        (item) => item.id === collectionId,
+      );
+      if (!selectedCollection) return null;
+      if (selectedCollection.readToken) return selectedCollection.readToken;
+      if (selectedCollection.visibility !== "private") return null;
+
+      if (!authUserId) {
+        throw new Error("無法取得私人收藏庫讀取權限");
+      }
+
+      return await createCollectionReadToken(collectionId);
+    },
+    [authUserId, collections, createCollectionReadToken],
+  );
+
   const uploadPlaylistSelection = useCallback(
     async ({
       items,
@@ -287,12 +316,16 @@ export const useRoomProviderPlaylistActions = ({
       title,
       sourceType,
       playlistUrl,
+      readToken,
+      totalCount,
     }: {
       items: PlaylistItem[];
       sourceId: string;
       title?: string | null;
       sourceType: PlaylistSourceType;
       playlistUrl?: string | null;
+      readToken?: string | null;
+      totalCount?: number | null;
     }) => {
       const socket = getSocket();
 
@@ -305,7 +338,9 @@ export const useRoomProviderPlaylistActions = ({
         return false;
       }
 
-      if (!items.length || !sourceId) {
+      const sourceIsCollection = isCollectionSourceType(sourceType);
+
+      if ((!sourceIsCollection && !items.length) || !sourceId) {
         setStatusText("找不到可套用的播放清單內容");
         return false;
       }
@@ -325,24 +360,29 @@ export const useRoomProviderPlaylistActions = ({
       const roomAllowCollectionClipTiming =
         currentRoom.gameSettings?.allowCollectionClipTiming ?? true;
 
-      const uploadItems = buildUploadPlaylistItems(items, {
-        playDurationSec: roomPlayDurationSec,
-        startOffsetSec: roomStartOffsetSec,
-        allowCollectionClipTiming: roomAllowCollectionClipTiming,
-      });
+      const uploadItems = sourceIsCollection
+        ? []
+        : buildUploadPlaylistItems(items, {
+            playDurationSec: roomPlayDurationSec,
+            startOffsetSec: roomStartOffsetSec,
+            allowCollectionClipTiming: roomAllowCollectionClipTiming,
+          });
 
       const firstChunk = uploadItems.slice(0, CHUNK_SIZE);
       const remaining = uploadItems.slice(CHUNK_SIZE);
-      const isLast = remaining.length === 0;
+      const isLast = sourceIsCollection || remaining.length === 0;
       const pageSize = DEFAULT_PAGE_SIZE;
+      const effectiveTotalCount = sourceIsCollection
+        ? Math.max(0, Number(totalCount ?? items.length ?? 0))
+        : uploadItems.length;
 
       setPlaylistProgress({
         received: 0,
-        total: uploadItems.length,
+        total: effectiveTotalCount,
         ready: false,
       });
 
-      setStatusText(`正在同步題庫到房間（0/${uploadItems.length}）...`);
+      setStatusText(`正在同步題庫到房間（0/${effectiveTotalCount}）...`);
 
       return await new Promise<boolean>((resolve) => {
         socket.emit(
@@ -354,10 +394,11 @@ export const useRoomProviderPlaylistActions = ({
               id: sourceId,
               title: title ?? undefined,
               sourceType,
-              totalCount: uploadItems.length,
-              items: firstChunk,
+              totalCount: effectiveTotalCount,
+              items: sourceIsCollection ? undefined : firstChunk,
               isLast,
               pageSize,
+              readToken: readToken ?? null,
             },
           },
           async (ack: Ack<PlaylistApplyAckData>) => {
@@ -406,7 +447,7 @@ export const useRoomProviderPlaylistActions = ({
                 currentRoom.id,
                 uploadId,
                 remaining,
-                uploadItems.length,
+                effectiveTotalCount,
                 (progress) => {
                   setPlaylistProgress({
                     received: progress.receivedCount,
@@ -463,7 +504,11 @@ export const useRoomProviderPlaylistActions = ({
               ready: true,
             });
 
-            applyPlaylistSource(items, sourceId, title ?? null);
+            applyPlaylistSource(
+              sourceIsCollection ? [] : items,
+              sourceId,
+              title ?? null,
+            );
 
             if (typeof playlistUrl === "string") {
               setPlaylistUrl(playlistUrl);
@@ -498,6 +543,8 @@ export const useRoomProviderPlaylistActions = ({
         useSnapshot?: boolean;
         sourceId?: string | null;
         title?: string | null;
+        readToken?: string | null;
+        totalCount?: number | null;
       },
     ) => {
       const socket = getSocket();
@@ -515,11 +562,35 @@ export const useRoomProviderPlaylistActions = ({
       }
 
       let snapshot: SnapshotResult | undefined;
-      let readToken: string | null = null;
+      let readToken: string | null = options?.readToken ?? null;
 
-      if (options?.useSnapshot) {
+      if (type === "collection") {
         try {
-          if (type === "collection") {
+          const collectionId = options?.sourceId ?? value;
+          const selectedCollection = collections.find(
+            (item) => item.id === collectionId,
+          );
+          readToken = readToken ?? (await resolveCollectionReadToken(collectionId));
+          snapshot = {
+            items: [],
+            title: options?.title ?? selectedCollection?.title ?? null,
+            totalCount:
+              options?.totalCount ??
+              selectedCollection?.playable_item_count ??
+              selectedCollection?.item_count ??
+              0,
+            sourceId: collectionId,
+            readToken,
+          };
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "推薦收藏庫失敗";
+          setStatusText(message);
+          return { ok: false, error: message };
+        }
+      } else if (options?.useSnapshot) {
+        try {
+          if (false) {
             const selectedCollection = collections.find(
               (item) => item.id === value,
             );
@@ -576,10 +647,10 @@ export const useRoomProviderPlaylistActions = ({
             type,
             value,
             title: snapshot?.title ?? options?.title ?? undefined,
-            totalCount: snapshot?.totalCount,
+            totalCount: snapshot?.totalCount ?? options?.totalCount ?? undefined,
             sourceId: snapshot?.sourceId ?? options?.sourceId ?? undefined,
-            items: snapshot?.items,
-            readToken: readToken ?? undefined,
+            items: type === "collection" ? undefined : snapshot?.items,
+            readToken: snapshot?.readToken ?? readToken ?? undefined,
           },
           (ack: Ack<null>) => {
             if (!ack) {
@@ -617,6 +688,7 @@ export const useRoomProviderPlaylistActions = ({
       gameStateStatus,
       getSocket,
       handleRoomGoneAck,
+      resolveCollectionReadToken,
       setStatusText,
     ],
   );
@@ -692,14 +764,19 @@ export const useRoomProviderPlaylistActions = ({
   const handleApplyCollectionDirect = useCallback(
     async (collectionId: string, title?: string | null) => {
       try {
-        const items = await fetchCollectionSnapshot(collectionId);
+        const selectedCollection = collections.find(
+          (item) => item.id === collectionId,
+        );
+        const readToken = await resolveCollectionReadToken(collectionId);
 
         return await uploadPlaylistSelection({
-          items,
+          items: [],
           sourceId: collectionId,
-          title: title ?? null,
+          title: title ?? selectedCollection?.title ?? null,
           sourceType: resolveCollectionSourceType(collectionId),
           playlistUrl: "",
+          readToken,
+          totalCount: selectedCollection?.item_count ?? 0,
         });
       } catch (error) {
         const message =
@@ -709,7 +786,8 @@ export const useRoomProviderPlaylistActions = ({
       }
     },
     [
-      fetchCollectionSnapshot,
+      collections,
+      resolveCollectionReadToken,
       resolveCollectionSourceType,
       setStatusText,
       uploadPlaylistSelection,
@@ -741,22 +819,30 @@ export const useRoomProviderPlaylistActions = ({
   const handleApplySuggestionSnapshot = useCallback(
     async (suggestion: PlaylistSuggestion) => {
       const items = suggestion.items ?? [];
+      const sourceId = suggestion.sourceId ?? suggestion.value;
+
+      if (suggestion.type === "collection") {
+        await uploadPlaylistSelection({
+          items: [],
+          sourceId,
+          title: suggestion.title ?? null,
+          sourceType: resolveCollectionSourceType(sourceId),
+          readToken: suggestion.readToken ?? null,
+          totalCount: suggestion.totalCount ?? 0,
+        });
+        return;
+      }
 
       if (!items.length) {
         setStatusText("推薦內容沒有可套用的歌曲");
         return;
       }
 
-      const sourceId = suggestion.sourceId ?? suggestion.value;
-
       await uploadPlaylistSelection({
         items,
         sourceId,
         title: suggestion.title ?? null,
-        sourceType:
-          suggestion.type === "collection"
-            ? resolveCollectionSourceType(sourceId)
-            : resolvePlaylistSourceType(sourceId),
+        sourceType: resolvePlaylistSourceType(sourceId),
       });
     },
     [

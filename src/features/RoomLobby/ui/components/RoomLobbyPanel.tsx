@@ -57,6 +57,7 @@ import {
   getQuestionMax,
 } from "@features/RoomSession";
 import { normalizePlaybackExtensionMode } from "@features/RoomSession";
+import { resolvePlaylistAvailabilityCounts } from "@features/RoomSession/model/playlistAvailability";
 import { resolveSettlementTrackLink } from "@features/Settlement/model/settlementLinks";
 import {
   DEFAULT_PLAYBACK_EXTENSION_MODE,
@@ -165,6 +166,8 @@ interface RoomLobbyPanelProps {
       useSnapshot?: boolean;
       sourceId?: string | null;
       title?: string | null;
+      readToken?: string | null;
+      totalCount?: number | null;
     },
   ) => Promise<{ ok: boolean; error?: string }>;
   onApplySuggestionSnapshot: (suggestion: PlaylistSuggestion) => Promise<void>;
@@ -568,9 +571,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     lobbyBgmRef.current.volume = nextVolume;
   }, [bgmVolume]);
 
-  const questionMaxLimit = getQuestionMax(
-    currentRoom?.playlist.totalCount ?? 0,
-  );
+  const playlistAvailability = resolvePlaylistAvailabilityCounts(currentRoom);
+  const questionMaxLimit = getQuestionMax(playlistAvailability.playable);
   const questionMinLimit = Math.min(QUESTION_MIN, questionMaxLimit);
   const settingsDisabled = gameState?.status === "playing" || !isHost;
   const settingsSourceItems =
@@ -1218,6 +1220,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     ? "只有房主可以開始遊戲"
     : gameState?.status === "playing"
       ? "遊戲進行中"
+      : playlistAvailability.playable <= 0
+        ? "目前沒有可播放題目"
       : !canStartGame
         ? "歌單尚未同步完成"
         : undefined;
@@ -1716,11 +1720,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     <div className="room-lobby-current-playlist-stack">
       <CurrentPlaylistCard
         room={currentRoom}
-        playlistCount={
-          playlistProgress.total > 0
-            ? playlistProgress.total
-            : playlistItems.length
-        }
+        playlistCount={playlistAvailability.playable}
+        playlistPlayableCount={playlistAvailability.playable}
+        playlistTotalCount={playlistAvailability.total}
         isHost={isHost}
         pendingSuggestionCount={newSuggestionCount}
         collectionOnlyMode={isLeaderboardRoom}
@@ -1741,11 +1743,9 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
     <div className="room-lobby-current-playlist-stack">
       <CurrentPlaylistCard
         room={currentRoom}
-        playlistCount={
-          playlistProgress.total > 0
-            ? playlistProgress.total
-            : playlistItems.length
-        }
+        playlistCount={playlistAvailability.playable}
+        playlistPlayableCount={playlistAvailability.playable}
+        playlistTotalCount={playlistAvailability.total}
         isHost={false}
         pendingSuggestionCount={0}
         collectionOnlyMode={isLeaderboardRoom}

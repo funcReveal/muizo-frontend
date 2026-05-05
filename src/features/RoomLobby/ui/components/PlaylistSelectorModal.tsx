@@ -41,6 +41,12 @@ import type {
   PlaylistSuggestion,
 } from "@features/RoomSession";
 import {
+  formatCollectionAvailabilityLabel,
+  formatPlaylistAvailabilityLabel,
+  resolveCollectionAvailabilityCounts,
+  resolvePlaylistAvailabilityCounts,
+} from "@features/RoomSession/model/playlistAvailability";
+import {
   buildPlaylistIssueSummary,
   getPlaylistIssueTotal,
   PlaylistIssueSummaryDialog,
@@ -124,6 +130,8 @@ type Props = {
       useSnapshot?: boolean;
       sourceId?: string | null;
       title?: string | null;
+      readToken?: string | null;
+      totalCount?: number | null;
     },
   ) => Promise<{ ok: boolean; error?: string }>;
   extractPlaylistId?: (url: string) => string | null;
@@ -1019,6 +1027,8 @@ const PlaylistSelectorModal = ({
         useSnapshot?: boolean;
         sourceId?: string | null;
         title?: string | null;
+        readToken?: string | null;
+        totalCount?: number | null;
       },
     ) => {
       if (!onSuggestPlaylist) return;
@@ -1082,6 +1092,11 @@ const PlaylistSelectorModal = ({
   const applyCollection = useCallback(
     async (item: CollectionEntry) => {
       if (matchesCurrentSource(sourceType(item.visibility), item.id)) return;
+      const counts = resolveCollectionAvailabilityCounts(item);
+      if (counts.playable <= 0) {
+        setActionError("目前沒有可播放題目");
+        return;
+      }
       if (leaderboardCollectionOnlyMode && item.visibility !== "public") {
         setActionError(leaderboardCollectionOnlyReason);
         return;
@@ -1090,9 +1105,10 @@ const PlaylistSelectorModal = ({
       if (isSuggestionMode) {
         const action = () => {
           void runSuggestion("collection", item.id, {
-            useSnapshot: item.visibility === "private",
             sourceId: item.id,
             title: item.title ?? null,
+            totalCount: item.item_count ?? 0,
+            readToken: item.readToken ?? null,
           });
         };
         if (openConfirmModal) {
@@ -1146,22 +1162,36 @@ const PlaylistSelectorModal = ({
       );
       const alreadySuggested =
         isSuggestionMode && hasSuggestedSource("collection", item.id, item.id);
+      const counts = resolveCollectionAvailabilityCounts(item);
+      const countLabel = formatCollectionAvailabilityLabel(item);
+      const disabledByAvailability = counts.playable <= 0;
+      const disabled = isCurrent || alreadySuggested || disabledByAvailability;
       return (
         <SourceCard
           key={item.id}
           title={normalizeDisplayText(item.title, "未命名題庫")}
           subtitle={
-            <CollectionRatingLine
-              ratingAvg={item.rating_avg}
-              ratingCount={item.rating_count}
-              disabled={isCurrent || alreadySuggested}
-            />
+            <div className="space-y-1">
+              <CollectionRatingLine
+                ratingAvg={item.rating_avg}
+                ratingCount={item.rating_count}
+                disabled={disabled}
+              />
+              <div
+                className={`text-[12px] leading-5 ${
+                  disabled ? "text-slate-400/70" : "text-slate-300/88"
+                }`}
+              >
+                {disabledByAvailability ? "目前沒有可播放題目" : countLabel}
+              </div>
+            </div>
           }
           thumbnailUrl={item.cover_thumbnail_url}
           badge={badge}
           mode={mode}
-          disabled={isCurrent || alreadySuggested}
+          disabled={disabled}
           actionText={isCurrent ? "已套用" : alreadySuggested ? "已推薦" : null}
+          lockReason={disabledByAvailability ? "目前沒有可播放題目" : null}
           metrics={
             <Metrics
               itemCount={item.item_count}
@@ -1290,9 +1320,22 @@ const PlaylistSelectorModal = ({
       usernames: string[];
     }) => {
       const item = group.representative;
+      const collectionId = item.sourceId ?? item.value;
       const matchedCollection = collections.find(
-        (entry) => entry.id === item.value,
+        (entry) => entry.id === collectionId,
       );
+      const suggestionAvailability = resolvePlaylistAvailabilityCounts({
+        playlistCount: item.totalCount,
+        playlistTotalCount: item.totalCount,
+        playlistPlayableCount: item.playableCount ?? null,
+      });
+      const suggestionAvailabilityLabel = formatPlaylistAvailabilityLabel({
+        playlistCount: item.totalCount,
+        playlistTotalCount: item.totalCount,
+        playlistPlayableCount: item.playableCount ?? null,
+      });
+      const unavailableCollectionSuggestion =
+        item.type === "collection" && suggestionAvailability.playable <= 0;
       const suggestionThumbnailUrl =
         item.type === "collection"
           ? (matchedCollection?.cover_thumbnail_url ?? null)
@@ -1315,16 +1358,24 @@ const PlaylistSelectorModal = ({
         <button
           key={group.key}
           type="button"
-          disabled={isCurrent || isLeaderboardLockedSuggestion}
+          disabled={
+            isCurrent ||
+            isLeaderboardLockedSuggestion ||
+            unavailableCollectionSuggestion
+          }
           onClick={() => {
             void (async () => {
               if (isLeaderboardLockedSuggestion) {
                 setActionError(leaderboardCollectionOnlyReason);
                 return;
               }
+              if (unavailableCollectionSuggestion) {
+                setActionError("目前沒有可播放題目");
+                return;
+              }
               if (isCurrent) return;
               if (actionRunning) return;
-              if (item.items?.length) {
+              if (item.type !== "collection" && item.items?.length) {
                 setActionRunning(true);
                 setPendingActionKey(
                   `suggestion:${item.clientId}:${item.suggestedAt}`,
@@ -1366,14 +1417,14 @@ const PlaylistSelectorModal = ({
               );
               try {
                 const ok = await onApplyCollectionDirect(
-                  item.value,
+                  collectionId,
                   item.title ?? matchedCollection?.title ?? null,
                 );
                 if (!ok) return;
                 onRecordSourceApplied({
                   sourceType: sourceType(matchedCollection?.visibility),
                   title: item.title ?? matchedCollection?.title ?? item.value,
-                  sourceId: item.value,
+                  sourceId: collectionId,
                   thumbnailUrl: matchedCollection?.cover_thumbnail_url ?? null,
                   itemCount:
                     item.totalCount ?? matchedCollection?.item_count ?? null,
@@ -1386,12 +1437,14 @@ const PlaylistSelectorModal = ({
             })();
           }}
           className={`relative flex h-[108px] w-full items-center gap-4 rounded-[24px] border px-4 text-left transition duration-200 ${
-            isCurrent || isLeaderboardLockedSuggestion
+            isCurrent ||
+            isLeaderboardLockedSuggestion ||
+            unavailableCollectionSuggestion
               ? "cursor-not-allowed border-white/10 bg-[#080d17]/88 text-slate-500"
               : "border-white/8 bg-[#060b16] hover:border-cyan-300/34 hover:bg-[#08101e]"
           }`}
         >
-          {isCurrent || isLeaderboardLockedSuggestion ? (
+          {isCurrent || isLeaderboardLockedSuggestion || unavailableCollectionSuggestion ? (
             <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(8,13,23,0.24),rgba(8,13,23,0.52))]" />
           ) : null}
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-cyan-400/8 text-cyan-100">
@@ -1411,7 +1464,9 @@ const PlaylistSelectorModal = ({
           <div className="min-w-0 flex-1">
             <div
               className={`line-clamp-1 text-[15px] font-semibold ${
-                isCurrent || isLeaderboardLockedSuggestion
+                isCurrent ||
+                isLeaderboardLockedSuggestion ||
+                unavailableCollectionSuggestion
                   ? "text-slate-300/80"
                   : "text-slate-50"
               }`}
@@ -1423,7 +1478,9 @@ const PlaylistSelectorModal = ({
             </div>
             <div
               className={`mt-1 line-clamp-2 text-[13px] leading-5 ${
-                isCurrent || isLeaderboardLockedSuggestion
+                isCurrent ||
+                isLeaderboardLockedSuggestion ||
+                unavailableCollectionSuggestion
                   ? "text-slate-400/70"
                   : "text-slate-300/78"
               }`}
@@ -1434,9 +1491,7 @@ const PlaylistSelectorModal = ({
                       group.usernames.length > 2 ? " 等" : ""
                     }`
                   : `推薦者 ${item.username}`,
-                item.totalCount
-                  ? `${Math.max(0, Number(item.totalCount))} 題`
-                  : null,
+                suggestionAvailabilityLabel,
                 item.type === "collection" ? "題庫推薦" : "播放清單推薦",
               ]
                 .filter(Boolean)

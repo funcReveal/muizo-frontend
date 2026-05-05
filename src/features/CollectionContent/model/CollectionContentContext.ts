@@ -12,6 +12,8 @@ export type CollectionEntry = {
   cover_source_id?: string | null;
   cover_provider?: string | null;
   item_count?: number;
+  playable_item_count?: number | null;
+  readToken?: string | null;
   use_count?: number;
   favorite_count?: number;
   rating_count?: number;

@@ -110,6 +110,8 @@ export interface RoomSummary {
   password?: string | null;
   pin?: string | null;
   playlistCount: number;
+  playlistTotalCount?: number;
+  playlistPlayableCount?: number | null;
   playlistId?: string | null;
   playlistTitle?: string | null;
   playlistCoverTitle?: string | null;
@@ -213,6 +215,7 @@ export type BeginRoomCreationPayload = {
     totalCount: number;
     chunkCount: number;
     playlistHash: string;
+    readToken?: string | null;
   };
 };
 

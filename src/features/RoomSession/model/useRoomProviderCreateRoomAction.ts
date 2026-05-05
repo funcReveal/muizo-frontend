@@ -74,6 +74,14 @@ interface UseRoomProviderCreateRoomActionParams {
   playlistItems: PlaylistItem[];
   lastFetchedPlaylistId: string | null;
   lastFetchedPlaylistTitle: string | null;
+  collections: Array<{
+    id: string;
+    visibility?: "private" | "public";
+    readToken?: string | null;
+    item_count?: number | null;
+    playable_item_count?: number | null;
+  }>;
+  createCollectionReadToken: (collectionId: string) => Promise<string>;
   clientId: string;
   fetchPlaylistPage: (
     roomId: string,
@@ -135,6 +143,8 @@ export const useRoomProviderCreateRoomAction = ({
   playlistItems,
   lastFetchedPlaylistId,
   lastFetchedPlaylistTitle,
+  collections,
+  createCollectionReadToken,
   fetchPlaylistPage,
   lockSessionClientId,
   persistRoomId,
@@ -299,9 +309,25 @@ export const useRoomProviderCreateRoomAction = ({
     const desiredVisibility = roomVisibilityInput;
     const desiredPin = trimmedPin || null;
 
+    const selectedCollection = lastFetchedPlaylistId
+      ? collections.find((item) => item.id === lastFetchedPlaylistId)
+      : null;
+    const availablePlaylistCount =
+      selectedCollection &&
+      (roomCreateSourceMode === "publicCollection" ||
+        roomCreateSourceMode === "privateCollection")
+        ? Math.max(
+            0,
+            Number(
+              selectedCollection.playable_item_count ??
+                selectedCollection.item_count ??
+                playlistItems.length,
+            ),
+          )
+        : playlistItems.length;
     const nextQuestionCount = clampQuestionCount(
       questionCount,
-      getQuestionMax(playlistItems.length),
+      getQuestionMax(availablePlaylistCount),
     );
     const nextPlayDurationSec = clampPlayDurationSec(playDurationSec);
     const nextRevealDurationSec = clampRevealDurationSec(revealDurationSec);
@@ -351,6 +377,31 @@ export const useRoomProviderCreateRoomAction = ({
       startOffsetSec: effectiveStartOffsetSec,
       allowCollectionClipTiming: effectiveAllowCollectionClipTiming,
     });
+    const resolvedSourceType = resolvePlaylistSourceType(roomCreateSourceMode);
+    let readToken: string | null = null;
+
+    if (
+      lastFetchedPlaylistId &&
+      (resolvedSourceType === "public_collection" ||
+        resolvedSourceType === "private_collection")
+    ) {
+      const selectedCollection = collections.find(
+        (item) => item.id === lastFetchedPlaylistId,
+      );
+      readToken = selectedCollection?.readToken ?? null;
+
+      if (resolvedSourceType === "private_collection" && !readToken) {
+        try {
+          readToken = await createCollectionReadToken(lastFetchedPlaylistId);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "無法取得收藏庫讀取權限";
+          setStatusText(message);
+          finalizeCreate();
+          return;
+        }
+      }
+    }
 
     const finalizeAck = await runRoomCreationFlow({
       socket,
@@ -373,9 +424,10 @@ export const useRoomProviderCreateRoomAction = ({
       playlist: {
         items: uploadItems,
         chunkSize: CHUNK_SIZE,
-        sourceType: resolvePlaylistSourceType(roomCreateSourceMode),
+        sourceType: resolvedSourceType,
         sourceId: lastFetchedPlaylistId,
         title: lastFetchedPlaylistTitle ?? null,
+        readToken,
       },
       onUploadStart: (progress) => {
         setPlaylistProgress(progress);
@@ -480,6 +532,8 @@ export const useRoomProviderCreateRoomAction = ({
   }, [
     allowCollectionClipTiming,
     authToken,
+    collections,
+    createCollectionReadToken,
     createRoomInFlightRef,
     fetchPlaylistPage,
     getSocket,

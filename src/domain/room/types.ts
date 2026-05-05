@@ -34,6 +34,7 @@ export interface PlaylistItem {
   videoId?: string;
   sourceId?: string | null;
   provider?: string;
+  playable?: boolean;
 }
 
 export interface RoomSummary {
@@ -48,6 +49,8 @@ export interface RoomSummary {
   hasPin?: boolean;
   password?: string | null;
   pin?: string | null;
+  playlistTotalCount?: number;
+  playlistPlayableCount?: number | null;
   visibility?: RoomVisibility;
   playlistId?: string | null;
   playlistTitle?: string | null;

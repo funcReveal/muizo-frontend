@@ -34,7 +34,10 @@ import {
   usePlaylistLiveSetters,
   usePlaylistSource,
 } from "@features/PlaylistSource";
-import { useCollectionAccess } from "@features/CollectionContent";
+import {
+  useCollectionAccess,
+  useCollectionContent,
+} from "@features/CollectionContent";
 import { useRoomSessionInternal } from "./RoomSessionInternalContext";
 import { useRoomGame } from "../RoomGameContext";
 import { useRoomSession } from "../RoomSessionContext";
@@ -57,8 +60,12 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
   const { resetPlaylistState } = usePlaylistInputControl();
   const { resetPlaylistPagingState, setPlaylistProgress } =
     usePlaylistLiveSetters();
-  const { resetCollectionSelection, clearCollectionsError } =
-    useCollectionAccess();
+  const {
+    resetCollectionSelection,
+    clearCollectionsError,
+    createCollectionReadToken,
+  } = useCollectionAccess();
+  const { collections } = useCollectionContent();
 
   const {
     playlistItems,
@@ -172,6 +179,8 @@ export const RoomCreateSubProvider: React.FC<{ children: ReactNode }> = ({
     playlistItems,
     lastFetchedPlaylistId,
     lastFetchedPlaylistTitle,
+    collections,
+    createCollectionReadToken,
     clientId,
     fetchPlaylistPage,
     lockSessionClientId,

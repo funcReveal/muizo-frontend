@@ -1,6 +1,7 @@
 ﻿import React from "react";
 
 import type { RoomSummary } from "@features/RoomSession";
+import { formatPlaylistAvailabilityLabel } from "@features/RoomSession/model/playlistAvailability";
 import {
   Alert,
   Box,
@@ -58,7 +59,7 @@ const InvitedPage: React.FC<InvitedPageProps> = ({
                 </Typography>
                 <Typography variant="body2" className="text-slate-200">
                   目前 {inviteRoom.playerCount} 人・清單{" "}
-                  {inviteRoom.playlistCount} 首・
+                  {formatPlaylistAvailabilityLabel(inviteRoom)}・
                   {inviteRoom.hasPassword ? "需要密碼" : "無需密碼"}
                 </Typography>
                 <Typography variant="caption" className="text-slate-300">

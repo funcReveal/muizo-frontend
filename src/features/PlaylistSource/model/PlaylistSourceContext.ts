@@ -66,6 +66,8 @@ export interface PlaylistSourceContextValue {
       useSnapshot?: boolean;
       sourceId?: string | null;
       title?: string | null;
+      readToken?: string | null;
+      totalCount?: number | null;
     },
   ) => Promise<{ ok: boolean; error?: string }>;
   handleApplySuggestionSnapshot: (suggestion: PlaylistSuggestion) => Promise<void>;

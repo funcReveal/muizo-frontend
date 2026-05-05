@@ -42,6 +42,7 @@ export type BeginRoomCreationPayload = {
     totalCount: number;
     chunkCount: number;
     playlistHash: string;
+    readToken?: string | null;
   };
 };
 

@@ -11,11 +11,14 @@ import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
 import type { PlaylistSourceType, RoomState } from "@features/RoomSession";
+import { formatPlaylistAvailabilityLabel } from "@features/RoomSession/model/playlistAvailability";
 import { normalizeDisplayText } from "./roomLobbyDisplayUtils";
 
 type CurrentPlaylistCardProps = {
   room: RoomState["room"] | null;
   playlistCount: number;
+  playlistPlayableCount?: number | null;
+  playlistTotalCount?: number | null;
   isHost: boolean;
   pendingSuggestionCount: number;
   onChange: (initialTab?: "suggestions" | "public") => void;
@@ -71,6 +74,8 @@ const playlistChipLabelSx = {
 const CurrentPlaylistCard = ({
   room,
   playlistCount,
+  playlistPlayableCount,
+  playlistTotalCount,
   isHost,
   pendingSuggestionCount,
   onChange,
@@ -94,6 +99,12 @@ const CurrentPlaylistCard = ({
   );
   const sourceLabel = sourceConfig?.label ?? "匯入題庫";
   const buttonLabel = actionLabel ?? (isHost ? "更換題庫" : "推薦題庫");
+  const availabilityLabel = formatPlaylistAvailabilityLabel({
+    playlistCount,
+    playlistPlayableCount,
+    playlistTotalCount,
+    playlist: room?.playlist,
+  });
   const canOpenSelector = !changeDisabled;
   const handleCardClick = () => {
     if (!isMobileCard || !canOpenSelector) return;
@@ -155,7 +166,7 @@ const CurrentPlaylistCard = ({
               <Chip
                 size="small"
                 icon={<QuizRoundedIcon sx={{ fontSize: 15 }} />}
-                label={`${Math.max(0, playlistCount)} 題`}
+                label={availabilityLabel}
                 sx={{
                   ...playlistChipSx,
                   backgroundColor: "rgba(250,204,21,0.12)",

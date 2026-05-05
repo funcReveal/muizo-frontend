@@ -197,6 +197,7 @@ export interface ClientToServerEvents {
         items?: PlaylistItem[];
         isLast?: boolean;
         pageSize?: number;
+        readToken?: string | null;
       };
     },
     callback?: (

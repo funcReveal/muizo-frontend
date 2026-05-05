@@ -415,6 +415,12 @@ export const mergeRoomSummaryIntoCurrentRoom = (
   ...(summary.password !== undefined ? { password: summary.password } : {}),
   ...(summary.pin !== undefined ? { pin: summary.pin } : {}),
   playlistCount: summary.playlistCount,
+  ...(summary.playlistTotalCount !== undefined
+    ? { playlistTotalCount: summary.playlistTotalCount }
+    : {}),
+  ...(summary.playlistPlayableCount !== undefined
+    ? { playlistPlayableCount: summary.playlistPlayableCount }
+    : {}),
   ...(summary.playlistId !== undefined
     ? { playlistId: summary.playlistId }
     : {}),
@@ -453,12 +459,18 @@ export const mergeRoomSummaryIntoCurrentRoom = (
     ...(summary.playlistSourceType !== undefined
       ? { sourceType: summary.playlistSourceType ?? null }
       : {}),
-    ...(typeof summary.playlistCount === "number"
+    ...(typeof summary.playlistCount === "number" ||
+    typeof summary.playlistTotalCount === "number" ||
+    typeof summary.playlistPlayableCount === "number"
       ? {
-          totalCount: summary.playlistCount,
+          totalCount: summary.playlistTotalCount ?? summary.playlistCount,
+          ...(summary.playlistPlayableCount !== undefined &&
+          summary.playlistPlayableCount !== null
+            ? { playableCount: summary.playlistPlayableCount }
+            : {}),
           receivedCount: Math.min(
             current.playlist.receivedCount,
-            summary.playlistCount,
+            summary.playlistTotalCount ?? summary.playlistCount,
           ),
         }
       : {}),

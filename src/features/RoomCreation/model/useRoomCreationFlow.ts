@@ -33,6 +33,7 @@ export type RunRoomCreationFlowParams = {
     sourceType?: PlaylistSourceType | null;
     sourceId?: string | null;
     title?: string | null;
+    readToken?: string | null;
   };
   onUploadStart?: (progress: RoomCreationFlowProgress) => void;
   onChunkUploaded?: (progress: RoomCreationFlowProgress) => void;
@@ -48,7 +49,7 @@ export const runRoomCreationFlow = async ({
   onChunkUploaded,
   onFinalizing,
 }: RunRoomCreationFlowParams): Promise<Ack<FinalizeRoomCreationResult>> => {
-  const { items, chunkSize, sourceType, sourceId, title } = playlist;
+  const { items, chunkSize, sourceType, sourceId, title, readToken } = playlist;
   const chunkCount = Math.ceil(items.length / chunkSize);
   const playlistHash = await computeStableHash(items);
 
@@ -62,6 +63,7 @@ export const runRoomCreationFlow = async ({
       totalCount: items.length,
       chunkCount,
       playlistHash,
+      readToken: readToken ?? null,
     },
   };
 

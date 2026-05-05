@@ -30,6 +30,9 @@ import {
 } from "../shared/model/collectionLimits";
 import ConfirmDialog from "@/shared/ui/ConfirmDialog";
 import { appToast } from "@/shared/ui/toastApi";
+import {
+  formatCollectionAvailabilityLabel,
+} from "@features/RoomSession/model/playlistAvailability";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -48,6 +51,7 @@ type DbCollection = {
   cover_source_id?: string | null;
   cover_provider?: string | null;
   item_count?: number | null;
+  playable_item_count?: number | null;
   use_count?: number | null;
   favorite_count?: number | null;
 };
@@ -440,7 +444,7 @@ const CollectionsPage = () => {
                 collection.cover_source_id
                   ? `https://i.ytimg.com/vi/${collection.cover_source_id}/hqdefault.jpg`
                   : "");
-              const itemCount = Math.max(0, Number(collection.item_count ?? 0));
+              const countLabel = formatCollectionAvailabilityLabel(collection);
               const useCount = Math.max(0, Number(collection.use_count ?? 0));
               const favoriteCount = Math.max(
                 0,
@@ -592,7 +596,7 @@ const CollectionsPage = () => {
                                 color: "rgba(103, 232, 249, 0.94)",
                               }}
                             />
-                            <span>{itemCount} 題</span>
+                            <span>{countLabel}</span>
                           </span>
                           <span className="inline-flex items-center gap-1.5">
                             <BarChartRounded

@@ -31,6 +31,7 @@ import VisibilityRounded from "@mui/icons-material/VisibilityRounded";
 import ViewAgendaRounded from "@mui/icons-material/ViewAgendaRounded";
 
 import type { PlaybackExtensionMode, RoomSummary } from "@domain/room/types";
+import { formatPlaylistAvailabilityLabel } from "@features/RoomSession/model/playlistAvailability";
 import VirtualJoinRoomRow, {
   type VirtualJoinRoomRowProps,
 } from "./VirtualJoinRoomRow";
@@ -620,7 +621,7 @@ const JoinRoomPanel = ({
                   {getRoomPlaylistLabel(room)}
                 </p>
                 <p className="mt-1 text-[11px] text-[var(--mc-text-muted)]/80">
-                  題庫題數：{room.playlistCount ?? 0} 題
+                  題庫題數：{formatPlaylistAvailabilityLabel(room)}
                 </p>
               </div>
             </div>

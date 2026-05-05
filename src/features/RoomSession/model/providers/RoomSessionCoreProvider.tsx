@@ -37,6 +37,7 @@ import {
   usePlaylistLiveSetters,
   usePlaylistSocketBridge,
   usePlaylistSource,
+  getQuestionMax,
   type PlaylistSourceContextValue,
 } from "@features/PlaylistSource";
 import {
@@ -135,7 +136,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     lastFetchedPlaylistId,
     lastFetchedPlaylistTitle,
     questionCount,
-    questionMaxLimit,
+    questionMaxLimit: baseQuestionMaxLimit,
     handleFetchPlaylist,
     handleResetPlaylist,
     updateQuestionCount: updateQuestionCountBase,
@@ -143,6 +144,21 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     playlistLoadingMore,
     playlistPageCursor,
   } = basePlaylistCtx;
+  const selectedCollectionForPlaylist = lastFetchedPlaylistId
+    ? collections.find((item) => item.id === lastFetchedPlaylistId)
+    : null;
+  const effectiveQuestionMaxLimit = selectedCollectionForPlaylist
+    ? getQuestionMax(
+        Math.max(
+          0,
+          Number(
+            selectedCollectionForPlaylist.playable_item_count ??
+              selectedCollectionForPlaylist.item_count ??
+              playlistItems.length,
+          ),
+        ),
+      )
+    : baseQuestionMaxLimit;
 
   const { pathname } = useLocation();
 
@@ -595,13 +611,13 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   // questionCount auto-clamp to playlist size
   useEffect(() => {
     if (playlistItems.length === 0) return;
-    if (questionCount > questionMaxLimit) {
-      updateQuestionCountBase(questionMaxLimit);
+    if (questionCount > effectiveQuestionMaxLimit) {
+      updateQuestionCountBase(effectiveQuestionMaxLimit);
     }
   }, [
+    effectiveQuestionMaxLimit,
     playlistItems.length,
     questionCount,
-    questionMaxLimit,
     updateQuestionCountBase,
   ]);
 
@@ -615,6 +631,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const fullPlaylistCtxValue = useMemo<PlaylistSourceContextValue>(
     () => ({
       ...basePlaylistCtx,
+      questionMax: effectiveQuestionMaxLimit,
+      questionMaxLimit: effectiveQuestionMaxLimit,
       loadMorePlaylist,
       handleFetchPlaylistByUrl,
       handleChangePlaylist,
@@ -626,6 +644,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     }),
     [
       basePlaylistCtx,
+      effectiveQuestionMaxLimit,
       loadMorePlaylist,
       handleFetchPlaylistByUrl,
       handleChangePlaylist,

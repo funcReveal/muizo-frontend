@@ -18,6 +18,12 @@ export interface PlaylistItem {
   videoId?: string;
   sourceId?: string | null;
   provider?: string;
+  /**
+   * Backend-authoritative playability flag.
+   * undefined = unknown or playable
+   * false = confirmed unavailable
+   */
+  playable?: boolean;
 }
 
 export type PlaylistSourceType =
@@ -33,6 +39,7 @@ export interface PlaylistState {
   uploadId?: string;
   items: PlaylistItem[];
   totalCount: number;
+  playableCount?: number;
   receivedCount: number;
   ready: boolean;
   pageSize: number;
@@ -46,6 +53,7 @@ export interface PlaylistSuggestion {
   suggestedAt: number;
   title?: string | null;
   totalCount?: number;
+  playableCount?: number;
   sourceId?: string | null;
   items?: PlaylistItem[];
   readToken?: string | null;
