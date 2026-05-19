@@ -162,7 +162,7 @@ const MOBILE_SCOREBOARD_PARTICLE_COUNT_CAP = 4;
 const MOBILE_SCOREBOARD_DRAWER_WIDTH_PX = 352;
 const MOBILE_SCORE_FEEDBACK_SCORE_DURATION_MS = 5000;
 const MOBILE_SCORE_FEEDBACK_RANK_DURATION_MS = 2500;
-const MOBILE_GAME_VIEWPORT_QUERY = "(max-width: 1279.95px)";
+const MOBILE_GAME_VIEWPORT_QUERY = "(max-width: 1479.95px)";
 
 const PLAYBACK_VOTE_DIALOG_PAPER_PROPS = {
   className: "game-room-playback-vote-dialog",
@@ -2228,9 +2228,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   return (
     <GameRoomDanmuProviderBridge roomId={room.id}>
       <div className="game-room-shell">
-        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] xl:pb-8 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] xl:h-[calc(100vh-124px)] xl:items-stretch">
+        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 min-[1480px]:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] min-[1480px]:pb-8 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] min-[1480px]:h-[calc(100vh-124px)] min-[1480px]:items-stretch">
           {!isMobileGameViewport && (
-            <div className="game-room-leaderboard-column hidden xl:block xl:h-full">
+            <div className="game-room-leaderboard-column hidden min-[1480px]:block min-[1480px]:h-full">
               <GameRoomLeaderboardSidebar
                 scoreboardRows={scoreboardRows}
                 answeredClientIdSet={answeredClientIdSet}
@@ -2263,7 +2263,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               />
             </div>
           )}
-          <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 xl:h-full xl:overflow-visible">
+          <section className={`game-room-main-section${!isMobileGameViewport ? " game-room-main-section--immersive" : ""} flex min-h-0 flex-col gap-2 min-[1480px]:h-full min-[1480px]:overflow-visible`}>
             <GameRoomPlaybackPanel
               mediaFrameRef={mobilePlaybackFrameRef}
               isMobileView={isMobileGameViewport}
@@ -2375,7 +2375,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </div>
             )}
             {isMobileGameViewport && (
-              <div className="game-room-mobile-action-dock xl:hidden">
+              <div className="game-room-mobile-action-dock min-[1480px]:hidden">
                 <div
                   className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
                     ? "game-room-mobile-action-subdock--compact"
@@ -2504,7 +2504,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 />
               )}
               <Drawer
-                className="game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard game-room-mobile-drawer-root--scoreboard-side xl:!hidden"
+                className="game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard game-room-mobile-drawer-root--scoreboard-side min-[1480px]:!hidden"
                 anchor="left"
                 open={mobileScoreboardOpen}
                 onClose={handleCloseMobileScoreboard}
@@ -2812,7 +2812,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           ) : null}
           {isHostInGame && isMobileGameViewport && hostManagementOpen && (
             <Drawer
-              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage xl:!hidden"
+              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage min-[1480px]:!hidden"
               anchor="bottom"
               open={hostManagementOpen}
               onClose={handleCloseHostManagement}

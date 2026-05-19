@@ -792,7 +792,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         </div>
 
         {!isOverlayMode && !shouldUseCompactMobileHeader && (
-          <div className={`flex items-center gap-2 ${isMobileView ? "w-full flex-col items-stretch" : ""}`}>
+          <div className="flex items-center gap-2 max-[760px]:w-full max-[760px]:flex-col max-[760px]:items-stretch">
             {headerActions}
             <Button
               variant="outlined"
@@ -800,7 +800,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
               size="small"
               startIcon={<LogoutRoundedIcon fontSize="small" />}
               onClick={onOpenExitConfirm}
-              className={`game-room-leave-btn ${isMobileView ? "!w-full !px-2 !py-1 !text-xs" : ""}`}
+              className="game-room-leave-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
             >
               離開房間
             </Button>

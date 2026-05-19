@@ -100,7 +100,11 @@ export function buildChallengeNearbyDisplayRows({
   const isAhead = (opponent: ChallengeNearbyOpponent): boolean => {
     const rank = getRank(opponent);
     if (rank !== null && effectiveSelfRank !== null) {
-      return rank < effectiveSelfRank;
+      if (rank !== effectiveSelfRank) return rank < effectiveSelfRank;
+      // rank === effectiveSelfRank: backend projected both at the same position.
+      // Use score as tiebreaker — a higher bestScore means the opponent is still
+      // ahead of Dream's current live run, even if the projected rank is tied.
+      return opponent.bestScore > liveScore;
     }
     return opponent.relation === "ahead";
   };
@@ -111,7 +115,11 @@ export function buildChallengeNearbyDisplayRows({
   ): number => {
     const rankA = getRank(a);
     const rankB = getRank(b);
-    if (rankA !== null && rankB !== null) return rankA - rankB;
+    if (rankA !== null && rankB !== null) {
+      if (rankA !== rankB) return rankA - rankB;
+      // Equal rank: higher score ranks better (closer to the top of the list).
+      return b.bestScore - a.bestScore;
+    }
     if (rankA !== null) return -1;
     if (rankB !== null) return 1;
     return b.bestScore - a.bestScore;

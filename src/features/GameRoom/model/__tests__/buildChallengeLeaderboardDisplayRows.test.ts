@@ -836,4 +836,108 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     expect(nearbyRows.map((row) => row.kind === "self" ? "self:12" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
       .toEqual(["rank9:10", "rank10:11", "self:12", "rank13:13", "rank14:14"]);
   });
+
+  // isAhead tiebreaker: same projected rank, opponent has higher score
+  it("nearby mode keeps opponent above self when same projected rank but opponent has higher score", () => {
+    const topFive = Array.from({ length: 5 }, (_, i) =>
+      makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
+    );
+    // Backend projects Dream at #84. Opponent is also at projected #84 but
+    // their bestScore (200) is higher than Dream's live score (195).
+    // This can occur when backend data is momentarily stale mid-question.
+    // Opponent should appear ABOVE Dream, not below.
+    const nearby = [
+      makeNearbyOpponent("rank82", 82, 230, 195),
+      makeNearbyOpponent("rank83", 83, 210, 195),
+      makeNearbyOpponent("rank84-highscore", 84, 200, 195),  // same rank as self, higher score
+      makeNearbyOpponent("rank85", 85, 180, 195),
+    ];
+    const data = makeData(84, topFive, nearby, "me", 195);
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 195,
+      meUserId: "me",
+      sessionPassCount: 1,
+    });
+    const nearbyRows = listRows.slice(
+      listRows.findIndex((row) => row.kind === "ellipsis") + 1,
+    );
+
+    // rank84-highscore outscores Dream → shows above Dream
+    const highScoreRow = nearbyRows.find(
+      (row) => row.kind === "player" && row.section === "nearby" && row.userId === "rank84-highscore",
+    );
+    const selfRow = nearbyRows.find((row) => row.kind === "self");
+    const highScoreIdx = nearbyRows.indexOf(highScoreRow!);
+    const selfIdx = nearbyRows.indexOf(selfRow!);
+    expect(highScoreIdx).toBeLessThan(selfIdx);
+  });
+
+  // isAhead tiebreaker: same projected rank, opponent has lower score (already passed)
+  it("nearby mode displaces to rank+1 when same projected rank and opponent has lower score", () => {
+    const topFive = Array.from({ length: 5 }, (_, i) =>
+      makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
+    );
+    const nearby = [
+      makeNearbyOpponent("rank82", 82, 230, 205),
+      makeNearbyOpponent("rank83", 83, 210, 205),
+      makeNearbyOpponent("rank84-lowscore", 84, 180, 205),  // same rank as self, lower score
+    ];
+    const data = makeData(84, topFive, nearby, "me", 205);
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 205,
+      meUserId: "me",
+      sessionPassCount: 1,
+    });
+    const nearbyRows = listRows.slice(
+      listRows.findIndex((row) => row.kind === "ellipsis") + 1,
+    );
+
+    // 3 above slots but only 2 ahead opponents → one placeholder, then rank82, rank83, self, rank84-lowscore
+    // rank84-lowscore was beaten (205 > 180) → sits below Dream at rank 85
+    expect(nearbyRows.map((row) =>
+      row.kind === "self"
+        ? "self:84"
+        : row.kind === "player" && row.section === "nearby"
+          ? `${row.userId}:${row.approxRank}`
+          : row.kind,
+    )).toEqual(["placeholder", "rank82:82", "rank83:83", "self:84", "rank84-lowscore:85"]);
+  });
+
+  // byRank tiebreaker: two opponents with equal getRank — higher score sorts first
+  it("nearby mode sorts equal-rank opponents by score descending", () => {
+    const topFive = Array.from({ length: 5 }, (_, i) =>
+      makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
+    );
+    // Two opponents with same backend rank but different scores.
+    // The one with the higher score should appear closer to the top (ahead).
+    const nearby = [
+      makeNearbyOpponent("tied-low", 83, 210, 195),
+      makeNearbyOpponent("tied-high", 83, 250, 195),
+    ];
+    const data = makeData(84, topFive, nearby, "me", 195);
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 195,
+      meUserId: "me",
+    });
+    const nearbyRows = listRows.slice(
+      listRows.findIndex((row) => row.kind === "ellipsis") + 1,
+    );
+
+    const tiedHighIdx = nearbyRows.findIndex(
+      (row) => row.kind === "player" && row.section === "nearby" && row.userId === "tied-high",
+    );
+    const tiedLowIdx = nearbyRows.findIndex(
+      (row) => row.kind === "player" && row.section === "nearby" && row.userId === "tied-low",
+    );
+    // tied-high (score 250) appears before tied-low (score 210)
+    expect(tiedHighIdx).not.toBe(-1);
+    expect(tiedLowIdx).not.toBe(-1);
+    expect(tiedHighIdx).toBeLessThan(tiedLowIdx);
+  });
 });

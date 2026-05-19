@@ -14613,20 +14613,22 @@
   }
 }
 
-@media (min-width: 1280px) and (max-width: 1480px) {
+@media (min-width: 1280px) and (max-width: 1479.95px) {
   .game-room-grid {
     grid-template-columns: minmax(0, 1fr) !important;
-    height: auto !important;
-  }
-
-  .game-room-grid > div:first-child {
-    display: block !important;
     height: auto !important;
   }
 
   .game-room-main-section {
     min-height: auto;
     overflow: visible;
+  }
+
+  /* Restore mobile media frame height: overrides the desktop-range rules above
+     (same specificity-30, later wins) so the compact-mobile video stays within
+     the correct clamp range instead of being expanded to 176-244 px. */
+  .game-room-main-section > .game-room-playback-panel--mobile-inline .game-room-media-frame {
+    height: clamp(141px, 22vh, 179px) !important;
   }
 }
 
