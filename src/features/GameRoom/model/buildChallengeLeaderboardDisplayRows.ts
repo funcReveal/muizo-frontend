@@ -113,12 +113,18 @@ interface BuildInput {
   data: ChallengeProjectedLeaderboardResponse;
   viewerScore: number;
   meUserId: string | null;
+  /**
+   * How many opponents the viewer has overtaken this session (0 / 1 / ≥2).
+   * Forwarded to the nearby window builder to control vertical position.
+   */
+  sessionPassCount?: number;
 }
 
 export function buildChallengeLeaderboardDisplayRows({
   data,
   viewerScore,
   meUserId,
+  sessionPassCount = 0,
 }: BuildInput): {
   layoutMode: ChallengeLayoutMode;
   listRows: ChallengeLeaderboardDisplayRow[];
@@ -151,7 +157,7 @@ export function buildChallengeLeaderboardDisplayRows({
     case "nearby":
       return {
         layoutMode,
-        listRows: buildNearbyRows(data, viewerScore, meUserId),
+        listRows: buildNearbyRows(data, viewerScore, meUserId, sessionPassCount),
       };
   }
 }
@@ -347,6 +353,7 @@ function buildNearbyRows(
   data: ChallengeProjectedLeaderboardResponse,
   viewerScore: number,
   meUserId: string | null,
+  sessionPassCount: number,
 ): ChallengeLeaderboardDisplayRow[] {
   const TARGET_TOP = 5;
   const topFive = data.topEntries.slice(0, TARGET_TOP);
@@ -372,6 +379,7 @@ function buildNearbyRows(
     liveScore: viewerScore,
     meUserId,
     slots: 5,
+    sessionPassCount,
   });
 
   let nearbyPlaceholderIdx = 0;

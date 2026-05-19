@@ -12,13 +12,6 @@ const formatScoreCombo = (score: number, combo: number) =>
 const SCOREBOARD_AVATAR_SIZE = 32;
 const SCOREBOARD_AVATAR_CONTENT_SIZE = 26;
 
-export type ChallengeRankChangePulse = {
-  key: number;
-  fromRank: number;
-  toRank: number;
-  direction: "up" | "down";
-};
-
 interface ChallengeTopEntryRowProps {
   entry: ChallengeLeaderboardEntry;
 
@@ -207,46 +200,12 @@ export const ChallengePlaceholderRow = React.memo(
   },
 );
 
-interface ChallengeScoreGainLaneProps {
-  gainAmount?: number;
-}
-
-const ChallengeScoreGainLane = React.memo(function ChallengeScoreGainLane({
-  gainAmount = 0,
-}: ChallengeScoreGainLaneProps) {
-  if (gainAmount <= 0) return null;
-  return (
-    <span className="challenge-lb-score-gain-lane" aria-hidden="true">
-      +{gainAmount.toLocaleString()}
-    </span>
-  );
-});
-
-const ChallengeRankChangeLane = React.memo(function ChallengeRankChangeLane({
-  rankChange,
-}: {
-  rankChange: ChallengeRankChangePulse;
-}) {
-  return (
-    <span
-      key={rankChange.key}
-      className={`challenge-lb-rank-change-lane challenge-lb-rank-change-lane--${rankChange.direction}`}
-      aria-hidden="true"
-    >
-      #{rankChange.fromRank} → #{rankChange.toRank}
-    </span>
-  );
-});
-
 interface ChallengeSelfRowProps {
   standing: ChallengeProjectedMyStanding;
   isSettled?: boolean;
   displayName?: string;
   avatarUrl?: string | null;
   combo?: number;
-  gainAnimKey?: number;
-  gainAmount?: number;
-  rankChange?: ChallengeRankChangePulse | null;
 
   /**
    * Rank shown in the UI list.
@@ -263,11 +222,6 @@ interface ChallengeSelfRowProps {
    */
   gapToNext?: number | null;
 
-  /**
-   * When false, suppresses the gain lane (use for sticky self bar where the
-   * panel-level padding-right is not available).
-   */
-  showGainLane?: boolean;
 }
 
 export const ChallengeSelfRow = React.memo(
@@ -277,12 +231,8 @@ export const ChallengeSelfRow = React.memo(
     displayName,
     avatarUrl,
     combo = 0,
-    gainAnimKey = 0,
-    gainAmount = 0,
-    rankChange = null,
     displayRank = null,
     // gapToNext is part of the data model but not rendered on the self row
-    showGainLane = true,
   }: ChallengeSelfRowProps) {
     const { liveScore, projectedRank, officialRank } = standing;
     const name = normalizeRoomDisplayText(displayName ?? "", "Player");
@@ -293,14 +243,20 @@ export const ChallengeSelfRow = React.memo(
           ? officialRank
           : projectedRank;
 
-    const rankLabel = rankValue !== null ? `#${rankValue}` : "--";
+    const isOutsideTop1000 =
+      !isSettled && projectedRank === null && standing.nextTarget !== null;
+    const rankLabel = rankValue !== null
+      ? `#${rankValue}`
+      : isOutsideTop1000
+        ? "未上榜"
+        : "--";
     const rankColor = isSettled ? "text-amber-300" : "text-sky-300";
 
-    const rowEl = (
+    return (
       <div className="game-room-score-row game-room-score-row--me challenge-lb-self-row flex items-center justify-between text-sm bg-white/8 ring-1 ring-white/15">
         <span className="challenge-lb-row__identity flex min-w-0 flex-1 items-center gap-2 truncate">
           <span
-            className={`w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none ${rankColor}`}
+            className={`${isOutsideTop1000 ? "w-10" : "w-5"} shrink-0 text-center text-xs font-bold tabular-nums leading-none ${rankColor}`}
           >
             {rankLabel}
           </span>
@@ -324,19 +280,6 @@ export const ChallengeSelfRow = React.memo(
             {formatScoreCombo(liveScore, combo)}
           </span>
         </span>
-      </div>
-    );
-
-    if (!showGainLane) return rowEl;
-
-    return (
-      <div className="challenge-lb-self-row-shell">
-        {rowEl}
-        {rankChange ? (
-          <ChallengeRankChangeLane rankChange={rankChange} />
-        ) : (
-          <ChallengeScoreGainLane key={gainAnimKey} gainAmount={gainAmount} />
-        )}
       </div>
     );
   },

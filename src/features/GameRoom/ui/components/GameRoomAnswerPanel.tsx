@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Button, Chip, LinearProgress } from "@mui/material";
 
 import RevealChoiceAvatarRow from "./RevealChoiceAvatarRow";
@@ -12,7 +12,6 @@ import type {
 interface GameRoomAnswerPanelProps {
   isMobileView?: boolean;
   isInitialCountdown: boolean;
-  countdownTone: string;
   isReveal: boolean;
   revealTone: "neutral" | "locked" | "correct" | "wrong";
   isInterTrackWait: boolean;
@@ -69,6 +68,7 @@ interface GameRoomAnswerPanelProps {
   /** When true, the embedded player HUD already shows phase chrome (chip,
    *  title, progress bar). Hide these in the answer panel to avoid duplication.
    *  Covers both guess and reveal embedded HUD modes. */
+  shouldHideAnswerPhaseChrome?: boolean;
   shouldHideMobileAnswerPhaseChrome?: boolean;
 }
 type InlineStatusSegmentTone =
@@ -114,9 +114,9 @@ const resolveInlineStatusTone = (text: string): InlineStatusSegmentTone => {
   if (/^[+-]\d+/.test(text) || text.startsWith("分數")) return "score";
   if (text.startsWith("答對")) return "correct";
   if (text.startsWith("答錯")) return "wrong";
-  if (text.startsWith("未作答") || text.startsWith("待答")) return "muted";
-  if (text.startsWith("正解")) return "answer";
-  if (text.startsWith("全場答對率") || text.startsWith("第")) return "accent";
+  if (text.startsWith("未作答") || text.startsWith("等待")) return "muted";
+  if (text.startsWith("答案")) return "answer";
+  if (text.startsWith("全場答對") || text.startsWith("連擊")) return "accent";
   return "neutral";
 };
 
@@ -125,7 +125,7 @@ const splitInlineStatusSegments = (
   options?: { omitAnswered?: boolean },
 ): InlineStatusSegment[] =>
   text
-    .split("·")
+    .split("繚")
     .map((segment) => segment.trim())
     .filter(Boolean)
     .filter((segment) =>
@@ -135,66 +135,6 @@ const splitInlineStatusSegments = (
       text: segment,
       tone: resolveInlineStatusTone(segment),
     }));
-
-const GameRoomStartCountdownDisplay = React.memo(function GameRoomStartCountdownDisplay({
-  startedAt,
-  countdownTone,
-  getLocalNowMs,
-}: {
-  startedAt: number;
-  countdownTone: string;
-  getLocalNowMs: () => number;
-}) {
-  const [countdownSec, setCountdownSec] = React.useState(() =>
-    Math.max(1, Math.ceil(Math.max(0, startedAt - getLocalNowMs()) / 1000)),
-  );
-
-  // ── 優化說明 ────────────────────────────────────────────────────────────────
-  // 舊版在最後 4.2 秒切成 125ms（每秒 8 次 wakeup），但 setCountdownSec 有
-  // bail-out，實際 re-render 仍只發生在秒數邊界。移除高頻段，改「秒邊界排程」：
-  // 下一次 tick 精準落在下個整秒切換點，每秒最多 1 次 wakeup。倒數為 0 時停。
-  React.useEffect(() => {
-    let timerId: number | null = null;
-    const tick = () => {
-      const remainingMs = Math.max(0, startedAt - getLocalNowMs());
-      const nextCountdownSec = Math.max(1, Math.ceil(remainingMs / 1000));
-      setCountdownSec((current) =>
-        current === nextCountdownSec ? current : nextCountdownSec,
-      );
-      if (remainingMs <= 0) {
-        timerId = null;
-        return;
-      }
-      // 落到下一個整秒邊界（最後 1 秒內保持 250ms 響應）
-      const nextDelay =
-        remainingMs > 1000
-          ? (remainingMs % 1000) || 1000
-          : Math.min(250, remainingMs);
-      timerId = window.setTimeout(tick, nextDelay);
-    };
-    tick();
-    return () => {
-      if (timerId !== null) window.clearTimeout(timerId);
-    };
-  }, [getLocalNowMs, startedAt]);
-
-  return (
-    <div className="flex flex-col items-center py-6 text-center">
-      <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-slate-300">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
-        即將開始
-      </div>
-      <div
-        className={`mt-5 flex h-28 w-28 items-center justify-center rounded-full border ${countdownTone}`}
-      >
-        <span className="text-5xl font-black tracking-widest sm:text-6xl">
-          {countdownSec}
-        </span>
-      </div>
-      <p className="mt-3 text-xs text-slate-400">請準備，歌曲即將開始。</p>
-    </div>
-  );
-});
 
 const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
   isInterTrackWait,
@@ -248,12 +188,12 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
   const [label, setLabel] = React.useState(resolveLabel);
   const isNumericCountdownLabel = /^(\d+s|\d+:\d{2})$/.test(label);
 
-  // ── 優化說明 ────────────────────────────────────────────────────────────────
-  // 倒數歸零後停止 timer（phase 結束後伺服器會推送新狀態，不需繼續輪詢）。
-  // 舊版最後 4.5 秒用 125ms（每秒 8 次 wakeup）但 setLabel 有 string bail-out，
-  // 真正 re-render 只在秒數邊界發生。改「秒邊界排程」，每秒最多 1 次 wakeup。
-  // Urgency 視覺效果由父層 isGuessUrgency / urgentChipPingActive 另外控制，
-  // 跟此 tick 頻率無關。
+  // ?? ?芸?隤芣? ????????????????????????????????????????????????????????????????
+  // ?甇賊敺?甇?timer嚗hase 蝯?敺撩??????銝?蝜潛?頛芾岷嚗?
+  // ???敺?4.5 蝘 125ms嚗?蝘?8 甈?wakeup嚗? setLabel ??string bail-out嚗?
+  // ?迤 re-render ?芸蝘???潛??????????瘥??憭?1 甈?wakeup??
+  // Urgency 閬死???梁撅?isGuessUrgency / urgentChipPingActive ?血??批嚗?
+  // 頝迨 tick ?餌??⊿???
   React.useEffect(() => {
     if (allAnsweredReadyForReveal) {
       setLabel("READY");
@@ -278,12 +218,12 @@ const GameRoomPhaseStatusChip = React.memo(function GameRoomPhaseStatusChip({
               : 0) - Math.max(0, now - startedAt),
           )
           : Math.max(0, phaseEndsAt - now);
-      // 倒數到 0 → 停止；伺服器推送下一個 phase 時 props 更新，effect 重啟
+      // ???0 ???迫嚗撩??券?銝??phase ??props ?湔嚗ffect ??
       if (remainingMs <= 0) {
         timerId = null;
         return;
       }
-      // 落到下一個整秒邊界（最後 1 秒內保持 250ms 響應）
+      // ?賢銝??蝘????敺?1 蝘靽? 250ms ?踵?嚗?
       const nextDelay =
         remainingMs > 1000
           ? (remainingMs % 1000) || 1000
@@ -343,10 +283,10 @@ const GameRoomRevealCountdownText = React.memo(function GameRoomRevealCountdownT
     Math.max(0, Math.ceil(Math.max(0, revealEndsAt - getLocalNowMs()) / 1000)),
   );
 
-  // ── 優化說明 ────────────────────────────────────────────────────────────────
-  // 舊版固定 250ms 輪詢（每秒 4 次 render）。
-  // 新版改為「秒數邊界觸發」：計算距離下次整秒還有幾 ms 才排程，
-  // 且倒數到 0 時立刻停止，不留殘留 timer。
+  // ?? ?芸?隤芣? ????????????????????????????????????????????????????????????????
+  // ???箏? 250ms 頛芾岷嚗?蝘?4 甈?render嚗?
+  // ?啁??寧???賊??孛?潦?閮?頝銝活?渡???撟?ms ??蝔?
+  // 銝??0 ???餃?甇ｇ?銝?畾? timer??
   React.useEffect(() => {
     let timerId: number | null = null;
     const tick = () => {
@@ -358,11 +298,11 @@ const GameRoomRevealCountdownText = React.memo(function GameRoomRevealCountdownT
         );
       }
       if (remainingMs <= 0) {
-        // 倒數結束：停止 timer，伺服器會推下一個 phase
+        // ?蝯?嚗?甇?timer嚗撩??銝???phase
         timerId = null;
         return;
       }
-      // 排程在下一個整秒邊界觸發（最後 1 秒內用 250ms 保持響應）
+      // ???其?銝?蝘??孛?潘??敺?1 蝘??250ms 靽??踵?嚗?
       const nextDelay =
         remainingMs > 1000
           ? (remainingMs % 1000) || 1000
@@ -375,13 +315,12 @@ const GameRoomRevealCountdownText = React.memo(function GameRoomRevealCountdownT
     };
   }, [getLocalNowMs, revealEndsAt]);
 
-  return <p className="mt-1 text-xs text-emerald-200">{countdownSec} 秒後下一題</p>;
+  return <p className="mt-1 text-xs text-emerald-200">{countdownSec} 秒後繼續</p>;
 });
 
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   isMobileView = false,
   isInitialCountdown,
-  countdownTone,
   isReveal,
   revealTone,
   isInterTrackWait,
@@ -426,8 +365,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   recoveryStatusText = null,
   isLeaderboardRoom = false,
   leaderboardLockShakeKey = 0,
+  shouldHideAnswerPhaseChrome = false,
   shouldHideMobileAnswerPhaseChrome = false,
 }) => {
+  const hideAnswerPhaseChrome =
+    shouldHideAnswerPhaseChrome || shouldHideMobileAnswerPhaseChrome;
   const getLocalNowMs = React.useCallback(
     () => Date.now() + serverOffsetMs,
     [serverOffsetMs],
@@ -456,7 +398,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     void el.offsetWidth; // force reflow to restart animation
     el.classList.add("game-room-choice-shake");
   }, [leaderboardLockShakeKey]);
-  const shouldHideDesktopRevealCard = !isMobileView;
   const shouldShowInlinePhaseStatus = !isInitialCountdown;
   const desktopStatusLabel = isReveal
     ? myFeedback.tone === "correct"
@@ -481,7 +422,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
       : "";
   const mobileInlineAnsweredText =
     liveParticipantCount > 0
-      ? `已答${liveAnsweredCount}/${liveParticipantCount}`
+      ? `已答 ${liveAnsweredCount}/${liveParticipantCount}`
       : "";
   const mobileGuessAnsweredText =
     isMobileView && !isReveal && !isInterTrackWait && !isEnded
@@ -509,9 +450,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
       return [];
     }
     return [
-      { text: `答對 ${liveCorrectCount}`, tone: "correct" as const },
-      { text: `答錯 ${liveWrongCount}`, tone: "wrong" as const },
-      { text: `未作答 ${liveUnansweredCount}`, tone: "muted" as const },
+      { text: `蝑? ${liveCorrectCount}`, tone: "correct" as const },
+      { text: `蝑 ${liveWrongCount}`, tone: "wrong" as const },
+      { text: `?芯?蝑?${liveUnansweredCount}`, tone: "muted" as const },
     ];
   }, [
     liveCorrectCount,
@@ -526,7 +467,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
 
     // During reconnection the server clock is unreliable and we don't want
     // the bar to animate (it would race to 0 and look like the game froze).
-    // Hide the custom bar entirely — the recovery overlay takes over.
+    // Hide the custom bar entirely ??the recovery overlay takes over.
     if (isRecoveringConnection) {
       fill.style.transition = "none";
       fill.style.transform = "scaleX(0)";
@@ -635,14 +576,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
       className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${isMobileView ? "game-room-answer-panel--mobile" : ""
         } ${!isMobileView ? "game-room-answer-panel--desktop" : ""} flex min-h-0 flex-col text-slate-50 lg:flex-1`}
     >
-      {isInitialCountdown && !isRecoveringConnection ? (
-        <GameRoomStartCountdownDisplay
-          startedAt={startedAt}
-          countdownTone={countdownTone}
-          getLocalNowMs={getLocalNowMs}
-        />
-      ) : (
-        <div
+      <div
           className={`game-room-answer-layout ${isReveal
             ? "game-room-answer-layout--reveal"
             : "game-room-answer-layout--guess"
@@ -658,13 +592,13 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
           <div className="game-room-answer-body">
             <div className="game-room-answer-head flex items-center gap-3">
               <div className="game-room-answer-head__main min-w-0 flex-1">
-                {!shouldHideMobileAnswerPhaseChrome && (
+                {!hideAnswerPhaseChrome && (
                   isRecoveringConnection ? (
-                    /* ── Recovery chip: replaces the normal countdown chip ──── */
+                    /* ?? Recovery chip: replaces the normal countdown chip ???? */
                     <Chip
                       label={
                         <span className="game-room-phase-chip-label">
-                          重新連線中
+                          ????銝?
                         </span>
                       }
                       size="small"
@@ -687,16 +621,16 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     />
                   )
                 )}
-                {!shouldHideMobileAnswerPhaseChrome && (
+                {!hideAnswerPhaseChrome && (
                   <p className="game-room-title">
                     {isRecoveringConnection
-                      ? (recoveryStatusText ?? "正在恢復房間狀態...")
+                      ? (recoveryStatusText ?? "甇??Ｗ儔?輸????..")
                       : isInterTrackWait
-                        ? "下一題準備中"
+                        ? "銝?憿??葉"
                         : phaseLabel}
                   </p>
                 )}
-                {shouldShowInlinePhaseStatus && !isMobileView && !isRecoveringConnection ? (
+                {shouldShowInlinePhaseStatus && !hideAnswerPhaseChrome && !isMobileView && !isRecoveringConnection ? (
                   <div className="game-room-guess-inline-status">
                     <span
                       className={`game-room-guess-status-pill game-room-guess-status-pill--${myFeedback.tone}`}
@@ -741,7 +675,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               ) : null}
             </div>
 
-            {!shouldHideMobileAnswerPhaseChrome && (
+            {!hideAnswerPhaseChrome && (
               <div
                 className={`game-room-phase-progress ${isGuessUrgency && !isRecoveringConnection ? "game-room-phase-progress--urgent" : ""}`}
               >
@@ -773,7 +707,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-3 md:grid-cols-2 ${isMobileView ? "game-room-options-grid--mobile" : ""
                 }`}
             >
-              {isInterTrackWait
+              {isInitialCountdown || isInterTrackWait
                 ? Array.from(
                   {
                     length: Math.max(4, choices.length),
@@ -788,10 +722,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                       className="game-room-choice-button game-room-choice-placeholder justify-start"
                     >
                       <div className="game-room-choice-content flex w-full items-start justify-between gap-2">
-                        <span className="game-room-choice-title text-slate-500">下一題準備中</span>
-                        <span className="game-room-choice-key ml-3 inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-800 text-[11px] font-semibold text-slate-500">
-                          --
+                        <span className="game-room-choice-placeholder-lines">
+                          <span className="game-room-choice-placeholder-line game-room-choice-placeholder-line--title" />
+                          <span className="game-room-choice-placeholder-line game-room-choice-placeholder-line--meta" />
                         </span>
+                        <span className="game-room-choice-key game-room-choice-key--placeholder ml-3 inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-800 text-[11px] font-semibold text-slate-500" />
                       </div>
                     </Button>
                   ),
@@ -805,7 +740,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     choice.title?.trim() ||
                     playlist[choice.index]?.answerText?.trim() ||
                     playlist[choice.index]?.title?.trim(),
-                    "未命名選項",
+                    "未知選項",
                   );
                   const revealPicks = revealChoicePickMap[choice.index] ?? [];
                   const hasRevealPicks = isReveal && revealPicks.length > 0;
@@ -919,8 +854,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             </div>
           </div>
 
-          {!shouldHideMobileAnswerPhaseChrome && (
-            <div className={`game-room-reveal ${shouldHideDesktopRevealCard ? "game-room-reveal--hidden-desktop" : ""}`}>
+          {!hideAnswerPhaseChrome && (
+            <div className="game-room-reveal">
               <div
                 className={`game-room-reveal-card rounded-lg border game-room-reveal-card--${revealTone} ${isReveal ? "game-room-reveal-card--result game-room-reveal-card--result-burst" : ""
                   } ${isPendingFeedbackCard ? "game-room-reveal-card--pending" : ""} ${isComboBreakThisQuestion && comboBreakTier > 0
@@ -947,7 +882,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                         : "game-room-feedback-pill--placeholder"
                         }`}
                     >
-                      {(myFeedback.pillText ?? myFeedback.detail) || "等待揭曉"}
+                      {(myFeedback.pillText ?? myFeedback.detail) || "蝑??剜?"}
                     </span>
                   )}
                 </div>
@@ -997,7 +932,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 {isReveal && (
                   <>
                     <p className="game-room-reveal-answer mt-1 text-sm text-emerald-50">
-                      <span className="mr-1 text-[11px] font-semibold text-emerald-200">正解</span>
+                      <span className="mr-1 text-[11px] font-semibold text-emerald-200">甇?圾</span>
                       {resolvedAnswerTitle}
                     </p>
                     {gameStatus === "playing" ? (
@@ -1008,7 +943,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     ) : (
                       <div className="mt-1 flex items-center justify-between">
                         <p className="text-xs text-emerald-200">
-                          對戰已結束，可返回房間或直接離開遊戲。
+                          撠撌脩????航?????湔?ａ????
                         </p>
                         <Button
                           size="small"
@@ -1016,7 +951,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                           color="inherit"
                           onClick={onOpenExitConfirm}
                         >
-                          離開遊戲
+                          ?ａ??
                         </Button>
                       </div>
                     )}
@@ -1026,7 +961,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
             </div>
           )}
         </div>
-      )}
     </div>
   );
 };

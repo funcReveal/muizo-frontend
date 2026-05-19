@@ -27,21 +27,36 @@ interface BuildNearbyDisplayRowsInput {
   liveScore: number;
   meUserId: string | null;
   slots?: number;
+  /**
+   * How many opponents the viewer has overtaken in this game session (0 / 1 / ≥2).
+   * Controls the viewer's vertical position inside the nearby window:
+   *   0 → viewer pinned at bottom   (4 above, 0 below)
+   *   1 → viewer one from bottom    (3 above, 1 below)
+   *   ≥2 → viewer centred (locked)  (2 above, 2 below)
+   */
+  sessionPassCount?: number;
 }
 
 /**
- * Builds the fixed-height nearby section.
+ * Builds the fixed-height nearby section for the challenge leaderboard.
  *
- * This intentionally keeps the master slot model:
- * - when no visible opponents have been passed, self sits at the bottom
- *   below the four closest ahead players;
- * - after one local pass, one passed row is shown below self;
- * - after two or more local passes, self is centered with two rows above and
- *   two rows below whenever the backend window has enough data;
- * - the sticky self row is rendered separately by the panel.
+ * Slot allocation — driven by sessionPassCount (how many opponents overtaken
+ * during this game session), NOT by absolute rank position:
  *
- * Ranks shown here are local display estimates only. The backend remains the
- * authoritative source and the frontend never sends score/rank back.
+ *   sessionPassCount=0  → 4 above, 0 below  — viewer starts pinned at bottom
+ *   sessionPassCount=1  → 3 above, 1 below  — moves up after first overtake
+ *   sessionPassCount≥2  → 2 above, 2 below  — centred and locked for rest of game
+ *
+ * This gives players a sense of "climbing" rather than always being in the
+ * middle.  The backend returns 4 ahead + 2 passed, so all cases are covered.
+ *
+ * Opponent selection:
+ *   above — the aboveSlots players with ranks just above viewer (closest first from bottom)
+ *   below — the belowSlots players with ranks just below viewer (closest first from top)
+ *
+ * Ranks:
+ *   Backend sets opponent.rank via projectedRank ± offset. Used directly; approx fallback
+ *   is computed only when opponent.rank is absent.
  */
 export function buildChallengeNearbyDisplayRows({
   nearbyOpponents,
@@ -49,164 +64,91 @@ export function buildChallengeNearbyDisplayRows({
   liveScore,
   meUserId,
   slots = 5,
+  sessionPassCount = 0,
 }: BuildNearbyDisplayRowsInput): ChallengeDisplayRow[] {
-  const passedMax = Math.floor((slots - 1) / 2);
+  const { projectedRank, totalPlayers } = myStanding;
 
   const opponents = meUserId
     ? nearbyOpponents.filter((opponent) => opponent.userId !== meUserId)
     : nearbyOpponents;
 
-  const displayMyRank = myStanding.projectedRank;
-
-  if (displayMyRank !== null && liveScore > 0) {
-    return buildRankCenteredRows({
-      opponents,
-      myStanding,
-      liveScore,
-      displayMyRank,
-      slots,
-    });
-  }
-
-  const ahead = opponents
-    .filter((opponent) =>
-      isOpponentAheadOfViewer(opponent, displayMyRank, liveScore),
-    )
-    .sort(compareRankedOpponents);
-
-  const passed = opponents
-    .filter(
-      (opponent) =>
-        !isOpponentAheadOfViewer(opponent, displayMyRank, liveScore),
-    )
-    .sort(compareRankedOpponents);
-
-  const passedSlots = Math.min(passed.length, passedMax);
-  const aheadSlots = slots - 1 - passedSlots;
-  const displayAhead = ahead.slice(-aheadSlots);
-  const displayPassed = passed.slice(0, passedSlots);
-  const aheadPadCount = Math.max(0, aheadSlots - displayAhead.length);
-  const passedPadCount = Math.max(0, passedSlots - displayPassed.length);
-
-  const rows: ChallengeDisplayRow[] = [];
-
-  for (let index = 0; index < aheadPadCount; index += 1) {
-    rows.push({ type: "placeholder", key: `ap:${index}` });
-  }
-
-  displayAhead.forEach((opponent, index) => {
-    const fallbackRank =
-      displayMyRank !== null
-        ? displayMyRank - (displayAhead.length - index)
-        : null;
-    rows.push({
-      type: "opponent",
-      opponent,
-      approxRank: opponent.rank ?? clampRank(fallbackRank, myStanding.totalPlayers),
-      liveGap: opponent.bestScore - liveScore,
-      key: opponent.userId,
-    });
-  });
-
-  rows.push({
-    type: "self",
-    standing: myStanding,
-    approxRank: displayMyRank,
-    key: "self",
-  });
-
-  displayPassed.forEach((opponent, index) => {
-    const fallbackRank =
-      displayMyRank !== null ? displayMyRank + index + 1 : null;
-    rows.push({
-      type: "opponent",
-      opponent,
-      approxRank: opponent.rank ?? clampRank(fallbackRank, myStanding.totalPlayers),
-      liveGap: opponent.bestScore - liveScore,
-      key: opponent.userId,
-    });
-  });
-
-  for (let index = 0; index < passedPadCount; index += 1) {
-    rows.push({ type: "placeholder", key: `pp:${index}` });
-  }
-
-  return rows;
-}
-
-function buildRankCenteredRows({
-  opponents,
-  myStanding,
-  liveScore,
-  displayMyRank,
-  slots,
-}: {
-  opponents: ChallengeNearbyOpponent[];
-  myStanding: ChallengeProjectedMyStanding;
-  liveScore: number;
-  displayMyRank: number;
-  slots: number;
-}): ChallengeDisplayRow[] {
   const maxBelowSlots = Math.floor((slots - 1) / 2);
-  const remainingPlayersBelow =
-    myStanding.totalPlayers > 0
-      ? Math.max(0, myStanding.totalPlayers - displayMyRank)
-      : maxBelowSlots;
-  const belowSlots = Math.min(maxBelowSlots, remainingPlayersBelow);
-  const aboveSlots = slots - 1 - belowSlots;
-  const rankedOpponents = opponents
-    .filter((opponent) => opponent.rank !== null)
-    .sort(compareRankedOpponents);
-  const rankedAbove = rankedOpponents
-    .filter((opponent) => opponent.rank !== null && opponent.rank < displayMyRank)
-    .slice(-aboveSlots);
-  const rankedBelow = rankedOpponents
-    .filter((opponent) => opponent.rank !== null && opponent.rank > displayMyRank)
-    .slice(0, belowSlots);
-  const selectedIds = new Set<string>();
-  rankedAbove.forEach((opponent) => selectedIds.add(opponent.userId));
-  rankedBelow.forEach((opponent) => selectedIds.add(opponent.userId));
+  const rankByUserId = new Map<string, number | null>(
+    opponents.map((opponent) => [opponent.userId, opponent.rank]),
+  );
 
-  const fallbackAbove = opponents
-    .filter(
-      (opponent) =>
-        !selectedIds.has(opponent.userId) &&
-        isOpponentAheadOfViewer(opponent, displayMyRank, liveScore),
-    )
-    .sort(compareAheadFallbackOpponents)
-    .slice(0, Math.max(0, aboveSlots - rankedAbove.length));
-  fallbackAbove.forEach((opponent) => selectedIds.add(opponent.userId));
-
-  const fallbackBelow = opponents
-    .filter(
-      (opponent) =>
-        !selectedIds.has(opponent.userId) &&
-        !isOpponentAheadOfViewer(opponent, displayMyRank, liveScore),
-    )
-    .sort(comparePassedFallbackOpponents)
-    .slice(0, Math.max(0, belowSlots - rankedBelow.length));
-
-  const above = [...fallbackAbove, ...rankedAbove]
-    .slice(-aboveSlots)
-    .sort(compareDisplayAboveOpponents);
-  const below = [...rankedBelow, ...fallbackBelow]
-    .slice(0, belowSlots)
-    .sort(compareDisplayBelowOpponents);
-
-  const rows: ChallengeDisplayRow[] = [];
-  const abovePadCount = Math.max(0, aboveSlots - above.length);
-  const belowPadCount = Math.max(0, belowSlots - below.length);
-
-  for (let index = 0; index < abovePadCount; index += 1) {
-    rows.push({ type: "placeholder", key: `ap:${index}` });
+  let effectiveSelfRank = projectedRank;
+  if (effectiveSelfRank !== null) {
+    opponents
+      .filter(
+        (opponent) =>
+          opponent.rank !== null &&
+          opponent.rank < effectiveSelfRank! &&
+          liveScore > opponent.bestScore,
+      )
+      .sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0))
+      .forEach((opponent) => {
+        if (effectiveSelfRank === null) return;
+        rankByUserId.set(opponent.userId, effectiveSelfRank);
+        effectiveSelfRank -= 1;
+      });
   }
 
-  above.forEach((opponent, index) => {
-    const fallbackRank = displayMyRank - (above.length - index);
+  const getRank = (opponent: ChallengeNearbyOpponent): number | null =>
+    rankByUserId.get(opponent.userId) ?? opponent.rank;
+
+  const isAhead = (opponent: ChallengeNearbyOpponent): boolean => {
+    const rank = getRank(opponent);
+    if (rank !== null && effectiveSelfRank !== null) {
+      return rank < effectiveSelfRank;
+    }
+    return opponent.relation === "ahead";
+  };
+
+  const byRank = (
+    a: ChallengeNearbyOpponent,
+    b: ChallengeNearbyOpponent,
+  ): number => {
+    const rankA = getRank(a);
+    const rankB = getRank(b);
+    if (rankA !== null && rankB !== null) return rankA - rankB;
+    if (rankA !== null) return -1;
+    if (rankB !== null) return 1;
+    return b.bestScore - a.bestScore;
+  };
+
+  const aheadSorted = opponents.filter(isAhead).sort(byRank);
+  const passedSorted = opponents.filter((opponent) => !isAhead(opponent)).sort(byRank);
+  const shouldReserveBelowSlots =
+    effectiveSelfRank !== null &&
+    liveScore > 0 &&
+    (totalPlayers <= 0 || effectiveSelfRank < totalPlayers);
+  const belowSlots = Math.min(
+    maxBelowSlots,
+    passedSorted.length > 0
+      ? Math.max(sessionPassCount, passedSorted.length)
+      : shouldReserveBelowSlots
+        ? maxBelowSlots
+        : sessionPassCount,
+  );
+  const aboveSlots = slots - 1 - belowSlots;
+  const above = aheadSorted.slice(-aboveSlots);
+  const below = passedSorted.slice(0, belowSlots);
+
+  const rows: ChallengeDisplayRow[] = [];
+
+  for (let i = 0; i < aboveSlots - above.length; i += 1) {
+    rows.push({ type: "placeholder", key: `ap:${i}` });
+  }
+
+  above.forEach((opponent, i) => {
+    const fallbackRank =
+      projectedRank !== null ? projectedRank - (above.length - i) : null;
+    const rank = getRank(opponent);
     rows.push({
       type: "opponent",
       opponent,
-      approxRank: opponent.rank ?? clampRank(fallbackRank, myStanding.totalPlayers),
+      approxRank: clampRank(rank ?? fallbackRank, totalPlayers),
       liveGap: opponent.bestScore - liveScore,
       key: opponent.userId,
     });
@@ -215,97 +157,28 @@ function buildRankCenteredRows({
   rows.push({
     type: "self",
     standing: myStanding,
-    approxRank: displayMyRank,
+    approxRank: effectiveSelfRank,
     key: "self",
   });
 
-  below.forEach((opponent, index) => {
-    const fallbackRank = displayMyRank + index + 1;
+  below.forEach((opponent, i) => {
+    const fallbackRank =
+      projectedRank !== null ? projectedRank + i + 1 : null;
+    const rank = getRank(opponent);
     rows.push({
       type: "opponent",
       opponent,
-      approxRank: opponent.rank ?? clampRank(fallbackRank, myStanding.totalPlayers),
+      approxRank: clampRank(rank ?? fallbackRank, totalPlayers),
       liveGap: opponent.bestScore - liveScore,
       key: opponent.userId,
     });
   });
 
-  for (let index = 0; index < belowPadCount; index += 1) {
-    rows.push({ type: "placeholder", key: `pp:${index}` });
+  for (let i = 0; i < belowSlots - below.length; i += 1) {
+    rows.push({ type: "placeholder", key: `pp:${i}` });
   }
 
   return rows;
-}
-
-function compareRankedOpponents(
-  a: ChallengeNearbyOpponent,
-  b: ChallengeNearbyOpponent,
-): number {
-  if (a.rank !== null && b.rank !== null && a.rank !== b.rank) {
-    return a.rank - b.rank;
-  }
-  return b.bestScore - a.bestScore;
-}
-
-function compareAheadFallbackOpponents(
-  a: ChallengeNearbyOpponent,
-  b: ChallengeNearbyOpponent,
-): number {
-  if (a.rank !== null || b.rank !== null) {
-    if (a.rank === null) return 1;
-    if (b.rank === null) return -1;
-    return b.rank - a.rank;
-  }
-  return a.bestScore - b.bestScore;
-}
-
-function comparePassedFallbackOpponents(
-  a: ChallengeNearbyOpponent,
-  b: ChallengeNearbyOpponent,
-): number {
-  if (a.rank !== null || b.rank !== null) {
-    if (a.rank === null) return 1;
-    if (b.rank === null) return -1;
-    return a.rank - b.rank;
-  }
-  return b.bestScore - a.bestScore;
-}
-
-function compareDisplayAboveOpponents(
-  a: ChallengeNearbyOpponent,
-  b: ChallengeNearbyOpponent,
-): number {
-  if (a.rank !== null || b.rank !== null) {
-    if (a.rank === null) return -1;
-    if (b.rank === null) return 1;
-    return a.rank - b.rank;
-  }
-  return b.bestScore - a.bestScore;
-}
-
-function compareDisplayBelowOpponents(
-  a: ChallengeNearbyOpponent,
-  b: ChallengeNearbyOpponent,
-): number {
-  if (a.rank !== null || b.rank !== null) {
-    if (a.rank === null) return 1;
-    if (b.rank === null) return -1;
-    return a.rank - b.rank;
-  }
-  return b.bestScore - a.bestScore;
-}
-
-function isOpponentAheadOfViewer(
-  opponent: ChallengeNearbyOpponent,
-  displayMyRank: number | null,
-  liveScore: number,
-): boolean {
-  if (opponent.bestScore > liveScore) return true;
-  if (opponent.bestScore < liveScore) return false;
-  if (opponent.rank !== null && displayMyRank !== null) {
-    return opponent.rank < displayMyRank;
-  }
-  return opponent.relation === "ahead";
 }
 
 function clampRank(

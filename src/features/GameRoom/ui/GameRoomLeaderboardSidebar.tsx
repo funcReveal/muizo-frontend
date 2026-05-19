@@ -75,8 +75,8 @@ export interface GameRoomLeaderboardSidebarProps {
   onActiveTabChange?: (tab: GameRoomScoreboardTab) => void;
   challengeProjectionState: ChallengeProjectionState;
   onChallengeProjectionRefresh: () => void;
-  challengeGainAnimKey: number;
-  challengeGainAmount: number;
+  /** How many opponents overtaken this session (0 / 1 / ≥2). */
+  sessionPassCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,8 +140,7 @@ const GameRoomLeaderboardSidebar: React.FC<GameRoomLeaderboardSidebarProps> = ({
   onActiveTabChange,
   challengeProjectionState,
   onChallengeProjectionRefresh,
-  challengeGainAnimKey,
-  challengeGainAmount,
+  sessionPassCount = 0,
 }) => {
   const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<GameRoomScoreboardTab>(
     isLeaderboardRoom ? "challenge" : "room",
@@ -216,8 +215,7 @@ const GameRoomLeaderboardSidebar: React.FC<GameRoomLeaderboardSidebarProps> = ({
             viewerAvatarUrl={viewerAvatarUrl}
             viewerCombo={viewerCombo}
             viewerScore={myLiveScore}
-            gainAnimKey={challengeGainAnimKey}
-            gainAmount={challengeGainAmount}
+            sessionPassCount={sessionPassCount}
           />
         ) : (
           <RoomScoreboardPanel

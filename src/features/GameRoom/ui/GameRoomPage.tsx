@@ -160,8 +160,9 @@ const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 100;
 const MOBILE_SCOREBOARD_PARTICLE_COUNT_CAP = 4;
 
 const MOBILE_SCOREBOARD_DRAWER_WIDTH_PX = 352;
-const MOBILE_SCORE_FEEDBACK_SCORE_DURATION_MS = 2500;
+const MOBILE_SCORE_FEEDBACK_SCORE_DURATION_MS = 5000;
 const MOBILE_SCORE_FEEDBACK_RANK_DURATION_MS = 2500;
+const MOBILE_GAME_VIEWPORT_QUERY = "(max-width: 1279.95px)";
 
 const PLAYBACK_VOTE_DIALOG_PAPER_PROPS = {
   className: "game-room-playback-vote-dialog",
@@ -341,12 +342,14 @@ const useGameRoomUiClock = ({
 const GameRoomMobilePersonalRankCard = React.memo(function GameRoomMobilePersonalRankCard({
   participant,
   rank,
+  rankLabel,
   score,
   combo,
   onOpenLeaderboard,
 }: {
   participant: RoomState["participants"][number] | null;
   rank: number | null;
+  rankLabel?: string | null;
   score: number | null;
   combo: number;
   onOpenLeaderboard: () => void;
@@ -385,7 +388,7 @@ const GameRoomMobilePersonalRankCard = React.memo(function GameRoomMobilePersona
       </span>
 
       <span className="game-room-mobile-rank-card__rank">
-        {rank != null ? `#${rank}` : "--"}
+        {rankLabel ?? (rank != null ? `#${rank}` : "--")}
       </span>
 
       <span className="game-room-mobile-rank-card__score">
@@ -442,7 +445,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => getStoredShowVideoPreference(),
   );
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
-  const isMobileGameViewport = useMediaQuery("(max-width: 1023.95px)");
+  const isMobileGameViewport = useMediaQuery(MOBILE_GAME_VIEWPORT_QUERY);
   const [mobileBottomPanel, setMobileBottomPanel] =
     useState<MobileBottomPanel>(null);
   const [scoreFeedbackTab, setScoreFeedbackTab] =
@@ -455,8 +458,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     MOBILE_SCOREBOARD_DEFAULT_HEIGHT_VH,
   );
   const mobilePlaybackFrameRef = useRef<HTMLDivElement | null>(null);
-  const [mobileScoreFeedbackAnchorStyle, setMobileScoreFeedbackAnchorStyle] =
-    useState<CSSProperties | undefined>(undefined);
   const [mobileScoreboardSwapReplayToken, setMobileScoreboardSwapReplayToken] =
     useState(0);
   const [mobileScoreboardSwapArmed, setMobileScoreboardSwapArmed] =
@@ -708,7 +709,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     meClientId,
     playbackVoteRequestPending,
   });
-  // Use the backend-authoritative vote directly — the backend now preserves
+  // Use the backend-authoritative vote directly; the backend now preserves
   // restartGameVote across question advances when the vote is still active.
   const restartGameVote: RestartGameVoteState | null = gameState.restartGameVote ?? null;
   const restartVoteApproveCount = restartGameVote?.approveClientIds.length ?? 0;
@@ -889,8 +890,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       if (!isInitiator) {
         appToast.info(
           currentVote?.action === "return_to_lobby"
-            ? "有人發起了回到房間投票"
-            : "有人發起了重新開始投票",
+            ? "有人發起回到房間投票"
+            : "有人發起重新開始投票",
           {
             id: "restart-vote-started",
             duration: 4000,
@@ -899,15 +900,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       }
     } else if (prevStatus === "active" && nextStatus === "rejected") {
       appToast.error(
-        `${currentVote?.action === "return_to_lobby"
-          ? "回到房間投票"
-          : "重新開始投票"
-        }未通過（${currentVote?.approveClientIds.length ?? 0} / ${currentVote?.eligibleClientIds.length ?? 0
-        } 票贊成）`,
+        `${currentVote?.action === "return_to_lobby" ? "回到房間投票" : "重新開始投票"}未通過：${currentVote?.approveClientIds.length ?? 0} / ${currentVote?.eligibleClientIds.length ?? 0} 人同意`,
         { id: "restart-vote-rejected", duration: 5000 },
       );
     }
-    // "approved" needs no toast — the game restart event is self-evident.
+    // "approved" needs no toast; the game restart event is self-evident.
 
     prevRestartVoteStatusRef.current = nextStatus;
   }, [gameState.restartGameVote, meClientId]);
@@ -935,7 +932,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     minHeight: MOBILE_SCOREBOARD_MIN_HEIGHT_VH,
     maxHeight: MOBILE_SCOREBOARD_MAX_HEIGHT_VH,
     onHeightChange: handleScoreboardHeightChange,
-    threshold: 52,
+    threshold: 40,
     thresholdBuffer: 20,
   });
   const mobileScoreboardDismissState = mobileScoreboardDragDismiss.canDismiss
@@ -1026,10 +1023,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const startCountdownSec = Math.max(1, Math.ceil(remainingToStartMs / 1000));
   const isInitialCountdown = waitingToStart && trackCursor === 0;
   const isInterTrackWait = waitingToStart && !isInitialCountdown;
-  const isFinalCountdown = isInitialCountdown && startCountdownSec <= 3;
-  const countdownTone = isFinalCountdown
-    ? "border-rose-400/70 bg-rose-500/20 text-rose-100 shadow-[0_0_35px_rgba(244,63,94,0.45)]"
-    : "border-amber-400/60 bg-amber-400/15 text-amber-100 shadow-[0_0_28px_rgba(251,191,36,0.35)]";
 
   const {
     audioUnlocked,
@@ -1184,7 +1177,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
     lastPlaybackVoteToastKeyRef.current = toastKey;
 
-    appToast.info("有人發起了延長播放投票，點擊右上角「延長播放」進行表態。", {
+    appToast.info("有人發起延長播放投票，請選擇是否同意。", {
       id: "playback-extension-vote-started",
       duration: 4500,
     });
@@ -1282,8 +1275,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const {
     state: challengeProjectionState,
     refresh: refreshChallengeProjection,
-    gainAnimKey: challengeGainAnimKey,
-    gainAmount: challengeGainAmount,
+    sessionPassCount,
   } = useChallengeLeaderboardProjection({
     enabled: challengeProjectionEnabled,
     roomId: room.id,
@@ -1297,20 +1289,23 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     challengeProjectionState.status === "loaded"
       ? challengeProjectionState.data
       : null;
+  const scoreFeedbackScope: GameRoomScoreboardTab = isLeaderboardRoom
+    ? "challenge"
+    : "room";
   const { topTwoSwapState, resetTopTwoSwapState } =
     useTopTwoSwapState(sortedParticipants);
   const mobileScoreFeedbackEvent = useMobileScoreFeedback({
     participants,
     meClientId,
-    enabled: isMobileGameViewport && gameState.status === "playing",
+    enabled: gameState.status === "playing",
     gameStatus: gameState.status,
-    scope: isLeaderboardRoom ? scoreFeedbackTab : "room",
+    scope: scoreFeedbackScope,
     resetKey: [
       room.id,
       projectionSessionKey,
       trackSessionKey,
       gameState.status,
-      isLeaderboardRoom ? scoreFeedbackTab : "room",
+      scoreFeedbackScope,
       challengeFeedbackProjection?.collectionId ?? "",
       challengeFeedbackProjection?.profileKey ?? "",
       meClientId ?? "",
@@ -1318,9 +1313,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     scoreDurationMs: MOBILE_SCORE_FEEDBACK_SCORE_DURATION_MS,
     rankDurationMs: MOBILE_SCORE_FEEDBACK_RANK_DURATION_MS,
     challengeProjection:
-      isLeaderboardRoom && scoreFeedbackTab === "challenge"
-        ? challengeFeedbackProjection
-        : null,
+      scoreFeedbackScope === "challenge" ? challengeFeedbackProjection : null,
   });
   const mobileUnansweredFeedbackEvent =
     useMemo<MobileScoreFeedbackEvent | null>(() => {
@@ -1331,77 +1324,20 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
       return {
         type: "unanswered",
-        scope: isLeaderboardRoom ? scoreFeedbackTab : "room",
+        scope: scoreFeedbackScope,
         questionKey: trackSessionKey,
       };
     }, [
       gameState.phase,
       gameState.status,
-      isLeaderboardRoom,
       isMobileGameViewport,
-      scoreFeedbackTab,
+      scoreFeedbackScope,
       selectedChoice,
       trackSessionKey,
     ]);
 
   const mobileFeedbackEvent =
     mobileUnansweredFeedbackEvent ?? mobileScoreFeedbackEvent;
-  useEffect(() => {
-    if (!isMobileGameViewport || gameState.status !== "playing") {
-      deferStateUpdate(() => setMobileScoreFeedbackAnchorStyle(undefined));
-      return;
-    }
-
-    const frame = mobilePlaybackFrameRef.current;
-    if (!frame) {
-      return;
-    }
-
-    let rafId: number | null = null;
-    const updateAnchor = () => {
-      if (rafId !== null) {
-        return;
-      }
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        const rect = frame.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          return;
-        }
-
-        const nextLeft = Math.max(8, Math.round(rect.left + 10));
-        const nextTop = Math.round(rect.top + rect.height * 0.3);
-        setMobileScoreFeedbackAnchorStyle((current) => {
-          if (current?.left === nextLeft && current?.top === nextTop) {
-            return current;
-          }
-          return {
-            left: nextLeft,
-            top: nextTop,
-          };
-        });
-      });
-    };
-
-    updateAnchor();
-    window.addEventListener("resize", updateAnchor, { passive: true });
-    window.addEventListener("scroll", updateAnchor, { passive: true });
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(updateAnchor);
-    resizeObserver?.observe(frame);
-
-    return () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-      window.removeEventListener("resize", updateAnchor);
-      window.removeEventListener("scroll", updateAnchor);
-      resizeObserver?.disconnect();
-    };
-  }, [gameState.status, isMobileGameViewport]);
   const { resetQuestionRecaps } = useGameRoomRecaps({
     isReveal,
     trackSessionKey,
@@ -1549,8 +1485,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ? effectiveGuessDurationMs
       : gameState.revealDurationMs;
 
-  const preStartCountdownSfxSec = startCountdownSec;
-
   const executeRequestPlaybackVote = useCallback(async () => {
     if (!canRequestPlaybackExtensionVote || !onRequestPlaybackExtensionVote) {
       return;
@@ -1565,7 +1499,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
       if (ok) {
         setPlaybackVoteConfirmOpen(false);
-        appToast.info("已發起延長播放投票，其他玩家可點擊右上角「延長播放」表態。", {
+        appToast.info("已發起延長播放投票，等待其他玩家回應。", {
           id: "playback-extension-vote-requested",
           duration: 3500,
         });
@@ -1663,7 +1597,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         if (ok) {
           setRestartVoteDialogOpen(false);
         }
-        // If !ok, the server will send updated state via socket — no local manipulation needed.
+        // If !ok, the server will send updated state via socket; no local manipulation needed.
       } finally {
         setRestartVoteSubmitPending(null);
       }
@@ -1735,7 +1669,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     isReveal,
     isInterTrackWait,
     waitingToStart,
-    preStartCountdownSfxSec,
     phaseEndsAt,
     meClientId,
     selectedChoice,
@@ -1777,10 +1710,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       isLeaderboardRoom && scoreFeedbackTab === "challenge"
         ? challengeFeedbackProjection?.myStanding.projectedRank ?? null
         : roomScoreboardRankModel.meRoomRank;
+    const rankLabel =
+      isLeaderboardRoom &&
+      scoreFeedbackTab === "challenge" &&
+      challengeFeedbackProjection?.rankingScope === "outside_top1000"
+        ? "未上榜"
+        : null;
 
     return {
       participant,
       rank,
+      rankLabel,
       score: participant?.score ?? null,
       combo: participant?.combo ?? 0,
     };
@@ -1827,7 +1767,74 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     ],
   );
 
-  const shouldHideMobileAnswerPhaseChrome = mobileEmbeddedHudMode !== null;
+  const desktopEmbeddedHudMode: "guess" | null =
+    !isMobileGameViewport &&
+      gameState.phase === "guess" &&
+      !isReveal &&
+      !isInterTrackWait &&
+      !isEnded &&
+      !isRecoveringConnection
+      ? "guess"
+      : null;
+
+  const desktopEmbeddedHudConfig = useMemo(
+    () => ({
+      mode: desktopEmbeddedHudMode,
+      serverOffsetMs,
+      activePhaseDurationMs,
+      phaseEndsAt,
+      revealEndsAt: gameState.revealEndsAt,
+      trackSessionKey,
+      allAnsweredReadyForReveal,
+      isRecoveringConnection,
+      liveAnsweredCount: displayAnsweredCount,
+      liveParticipantCount: displayParticipantCount,
+    }),
+    [
+      desktopEmbeddedHudMode,
+      serverOffsetMs,
+      activePhaseDurationMs,
+      phaseEndsAt,
+      gameState.revealEndsAt,
+      trackSessionKey,
+      allAnsweredReadyForReveal,
+      isRecoveringConnection,
+      displayAnsweredCount,
+      displayParticipantCount,
+    ],
+  );
+
+  const desktopScoreFeedbackOverlay = useMemo(
+    () =>
+      !isMobileGameViewport && gameState.status === "playing" ? (
+        <MobileScoreFeedbackOverlay
+          event={mobileFeedbackEvent}
+          placement="media-embedded"
+        />
+      ) : null,
+    [gameState.status, isMobileGameViewport, mobileFeedbackEvent],
+  );
+  const mobileScoreFeedbackOverlay = useMemo(
+    () =>
+      isMobileGameViewport && gameState.status === "playing" ? (
+        <MobileScoreFeedbackOverlay
+          event={mobileFeedbackEvent}
+          placement="mobile-embedded"
+        />
+      ) : null,
+    [gameState.status, isMobileGameViewport, mobileFeedbackEvent],
+  );
+
+  // Desktop: hide phase chrome during both guess AND reveal phases (embedded HUD owns all chrome).
+  // Recovery / inter-track / ended states are excluded so important prompts remain visible.
+  const shouldHideAnswerPhaseChrome =
+    mobileEmbeddedHudMode !== null ||
+    desktopEmbeddedHudMode !== null ||
+    (!isMobileGameViewport &&
+      isReveal &&
+      !isInterTrackWait &&
+      !isEnded &&
+      !isRecoveringConnection);
 
   const handleShowVideoChange = useCallback((show: boolean) => {
     setShowVideoOverride(show);
@@ -1908,9 +1915,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     const showRestartBtn = gameState.status === "playing";
     if (!showRestartBtn && !isHostInGame && !voteButton) return null;
     const restartBtnLabel = restartVoteRequestPending
-      ? "投票中..."
+      ? "處理中..."
       : isRestartVoteActive
-        ? `${restartVoteActionLabel}投票 ${restartVoteApproveCount}/${restartVoteMajorityCount}`
+        ? `${restartVoteActionLabel} ${restartVoteApproveCount}/${restartVoteMajorityCount}`
         : restartNowVoteView.buttonLabel;
     return (
       <Stack
@@ -1981,9 +1988,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             startIcon={<ManageAccountsRoundedIcon />}
             className="game-room-host-manage-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
             onClick={handleOpenHostManagement}
-          >
-            房主管理
-          </Button>
+          >房主管理</Button>
         )}
 
       </Stack>
@@ -2085,7 +2090,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         {hostManageParticipants.length === 0 ? (
           <div className="game-room-host-manage-empty">
             <span className="game-room-host-manage-empty__eyebrow">
-              管理列表
+              房主工具
             </span>
             <Typography
               variant="body1"
@@ -2097,7 +2102,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               variant="body2"
               className="game-room-host-manage-empty__note"
             >
-              有玩家加入房間後，就可以在這裡進行轉移房主、踢出或封鎖。
+              玩家加入後會顯示在這裡，你可以轉移房主、踢出或封鎖玩家。
             </Typography>
           </div>
         ) : (
@@ -2189,7 +2194,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     data-hm-action="kick"
                     data-hm-client-id={participant.clientId}
                   >
-                    踢出(永久封鎖)
+                    踢出(5 分鐘)
                   </Button>
                   <Button
                     size="small"
@@ -2199,7 +2204,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     data-hm-action="ban"
                     data-hm-client-id={participant.clientId}
                   >
-                    踢出(5分鐘)
+                    永久封鎖
                   </Button>
                 </Stack>
               </Stack>
@@ -2218,13 +2223,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   return (
     <GameRoomDanmuProviderBridge roomId={room.id}>
       <div className="game-room-shell">
-        <MobileScoreFeedbackOverlay
-          event={mobileFeedbackEvent}
-          anchorStyle={mobileScoreFeedbackAnchorStyle}
-        />
-        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 lg:grid-cols-[minmax(274px,318px)_minmax(0,1fr)] lg:pb-8 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] lg:h-[calc(100vh-124px)] lg:items-stretch">
+        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] xl:pb-8 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] xl:h-[calc(100vh-124px)] xl:items-stretch">
           {!isMobileGameViewport && (
-            <div className="game-room-leaderboard-column hidden lg:block lg:h-full">
+            <div className="game-room-leaderboard-column hidden xl:block xl:h-full">
               <GameRoomLeaderboardSidebar
                 scoreboardRows={scoreboardRows}
                 answeredClientIdSet={answeredClientIdSet}
@@ -2252,19 +2253,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 onActiveTabChange={setScoreFeedbackTab}
                 challengeProjectionState={challengeProjectionState}
                 onChallengeProjectionRefresh={refreshChallengeProjection}
-                challengeGainAnimKey={challengeGainAnimKey}
-                challengeGainAmount={challengeGainAmount}
                 isSettled={gameState.status === "ended"}
+                sessionPassCount={sessionPassCount}
               />
             </div>
           )}
-          <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-visible">
+          <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 xl:h-full xl:overflow-visible">
             <GameRoomPlaybackPanel
               mediaFrameRef={mobilePlaybackFrameRef}
               isMobileView={isMobileGameViewport}
               isCompactMobile={isMobileGameViewport}
               isRevealPhase={isReveal}
-              revealAnswerTitle={resolvedAnswerTitle}
               roomName={resolvedRoomName}
               boundedCursor={boundedCursor}
               trackOrderLength={trackOrderLength}
@@ -2288,11 +2287,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               onGameVolumeChange={setGameVolume}
               videoId={videoId}
               mobileEmbeddedHud={isMobileGameViewport ? mobileEmbeddedHudConfig : undefined}
+              desktopEmbeddedHud={!isMobileGameViewport ? desktopEmbeddedHudConfig : undefined}
+              mobileScoreFeedbackOverlay={mobileScoreFeedbackOverlay}
+              desktopScoreFeedbackOverlay={desktopScoreFeedbackOverlay}
             />
             <GameRoomAnswerPanel
               isMobileView={isMobileGameViewport}
               isInitialCountdown={isInitialCountdown}
-              countdownTone={countdownTone}
               isReveal={isReveal}
               revealTone={revealTone}
               isInterTrackWait={isInterTrackWait}
@@ -2353,13 +2354,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               recoveryStatusText={recoveryStatusText}
               isLeaderboardRoom={isLeaderboardRoom}
               leaderboardLockShakeKey={leaderboardLockShakeKey}
-              shouldHideMobileAnswerPhaseChrome={shouldHideMobileAnswerPhaseChrome}
+              shouldHideAnswerPhaseChrome={shouldHideAnswerPhaseChrome}
             />
             {isMobileGameViewport && gameState.status === "playing" && (
               <div className="game-room-mobile-after-options">
                 <GameRoomMobilePersonalRankCard
                   participant={mobilePersonalRankCardModel.participant}
                   rank={mobilePersonalRankCardModel.rank}
+                  rankLabel={mobilePersonalRankCardModel.rankLabel}
                   score={mobilePersonalRankCardModel.score}
                   combo={mobilePersonalRankCardModel.combo}
                   onOpenLeaderboard={handleToggleMobileScoreboard}
@@ -2368,7 +2370,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </div>
             )}
             {isMobileGameViewport && (
-              <div className="game-room-mobile-action-dock lg:hidden">
+              <div className="game-room-mobile-action-dock xl:hidden">
                 <div
                   className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
                     ? "game-room-mobile-action-subdock--compact"
@@ -2497,7 +2499,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 />
               )}
               <Drawer
-                className="game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard game-room-mobile-drawer-root--scoreboard-side lg:!hidden"
+                className="game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard game-room-mobile-drawer-root--scoreboard-side xl:!hidden"
                 anchor="left"
                 open={mobileScoreboardOpen}
                 onClose={handleCloseMobileScoreboard}
@@ -2571,9 +2573,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     onActiveTabChange={setScoreFeedbackTab}
                     challengeProjectionState={challengeProjectionState}
                     onChallengeProjectionRefresh={refreshChallengeProjection}
-                    challengeGainAnimKey={challengeGainAnimKey}
-                    challengeGainAmount={challengeGainAmount}
                     isSettled={gameState.status === "ended"}
+                    sessionPassCount={sessionPassCount}
                   />
                 </div>
               </Drawer>
@@ -2595,10 +2596,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               <DialogContent dividers>
                 <Stack spacing={1.2}>
                   <Typography variant="body2" className="text-slate-300">
-                    發起後，所有符合資格的玩家都可以投票。多數玩家同意後，本題會延長播放時間。
+                    發起後會讓玩家投票是否延長目前歌曲播放時間，方便大家確認答案。
                   </Typography>
                   <Typography variant="caption" className="text-slate-500">
-                    投票會持續到目前歌曲結束前。若投票未通過，本題你將不能再次發起延長播放投票。
+                    投票通過後才會延長播放；未通過則維持原本流程。
                   </Typography>
                 </Stack>
               </DialogContent>
@@ -2635,13 +2636,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <Stack spacing={1.2}>
                   <Typography variant="body2" className="text-slate-200">
                     {playbackVoteRequesterName}{" "}
-                    {`提議將本題多播放 ${playbackVoteProposalSeconds} 秒。`}
+                    {`提議延長播放 ${playbackVoteProposalSeconds} 秒`}
                   </Typography>
                   <div className="game-room-playback-vote-dialog__stats">
                     <span>{`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
                     <span>{`不同意 ${playbackVoteRejectCount}`}</span>
                     <Typography variant="body2" className="text-slate-300">
-                      這個投票會持續到目前歌曲結束前。多數玩家同意後，會立即延長播放時間。
+                      多數玩家同意後會延長目前播放時間，已投票後不可變更。
                     </Typography>
                   </div>
                 </Stack>
@@ -2660,8 +2661,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   {playbackVoteSubmitPending === "reject"
                     ? "送出中..."
                     : myPlaybackVote === "reject"
-                      ? "已選擇維持原長度"
-                      : "維持原播放長度"}
+                      ? "已選擇不同意"
+                      : "不同意延長"}
                 </Button>
 
                 <Button
@@ -2677,8 +2678,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   {playbackVoteSubmitPending === "approve"
                     ? "送出中..."
                     : myPlaybackVote === "approve"
-                      ? "已同意延長"
-                      : `延長 ${playbackVoteProposalSeconds} 秒`}
+                      ? "已同意"
+                      : `同意延長 ${playbackVoteProposalSeconds} 秒`}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -2703,8 +2704,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   </Typography>
                   <Typography variant="caption" className="text-slate-500">
                     {isSoloGameSession
-                      ? "目前只有你在遊戲中，確認後會直接執行，不需要投票。"
-                      : "發起後需要多數玩家同意才會執行。若投票未通過，本局你將不能再次發起這類投票。"}
+                      ? "單人房會直接執行，不需要投票。"
+                      : "多人房會發起投票，達到門檻後才會執行。"}
                   </Typography>
                 </Stack>
               </DialogContent>
@@ -2743,11 +2744,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     {restartVoteDialogDescription}
                   </Typography>
                   <div className="game-room-playback-vote-dialog__stats">
-                    <span>{`贊成 ${restartVoteApproveCount} / ${restartVoteMajorityCount} 票`}</span>
-                    <span>{`反對 ${restartVoteRejectCount}`}</span>
+                    <span>{`同意 ${restartVoteApproveCount} / ${restartVoteMajorityCount} 人`}</span>
+                    <span>{`不同意 ${restartVoteRejectCount}`}</span>
                   </div>
                   <Typography variant="caption" className="text-slate-500">
-                    {`需過半（${restartVoteMajorityCount} / ${restartVoteEligibleCount} 票）才能通過`}
+                    {`需要 ${restartVoteMajorityCount} / ${restartVoteEligibleCount} 人同意才會通過。`}
                   </Typography>
                 </Stack>
               </DialogContent>
@@ -2758,7 +2759,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   color="inherit"
                   disabled={restartVoteSubmitPending !== null}
                 >
-                  再想想
+                  稍後再說
                 </Button>
                 <Button
                   onClick={handleRestartVoteReject}
@@ -2766,7 +2767,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   color="inherit"
                   disabled={restartVoteSubmitPending !== null}
                 >
-                  {restartVoteSubmitPending === "reject" ? "送出中..." : "否"}
+                  {restartVoteSubmitPending === "reject" ? "送出中..." : "不同意"}
                 </Button>
                 <Button
                   onClick={handleRestartVoteApprove}
@@ -2806,7 +2807,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           ) : null}
           {isHostInGame && isMobileGameViewport && hostManagementOpen && (
             <Drawer
-              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage lg:!hidden"
+              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage xl:!hidden"
               anchor="bottom"
               open={hostManagementOpen}
               onClose={handleCloseHostManagement}

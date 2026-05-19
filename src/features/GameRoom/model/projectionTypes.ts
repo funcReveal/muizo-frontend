@@ -41,10 +41,15 @@ export type ChallengeProjectedMyStanding = {
   nextTarget: {
     userId: string | null;
     displayName: string;
+    avatarUrl: string | null;
+    rank?: number | null;
     score: number;
     gap: number;
   } | null;
 };
+
+/** Projection data comes from the Redis Top 1000 read model. */
+export type ProjectedLeaderboardRankingScope = "top1000" | "outside_top1000";
 
 export type ChallengeProjectedLeaderboardResponse = {
   mode: "projected";
@@ -56,8 +61,9 @@ export type ChallengeProjectedLeaderboardResponse = {
   topEntries: ChallengeLeaderboardEntry[];
   nearbyOpponents: ChallengeNearbyOpponent[];
   myStanding: ChallengeProjectedMyStanding;
+  rankingScope?: ProjectedLeaderboardRankingScope;
   cache: {
-    source: "redis" | "postgres" | "memory" | "response-cache" | "stale-response-cache";
+    source: "redis" | "response-cache" | "stale-response-cache";
     ttlMs: number;
   };
 };

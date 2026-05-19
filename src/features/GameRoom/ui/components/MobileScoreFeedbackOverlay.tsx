@@ -10,180 +10,227 @@ import type {
 type MobileScoreFeedbackOverlayProps = {
   event: MobileScoreFeedbackEvent | null;
   anchorStyle?: React.CSSProperties;
-};
-
-const getComboFeedbackTier = (
-  combo: number,
-): "none" | "normal" | "hot" | "great" | "legend" => {
-  if (combo >= 10) return "legend";
-  if (combo >= 6) return "great";
-  if (combo >= 3) return "hot";
-  if (combo >= 1) return "normal";
-  return "none";
-};
-
-const getScoreFeedbackTitle = (
-  event: Extract<MobileScoreFeedbackEvent, { type: "score" }>,
-) => {
-  const combo = event.me.combo ?? 0;
-  if (combo >= 10) return `Legend Combo x${combo}`;
-  if (combo >= 6) return `Great Combo x${combo}`;
-  if (combo >= 1) return `Combo x${combo}`;
-  return "分數提升";
-};
-
-const getScoreFeedbackDetail = (
-  event: Extract<MobileScoreFeedbackEvent, { type: "score" }>,
-) => {
-  if (event.me.rank === 1) {
-    return event.runnerUp
-      ? `領先 #2 ${event.leadScore ?? 0} 分`
-      : "目前第 1 名";
-  }
-
-  if (event.target && event.remainingScore !== null) {
-    return `距離 #${event.target.rank} 還差 ${event.remainingScore} 分`;
-  }
-
-  return null;
+  placement?: "mobile-fixed" | "mobile-embedded" | "media-embedded";
 };
 
 const canRenderFeedbackAvatar = (player: FeedbackPlayer | null) =>
   Boolean(
     player &&
-    player.clientId.trim().length > 0 &&
-    player.username.trim().length > 0 &&
-    Number.isFinite(player.rank) &&
-    Number.isFinite(player.score),
+      player.clientId.trim().length > 0 &&
+      player.username.trim().length > 0 &&
+      Number.isFinite(player.rank) &&
+      Number.isFinite(player.score),
   );
 
+function getComboTier(combo: number | null | undefined): string {
+  if (!combo || combo < 2) return "normal";
+  if (combo < 5) return "hot";
+  if (combo < 10) return "great";
+  return "legend";
+}
+
+function formatCombo(combo: number | null | undefined): string | null {
+  if (!combo || combo <= 0) return null;
+  return `x${combo}`;
+}
+
+function formatScoreGap(gap: number): string {
+  return `差 ${gap.toLocaleString("en-US")}`;
+}
+
+function formatLeadScore(leadScore: number): string {
+  return `領先 ${leadScore.toLocaleString("en-US")}`;
+}
+
 const MobileScoreFeedbackOverlay: React.FC<MobileScoreFeedbackOverlayProps> =
-  React.memo(({ event, anchorStyle }) => {
+  React.memo(({ event, anchorStyle, placement = "mobile-fixed" }) => {
     if (!event) return null;
 
-    const rankEvent =
-      event.type === "passed" || event.type === "overtaken" ? event : null;
-    const scoreEvent = event.type === "score" ? event : null;
-    const isUnansweredEvent = event.type === "unanswered";
-
-    const isRankChange = rankEvent !== null;
-    const comboTier = scoreEvent
-      ? getComboFeedbackTier(scoreEvent.me.combo ?? 0)
-      : "none";
-
+    const isUnanswered = event.type === "unanswered";
+    const isScore = event.type === "score";
+    const isPassed = event.type === "passed";
+    const isOvertaken = event.type === "overtaken";
+    const rankEvent = isPassed || isOvertaken ? event : null;
     const canShowRankAvatars =
       rankEvent !== null &&
       canRenderFeedbackAvatar(rankEvent.me) &&
       canRenderFeedbackAvatar(rankEvent.target);
-
-    const cardClassName = [
-      "game-room-mobile-score-feedback-card",
-      `game-room-mobile-score-feedback-card--${event.type}`,
-      isRankChange
-        ? "game-room-mobile-score-feedback-card--rank-change"
-        : "game-room-mobile-score-feedback-card--bubble",
-      isRankChange
-        ? `game-room-mobile-score-feedback-card--rank-${event.type}`
-        : "",
-      comboTier !== "none"
-        ? `game-room-mobile-score-feedback-card--combo-${comboTier}`
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    const eventKey = isUnansweredEvent
+    const combo = rankEvent?.me?.combo ?? (isScore ? event.me?.combo : null);
+    const comboText = formatCombo(combo);
+    const comboTier = getComboTier(combo);
+    const eventKey = isUnanswered
       ? `${event.scope}-unanswered-${event.questionKey}`
       : rankEvent
         ? `${rankEvent.scope}-${rankEvent.type}-${rankEvent.me.score}-${rankEvent.oldRank}-${rankEvent.newRank}-${rankEvent.target?.clientId ?? "text"}`
-        : scoreEvent
-          ? `${scoreEvent.scope}-${scoreEvent.type}-${scoreEvent.me.score}-${scoreEvent.me.combo ?? 0}-${scoreEvent.target?.clientId ?? scoreEvent.runnerUp?.clientId ?? "solo"}`
+        : isScore
+          ? `${event.scope}-score-${event.me.score}-${event.scoreGain}-${event.nextTargetGap ?? "nogap"}-${event.nextTargetName ?? "noname"}`
           : `${event.scope}-${event.type}`;
-
-    const scoreDetail = scoreEvent ? getScoreFeedbackDetail(scoreEvent) : null;
+    const cardClassName = [
+      "game-room-mobile-score-feedback-card",
+      `game-room-mobile-score-feedback-card--${event.type}`,
+      rankEvent
+        ? "game-room-mobile-score-feedback-card--rank-change"
+        : "game-room-mobile-score-feedback-card--bubble",
+      rankEvent
+        ? `game-room-mobile-score-feedback-card--rank-${event.type}`
+        : "",
+      `game-room-mobile-score-feedback-card--combo-${comboTier}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const isDesktop = placement === "media-embedded";
+    const targetSize = isDesktop ? 52 : 34;
+    const meSize = isDesktop ? 60 : 38;
 
     return (
       <div
-        className="game-room-mobile-score-feedback-layer"
+        className={`game-room-mobile-score-feedback-layer game-room-score-feedback-layer--${placement}`}
         style={anchorStyle}
         aria-live="polite"
       >
         <div key={eventKey} className={cardClassName}>
-          {canShowRankAvatars && rankEvent?.target ? (
-            <div
-              className={`game-room-mobile-score-feedback-swap game-room-mobile-score-feedback-swap--${rankEvent.type}`}
-              aria-hidden="true"
-            >
-              <PlayerAvatar
-                username={rankEvent.target.username}
-                clientId={rankEvent.target.clientId}
-                avatarUrl={rankEvent.target.avatarUrl}
-                size={34}
-                hideRankMark
-                effectLevel="off"
-                className="game-room-mobile-score-feedback-swap-avatar game-room-mobile-score-feedback-swap-avatar--target"
-              />
-              <span className="game-room-mobile-score-feedback-swap-arrow">
-                {rankEvent.type === "passed" ? ">" : "<"}
-              </span>
-              <PlayerAvatar
-                username={rankEvent.me.username}
-                clientId={rankEvent.me.clientId}
-                avatarUrl={rankEvent.me.avatarUrl}
-                size={38}
-                isMe
-                hideRankMark
-                effectLevel="off"
-                className="game-room-mobile-score-feedback-swap-avatar game-room-mobile-score-feedback-swap-avatar--me"
-              />
-            </div>
-          ) : null}
-
-          {scoreEvent ? (
-            <div className="game-room-mobile-score-feedback-gain">
-              +{scoreEvent.scoreGain}
-            </div>
-          ) : null}
-
-          {isUnansweredEvent ? (
+          {isScore ? (
             <>
-              <div className="game-room-mobile-score-feedback-title game-room-mobile-score-feedback-title--muted">
+              <div className="game-room-mobile-score-feedback-gain">
+                <span>
+                  {event.scoreGain >= 0 ? "+" : ""}
+                  {event.scoreGain.toLocaleString("en-US")}
+                </span>
+                {comboText ? (
+                  <span className="game-room-mobile-score-feedback-gain-combo">
+                    {comboText}
+                  </span>
+                ) : null}
+              </div>
+              {event.me.rank === 1 && event.leadScore !== null ? (
+                <div className="game-room-mobile-score-feedback-score-lines game-room-mobile-score-feedback-score-lines--leader">
+                  <div className="game-room-mobile-score-feedback-gap">
+                    {formatLeadScore(event.leadScore)}
+                  </div>
+                  {event.runnerUp ? (
+                    <div className="game-room-mobile-score-feedback-title">
+                      第二名 {event.runnerUp.username}
+                    </div>
+                  ) : null}
+                </div>
+              ) : event.nextTargetGap !== null &&
+                event.nextTargetName?.trim() ? (
+                <div className="game-room-mobile-score-feedback-score-lines">
+                  <div className="game-room-mobile-score-feedback-gap">
+                    {formatScoreGap(event.nextTargetGap)}
+                  </div>
+                  <div className="game-room-mobile-score-feedback-title">
+                    超越 {event.nextTargetName.trim()}
+                  </div>
+                </div>
+              ) : event.me.rank === 1 ? (
+                <div className="game-room-mobile-score-feedback-score-lines game-room-mobile-score-feedback-score-lines--leader">
+                  <div className="game-room-mobile-score-feedback-gap">
+                    暫居第 1 名
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {isPassed ? (
+            <>
+              {canShowRankAvatars && rankEvent?.target ? (
+                <div
+                  className="game-room-mobile-score-feedback-swap game-room-mobile-score-feedback-swap--passed"
+                  aria-hidden="true"
+                >
+                  <PlayerAvatar
+                    username={rankEvent.target.username}
+                    clientId={rankEvent.target.clientId}
+                    avatarUrl={rankEvent.target.avatarUrl}
+                    size={targetSize}
+                    hideRankMark
+                    effectLevel="off"
+                    className="game-room-mobile-score-feedback-swap-avatar game-room-mobile-score-feedback-swap-avatar--target"
+                  />
+                  <span
+                    className="game-room-mobile-score-feedback-swap-arrow"
+                    aria-hidden="true"
+                  >
+                    &rsaquo;
+                  </span>
+                  <PlayerAvatar
+                    username={rankEvent.me.username}
+                    clientId={rankEvent.me.clientId}
+                    avatarUrl={rankEvent.me.avatarUrl}
+                    size={meSize}
+                    isMe
+                    hideRankMark
+                    effectLevel="off"
+                    className="game-room-mobile-score-feedback-swap-avatar game-room-mobile-score-feedback-swap-avatar--me"
+                  />
+                </div>
+              ) : null}
+              {rankEvent?.target ? (
+                <div className="game-room-mobile-score-feedback-title">
+                  超越 {rankEvent.target.username}
+                </div>
+              ) : null}
+              <div className="game-room-mobile-score-feedback-detail game-room-mobile-score-feedback-detail--rank-passed">
+                #{rankEvent!.oldRank} &rarr; #{rankEvent!.newRank}
+              </div>
+            </>
+          ) : null}
+
+          {isOvertaken ? (
+            <>
+              {canShowRankAvatars && rankEvent?.target ? (
+                <div
+                  className="game-room-mobile-score-feedback-swap game-room-mobile-score-feedback-swap--overtaken"
+                  aria-hidden="true"
+                >
+                  <PlayerAvatar
+                    username={rankEvent.me.username}
+                    clientId={rankEvent.me.clientId}
+                    avatarUrl={rankEvent.me.avatarUrl}
+                    size={targetSize}
+                    isMe
+                    hideRankMark
+                    effectLevel="off"
+                    className="game-room-mobile-score-feedback-swap-avatar game-room-mobile-score-feedback-swap-avatar--me"
+                  />
+                  <span
+                    className="game-room-mobile-score-feedback-swap-arrow game-room-mobile-score-feedback-swap-arrow--danger"
+                    aria-hidden="true"
+                  >
+                    &lsaquo;
+                  </span>
+                  <PlayerAvatar
+                    username={rankEvent.target.username}
+                    clientId={rankEvent.target.clientId}
+                    avatarUrl={rankEvent.target.avatarUrl}
+                    size={meSize}
+                    hideRankMark
+                    effectLevel="off"
+                    className="game-room-mobile-score-feedback-swap-avatar game-room-mobile-score-feedback-swap-avatar--target"
+                  />
+                </div>
+              ) : null}
+              {rankEvent?.target ? (
+                <div className="game-room-mobile-score-feedback-title game-room-mobile-score-feedback-title--danger">
+                  {rankEvent.target.username} 超越你
+                </div>
+              ) : null}
+              <div className="game-room-mobile-score-feedback-detail game-room-mobile-score-feedback-detail--danger">
+                #{rankEvent!.oldRank} &rarr; #{rankEvent!.newRank}
+              </div>
+            </>
+          ) : null}
+
+          {isUnanswered ? (
+            <>
+              <div className="game-room-mobile-score-feedback-gain game-room-mobile-score-feedback-gain--muted">
                 未作答
               </div>
               <div className="game-room-mobile-score-feedback-detail">
-                這題沒有送出答案
+                本題沒有送出答案
               </div>
-            </>
-          ) : rankEvent?.type === "passed" ? (
-            <>
-              <div className="game-room-mobile-score-feedback-title">
-                {rankEvent.target ? `超越 ${rankEvent.target.username}` : "排名上升"}
-              </div>
-              <div className="game-room-mobile-score-feedback-detail">
-                #{rankEvent.oldRank} -&gt; #{rankEvent.newRank}
-              </div>
-            </>
-          ) : rankEvent?.type === "overtaken" ? (
-            <>
-              <div className="game-room-mobile-score-feedback-title game-room-mobile-score-feedback-title--danger">
-                {rankEvent.target
-                  ? `${rankEvent.target.username} 超越你`
-                  : "排名下降"}
-              </div>
-              <div className="game-room-mobile-score-feedback-detail">
-                #{rankEvent.oldRank} -&gt; #{rankEvent.newRank}
-              </div>
-            </>
-          ) : scoreEvent ? (
-            <>
-              <div className="game-room-mobile-score-feedback-title">
-                {getScoreFeedbackTitle(scoreEvent)}
-              </div>
-              {scoreDetail ? (
-                <div className="game-room-mobile-score-feedback-detail">
-                  {scoreDetail}
-                </div>
-              ) : null}
             </>
           ) : null}
         </div>

@@ -16,6 +16,7 @@ import {
   shouldStartProjectionFetch,
   shouldUseFreshProjectionCache,
 } from "../useChallengeLeaderboardProjection";
+import { shouldRefreshChallengeProjectionForScoreGain } from "../challengeProjectionRefreshPolicy";
 
 function makeData(
   overrides: Partial<ChallengeProjectedLeaderboardResponse> = {},
@@ -39,7 +40,7 @@ function makeData(
       viewerDbUserId: "me",
       nextTarget: null,
     },
-    cache: { source: "memory", ttlMs: 5000 },
+    cache: { source: "redis", ttlMs: 5000 },
     ...overrides,
   };
 }
@@ -145,10 +146,10 @@ describe("challenge leaderboard projection request guards", () => {
   });
 
   it("uses wider initial jitter for larger rooms", () => {
-    expect(getAdaptiveProjectionInitialJitterMs(10)).toBe(1500);
-    expect(getAdaptiveProjectionInitialJitterMs(80)).toBe(4000);
-    expect(getAdaptiveProjectionInitialJitterMs(250)).toBe(8000);
-    expect(getAdaptiveProjectionInitialJitterMs(1000)).toBe(12000);
+    expect(getAdaptiveProjectionInitialJitterMs(10)).toBe(0);
+    expect(getAdaptiveProjectionInitialJitterMs(80)).toBe(2000);
+    expect(getAdaptiveProjectionInitialJitterMs(250)).toBe(4000);
+    expect(getAdaptiveProjectionInitialJitterMs(1000)).toBe(5000);
   });
 
   it("manual refresh does not create a duplicate request while in flight", () => {
@@ -334,6 +335,65 @@ describe("challenge leaderboard projection request guards", () => {
 
   it("does not refetch on score gain when nearby opponents are empty", () => {
     expect(shouldRefetchNearbyWindow(100, 130, makeData())).toBe(false);
+  });
+
+  it("does not refresh projection while score remains below the authoritative next target", () => {
+    const data = makeData({
+      myStanding: {
+        ...makeData().myStanding,
+        projectedRank: 85,
+        nextTarget: {
+          userId: "rank84",
+          displayName: "rank84",
+          avatarUrl: null,
+          rank: 84,
+          score: 210,
+          gap: 210,
+        },
+      },
+      nearbyOpponents: [makeOpponent(210)],
+    });
+
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 0,
+        newScore: 70,
+        data,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 170,
+        newScore: 310,
+        data,
+      }),
+    ).toBe(true);
+  });
+
+  it("falls back to nearby opponents when backend nextTarget is absent", () => {
+    const data = makeData({
+      myStanding: {
+        ...makeData().myStanding,
+        projectedRank: 85,
+        nextTarget: null,
+      },
+      nearbyOpponents: [makeOpponent(210)],
+    });
+
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 170,
+        newScore: 209,
+        data,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 170,
+        newScore: 210,
+        data,
+      }),
+    ).toBe(true);
   });
 });
 

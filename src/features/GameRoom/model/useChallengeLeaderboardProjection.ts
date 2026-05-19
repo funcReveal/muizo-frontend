@@ -18,6 +18,7 @@ import { useAuth } from "@shared/auth/AuthContext";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import { API_URL } from "@domain/room/constants";
 import { fetchProjectedWindow } from "./challengeLeaderboardProjectionApi";
+import { shouldRefreshChallengeProjectionForScoreGain } from "./challengeProjectionRefreshPolicy";
 import type {
   ChallengeProjectedLeaderboardResponse,
   ChallengeProjectionState,
@@ -26,10 +27,8 @@ import type {
 export const CLIENT_COOLDOWN_MS = 4_000;
 export const PROJECTION_CACHE_FRESH_MS = 15_000;
 const DEFAULT_429_RETRY_AFTER_MS = CLIENT_COOLDOWN_MS;
-const INITIAL_JITTER_MAX_MS = 1_500;
-const LARGE_ROOM_INITIAL_JITTER_MAX_MS = 12_000;
+const LARGE_ROOM_INITIAL_JITTER_MAX_MS = 5_000;
 const VISIBILITY_JITTER_MAX_MS = 5_000;
-const BOUNDARY_SCORE_BAND_SIZE = 250;
 
 export type ProjectionFetchReason =
   | "initial"
@@ -62,7 +61,6 @@ type FetchDecision =
     };
 
 export const projectionCacheByKey = new Map<string, ProjectionCacheEntry>();
-const devLogLastAtByKey = new Map<string, number>();
 
 export function getProjectionCacheKey(
   roomId: string,
@@ -87,9 +85,9 @@ export function getProjectionSessionKey({
 export function getAdaptiveProjectionInitialJitterMs(
   participantCount: number,
 ): number {
-  if (participantCount <= 20) return INITIAL_JITTER_MAX_MS;
-  if (participantCount <= 100) return 4_000;
-  if (participantCount <= 300) return 8_000;
+  if (participantCount <= 20) return 0;
+  if (participantCount <= 100) return 2_000;
+  if (participantCount <= 300) return 4_000;
   return LARGE_ROOM_INITIAL_JITTER_MAX_MS;
 }
 
@@ -206,30 +204,6 @@ export function shouldRefetchNearbyWindow(
   );
 }
 
-function devLog(
-  event:
-    | "boundary crossed"
-    | "fetch started"
-    | "fetch skipped"
-    | "fetch 429"
-    | "fetch success",
-  details: Record<string, unknown>,
-): void {
-  if (import.meta.env.DEV) {
-    const reason = typeof details.reason === "string" ? details.reason : "";
-    const cause = typeof details.cause === "string" ? details.cause : "";
-    const cacheKey = typeof details.cacheKey === "string" ? details.cacheKey : "";
-    if (event === "fetch skipped" && cause === "fresh_cache") {
-      const logKey = `${event}:${reason}:${cause}:${cacheKey}`;
-      const now = Date.now();
-      const lastAt = devLogLastAtByKey.get(logKey) ?? 0;
-      if (now - lastAt < 5_000) return;
-      devLogLastAtByKey.set(logKey, now);
-    }
-    console.info(`[challengeLeaderboardProjection] ${event}`, details);
-  }
-}
-
 export type UseChallengeLeaderboardProjectionInput = {
   enabled: boolean;
   roomId: string;
@@ -245,6 +219,12 @@ export type UseChallengeLeaderboardProjectionResult = {
   refresh: () => void;
   gainAnimKey: number;
   gainAmount: number;
+  /**
+   * How many opponents the viewer has overtaken in this game session.
+   * Capped at 2 once the nearby window is centred.
+   * Resets to 0 on session key change (new game / rematch).
+   */
+  sessionPassCount: number;
 };
 
 export function useChallengeLeaderboardProjection(
@@ -257,7 +237,7 @@ export function useChallengeLeaderboardProjection(
     myLiveScore,
     canLoadInitialProjection,
     projectionSessionKey,
-    initialFetchJitterMs = INITIAL_JITTER_MAX_MS,
+    initialFetchJitterMs = 0,
   } = input;
 
   const { authToken, refreshAuthToken, authLoading } = useAuth();
@@ -292,7 +272,6 @@ export function useChallengeLeaderboardProjection(
   );
   const gainAnimKeyRef = useRef(0);
   const pendingBoundaryRefreshRef = useRef(false);
-  const pendingBoundaryScoreBandRef = useRef<number | null>(null);
   const [gainState, setGainState] = useState<{ key: number; amount: number }>(
     {
       key: 0,
@@ -300,6 +279,14 @@ export function useChallengeLeaderboardProjection(
     },
   );
   const [boundaryRetryToken, setBoundaryRetryToken] = useState(0);
+
+  // ── Session pass count ────────────────────────────────────────────────────
+  // Tracks how many opponents the viewer has overtaken this session (max 2).
+  // Used by the nearby window builder to determine the viewer's row position.
+  const [sessionPassCount, setSessionPassCount] = useState(0);
+  const prevProjectedRankRef = useRef<number | null>(null);
+  /** Timer used to schedule a single stale-nearby refetch after a large rank jump. */
+  const staleNearbyRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestLiveScoreRef = useRef(myLiveScore);
   const prevLiveScoreRef = useRef(myLiveScore);
   const prevAuthLoadingRef = useRef(authLoading);
@@ -347,7 +334,8 @@ export function useChallengeLeaderboardProjection(
 
       const entry = getProjectionCacheEntry(cacheKey);
       const now = Date.now();
-      const force = reason === "manual" || reason === "nearby_boundary_crossed";
+      const isLiveScoreRefresh = reason === "nearby_boundary_crossed";
+      const force = reason === "manual" || isLiveScoreRefresh;
       const clientCooldownMs = getClientCooldownMs(reason);
       const decision = shouldStartProjectionFetch({
         entry,
@@ -357,26 +345,17 @@ export function useChallengeLeaderboardProjection(
       });
 
       if (!decision.shouldFetch) {
-        devLog("fetch skipped", {
-          reason,
-          cacheKey,
-          cause: decision.cause,
-          ageMs: entry.loadedAt > 0 ? now - entry.loadedAt : null,
-          nextAllowedInMs: Math.max(0, entry.nextAllowedAt - now),
-          lastFetchAgoMs: entry.lastFetchAt > 0 ? now - entry.lastFetchAt : null,
-          hasData: entry.data !== null,
-        });
         if (decision.cause === "fresh_cache" || entry.data) {
           hydrateFromEntry(entry);
         }
         if (decision.cause === "in_flight" && entry.inFlight) {
-          if (reason === "nearby_boundary_crossed") {
+          if (isLiveScoreRefresh) {
             pendingBoundaryRefreshRef.current = true;
           }
           const data = await entry.inFlight;
           if (data) hydrateFromEntry(entry);
           if (
-            reason === "nearby_boundary_crossed" &&
+            isLiveScoreRefresh &&
             mountedRef.current &&
             pendingBoundaryRefreshRef.current
           ) {
@@ -384,7 +363,7 @@ export function useChallengeLeaderboardProjection(
           }
         }
         if (
-          reason === "nearby_boundary_crossed" &&
+          isLiveScoreRefresh &&
           (decision.cause === "client_cooldown" ||
             decision.cause === "server_cooldown")
         ) {
@@ -404,16 +383,10 @@ export function useChallengeLeaderboardProjection(
       }
 
       patchProjectionCacheEntry(cacheKey, { lastFetchAt: now });
-      if (reason === "nearby_boundary_crossed") {
+      if (isLiveScoreRefresh) {
         pendingBoundaryRefreshRef.current = false;
         clearBoundaryRetryTimer();
       }
-      devLog("fetch started", {
-        reason,
-        cacheKey,
-        hasCachedData: entry.data !== null,
-        previousLoadedAt: entry.loadedAt || null,
-      });
 
       if (!entry.data && mountedRef.current) {
         setState((prev) =>
@@ -443,23 +416,6 @@ export function useChallengeLeaderboardProjection(
               lastErrorAt: 0,
               lastErrorStatus: null,
             });
-            devLog("fetch success", {
-              reason,
-              cacheKey,
-              projectedRank: result.data.myStanding.projectedRank,
-              liveScore: result.data.myStanding.liveScore,
-              nearbyCount: result.data.nearbyOpponents.length,
-              nearby: result.data.nearbyOpponents.map((opponent) => ({
-                rank: opponent.rank,
-                score: opponent.bestScore,
-                relation: opponent.relation,
-                gap: opponent.gapFromMe,
-                name: opponent.displayName,
-              })),
-              topCount: result.data.topEntries.length,
-              cacheSource: result.data.cache.source,
-              ttlMs: result.data.cache.ttlMs,
-            });
             return result.data;
           }
 
@@ -475,13 +431,6 @@ export function useChallengeLeaderboardProjection(
               failedEntry.nextAllowedAt,
               completedAt + retryAfterMs,
             );
-            devLog("fetch 429", {
-              reason,
-              cacheKey,
-              retryAfterMs,
-              nextAllowedAt: nextPatch.nextAllowedAt,
-              status: result.status,
-            });
           }
           patchProjectionCacheEntry(cacheKey, nextPatch);
           return null;
@@ -593,7 +542,6 @@ export function useChallengeLeaderboardProjection(
     prevLiveScoreRef.current = latestLiveScoreRef.current;
     gainAnimKeyRef.current = 0;
     pendingBoundaryRefreshRef.current = false;
-    pendingBoundaryScoreBandRef.current = null;
     queueMicrotask(() => {
       if (mountedRef.current) {
         setGainState({ key: 0, amount: 0 });
@@ -603,6 +551,10 @@ export function useChallengeLeaderboardProjection(
       mountedRef.current = false;
       cancelInitialFetchSchedule();
       clearBoundaryRetryTimer();
+      if (staleNearbyRetryTimerRef.current !== null) {
+        clearTimeout(staleNearbyRetryTimerRef.current);
+        staleNearbyRetryTimerRef.current = null;
+      }
     };
   }, [
     cacheKey,
@@ -618,7 +570,6 @@ export function useChallengeLeaderboardProjection(
     const entry = getProjectionCacheEntry(cacheKey);
     const now = Date.now();
     if (shouldUseFreshProjectionCache(entry, now)) {
-      devLog("fetch skipped", { reason: "initial", cacheKey, cause: "fresh_cache" });
       queueMicrotask(() => hydrateFromEntry(entry));
       return;
     }
@@ -644,20 +595,21 @@ export function useChallengeLeaderboardProjection(
       const entry = getProjectionCacheEntry(cacheKey);
       const now = Date.now();
       if (entry.data && shouldUseFreshProjectionCache(entry, now)) {
-        devLog("fetch skipped", {
-          reason: "page_visible",
-          cacheKey,
-          cause: "fresh_cache",
-        });
         hydrateFromEntry(entry);
         return;
       }
-      if (!entry.data || !shouldUseFreshProjectionCache(entry, now)) {
-        scheduleFetchWithJitter(
-          "page_visible",
-          Math.min(initialFetchJitterMs, VISIBILITY_JITTER_MAX_MS),
-        );
+      // If score hasn't changed since the cached snapshot, stale data is still accurate — skip fetch
+      if (
+        entry.data &&
+        latestLiveScoreRef.current === entry.data.myStanding.liveScore
+      ) {
+        hydrateFromEntry(entry);
+        return;
       }
+      scheduleFetchWithJitter(
+        "page_visible",
+        Math.min(initialFetchJitterMs, VISIBILITY_JITTER_MAX_MS),
+      );
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
@@ -678,11 +630,6 @@ export function useChallengeLeaderboardProjection(
 
     const entry = getProjectionCacheEntry(cacheKey);
     if (entry.data) {
-      devLog("fetch skipped", {
-        reason: "auth_ready",
-        cacheKey,
-        cause: "fresh_cache",
-      });
       queueMicrotask(() => hydrateFromEntry(entry));
       return;
     }
@@ -710,45 +657,22 @@ export function useChallengeLeaderboardProjection(
 
     if (!canLoadInitialProjection) return;
 
-    const crossedVisibleBoundary = shouldRefetchNearbyWindow(
-      prev,
-      myLiveScore,
-      loadedDataRef.current,
-    );
-    if (!crossedVisibleBoundary) return;
-
-    devLog("boundary crossed", {
-      cacheKey,
+    const shouldRefresh = shouldRefreshChallengeProjectionForScoreGain({
       previousScore: prev,
-      liveScore: myLiveScore,
-      nearbyScores:
-        loadedDataRef.current?.nearbyOpponents.map((opponent) => ({
-          userId: opponent.userId,
-          rank: opponent.rank,
-          bestScore: opponent.bestScore,
-        })) ?? [],
+      newScore: myLiveScore,
+      data: loadedDataRef.current,
     });
-
-    const scoreBand = Math.floor(myLiveScore / BOUNDARY_SCORE_BAND_SIZE);
-    if (pendingBoundaryScoreBandRef.current === scoreBand) {
-      devLog("fetch skipped", {
-        reason: "nearby_boundary_crossed",
-        cacheKey,
-        cause: "client_cooldown",
-        scoreBand,
-      });
-      return;
-    }
-    pendingBoundaryScoreBandRef.current = scoreBand;
+    if (!shouldRefresh) return;
 
     if (enabled) {
-      pendingBoundaryRefreshRef.current = false;
       queueMicrotask(() => {
         void doFetch("nearby_boundary_crossed");
       });
     } else {
       pendingBoundaryRefreshRef.current = true;
+      return;
     }
+
   }, [enabled, canLoadInitialProjection, myLiveScore, cacheKey, doFetch]);
 
   useEffect(() => {
@@ -769,6 +693,62 @@ export function useChallengeLeaderboardProjection(
     [state, cacheKey, projectionSessionKey],
   );
 
+  // Reset sessionPassCount and rank history whenever a new session begins
+  // (new game, rematch, or collection change).
+  useEffect(() => {
+    prevProjectedRankRef.current = null;
+    queueMicrotask(() => {
+      setSessionPassCount(0);
+    });
+  }, [projectionSessionKey]);
+
+  // Detect rank improvements from API responses and increment sessionPassCount.
+  // Only increases (capped at 2) — being overtaken does not decrease the count.
+  //
+  // Stale-nearby detection: when rank jumps by more than 3 in a single update,
+  // the backend's nearby cache (100-point band) may still be serving opponents
+  // from the previous rank position.  We schedule one follow-up boundary refetch
+  // after 2.5 s to let the cache update.  The request is bounded (at most one
+  // extra per large jump) and respects the server's rate-limit headers.
+  useEffect(() => {
+    if (stateForCurrentSession.status !== "loaded") return;
+    const data = stateForCurrentSession.data;
+    const newRank = data.myStanding.projectedRank;
+    const prevRank = prevProjectedRankRef.current;
+    prevProjectedRankRef.current = newRank;
+
+    if (prevRank === null || newRank === null || newRank >= prevRank) return;
+
+    const delta = prevRank - newRank;
+    setSessionPassCount((prev) => Math.min(prev + delta, 2));
+
+    // Large jump: check if nearby opponents' ranks align with the new position.
+    if (delta > 3 && data.nearbyOpponents.length > 0) {
+      const aheadRanks = data.nearbyOpponents
+        .filter((o) => o.relation === "ahead" && o.rank !== null)
+        .map((o) => o.rank as number);
+
+      // If no ahead opponent is within 10 ranks of the new projected rank,
+      // the nearby cache is likely serving stale data from the old position.
+      const nearbyAligned =
+        aheadRanks.length === 0 ||
+        aheadRanks.some((r) => Math.abs(r - newRank) <= 10);
+
+      if (!nearbyAligned) {
+        if (staleNearbyRetryTimerRef.current !== null) {
+          clearTimeout(staleNearbyRetryTimerRef.current);
+        }
+        staleNearbyRetryTimerRef.current = setTimeout(() => {
+          staleNearbyRetryTimerRef.current = null;
+          if (mountedRef.current) {
+            pendingBoundaryRefreshRef.current = false;
+            void doFetch("nearby_boundary_crossed");
+          }
+        }, 2500);
+      }
+    }
+  }, [stateForCurrentSession, doFetch]);
+
   const refresh = useCallback(() => {
     void doFetch("manual");
   }, [doFetch]);
@@ -778,5 +758,6 @@ export function useChallengeLeaderboardProjection(
     refresh,
     gainAnimKey: gainState.key,
     gainAmount: gainState.amount,
+    sessionPassCount,
   };
 }

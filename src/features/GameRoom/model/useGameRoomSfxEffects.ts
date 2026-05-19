@@ -18,7 +18,6 @@ interface UseGameRoomSfxEffectsInput {
   isReveal: boolean;
   isInterTrackWait: boolean;
   waitingToStart: boolean;
-  preStartCountdownSfxSec: number;
   phaseEndsAt: number;
   meClientId?: string;
   // Reveal result fields
@@ -58,7 +57,6 @@ export function useGameRoomSfxEffects({
   isReveal,
   isInterTrackWait,
   waitingToStart,
-  preStartCountdownSfxSec,
   phaseEndsAt,
   meClientId,
   selectedChoice,
@@ -80,18 +78,42 @@ export function useGameRoomSfxEffects({
   const lastRevealResultSfxKeyRef = useRef<string | null>(null);
   const lastComboStateSfxKeyRef = useRef<string | null>(null);
 
-  // Pre-start countdown beep
+  // Pre-start final 3 / 2 / 1 beeps, scheduled from server time.
   useEffect(() => {
     if (isEnded || !waitingToStart || isInterTrackWait) return;
-    const sfxKey = `${trackSessionKey}:prestart:${preStartCountdownSfxSec}`;
-    if (lastPreStartCountdownSfxKeyRef.current === sfxKey) return;
-    lastPreStartCountdownSfxKeyRef.current = sfxKey;
-    playGameSfx(resolveCountdownSfxEvent(preStartCountdownSfxSec));
+
+    const nowMs = getServerNowMs();
+    const msUntilStart = gameStartedAt - nowMs;
+    if (msUntilStart <= 0) return;
+
+    const timerIds: number[] = [];
+
+    [3, 2, 1].forEach((sec) => {
+      const fireInMs = msUntilStart - sec * 1000;
+      if (fireInMs < -220) return;
+
+      const timerId = window.setTimeout(
+        () => {
+          const sfxKey = `${trackSessionKey}:prestart:${sec}`;
+          if (lastPreStartCountdownSfxKeyRef.current === sfxKey) return;
+          lastPreStartCountdownSfxKeyRef.current = sfxKey;
+          playGameSfx(resolveCountdownSfxEvent(sec));
+        },
+        Math.max(0, fireInMs),
+      );
+
+      timerIds.push(timerId);
+    });
+
+    return () => {
+      timerIds.forEach((timerId) => window.clearTimeout(timerId));
+    };
   }, [
+    gameStartedAt,
+    getServerNowMs,
     isEnded,
     isInterTrackWait,
     playGameSfx,
-    preStartCountdownSfxSec,
     trackSessionKey,
     waitingToStart,
   ]);
