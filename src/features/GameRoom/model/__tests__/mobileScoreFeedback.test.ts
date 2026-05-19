@@ -3,9 +3,11 @@
 import {
   buildChallengeMobileScoreFeedbackSnapshot,
   buildMobileScoreFeedbackEvent,
+  buildRoomMobileScoreFeedbackSnapshot,
   type FeedbackPlayer,
   type MobileScoreFeedbackSnapshot,
 } from "../mobileScoreFeedback";
+import type { RoomParticipant } from "@features/RoomSession";
 import { shouldDelayChallengeScoreFeedback } from "../useMobileScoreFeedback";
 import type {
   ChallengeLeaderboardEntry,
@@ -25,6 +27,23 @@ function makePlayer(
     score,
     rank,
     combo: 0,
+  };
+}
+
+function makeParticipant(
+  clientId: string,
+  score: number,
+  combo = 0,
+): RoomParticipant {
+  return {
+    clientId,
+    username: clientId,
+    avatar_url: null,
+    joinedAt: 0,
+    isOnline: true,
+    lastSeen: 0,
+    score,
+    combo,
   };
 }
 
@@ -117,6 +136,139 @@ function makeProjection({
 }
 
 describe("buildMobileScoreFeedbackEvent", () => {
+  it("includes the previous room-ranked player gap in room score feedback", () => {
+    const prevSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("leader", 1300),
+        makeParticipant("me", 180, 3),
+      ],
+      "me",
+    );
+    const nextSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("leader", 1300),
+        makeParticipant("me", 460, 4),
+      ],
+      "me",
+    );
+
+    const event = buildMobileScoreFeedbackEvent(prevSnapshot, nextSnapshot);
+
+    expect(event?.type).toBe("score");
+    if (event?.type !== "score") return;
+    expect(event.scope).toBe("room");
+    expect(event.scoreGain).toBe(280);
+    expect(event.nextTargetGap).toBe(840);
+    expect(event.nextTargetName).toBe("leader");
+  });
+
+  it("includes runner-up lead data when the room leader gains score", () => {
+    const prevSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("me", 1000, 2),
+        makeParticipant("runner-up", 800),
+      ],
+      "me",
+    );
+    const nextSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("me", 1120, 3),
+        makeParticipant("runner-up", 800),
+      ],
+      "me",
+    );
+
+    const event = buildMobileScoreFeedbackEvent(prevSnapshot, nextSnapshot);
+
+    expect(event?.type).toBe("score");
+    if (event?.type !== "score") return;
+    expect(event.scope).toBe("room");
+    expect(event.leadScore).toBe(320);
+    expect(event.runnerUp?.username).toBe("runner-up");
+  });
+
+  it("includes the overtaking room player for avatar and name feedback", () => {
+    const prevSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("me", 1000),
+        makeParticipant("rival", 900),
+      ],
+      "me",
+    );
+    const nextSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("rival", 1300),
+        makeParticipant("me", 1000),
+      ],
+      "me",
+    );
+
+    const event = buildMobileScoreFeedbackEvent(prevSnapshot, nextSnapshot);
+
+    expect(event?.type).toBe("overtaken");
+    if (event?.type !== "overtaken") return;
+    expect(event.oldRank).toBe(1);
+    expect(event.newRank).toBe(2);
+    expect(event.target?.clientId).toBe("rival");
+    expect(event.target?.username).toBe("rival");
+    expect(event.target?.rank).toBe(1);
+    expect(event.targetScoreGain).toBe(400);
+    expect(event.scoreGain).toBe(0);
+    expect(event.nextTargetGap).toBe(300);
+    expect(event.nextTargetName).toBe("rival");
+  });
+
+  it("uses the highest-ranked player who overtook me when multiple room players pass", () => {
+    const prevSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("me", 1000),
+        makeParticipant("rival-a", 900),
+        makeParticipant("rival-b", 800),
+      ],
+      "me",
+    );
+    const nextSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("rival-b", 1500),
+        makeParticipant("rival-a", 1400),
+        makeParticipant("me", 1000),
+      ],
+      "me",
+    );
+
+    const event = buildMobileScoreFeedbackEvent(prevSnapshot, nextSnapshot);
+
+    expect(event?.type).toBe("overtaken");
+    if (event?.type !== "overtaken") return;
+    expect(event.target?.clientId).toBe("rival-b");
+    expect(event.target?.rank).toBe(1);
+  });
+
+  it("keeps my score gain and comeback gap when I score but get overtaken", () => {
+    const prevSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("me", 1000, 2),
+        makeParticipant("rival", 900),
+      ],
+      "me",
+    );
+    const nextSnapshot = buildRoomMobileScoreFeedbackSnapshot(
+      [
+        makeParticipant("rival", 1500),
+        makeParticipant("me", 1120, 3),
+      ],
+      "me",
+    );
+
+    const event = buildMobileScoreFeedbackEvent(prevSnapshot, nextSnapshot);
+
+    expect(event?.type).toBe("overtaken");
+    if (event?.type !== "overtaken") return;
+    expect(event.scoreGain).toBe(120);
+    expect(event.nextTargetGap).toBe(380);
+    expect(event.nextTargetName).toBe("rival");
+  });
+
   it("uses the highest-ranked passed player after my new rank", () => {
     const prevSnapshot = makeSnapshot([
       makePlayer("r14", 14, 400),
@@ -202,7 +354,7 @@ describe("buildMobileScoreFeedbackEvent", () => {
     expect(event.target?.rank).toBe(65);
   });
 
-  it("shows passed feedback when the visible order changes inside the same displayed rank", () => {
+  it("shows score feedback, not swap feedback, when rank stays unchanged", () => {
     const prevSnapshot = makeSnapshot([
       makePlayer("me", 84, 120),
       makePlayer("dog", 84, 180),
@@ -214,11 +366,10 @@ describe("buildMobileScoreFeedbackEvent", () => {
 
     const event = buildMobileScoreFeedbackEvent(prevSnapshot, nextSnapshot);
 
-    expect(event?.type).toBe("passed");
-    if (event?.type !== "passed") return;
-    expect(event.oldRank).toBe(84);
-    expect(event.newRank).toBe(84);
-    expect(event.target?.clientId).toBe("dog");
+    expect(event?.type).toBe("score");
+    if (event?.type !== "score") return;
+    expect(event.me.rank).toBe(84);
+    expect(event.scoreGain).toBe(90);
   });
 
   it("shows the immediate lower-ranked player after a large rank jump when available", () => {
@@ -285,8 +436,8 @@ describe("buildMobileScoreFeedbackEvent", () => {
     if (event?.type !== "passed") return;
     expect(event.oldRank).toBe(74);
     expect(event.newRank).toBe(73);
-    expect(event.target?.clientId).toBe("challenge:rank74");
-    expect(event.target?.username).toBe("rank74");
+    expect(event.target?.clientId).toBe("challenge:rank73");
+    expect(event.target?.username).toBe("rank73");
     expect(event.target?.rank).toBe(74);
   });
 

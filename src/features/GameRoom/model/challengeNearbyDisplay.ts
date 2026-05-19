@@ -178,7 +178,7 @@ export function buildChallengeNearbyDisplayRows({
     rows.push({ type: "placeholder", key: `pp:${i}` });
   }
 
-  return rows;
+  return normalizeVisibleRanks(rows, effectiveSelfRank, totalPlayers);
 }
 
 function clampRank(
@@ -187,4 +187,47 @@ function clampRank(
 ): number | null {
   if (rank === null) return null;
   return Math.max(1, totalPlayers > 0 ? Math.min(totalPlayers, rank) : rank);
+}
+
+function normalizeVisibleRanks(
+  rows: ChallengeDisplayRow[],
+  selfRank: number | null,
+  totalPlayers: number,
+): ChallengeDisplayRow[] {
+  if (selfRank === null) return rows;
+
+  const selfIndex = rows.findIndex((row) => row.type === "self");
+  if (selfIndex < 0) return rows;
+
+  const aboveOpponentIndexes = rows
+    .slice(0, selfIndex)
+    .map((row, index) => (row.type === "opponent" ? index : null))
+    .filter((index): index is number => index !== null);
+  const belowOpponentIndexes = rows
+    .slice(selfIndex + 1)
+    .map((row, index) => (row.type === "opponent" ? selfIndex + 1 + index : null))
+    .filter((index): index is number => index !== null);
+
+  const nextRows = rows.slice();
+  const firstAboveRank = selfRank - aboveOpponentIndexes.length;
+
+  aboveOpponentIndexes.forEach((rowIndex, index) => {
+    const row = nextRows[rowIndex];
+    if (row.type !== "opponent") return;
+    nextRows[rowIndex] = {
+      ...row,
+      approxRank: clampRank(firstAboveRank + index, totalPlayers),
+    };
+  });
+
+  belowOpponentIndexes.forEach((rowIndex, index) => {
+    const row = nextRows[rowIndex];
+    if (row.type !== "opponent") return;
+    nextRows[rowIndex] = {
+      ...row,
+      approxRank: clampRank(selfRank + index + 1, totalPlayers),
+    };
+  });
+
+  return nextRows;
 }

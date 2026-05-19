@@ -491,7 +491,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
         : null,
     ).toBe(14);
     expect(nearbyRows.map((row) => row.kind === "self" ? "self" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
-      .toEqual(["placeholder", "rank10:10", "self", "rank12:13", "rank13:14"]);
+      .toEqual(["placeholder", "rank10:11", "self", "rank12:13", "rank13:14"]);
   });
 
   it("nearby mode starts at zero with four ahead players and self at the bottom", () => {
@@ -783,5 +783,57 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     expect(nearbyRows.map((row) => row.kind === "self" ? "self" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
       .toEqual(["placeholder", "placeholder", "self", "rank48:49", "rank49:50"]);
     expect(nearbyRows.find((row) => row.kind === "self")?.displayRank).toBe(48);
+  });
+
+  it("nearby mode shifts visible lower rows after self to avoid duplicate ranks", () => {
+    const topFive = Array.from({ length: 5 }, (_, i) =>
+      makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
+    );
+    const nearby = [
+      makeNearbyOpponent("rank81", 81, 255, 205),
+      makeNearbyOpponent("rank82", 82, 210, 205),
+      makeNearbyOpponent("rank83", 83, 210, 205),
+      makeNearbyOpponent("rank84-original", 84, 180, 205),
+    ];
+    const data = makeData(84, topFive, nearby, "me", 205);
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 205,
+      meUserId: "me",
+      sessionPassCount: 1,
+    });
+    const nearbyRows = listRows.slice(
+      listRows.findIndex((row) => row.kind === "ellipsis") + 1,
+    );
+
+    expect(nearbyRows.map((row) => row.kind === "self" ? "self:84" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
+      .toEqual(["rank81:81", "rank82:82", "rank83:83", "self:84", "rank84-original:85"]);
+  });
+
+  it("nearby mode labels visible rows around self sequentially without missing ranks", () => {
+    const topFive = Array.from({ length: 5 }, (_, i) =>
+      makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
+    );
+    const nearby = [
+      makeNearbyOpponent("rank9", 9, 12405, 9975),
+      makeNearbyOpponent("rank10", 10, 12035, 9975),
+      makeNearbyOpponent("rank13", 13, 9105, 9975),
+      makeNearbyOpponent("rank14", 14, 8845, 9975),
+    ];
+    const data = makeData(12, topFive, nearby, "me", 9975);
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 9975,
+      meUserId: "me",
+      sessionPassCount: 2,
+    });
+    const nearbyRows = listRows.slice(
+      listRows.findIndex((row) => row.kind === "ellipsis") + 1,
+    );
+
+    expect(nearbyRows.map((row) => row.kind === "self" ? "self:12" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
+      .toEqual(["rank9:10", "rank10:11", "self:12", "rank13:13", "rank14:14"]);
   });
 });

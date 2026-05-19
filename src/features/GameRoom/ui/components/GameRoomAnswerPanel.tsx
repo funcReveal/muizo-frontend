@@ -704,8 +704,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
               </div>
             )}
             <div
-              className={`game-room-options-grid game-room-options-grid--blaze grid grid-cols-1 gap-3 md:grid-cols-2 ${isMobileView ? "game-room-options-grid--mobile" : ""
-                }`}
+              className={`game-room-options-grid game-room-options-grid--blaze grid gap-3 ${
+                isMobileView
+                  ? "game-room-options-grid--mobile grid-cols-1"
+                  : "grid-cols-1 md:grid-cols-2"
+              }`}
             >
               {isInitialCountdown || isInterTrackWait
                 ? Array.from(

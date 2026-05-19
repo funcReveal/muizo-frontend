@@ -15,6 +15,11 @@ import type { ChallengeProjectedLeaderboardResponse } from "./projectionTypes";
 
 type ScoreFeedbackEvent = Extract<MobileScoreFeedbackEvent, { type: "score" }>;
 type PassedFeedbackEvent = Extract<MobileScoreFeedbackEvent, { type: "passed" }>;
+type OvertakenFeedbackEvent = Extract<
+  MobileScoreFeedbackEvent,
+  { type: "overtaken" }
+>;
+type RankChangeFeedbackEvent = PassedFeedbackEvent | OvertakenFeedbackEvent;
 
 type PendingChallengeRankFeedback = {
   prevSnapshot: MobileScoreFeedbackSnapshot;
@@ -54,9 +59,12 @@ export const shouldDelayChallengeScoreFeedback = (
     data: challengeProjection,
   });
 
-function buildScoreFeedbackEventFromPassed(
-  event: PassedFeedbackEvent,
+function buildScoreFeedbackEventFromRankChange(
+  event: RankChangeFeedbackEvent,
 ): ScoreFeedbackEvent {
+  const runnerUp = event.type === "passed" ? event.runnerUp : null;
+  const leadScore = event.type === "passed" ? event.leadScore : null;
+
   return {
     type: "score",
     scope: event.scope,
@@ -64,11 +72,45 @@ function buildScoreFeedbackEventFromPassed(
     me: event.me,
     target: null,
     remainingScore: null,
-    runnerUp: event.runnerUp,
-    leadScore: event.leadScore,
+    runnerUp,
+    leadScore,
     nextTargetGap: event.nextTargetGap,
     nextTargetName: event.nextTargetName,
   };
+}
+
+function buildReusableScoreFeedbackEvent({
+  rankEvent,
+  latestScoreEvent,
+}: {
+  rankEvent: RankChangeFeedbackEvent;
+  latestScoreEvent: {
+    event: ScoreFeedbackEvent;
+    expiresAt: number;
+  } | null;
+}): ScoreFeedbackEvent | null {
+  if (rankEvent.scoreGain > 0) {
+    return buildScoreFeedbackEventFromRankChange(rankEvent);
+  }
+
+  const canReuseLatestScore =
+    latestScoreEvent !== null &&
+    latestScoreEvent.expiresAt > Date.now() &&
+    latestScoreEvent.event.scope === rankEvent.scope &&
+    latestScoreEvent.event.me.clientId === rankEvent.me.clientId &&
+    latestScoreEvent.event.me.score <= rankEvent.me.score &&
+    latestScoreEvent.event.scoreGain > 0;
+
+  return canReuseLatestScore
+    ? {
+        ...latestScoreEvent.event,
+        me: rankEvent.me,
+        nextTargetGap:
+          rankEvent.nextTargetGap ?? latestScoreEvent.event.nextTargetGap,
+        nextTargetName:
+          rankEvent.nextTargetName ?? latestScoreEvent.event.nextTargetName,
+      }
+    : null;
 }
 
 const useMobileScoreFeedback = ({
@@ -240,13 +282,14 @@ const useMobileScoreFeedback = ({
 
     if (
       nextEvent.type === "passed" &&
+      nextEvent.scope === "challenge" &&
       shouldDelayChallengeScoreFeedbackForProjection({
         score: nextEvent.me.score,
         data: challengeProjection,
       })
     ) {
       if (nextEvent.scoreGain > 0) {
-        const scoreEvent = buildScoreFeedbackEventFromPassed(nextEvent);
+        const scoreEvent = buildScoreFeedbackEventFromRankChange(nextEvent);
         const expiresAt = Date.now() + SCORE_EVENT_REUSE_WINDOW_MS;
         latestScoreEventRef.current = {
           event: scoreEvent,
@@ -307,42 +350,14 @@ const useMobileScoreFeedback = ({
       return;
     }
 
-    if (nextEvent.type === "passed") {
+    if (nextEvent.type === "passed" || nextEvent.type === "overtaken") {
       pendingChallengeRankRef.current = null;
       prevSnapshotRef.current = nextSnapshot;
       const latestScoreEvent = latestScoreEventRef.current;
-      const canReuseLatestScore =
-        latestScoreEvent !== null &&
-        latestScoreEvent.expiresAt > Date.now() &&
-        latestScoreEvent.event.scope === nextEvent.scope &&
-        latestScoreEvent.event.me.clientId === nextEvent.me.clientId &&
-        latestScoreEvent.event.me.score <= nextEvent.me.score &&
-        latestScoreEvent.event.scoreGain > 0;
-      const scoreFollowUp: ScoreFeedbackEvent | null =
-        nextEvent.scoreGain > 0
-          ? {
-              type: "score",
-              scope: nextEvent.scope,
-              scoreGain: nextEvent.scoreGain,
-              me: nextEvent.me,
-              target: null,
-              remainingScore: null,
-              runnerUp: nextEvent.runnerUp,
-              leadScore: nextEvent.leadScore,
-              nextTargetGap: nextEvent.nextTargetGap,
-              nextTargetName: nextEvent.nextTargetName,
-            }
-          : canReuseLatestScore
-            ? {
-                ...latestScoreEvent.event,
-                me: nextEvent.me,
-                nextTargetGap:
-                  nextEvent.nextTargetGap ?? latestScoreEvent.event.nextTargetGap,
-                nextTargetName:
-                  nextEvent.nextTargetName ??
-                  latestScoreEvent.event.nextTargetName,
-              }
-            : null;
+      const scoreFollowUp = buildReusableScoreFeedbackEvent({
+        rankEvent: nextEvent,
+        latestScoreEvent,
+      });
       scorePhaseUntilRef.current = 0;
       publishEvent(nextEvent);
       if (scoreFollowUp !== null) {

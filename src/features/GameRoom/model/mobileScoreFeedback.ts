@@ -42,11 +42,16 @@ export type MobileScoreFeedbackEvent =
   | {
       type: "overtaken";
       scope: MobileScoreFeedbackScope;
+      scoreGain: number;
       oldRank: number;
       newRank: number;
       me: FeedbackPlayer;
       target: FeedbackPlayer | null;
       targetScoreGain: number | null;
+      /** Points needed to catch up to the player directly above after being overtaken. */
+      nextTargetGap: number | null;
+      /** Display name of the player directly above after being overtaken. */
+      nextTargetName: string | null;
     }
   | {
       type: "score";
@@ -182,8 +187,19 @@ export const buildRoomMobileScoreFeedbackSnapshot = (
   const me = meClientId
     ? (players.find((player) => player.clientId === meClientId) ?? null)
     : null;
+  const nextTarget =
+    me !== null && me.rank > 1
+      ? (players.find(
+          (player) => player.rank === me.rank - 1 && player.clientId !== me.clientId,
+        ) ?? null)
+      : null;
+  const nextTargetGap =
+    nextTarget !== null && me !== null
+      ? Math.max(0, nextTarget.score - me.score)
+      : null;
+  const nextTargetName = nextTarget?.username ?? null;
 
-  return createSnapshot("room", players, me);
+  return createSnapshot("room", players, me, nextTargetGap, nextTargetName);
 };
 
 export const buildChallengeMobileScoreFeedbackSnapshot = ({
@@ -414,8 +430,8 @@ const findOvertakingTarget = (
   newRank: number,
 ) =>
   nextSnapshot.players
-    .filter((player) => player.rank > oldRank && player.rank <= newRank)
-    .sort((a, b) => b.rank - a.rank)
+    .filter((player) => player.rank >= oldRank && player.rank < newRank)
+    .sort((a, b) => a.rank - b.rank)
     .find((player) => {
       const previousTargetRank = prevSnapshot.rankByClientId.get(
         player.clientId,
@@ -425,25 +441,6 @@ const findOvertakingTarget = (
         typeof previousTargetRank === "number" && previousTargetRank > oldRank
       );
     }) ?? null;
-
-const findSameRankPassedTarget = (
-  nextSnapshot: MobileScoreFeedbackSnapshot,
-  prevScore: number,
-): FeedbackPlayer | null => {
-  const nextMe = nextSnapshot.me;
-  if (!nextMe) return null;
-
-  return nextSnapshot.players
-    .filter(
-      (player) =>
-        player.clientId !== nextMe.clientId &&
-        player.rank >= nextMe.rank &&
-        player.rank <= nextMe.rank + 2 &&
-        player.score < nextMe.score &&
-        player.score >= prevScore,
-    )
-    .sort((a, b) => a.rank - b.rank || b.score - a.score)[0] ?? null;
-};
 
 export const buildMobileScoreFeedbackEvent = (
   prevSnapshot: MobileScoreFeedbackSnapshot | null,
@@ -536,6 +533,11 @@ export const buildMobileScoreFeedbackEvent = (
       oldRank,
       newRank,
     );
+    const nextTarget =
+      nextSnapshot.players.find(
+        (player) =>
+          player.rank === newRank - 1 && player.clientId !== nextMe.clientId,
+      ) ?? overtakingTarget;
 
     const prevTargetScore = overtakingTarget
       ? prevSnapshot.scoreByClientId.get(overtakingTarget.clientId)
@@ -544,6 +546,7 @@ export const buildMobileScoreFeedbackEvent = (
     return {
       type: "overtaken",
       scope: nextSnapshot.scope,
+      scoreGain: Math.max(0, scoreGain),
       oldRank,
       newRank,
       me: nextMe,
@@ -552,25 +555,9 @@ export const buildMobileScoreFeedbackEvent = (
         overtakingTarget && typeof prevTargetScore === "number"
           ? Math.max(0, overtakingTarget.score - prevTargetScore)
           : null,
-    };
-  }
-
-  const sameRankPassedTarget =
-    scoreGain > 0 ? findSameRankPassedTarget(nextSnapshot, prevScore) : null;
-  if (sameRankPassedTarget) {
-    return {
-      type: "passed",
-      scope: nextSnapshot.scope,
-      scoreGain,
-      oldRank,
-      newRank,
-      me: nextMe,
-      target: sameRankPassedTarget,
-      nextTarget: null,
-      nextTargetGap: nextSnapshot.nextTargetGap,
-      nextTargetName: nextSnapshot.nextTargetName,
-      runnerUp: null,
-      leadScore: null,
+      nextTargetGap:
+        nextTarget !== null ? Math.max(0, nextTarget.score - nextMe.score) : null,
+      nextTargetName: nextTarget?.username ?? null,
     };
   }
 

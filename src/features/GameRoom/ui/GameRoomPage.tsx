@@ -485,12 +485,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
 
+  const resolvedScoreFeedbackTab: GameRoomScoreboardTab = isLeaderboardRoom
+    ? scoreFeedbackTab
+    : "room";
+  const isChallengeScoreFeedbackActive =
+    resolvedScoreFeedbackTab === "challenge";
+
   useEffect(() => {
-    const nextTab = isLeaderboardRoom ? scoreFeedbackTab : "room";
-    if (nextTab !== scoreFeedbackTab) {
-      deferStateUpdate(() => setScoreFeedbackTab(nextTab));
+    if (resolvedScoreFeedbackTab !== scoreFeedbackTab) {
+      deferStateUpdate(() => setScoreFeedbackTab(resolvedScoreFeedbackTab));
     }
-  }, [isLeaderboardRoom, scoreFeedbackTab]);
+  }, [resolvedScoreFeedbackTab, scoreFeedbackTab]);
 
   const previousPhaseRef = useRef<GameState["phase"]>(gameState.phase);
 
@@ -1253,7 +1258,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         : null,
     [meClientId, participants],
   );
-  const challengeProjectionEnabled = isLeaderboardRoom && !!meClientId;
+  const challengeProjectionEnabled =
+    isChallengeScoreFeedbackActive && !!meClientId;
   const canPrefetchChallengeProjection =
     isInitialCountdown && startCountdownSec <= 5;
   const canLoadChallengeProjectionDuringPlay =
@@ -1263,7 +1269,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     !waitingToStart &&
     !isInterTrackWait;
   const challengeProjectionCanLoadInitial =
-    isLeaderboardRoom &&
+    isChallengeScoreFeedbackActive &&
     hasStableProjectionSessionKey &&
     gameState.status === "playing" &&
     (canLoadChallengeProjectionDuringPlay || canPrefetchChallengeProjection) &&
@@ -1289,9 +1295,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     challengeProjectionState.status === "loaded"
       ? challengeProjectionState.data
       : null;
-  const scoreFeedbackScope: GameRoomScoreboardTab = isLeaderboardRoom
-    ? "challenge"
-    : "room";
+  const scoreFeedbackScope: GameRoomScoreboardTab = resolvedScoreFeedbackTab;
   const { topTwoSwapState, resetTopTwoSwapState } =
     useTopTwoSwapState(sortedParticipants);
   const mobileScoreFeedbackEvent = useMobileScoreFeedback({
@@ -1707,12 +1711,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const mobilePersonalRankCardModel = useMemo(() => {
     const participant = roomScoreboardRankModel.meRoomParticipant;
     const rank =
-      isLeaderboardRoom && scoreFeedbackTab === "challenge"
+      isLeaderboardRoom && resolvedScoreFeedbackTab === "challenge"
         ? challengeFeedbackProjection?.myStanding.projectedRank ?? null
         : roomScoreboardRankModel.meRoomRank;
     const rankLabel =
       isLeaderboardRoom &&
-      scoreFeedbackTab === "challenge" &&
+      resolvedScoreFeedbackTab === "challenge" &&
       challengeFeedbackProjection?.rankingScope === "outside_top1000"
         ? "未上榜"
         : null;
@@ -1727,9 +1731,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [
     challengeFeedbackProjection,
     isLeaderboardRoom,
+    resolvedScoreFeedbackTab,
     roomScoreboardRankModel.meRoomParticipant,
     roomScoreboardRankModel.meRoomRank,
-    scoreFeedbackTab,
   ]);
 
   const mobileEmbeddedHudMode: "guess" | "reveal" | null = isMobileGameViewport
@@ -1895,7 +1899,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           color={canOpenPlaybackVotePrompt ? "warning" : "info"}
           size="small"
           startIcon={<HowToVoteRoundedIcon />}
-          className={`game-room-extend-vote-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${playbackExtensionVote?.status === "active"
+          className={`game-room-extend-vote-btn ${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${playbackExtensionVote?.status === "active"
             ? "game-room-extend-vote-btn--active"
             : playbackExtensionVote?.status === "approved"
               ? "game-room-extend-vote-btn--approved"
@@ -1923,7 +1927,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       <Stack
         direction="row"
         spacing={1}
-        className="max-[760px]:w-full max-[760px]:grid max-[760px]:grid-cols-1"
+        className={isMobileGameViewport ? "w-full grid grid-cols-1" : ""}
       >
         {showRestartBtn && (
           <>
@@ -1937,7 +1941,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="info"
               size="small"
               startIcon={<MeetingRoomRoundedIcon fontSize="inherit" />}
-              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${returnToLobbyVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
+              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${returnToLobbyVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
                 ? "game-room-restart-vote-btn--notify"
                 : ""
                 }`}
@@ -1962,7 +1966,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="warning"
               size="small"
               startIcon={<RestartAltRoundedIcon />}
-              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${restartNowVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "restart_now"
+              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${restartNowVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "restart_now"
                 ? "game-room-restart-vote-btn--notify"
                 : ""
                 }`}
@@ -1986,7 +1990,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             color="info"
             size="small"
             startIcon={<ManageAccountsRoundedIcon />}
-            className="game-room-host-manage-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
+            className={`game-room-host-manage-btn ${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""}`}
             onClick={handleOpenHostManagement}
           >房主管理</Button>
         )}
@@ -2000,6 +2004,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     handleRequestPlaybackVote,
     handleRequestRestartVote,
     isHostInGame,
+    isMobileGameViewport,
     isManualPlaybackExtensionMode,
     isRestartVoteActive,
     playbackExtensionVote?.status,
@@ -2249,7 +2254,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   mobileScoreboardBorderParticleCount
                 }
                 isLeaderboardRoom={isLeaderboardRoom}
-                activeTab={scoreFeedbackTab}
+                activeTab={resolvedScoreFeedbackTab}
                 onActiveTabChange={setScoreFeedbackTab}
                 challengeProjectionState={challengeProjectionState}
                 onChallengeProjectionRefresh={refreshChallengeProjection}
@@ -2569,7 +2574,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       mobileScoreboardBorderParticleCount
                     }
                     isLeaderboardRoom={isLeaderboardRoom}
-                    activeTab={scoreFeedbackTab}
+                    activeTab={resolvedScoreFeedbackTab}
                     onActiveTabChange={setScoreFeedbackTab}
                     challengeProjectionState={challengeProjectionState}
                     onChallengeProjectionRefresh={refreshChallengeProjection}
