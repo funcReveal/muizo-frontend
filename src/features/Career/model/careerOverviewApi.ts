@@ -153,9 +153,12 @@ const normalizeCareerOverviewData = (
             ...item,
             coverThumbnailUrl: item.coverThumbnailUrl ?? null,
             sourceLabel: item.sourceLabel ?? null,
+            matchSummary: item.matchSummary ?? null,
             lastPlayedAt: item.lastPlayedAt ?? null,
             recentRank: item.recentRank ?? null,
             recentPlayerCount: item.recentPlayerCount ?? null,
+            previousLeaderboardRank: item.previousLeaderboardRank ?? null,
+            delta: item.delta ?? null,
           }))
         : [],
     scopeContent: Array.isArray(incoming.scopeContent)
@@ -172,9 +175,13 @@ const normalizeCareerOverviewData = (
                   ...shortcut,
                   coverThumbnailUrl: shortcut.coverThumbnailUrl ?? null,
                   sourceLabel: shortcut.sourceLabel ?? null,
+                  matchSummary: shortcut.matchSummary ?? null,
                   lastPlayedAt: shortcut.lastPlayedAt ?? null,
                   recentRank: shortcut.recentRank ?? null,
                   recentPlayerCount: shortcut.recentPlayerCount ?? null,
+                  previousLeaderboardRank:
+                    shortcut.previousLeaderboardRank ?? null,
+                  delta: shortcut.delta ?? null,
                 }))
               : [],
           }))
@@ -247,5 +254,10 @@ export const fetchCareerCollectionRanks = async ({
     throw new Error(payload?.error ?? "讀取題庫戰績失敗");
   }
 
-  return payload.data?.items ?? [];
+  return (payload.data?.items ?? []).map((item) => ({
+    ...item,
+    coverThumbnailUrl: item.coverThumbnailUrl ?? null,
+    previousLeaderboardRank: item.previousLeaderboardRank ?? null,
+    delta: item.delta ?? null,
+  }));
 };

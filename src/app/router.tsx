@@ -135,10 +135,9 @@ export function AppRouter() {
             isCareerFeatureEnabled ? (
               <RequireAuthRoute
                 badge="Career Access"
-                title="先建立身分即可查看生涯總覽"
-                description="訪客可查看目前身分的對戰紀錄；登入可跨裝置保存完整歷史。"
+                title="登入後即可查看生涯總覽"
+                description="生涯紀錄會綁定帳號保存，登入後可跨裝置查看完整對戰歷史。"
                 highlights={["完整對戰回顧", "個人戰績總覽", "題庫排行表現"]}
-                allowGuest
               >
                 <Suspense fallback={<PageLoader />}>
                   <CareerPage />

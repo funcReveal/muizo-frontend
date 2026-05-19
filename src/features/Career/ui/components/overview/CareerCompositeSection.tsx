@@ -99,10 +99,10 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
   const highlightRowCount = Math.max(1, Math.ceil(highlights.length / 2));
 
   return (
-    <CareerSurface className="flex h-full min-h-0 flex-col">
+    <CareerSurface className="flex min-h-[360px] flex-1 flex-col xl:min-h-[420px]">
       <div className="flex shrink-0 items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-[var(--mc-text)]">
+          <h3 className="text-base font-semibold tracking-tight text-[var(--mc-text)]">
             綜合表現
           </h3>
         </div>
@@ -162,23 +162,23 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
         </div>
       </div>
 
-      <div className="mt-3 grid shrink-0 grid-cols-2 gap-2 lg:grid-cols-5">
+      <div className="mt-2.5 grid shrink-0 grid-cols-2 gap-2 lg:grid-cols-5">
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className={`${careerMiniCardClass} min-h-0 overflow-hidden !p-2.5`}
+            className={`${careerMiniCardClass} min-h-0 overflow-hidden`}
           >
             <div className="text-[11px] tracking-[0.12em] text-[var(--mc-text-muted)]">
               {stat.label}
             </div>
-            <div className="mt-0.5 truncate text-lg font-semibold text-[var(--mc-text)]">
+            <div className="mt-0.5 truncate text-base font-semibold text-[var(--mc-text)]">
               {stat.value}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] bg-black/16 p-2.5">
+      <div className="mt-2.5 flex min-h-[112px] flex-1 flex-col overflow-hidden rounded-[18px] bg-black/16 p-2.5">
         <div
           className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-hidden"
           style={{
@@ -192,7 +192,7 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
             highlights.map((item) => (
               <div
                 key={`${item.key}-${item.label}`}
-                className={`flex min-h-0 flex-col justify-between overflow-hidden rounded-[18px] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
+                className={`flex min-h-0 flex-col justify-between overflow-hidden rounded-[16px] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
                   highlightToneClassByKey[item.key]
                 }`}
               >
@@ -200,7 +200,7 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
                   {item.label}
                 </div>
 
-                <div className="mt-1 truncate text-lg font-semibold text-white xl:text-xl">
+                <div className="mt-0.5 truncate text-base font-semibold text-white xl:text-lg">
                   {item.value}
                 </div>
 

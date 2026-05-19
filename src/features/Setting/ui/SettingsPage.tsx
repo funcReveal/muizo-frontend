@@ -7,7 +7,7 @@ import {
   TuneRounded,
   VisibilityRounded,
 } from "@mui/icons-material";
-import { Button, Chip } from "@mui/material";
+import { Button, Chip, IconButton } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { SETTINGS_PAGE_COPY } from "../model/settingsSchema";
@@ -263,70 +263,58 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRequestClose }) => {
     .filter(Boolean);
 
   return (
-    <div className="h-full w-full">
-      <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-700/70 bg-slate-950 p-3 shadow-[0_30px_80px_-56px_rgba(0,0,0,0.95)] sm:p-4">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_380px_at_8%_-8%,rgba(34,211,238,0.12),transparent_60%),radial-gradient(760px_340px_at_100%_0%,rgba(245,158,11,0.08),transparent_58%)]" />
-        <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:repeating-linear-gradient(135deg,rgba(148,163,184,0.18),rgba(148,163,184,0.18)_1px,transparent_1px,transparent_7px)]" />
-
-        <div className="relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-          <div
-            className={`flex flex-wrap items-start justify-between gap-3 ${isMobileSettingsLayout ? "mb-3" : "mb-4"}`}
+    <div className="relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-slate-950 p-3 sm:p-4">
+      <div
+        className={`flex flex-wrap items-start justify-between gap-3 ${isMobileSettingsLayout ? "mb-3" : "mb-4"}`}
+      >
+        <div className="min-w-0">
+          <h1
+            className={`font-black tracking-tight text-slate-100 ${isMobileSettingsLayout ? "text-[1.9rem]" : "text-2xl sm:text-3xl"}`}
           >
-            <div className="min-w-0">
-              <h1
-                className={`font-black tracking-tight text-slate-100 ${isMobileSettingsLayout ? "text-[1.9rem]" : "text-2xl sm:text-3xl"}`}
-              >
-                {SETTINGS_PAGE_COPY.title}
-              </h1>
-            </div>
-
-            <Button
-              variant="outlined"
-              color="inherit"
-              startIcon={<CloseRounded />}
-              onClick={onRequestClose}
-              sx={{
-                borderColor: "rgba(148,163,184,0.35)",
-                color: "#e2e8f0",
-                alignSelf: "flex-start",
-              }}
-            >
-              關閉
-            </Button>
-          </div>
-
-          <div className="min-h-0">
-            <SettingsLayoutShell
-              sidebar={
-                <SettingsSidebarNav
-                  categories={categories}
-                  activeCategoryId={activeCategoryId}
-                  onCategoryChange={setActiveCategoryId}
-                  categorySections={visibleCategorySections}
-                  compactMobile={isMobileSettingsLayout}
-                />
-              }
-            >
-              <SettingsContentPane scrollContainerRef={contentScrollRef}>
-                {renderedSections.length > 0 ? (
-                  renderedSections
-                ) : isMobileSettingsLayout &&
-                  activeCategoryId === "controls" ? (
-                  <SettingsSectionCard
-                    id="settings-mobile-controls-note"
-                    icon={<KeyboardRounded fontSize="small" />}
-                    title="操作設定"
-                    description="手機版不提供鍵盤按鍵配置。"
-                  >
-                    <div className="rounded-xl border border-slate-700/60 bg-slate-950/40 px-3 py-3 text-sm leading-6 text-slate-300">
-                      目前裝置為手機，因此不顯示 Q/W/A/S 與操作預覽設定。
-                    </div>
-                  </SettingsSectionCard>
-                ) : null}
-              </SettingsContentPane>
-            </SettingsLayoutShell>
-          </div>
+            {SETTINGS_PAGE_COPY.title}
+          </h1>
         </div>
+
+        <IconButton
+          type="button"
+          size="small"
+          onClick={onRequestClose}
+          aria-label="關閉設定"
+          className="!h-9 !w-9 !rounded-full !border !border-white/10 !bg-white/[0.03] !text-slate-200 transition hover:!border-slate-300/50 hover:!bg-white/[0.06] hover:!text-white"
+        >
+          <CloseRounded fontSize="small" />
+        </IconButton>
+      </div>
+
+      <div className="min-h-0">
+        <SettingsLayoutShell
+          sidebar={
+            <SettingsSidebarNav
+              categories={categories}
+              activeCategoryId={activeCategoryId}
+              onCategoryChange={setActiveCategoryId}
+              categorySections={visibleCategorySections}
+              compactMobile={isMobileSettingsLayout}
+            />
+          }
+        >
+          <SettingsContentPane scrollContainerRef={contentScrollRef}>
+            {renderedSections.length > 0 ? (
+              renderedSections
+            ) : isMobileSettingsLayout && activeCategoryId === "controls" ? (
+              <SettingsSectionCard
+                id="settings-mobile-controls-note"
+                icon={<KeyboardRounded fontSize="small" />}
+                title="操作設定"
+                description="手機版不提供鍵盤按鍵配置。"
+              >
+                <div className="rounded-xl border border-slate-700/60 bg-slate-950/40 px-3 py-3 text-sm leading-6 text-slate-300">
+                  目前裝置為手機，因此不顯示 Q/W/A/S 與操作預覽設定。
+                </div>
+              </SettingsSectionCard>
+            ) : null}
+          </SettingsContentPane>
+        </SettingsLayoutShell>
       </div>
     </div>
   );

@@ -743,6 +743,11 @@ export const useCareerHistoryWorkspace = () => {
   const openReplayDetail = useCallback(
     async (summary: RoomSettlementHistorySummary) => {
       const matchId = summary.matchId;
+      setItems((prev) =>
+        prev.some((item) => item.matchId === matchId)
+          ? prev
+          : mergeHistoryItems(prev, [summary]),
+      );
       trackResultHistoryEvent({
         eventName: "match_history.result.opened",
         roomId: summary.roomId,

@@ -1,6 +1,7 @@
 import React from "react";
 
 import type { CareerCollectionRankShortcutItem } from "../../../types/career";
+import type { RoomSettlementHistorySummary } from "@features/RoomSession";
 import {
   formatCareerDelta,
   formatCareerRank,
@@ -12,11 +13,12 @@ interface CareerCollectionShortcutsSectionProps {
   items: CareerCollectionRankShortcutItem[];
   activeScopeKind: "casual" | "leaderboard";
   onOpenCollectionRanks: () => void;
+  onOpenMatch: (summary: RoomSettlementHistorySummary) => void;
 }
 
 const CareerCollectionShortcutsSection: React.FC<
   CareerCollectionShortcutsSectionProps
-> = ({ items, activeScopeKind, onOpenCollectionRanks }) => {
+> = ({ items, activeScopeKind, onOpenCollectionRanks, onOpenMatch }) => {
   const visibleItems = items.slice(0, 6);
   const placeholderCount = Math.max(0, 6 - visibleItems.length);
   const rows = [
@@ -46,9 +48,9 @@ const CareerCollectionShortcutsSection: React.FC<
   };
 
   return (
-    <CareerSurface className="flex h-full min-h-0 flex-col">
+    <CareerSurface className="flex min-h-[360px] flex-1 flex-col xl:min-h-[420px]">
       <div className="flex shrink-0 items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold tracking-tight text-[var(--mc-text)]">
+        <h3 className="text-base font-semibold tracking-tight text-[var(--mc-text)]">
           近期遊玩
         </h3>
 
@@ -62,7 +64,7 @@ const CareerCollectionShortcutsSection: React.FC<
       </div>
 
       <div
-        className="mt-3 grid min-h-0 flex-1 gap-2 overflow-hidden"
+        className="mt-2.5 grid min-h-0 flex-1 gap-2 overflow-hidden"
         style={{
           gridTemplateRows: "repeat(6, minmax(0, 1fr))",
         }}
@@ -72,8 +74,14 @@ const CareerCollectionShortcutsSection: React.FC<
             <button
               key={key}
               type="button"
-              onClick={onOpenCollectionRanks}
-              className="grid h-full min-h-0 w-full grid-cols-[88px_minmax(0,1fr)] overflow-hidden rounded-[16px] border border-white/8 bg-white/[0.04] text-left transition hover:border-amber-200/20 hover:bg-white/[0.06] sm:grid-cols-[104px_minmax(0,1fr)]"
+              onClick={() => {
+                if (item.matchSummary) {
+                  onOpenMatch(item.matchSummary);
+                  return;
+                }
+                onOpenCollectionRanks();
+              }}
+              className="grid h-full min-h-0 w-full grid-cols-[76px_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.04] text-left transition hover:border-amber-200/20 hover:bg-white/[0.06]"
             >
               <div className="relative h-full min-h-0 overflow-hidden bg-[linear-gradient(135deg,rgba(245,158,11,0.24),rgba(15,23,42,0.58))]">
                 {item.coverThumbnailUrl ? (
@@ -91,9 +99,9 @@ const CareerCollectionShortcutsSection: React.FC<
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/48 to-transparent" />
               </div>
 
-              <div className="flex min-h-0 min-w-0 items-center justify-between gap-2 overflow-hidden p-2.5">
+              <div className="flex min-h-0 min-w-0 items-center justify-between gap-2 overflow-hidden p-2">
                 <div className="min-w-0 overflow-hidden">
-                  <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
+                  <div className="truncate text-[13px] font-semibold text-[var(--mc-text)]">
                     {item.title}
                   </div>
                   <div className="mt-0.5 truncate text-[11px] text-[var(--mc-text-muted)]">
@@ -127,7 +135,7 @@ const CareerCollectionShortcutsSection: React.FC<
           ) : (
             <div
               key={key}
-              className="grid h-full min-h-0 w-full grid-cols-[88px_minmax(0,1fr)] overflow-hidden rounded-[16px] border border-dashed border-white/8 bg-white/[0.018] sm:grid-cols-[104px_minmax(0,1fr)]"
+              className="grid h-full min-h-0 w-full grid-cols-[76px_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-dashed border-white/8 bg-white/[0.018]"
             >
               <div className="h-full min-h-0 bg-white/[0.025]" />
               <div className="flex min-h-0 min-w-0 items-center px-2.5 text-[11px] text-[var(--mc-text-muted)]/60">

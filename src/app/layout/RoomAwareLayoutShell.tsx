@@ -46,7 +46,7 @@ const RoomAwareLayoutShell: React.FC = () => {
   const isRoomsHubPage = location.pathname === "/rooms";
   const isRoomsEntryGatePage = isRoomsHubPage && !username;
   const isCareerPage = location.pathname === "/career";
-  const shouldConstrainCareerPage = isCareerPage && !isMobileViewport;
+  const shouldUseCareerPageScroll = isCareerPage && !isMobileViewport;
 
   const roomsOutletClassName = isRoomsEntryGatePage
     ? [
@@ -64,8 +64,10 @@ const RoomAwareLayoutShell: React.FC = () => {
   return (
     <div
       className={`flex bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start ${
-        isRoomsHubPage || shouldConstrainCareerPage
+        isRoomsHubPage
           ? "h-dvh overflow-hidden"
+          : shouldUseCareerPageScroll
+            ? "h-dvh overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
           : "min-h-screen"
       }`}
     >
@@ -75,8 +77,10 @@ const RoomAwareLayoutShell: React.FC = () => {
         } flex-col ${isRoomsHubPage ? "space-y-2" : "space-y-4"}${
           currentRoom && isMobileViewport ? " pb-4" : ""
         } ${
-          isRoomsHubPage || shouldConstrainCareerPage
+          isRoomsHubPage
             ? "h-full min-h-0"
+            : shouldUseCareerPageScroll
+              ? "min-h-full"
             : "min-h-screen"
         }`}
       >
@@ -99,8 +103,8 @@ const RoomAwareLayoutShell: React.FC = () => {
           <div className={roomsOutletClassName}>
             <Outlet />
           </div>
-        ) : shouldConstrainCareerPage ? (
-          <div className="min-h-0 flex-1 overflow-hidden">
+        ) : shouldUseCareerPageScroll ? (
+          <div className="flex min-w-0 flex-1 flex-col">
             <Outlet />
           </div>
         ) : (

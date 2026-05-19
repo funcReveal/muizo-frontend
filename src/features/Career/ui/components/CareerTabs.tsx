@@ -34,9 +34,12 @@ const tabs: Array<{
   },
 ];
 
-const CareerTabs: React.FC<CareerTabsProps> = ({ activeTab, onChange }) => {
+const CareerTabs: React.FC<CareerTabsProps> = ({
+  activeTab,
+  onChange,
+}) => {
   return (
-    <nav className="rounded-[22px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.9),rgba(8,7,5,0.96))] p-1.5 shadow-[0_16px_36px_-30px_var(--mc-glow)] backdrop-blur-xl">
+    <nav>
       <div className="grid grid-cols-4 gap-1.5">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;

@@ -1,7 +1,4 @@
-import React, {
-  lazy,
-  Suspense,
-} from "react";
+import React, { lazy, Suspense } from "react";
 import { Drawer } from "@mui/material";
 
 const SettingsPage = lazy(() => import("@features/Setting/ui/SettingsPage"));
@@ -22,17 +19,15 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
       onClose={onClose}
       PaperProps={{
         className:
-          "!h-dvh !w-screen !max-w-none !overflow-hidden !rounded-none !bg-slate-950 !shadow-none md:!w-[min(1040px,calc(100vw-24px))] md:!border-l md:!border-slate-700/40 md:!shadow-2xl md:!shadow-slate-950/80",
+          "!h-dvh !w-screen !max-w-none !overflow-hidden !rounded-none !border-l !border-white/10 !bg-slate-950 !text-slate-100 !shadow-2xl !shadow-slate-950/80 md:!w-[min(1040px,calc(100vw-24px))] md:!rounded-l-[24px]",
       }}
       ModalProps={{
         keepMounted: true,
       }}
     >
-      <div className="flex h-full min-h-0 overflow-hidden bg-slate-950 p-1 sm:p-1.5">
-        <Suspense fallback={null}>
-          <SettingsPage onRequestClose={onClose} />
-        </Suspense>
-      </div>
+      <Suspense fallback={null}>
+        <SettingsPage onRequestClose={onClose} />
+      </Suspense>
     </Drawer>
   );
 };

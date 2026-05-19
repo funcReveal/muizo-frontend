@@ -5,7 +5,7 @@ import type {
   RoomSettlementSnapshot,
 } from "@features/RoomSession";
 import HistoryReplayCompactView from "../HistoryReplayCompactView";
-import HistoryReplayModal from "../HistoryReplayModal";
+import HistoryReplayDrawer from "../HistoryReplayDrawer";
 import type { SettlementQuestionRecap } from "../GameSettlementPanel";
 
 interface HistoryReplayDialogProps {
@@ -139,7 +139,7 @@ const HistoryReplayDialog: React.FC<HistoryReplayDialogProps> = ({
   formatDuration,
 }) => {
   return (
-    <HistoryReplayModal
+    <HistoryReplayDrawer
       open={open}
       onClose={onClose}
       selectedSummary={selectedSummary}
@@ -171,7 +171,7 @@ const HistoryReplayDialog: React.FC<HistoryReplayDialogProps> = ({
           找不到可顯示的回放資料，請稍後再試。
         </div>
       )}
-    </HistoryReplayModal>
+    </HistoryReplayDrawer>
   );
 };
 

@@ -7,7 +7,17 @@ import HistoryReplayDialog from "@features/Settlement/ui/components/roomHistoryP
 import useCareerHistoryWorkspace from "../../model/useCareerHistoryWorkspace";
 import CareerHistoryGroupedList from "./history/CareerHistoryGroupedList";
 
-const CareerHistoryWorkspace: React.FC = () => {
+type CareerHistoryWorkspaceController = ReturnType<
+  typeof useCareerHistoryWorkspace
+>;
+
+interface CareerHistoryWorkspaceProps {
+  workspace: CareerHistoryWorkspaceController;
+}
+
+const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
+  workspace,
+}) => {
   const {
     clientId,
     scrollHostRef,
@@ -35,7 +45,7 @@ const CareerHistoryWorkspace: React.FC = () => {
     formatDateTime,
     getMatchDurationMs,
     formatDuration,
-  } = useCareerHistoryWorkspace();
+  } = workspace;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-4">

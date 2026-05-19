@@ -7,6 +7,7 @@ import type {
   CareerHighlightItem,
   CareerOverviewScopeContent,
 } from "../../types/career";
+import type { RoomSettlementHistorySummary } from "@features/RoomSession";
 import CareerCollectionShortcutsSection from "./overview/CareerCollectionShortcutsSection";
 import CareerCompositeSection from "./overview/CareerCompositeSection";
 
@@ -17,6 +18,7 @@ interface CareerOverviewTabProps {
   collectionShortcuts: CareerCollectionRankShortcutItem[];
   scopeContent: CareerOverviewScopeContent[];
   onOpenCollectionRanks: () => void;
+  onOpenRecentMatch: (summary: RoomSettlementHistorySummary) => void;
 }
 
 const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
@@ -26,6 +28,7 @@ const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
   collectionShortcuts,
   scopeContent,
   onOpenCollectionRanks,
+  onOpenRecentMatch,
 }) => {
   const fallbackScopeKey = compositeScopes[0]?.key ?? "overall";
   const [activeScopeKey, setActiveScopeKey] = React.useState(fallbackScopeKey);
@@ -49,9 +52,9 @@ const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
     (activeScope?.key === fallbackScopeKey ? collectionShortcuts : []);
 
   return (
-    <div className="flex h-full min-h-0 flex-1 overflow-hidden">
-      <div className="grid h-full min-h-0 flex-1 items-stretch gap-4 overflow-hidden xl:grid-cols-[1.28fr_0.72fr]">
-        <div className="h-full min-h-0 overflow-hidden">
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="grid min-w-0 flex-1 items-start gap-3 xl:grid-cols-[1.18fr_0.82fr] xl:items-stretch">
+        <div className="flex min-w-0 flex-col">
           <CareerCompositeSection
             composite={composite}
             compositeScopes={compositeScopes}
@@ -61,11 +64,12 @@ const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
           />
         </div>
 
-        <div className="grid h-full min-h-0 overflow-hidden">
+        <div className="flex min-w-0 flex-col">
           <CareerCollectionShortcutsSection
             items={activeCollectionShortcuts}
             activeScopeKind={activeScope?.kind ?? "casual"}
             onOpenCollectionRanks={onOpenCollectionRanks}
+            onOpenMatch={onOpenRecentMatch}
           />
         </div>
       </div>
