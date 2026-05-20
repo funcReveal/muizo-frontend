@@ -89,6 +89,32 @@ const MobileScoreFeedbackOverlay: React.FC<MobileScoreFeedbackOverlayProps> =
         aria-live="polite"
       >
         <div key={eventKey} className={cardClassName}>
+          <span
+            className="game-room-mobile-score-feedback-shockwave"
+            aria-hidden="true"
+          />
+          <span
+            className="game-room-mobile-score-feedback-glint"
+            aria-hidden="true"
+          />
+          <span
+            className="game-room-mobile-score-feedback-speed-lines"
+            aria-hidden="true"
+          >
+            <span />
+            <span />
+            <span />
+          </span>
+          <span
+            className="game-room-mobile-score-feedback-sparks"
+            aria-hidden="true"
+          >
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
           {isScore ? (
             <>
               <div className="game-room-mobile-score-feedback-gain">
@@ -106,6 +132,7 @@ const MobileScoreFeedbackOverlay: React.FC<MobileScoreFeedbackOverlayProps> =
                 <div className="game-room-mobile-score-feedback-score-lines game-room-mobile-score-feedback-score-lines--leader">
                   <div className="game-room-mobile-score-feedback-gap">
                     {formatLeadScore(event.leadScore)}
+                    {"\u5206"}
                   </div>
                   {event.runnerUp ? (
                     <div className="game-room-mobile-score-feedback-title">
@@ -118,6 +145,7 @@ const MobileScoreFeedbackOverlay: React.FC<MobileScoreFeedbackOverlayProps> =
                 <div className="game-room-mobile-score-feedback-score-lines">
                   <div className="game-room-mobile-score-feedback-gap">
                     {formatScoreGap(event.nextTargetGap)}
+                    {"\u5206"}
                   </div>
                   <div className="game-room-mobile-score-feedback-title">
                     超越 {event.nextTargetName.trim()}

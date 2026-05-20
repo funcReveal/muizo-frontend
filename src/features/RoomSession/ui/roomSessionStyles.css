@@ -25266,17 +25266,23 @@
 }
 
 .game-room-mobile-score-feedback-card {
+  --score-feedback-accent: rgba(34, 197, 94, 0.9);
+  --score-feedback-accent-soft: rgba(20, 184, 166, 0.24);
   width: 164px;
   min-height: 82px;
+  position: relative;
   color: rgba(248, 250, 252, 0.96);
   padding: 10px 12px;
-  border: 0;
+  border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 16px;
   background:
     radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 92% 18%, var(--score-feedback-accent-soft), transparent 36%),
     linear-gradient(180deg, rgba(3, 7, 18, 0.58), rgba(3, 7, 18, 0.46)),
     rgba(3, 7, 18, 0.5);
   box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 12px 34px -20px var(--score-feedback-accent),
     0 18px 34px -26px rgba(0, 0, 0, 0.86);
   overflow: visible;
   animation: game-room-mobile-score-feedback-in 2500ms
@@ -25285,6 +25291,168 @@
   text-shadow:
     0 2px 5px rgba(0, 0, 0, 0.92),
     0 8px 18px rgba(2, 6, 23, 0.82);
+}
+
+.game-room-mobile-score-feedback-card--score {
+  --score-feedback-accent: rgba(74, 222, 128, 0.95);
+  --score-feedback-accent-soft: rgba(45, 212, 191, 0.22);
+}
+
+.game-room-mobile-score-feedback-card--passed {
+  --score-feedback-accent: rgba(52, 211, 153, 0.98);
+  --score-feedback-accent-soft: rgba(56, 189, 248, 0.26);
+}
+
+.game-room-mobile-score-feedback-card--overtaken {
+  --score-feedback-accent: rgba(248, 113, 113, 0.96);
+  --score-feedback-accent-soft: rgba(244, 63, 94, 0.22);
+}
+
+.game-room-mobile-score-feedback-card--unanswered {
+  --score-feedback-accent: rgba(148, 163, 184, 0.68);
+  --score-feedback-accent-soft: rgba(71, 85, 105, 0.22);
+}
+
+.game-room-mobile-score-feedback-card--combo-hot {
+  --score-feedback-accent: rgba(250, 204, 21, 0.96);
+  --score-feedback-accent-soft: rgba(251, 191, 36, 0.26);
+}
+
+.game-room-mobile-score-feedback-card--combo-great {
+  --score-feedback-accent: rgba(56, 189, 248, 0.98);
+  --score-feedback-accent-soft: rgba(14, 165, 233, 0.28);
+}
+
+.game-room-mobile-score-feedback-card--combo-legend {
+  --score-feedback-accent: rgba(251, 146, 60, 0.98);
+  --score-feedback-accent-soft: rgba(250, 204, 21, 0.32);
+}
+
+.game-room-mobile-score-feedback-card--rank-passed {
+  --score-feedback-accent: rgba(52, 211, 153, 0.98);
+  --score-feedback-accent-soft: rgba(56, 189, 248, 0.28);
+}
+
+.game-room-mobile-score-feedback-card--rank-overtaken {
+  --score-feedback-accent: rgba(248, 113, 113, 0.96);
+  --score-feedback-accent-soft: rgba(244, 63, 94, 0.24);
+}
+
+.game-room-mobile-score-feedback-shockwave,
+.game-room-mobile-score-feedback-glint,
+.game-room-mobile-score-feedback-speed-lines,
+.game-room-mobile-score-feedback-sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.game-room-mobile-score-feedback-shockwave {
+  border: 1px solid var(--score-feedback-accent);
+  border-radius: inherit;
+  opacity: 0;
+  animation: game-room-mobile-score-feedback-shockwave 820ms
+    cubic-bezier(0.16, 1, 0.3, 1) 40ms both;
+}
+
+.game-room-mobile-score-feedback-glint {
+  border-radius: inherit;
+  background: linear-gradient(
+    112deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 255, 255, 0.58) 44%,
+    transparent 58%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translate3d(-60%, 0, 0);
+  animation: game-room-mobile-score-feedback-glint 980ms ease-out 130ms both;
+}
+
+.game-room-mobile-score-feedback-speed-lines {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.game-room-mobile-score-feedback-speed-lines span {
+  position: absolute;
+  right: -18px;
+  width: 58px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--score-feedback-accent));
+  opacity: 0;
+  animation: game-room-mobile-score-feedback-speed-line 760ms ease-out both;
+}
+
+.game-room-mobile-score-feedback-speed-lines span:nth-child(1) {
+  top: 18px;
+  animation-delay: 70ms;
+}
+
+.game-room-mobile-score-feedback-speed-lines span:nth-child(2) {
+  top: 42px;
+  width: 74px;
+  animation-delay: 145ms;
+}
+
+.game-room-mobile-score-feedback-speed-lines span:nth-child(3) {
+  top: 66px;
+  width: 48px;
+  animation-delay: 215ms;
+}
+
+.game-room-mobile-score-feedback-sparks span {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--score-feedback-accent);
+  box-shadow: 0 0 14px var(--score-feedback-accent);
+  opacity: 0;
+  animation: game-room-mobile-score-feedback-spark 860ms ease-out both;
+}
+
+.game-room-mobile-score-feedback-sparks span:nth-child(1) {
+  left: 10%;
+  top: 16%;
+  --spark-x: -14px;
+  --spark-y: -20px;
+  animation-delay: 80ms;
+}
+
+.game-room-mobile-score-feedback-sparks span:nth-child(2) {
+  left: 78%;
+  top: 18%;
+  --spark-x: 20px;
+  --spark-y: -16px;
+  animation-delay: 130ms;
+}
+
+.game-room-mobile-score-feedback-sparks span:nth-child(3) {
+  left: 90%;
+  top: 64%;
+  --spark-x: 18px;
+  --spark-y: 16px;
+  animation-delay: 190ms;
+}
+
+.game-room-mobile-score-feedback-sparks span:nth-child(4) {
+  left: 16%;
+  top: 78%;
+  --spark-x: -18px;
+  --spark-y: 14px;
+  animation-delay: 245ms;
+}
+
+.game-room-mobile-score-feedback-sparks span:nth-child(5) {
+  left: 54%;
+  top: 8%;
+  --spark-x: 0;
+  --spark-y: -24px;
+  animation-delay: 300ms;
 }
 
 .game-room-mobile-score-feedback-card--bubble {
@@ -25332,15 +25500,9 @@
     0 0 16px rgba(15, 23, 42, 0.5);
 }
 
-.game-room-mobile-score-feedback-card--passed {
-  color: rgba(240, 253, 244, 0.98);
-}
-
-.game-room-mobile-score-feedback-card--score {
-  color: rgba(239, 246, 255, 0.98);
-}
-
 .game-room-mobile-score-feedback-gain {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -25362,6 +25524,8 @@
 }
 
 .game-room-mobile-score-feedback-gain-combo {
+  position: relative;
+  z-index: 1;
   align-self: flex-end;
   margin-bottom: 2px;
   color: rgba(248, 250, 252, 0.94);
@@ -25374,6 +25538,8 @@
 }
 
 .game-room-mobile-score-feedback-title {
+  position: relative;
+  z-index: 1;
   margin-top: 7px;
   color: rgba(248, 250, 252, 0.98);
   font-size: 13px;
@@ -25390,6 +25556,8 @@
 }
 
 .game-room-mobile-score-feedback-gap {
+  position: relative;
+  z-index: 1;
   color: rgba(248, 250, 252, 0.98);
   font-size: 13px;
   font-weight: 900;
@@ -25412,6 +25580,8 @@
 }
 
 .game-room-mobile-score-feedback-detail {
+  position: relative;
+  z-index: 1;
   margin-top: 3px;
   color: rgba(203, 213, 225, 0.88);
   font-size: 12px;
@@ -25433,6 +25603,7 @@
 
 .game-room-mobile-score-feedback-swap {
   position: relative;
+  z-index: 1;
   width: 112px;
   height: 46px;
   margin: 0 0 7px 0;
@@ -25576,6 +25747,66 @@
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes game-room-mobile-score-feedback-shockwave {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 var(--score-feedback-accent);
+  }
+  28% {
+    opacity: 0.95;
+    transform: scale(1.04);
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+@keyframes game-room-mobile-score-feedback-glint {
+  0% {
+    opacity: 0;
+    transform: translate3d(-70%, 0, 0);
+  }
+  24% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(82%, 0, 0);
+  }
+}
+
+@keyframes game-room-mobile-score-feedback-speed-line {
+  0% {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0) scaleX(0.24);
+  }
+  36% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-110px, 0, 0) scaleX(1);
+  }
+}
+
+@keyframes game-room-mobile-score-feedback-spark {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.4);
+  }
+  24% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--spark-x), var(--spark-y), 0) scale(0.9);
   }
 }
 
@@ -25889,7 +26120,11 @@
   .game-room-mobile-score-feedback-swap-arrow,
   .game-room-mobile-score-feedback-swap-avatar,
   .game-room-mobile-score-feedback-avatar--me,
-  .game-room-mobile-score-feedback-avatar--target {
+  .game-room-mobile-score-feedback-avatar--target,
+  .game-room-mobile-score-feedback-shockwave,
+  .game-room-mobile-score-feedback-glint,
+  .game-room-mobile-score-feedback-speed-lines span,
+  .game-room-mobile-score-feedback-sparks span {
     animation-duration: 1ms;
     animation-iteration-count: 1;
   }

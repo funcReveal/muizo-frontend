@@ -1687,6 +1687,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     myComboTier,
     getServerNowMs,
     playGameSfx,
+    scoreFeedbackEvent: mobileFeedbackEvent,
   });
 
   const scoreboardRows = useMemo(
