@@ -811,6 +811,60 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       .toEqual(["rank81:81", "rank82:82", "rank83:83", "self:84", "rank84-original:85"]);
   });
 
+  it("nearby mode keeps exactly one below row when session pass count is one", () => {
+    const topFive = Array.from({ length: 5 }, (_, i) =>
+      makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
+    );
+    const nearby = [
+      makeNearbyOpponent("rank80", 80, 535, 210),
+      makeNearbyOpponent("rank81", 81, 255, 210),
+      makeNearbyOpponent("rank82", 82, 210, 210),
+      makeNearbyOpponent("rank83", 83, 210, 210),
+      makeNearbyOpponent("rank84-displaced", 84, 180, 210),
+    ];
+    const data = makeData(84, topFive, nearby, "me", 210);
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 210,
+      meUserId: "me",
+      sessionPassCount: 1,
+    });
+    const nearbyRows = listRows.slice(
+      listRows.findIndex((row) => row.kind === "ellipsis") + 1,
+    );
+
+    expect(nearbyRows.map((row) => row.kind === "self" ? "self:84" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
+      .toEqual(["rank81:81", "rank82:82", "rank83:83", "self:84", "rank84-displaced:85"]);
+  });
+
+  it("nearby mode lets a displaced row exceed total players after live self insertion", () => {
+    const topFive = Array.from({ length: 5 }, (_, i) =>
+      makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
+    );
+    const nearby = [
+      makeNearbyOpponent("rank83", 83, 255, 210),
+      makeNearbyOpponent("rank84", 84, 210, 210),
+      makeNearbyOpponent("rank85", 85, 210, 210),
+      makeNearbyOpponent("rank86-displaced", 86, 180, 210),
+    ];
+    const data = makeData(86, topFive, nearby, "me", 210);
+    data.myStanding.totalPlayers = 86;
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 210,
+      meUserId: "me",
+      sessionPassCount: 1,
+    });
+    const nearbyRows = listRows.slice(
+      listRows.findIndex((row) => row.kind === "ellipsis") + 1,
+    );
+
+    expect(nearbyRows.map((row) => row.kind === "self" ? "self:86" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
+      .toEqual(["rank83:83", "rank84:84", "rank85:85", "self:86", "rank86-displaced:87"]);
+  });
+
   it("nearby mode labels visible rows around self sequentially without missing ranks", () => {
     const topFive = Array.from({ length: 5 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),

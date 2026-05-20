@@ -126,7 +126,9 @@ export function buildChallengeNearbyDisplayRows({
   };
 
   const aheadSorted = opponents.filter(isAhead).sort(byRank);
-  const passedSorted = opponents.filter((opponent) => !isAhead(opponent)).sort(byRank);
+  const passedSorted = opponents
+    .filter((opponent) => !isAhead(opponent))
+    .sort(byRank);
   const shouldReserveBelowSlots =
     effectiveSelfRank !== null &&
     liveScore > 0 &&
@@ -134,7 +136,9 @@ export function buildChallengeNearbyDisplayRows({
   const belowSlots = Math.min(
     maxBelowSlots,
     passedSorted.length > 0
-      ? Math.max(sessionPassCount, passedSorted.length)
+      ? sessionPassCount === 1
+        ? 1
+        : Math.max(sessionPassCount, passedSorted.length)
       : shouldReserveBelowSlots
         ? maxBelowSlots
         : sessionPassCount,
@@ -170,8 +174,7 @@ export function buildChallengeNearbyDisplayRows({
   });
 
   below.forEach((opponent, i) => {
-    const fallbackRank =
-      projectedRank !== null ? projectedRank + i + 1 : null;
+    const fallbackRank = projectedRank !== null ? projectedRank + i + 1 : null;
     const rank = getRank(opponent);
     rows.push({
       type: "opponent",
@@ -186,13 +189,10 @@ export function buildChallengeNearbyDisplayRows({
     rows.push({ type: "placeholder", key: `pp:${i}` });
   }
 
-  return normalizeVisibleRanks(rows, effectiveSelfRank, totalPlayers);
+  return normalizeVisibleRanks(rows, effectiveSelfRank);
 }
 
-function clampRank(
-  rank: number | null,
-  totalPlayers: number,
-): number | null {
+function clampRank(rank: number | null, totalPlayers: number): number | null {
   if (rank === null) return null;
   return Math.max(1, totalPlayers > 0 ? Math.min(totalPlayers, rank) : rank);
 }
@@ -200,7 +200,6 @@ function clampRank(
 function normalizeVisibleRanks(
   rows: ChallengeDisplayRow[],
   selfRank: number | null,
-  totalPlayers: number,
 ): ChallengeDisplayRow[] {
   if (selfRank === null) return rows;
 
@@ -213,7 +212,9 @@ function normalizeVisibleRanks(
     .filter((index): index is number => index !== null);
   const belowOpponentIndexes = rows
     .slice(selfIndex + 1)
-    .map((row, index) => (row.type === "opponent" ? selfIndex + 1 + index : null))
+    .map((row, index) =>
+      row.type === "opponent" ? selfIndex + 1 + index : null,
+    )
     .filter((index): index is number => index !== null);
 
   const nextRows = rows.slice();
@@ -224,7 +225,7 @@ function normalizeVisibleRanks(
     if (row.type !== "opponent") return;
     nextRows[rowIndex] = {
       ...row,
-      approxRank: clampRank(firstAboveRank + index, totalPlayers),
+      approxRank: clampDisplayRank(firstAboveRank + index),
     };
   });
 
@@ -233,9 +234,13 @@ function normalizeVisibleRanks(
     if (row.type !== "opponent") return;
     nextRows[rowIndex] = {
       ...row,
-      approxRank: clampRank(selfRank + index + 1, totalPlayers),
+      approxRank: clampDisplayRank(selfRank + index + 1),
     };
   });
 
   return nextRows;
+}
+
+function clampDisplayRank(rank: number): number {
+  return Math.max(1, rank);
 }
