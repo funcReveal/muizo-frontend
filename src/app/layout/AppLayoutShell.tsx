@@ -60,6 +60,10 @@ const AppLayoutShell: React.FC = () => {
     loginWithGoogle();
   }, [authLoading, loginWithGoogle]);
 
+  const handleLogoutRequest = useCallback(() => {
+    setLogoutConfirmOpen(true);
+  }, []);
+
   const handleNavigateRequest = useCallback(
     (target: NavigationTarget) => {
       if (target === "settings") {
@@ -71,6 +75,26 @@ const AppLayoutShell: React.FC = () => {
     },
     [navigate],
   );
+
+  const handleNavigateRooms = useCallback(
+    () => handleNavigateRequest("rooms"),
+    [handleNavigateRequest],
+  );
+  const handleNavigateCollections = useCallback(
+    () => handleNavigateRequest("collections"),
+    [handleNavigateRequest],
+  );
+  const handleNavigateCareer = useCallback(
+    () => handleNavigateRequest("career"),
+    [handleNavigateRequest],
+  );
+  const handleNavigateSettings = useCallback(
+    () => handleNavigateRequest("settings"),
+    [handleNavigateRequest],
+  );
+  const handleNavigatePrivacy = useCallback(() => {
+    navigate("/privacy");
+  }, [navigate]);
 
   const roomsOutletClassName = isRoomsEntryGatePage
     ? [
@@ -102,13 +126,13 @@ const AppLayoutShell: React.FC = () => {
           authUser={authUser}
           authLoading={authLoading}
           onLogin={handleLoginRequest}
-          onLogout={() => setLogoutConfirmOpen(true)}
+          onLogout={handleLogoutRequest}
           onEditProfile={openProfileEditor}
-          onNavigateRooms={() => handleNavigateRequest("rooms")}
-          onNavigateCollections={() => handleNavigateRequest("collections")}
-          onNavigateCareer={() => handleNavigateRequest("career")}
-          onNavigateSettings={() => handleNavigateRequest("settings")}
-          onNavigatePrivacy={() => navigate("/privacy")}
+          onNavigateRooms={handleNavigateRooms}
+          onNavigateCollections={handleNavigateCollections}
+          onNavigateCareer={handleNavigateCareer}
+          onNavigateSettings={handleNavigateSettings}
+          onNavigatePrivacy={handleNavigatePrivacy}
         />
 
         {isRoomsHubPage ? (

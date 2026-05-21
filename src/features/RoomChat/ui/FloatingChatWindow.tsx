@@ -39,7 +39,7 @@ export interface FloatingChatWindowRef {
 
 const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMobileTrigger?: boolean }>(
   function FloatingChatWindow({ suppressMobileTrigger = false }, ref) {
-  const { currentRoom, messages, clientId, gameState } = useRoomRealtime();
+  const { currentRoom, messages, clientId, gameStatus } = useRoomRealtime();
   const {
     messageInput,
     setMessageInput,
@@ -251,9 +251,9 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       : "idle";
 
   const shouldSuppressGameChatOutsideDanmuBridge = Boolean(
-    isMobileRoomMode && gameState?.status === "playing" && !danmuCtx,
+    isMobileRoomMode && gameStatus === "playing" && !danmuCtx,
   );
-  const showDanmuToggle = Boolean(gameState?.status === "playing" && danmuCtx);
+  const showDanmuToggle = Boolean(gameStatus === "playing" && danmuCtx);
 
   const handleDanmuEnabledChange = useCallback(
     (checked: boolean) => {

@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 import { ChatInputContext } from "../ChatInputContext";
 import { RoomGameContext, type RoomGameContextValue } from "../RoomGameContext";
 import {
+  RoomGameStatusContext,
   RoomRealtimeContext,
   RoomUiContext,
+  type RoomGameStatusContextValue,
   type RoomRealtimeContextValue,
   type RoomUiContextValue,
 } from "../RoomContext";
@@ -27,6 +29,7 @@ type RoomSessionContextProviderTreeProps = {
   values: {
     chatInput: ChatInputContextValue;
     game: RoomGameContextValue;
+    gameStatus: RoomGameStatusContextValue;
     internal: RoomSessionInternalContextValue;
     playlist: PlaylistSourceContextValue;
     realtime: RoomRealtimeContextValue;
@@ -43,13 +46,15 @@ export const RoomSessionContextProviderTree = ({
     <RoomSessionContext.Provider value={values.session}>
       <RoomGameContext.Provider value={values.game}>
         <RoomUiContext.Provider value={values.ui}>
-          <RoomRealtimeContext.Provider value={values.realtime}>
-            <ChatInputContext.Provider value={values.chatInput}>
-              <RoomSessionInternalContext.Provider value={values.internal}>
-                {children}
-              </RoomSessionInternalContext.Provider>
-            </ChatInputContext.Provider>
-          </RoomRealtimeContext.Provider>
+          <RoomGameStatusContext.Provider value={values.gameStatus}>
+            <RoomRealtimeContext.Provider value={values.realtime}>
+              <ChatInputContext.Provider value={values.chatInput}>
+                <RoomSessionInternalContext.Provider value={values.internal}>
+                  {children}
+                </RoomSessionInternalContext.Provider>
+              </ChatInputContext.Provider>
+            </RoomRealtimeContext.Provider>
+          </RoomGameStatusContext.Provider>
         </RoomUiContext.Provider>
       </RoomGameContext.Provider>
     </RoomSessionContext.Provider>

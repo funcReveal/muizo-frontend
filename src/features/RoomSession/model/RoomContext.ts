@@ -17,9 +17,15 @@ export type RoomRealtimeContextValue = {
   currentRoom: RoomState["room"] | null;
   messages: ChatMessage[];
   clientId: string;
-  gameState: GameState | null;
+  gameStatus: GameState["status"] | null;
+};
+
+export type RoomGameStatusContextValue = {
+  gameStatus: GameState["status"] | null;
 };
 
 export const RoomUiContext = createContext<RoomUiContextValue | null>(null);
 export const RoomRealtimeContext =
   createContext<RoomRealtimeContextValue | null>(null);
+export const RoomGameStatusContext =
+  createContext<RoomGameStatusContextValue | null>(null);

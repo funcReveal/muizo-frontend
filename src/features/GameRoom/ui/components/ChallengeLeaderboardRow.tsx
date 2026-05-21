@@ -11,6 +11,86 @@ const formatScoreCombo = (score: number, combo: number) =>
   `${score.toLocaleString()}${combo > 0 ? `\u00d7${combo}` : ""}`;
 const SCOREBOARD_AVATAR_SIZE = 32;
 const SCOREBOARD_AVATAR_CONTENT_SIZE = 26;
+const SELF_ROW_PARTICLE_COUNT = 8;
+
+type ChallengeSelfPulseTone = "score" | "rank" | "combo";
+
+interface ChallengeSelfPulseState {
+  key: number;
+  scoreDelta: number;
+  rankDelta: number;
+  tone: ChallengeSelfPulseTone;
+}
+
+const resolveChallengeSelfPulseTone = ({
+  scoreDelta,
+  rankDelta,
+  comboDelta,
+}: {
+  scoreDelta: number;
+  rankDelta: number;
+  comboDelta: number;
+}): ChallengeSelfPulseTone => {
+  if (rankDelta > 0) return "rank";
+  if (comboDelta > 0 && scoreDelta > 0) return "combo";
+  return "score";
+};
+
+function useChallengeSelfPulse({
+  liveScore,
+  rankValue,
+  combo,
+  isSettled,
+}: {
+  liveScore: number;
+  rankValue: number | null;
+  combo: number;
+  isSettled: boolean;
+}): ChallengeSelfPulseState | null {
+  const previousRef = React.useRef<{
+    liveScore: number;
+    rankValue: number | null;
+    combo: number;
+  } | null>(null);
+  const [pulse, setPulse] = React.useState<ChallengeSelfPulseState | null>(null);
+
+  React.useEffect(() => {
+    const previous = previousRef.current;
+    previousRef.current = { liveScore, rankValue, combo };
+    if (!previous || isSettled) return;
+
+    const scoreDelta = liveScore - previous.liveScore;
+    const previousRank = previous.rankValue;
+    const rankDelta =
+      previousRank !== null && rankValue !== null
+        ? Math.max(0, previousRank - rankValue)
+        : 0;
+    const comboDelta = combo - previous.combo;
+
+    if (scoreDelta <= 0 && rankDelta <= 0 && comboDelta <= 0) return;
+
+    setPulse((current) => ({
+      key: (current?.key ?? 0) + 1,
+      scoreDelta: Math.max(0, scoreDelta),
+      rankDelta,
+      tone: resolveChallengeSelfPulseTone({
+        scoreDelta,
+        rankDelta,
+        comboDelta,
+      }),
+    }));
+  }, [combo, isSettled, liveScore, rankValue]);
+
+  React.useEffect(() => {
+    if (!pulse) return undefined;
+    const timer = window.setTimeout(() => {
+      setPulse((current) => (current?.key === pulse.key ? null : current));
+    }, 1150);
+    return () => window.clearTimeout(timer);
+  }, [pulse]);
+
+  return pulse;
+}
 
 interface ChallengeTopEntryRowProps {
   entry: ChallengeLeaderboardEntry;
@@ -251,9 +331,52 @@ export const ChallengeSelfRow = React.memo(
         ? "未上榜"
         : "--";
     const rankColor = isSettled ? "text-amber-300" : "text-sky-300";
+    const pulse = useChallengeSelfPulse({
+      liveScore,
+      rankValue,
+      combo,
+      isSettled,
+    });
+    const pulseText =
+      pulse && pulse.scoreDelta > 0
+        ? `+${pulse.scoreDelta.toLocaleString()}`
+        : pulse && pulse.rankDelta > 0
+          ? `#${rankValue ?? projectedRank ?? "--"}`
+          : "";
 
     return (
-      <div className="game-room-score-row game-room-score-row--me challenge-lb-self-row flex items-center justify-between text-sm bg-white/8 ring-1 ring-white/15">
+      <div
+        className={`game-room-score-row game-room-score-row--me challenge-lb-self-row challenge-lb-self-row--pulse-${pulse?.tone ?? "idle"} flex items-center justify-between text-sm bg-white/8 ring-1 ring-white/15`}
+      >
+        {pulse && (
+          <span
+            key={`pulse-${pulse.key}`}
+            className={`challenge-lb-self-effects challenge-lb-self-effects--${pulse.tone}`}
+            aria-hidden="true"
+          >
+            <span className="challenge-lb-self-effects__ring" />
+            <span className="challenge-lb-self-effects__sweep" />
+            <span className="challenge-lb-self-effects__label">
+              {pulseText}
+            </span>
+            <span className="challenge-lb-self-effects__particles">
+              {Array.from({ length: SELF_ROW_PARTICLE_COUNT }, (_, index) => (
+                <span
+                  key={index}
+                  className="challenge-lb-self-effects__particle"
+                  style={
+                    {
+                      "--challenge-self-particle-index": index,
+                      "--challenge-self-particle-left": `${20 + index * 8.5}%`,
+                      "--challenge-self-particle-x": `${(index - 3.5) * 8}px`,
+                      "--challenge-self-particle-y": `${(index % 3) * 8}px`,
+                    } as React.CSSProperties
+                  }
+                />
+              ))}
+            </span>
+          </span>
+        )}
         <span className="challenge-lb-row__identity flex min-w-0 flex-1 items-center gap-2 truncate">
           <span
             className={`${isOutsideTop1000 ? "w-10" : "w-5"} shrink-0 text-center text-xs font-bold tabular-nums leading-none ${rankColor}`}

@@ -2,7 +2,11 @@
 import { Button, Chip, LinearProgress } from "@mui/material";
 
 import RevealChoiceAvatarRow from "./RevealChoiceAvatarRow";
-import type { GameState, PlaylistItem } from "@features/RoomSession";
+import type {
+  GameState,
+  PlaylistItem,
+  SubmitAnswerResult,
+} from "@features/RoomSession";
 import { normalizeRoomDisplayText } from "../../../../shared/utils/text";
 import type {
   MyFeedbackModel,
@@ -37,7 +41,7 @@ interface GameRoomAnswerPanelProps {
   waitingToStart: boolean;
   shouldShowGestureOverlay: boolean;
   canAnswerNow: boolean;
-  onSubmitChoice: (choiceIndex: number) => void;
+  onSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult | void> | void;
   keyBindings: Record<number, string>;
   myHasChangedAnswer: boolean;
   myFeedback: MyFeedbackModel;
@@ -318,6 +322,168 @@ const GameRoomRevealCountdownText = React.memo(function GameRoomRevealCountdownT
   return <p className="mt-1 text-xs text-emerald-200">{countdownSec} 秒後繼續</p>;
 });
 
+interface GameRoomChoiceRowProps {
+  choice: GameState["choices"][number];
+  choiceDisplayTitle: string;
+  keyBinding: string;
+  isSelected: boolean;
+  isCorrect: boolean;
+  isReveal: boolean;
+  isEnded: boolean;
+  isLeaderboardRoom: boolean;
+  hasAnySelectedChoice: boolean;
+  revealPicks: RevealChoicePickMap[number];
+  myComboTier: GameRoomAnswerPanelProps["myComboTier"];
+  myComboNow: number;
+  waitingToStart: boolean;
+  shouldShowGestureOverlay: boolean;
+  isRecoveringConnection: boolean;
+  isMobileView: boolean;
+  onChoiceClick: (choiceIndex: number) => void;
+  selectedShellRef: React.RefCallback<HTMLDivElement>;
+}
+
+const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
+  choice,
+  choiceDisplayTitle,
+  keyBinding,
+  isSelected,
+  isCorrect,
+  isReveal,
+  isEnded,
+  isLeaderboardRoom,
+  hasAnySelectedChoice,
+  revealPicks,
+  myComboTier,
+  myComboNow,
+  waitingToStart,
+  shouldShowGestureOverlay,
+  isRecoveringConnection,
+  isMobileView,
+  onChoiceClick,
+  selectedShellRef,
+}: GameRoomChoiceRowProps) {
+  const isLocked = isReveal || isEnded;
+  const isLeaderboardAnswerLocked =
+    isLeaderboardRoom && hasAnySelectedChoice && !isReveal;
+  const hasRevealPicks = isReveal && revealPicks.length > 0;
+  const showComboFocusStyle =
+    !isReveal && isSelected && myComboTier > 0 && myComboNow > 0;
+  const revealChoiceStateClass = isReveal
+    ? isCorrect
+      ? "game-room-choice-button--reveal-correct"
+      : isSelected
+        ? "game-room-choice-button--reveal-wrong"
+        : "game-room-choice-button--reveal-neutral"
+    : "";
+  const comboFocusTierClass = showComboFocusStyle
+    ? `game-room-choice-button--combo-focus-tier-${myComboTier}`
+    : "";
+  const comboLiveTierClass = showComboFocusStyle
+    ? `game-room-choice-button--combo-live-tier-${Math.min(
+      10,
+      Math.max(1, myComboTier),
+    )}`
+    : "";
+
+  const handleClick = React.useCallback(() => {
+    onChoiceClick(choice.index);
+  }, [choice.index, onChoiceClick]);
+
+  const handleAnimationEnd = React.useCallback(
+    (e: React.AnimationEvent<HTMLDivElement>) => {
+      if (!isSelected) return;
+      e.currentTarget.classList.remove("game-room-choice-shake");
+    },
+    [isSelected],
+  );
+
+  return (
+    <div
+      ref={isSelected ? selectedShellRef : undefined}
+      className={`game-room-choice-shell ${hasRevealPicks ? "game-room-choice-shell--with-avatars" : ""
+        }`}
+      onAnimationEnd={isSelected ? handleAnimationEnd : undefined}
+    >
+      {hasRevealPicks && (
+        <div className="game-room-choice-avatar-anchor">
+          <RevealChoiceAvatarRow picks={revealPicks} />
+        </div>
+      )}
+      {isLeaderboardAnswerLocked && !isSelected && (
+        <div className="game-room-choice-leaderboard-lock-overlay" aria-hidden="true" />
+      )}
+      <Button
+        fullWidth
+        size="large"
+        disableRipple
+        title={choiceDisplayTitle}
+        aria-disabled={isLocked || waitingToStart || shouldShowGestureOverlay || isRecoveringConnection}
+        tabIndex={
+          isLocked || waitingToStart || shouldShowGestureOverlay || isRecoveringConnection ? -1 : 0
+        }
+        variant={
+          isReveal
+            ? isCorrect || isSelected
+              ? "contained"
+              : "outlined"
+            : isSelected
+              ? "contained"
+              : "outlined"
+        }
+        color={
+          isReveal
+            ? isCorrect
+              ? "success"
+              : isSelected
+                ? "error"
+                : "info"
+            : isSelected
+              ? "info"
+              : "info"
+        }
+        className={`game-room-choice-button justify-start ${!isReveal && isSelected
+          ? "game-room-choice-button--selected-live"
+          : ""
+          } ${revealChoiceStateClass
+            ? `game-room-choice-button--reveal ${revealChoiceStateClass}`
+            : ""
+          } ${showComboFocusStyle
+            ? "game-room-choice-button--combo-focus game-room-choice-button--combo-live game-room-choice-button--combo-live-active"
+            : ""
+          } ${comboFocusTierClass
+            ? comboFocusTierClass
+            : ""
+          } ${comboLiveTierClass
+            ? comboLiveTierClass
+            : ""
+          } ${isLocked ||
+            waitingToStart ||
+            shouldShowGestureOverlay ||
+            (isLeaderboardAnswerLocked && !isSelected)
+            ? "pointer-events-none"
+            : ""
+          } ${isMobileView ? "game-room-choice-button--mobile" : ""
+          } ${isMobileView && !isReveal && !isSelected
+            ? "game-room-choice-button--mobile-idle"
+            : ""
+          }`}
+        disabled={false}
+        onClick={handleClick}
+      >
+        <div className="game-room-choice-content game-room-choice-content--text-only">
+          <span className="game-room-choice-main">
+            <GameRoomChoiceText text={choiceDisplayTitle} />
+          </span>
+          <span className="game-room-choice-key inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-700 bg-slate-800 text-[11px] font-semibold text-slate-200">
+            {keyBinding.toUpperCase()}
+          </span>
+        </div>
+      </Button>
+    </div>
+  );
+});
+
 const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   isMobileView = false,
   isInitialCountdown,
@@ -390,6 +556,38 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   const [urgentChipPingActive, setUrgentChipPingActive] = React.useState(false);
   const progressBarFillRef = React.useRef<HTMLDivElement>(null);
   const shakeSelectedRef = React.useRef<HTMLDivElement | null>(null);
+  const [localSelectedChoiceState, setLocalSelectedChoiceState] = React.useState<{
+    trackSessionKey: string;
+    choiceIndex: number | null;
+  } | null>(null);
+  const localSubmitSeqRef = React.useRef(0);
+  const localSelectedChoice =
+    localSelectedChoiceState?.trackSessionKey === trackSessionKey
+      ? localSelectedChoiceState.choiceIndex
+      : null;
+  const displaySelectedChoice = localSelectedChoice ?? selectedChoice;
+  const displaySelectedChoiceRef = React.useRef(displaySelectedChoice);
+
+  React.useEffect(() => {
+    displaySelectedChoiceRef.current = displaySelectedChoice;
+  }, [displaySelectedChoice]);
+
+  React.useEffect(() => {
+    setLocalSelectedChoiceState((prev) => {
+      if (!prev || prev.trackSessionKey !== trackSessionKey) return null;
+      if (selectedChoice === null || prev.choiceIndex !== selectedChoice) {
+        return prev;
+      }
+      return null;
+    });
+  }, [selectedChoice, trackSessionKey]);
+
+  React.useEffect(() => {
+    setLocalSelectedChoiceState((prev) =>
+      prev?.trackSessionKey === trackSessionKey ? prev : null,
+    );
+  }, [trackSessionKey]);
+
   React.useEffect(() => {
     if (!leaderboardLockShakeKey) return;
     const el = shakeSelectedRef.current;
@@ -450,9 +648,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
       return [];
     }
     return [
-      { text: `蝑? ${liveCorrectCount}`, tone: "correct" as const },
-      { text: `蝑 ${liveWrongCount}`, tone: "wrong" as const },
-      { text: `?芯?蝑?${liveUnansweredCount}`, tone: "muted" as const },
+      { text: `答對 ${liveCorrectCount}`, tone: "correct" as const },
+      { text: `答錯 ${liveWrongCount}`, tone: "wrong" as const },
+      { text: `未作答 ${liveUnansweredCount}`, tone: "muted" as const },
     ];
   }, [
     liveCorrectCount,
@@ -565,11 +763,59 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   const handleChoiceClick = React.useCallback(
     (choiceIndex: number) => {
       if (isReveal || isEnded || !canAnswerNow || isRecoveringConnection) return;
-      if (isLeaderboardRoom && selectedChoice !== null) return;
-      onSubmitChoice(choiceIndex);
+      if (isLeaderboardRoom && displaySelectedChoiceRef.current !== null) return;
+      setLocalSelectedChoiceState({
+        trackSessionKey,
+        choiceIndex,
+      });
+      const submitSeq = (localSubmitSeqRef.current += 1);
+      void Promise.resolve(onSubmitChoice(choiceIndex))
+        .then((result) => {
+          if (localSubmitSeqRef.current !== submitSeq) return;
+          if (!result) return;
+          if (!result.ok) {
+            setLocalSelectedChoiceState((prev) =>
+              prev?.trackSessionKey === trackSessionKey &&
+              prev.choiceIndex === choiceIndex
+                ? null
+                : prev,
+            );
+            return;
+          }
+          const acceptedChoiceIndex = result.data.choiceIndex;
+          if (typeof acceptedChoiceIndex !== "number") return;
+          setLocalSelectedChoiceState((prev) =>
+            prev?.trackSessionKey === trackSessionKey
+              ? {
+                trackSessionKey,
+                choiceIndex: acceptedChoiceIndex,
+              }
+              : prev,
+          );
+        })
+        .catch(() => {
+          if (localSubmitSeqRef.current !== submitSeq) return;
+          setLocalSelectedChoiceState((prev) =>
+            prev?.trackSessionKey === trackSessionKey &&
+            prev.choiceIndex === choiceIndex
+              ? null
+              : prev,
+          );
+        });
     },
-    [canAnswerNow, isEnded, isLeaderboardRoom, isRecoveringConnection, isReveal, onSubmitChoice, selectedChoice],
+    [
+      canAnswerNow,
+      isEnded,
+      isLeaderboardRoom,
+      isRecoveringConnection,
+      isReveal,
+      onSubmitChoice,
+      trackSessionKey,
+    ],
   );
+  const handleSelectedShellRef = React.useCallback((node: HTMLDivElement | null) => {
+    shakeSelectedRef.current = node;
+  }, []);
 
   return (
     <div
@@ -598,7 +844,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     <Chip
                       label={
                         <span className="game-room-phase-chip-label">
-                          ????銝?
+                          同步中
                         </span>
                       }
                       size="small"
@@ -624,9 +870,9 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 {!hideAnswerPhaseChrome && (
                   <p className="game-room-title">
                     {isRecoveringConnection
-                      ? (recoveryStatusText ?? "甇??Ｗ儔?輸????..")
+                      ? (recoveryStatusText ?? "正在恢復連線...")
                       : isInterTrackWait
-                        ? "銝?憿??葉"
+                        ? "等待下一題"
                         : phaseLabel}
                   </p>
                 )}
@@ -735,10 +981,8 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   ),
                 )
                 : choices.map((choice, idx) => {
-                  const isSelected = selectedChoice === choice.index;
+                  const isSelected = displaySelectedChoice === choice.index;
                   const isCorrect = choice.index === correctChoiceIndex;
-                  const isLocked = isReveal || isEnded;
-                  const isLeaderboardAnswerLocked = isLeaderboardRoom && selectedChoice !== null && !isReveal;
                   const choiceDisplayTitle = normalizeRoomDisplayText(
                     choice.title?.trim() ||
                     playlist[choice.index]?.answerText?.trim() ||
@@ -746,112 +990,29 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                     "未知選項",
                   );
                   const revealPicks = revealChoicePickMap[choice.index] ?? [];
-                  const hasRevealPicks = isReveal && revealPicks.length > 0;
-                  const isMyChoice = selectedChoice === choice.index;
-                  const showComboFocusStyle =
-                    !isReveal && isMyChoice && myComboTier > 0 && myComboNow > 0;
-                  const revealChoiceStateClass = isReveal
-                    ? isCorrect
-                      ? "game-room-choice-button--reveal-correct"
-                      : isSelected
-                        ? "game-room-choice-button--reveal-wrong"
-                        : "game-room-choice-button--reveal-neutral"
-                    : "";
-                  const comboFocusTierClass = showComboFocusStyle
-                    ? `game-room-choice-button--combo-focus-tier-${myComboTier}`
-                    : "";
-                  const comboLiveTierClass = showComboFocusStyle
-                    ? `game-room-choice-button--combo-live-tier-${Math.min(
-                      10,
-                      Math.max(1, myComboTier),
-                    )}`
-                    : "";
 
                   return (
-                    <div
+                    <GameRoomChoiceRow
                       key={`${choice.index}`}
-                      ref={isSelected ? (node) => { shakeSelectedRef.current = node; } : undefined}
-                      className={`game-room-choice-shell ${hasRevealPicks ? "game-room-choice-shell--with-avatars" : ""
-                        }`}
-                      onAnimationEnd={isSelected ? (e) => { (e.currentTarget as HTMLDivElement).classList.remove("game-room-choice-shake"); } : undefined}
-                    >
-                      {hasRevealPicks && (
-                        <div className="game-room-choice-avatar-anchor">
-                          <RevealChoiceAvatarRow picks={revealPicks} />
-                        </div>
-                      )}
-                      {isLeaderboardAnswerLocked && !isSelected && (
-                        <div className="game-room-choice-leaderboard-lock-overlay" aria-hidden="true" />
-                      )}
-                      <Button
-                        fullWidth
-                        size="large"
-                        disableRipple
-                        title={choiceDisplayTitle}
-                        aria-disabled={isLocked || waitingToStart || shouldShowGestureOverlay || isRecoveringConnection}
-                        tabIndex={
-                          isLocked || waitingToStart || shouldShowGestureOverlay || isRecoveringConnection ? -1 : 0
-                        }
-                        variant={
-                          isReveal
-                            ? isCorrect || isSelected
-                              ? "contained"
-                              : "outlined"
-                            : isSelected
-                              ? "contained"
-                              : "outlined"
-                        }
-                        color={
-                          isReveal
-                            ? isCorrect
-                              ? "success"
-                              : isSelected
-                                ? "error"
-                                : "info"
-                            : isSelected
-                              ? "info"
-                              : "info"
-                        }
-                        className={`game-room-choice-button justify-start ${!isReveal && isSelected
-                          ? "game-room-choice-button--selected-live"
-                          : ""
-                          } ${revealChoiceStateClass
-                            ? `game-room-choice-button--reveal ${revealChoiceStateClass}`
-                            : ""
-                          } ${showComboFocusStyle
-                            ? "game-room-choice-button--combo-focus game-room-choice-button--combo-live game-room-choice-button--combo-live-active"
-                            : ""
-                          } ${comboFocusTierClass
-                            ? comboFocusTierClass
-                            : ""
-                          } ${comboLiveTierClass
-                            ? comboLiveTierClass
-                            : ""
-                          } ${isLocked ||
-                            waitingToStart ||
-                            shouldShowGestureOverlay ||
-                            (isLeaderboardAnswerLocked && !isSelected)
-                            ? "pointer-events-none"
-                            : ""
-                          } ${isMobileView ? "game-room-choice-button--mobile" : ""
-                          } ${isMobileView && !isReveal && !isSelected
-                            ? "game-room-choice-button--mobile-idle"
-                            : ""
-                          }`}
-                        disabled={false}
-                        onClick={() => handleChoiceClick(choice.index)}
-                      >
-                        <div className="game-room-choice-content game-room-choice-content--text-only">
-                          <span className="game-room-choice-main">
-                            <GameRoomChoiceText text={choiceDisplayTitle} />
-                          </span>
-                          <span className="game-room-choice-key inline-flex h-6 w-6 flex-none items-center justify-center rounded border border-slate-700 bg-slate-800 text-[11px] font-semibold text-slate-200">
-                            {(keyBindings[idx] ?? "").toUpperCase()}
-                          </span>
-                        </div>
-
-                      </Button>
-                    </div>
+                      choice={choice}
+                      choiceDisplayTitle={choiceDisplayTitle}
+                      keyBinding={keyBindings[idx] ?? ""}
+                      isSelected={isSelected}
+                      isCorrect={isCorrect}
+                      isReveal={isReveal}
+                      isEnded={isEnded}
+                      isLeaderboardRoom={isLeaderboardRoom}
+                      hasAnySelectedChoice={displaySelectedChoice !== null}
+                      revealPicks={revealPicks}
+                      myComboTier={myComboTier}
+                      myComboNow={myComboNow}
+                      waitingToStart={waitingToStart}
+                      shouldShowGestureOverlay={shouldShowGestureOverlay}
+                      isRecoveringConnection={isRecoveringConnection}
+                      isMobileView={isMobileView}
+                      onChoiceClick={handleChoiceClick}
+                      selectedShellRef={handleSelectedShellRef}
+                    />
                   );
                 })}
             </div>
@@ -885,7 +1046,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                         : "game-room-feedback-pill--placeholder"
                         }`}
                     >
-                      {(myFeedback.pillText ?? myFeedback.detail) || "蝑??剜?"}
+                      {(myFeedback.pillText ?? myFeedback.detail) || "等待結果"}
                     </span>
                   )}
                 </div>
@@ -935,7 +1096,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                 {isReveal && (
                   <>
                     <p className="game-room-reveal-answer mt-1 text-sm text-emerald-50">
-                      <span className="mr-1 text-[11px] font-semibold text-emerald-200">甇?圾</span>
+                      <span className="mr-1 text-[11px] font-semibold text-emerald-200">答案</span>
                       {resolvedAnswerTitle}
                     </p>
                     {gameStatus === "playing" ? (

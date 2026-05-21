@@ -1,5 +1,8 @@
 export { default, type FloatingChatWindowRef } from "./ui/FloatingChatWindow";
-export { default as GameRoomMobileChatPreview } from "./ui/GameRoomMobileChatPreview";
+export {
+  default as GameRoomMobileChatPreview,
+  type MobileChatPreviewNotice,
+} from "./ui/GameRoomMobileChatPreview";
 export { default as RoomLobbyChatPanel } from "./ui/RoomLobbyChatPanel";
 export {
   DanmuContext,

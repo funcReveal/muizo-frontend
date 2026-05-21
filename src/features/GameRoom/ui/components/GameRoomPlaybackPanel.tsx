@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@mui/material";
 import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import VideocamRoundedIcon from "@mui/icons-material/VideocamRounded";
 import VolumeDownRoundedIcon from "@mui/icons-material/VolumeDownRounded";
 import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
@@ -75,6 +77,8 @@ interface GameRoomPlaybackPanelProps {
   desktopEmbeddedHud?: MobileEmbeddedHudConfig;
   mobileScoreFeedbackOverlay?: React.ReactNode;
   desktopScoreFeedbackOverlay?: React.ReactNode;
+  mobileFrameActions?: React.ReactNode;
+  mobileFrameActionsHasAlert?: boolean;
 }
 
 const GameRoomDanmuLayer = React.memo(function GameRoomDanmuLayer({
@@ -156,6 +160,122 @@ const MobilePlayerSwitch = React.memo(function MobilePlayerSwitch({
         <ImageRoundedIcon style={{ fontSize: 15 }} />
       </span>
     </button>
+  );
+});
+
+const MobileFrameActionsMenu = React.memo(function MobileFrameActionsMenu({
+  actions,
+  hasAlert,
+}: {
+  actions: React.ReactNode;
+  hasAlert?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties | null>(
+    null,
+  );
+
+  const toggleOpen = React.useCallback(() => {
+    setOpen((current) => !current);
+  }, []);
+
+  const close = React.useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const updateMenuPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger || typeof window === "undefined") return;
+      const rect = trigger.getBoundingClientRect();
+      const width = Math.min(236, Math.max(188, window.innerWidth - 28));
+      const left = Math.max(
+        10,
+        Math.min(window.innerWidth - width - 10, rect.right - width),
+      );
+      const top = Math.max(
+        10,
+        Math.min(window.innerHeight - 252, rect.bottom + 8),
+      );
+      setMenuStyle({ left, top, width });
+    };
+
+    updateMenuPosition();
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const root = rootRef.current;
+      const menu = menuRef.current;
+      const target = event.target as Node;
+      if (!root || root.contains(target) || menu?.contains(target)) return;
+      setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open]);
+
+  const menu =
+    open && menuStyle && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="game-room-mobile-frame-actions__menu"
+            style={menuStyle}
+            onClick={close}
+          >
+            {actions}
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div
+      ref={rootRef}
+      className="game-room-mobile-frame-actions"
+      data-open={open ? "true" : "false"}
+      data-alert={hasAlert ? "true" : "false"}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        className="game-room-mobile-frame-actions__trigger"
+        aria-label={
+          open
+            ? "關閉房間功能"
+            : hasAlert
+              ? "展開房間功能，有投票提醒"
+              : "展開房間功能"
+        }
+        aria-expanded={open}
+        onClick={toggleOpen}
+      >
+        <SettingsRoundedIcon style={{ fontSize: 18 }} />
+        {hasAlert ? (
+          <span
+            className="game-room-mobile-frame-actions__alert-dot"
+            aria-hidden="true"
+          />
+        ) : null}
+      </button>
+      {menu}
+    </div>
   );
 });
 
@@ -553,6 +673,8 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   desktopEmbeddedHud,
   mobileScoreFeedbackOverlay,
   desktopScoreFeedbackOverlay,
+  mobileFrameActions,
+  mobileFrameActionsHasAlert,
 }) => {
   const revealMarqueeWrapRef = React.useRef<HTMLSpanElement | null>(null);
   const revealMarqueeTrackRef = React.useRef<HTMLSpanElement | null>(null);
@@ -909,7 +1031,15 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         )}
 
         {isMobileView && (
-          <MobilePlayerSwitch previewMode={previewMode} onChange={handleVideoModeChange} />
+          <>
+            <MobilePlayerSwitch previewMode={previewMode} onChange={handleVideoModeChange} />
+            {mobileFrameActions ? (
+              <MobileFrameActionsMenu
+                actions={mobileFrameActions}
+                hasAlert={mobileFrameActionsHasAlert}
+              />
+            ) : null}
+          </>
         )}
 
         {showGuessMask && (

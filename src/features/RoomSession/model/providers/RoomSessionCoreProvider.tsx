@@ -51,6 +51,7 @@ import {
 } from "../RoomSessionContext";
 import type { RoomGameContextValue } from "../RoomGameContext";
 import {
+  type RoomGameStatusContextValue,
   type RoomRealtimeContextValue,
   type RoomUiContextValue,
 } from "../RoomContext";
@@ -819,8 +820,18 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const roomRealtimeCtxValue = useMemo<RoomRealtimeContextValue>(
-    () => ({ currentRoom, messages, clientId, gameState }),
-    [clientId, currentRoom, gameState, messages],
+    () => ({
+      currentRoom,
+      messages,
+      clientId,
+      gameStatus: gameState?.status ?? null,
+    }),
+    [clientId, currentRoom, gameState?.status, messages],
+  );
+
+  const roomGameStatusCtxValue = useMemo<RoomGameStatusContextValue>(
+    () => ({ gameStatus: gameState?.status ?? null }),
+    [gameState?.status],
   );
 
   const chatInputCtxValue = useMemo(
@@ -904,6 +915,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       values={{
         chatInput: chatInputCtxValue,
         game: roomGameCtxValue,
+        gameStatus: roomGameStatusCtxValue,
         internal: internalCtxValue,
         playlist: fullPlaylistCtxValue,
         realtime: roomRealtimeCtxValue,

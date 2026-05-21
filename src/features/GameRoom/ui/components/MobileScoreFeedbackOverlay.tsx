@@ -79,6 +79,7 @@ const MobileScoreFeedbackOverlay: React.FC<MobileScoreFeedbackOverlayProps> =
       .filter(Boolean)
       .join(" ");
     const isDesktop = placement === "media-embedded";
+    const shouldRenderDecorativeEffects = isDesktop;
     const targetSize = isDesktop ? 52 : 34;
     const meSize = isDesktop ? 60 : 38;
 
@@ -89,32 +90,36 @@ const MobileScoreFeedbackOverlay: React.FC<MobileScoreFeedbackOverlayProps> =
         aria-live="polite"
       >
         <div key={eventKey} className={cardClassName}>
-          <span
-            className="game-room-mobile-score-feedback-shockwave"
-            aria-hidden="true"
-          />
-          <span
-            className="game-room-mobile-score-feedback-glint"
-            aria-hidden="true"
-          />
-          <span
-            className="game-room-mobile-score-feedback-speed-lines"
-            aria-hidden="true"
-          >
-            <span />
-            <span />
-            <span />
-          </span>
-          <span
-            className="game-room-mobile-score-feedback-sparks"
-            aria-hidden="true"
-          >
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </span>
+          {shouldRenderDecorativeEffects ? (
+            <>
+              <span
+                className="game-room-mobile-score-feedback-shockwave"
+                aria-hidden="true"
+              />
+              <span
+                className="game-room-mobile-score-feedback-glint"
+                aria-hidden="true"
+              />
+              <span
+                className="game-room-mobile-score-feedback-speed-lines"
+                aria-hidden="true"
+              >
+                <span />
+                <span />
+                <span />
+              </span>
+              <span
+                className="game-room-mobile-score-feedback-sparks"
+                aria-hidden="true"
+              >
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </span>
+            </>
+          ) : null}
           {isScore ? (
             <>
               <div className="game-room-mobile-score-feedback-gain">

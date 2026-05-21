@@ -8,8 +8,6 @@ import type {
 import type { GameSfxEvent } from "../../../shared/sfx/gameSfxEngine";
 import type {
   AnswerDecisionMeta,
-  ChoiceCommitFxKind,
-  ChoiceCommitFxState,
 } from "./gameRoomTypes";
 import {
   buildScoreBaselineMap,
@@ -47,20 +45,19 @@ const useGameRoomAnswerFlow = ({
     trackIndex: number;
     choiceIndex: number | null;
   }>({ trackIndex: -1, choiceIndex: null });
-  const [pendingChoiceState, setPendingChoiceState] = useState<{
+  const pendingChoiceRef = useRef<{
     trackSessionKey: string;
     choiceIndex: number | null;
     requestId: number;
     submittedAtMs: number;
   } | null>(null);
+  const selectedChoiceStateRef = useRef(selectedChoiceState);
   const [answerDecisionMeta, setAnswerDecisionMeta] = useState<AnswerDecisionMeta>({
     trackSessionKey: "",
     firstChoiceIndex: null,
     firstSubmittedAtMs: null,
     hasChangedChoice: false,
   });
-  const [choiceCommitFxState, setChoiceCommitFxState] =
-    useState<ChoiceCommitFxState | null>(null);
   const [answeredOrderSnapshot, setAnsweredOrderSnapshot] = useState<{
     trackSessionKey: string;
     order: string[];
@@ -81,20 +78,19 @@ const useGameRoomAnswerFlow = ({
     byClientId: buildScoreBaselineMap(participants),
   }));
   const submitRequestSeqRef = useRef(0);
-  const choiceCommitFxTimerRef = useRef<number | null>(null);
 
   const confirmedChoice =
     selectedChoiceState.trackIndex === currentTrackIndex
       ? selectedChoiceState.choiceIndex
       : null;
-  const pendingChoice =
-    pendingChoiceState?.trackSessionKey === trackSessionKey
-      ? pendingChoiceState.choiceIndex
-      : null;
-  const selectedChoice = pendingChoice ?? confirmedChoice;
+  const selectedChoice = confirmedChoice;
   const answerDecisionMetaForCurrentTrack =
     answerDecisionMeta.trackSessionKey === trackSessionKey ? answerDecisionMeta : null;
   const myHasChangedAnswer = Boolean(answerDecisionMetaForCurrentTrack?.hasChangedChoice);
+
+  useEffect(() => {
+    selectedChoiceStateRef.current = selectedChoiceState;
+  }, [selectedChoiceState]);
 
   useEffect(() => {
     deferStateUpdate(() => {
@@ -172,9 +168,9 @@ const useGameRoomAnswerFlow = ({
           choiceIndex: resolvedChoiceIndex,
         };
       });
-      setPendingChoiceState((prev) =>
-        prev?.trackSessionKey === trackSessionKey ? null : prev,
-      );
+      if (pendingChoiceRef.current?.trackSessionKey === trackSessionKey) {
+        pendingChoiceRef.current = null;
+      }
     });
   }, [
     currentTrackIndex,
@@ -221,53 +217,40 @@ const useGameRoomAnswerFlow = ({
         hasChangedChoice: false,
       });
     });
-    if (choiceCommitFxTimerRef.current !== null) {
-      window.clearTimeout(choiceCommitFxTimerRef.current);
-      choiceCommitFxTimerRef.current = null;
-    }
-    deferStateUpdate(() => {
-      if (cancelled) return;
-      setChoiceCommitFxState(null);
-    });
-    deferStateUpdate(() => {
-      if (cancelled) return;
-      setPendingChoiceState(null);
-    });
+    pendingChoiceRef.current = null;
     return () => {
       cancelled = true;
     };
   }, [trackSessionKey]);
 
-  useEffect(
-    () => () => {
-      if (choiceCommitFxTimerRef.current !== null) {
-        window.clearTimeout(choiceCommitFxTimerRef.current);
+  const getCurrentSelectedChoice = useCallback(
+    () => {
+      if (pendingChoiceRef.current?.trackSessionKey === trackSessionKey) {
+        return pendingChoiceRef.current.choiceIndex;
       }
+      const currentSelected = selectedChoiceStateRef.current;
+      return currentSelected.trackIndex === currentTrackIndex
+        ? currentSelected.choiceIndex
+        : null;
     },
-    [],
+    [currentTrackIndex, trackSessionKey],
   );
 
   const submitChoiceWithFeedback = useCallback(
     async (choiceIndex: number) => {
       if (!canAnswerNow) return;
-      const currentSelectedChoice =
-        pendingChoiceState?.trackSessionKey === trackSessionKey
-          ? pendingChoiceState.choiceIndex
-          : selectedChoiceState.trackIndex === currentTrackIndex
-            ? selectedChoiceState.choiceIndex
-            : null;
+      const currentSelectedChoice = getCurrentSelectedChoice();
       if (currentSelectedChoice === choiceIndex) {
         return;
       }
       const changedChoice =
         currentSelectedChoice !== null && currentSelectedChoice !== choiceIndex;
-      const fxKind: ChoiceCommitFxKind = changedChoice ? "reselect" : "lock";
       const submittedAtMs = getServerNowMs();
       const requestId = (submitRequestSeqRef.current += 1);
 
       primeSfxAudio();
       const lockSfxPlayed = playGameSfx("lock");
-      if (fxKind === "reselect") {
+      if (changedChoice) {
         triggerHapticFeedback("reselect");
       } else {
         triggerHapticFeedback("tap");
@@ -277,49 +260,23 @@ const useGameRoomAnswerFlow = ({
           playGameSfx("lock");
         }, 90);
       }
-      setPendingChoiceState({
+      pendingChoiceRef.current = {
         trackSessionKey,
         choiceIndex,
         requestId,
         submittedAtMs,
-      });
-      setChoiceCommitFxState((prev) => ({
-        trackSessionKey,
-        choiceIndex,
-        kind: fxKind,
-        key: (prev?.key ?? 0) + 1,
-      }));
-      if (choiceCommitFxTimerRef.current !== null) {
-        window.clearTimeout(choiceCommitFxTimerRef.current);
-      }
-      choiceCommitFxTimerRef.current = window.setTimeout(() => {
-        setChoiceCommitFxState((current) => {
-          if (
-            current &&
-            current.trackSessionKey === trackSessionKey &&
-            current.choiceIndex === choiceIndex
-          ) {
-            return null;
-          }
-          return current;
-        });
-        choiceCommitFxTimerRef.current = null;
-      }, 620);
+      };
 
       const result = await onSubmitChoice(choiceIndex);
-      setPendingChoiceState((prev) => {
-        if (
-          prev &&
-          prev.trackSessionKey === trackSessionKey &&
-          prev.requestId === requestId
-        ) {
-          return null;
-        }
-        return prev;
-      });
+      if (
+        pendingChoiceRef.current?.trackSessionKey === trackSessionKey &&
+        pendingChoiceRef.current.requestId === requestId
+      ) {
+        pendingChoiceRef.current = null;
+      }
       if (!result.ok) {
         triggerHapticFeedback("wrong");
-        return;
+        return result;
       }
       triggerHapticFeedback("confirm");
       const acceptedChoiceIndex = result.data.choiceIndex;
@@ -357,17 +314,17 @@ const useGameRoomAnswerFlow = ({
           hasChangedChoice: prev.hasChangedChoice || changedChoice,
         };
       });
+      return result;
     },
     [
       canAnswerNow,
       currentTrackIndex,
+      getCurrentSelectedChoice,
       getServerNowMs,
       meClientId,
       onSubmitChoice,
-      pendingChoiceState,
       playGameSfx,
       primeSfxAudio,
-      selectedChoiceState,
       trackSessionKey,
     ],
   );
@@ -412,9 +369,9 @@ const useGameRoomAnswerFlow = ({
   return {
     selectedChoiceState,
     selectedChoice,
-    choiceCommitFxState,
     myHasChangedAnswer,
     submitChoiceWithFeedback,
+    getCurrentSelectedChoice,
     answeredOrderForCurrentParticipants,
     answeredClientIdSet,
     answeredRankByClientId,

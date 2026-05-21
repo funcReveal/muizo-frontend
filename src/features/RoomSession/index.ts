@@ -13,6 +13,7 @@ export {
   useRoomSession,
   useRoomCreate,
   useRoomGame,
+  useRoomGameStatus,
   useSitePresence,
   useRoomRealtime,
 } from "./model/runtimeHooks";
