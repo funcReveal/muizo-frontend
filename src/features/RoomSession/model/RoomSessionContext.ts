@@ -87,6 +87,7 @@ export interface RoomSessionContextValue {
 export const RoomSessionContext = createContext<RoomSessionContextValue | null>(
   null,
 );
+RoomSessionContext.displayName = "RoomSessionContext";
 
 export const useRoomSession = (): RoomSessionContextValue => {
   const ctx = useContext(RoomSessionContext);

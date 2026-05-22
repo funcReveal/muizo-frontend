@@ -36,13 +36,13 @@ export type ChallengeProjectedMyStanding = {
   officialRank: number | null;
   totalPlayers: number;
   rankIsFinal: false;
-  /** DB UUID of the viewing user; used to mark self in top5 list */
+  /** DB UUID of the viewing user; used to mark self in top list */
   viewerDbUserId: string | null;
   nextTarget: {
     userId: string | null;
     displayName: string;
     avatarUrl: string | null;
-    rank?: number | null;
+    rank: number | null;
     score: number;
     gap: number;
   } | null;

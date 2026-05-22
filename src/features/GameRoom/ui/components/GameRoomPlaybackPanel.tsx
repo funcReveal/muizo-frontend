@@ -24,6 +24,7 @@ interface MobileEmbeddedHudConfig {
   trackSessionKey: string;
   allAnsweredReadyForReveal: boolean;
   isRecoveringConnection: boolean;
+  recoveryStatusText?: string | null;
   liveAnsweredCount: number;
   liveParticipantCount: number;
 }
@@ -75,6 +76,7 @@ interface GameRoomPlaybackPanelProps {
   onGameVolumeChange: (volume: number) => void;
   mobileEmbeddedHud?: MobileEmbeddedHudConfig;
   desktopEmbeddedHud?: MobileEmbeddedHudConfig;
+  recoveryStatusText?: string | null;
   mobileScoreFeedbackOverlay?: React.ReactNode;
   desktopScoreFeedbackOverlay?: React.ReactNode;
   mobileFrameActions?: React.ReactNode;
@@ -334,6 +336,8 @@ const DesktopEmbeddedGuessHud = React.memo(function DesktopEmbeddedGuessHud({
   allAnsweredReadyForReveal,
   liveAnsweredCount,
   liveParticipantCount,
+  isRecoveringConnection = false,
+  recoveryStatusText = null,
 }: {
   boundedCursor: number;
   trackOrderLength: number;
@@ -344,6 +348,8 @@ const DesktopEmbeddedGuessHud = React.memo(function DesktopEmbeddedGuessHud({
   allAnsweredReadyForReveal: boolean;
   liveAnsweredCount: number;
   liveParticipantCount: number;
+  isRecoveringConnection?: boolean;
+  recoveryStatusText?: string | null;
 }) {
   const progressCircleRef = React.useRef<SVGCircleElement | null>(null);
   const [seconds, setSeconds] = React.useState(() =>
@@ -351,7 +357,7 @@ const DesktopEmbeddedGuessHud = React.memo(function DesktopEmbeddedGuessHud({
   );
 
   React.useEffect(() => {
-    if (allAnsweredReadyForReveal) {
+    if (isRecoveringConnection || allAnsweredReadyForReveal) {
       setSeconds(0);
       return;
     }
@@ -369,11 +375,17 @@ const DesktopEmbeddedGuessHud = React.memo(function DesktopEmbeddedGuessHud({
     return () => {
       if (timerId !== null) window.clearTimeout(timerId);
     };
-  }, [allAnsweredReadyForReveal, phaseEndsAt, serverOffsetMs, trackSessionKey]);
+  }, [allAnsweredReadyForReveal, isRecoveringConnection, phaseEndsAt, serverOffsetMs, trackSessionKey]);
 
   React.useLayoutEffect(() => {
     const circle = progressCircleRef.current;
     if (!circle) return;
+
+    if (isRecoveringConnection) {
+      circle.style.transition = "none";
+      circle.style.strokeDashoffset = String(-DESKTOP_GUESS_RING_CIRCUMFERENCE * 0.26);
+      return;
+    }
 
     if (allAnsweredReadyForReveal) {
       circle.style.transition = "stroke-dashoffset 220ms ease-out";
@@ -401,22 +413,32 @@ const DesktopEmbeddedGuessHud = React.memo(function DesktopEmbeddedGuessHud({
   }, [
     activePhaseDurationMs,
     allAnsweredReadyForReveal,
+    isRecoveringConnection,
     phaseEndsAt,
     serverOffsetMs,
     trackSessionKey,
   ]);
 
-  const isUrgent = seconds > 0 && seconds <= 3;
+  const isUrgent = !isRecoveringConnection && seconds > 0 && seconds <= 3;
 
   return (
     <div
       className={`game-room-desktop-embedded-hud ${
-        isUrgent ? "game-room-desktop-embedded-hud--urgent" : ""
+        isRecoveringConnection
+          ? "game-room-desktop-embedded-hud--recovering"
+          : isUrgent
+            ? "game-room-desktop-embedded-hud--urgent"
+            : ""
       }`}
     >
       <span className="game-room-desktop-embedded-hud__question">
         題目 {boundedCursor + 1}/{trackOrderLength || "?"}
       </span>
+      {isRecoveringConnection && (
+        <span className="game-room-desktop-embedded-hud__recovery-title">
+          {recoveryStatusText ?? "正在恢復連線..."}
+        </span>
+      )}
       <div className="game-room-desktop-embedded-hud__ring-wrap">
         <svg
           className="game-room-desktop-embedded-hud__ring-svg"
@@ -448,7 +470,11 @@ const DesktopEmbeddedGuessHud = React.memo(function DesktopEmbeddedGuessHud({
           {formatMobileHudTime(seconds)}
         </span>
       </div>
-      {liveParticipantCount > 0 && (
+      {isRecoveringConnection ? (
+        <span className="game-room-desktop-embedded-hud__answered">
+          請稍候，正在同步遊戲進度
+        </span>
+      ) : liveParticipantCount > 0 && (
         <span className="game-room-desktop-embedded-hud__answered">
           已答 {liveAnsweredCount}/{liveParticipantCount}
         </span>
@@ -467,6 +493,8 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
   allAnsweredReadyForReveal,
   liveAnsweredCount,
   liveParticipantCount,
+  isRecoveringConnection = false,
+  recoveryStatusText = null,
 }: {
   boundedCursor: number;
   trackOrderLength: number;
@@ -477,6 +505,8 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
   allAnsweredReadyForReveal: boolean;
   liveAnsweredCount: number;
   liveParticipantCount: number;
+  isRecoveringConnection?: boolean;
+  recoveryStatusText?: string | null;
 }) {
   const progressCircleRef = React.useRef<SVGCircleElement | null>(null);
 
@@ -546,16 +576,27 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
     trackSessionKey,
   ]);
 
-  const isUrgent = seconds > 0 && seconds <= 3;
+  const isUrgent = !isRecoveringConnection && seconds > 0 && seconds <= 3;
 
   return (
     <div
-      className={`game-room-mobile-guess-hud ${isUrgent ? "game-room-mobile-guess-hud--urgent" : ""
-        }`}
+      className={`game-room-mobile-guess-hud ${
+        isRecoveringConnection
+          ? "game-room-mobile-guess-hud--recovering"
+          : isUrgent
+            ? "game-room-mobile-guess-hud--urgent"
+            : ""
+      }`}
     >
-      <span className="game-room-mobile-guess-hud__question">
-        題目 {boundedCursor + 1}/{trackOrderLength || "?"}
-      </span>
+      {isRecoveringConnection ? (
+        <span className="game-room-mobile-guess-hud__question">
+          {recoveryStatusText ?? "重新連接中..."}
+        </span>
+      ) : (
+        <span className="game-room-mobile-guess-hud__question">
+          題目 {boundedCursor + 1}/{trackOrderLength || "?"}
+        </span>
+      )}
 
       <div className="game-room-mobile-guess-hud__ring-wrap">
         <svg
@@ -591,7 +632,11 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
         </span>
       </div>
 
-      {liveParticipantCount > 0 && (
+      {isRecoveringConnection ? (
+        <span className="game-room-mobile-guess-hud__answered">
+          請稍候，正在同步遊戲進度
+        </span>
+      ) : liveParticipantCount > 0 && (
         <span className="game-room-mobile-guess-hud__answered">
           已答 {liveAnsweredCount}/{liveParticipantCount}
         </span>
@@ -671,6 +716,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   videoId,
   mobileEmbeddedHud,
   desktopEmbeddedHud,
+  recoveryStatusText = null,
   mobileScoreFeedbackOverlay,
   desktopScoreFeedbackOverlay,
   mobileFrameActions,
@@ -820,15 +866,14 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
     showGuessMask || showAudioOnlyMask || showPreStartMask || isRevealPhase;
   const shouldUseSimpleMobileGuessSpinner = isMobileView;
   const isMobileGuessHudActive = Boolean(
-    mobileEmbeddedHud?.mode === "guess" && showGuessMask && !mobileEmbeddedHud.isRecoveringConnection,
+    mobileEmbeddedHud?.mode === "guess" && showGuessMask,
   );
   const isMobileRevealHudActive = mobileEmbeddedHud?.mode === "reveal";
   const isMobileEmbeddedHudActive = isMobileGuessHudActive || isMobileRevealHudActive;
   const isDesktopGuessHudActive = Boolean(
     !isMobileView &&
       desktopEmbeddedHud?.mode === "guess" &&
-      showGuessMask &&
-      !desktopEmbeddedHud.isRecoveringConnection,
+      showGuessMask,
   );
   const handleVideoModeChange = useCallback(
     (nextMode: "video" | "thumbnail") => {
@@ -1055,10 +1100,11 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 allAnsweredReadyForReveal={desktopEmbeddedHud.allAnsweredReadyForReveal}
                 liveAnsweredCount={desktopEmbeddedHud.liveAnsweredCount}
                 liveParticipantCount={desktopEmbeddedHud.liveParticipantCount}
+                isRecoveringConnection={desktopEmbeddedHud.isRecoveringConnection}
+                recoveryStatusText={desktopEmbeddedHud.recoveryStatusText ?? recoveryStatusText}
               />
             ) : shouldUseSimpleMobileGuessSpinner &&
-              mobileEmbeddedHud?.mode === "guess" &&
-              !mobileEmbeddedHud.isRecoveringConnection ? (
+              mobileEmbeddedHud?.mode === "guess" ? (
               <MobileGuessCountdownHud
                 boundedCursor={boundedCursor}
                 trackOrderLength={trackOrderLength}
@@ -1069,6 +1115,8 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 allAnsweredReadyForReveal={mobileEmbeddedHud.allAnsweredReadyForReveal}
                 liveAnsweredCount={mobileEmbeddedHud.liveAnsweredCount}
                 liveParticipantCount={mobileEmbeddedHud.liveParticipantCount}
+                isRecoveringConnection={mobileEmbeddedHud.isRecoveringConnection}
+                recoveryStatusText={mobileEmbeddedHud.recoveryStatusText ?? recoveryStatusText}
               />
             ) : (
               <>

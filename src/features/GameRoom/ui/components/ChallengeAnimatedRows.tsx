@@ -38,6 +38,11 @@ import type {
   ChallengeLeaderboardDisplayRow,
 } from "../../model/buildChallengeLeaderboardDisplayRows";
 import type { ChallengeProjectedMyStanding } from "../../model/projectionTypes";
+import type {
+  ScoreboardBorderAnimationId,
+  ScoreboardBorderLineStyleId,
+  ScoreboardBorderThemeId,
+} from "../../../Setting/model/scoreboardBorderEffects";
 import {
   ChallengeTopEntryRow,
   ChallengeNearbyRow,
@@ -57,6 +62,12 @@ export interface SelfRowBaseProps {
   displayName?: string;
   avatarUrl?: string | null;
   combo?: number;
+  scoreboardBorderEnabled?: boolean;
+  scoreboardBorderMaskEnabled?: boolean;
+  scoreboardBorderAnimation?: ScoreboardBorderAnimationId;
+  scoreboardBorderLineStyle?: ScoreboardBorderLineStyleId;
+  scoreboardBorderTheme?: ScoreboardBorderThemeId;
+  scoreboardBorderParticleCount?: number;
 }
 
 interface ChallengeAnimatedRowsProps {
@@ -88,8 +99,21 @@ export const ChallengeAnimatedRows = React.memo(
       [rows],
     );
 
+    // Gate framer-motion layout measurements: only fire when the KEY SEQUENCE
+    // actually changes (rows reorder / enter / exit). Score-only updates leave
+    // keys in the same order and produce an identical string → framer-motion
+    // skips getBoundingClientRect, eliminating the layout-reflow storm that
+    // caused ~337 ms frame drops on every score update.
+    const keyOrderSignature = useMemo(
+      () => rows.map((r) => r.key).join("\0"),
+      [rows],
+    );
+
     return (
-      <AnimatePresence initial={false} mode="popLayout">
+      // mode="sync" avoids the PopChild/PopChildMeasure/PresenceChild wrapper
+      // stack that mode="popLayout" creates for every child (was x16 renders).
+      // Exiting rows fade out in 0.22 s while remaining rows animate together.
+      <AnimatePresence initial={false} mode="sync">
         {rows.map((row, idx) => {
           const content = renderRowContent(row, selfRowBaseProps);
           const key = row.key;
@@ -99,6 +123,7 @@ export const ChallengeAnimatedRows = React.memo(
             return (
               <motion.div
                 key={key}
+                style={{ touchAction: "pan-y" }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -113,6 +138,7 @@ export const ChallengeAnimatedRows = React.memo(
             return (
               <motion.div
                 key={key}
+                style={{ touchAction: "pan-y" }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -132,6 +158,8 @@ export const ChallengeAnimatedRows = React.memo(
             <motion.div
               key={key}
               layout="position"
+              layoutDependency={keyOrderSignature}
+              style={{ touchAction: "pan-y" }}
               initial={{ opacity: 0, y: enterY }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, transition: { duration: EXIT_DURATION } }}

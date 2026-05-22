@@ -3,6 +3,7 @@ import type { RoomParticipant } from "@features/RoomSession";
 import { normalizeRoomDisplayText } from "../../../../shared/utils/text";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 import { AnimatedScoreValue } from "./AnimatedScoreValue";
+import { LeaderboardCompactRow } from "./LeaderboardCompactRow";
 
 const SCOREBOARD_AVATAR_SIZE = 32;
 const SCOREBOARD_AVATAR_CONTENT_SIZE = 26;
@@ -24,11 +25,10 @@ export const RoomSelfStickyBar = React.memo(function RoomSelfStickyBar({
   return (
     <div className="game-room-room-self-sticky-bar shrink-0 space-y-1">
       <div className="h-px bg-white/10" />
-      <div className="game-room-score-row leaderboard-compact-row game-room-score-row--me game-room-score-row--sticky-self flex items-center justify-between text-sm">
-        <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
-          <span className="w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none text-slate-500">
-            #{rank}
-          </span>
+      <LeaderboardCompactRow
+        className="game-room-score-row--me game-room-score-row--sticky-self"
+        rankLabel={`#${rank}`}
+        avatarNode={
           <span className="game-room-score-row-avatar-wrap">
             <PlayerAvatar
               username={displayName}
@@ -43,18 +43,19 @@ export const RoomSelfStickyBar = React.memo(function RoomSelfStickyBar({
               className={`game-room-score-row-answer-dot-badge ${answerDotClass}`}
             />
           </span>
-          <span className="truncate">{displayName}</span>
-          <span className="game-room-score-row-you-badge">YOU</span>
-        </span>
-        <span className="shrink-0 whitespace-nowrap text-right font-mono text-sm font-semibold tabular-nums text-emerald-300">
+        }
+        name={displayName}
+        badges={<span className="game-room-score-row-you-badge">YOU</span>}
+        scoreNode={
           <AnimatedScoreValue
             score={player.score}
             combo={combo}
             comboPrefix={"\u00d7"}
+            className="text-sm font-semibold tabular-nums text-emerald-300"
             comboClassName="font-normal text-slate-500"
           />
-        </span>
-      </div>
+        }
+      />
     </div>
   );
 });

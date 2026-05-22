@@ -4,6 +4,11 @@ import type {
   ChallengeProjectedMyStanding,
   ChallengeProjectionState,
 } from "../../model/projectionTypes";
+import type {
+  ScoreboardBorderAnimationId,
+  ScoreboardBorderLineStyleId,
+  ScoreboardBorderThemeId,
+} from "../../../Setting/model/scoreboardBorderEffects";
 import { buildChallengeLeaderboardDisplayRows } from "../../model/buildChallengeLeaderboardDisplayRows";
 import {
   ChallengeSeparatorRow,
@@ -20,7 +25,7 @@ import { useScoreboardWheelScroll } from "./useScoreboardWheelScroll";
 
 const SkeletonRow: React.FC<{ opacity?: number }> = ({ opacity = 1 }) => (
   <div
-    className="game-room-score-row flex items-center justify-between animate-pulse"
+    className="game-room-score-row leaderboard-compact-row flex items-center justify-between animate-pulse"
     style={{ opacity }}
   >
     <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -46,6 +51,12 @@ interface ChallengeLeaderboardPanelProps {
   viewerScore?: number;
   /** How many opponents overtaken this session (0 / 1 / ≥2). Controls nearby window position. */
   sessionPassCount?: number;
+  scoreboardBorderEnabled?: boolean;
+  scoreboardBorderMaskEnabled?: boolean;
+  scoreboardBorderAnimation?: ScoreboardBorderAnimationId;
+  scoreboardBorderLineStyle?: ScoreboardBorderLineStyleId;
+  scoreboardBorderTheme?: ScoreboardBorderThemeId;
+  scoreboardBorderParticleCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +73,12 @@ export const ChallengeLeaderboardPanel = React.memo(
     viewerCombo = 0,
     viewerScore = 0,
     sessionPassCount = 0,
+    scoreboardBorderEnabled,
+    scoreboardBorderMaskEnabled,
+    scoreboardBorderAnimation,
+    scoreboardBorderLineStyle,
+    scoreboardBorderTheme,
+    scoreboardBorderParticleCount,
   }: ChallengeLeaderboardPanelProps) {
     const { setScrollNodeRef, onWheel } =
       useScoreboardWheelScroll<HTMLDivElement>();
@@ -105,6 +122,12 @@ export const ChallengeLeaderboardPanel = React.memo(
             displayName: viewerDisplayName,
             avatarUrl: viewerAvatarUrl,
             combo: viewerCombo,
+            scoreboardBorderEnabled,
+            scoreboardBorderMaskEnabled,
+            scoreboardBorderAnimation,
+            scoreboardBorderLineStyle,
+            scoreboardBorderTheme,
+            scoreboardBorderParticleCount,
           }
           : {
             standing: skeletonStanding,
@@ -112,6 +135,12 @@ export const ChallengeLeaderboardPanel = React.memo(
             displayName: viewerDisplayName,
             avatarUrl: viewerAvatarUrl,
             combo: viewerCombo,
+            scoreboardBorderEnabled,
+            scoreboardBorderMaskEnabled,
+            scoreboardBorderAnimation,
+            scoreboardBorderLineStyle,
+            scoreboardBorderTheme,
+            scoreboardBorderParticleCount,
           },
       [
         data,
@@ -121,6 +150,12 @@ export const ChallengeLeaderboardPanel = React.memo(
         viewerAvatarUrl,
         viewerCombo,
         skeletonStanding,
+        scoreboardBorderEnabled,
+        scoreboardBorderMaskEnabled,
+        scoreboardBorderAnimation,
+        scoreboardBorderLineStyle,
+        scoreboardBorderTheme,
+        scoreboardBorderParticleCount,
       ],
     );
 
@@ -226,9 +261,9 @@ export const ChallengeLeaderboardPanel = React.memo(
     // Loaded render
     //
     // Layout is fully determined by buildChallengeLeaderboardDisplayRows:
-    //   top-window  (projectedRank ≤ 10) — self injected into Top-10 list
-    //   top-eleven  (projectedRank = 11) — Top-10 + self at #11, no ellipsis
-    //   nearby      (projectedRank ≥ 12 or null) — Top-5 + ellipsis + nearby
+    //   top-window  (projectedRank ≤ 11) — self injected into Top-11 list
+    //   top-eleven  (projectedRank = 12) — Top-11 + self at #12, no ellipsis
+    //   nearby      (projectedRank ≥ 13 or null) — Top-6 + ellipsis + nearby
     //
     // ChallengeAnimatedRows handles move / enter / exit animations.
     // The sticky self bar is rendered separately and never participates in
@@ -242,7 +277,7 @@ export const ChallengeLeaderboardPanel = React.memo(
       >
         <div
           ref={setScrollNodeRef}
-          className="game-room-scoreboard-list mq-autohide-scrollbar px-1 py-1"
+          className="game-room-scoreboard-list mq-autohide-scrollbar relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-1 py-1"
         >
           <div className="game-room-scoreboard-stack challenge-lb-animated-stack">
             <ChallengeAnimatedRows

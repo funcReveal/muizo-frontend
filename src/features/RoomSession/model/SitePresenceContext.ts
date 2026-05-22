@@ -13,9 +13,11 @@ export type SitePresenceWriteContextValue = {
 
 export const SitePresenceContext =
   createContext<SitePresenceContextValue | null>(null);
+SitePresenceContext.displayName = "SitePresenceContext";
 
 export const SitePresenceWriteContext =
   createContext<SitePresenceWriteContextValue | null>(null);
+SitePresenceWriteContext.displayName = "SitePresenceWriteContext";
 
 export const useSitePresence = (): SitePresenceContextValue => {
   const ctx = useContext(SitePresenceContext);

@@ -266,6 +266,7 @@ interface GameRoomScorePlayerRowProps {
   isReveal: boolean;
   /** 1-based room rank for this player (undefined for placeholder / locked rows) */
   rank?: number;
+  displayRankLabel?: string;
   answerRank?: number;
   scoreBreakdown?: QuestionScoreBreakdown;
   isMeRow: boolean;
@@ -301,6 +302,7 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   player,
   isReveal,
   rank,
+  displayRankLabel,
   answerRank,
   scoreBreakdown,
   isMeRow,
@@ -546,10 +548,10 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
               className="scoreboard-border-effect"
             />
           )}
-          <span className="truncate flex items-center gap-2">
-            {typeof rank === "number" && (
-              <span className="w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none text-slate-500">
-                #{rank}
+          <span className="leaderboard-compact-row__identity challenge-lb-row__identity truncate flex min-w-0 flex-1 items-center gap-2">
+            {(displayRankLabel || typeof rank === "number") && (
+              <span className="leaderboard-compact-row__rank w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none text-slate-500">
+                {displayRankLabel ?? `#${rank}`}
               </span>
             )}
             <span className="game-room-score-row-avatar-wrap">
@@ -571,14 +573,14 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
                 />
               </RoomUiTooltip>
             </span>
-            <span className="truncate">
+            <span className="leaderboard-compact-row__name challenge-lb-row__name truncate">
               {displayName}
             </span>
             {isMeRow && (
               <span className="game-room-score-row-you-badge">YOU</span>
             )}
           </span>
-          <div className="relative flex items-center gap-2 overflow-visible">
+          <div className="leaderboard-compact-row__status relative flex shrink-0 items-center justify-end overflow-visible">
             {typeof answerRank === "number" ? (() => {
               const shouldUseAnswerOrderTone = !isReveal;
 
@@ -608,6 +610,8 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
                 className="game-room-chip game-room-chip--scoreboard-state"
               />
             )}
+          </div>
+          <div className="leaderboard-compact-row__score challenge-lb-row__score relative flex shrink-0 items-baseline justify-end whitespace-nowrap text-right font-mono overflow-visible">
             <AnimatedScoreValue
               score={player.score}
               combo={player.combo}
@@ -1061,6 +1065,8 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
 
     cancelDesktopFlipAnimations();
 
+    const burstDelayUpdates: Record<string, number> = {};
+
     movedRows.forEach(({ element, deltaY, clientId }) => {
       const distanceRows = Math.max(
         1,
@@ -1101,10 +1107,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
           fill: "both",
         },
       );
-      setDesktopFlipBurstDelayByClientId((prev) => ({
-        ...prev,
-        [clientId]: Math.round(durationMs) + DESKTOP_FLIP_BURST_BUFFER_MS,
-      }));
+      burstDelayUpdates[clientId] = Math.round(durationMs) + DESKTOP_FLIP_BURST_BUFFER_MS;
       animation.onfinish = () => {
         desktopFlipAnimationsRef.current = desktopFlipAnimationsRef.current.filter(
           (a) => a !== animation,
@@ -1122,6 +1125,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
       desktopFlipBurstClientIdByAnimationRef.current.set(animation, clientId);
       desktopFlipAnimationsRef.current.push(animation);
     });
+
+    if (Object.keys(burstDelayUpdates).length > 0) {
+      setDesktopFlipBurstDelayByClientId((prev) => ({ ...prev, ...burstDelayUpdates }));
+    }
 
     previousDesktopTopByClientIdRef.current = nextTopByClientId;
     flipPrevScoreByClientIdRef.current = new Map(scoreByClientId);
@@ -1261,6 +1268,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
               </>
             ) : (
               scoreboardRows.map((row, idx) => {
+                const slotRankLabel = `#${idx + 1}`;
                 if (row.type === "locked") {
                   return (
                     <div
@@ -1268,7 +1276,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       className="game-room-score-row leaderboard-compact-row game-room-score-row--locked flex items-center justify-between text-sm"
                       aria-hidden="true"
                     >
-                      <span className="truncate flex items-center gap-2 opacity-35">
+                      <span className="leaderboard-compact-row__identity challenge-lb-row__identity truncate flex min-w-0 flex-1 items-center gap-2 opacity-35">
+                        <span className="leaderboard-compact-row__rank w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none text-slate-500">
+                          {slotRankLabel}
+                        </span>
                         <span className="game-room-score-row-avatar-wrap">
                           <LockedAvatarIcon />
                           <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--locked" />
@@ -1286,7 +1297,10 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       className="game-room-score-row leaderboard-compact-row game-room-score-row--placeholder flex items-center justify-between text-sm"
                       aria-hidden="true"
                     >
-                      <span className="truncate flex items-center gap-2">
+                      <span className="leaderboard-compact-row__identity challenge-lb-row__identity truncate flex min-w-0 flex-1 items-center gap-2">
+                        <span className="leaderboard-compact-row__rank w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none text-slate-500">
+                          {slotRankLabel}
+                        </span>
                         <span className="game-room-score-row-avatar-wrap">
                           <PlaceholderAvatarIcon />
                           <span className="game-room-score-row-answer-dot-badge game-room-score-row-answer-dot-badge--vacant" />
@@ -1482,6 +1496,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       player={p}
                       isReveal={isReveal}
                       rank={rankByClientId.get(p.clientId)}
+                      displayRankLabel={slotRankLabel}
                       answerRank={answerRank}
                       scoreBreakdown={scoreBreakdown}
                       isMeRow={isMeRow}

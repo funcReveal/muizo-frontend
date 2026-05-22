@@ -12,6 +12,7 @@ export interface ChatInputContextValue {
 export const ChatInputContext = createContext<ChatInputContextValue | null>(
   null,
 );
+ChatInputContext.displayName = "ChatInputContext";
 
 export const useChatInput = (): ChatInputContextValue => {
   const ctx = useContext(ChatInputContext);

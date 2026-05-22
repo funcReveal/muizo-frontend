@@ -25,7 +25,12 @@ export type RoomGameStatusContextValue = {
 };
 
 export const RoomUiContext = createContext<RoomUiContextValue | null>(null);
+RoomUiContext.displayName = "RoomUiContext";
+
 export const RoomRealtimeContext =
   createContext<RoomRealtimeContextValue | null>(null);
+RoomRealtimeContext.displayName = "RoomRealtimeContext";
+
 export const RoomGameStatusContext =
   createContext<RoomGameStatusContextValue | null>(null);
+RoomGameStatusContext.displayName = "RoomGameStatusContext";

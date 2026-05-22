@@ -1759,7 +1759,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   ]);
 
   const mobileEmbeddedHudMode: "guess" | "reveal" | null = isMobileGameViewport
-    ? isReveal && !isInterTrackWait && !isEnded && !isRecoveringConnection && Number.isFinite(gameState.revealEndsAt)
+    ? isRecoveringConnection && gameState.phase === "guess" && !isEnded
+      ? "guess"
+      : isReveal && !isInterTrackWait && !isEnded && !isRecoveringConnection && Number.isFinite(gameState.revealEndsAt)
       ? "reveal"
       : gameState.phase === "guess" && !isReveal && !isInterTrackWait && !isEnded && !isRecoveringConnection
         ? "guess"
@@ -1776,6 +1778,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       trackSessionKey,
       allAnsweredReadyForReveal,
       isRecoveringConnection,
+      recoveryStatusText,
       liveAnsweredCount: displayAnsweredCount,
       liveParticipantCount: displayParticipantCount,
     }),
@@ -1788,6 +1791,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       trackSessionKey,
       allAnsweredReadyForReveal,
       isRecoveringConnection,
+      recoveryStatusText,
       displayAnsweredCount,
       displayParticipantCount,
     ],
@@ -1798,8 +1802,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       gameState.phase === "guess" &&
       !isReveal &&
       !isInterTrackWait &&
-      !isEnded &&
-      !isRecoveringConnection
+      !isEnded
       ? "guess"
       : null;
 
@@ -1813,6 +1816,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       trackSessionKey,
       allAnsweredReadyForReveal,
       isRecoveringConnection,
+      recoveryStatusText,
       liveAnsweredCount: displayAnsweredCount,
       liveParticipantCount: displayParticipantCount,
     }),
@@ -1825,6 +1829,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       trackSessionKey,
       allAnsweredReadyForReveal,
       isRecoveringConnection,
+      recoveryStatusText,
       displayAnsweredCount,
       displayParticipantCount,
     ],
@@ -2511,77 +2516,80 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               videoId={videoId}
               mobileEmbeddedHud={isMobileGameViewport ? mobileEmbeddedHudConfig : undefined}
               desktopEmbeddedHud={!isMobileGameViewport ? desktopEmbeddedHudConfig : undefined}
+              recoveryStatusText={recoveryStatusText}
               mobileScoreFeedbackOverlay={mobileScoreFeedbackOverlay}
               desktopScoreFeedbackOverlay={desktopScoreFeedbackOverlay}
               mobileFrameActions={mobileFrameActions}
               mobileFrameActionsHasAlert={mobileFrameActionsHasAlert}
             />
-            <GameRoomAnswerPanel
-              isMobileView={isMobileGameViewport}
-              isInitialCountdown={isInitialCountdown}
-              isReveal={isReveal}
-              revealTone={revealTone}
-              isInterTrackWait={isInterTrackWait}
-              phaseLabel={phaseLabel}
-              activePhaseDurationMs={activePhaseDurationMs}
-              phaseEndsAt={phaseEndsAt}
-              gamePhase={gameState.phase}
-              startedAt={gameState.startedAt}
-              isTimeAttackMode={isTimeAttackMode}
-              timeAttackTimeLimitMs={timeAttackTimeLimitMs}
-              timeAttackRemainingMs={timeAttackRemainingMs}
-              timeAttackEndReason={timeAttackEndReason}
-              choices={gameState.choices}
-              selectedChoice={selectedChoice}
-              correctChoiceIndex={correctChoiceIndex}
-              isEnded={isEnded}
-              playlist={playlist}
-              trackSessionKey={trackSessionKey}
-              myComboTier={myComboTier}
-              myComboNow={myComboNow}
-              isComboBreakThisQuestion={isComboBreakThisQuestion}
-              comboBreakTier={comboBreakTier}
-              waitingToStart={waitingToStart}
-              shouldShowGestureOverlay={shouldShowGestureOverlay}
-              canAnswerNow={canAnswerNow}
-              onSubmitChoice={handleSubmitChoice}
-              keyBindings={keyBindings}
-              myHasChangedAnswer={myHasChangedAnswer}
-              myFeedback={myFeedback}
-              gameStatus={gameState.status}
-              revealEndsAt={gameState.revealEndsAt}
-              resolvedAnswerTitle={resolvedAnswerTitle}
-              onOpenExitConfirm={openExitConfirm}
-              isPendingFeedbackCard={isPendingFeedbackCard}
-              allAnsweredReadyForReveal={allAnsweredReadyForReveal}
-              isRevealPendingServerSync={isRevealPendingServerSync}
-              isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
-              revealChoicePickMap={revealChoicePickMap}
-              serverOffsetMs={serverOffsetMs}
-              mobileHeaderAction={mobilePlaybackVoteAction}
-              liveParticipantCount={displayParticipantCount}
-              liveAnsweredCount={displayAnsweredCount}
-              liveCorrectCount={
-                typeof gameState.questionStats?.correctCount === "number"
-                  ? Math.max(
-                    0,
-                    Math.floor(gameState.questionStats.correctCount),
-                  )
-                  : null
-              }
-              liveWrongCount={
-                typeof gameState.questionStats?.wrongCount === "number"
-                  ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
-                  : null
-              }
-              liveUnansweredCount={displayUnansweredCount}
-              isRecoveringConnection={isRecoveringConnection}
-              recoveryStatusText={recoveryStatusText}
-              isLeaderboardRoom={isLeaderboardRoom}
-              leaderboardLockShakeKey={leaderboardLockShakeKey}
-              shouldHideAnswerPhaseChrome={shouldHideAnswerPhaseChrome}
-            />
-            {isMobileGameViewport && gameState.status === "playing" && (
+            {!isRecoveringConnection && (
+              <GameRoomAnswerPanel
+                isMobileView={isMobileGameViewport}
+                isInitialCountdown={isInitialCountdown}
+                isReveal={isReveal}
+                revealTone={revealTone}
+                isInterTrackWait={isInterTrackWait}
+                phaseLabel={phaseLabel}
+                activePhaseDurationMs={activePhaseDurationMs}
+                phaseEndsAt={phaseEndsAt}
+                gamePhase={gameState.phase}
+                startedAt={gameState.startedAt}
+                isTimeAttackMode={isTimeAttackMode}
+                timeAttackTimeLimitMs={timeAttackTimeLimitMs}
+                timeAttackRemainingMs={timeAttackRemainingMs}
+                timeAttackEndReason={timeAttackEndReason}
+                choices={gameState.choices}
+                selectedChoice={selectedChoice}
+                correctChoiceIndex={correctChoiceIndex}
+                isEnded={isEnded}
+                playlist={playlist}
+                trackSessionKey={trackSessionKey}
+                myComboTier={myComboTier}
+                myComboNow={myComboNow}
+                isComboBreakThisQuestion={isComboBreakThisQuestion}
+                comboBreakTier={comboBreakTier}
+                waitingToStart={waitingToStart}
+                shouldShowGestureOverlay={shouldShowGestureOverlay}
+                canAnswerNow={canAnswerNow}
+                onSubmitChoice={handleSubmitChoice}
+                keyBindings={keyBindings}
+                myHasChangedAnswer={myHasChangedAnswer}
+                myFeedback={myFeedback}
+                gameStatus={gameState.status}
+                revealEndsAt={gameState.revealEndsAt}
+                resolvedAnswerTitle={resolvedAnswerTitle}
+                onOpenExitConfirm={openExitConfirm}
+                isPendingFeedbackCard={isPendingFeedbackCard}
+                allAnsweredReadyForReveal={allAnsweredReadyForReveal}
+                isRevealPendingServerSync={isRevealPendingServerSync}
+                isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
+                revealChoicePickMap={revealChoicePickMap}
+                serverOffsetMs={serverOffsetMs}
+                mobileHeaderAction={mobilePlaybackVoteAction}
+                liveParticipantCount={displayParticipantCount}
+                liveAnsweredCount={displayAnsweredCount}
+                liveCorrectCount={
+                  typeof gameState.questionStats?.correctCount === "number"
+                    ? Math.max(
+                      0,
+                      Math.floor(gameState.questionStats.correctCount),
+                    )
+                    : null
+                }
+                liveWrongCount={
+                  typeof gameState.questionStats?.wrongCount === "number"
+                    ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
+                    : null
+                }
+                liveUnansweredCount={displayUnansweredCount}
+                isRecoveringConnection={isRecoveringConnection}
+                recoveryStatusText={recoveryStatusText}
+                isLeaderboardRoom={isLeaderboardRoom}
+                leaderboardLockShakeKey={leaderboardLockShakeKey}
+                shouldHideAnswerPhaseChrome={shouldHideAnswerPhaseChrome}
+              />
+            )}
+            {isMobileGameViewport && gameState.status === "playing" && !isRecoveringConnection && (
               <div className="game-room-mobile-after-options">
                 <GameRoomMobilePersonalRankCard
                   participant={mobilePersonalRankCardModel.participant}

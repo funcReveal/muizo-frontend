@@ -57,6 +57,9 @@ interface BuildNearbyDisplayRowsInput {
  * Ranks:
  *   Backend sets opponent.rank via projectedRank ± offset. Used directly; approx fallback
  *   is computed only when opponent.rank is absent.
+ *
+ * Backend provides up to 4 ahead + 4 passed entries; slots above use at most 4,
+ * slots below use at most 2, so excess passed entries are simply unused.
  */
 export function buildChallengeNearbyDisplayRows({
   nearbyOpponents,

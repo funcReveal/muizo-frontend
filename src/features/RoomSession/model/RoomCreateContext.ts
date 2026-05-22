@@ -42,6 +42,7 @@ export interface RoomCreateContextValue {
 
 export const RoomCreateContext =
   createContext<RoomCreateContextValue | null>(null);
+RoomCreateContext.displayName = "RoomCreateContext";
 
 export const useRoomCreate = (): RoomCreateContextValue => {
   const ctx = useContext(RoomCreateContext);

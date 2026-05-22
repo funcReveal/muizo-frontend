@@ -83,6 +83,11 @@ const tenTopEntries = Array.from({ length: 10 }, (_, i) =>
 );
 // Scores: u1=2000, u2=1900, ..., u10=1100
 
+const elevenTopEntries = Array.from({ length: 11 }, (_, i) =>
+  makeEntry(`u${i + 1}`, i + 1, 2000 - i * 100),
+);
+// Scores: u1=2000, u2=1900, ..., u11=1000
+
 const expectUniqueKeys = (
   rows: ReturnType<typeof buildChallengeLeaderboardDisplayRows>["listRows"],
 ) => {
@@ -97,11 +102,11 @@ const expectUniqueKeys = (
 describe("buildChallengeLeaderboardDisplayRows", () => {
 
   // ?? Test case 1: projectedRank = 15 ???????????????????????????????????????
-  it("projectedRank=15 ??nearby mode, top5 + ellipsis + nearby section", () => {
-    const topFive = Array.from({ length: 5 }, (_, i) =>
+  it("projectedRank=15 ??nearby mode, top6 + ellipsis + nearby section", () => {
+    const topSix = Array.from({ length: 6 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 2000 - i * 100),
     );
-    const data = makeData(15, topFive);
+    const data = makeData(15, topSix);
 
     const { layoutMode, listRows } = buildChallengeLeaderboardDisplayRows({
       data,
@@ -114,7 +119,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     const topPlayerRows = listRows.filter(
       (r) => r.kind === "player" && r.section === "top",
     );
-    expect(topPlayerRows).toHaveLength(5);
+    expect(topPlayerRows).toHaveLength(6);
 
     const ellipsis = listRows.find((r) => r.kind === "ellipsis");
     expect(ellipsis).toBeDefined();
@@ -127,23 +132,8 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
   });
 
   // ?? Test case 2: projectedRank = 12 ???????????????????????????????????????
-  it("projectedRank=12 ??still uses nearby mode", () => {
-    const data = makeData(12, tenTopEntries.slice(0, 5));
-
-    const { layoutMode, listRows } = buildChallengeLeaderboardDisplayRows({
-      data,
-      viewerScore: 500,
-      meUserId: "me",
-    });
-
-    expect(layoutMode).toBe("nearby");
-    // ellipsis must be present
-    expect(listRows.some((r) => r.kind === "ellipsis")).toBe(true);
-  });
-
-  // ?? Test case 3: projectedRank = 11 ???????????????????????????????????????
-  it("projectedRank=11 ??top-eleven mode: top10 + self at #11, no ellipsis", () => {
-    const data = makeData(11, tenTopEntries);
+  it("projectedRank=12 ??top-eleven mode: top11 + self at #12, no ellipsis", () => {
+    const data = makeData(12, elevenTopEntries);
 
     const { layoutMode, listRows } = buildChallengeLeaderboardDisplayRows({
       data,
@@ -152,33 +142,43 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     });
 
     expect(layoutMode).toBe("top-eleven");
+    expect(listRows.some((r) => r.kind === "ellipsis")).toBe(false);
+    expect(listRows.filter((r) => r.kind === "player" && r.section === "top")).toHaveLength(11);
+    expect(listRows.find((r) => r.kind === "self")?.displayRank).toBe(12);
+  });
 
-    // No ellipsis in top-eleven mode
+  // ?? Test case 3: projectedRank = 11 ???????????????????????????????????????
+  it("projectedRank=11 ??top-window mode: self at #11 slot, no ellipsis", () => {
+    const data = makeData(11, elevenTopEntries);
+
+    const { layoutMode, listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 500,
+      meUserId: "me",
+    });
+
+    expect(layoutMode).toBe("top-window");
+
     expect(listRows.filter((r) => r.kind === "ellipsis")).toHaveLength(0);
 
-    // Exactly 10 top player rows
     const topPlayerRows = listRows.filter(
       (r) => r.kind === "player" && r.section === "top",
     );
-    expect(topPlayerRows).toHaveLength(10);
+    expect(topPlayerRows).toHaveLength(11);
 
-    // Self row at position 10 (index 10)
     const selfRow = listRows.find((r) => r.kind === "self");
     expect(selfRow).toBeDefined();
     expect(selfRow?.key).toBe("self:list");
-    expect(selfRow?.section).toBe("top-eleven");
+    expect(selfRow?.section).toBe("top-window");
     const selfIdx = listRows.findIndex((r) => r.kind === "self");
     expect(selfIdx).toBe(10); // 11th slot, 0-based = 10
 
     // gapToNext = #10 score (2000-900=1100) - viewerScore (500) = 600
     expect(selfRow?.gapToNext).toBe(1100 - 500); // 600
 
-    // liveGap should only be on rank-10 entry (index 9), null for others
     const topRows = topPlayerRows as Array<{ kind: "player"; section: "top"; liveGap: number | null }>;
-    topRows.slice(0, 9).forEach((row) => {
-      expect(row.liveGap).toBeNull();
-    });
-    expect(topRows[9].liveGap).toBe(600); // rank #10 gap
+    expect(topRows[9].liveGap).toBe(1100 - 500);
+    expect(topRows[10].liveGap).toBe(1000 - 500);
   });
 
   // ?? Test case 4: projectedRank = 10 ???????????????????????????????????????
@@ -220,7 +220,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     const selfIdx = listRows.findIndex((r) => r.kind === "self");
     expect(selfIdx).toBe(1); // 0-based index 1 = rank 2
 
-    // 10 official player rows: keep one displaced row when self enters top 10.
+    // 10 official player rows: keep one displaced row when self enters this top window.
     expect(listRows.filter((r) => r.kind === "player")).toHaveLength(10);
   });
 
@@ -264,7 +264,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     expect(u1Nearby?.key).toBe("player:u1");
 
     // u1 also appears in top section in top-eleven mode
-    const topElevenData = makeData(11, tenTopEntries);
+    const topElevenData = makeData(12, elevenTopEntries);
     const { listRows: topElevenRows } = buildChallengeLeaderboardDisplayRows({
       data: topElevenData,
       viewerScore: 500,
@@ -294,29 +294,29 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
   });
 
   // ?? Test case 9: top-eleven liveGap correctness ???????????????????????????
-  it("top-eleven gapToNext is positive when viewer is behind #10", () => {
-    const data = makeData(11, tenTopEntries, [], "me", 500);
+  it("top-eleven gapToNext is positive when viewer is behind #11", () => {
+    const data = makeData(12, elevenTopEntries, [], "me", 500);
     const { listRows } = buildChallengeLeaderboardDisplayRows({
       data,
       viewerScore: 500,
       meUserId: "me",
     });
     const selfRow = listRows.find((r) => r.kind === "self");
-    // #10 score = 1100, viewerScore = 500, gap = 600 (viewer is behind)
-    expect(selfRow?.gapToNext).toBe(600);
+    // #11 score = 1000, viewerScore = 500, gap = 500 (viewer is behind)
+    expect(selfRow?.gapToNext).toBe(500);
     expect(selfRow?.gapToNext).toBeGreaterThan(0);
   });
 
-  it("top-eleven gapToNext is negative when viewer has surpassed #10 locally", () => {
-    const data = makeData(11, tenTopEntries, [], "me", 1200);
+  it("top-eleven gapToNext is negative when viewer has surpassed #11 locally", () => {
+    const data = makeData(12, elevenTopEntries, [], "me", 1200);
     const { listRows } = buildChallengeLeaderboardDisplayRows({
       data,
       viewerScore: 1200,
       meUserId: "me",
     });
     const selfRow = listRows.find((r) => r.kind === "self");
-    // #10 score = 1100, viewerScore = 1200, gap = -100 (viewer has surpassed locally)
-    expect(selfRow?.gapToNext).toBe(-100);
+    // #11 score = 1000, viewerScore = 1200, gap = -200 (viewer has surpassed locally)
+    expect(selfRow?.gapToNext).toBe(-200);
     expect(selfRow?.gapToNext).toBeLessThan(0);
   });
 
@@ -339,15 +339,15 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
   });
 
   // ?? Test case 11: list total row count ????????????????????????????????????
-  it("nearby mode total row count = 5 top + ellipsis + 5 nearby = 11", () => {
-    const topFive = Array.from({ length: 5 }, (_, i) =>
+  it("nearby mode total row count = 6 top + ellipsis + 5 nearby = 12", () => {
+    const topSix = Array.from({ length: 6 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 2000 - i * 100),
     );
     const nearby = [
       makeNearbyOpponent("n1", 13, 520, 500),
       makeNearbyOpponent("n2", 14, 510, 500),
     ];
-    const data = makeData(15, topFive, nearby, "me", 500);
+    const data = makeData(15, topSix, nearby, "me", 500);
 
     const { listRows } = buildChallengeLeaderboardDisplayRows({
       data,
@@ -355,16 +355,16 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       meUserId: "me",
     });
 
-    // top 5 + ellipsis + 5 nearby slots = 11 rows
-    expect(listRows).toHaveLength(11);
+    // top 6 + ellipsis + 5 nearby slots = 12 rows
+    expect(listRows).toHaveLength(12);
   });
 
-  // ?? Test case 12: top-eleven when topEntries < 10 uses placeholders ????????
-  it("top-eleven with fewer than 10 topEntries adds placeholder rows", () => {
+  // ?? Test case 12: top-eleven when topEntries < 11 uses placeholders ????????
+  it("top-eleven with fewer than 11 topEntries adds placeholder rows", () => {
     const fewEntries = Array.from({ length: 7 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 2000 - i * 100),
     );
-    const data = makeData(11, fewEntries);
+    const data = makeData(12, fewEntries);
 
     const { layoutMode, listRows } = buildChallengeLeaderboardDisplayRows({
       data,
@@ -373,16 +373,16 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     });
 
     expect(layoutMode).toBe("top-eleven");
-    // 7 players + 3 placeholders + 1 self = 11
-    expect(listRows).toHaveLength(11);
+    // 7 players + 4 placeholders + 1 self = 12
+    expect(listRows).toHaveLength(12);
     const placeholders = listRows.filter((r) => r.kind === "placeholder");
-    expect(placeholders).toHaveLength(3);
-    // gapToNext is null because #10 entry doesn't exist
+    expect(placeholders).toHaveLength(4);
+    // gapToNext is null because #11 entry doesn't exist
     const selfRow = listRows.find((r) => r.kind === "self");
     expect(selfRow?.gapToNext).toBeNull();
   });
 
-  it("nearby mode filters opponents already rendered in top5 to avoid duplicate keys", () => {
+  it("nearby mode filters opponents already rendered in the top section to avoid duplicate keys", () => {
     const topFive = Array.from({ length: 5 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 2000 - i * 100),
     );
@@ -875,7 +875,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       makeNearbyOpponent("rank13", 13, 9105, 9975),
       makeNearbyOpponent("rank14", 14, 8845, 9975),
     ];
-    const data = makeData(12, topFive, nearby, "me", 9975);
+    const data = makeData(13, topFive, nearby, "me", 9975);
 
     const { listRows } = buildChallengeLeaderboardDisplayRows({
       data,
@@ -887,8 +887,8 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
     );
 
-    expect(nearbyRows.map((row) => row.kind === "self" ? "self:12" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
-      .toEqual(["rank9:10", "rank10:11", "self:12", "rank13:13", "rank14:14"]);
+    expect(nearbyRows.map((row) => row.kind === "self" ? "self:13" : row.kind === "player" && row.section === "nearby" ? `${row.userId}:${row.approxRank}` : row.kind))
+      .toEqual(["rank9:11", "rank10:12", "self:13", "rank13:14", "rank14:15"]);
   });
 
   // isAhead tiebreaker: same projected rank, opponent has higher score

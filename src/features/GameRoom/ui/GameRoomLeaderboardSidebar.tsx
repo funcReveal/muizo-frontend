@@ -3,7 +3,7 @@
  *
  * Unified leaderboard sidebar that supports two modes:
  *   - "room" tab: shows current room participants scoreboard (GameRoomLeftSidebar)
- *   - "challenge" tab: shows projected challenge leaderboard (Top5 + nearby + self)
+ *   - "challenge" tab: shows projected challenge leaderboard (Top6 + nearby + self)
  *
  * Tab rules:
  *   - isLeaderboardRoom === false → always "room" tab, no tabs shown
@@ -216,6 +216,12 @@ const GameRoomLeaderboardSidebar: React.FC<GameRoomLeaderboardSidebarProps> = ({
             viewerCombo={viewerCombo}
             viewerScore={myLiveScore}
             sessionPassCount={sessionPassCount}
+            scoreboardBorderEnabled={scoreboardBorderEnabled}
+            scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
+            scoreboardBorderAnimation={scoreboardBorderAnimation}
+            scoreboardBorderLineStyle={scoreboardBorderLineStyle}
+            scoreboardBorderTheme={scoreboardBorderTheme}
+            scoreboardBorderParticleCount={scoreboardBorderParticleCount}
           />
         ) : (
           <RoomScoreboardPanel

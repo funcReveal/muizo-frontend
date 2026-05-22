@@ -75,6 +75,7 @@ export interface PlaylistSourceContextValue {
 
 export const PlaylistSourceContext =
   createContext<PlaylistSourceContextValue | null>(null);
+PlaylistSourceContext.displayName = "PlaylistSourceContext";
 
 export const usePlaylistSource = (): PlaylistSourceContextValue => {
   const ctx = useContext(PlaylistSourceContext);

@@ -6,6 +6,20 @@ import type {
 } from "../../model/projectionTypes";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 import { normalizeRoomDisplayText } from "../../../../shared/utils/text";
+import AnimatedScoreboardBorder from "../../../../shared/ui/AnimatedScoreboardBorder";
+import {
+  DEFAULT_SCOREBOARD_BORDER_ANIMATION,
+  DEFAULT_SCOREBOARD_BORDER_ENABLED,
+  DEFAULT_SCOREBOARD_BORDER_LINE_STYLE,
+  DEFAULT_SCOREBOARD_BORDER_MASK_ENABLED,
+  DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT,
+  DEFAULT_SCOREBOARD_BORDER_THEME,
+  getScoreboardBorderThemeClassName,
+  resolveScoreboardBorderMotionByTheme,
+  type ScoreboardBorderAnimationId,
+  type ScoreboardBorderLineStyleId,
+  type ScoreboardBorderThemeId,
+} from "../../../Setting/model/scoreboardBorderEffects";
 import { AnimatedScoreValue } from "./AnimatedScoreValue";
 import { LeaderboardCompactRow } from "./LeaderboardCompactRow";
 import { resolveComboTier } from "../lib/gameRoomUiUtils";
@@ -250,8 +264,8 @@ export const ChallengeEllipsisRow = React.memo(
       <div
         className={
           fullRow
-            ? "game-room-score-row flex items-center justify-center text-slate-500 select-none"
-            : "flex items-center justify-center py-1.5 text-slate-600 select-none"
+            ? "game-room-score-row leaderboard-compact-row challenge-lb-ellipsis-row flex items-center justify-center text-slate-500 select-none"
+            : "game-room-score-row leaderboard-compact-row challenge-lb-ellipsis-row flex items-center justify-center text-slate-600 select-none"
         }
       >
         <span className="text-base leading-none">···</span>
@@ -264,7 +278,7 @@ export const ChallengePlaceholderRow = React.memo(
   function ChallengePlaceholderRow({ dim = false }: { dim?: boolean }) {
     return (
       <div
-        className={`game-room-score-row flex items-center justify-between text-sm ${dim ? "opacity-10" : "opacity-20"
+        className={`game-room-score-row leaderboard-compact-row flex items-center justify-between text-sm ${dim ? "opacity-10" : "opacity-20"
           }`}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -289,11 +303,17 @@ interface ChallengeSelfRowProps {
 
   /**
    * Rank shown in the UI list.
-   * Use this first, because live self may be inserted into Top 10 and push
+   * Use this first, because live self may be inserted into the top window and push
    * official rows down.
    */
   displayRank?: number | null;
   variant?: "list" | "sticky";
+  scoreboardBorderEnabled?: boolean;
+  scoreboardBorderMaskEnabled?: boolean;
+  scoreboardBorderAnimation?: ScoreboardBorderAnimationId;
+  scoreboardBorderLineStyle?: ScoreboardBorderLineStyleId;
+  scoreboardBorderTheme?: ScoreboardBorderThemeId;
+  scoreboardBorderParticleCount?: number;
 
   /**
    * Gap to the player directly ahead: positive = behind, negative = surpassed.
@@ -314,6 +334,12 @@ export const ChallengeSelfRow = React.memo(
     combo = 0,
     displayRank = null,
     variant = "list",
+    scoreboardBorderEnabled = DEFAULT_SCOREBOARD_BORDER_ENABLED,
+    scoreboardBorderMaskEnabled = DEFAULT_SCOREBOARD_BORDER_MASK_ENABLED,
+    scoreboardBorderAnimation = DEFAULT_SCOREBOARD_BORDER_ANIMATION,
+    scoreboardBorderLineStyle = DEFAULT_SCOREBOARD_BORDER_LINE_STYLE,
+    scoreboardBorderTheme = DEFAULT_SCOREBOARD_BORDER_THEME,
+    scoreboardBorderParticleCount = DEFAULT_SCOREBOARD_BORDER_PARTICLE_COUNT,
     // gapToNext is part of the data model but not rendered on the self row
   }: ChallengeSelfRowProps) {
     const { liveScore, projectedRank, officialRank } = standing;
@@ -334,18 +360,33 @@ export const ChallengeSelfRow = React.memo(
         : "--";
     const rankColor = isSettled ? "text-amber-300" : "text-sky-300";
     const effectsEnabled = variant === "list";
+    const comboTier = resolveComboTier(combo);
+    const comboEffectsEnabled = effectsEnabled && comboTier > 0;
     const pulse = useChallengeSelfPulse({
       liveScore,
       rankValue,
       combo,
       isSettled,
-      enabled: effectsEnabled,
+      enabled: comboEffectsEnabled,
     });
-    const comboTier = resolveComboTier(combo);
-    const comboAuraClass =
-      effectsEnabled && comboTier > 0
-        ? `game-room-score-row--combo-flare game-room-score-row--combo-flare-active game-room-score-row--combo-tier-${comboTier} challenge-lb-self-row--combo-active`
-        : "";
+    const effectTier = comboEffectsEnabled ? comboTier : 0;
+    const borderMotion =
+      scoreboardBorderEnabled && scoreboardBorderAnimation !== "none"
+        ? resolveScoreboardBorderMotionByTheme(scoreboardBorderTheme)
+        : "none";
+    const shouldShowSharedEffect = effectTier > 0;
+    const shouldShowBorder = shouldShowSharedEffect && scoreboardBorderEnabled;
+    const comboAuraClass = shouldShowSharedEffect
+      ? [
+        "game-room-score-row--combo-flare",
+        "game-room-score-row--combo-flare-active",
+        "game-room-score-row--combo-champion",
+        "game-room-score-row--combo-champion-active",
+        `game-room-score-row--combo-tier-${effectTier}`,
+        getScoreboardBorderThemeClassName(scoreboardBorderTheme),
+        "challenge-lb-self-row--combo-active",
+      ].join(" ")
+      : "";
 
     return (
       <LeaderboardCompactRow
@@ -367,32 +408,45 @@ export const ChallengeSelfRow = React.memo(
         name={name}
         nameClassName="font-medium text-white/90"
         badges={<span className="game-room-score-row-you-badge">YOU</span>}
-        effectsNode={pulse ? (
-          <span
-            key={`pulse-${pulse.key}`}
-            className={`challenge-lb-self-effects challenge-lb-self-effects--${pulse.tone}`}
-            aria-hidden="true"
-          >
-            <span className="challenge-lb-self-effects__ring" />
-            <span className="challenge-lb-self-effects__sweep" />
-            <span className="challenge-lb-self-effects__particles">
-              {Array.from({ length: SELF_ROW_PARTICLE_COUNT }, (_, index) => (
-                <span
-                  key={index}
-                  className="challenge-lb-self-effects__particle"
-                  style={
-                    {
-                      "--challenge-self-particle-index": index,
-                      "--challenge-self-particle-left": `${20 + index * 8.5}%`,
-                      "--challenge-self-particle-x": `${(index - 3.5) * 8}px`,
-                      "--challenge-self-particle-y": `${(index % 3) * 8}px`,
-                    } as React.CSSProperties
-                  }
-                />
-              ))}
+        effectsNode={
+          shouldShowBorder ? (
+            <AnimatedScoreboardBorder
+              animationId={borderMotion}
+              lineStyleId={scoreboardBorderLineStyle}
+              themeId={scoreboardBorderTheme}
+              maskEnabled={scoreboardBorderMaskEnabled}
+              particleCount={scoreboardBorderParticleCount}
+              intensity={effectTier / 10}
+              variant="attached"
+              className="scoreboard-border-effect"
+            />
+          ) : pulse ? (
+            <span
+              key={`pulse-${pulse.key}`}
+              className={`challenge-lb-self-effects challenge-lb-self-effects--${pulse.tone}`}
+              aria-hidden="true"
+            >
+              <span className="challenge-lb-self-effects__ring" />
+              <span className="challenge-lb-self-effects__sweep" />
+              <span className="challenge-lb-self-effects__particles">
+                {Array.from({ length: SELF_ROW_PARTICLE_COUNT }, (_, index) => (
+                  <span
+                    key={index}
+                    className="challenge-lb-self-effects__particle"
+                    style={
+                      {
+                        "--challenge-self-particle-index": index,
+                        "--challenge-self-particle-left": `${20 + index * 8.5}%`,
+                        "--challenge-self-particle-x": `${(index - 3.5) * 8}px`,
+                        "--challenge-self-particle-y": `${(index % 3) * 8}px`,
+                      } as React.CSSProperties
+                    }
+                  />
+                ))}
+              </span>
             </span>
-          </span>
-        ) : undefined}
+          ) : undefined
+        }
         scoreNode={
           <AnimatedScoreValue
             score={liveScore}
@@ -400,7 +454,11 @@ export const ChallengeSelfRow = React.memo(
             comboPrefix={"\u00d7"}
             durationMs={2500}
             className="text-sm font-semibold tabular-nums text-emerald-300"
-            comboClassName="challenge-lb-self-combo-token ml-1 text-slate-500"
+            comboClassName={[
+              "challenge-lb-self-combo-token ml-1",
+              comboTier > 0 ? `challenge-lb-self-combo-token--tier-${comboTier}` : "text-slate-500",
+              comboTier > 0 ? `game-room-combo-breathe game-room-combo-breathe-tier-${comboTier}` : "",
+            ].filter(Boolean).join(" ")}
           />
         }
       />

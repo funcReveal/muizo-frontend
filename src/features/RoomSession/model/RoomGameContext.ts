@@ -69,6 +69,7 @@ export interface RoomGameContextValue {
 }
 
 export const RoomGameContext = createContext<RoomGameContextValue | null>(null);
+RoomGameContext.displayName = "RoomGameContext";
 
 export const useRoomGame = (): RoomGameContextValue => {
   const ctx = useContext(RoomGameContext);

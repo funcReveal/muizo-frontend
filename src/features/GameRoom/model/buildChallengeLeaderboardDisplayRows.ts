@@ -6,9 +6,9 @@
  *
  * Layout modes
  * ─────────────
- * top-window  projectedRank ≤ 10 — official Top 10 + live self inserted.
- * top-eleven  projectedRank = 11  — official Top 10 + live self at #11.
- * nearby      projectedRank ≥ 12 or null — Top 5 + ellipsis + nearby rows.
+ * top-window  projectedRank ≤ 11 — official Top 11 + live self inserted.
+ * top-eleven  projectedRank = 12  — official Top 11 + live self at #12.
+ * nearby      projectedRank ≥ 13 or null — Top 6 + ellipsis + nearby rows.
  *
  * Important UI model rule
  * ───────────────────────
@@ -132,9 +132,9 @@ export function buildChallengeLeaderboardDisplayRows({
   const projectedRank = data.myStanding.projectedRank;
 
   const layoutMode: ChallengeLayoutMode =
-    projectedRank !== null && projectedRank <= 10
+    projectedRank !== null && projectedRank <= 11
       ? "top-window"
-      : projectedRank === 11
+      : projectedRank === 12
         ? "top-eleven"
         : "nearby";
 
@@ -227,7 +227,7 @@ const finalizeSequentialTopRows = (
 };
 
 // ---------------------------------------------------------------------------
-// top-window mode (projectedRank ≤ 10)
+// top-window mode (projectedRank ≤ 11)
 // ---------------------------------------------------------------------------
 
 function buildTopWindowRows(
@@ -236,7 +236,7 @@ function buildTopWindowRows(
   meUserId: string | null,
   projectedRank: number,
 ): ChallengeLeaderboardDisplayRow[] {
-  const TARGET = 10;
+  const TARGET = 11;
 
   const rawTopEntries = data.topEntries.slice(0, TARGET);
 
@@ -307,7 +307,7 @@ function buildTopWindowRows(
 }
 
 // ---------------------------------------------------------------------------
-// top-eleven mode (projectedRank = 11)
+// top-eleven mode (projectedRank = 12)
 // ---------------------------------------------------------------------------
 
 function buildTopElevenRows(
@@ -315,10 +315,10 @@ function buildTopElevenRows(
   viewerScore: number,
   meUserId: string | null,
 ): ChallengeLeaderboardDisplayRow[] {
-  const TARGET = 10;
-  const topTen = data.topEntries.slice(0, TARGET);
+  const TARGET = 11;
+  const topEleven = data.topEntries.slice(0, TARGET);
 
-  const rows: ChallengeLeaderboardDisplayRow[] = topTen.map((entry, index) =>
+  const rows: ChallengeLeaderboardDisplayRow[] = topEleven.map((entry, index) =>
     makeTopPlayerRow(
       entry,
       meUserId,
@@ -327,12 +327,12 @@ function buildTopElevenRows(
     ),
   );
 
-  for (let i = topTen.length; i < TARGET; i += 1) {
+  for (let i = topEleven.length; i < TARGET; i += 1) {
     rows.push({ kind: "placeholder", key: `placeholder:top:${i}` });
   }
 
   const gapToNext =
-    topTen.length >= TARGET ? topTen[TARGET - 1].bestScore - viewerScore : null;
+    topEleven.length >= TARGET ? topEleven[TARGET - 1].bestScore - viewerScore : null;
 
   rows.push({
     kind: "self",
@@ -346,7 +346,7 @@ function buildTopElevenRows(
 }
 
 // ---------------------------------------------------------------------------
-// nearby mode (projectedRank ≥ 12 or null)
+// nearby mode (projectedRank ≥ 13 or null)
 // ---------------------------------------------------------------------------
 
 function buildNearbyRows(
@@ -355,7 +355,7 @@ function buildNearbyRows(
   meUserId: string | null,
   sessionPassCount: number,
 ): ChallengeLeaderboardDisplayRow[] {
-  const TARGET_TOP = 5;
+  const TARGET_TOP = 6;
   const topFive = data.topEntries.slice(0, TARGET_TOP);
   const topUserIds = new Set(topFive.map((entry) => entry.userId));
   const nearbyOpponents = data.nearbyOpponents.filter(
