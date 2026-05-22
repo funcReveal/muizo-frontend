@@ -5,18 +5,16 @@
  * of typed display rows for the challenge leaderboard panel.
  *
  * Layout modes
- * ─────────────
- * top-window  projectedRank ≤ 11 — official Top 11 + live self inserted.
- * top-eleven  projectedRank = 12  — official Top 11 + live self at #12.
- * nearby      projectedRank ≥ 13 or null — Top 6 + ellipsis + nearby rows.
+ * top-window: projectedRank <= 11, official Top 11 + live self inserted.
+ * top-eleven: projectedRank = 12, official Top 11 + live self at #12.
+ * nearby: projectedRank >= 13 or null, Top 6 + ellipsis + nearby rows.
  *
  * Important UI model rule
- * ───────────────────────
  * The viewer's official best record and the viewer's current live run are NOT
  * the same UI row.
  *
  * - official best row = settled historical leaderboard record
- * - live self row     = current in-room score
+ * - live self row = current in-room score
  *
  * Therefore, the same userId may appear twice only when:
  * viewerScore < officialSelfEntry.bestScore
@@ -42,7 +40,7 @@ export type ChallengeLayoutMode = "top-window" | "top-eleven" | "nearby";
 export type ChallengeLeaderboardDisplayRow =
   | {
       kind: "player";
-      /** `player:${userId}` — official leaderboard row */
+      /** `player:${userId}` - official leaderboard row */
       key: string;
       userId: string;
       section: "top";
@@ -61,20 +59,20 @@ export type ChallengeLeaderboardDisplayRow =
       isViewerHistoricalBest: boolean;
 
       /**
-       * entry.bestScore − viewerScore.
+       * entry.bestScore - viewerScore.
        * null means this row does not display the gap.
        */
       liveGap: number | null;
     }
   | {
       kind: "player";
-      /** `player:${userId}` — nearby opponent row */
+      /** `nearby-slot:${index}` - fixed nearby visual slot */
       key: string;
       userId: string;
       section: "nearby";
       opponent: ChallengeNearbyOpponent;
       approxRank: number | null;
-      /** bestScore − liveScore. Positive = ahead; negative = passed. */
+      /** bestScore - liveScore. Positive = ahead; negative = passed. */
       liveGap: number;
     }
   | {
@@ -114,8 +112,8 @@ interface BuildInput {
   viewerScore: number;
   meUserId: string | null;
   /**
-   * How many opponents the viewer has overtaken this session (0 / 1 / ≥2).
-   * Forwarded to the nearby window builder to control vertical position.
+   * Controls nearby self placement: 0 passes = bottom, 1 = one row below,
+   * 2+ = centered. Backend rank/score data remains authoritative.
    */
   sessionPassCount?: number;
 }
@@ -227,7 +225,7 @@ const finalizeSequentialTopRows = (
 };
 
 // ---------------------------------------------------------------------------
-// top-window mode (projectedRank ≤ 11)
+// top-window mode (projectedRank <= 11)
 // ---------------------------------------------------------------------------
 
 function buildTopWindowRows(
@@ -346,7 +344,7 @@ function buildTopElevenRows(
 }
 
 // ---------------------------------------------------------------------------
-// nearby mode (projectedRank ≥ 13 or null)
+// nearby mode (projectedRank >= 13 or null)
 // ---------------------------------------------------------------------------
 
 function buildNearbyRows(
@@ -382,13 +380,12 @@ function buildNearbyRows(
     sessionPassCount,
   });
 
-  let nearbyPlaceholderIdx = 0;
-
-  for (const row of nearbyDisplayRows) {
+  nearbyDisplayRows.forEach((row, slotIndex) => {
+    const slotKey = `nearby-slot:${slotIndex}`;
     if (row.type === "opponent") {
       rows.push({
         kind: "player",
-        key: `player:${row.opponent.userId}`,
+        key: slotKey,
         userId: row.opponent.userId,
         section: "nearby",
         opponent: row.opponent,
@@ -406,10 +403,10 @@ function buildNearbyRows(
     } else {
       rows.push({
         kind: "placeholder",
-        key: `placeholder:nearby:${nearbyPlaceholderIdx++}`,
+        key: slotKey,
       });
     }
-  }
+  });
 
   return rows;
 }

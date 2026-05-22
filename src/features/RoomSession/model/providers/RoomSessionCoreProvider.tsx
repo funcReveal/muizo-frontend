@@ -49,7 +49,13 @@ import {
   type RoomClosedNotice,
   type RoomSessionContextValue,
 } from "../RoomSessionContext";
-import type { RoomGameContextValue } from "../RoomGameContext";
+import type {
+  RoomGameActionsContextValue,
+  RoomGameContextValue,
+  RoomGameStateContextValue,
+} from "../RoomGameContext";
+import type { ChatMessagesContextValue } from "../ChatMessagesContext";
+import type { RoomDirectoryContextValue } from "../RoomDirectoryContext";
 import {
   type RoomGameStatusContextValue,
   type RoomRealtimeContextValue,
@@ -145,12 +151,20 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     playlistLoadingMore,
     playlistPageCursor,
   } = basePlaylistCtx;
-  const selectedCollectionForPlaylist = lastFetchedPlaylistId
-    ? collections.find((item) => item.id === lastFetchedPlaylistId)
-    : null;
-  const effectiveQuestionMaxLimit = selectedCollectionForPlaylist
-    ? resolveQuestionLimitFromCollection(selectedCollectionForPlaylist).max
-    : baseQuestionMaxLimit;
+  const selectedCollectionForPlaylist = useMemo(
+    () =>
+      lastFetchedPlaylistId
+        ? collections.find((item) => item.id === lastFetchedPlaylistId) ?? null
+        : null,
+    [collections, lastFetchedPlaylistId],
+  );
+  const effectiveQuestionMaxLimit = useMemo(
+    () =>
+      selectedCollectionForPlaylist
+        ? resolveQuestionLimitFromCollection(selectedCollectionForPlaylist).max
+        : baseQuestionMaxLimit,
+    [selectedCollectionForPlaylist, baseQuestionMaxLimit],
+  );
 
   const { pathname } = useLocation();
 
@@ -694,7 +708,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       currentRoom,
       currentRoomId,
       participants,
-      messages,
       settlementHistory,
       statusText,
       setStatusText,
@@ -709,8 +722,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       serverOffsetMs,
       syncServerOffset,
       hostRoomPassword,
-      rooms,
-      fetchRooms,
       fetchRoomById,
       inviteRoomId,
       inviteNotFound,
@@ -730,7 +741,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       currentRoom,
       currentRoomId,
       participants,
-      messages,
       settlementHistory,
       rankChangeByRoundKey,
       leaderboardSettlementReadyByRoundKey,
@@ -747,8 +757,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       serverOffsetMs,
       syncServerOffset,
       hostRoomPassword,
-      rooms,
-      fetchRooms,
       fetchRoomById,
       inviteRoomId,
       inviteNotFound,
@@ -764,12 +772,18 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     ],
   );
 
-  const roomGameCtxValue = useMemo<RoomGameContextValue>(
+  const roomDirectoryCtxValue = useMemo(
+    () => ({ rooms, fetchRooms }),
+    [rooms, fetchRooms],
+  );
+
+  const roomGameStateCtxValue = useMemo<RoomGameStateContextValue>(
+    () => ({ gameState, gameSyncVersion, gamePlaylist, isGameView }),
+    [gameState, gameSyncVersion, gamePlaylist, isGameView],
+  );
+
+  const roomGameActionsCtxValue = useMemo<RoomGameActionsContextValue>(
     () => ({
-      gameState,
-      gameSyncVersion,
-      gamePlaylist,
-      isGameView,
       setIsGameView,
       playDurationSec,
       revealDurationSec,
@@ -790,10 +804,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       handleUpdateRoomSettings,
     }),
     [
-      gameState,
-      gameSyncVersion,
-      gamePlaylist,
-      isGameView,
       playDurationSec,
       revealDurationSec,
       startOffsetSec,
@@ -814,6 +824,12 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     ],
   );
 
+  // Merged value for backward-compatible useRoomGame() consumers
+  const roomGameCtxValue = useMemo<RoomGameContextValue>(
+    () => ({ ...roomGameStateCtxValue, ...roomGameActionsCtxValue }),
+    [roomGameStateCtxValue, roomGameActionsCtxValue],
+  );
+
   const roomUiCtxValue = useMemo<RoomUiContextValue>(
     () => ({ authUser, setStatusText }),
     [authUser, setStatusText],
@@ -822,11 +838,15 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const roomRealtimeCtxValue = useMemo<RoomRealtimeContextValue>(
     () => ({
       currentRoom,
-      messages,
       clientId,
       gameStatus: gameState?.status ?? null,
     }),
-    [clientId, currentRoom, gameState?.status, messages],
+    [clientId, currentRoom, gameState?.status],
+  );
+
+  const chatMessagesCtxValue = useMemo(
+    () => ({ messages }),
+    [messages],
   );
 
   const roomGameStatusCtxValue = useMemo<RoomGameStatusContextValue>(
@@ -914,7 +934,11 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     <RoomSessionContextProviderTree
       values={{
         chatInput: chatInputCtxValue,
+        chatMessages: chatMessagesCtxValue,
+        directory: roomDirectoryCtxValue,
         game: roomGameCtxValue,
+        gameActions: roomGameActionsCtxValue,
+        gameState: roomGameStateCtxValue,
         gameStatus: roomGameStatusCtxValue,
         internal: internalCtxValue,
         playlist: fullPlaylistCtxValue,

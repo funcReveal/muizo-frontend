@@ -49,7 +49,7 @@ interface ChallengeLeaderboardPanelProps {
   viewerAvatarUrl?: string | null;
   viewerCombo?: number;
   viewerScore?: number;
-  /** How many opponents overtaken this session (0 / 1 / ≥2). Controls nearby window position. */
+  /** Controls nearby self placement: bottom, one-up, then centered. */
   sessionPassCount?: number;
   scoreboardBorderEnabled?: boolean;
   scoreboardBorderMaskEnabled?: boolean;

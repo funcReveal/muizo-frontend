@@ -202,7 +202,7 @@ export type UseChallengeLeaderboardProjectionResult = {
   gainAmount: number;
   /**
    * How many opponents the viewer has overtaken in this game session.
-   * Capped at 2 once the nearby window is centred.
+   * Nearby rows use this to move self from bottom to centered.
    * Resets to 0 on session key change (new game / rematch).
    */
   sessionPassCount: number;
@@ -261,10 +261,8 @@ export function useChallengeLeaderboardProjection(
     },
   );
   const [boundaryRetryToken, setBoundaryRetryToken] = useState(0);
-
-  // ── Session pass count ────────────────────────────────────────────────────
-  // Tracks how many opponents the viewer has overtaken this session (max 2).
-  // Used by the nearby window builder to determine the viewer's row position.
+  // Session pass count
+  // Tracks overtakes for the nearby visual window and feedback/event semantics.
   const [sessionPassCount, setSessionPassCount] = useState(0);
   const prevProjectedRankRef = useRef<number | null>(null);
   /** Timer used to schedule a single stale-nearby refetch after a large rank jump. */

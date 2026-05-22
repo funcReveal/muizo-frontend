@@ -28,11 +28,8 @@ interface BuildNearbyDisplayRowsInput {
   meUserId: string | null;
   slots?: number;
   /**
-   * How many opponents the viewer has overtaken in this game session (0 / 1 / ≥2).
-   * Controls the viewer's vertical position inside the nearby window:
-   *   0 → viewer pinned at bottom   (4 above, 0 below)
-   *   1 → viewer one from bottom    (3 above, 1 below)
-   *   ≥2 → viewer centred (locked)  (2 above, 2 below)
+   * How many opponents the viewer has overtaken in this session.
+   * 0: self at bottom, 1: one row below self, >=2: self centered.
    */
   sessionPassCount?: number;
 }
@@ -40,26 +37,20 @@ interface BuildNearbyDisplayRowsInput {
 /**
  * Builds the fixed-height nearby section for the challenge leaderboard.
  *
- * Slot allocation — driven by sessionPassCount (how many opponents overtaken
- * during this game session), NOT by absolute rank position:
+ * Nearby mode keeps a stable 5-slot window while moving self upward only
+ * through reserved below slots:
  *
- *   sessionPassCount=0  → 4 above, 0 below  — viewer starts pinned at bottom
- *   sessionPassCount=1  → 3 above, 1 below  — moves up after first overtake
- *   sessionPassCount≥2  → 2 above, 2 below  — centred and locked for rest of game
+ *   0 passes: 4 above + self
+ *   1 pass: 3 above + self + 1 below
+ *   >=2 passes: 2 above + self + 2 below
  *
- * This gives players a sense of "climbing" rather than always being in the
- * middle.  The backend returns 4 ahead + 2 passed, so all cases are covered.
- *
- * Opponent selection:
- *   above — the aboveSlots players with ranks just above viewer (closest first from bottom)
- *   below — the belowSlots players with ranks just below viewer (closest first from top)
+ * The top-window / top-eleven modes handle the climb once projectedRank reaches
+ * 12 or better. Missing above/below slots become placeholders so the 5-slot
+ * section remains fixed height.
  *
  * Ranks:
- *   Backend sets opponent.rank via projectedRank ± offset. Used directly; approx fallback
- *   is computed only when opponent.rank is absent.
- *
- * Backend provides up to 4 ahead + 4 passed entries; slots above use at most 4,
- * slots below use at most 2, so excess passed entries are simply unused.
+ *   Backend sets opponent.rank via projectedRank offsets. Used directly;
+ *   approx fallback is computed only when opponent.rank is absent.
  */
 export function buildChallengeNearbyDisplayRows({
   nearbyOpponents,
@@ -76,6 +67,11 @@ export function buildChallengeNearbyDisplayRows({
     : nearbyOpponents;
 
   const maxBelowSlots = Math.floor((slots - 1) / 2);
+  const belowSlots = Math.min(
+    maxBelowSlots,
+    Math.max(0, Math.floor(sessionPassCount)),
+  );
+  const aboveSlots = slots - 1 - belowSlots;
   const rankByUserId = new Map<string, number | null>(
     opponents.map((opponent) => [opponent.userId, opponent.rank]),
   );
@@ -104,9 +100,7 @@ export function buildChallengeNearbyDisplayRows({
     const rank = getRank(opponent);
     if (rank !== null && effectiveSelfRank !== null) {
       if (rank !== effectiveSelfRank) return rank < effectiveSelfRank;
-      // rank === effectiveSelfRank: backend projected both at the same position.
-      // Use score as tiebreaker — a higher bestScore means the opponent is still
-      // ahead of Dream's current live run, even if the projected rank is tied.
+      // Same projected rank can happen while local score is ahead of cached data.
       return opponent.bestScore > liveScore;
     }
     return opponent.relation === "ahead";
@@ -120,7 +114,6 @@ export function buildChallengeNearbyDisplayRows({
     const rankB = getRank(b);
     if (rankA !== null && rankB !== null) {
       if (rankA !== rankB) return rankA - rankB;
-      // Equal rank: higher score ranks better (closer to the top of the list).
       return b.bestScore - a.bestScore;
     }
     if (rankA !== null) return -1;
@@ -132,21 +125,6 @@ export function buildChallengeNearbyDisplayRows({
   const passedSorted = opponents
     .filter((opponent) => !isAhead(opponent))
     .sort(byRank);
-  const shouldReserveBelowSlots =
-    effectiveSelfRank !== null &&
-    liveScore > 0 &&
-    (totalPlayers <= 0 || effectiveSelfRank < totalPlayers);
-  const belowSlots = Math.min(
-    maxBelowSlots,
-    passedSorted.length > 0
-      ? sessionPassCount === 1
-        ? 1
-        : Math.max(sessionPassCount, passedSorted.length)
-      : shouldReserveBelowSlots
-        ? maxBelowSlots
-        : sessionPassCount,
-  );
-  const aboveSlots = slots - 1 - belowSlots;
   const above = aheadSorted.slice(-aboveSlots);
   const below = passedSorted.slice(0, belowSlots);
 

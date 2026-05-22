@@ -210,7 +210,7 @@ export const ChallengeNearbyRow = React.memo(
 
     return (
       <LeaderboardCompactRow
-        className={`challenge-lb-nearby-row ${isPassed ? "challenge-lb-nearby-row--passed opacity-60" : ""}`}
+        className="challenge-lb-nearby-row"
         rankLabel={rankDisplay}
         avatarNode={
           <span className="game-room-score-row-avatar-wrap">
@@ -278,7 +278,7 @@ export const ChallengePlaceholderRow = React.memo(
   function ChallengePlaceholderRow({ dim = false }: { dim?: boolean }) {
     return (
       <div
-        className={`game-room-score-row leaderboard-compact-row flex items-center justify-between text-sm ${dim ? "opacity-10" : "opacity-20"
+        className={`game-room-score-row leaderboard-compact-row challenge-lb-placeholder-row flex items-center justify-between text-sm ${dim ? "opacity-10" : "opacity-20"
           }`}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">

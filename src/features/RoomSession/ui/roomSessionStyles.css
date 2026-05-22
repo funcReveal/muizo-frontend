@@ -3687,34 +3687,6 @@
   overflow: visible;
 }
 
-.challenge-lb-nearby-row--passed {
-  position: relative;
-  overflow: hidden;
-  animation: challenge-lb-passed-row-settle 780ms cubic-bezier(0.16, 1, 0.3, 1)
-    both;
-}
-
-.challenge-lb-nearby-row--passed::after {
-  content: "";
-  pointer-events: none;
-  position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  background:
-    linear-gradient(
-      100deg,
-      transparent 0%,
-      rgba(52, 211, 153, 0.08) 28%,
-      rgba(45, 212, 191, 0.32) 48%,
-      rgba(52, 211, 153, 0.08) 68%,
-      transparent 100%
-    );
-  opacity: 0;
-  transform: translateX(-48%);
-  animation: challenge-lb-passed-row-sweep 820ms cubic-bezier(0.16, 1, 0.3, 1)
-    both;
-}
-
 .challenge-lb-self-row {
   isolation: isolate;
 }
@@ -3926,44 +3898,7 @@
   }
 }
 
-@keyframes challenge-lb-passed-row-settle {
-  0% {
-    opacity: 0.92;
-    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.18);
-  }
-
-  36% {
-    opacity: 0.78;
-    box-shadow:
-      0 0 0 1px rgba(52, 211, 153, 0.32),
-      0 0 22px rgba(52, 211, 153, 0.16);
-  }
-
-  100% {
-    opacity: 0.6;
-    box-shadow: none;
-  }
-}
-
-@keyframes challenge-lb-passed-row-sweep {
-  0% {
-    opacity: 0;
-    transform: translateX(-55%);
-  }
-
-  18% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(55%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .challenge-lb-nearby-row--passed,
-  .challenge-lb-nearby-row--passed::after,
   .challenge-lb-self-row--combo-active::after,
   .challenge-lb-self-effects__ring,
   .challenge-lb-self-effects__sweep,
@@ -27659,6 +27594,29 @@
 .game-room-leaderboard-sidebar .challenge-lb-nearby-row,
 .game-room-leaderboard-sidebar .challenge-lb-self-row {
   border-radius: 14px;
+}
+
+.challenge-lb-nearby-window-item {
+  position: relative;
+  isolation: isolate;
+  transform-origin: center;
+}
+
+.challenge-lb-nearby-window-item:not(
+    .challenge-lb-nearby-window-item--self-anchor
+  ) {
+  will-change: transform;
+}
+
+.challenge-lb-nearby-window-item--self-anchor {
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .challenge-lb-nearby-window-item {
+    animation: none !important;
+    will-change: auto;
+  }
 }
 
 .game-room-leaderboard-sidebar .game-room-score-row--combo-flare {

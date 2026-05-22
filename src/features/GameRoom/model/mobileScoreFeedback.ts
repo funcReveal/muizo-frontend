@@ -242,11 +242,8 @@ export const buildChallengeMobileScoreFeedbackSnapshot = ({
     }
   };
 
-  // Always request 2 below-slots for snapshot building regardless of the real
-  // sessionPassCount.  This ensures the displaced player at newRank+1 is always
-  // present in the snapshot so findPassedTarget can locate them and attach an
-  // avatar to the "passed" event.  The visual nearby window in
-  // ChallengeLeaderboardPanel uses the real sessionPassCount separately.
+  // Feedback lookup needs both lower slots so a locally displaced player can be
+  // selected as the passed target. This does not control the visual row stage.
   const displayRows = buildChallengeLeaderboardDisplayRows({
     data: projection,
     viewerScore: meScore,

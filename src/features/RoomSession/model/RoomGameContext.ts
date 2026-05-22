@@ -9,14 +9,17 @@ import type {
   SubmitAnswerResult,
 } from "./types";
 
-export interface RoomGameContextValue {
-  // 遊戲狀態
+// Volatile state — changes on every game update (answer, phase transition, etc.)
+export interface RoomGameStateContextValue {
   gameState: GameState | null;
   gameSyncVersion: GameSyncVersion | null;
   gamePlaylist: PlaylistItem[];
   isGameView: boolean;
+}
+
+// Stable actions and settings — deps are stable refs, not game state
+export interface RoomGameActionsContextValue {
   setIsGameView: (value: boolean) => void;
-  // 遊戲時間設定
   playDurationSec: number;
   revealDurationSec: number;
   startOffsetSec: number;
@@ -25,7 +28,6 @@ export interface RoomGameContextValue {
   updateRevealDurationSec: (value: number) => number;
   updateStartOffsetSec: (value: number) => number;
   updateAllowCollectionClipTiming: (value: boolean) => boolean;
-  // 遊戲操作
   handleStartGame: () => void;
   handleRestartGame: () => void;
   handleSubmitChoice: (choiceIndex: number) => Promise<SubmitAnswerResult>;
@@ -68,8 +70,36 @@ export interface RoomGameContextValue {
   }) => Promise<boolean>;
 }
 
+// Merged shape kept for backward compatibility
+export type RoomGameContextValue = RoomGameStateContextValue &
+  RoomGameActionsContextValue;
+
+export const RoomGameStateContext =
+  createContext<RoomGameStateContextValue | null>(null);
+RoomGameStateContext.displayName = "RoomGameStateContext";
+
+export const RoomGameActionsContext =
+  createContext<RoomGameActionsContextValue | null>(null);
+RoomGameActionsContext.displayName = "RoomGameActionsContext";
+
+// Legacy context — consumers that need both state and actions can use this.
+// Prefer useRoomGameState() / useRoomGameActions() in hot render paths.
 export const RoomGameContext = createContext<RoomGameContextValue | null>(null);
 RoomGameContext.displayName = "RoomGameContext";
+
+export const useRoomGameState = (): RoomGameStateContextValue => {
+  const ctx = useContext(RoomGameStateContext);
+  if (!ctx)
+    throw new Error("useRoomGameState must be used within a RoomProvider");
+  return ctx;
+};
+
+export const useRoomGameActions = (): RoomGameActionsContextValue => {
+  const ctx = useContext(RoomGameActionsContext);
+  if (!ctx)
+    throw new Error("useRoomGameActions must be used within a RoomProvider");
+  return ctx;
+};
 
 export const useRoomGame = (): RoomGameContextValue => {
   const ctx = useContext(RoomGameContext);

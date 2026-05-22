@@ -20,6 +20,7 @@ import {
   useRoomSession,
   useRoomCreate,
   useRoomGame,
+  useRoomDirectory,
   useSitePresence,
 } from "@features/RoomSession";
 import {
@@ -304,7 +305,8 @@ const RoomsHubPage: React.FC = () => {
     authUser,
   } = useAuth();
   const { siteOnlineCount } = useSitePresence();
-  const { rooms, currentRoom, isConnected } = useRoomSession();
+  const { currentRoom, isConnected } = useRoomSession();
+  const { rooms } = useRoomDirectory();
   const displayedSiteOnlineCount = siteOnlineCount ?? (isConnected ? 1 : null);
   const suggestedGuestUsername = useMemo(() => generateGuestUsername(), []);
   const {

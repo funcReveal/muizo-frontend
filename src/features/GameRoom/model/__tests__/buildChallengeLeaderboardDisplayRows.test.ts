@@ -466,6 +466,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 845,
       meUserId: "me",
+      sessionPassCount: 2,
     });
 
     const nearbyRows = listRows.slice(
@@ -494,7 +495,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       .toEqual(["placeholder", "rank10:11", "self", "rank12:13", "rank13:14"]);
   });
 
-  it("nearby mode starts at zero with four ahead players and self at the bottom", () => {
+  it("nearby mode starts with four players above self before any pass", () => {
     const topFive = Array.from({ length: 5 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
     );
@@ -520,7 +521,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     expect(nearbyRows.find((row) => row.kind === "self")?.displayRank).toBe(77);
   });
 
-  it("nearby mode keeps self at the bottom when the viewer is the last ranked player", () => {
+  it("nearby mode keeps self at bottom even when the viewer is the last ranked player before any pass", () => {
     const topFive = Array.from({ length: 5 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
     );
@@ -546,7 +547,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       .toEqual(["rank73", "rank74", "rank75", "rank76", "self"]);
   });
 
-  it("nearby mode shows one passed row after only one player has been passed", () => {
+  it("nearby mode shows one row below self after one pass", () => {
     const topFive = Array.from({ length: 5 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
     );
@@ -562,6 +563,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 820,
       meUserId: "me",
+      sessionPassCount: 1,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -572,7 +574,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     expect(nearbyRows.find((row) => row.kind === "self")?.displayRank).toBe(72);
   });
 
-  it("nearby mode reserves one below slot when live self is inserted after official tail", () => {
+  it("nearby mode reserves one below slot when live self is inserted after official tail after one pass", () => {
     const topFive = Array.from({ length: 5 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
     );
@@ -589,6 +591,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 195,
       meUserId: "me",
+      sessionPassCount: 1,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -616,6 +619,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 285,
       meUserId: "me",
+      sessionPassCount: 2,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -644,6 +648,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 1190,
       meUserId: "me",
+      sessionPassCount: 2,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -672,6 +677,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 210,
       meUserId: "me",
+      sessionPassCount: 2,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -697,6 +703,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 210,
       meUserId: "me",
+      sessionPassCount: 2,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -724,6 +731,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 250,
       meUserId: "me",
+      sessionPassCount: 2,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -749,6 +757,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 460,
       meUserId: "me",
+      sessionPassCount: 2,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -775,6 +784,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       data,
       viewerScore: 1345,
       meUserId: "me",
+      sessionPassCount: 2,
     });
     const nearbyRows = listRows.slice(
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
@@ -811,7 +821,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       .toEqual(["rank81:81", "rank82:82", "rank83:83", "self:84", "rank84-original:85"]);
   });
 
-  it("nearby mode keeps exactly one below row when session pass count is one", () => {
+  it("nearby mode keeps one lower row when session pass count is one", () => {
     const topFive = Array.from({ length: 5 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 3500 - i * 100),
     );
@@ -950,7 +960,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       listRows.findIndex((row) => row.kind === "ellipsis") + 1,
     );
 
-    // 3 above slots but only 2 ahead opponents → one placeholder, then rank82, rank83, self, rank84-lowscore
+    // One-pass nearby window: three above slots, self, then the displaced lower row.
     // rank84-lowscore was beaten (205 > 180) → sits below Dream at rank 85
     expect(nearbyRows.map((row) =>
       row.kind === "self"

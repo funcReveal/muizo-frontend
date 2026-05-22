@@ -3,7 +3,7 @@ import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import HowToVoteRoundedIcon from "@mui/icons-material/HowToVoteRounded";
 import KeyboardDoubleArrowUpRoundedIcon from "@mui/icons-material/KeyboardDoubleArrowUpRounded";
 import type { ChatMessage } from "@features/RoomSession";
-import { useRoomRealtime } from "@features/RoomSession";
+import { useChatMessages } from "@features/RoomSession";
 import PlayerAvatar from "@shared/ui/playerAvatar/PlayerAvatar";
 import {
     formatChatMessageTime,
@@ -34,7 +34,7 @@ const GameRoomMobileChatPreview: React.FC<GameRoomMobileChatPreviewProps> = ({
     onOpen,
     notice = null,
 }) => {
-    const { messages } = useRoomRealtime();
+    const { messages } = useChatMessages();
 
     const recentMessages = useMemo(
         () => {

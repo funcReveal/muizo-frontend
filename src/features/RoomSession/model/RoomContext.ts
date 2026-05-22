@@ -1,7 +1,7 @@
 import { createContext } from "react";
 
 import type { AuthUser } from "../../../shared/auth/AuthContext";
-import type { ChatMessage, GameState, RoomState } from "./types";
+import type { GameState, RoomState } from "./types";
 import type { RoomStatusOptions } from "./providers/RoomStatusContexts";
 
 export type { AuthUser } from "../../../shared/auth/AuthContext";
@@ -15,7 +15,6 @@ export type RoomUiContextValue = {
 
 export type RoomRealtimeContextValue = {
   currentRoom: RoomState["room"] | null;
-  messages: ChatMessage[];
   clientId: string;
   gameStatus: GameState["status"] | null;
 };
