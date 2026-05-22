@@ -83,6 +83,7 @@ const SPRING = { type: "spring", stiffness: 310, damping: 30, mass: 0.85 } as co
 const ENTER_EASE = [0.25, 0.8, 0.25, 1] as [number, number, number, number];
 const ENTER_DURATION = 0.35;
 const EXIT_DURATION = 0.22;
+const NEARBY_REEL_EASE = [0.19, 1, 0.22, 1] as [number, number, number, number];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -119,6 +120,15 @@ export const ChallengeAnimatedRows = React.memo(
           const isNearbyWindowItem = isNearbyWindowRow(row);
           const isNearbySelfAnchor =
             row.kind === "self" && row.section === "nearby";
+          const shouldAnimateNearbyContent =
+            isNearbyWindowItem && !isNearbySelfAnchor && !reduced;
+          const renderedContent = shouldAnimateNearbyContent
+            ? (
+              <NearbyReelSlot row={row}>
+                {content}
+              </NearbyReelSlot>
+            )
+            : content;
           const nearbyClassName = isNearbyWindowItem
             ? [
               "challenge-lb-nearby-window-item",
@@ -140,7 +150,7 @@ export const ChallengeAnimatedRows = React.memo(
                 exit={{ opacity: 0 }}
                 transition={{ duration: ENTER_DURATION, ease: ENTER_EASE }}
               >
-                {content}
+                {renderedContent}
               </motion.div>
             );
           }
@@ -156,7 +166,7 @@ export const ChallengeAnimatedRows = React.memo(
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                {content}
+                {renderedContent}
               </motion.div>
             );
           }
@@ -192,7 +202,7 @@ export const ChallengeAnimatedRows = React.memo(
                 layout: SPRING,
               }}
             >
-              {content}
+              {renderedContent}
             </motion.div>
           );
         })}
@@ -205,6 +215,61 @@ const isNearbyWindowRow = (row: ChallengeLeaderboardDisplayRow): boolean =>
   (row.kind === "player" && row.section === "nearby") ||
   (row.kind === "self" && row.section === "nearby") ||
   row.key.startsWith("nearby-slot:");
+
+const getNearbySlotContentKey = (row: ChallengeLeaderboardDisplayRow): string => {
+  if (row.kind === "player" && row.section === "nearby") {
+    return `nearby-player:${row.userId}`;
+  }
+
+  if (row.kind === "placeholder") {
+    return `nearby-placeholder:${row.key}`;
+  }
+
+  return row.key;
+};
+
+function NearbyReelSlot({
+  row,
+  children,
+}: {
+  row: ChallengeLeaderboardDisplayRow;
+  children: React.ReactNode;
+}): React.ReactElement {
+  const contentKey = getNearbySlotContentKey(row);
+
+  return (
+    <div className="challenge-lb-nearby-reel">
+      <AnimatePresence initial={false} mode="sync">
+        <motion.div
+          key={contentKey}
+          className="challenge-lb-nearby-reel__item"
+          initial={{
+            opacity: 0,
+            y: "-112%",
+            scaleY: 0.96,
+            filter: "blur(7px)",
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scaleY: 1,
+            filter: "blur(0px)",
+          }}
+          exit={{
+            opacity: 0,
+            y: "112%",
+            scaleY: 0.96,
+            filter: "blur(7px)",
+            transition: { duration: 0.26, ease: ENTER_EASE },
+          }}
+          transition={{ duration: 0.48, ease: NEARBY_REEL_EASE }}
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Row content renderer (pure, no hooks)

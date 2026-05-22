@@ -27602,6 +27602,51 @@
   transform-origin: center;
 }
 
+.challenge-lb-nearby-reel {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  transform: translateZ(0);
+}
+
+.challenge-lb-nearby-reel::before,
+.challenge-lb-nearby-reel::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.challenge-lb-nearby-reel::before {
+  top: 0;
+  height: 38%;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.34),
+    rgba(0, 0, 0, 0)
+  );
+}
+
+.challenge-lb-nearby-reel::after {
+  bottom: 0;
+  height: 38%;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.34),
+    rgba(0, 0, 0, 0)
+  );
+}
+
+.challenge-lb-nearby-reel__item {
+  position: relative;
+  display: block;
+  z-index: 1;
+  will-change: transform, opacity, filter;
+}
+
 .challenge-lb-nearby-window-item:not(
     .challenge-lb-nearby-window-item--self-anchor
   ) {
@@ -27615,6 +27660,15 @@
 @media (prefers-reduced-motion: reduce) {
   .challenge-lb-nearby-window-item {
     animation: none !important;
+    will-change: auto;
+  }
+
+  .challenge-lb-nearby-reel::before,
+  .challenge-lb-nearby-reel::after {
+    display: none;
+  }
+
+  .challenge-lb-nearby-reel__item {
     will-change: auto;
   }
 }
