@@ -39,7 +39,7 @@ export function shouldRefreshChallengeProjectionForScoreGain({
   const targetScore = getChallengeProjectionRefreshTargetScore(data);
   if (targetScore === null) return false;
 
-  return targetScore <= previousScore || targetScore <= newScore;
+  return previousScore <= targetScore && targetScore <= newScore;
 }
 
 export function shouldDelayChallengeScoreFeedbackForProjection({

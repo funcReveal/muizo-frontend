@@ -2540,7 +2540,7 @@
 }
 
 .game-room-desktop-score-feedback-slot {
-  left: 20px;
+  left: 36px;
   top: 50%;
   transform: translateY(-50%);
   min-height: 120px;
@@ -3080,6 +3080,17 @@
 .game-room-score-row--me {
   border-color: rgba(56, 189, 248, 0.38);
   box-shadow: none;
+}
+
+.game-room-animated-score-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-room-animated-score-value[data-rolling="true"] {
+  text-shadow: 0 0 12px rgba(52, 211, 153, 0.32);
 }
 
 .game-room-score-row-you-badge {
@@ -3708,10 +3719,39 @@
   isolation: isolate;
 }
 
+.challenge-lb-self-row--combo-active {
+  border-color: rgba(45, 212, 191, 0.42);
+}
+
+.challenge-lb-self-row--combo-active::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      90px 28px at 82% 50%,
+      rgba(52, 211, 153, 0.24),
+      transparent 72%
+    ),
+    linear-gradient(
+      92deg,
+      transparent 0%,
+      rgba(45, 212, 191, 0.08) 32%,
+      rgba(125, 211, 252, 0.18) 52%,
+      transparent 78%
+    );
+  opacity: 0.64;
+  transform: translate3d(-10%, 0, 0);
+  animation: challenge-lb-self-combo-aura 3.2s ease-in-out infinite;
+}
+
 .challenge-lb-self-row > .challenge-lb-row__identity,
 .challenge-lb-self-row > .challenge-lb-row__score {
   position: relative;
-  z-index: 2;
+  z-index: 3;
 }
 
 .challenge-lb-self-effects {
@@ -3766,30 +3806,17 @@
   animation: challenge-lb-self-sweep 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.challenge-lb-self-effects__label {
-  position: absolute;
-  right: 0.7rem;
-  top: 50%;
-  z-index: 2;
-  color: rgb(167, 243, 208);
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
-  font-size: 0.78rem;
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 0 0 14px var(--challenge-self-glow);
-  transform: translate3d(0, -50%, 0);
-  animation: challenge-lb-self-label 1050ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.challenge-lb-self-effects--rank .challenge-lb-self-effects__label {
-  color: rgb(254, 240, 138);
-}
-
 .challenge-lb-self-effects__particles {
   position: absolute;
   inset: 0;
+}
+
+.challenge-lb-self-combo-token {
+  display: inline-block;
+  transform-origin: 50% 70%;
+  color: rgba(191, 219, 254, 0.72);
+  animation: challenge-lb-self-combo-token-pop 720ms
+    cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .challenge-lb-self-effects__particle {
@@ -3841,25 +3868,40 @@
   }
 }
 
-@keyframes challenge-lb-self-label {
+@keyframes challenge-lb-self-combo-aura {
   0% {
-    opacity: 0;
-    transform: translate3d(0, calc(-50% + 8px), 0) scale(0.88);
+    opacity: 0.36;
+    transform: translate3d(-14%, 0, 0);
   }
 
-  18% {
-    opacity: 1;
-    transform: translate3d(0, -50%, 0) scale(1.08);
-  }
-
-  70% {
-    opacity: 1;
-    transform: translate3d(0, -50%, 0) scale(1);
+  45% {
+    opacity: 0.88;
+    transform: translate3d(10%, 0, 0);
   }
 
   100% {
+    opacity: 0.36;
+    transform: translate3d(-14%, 0, 0);
+  }
+}
+
+@keyframes challenge-lb-self-combo-token-pop {
+  0% {
     opacity: 0;
-    transform: translate3d(0, calc(-50% - 14px), 0) scale(0.96);
+    transform: translate3d(0, 5px, 0) scale(0.76);
+    filter: drop-shadow(0 0 0 rgba(125, 211, 252, 0));
+  }
+
+  38% {
+    opacity: 1;
+    transform: translate3d(0, -2px, 0) scale(1.26);
+    filter: drop-shadow(0 0 10px rgba(125, 211, 252, 0.62));
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: drop-shadow(0 0 0 rgba(125, 211, 252, 0));
   }
 }
 
@@ -3922,10 +3964,11 @@
 @media (prefers-reduced-motion: reduce) {
   .challenge-lb-nearby-row--passed,
   .challenge-lb-nearby-row--passed::after,
+  .challenge-lb-self-row--combo-active::after,
   .challenge-lb-self-effects__ring,
   .challenge-lb-self-effects__sweep,
-  .challenge-lb-self-effects__label,
-  .challenge-lb-self-effects__particle {
+  .challenge-lb-self-effects__particle,
+  .challenge-lb-self-combo-token {
     animation: none;
   }
 
@@ -25553,15 +25596,17 @@
 
 .game-room-mobile-score-feedback-glint {
   border-radius: inherit;
+  /* mix-blend-mode: screen removed: it was forcing a GPU compositing layer
+     rebuild on every frame. Plain alpha compositing at reduced opacity gives
+     a visually similar sweep without the compositor overhead. */
   background: linear-gradient(
     112deg,
     transparent 0%,
     transparent 30%,
-    rgba(255, 255, 255, 0.58) 44%,
+    rgba(255, 255, 255, 0.36) 44%,
     transparent 58%,
     transparent 100%
   );
-  mix-blend-mode: screen;
   opacity: 0;
   transform: translate3d(-60%, 0, 0);
   animation: game-room-mobile-score-feedback-glint 980ms ease-out 130ms both;
@@ -26210,7 +26255,7 @@
 
 .game-room-mobile-score-feedback-slot {
   position: absolute;
-  left: 12px;
+  left: 24px;
   top: 58%;
   z-index: 45;
   width: 164px;
@@ -27184,4 +27229,123 @@
 
 .game-room-mobile-score-feedback-title--muted {
   color: rgba(226, 232, 240, 0.94);
+}
+
+/* Unified in-game leaderboard rows: challenge and room share the same compact shell. */
+.game-room-shell {
+  --game-room-scoreboard-row-height: 28px;
+  --game-room-scoreboard-row-padding-y: 1px;
+  --game-room-scoreboard-row-padding-x: 9px;
+  --game-room-scoreboard-row-gap: 3px;
+}
+
+.game-room-leaderboard-sidebar .game-room-scoreboard-stack {
+  overflow: visible;
+}
+
+.game-room-leaderboard-sidebar .leaderboard-compact-row,
+.game-room-leaderboard-sidebar .game-room-score-row {
+  border-color: rgba(148, 163, 184, 0.08);
+  background:
+    linear-gradient(180deg, rgba(7, 10, 18, 0.94), rgba(3, 6, 13, 0.92)),
+    rgba(0, 0, 0, 0.88);
+  color: rgba(226, 232, 240, 0.94);
+  box-shadow: none;
+}
+
+.game-room-leaderboard-sidebar .leaderboard-compact-row::before,
+.game-room-leaderboard-sidebar .game-room-score-row::before {
+  opacity: 0.14;
+  background: radial-gradient(
+    128px 30px at 4% 50%,
+    rgba(56, 189, 248, 0.12),
+    transparent 72%
+  );
+}
+
+.game-room-leaderboard-sidebar .game-room-score-row--answered,
+.game-room-leaderboard-sidebar .game-room-score-row--unanswered,
+.game-room-leaderboard-sidebar .game-room-score-row--correct,
+.game-room-leaderboard-sidebar .game-room-score-row--wrong,
+.game-room-leaderboard-sidebar .game-room-score-row--placeholder,
+.game-room-leaderboard-sidebar .game-room-score-row--locked {
+  background:
+    linear-gradient(180deg, rgba(7, 10, 18, 0.94), rgba(3, 6, 13, 0.92)),
+    rgba(0, 0, 0, 0.88);
+  box-shadow: none;
+}
+
+.game-room-leaderboard-sidebar .game-room-score-row--answered {
+  border-color: rgba(251, 191, 36, 0.16);
+}
+
+.game-room-leaderboard-sidebar .game-room-score-row--unanswered,
+.game-room-leaderboard-sidebar .game-room-score-row--placeholder,
+.game-room-leaderboard-sidebar .game-room-score-row--locked {
+  border-color: rgba(148, 163, 184, 0.08);
+  color: rgba(148, 163, 184, 0.76);
+}
+
+.game-room-leaderboard-sidebar .game-room-score-row--correct {
+  border-color: rgba(52, 211, 153, 0.18);
+}
+
+.game-room-leaderboard-sidebar .game-room-score-row--wrong {
+  border-color: rgba(248, 113, 113, 0.18);
+}
+
+.leaderboard-compact-row__status {
+  margin-left: 6px;
+}
+
+.leaderboard-compact-row__score {
+  min-width: 66px;
+  justify-content: flex-end;
+}
+
+.game-room-scoreboard-self-sticky-bar .game-room-score-row--me,
+.game-room-room-self-sticky-bar .game-room-score-row--me,
+.challenge-lb-self-row--sticky {
+  border-color: rgba(148, 163, 184, 0.08) !important;
+  background:
+    linear-gradient(180deg, rgba(7, 10, 18, 0.96), rgba(3, 6, 13, 0.94)),
+    rgba(0, 0, 0, 0.9) !important;
+  box-shadow: none !important;
+}
+
+.challenge-lb-self-row--sticky::before,
+.game-room-score-row--sticky-self::before {
+  opacity: 0.1;
+  animation: none !important;
+}
+
+.challenge-lb-self-row--list {
+  border-color: rgba(56, 189, 248, 0.34);
+}
+
+.game-room-desktop-score-feedback-slot--outside-frame {
+  z-index: 45;
+  overflow: visible;
+}
+
+.game-room-panel--accent > .game-room-desktop-score-feedback-slot--outside-frame {
+  left: 36px;
+  top: calc(50% + 18px);
+}
+
+@media (max-width: 1479px) {
+  .game-room-mobile-drawer-root--scoreboard-side .game-room-leaderboard-sidebar {
+    --game-room-mobile-scoreboard-row-gap: 5px;
+  }
+
+  .game-room-mobile-drawer-root--scoreboard-side .game-room-score-row {
+    min-height: 42px;
+    padding-block: 2px;
+    border-radius: 12px;
+  }
+
+  .game-room-mobile-drawer-root--scoreboard-side .game-room-scoreboard-stack,
+  .game-room-mobile-drawer-root--scoreboard-side .challenge-lb-animated-stack {
+    gap: var(--game-room-mobile-scoreboard-row-gap);
+  }
 }

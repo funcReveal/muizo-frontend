@@ -1,6 +1,5 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
 import { Badge, Chip } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
@@ -35,6 +34,7 @@ import type { TopTwoSwapState } from "../../model/gameRoomTypes";
 import { resolveComboTier } from "../lib/gameRoomUiUtils";
 import type { ScoreboardRow } from "../../model/gameRoomDerivations";
 import type { AvatarEffectLevel } from "../../../../shared/ui/playerAvatar/playerAvatarTheme";
+import { AnimatedScoreValue } from "./AnimatedScoreValue";
 import { RoomSelfStickyBar } from "./RoomSelfStickyBar";
 import { useScoreboardWheelScroll } from "./useScoreboardWheelScroll";
 
@@ -286,7 +286,6 @@ interface GameRoomScorePlayerRowProps {
   scoreboardBorderLineStyle: ScoreboardBorderLineStyleId;
   scoreboardBorderParticleCount: number;
   avatarEffectLevel: "off" | "simple" | "full";
-  enableSegmentedScoreAnimation: boolean;
   enableFloatingScoreBursts: boolean;
   /**
    * Additional delay (ms) before showing the floating score burst.
@@ -322,7 +321,6 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   scoreboardBorderLineStyle,
   scoreboardBorderParticleCount,
   avatarEffectLevel,
-  enableSegmentedScoreAnimation,
   enableFloatingScoreBursts,
   burstDelayMs,
   onFloatingBurstsChange,
@@ -359,8 +357,6 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   const derivedGain = isReveal
     ? (scoreDeltaFromStable !== 0 ? scoreDeltaFromStable : breakdownGain)
     : scoreDeltaFromStable;
-  const shouldAnimateSegmentedScore =
-    enableSegmentedScoreAnimation && isReveal && derivedGain !== 0;
   const shouldShowLocalFloatingBursts =
     enableFloatingScoreBursts && isReveal && isMeRow && derivedGain !== 0;
   /**
@@ -373,41 +369,18 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
   React.useEffect(() => {
     burstDelayMsRef.current = burstDelayMs;
   }, [burstDelayMs]);
-  /**
-   * Desktop-only animated score display.
-   * null  → show player.score directly (mobile, pre-reveal, or no gain).
-   * number → the score value being stepped through segment-by-segment.
-   */
-  const [animatedDisplayScore, setAnimatedDisplayScore] = React.useState<number | null>(null);
-  const animatedDisplayScoreRef = React.useRef<number | null>(null);
-  const scoreIncrementTimerIdsRef = React.useRef<number[]>([]);
-
   React.useEffect(() => {
-    animatedDisplayScoreRef.current = animatedDisplayScore;
-  }, [animatedDisplayScore]);
-
-  React.useEffect(() => {
-    if (enableFloatingScoreBursts || enableSegmentedScoreAnimation) return;
+    if (enableFloatingScoreBursts) return;
     if (swapPendingTimerRef.current !== null) {
       window.clearTimeout(swapPendingTimerRef.current);
       swapPendingTimerRef.current = null;
     }
     setFloatingBursts([]);
-    setAnimatedDisplayScore(null);
     consumedBurstKeyRef.current = null;
     scheduledBurstRef.current = null;
     removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
     removalTimerIdsRef.current = [];
-    scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
-    scoreIncrementTimerIdsRef.current = [];
-  }, [enableFloatingScoreBursts, enableSegmentedScoreAnimation]);
-
-  React.useEffect(() => {
-    if (enableSegmentedScoreAnimation) return;
-    scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
-    scoreIncrementTimerIdsRef.current = [];
-    setAnimatedDisplayScore(null);
-  }, [enableSegmentedScoreAnimation]);
+  }, [enableFloatingScoreBursts]);
 
   React.useEffect(() => {
     onFloatingBurstsChange?.(
@@ -435,8 +408,6 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
     scheduledBurstRef.current = null;
     removalTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
     removalTimerIdsRef.current = [];
-    scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
-    scoreIncrementTimerIdsRef.current = [];
   }, []);
 
   // Keep the stable score ref synced to the current score whenever we are
@@ -448,69 +419,6 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
       setStableScore(player.score);
     }
   }, [isReveal, player.score, stableScore]);
-
-  React.useEffect(() => {
-    if (!shouldAnimateSegmentedScore) {
-      if (!isReveal) {
-        setAnimatedDisplayScore(null);
-        if (stableScore !== player.score) setStableScore(player.score);
-        scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
-        scoreIncrementTimerIdsRef.current = [];
-      } else if (
-        derivedGain === 0 &&
-        scoreIncrementTimerIdsRef.current.length === 0 &&
-        animatedDisplayScoreRef.current === null
-      ) {
-        setAnimatedDisplayScore(stableScore);
-      }
-      return;
-    }
-
-    const combo = Math.max(0, player.combo ?? 0);
-    let segments = resolveFloatingScoreSegments(
-      derivedGain,
-      combo,
-      scoreBreakdown,
-    );
-    const segmentsSum = segments.reduce((sum, seg) => sum + seg.amount, 0);
-    if (segmentsSum !== derivedGain) {
-      segments = derivedGain === 0
-        ? []
-        : [
-          {
-            amount: derivedGain,
-            tier: resolveFloatingScoreTier(derivedGain, combo),
-            kind: derivedGain >= 0 ? ("gain" as const) : ("loss" as const),
-            part: "other" as FloatingScoreBreakdownPart,
-          },
-        ];
-    }
-    if (segments.length === 0) return;
-
-    scoreIncrementTimerIdsRef.current.forEach((id) => window.clearTimeout(id));
-    scoreIncrementTimerIdsRef.current = [];
-    setAnimatedDisplayScore(stableScore);
-    let runningScore = stableScore;
-    segments.forEach((segment, index) => {
-      runningScore += segment.amount;
-      const targetScore = runningScore;
-      const incrTimerId = window.setTimeout(() => {
-        setAnimatedDisplayScore(targetScore);
-        scoreIncrementTimerIdsRef.current = scoreIncrementTimerIdsRef.current.filter(
-          (id) => id !== incrTimerId,
-        );
-      }, index * ROW_ATTACHED_BURST_STAGGER_MS + 180);
-      scoreIncrementTimerIdsRef.current.push(incrTimerId);
-    });
-  }, [
-    isReveal,
-    player.combo,
-    player.score,
-    derivedGain,
-    stableScore,
-    scoreBreakdown,
-    shouldAnimateSegmentedScore,
-  ]);
 
   React.useEffect(() => {
     if (!shouldShowLocalFloatingBursts) {
@@ -700,35 +608,13 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
                 className="game-room-chip game-room-chip--scoreboard-state"
               />
             )}
-            <span className="relative font-mono font-semibold text-emerald-300 tabular-nums">
-              {(enableSegmentedScoreAnimation && isReveal && animatedDisplayScore !== null
-                ? animatedDisplayScore
-                : player.score
-              ).toLocaleString()}
-              <AnimatePresence mode="popLayout">
-                {player.combo > 0 && (
-                  <motion.span
-                    key={player.combo}
-                    className="ml-1"
-                    initial={{
-                      scale: 1.5 + Math.min(player.combo - 1, 9) * 0.05,
-                      opacity: 0,
-                      y: -7,
-                    }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.55, opacity: 0, y: 4, transition: { duration: 0.09, ease: "easeIn" } }}
-                    transition={{ type: "spring", stiffness: 480, damping: 22, mass: 0.85 }}
-                    style={{ display: "inline-block", transformOrigin: "50% 60%" }}
-                  >
-                    <span
-                      className={`game-room-combo-breathe game-room-combo-breathe-tier-${resolveComboTier(player.combo)} ${comboDisplayClass}`}
-                    >
-                      x{player.combo}
-                    </span>
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </span>
+            <AnimatedScoreValue
+              score={player.score}
+              combo={player.combo}
+              comboPrefix="x"
+              className="relative text-sm font-semibold tabular-nums text-emerald-300"
+              comboClassName={`ml-1 game-room-combo-breathe game-room-combo-breathe-tier-${resolveComboTier(player.combo)} ${comboDisplayClass}`}
+            />
           </div>
         </div>
       </div>
@@ -1379,7 +1265,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   return (
                     <div
                       key={row.key}
-                      className="game-room-score-row game-room-score-row--locked flex items-center justify-between text-sm"
+                      className="game-room-score-row leaderboard-compact-row game-room-score-row--locked flex items-center justify-between text-sm"
                       aria-hidden="true"
                     >
                       <span className="truncate flex items-center gap-2 opacity-35">
@@ -1397,7 +1283,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   return (
                     <div
                       key={row.key}
-                      className="game-room-score-row game-room-score-row--placeholder flex items-center justify-between text-sm"
+                      className="game-room-score-row leaderboard-compact-row game-room-score-row--placeholder flex items-center justify-between text-sm"
                       aria-hidden="true"
                     >
                       <span className="truncate flex items-center gap-2">
@@ -1553,7 +1439,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                   `玩家 ${idx + 1}`,
                 );
 
-                const rowClassName = `game-room-score-row flex items-center justify-between text-sm ${enableDesktopFloatingScoreBursts ? "game-room-score-row--desktop-floating-score" : ""} ${isReveal ? "game-room-score-row--revealed" : ""
+                const rowClassName = `game-room-score-row leaderboard-compact-row flex items-center justify-between text-sm ${enableDesktopFloatingScoreBursts ? "game-room-score-row--desktop-floating-score" : ""} ${isReveal ? "game-room-score-row--revealed" : ""
                   } ${rowAnswerState === "correct"
                     ? "game-room-score-row--correct"
                     : rowAnswerState === "wrong"
@@ -1622,7 +1508,6 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       scoreboardBorderLineStyle={scoreboardBorderLineStyle}
                       scoreboardBorderParticleCount={scoreboardBorderParticleCount}
                       avatarEffectLevel={avatarEffectLevel}
-                      enableSegmentedScoreAnimation={enableDesktopFloatingScoreBursts}
                       enableFloatingScoreBursts={enableDesktopFloatingScoreBursts && isMeRow}
                       burstDelayMs={Math.max(
                         hasRowSwapAnimation

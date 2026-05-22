@@ -120,7 +120,7 @@ function patchProjectionCacheEntry(
 
 export function cancelScheduledInitialProjectionFetch(key: string): void {
   const entry = getProjectionCacheEntry(key);
-  if (entry.initialScheduled && !entry.inFlight && !entry.data) {
+  if (entry.initialScheduled && !entry.inFlight) {
     patchProjectionCacheEntry(key, { initialScheduled: false });
   }
 }
@@ -184,32 +184,13 @@ function getClientCooldownMs(reason: ProjectionFetchReason): number {
   }
 }
 
-export function shouldRefetchNearbyWindow(
-  previousScore: number,
-  newScore: number,
-  data: ChallengeProjectedLeaderboardResponse | null,
-): boolean {
-  if (newScore <= previousScore) return false;
-  if (!data) return true;
-  if (data.nearbyOpponents.length === 0) return false;
-
-  const hadAheadBefore = data.nearbyOpponents.some(
-    (opponent) => opponent.bestScore >= previousScore,
-  );
-  if (!hadAheadBefore) return false;
-
-  return data.nearbyOpponents.some(
-    (opponent) =>
-      opponent.bestScore >= previousScore && opponent.bestScore <= newScore,
-  );
-}
-
 export type UseChallengeLeaderboardProjectionInput = {
   enabled: boolean;
   roomId: string;
   meClientId: string;
   myLiveScore: number;
   canLoadInitialProjection: boolean;
+  canRefreshProjection: boolean;
   projectionSessionKey: string;
   initialFetchJitterMs?: number;
 };
@@ -236,6 +217,7 @@ export function useChallengeLeaderboardProjection(
     meClientId,
     myLiveScore,
     canLoadInitialProjection,
+    canRefreshProjection,
     projectionSessionKey,
     initialFetchJitterMs = 0,
   } = input;
@@ -573,7 +555,18 @@ export function useChallengeLeaderboardProjection(
       queueMicrotask(() => hydrateFromEntry(entry));
       return;
     }
-    if (entry.data || entry.inFlight || entry.initialScheduled) return;
+    if (entry.data) {
+      queueMicrotask(() => hydrateFromEntry(entry));
+      if (
+        latestLiveScoreRef.current === entry.data.myStanding.liveScore ||
+        entry.inFlight ||
+        entry.initialScheduled
+      ) {
+        return;
+      }
+    } else if (entry.inFlight || entry.initialScheduled) {
+      return;
+    }
 
     patchProjectionCacheEntry(cacheKey, { initialScheduled: true });
     scheduleFetchWithJitter("initial", initialFetchJitterMs);
@@ -655,7 +648,12 @@ export function useChallengeLeaderboardProjection(
     gainAnimKeyRef.current += 1;
     setGainState({ key: gainAnimKeyRef.current, amount: delta });
 
-    if (!canLoadInitialProjection) return;
+    if (!canRefreshProjection) return;
+
+    if (!loadedDataRef.current && !canLoadInitialProjection) {
+      pendingBoundaryRefreshRef.current = true;
+      return;
+    }
 
     const shouldRefresh = shouldRefreshChallengeProjectionForScoreGain({
       previousScore: prev,
@@ -673,17 +671,31 @@ export function useChallengeLeaderboardProjection(
       return;
     }
 
-  }, [enabled, canLoadInitialProjection, myLiveScore, cacheKey, doFetch]);
+  }, [
+    enabled,
+    canLoadInitialProjection,
+    canRefreshProjection,
+    myLiveScore,
+    cacheKey,
+    doFetch,
+  ]);
 
   useEffect(() => {
-    if (!enabled || !canLoadInitialProjection) return;
+    if (!enabled || !canRefreshProjection) return;
     if (!pendingBoundaryRefreshRef.current) return;
+    if (!loadedDataRef.current && !canLoadInitialProjection) return;
 
     pendingBoundaryRefreshRef.current = false;
     queueMicrotask(() => {
       void doFetch("nearby_boundary_crossed");
     });
-  }, [enabled, canLoadInitialProjection, doFetch, boundaryRetryToken]);
+  }, [
+    enabled,
+    canLoadInitialProjection,
+    canRefreshProjection,
+    doFetch,
+    boundaryRetryToken,
+  ]);
 
   const stateForCurrentSession = useMemo<ChallengeProjectionState>(
     () =>

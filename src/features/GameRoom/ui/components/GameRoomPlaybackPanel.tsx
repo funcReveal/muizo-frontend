@@ -932,6 +932,12 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 
       {mobileInfoBar}
 
+      {!isMobileView && desktopScoreFeedbackOverlay ? (
+        <div className="game-room-desktop-score-feedback-slot game-room-desktop-score-feedback-slot--outside-frame">
+          {desktopScoreFeedbackOverlay}
+        </div>
+      ) : null}
+
       <div
         ref={mediaFrameRef}
         className={`game-room-media-frame relative w-full overflow-hidden ${mediaFrameHeightClass}`}
@@ -944,12 +950,6 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 
         {!isMobileView && (
           <>
-            {desktopScoreFeedbackOverlay ? (
-              <div className="game-room-desktop-score-feedback-slot">
-                {desktopScoreFeedbackOverlay}
-              </div>
-            ) : null}
-
             <div className="game-room-desktop-video-toggle-slot">
               <DesktopEmbeddedVideoModeToggle
                 previewMode={previewMode}

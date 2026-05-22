@@ -6,6 +6,9 @@ import type {
 } from "../../model/projectionTypes";
 import PlayerAvatar from "../../../../shared/ui/playerAvatar/PlayerAvatar";
 import { normalizeRoomDisplayText } from "../../../../shared/utils/text";
+import { AnimatedScoreValue } from "./AnimatedScoreValue";
+import { LeaderboardCompactRow } from "./LeaderboardCompactRow";
+import { resolveComboTier } from "../lib/gameRoomUiUtils";
 
 const formatScoreCombo = (score: number, combo: number) =>
   `${score.toLocaleString()}${combo > 0 ? `\u00d7${combo}` : ""}`;
@@ -17,8 +20,6 @@ type ChallengeSelfPulseTone = "score" | "rank" | "combo";
 
 interface ChallengeSelfPulseState {
   key: number;
-  scoreDelta: number;
-  rankDelta: number;
   tone: ChallengeSelfPulseTone;
 }
 
@@ -41,11 +42,13 @@ function useChallengeSelfPulse({
   rankValue,
   combo,
   isSettled,
+  enabled,
 }: {
   liveScore: number;
   rankValue: number | null;
   combo: number;
   isSettled: boolean;
+  enabled: boolean;
 }): ChallengeSelfPulseState | null {
   const previousRef = React.useRef<{
     liveScore: number;
@@ -57,6 +60,10 @@ function useChallengeSelfPulse({
   React.useEffect(() => {
     const previous = previousRef.current;
     previousRef.current = { liveScore, rankValue, combo };
+    if (!enabled) {
+      setPulse(null);
+      return;
+    }
     if (!previous || isSettled) return;
 
     const scoreDelta = liveScore - previous.liveScore;
@@ -71,15 +78,13 @@ function useChallengeSelfPulse({
 
     setPulse((current) => ({
       key: (current?.key ?? 0) + 1,
-      scoreDelta: Math.max(0, scoreDelta),
-      rankDelta,
       tone: resolveChallengeSelfPulseTone({
         scoreDelta,
         rankDelta,
         comboDelta,
       }),
     }));
-  }, [combo, isSettled, liveScore, rankValue]);
+  }, [combo, enabled, isSettled, liveScore, rankValue]);
 
   React.useEffect(() => {
     if (!pulse) return undefined;
@@ -127,15 +132,12 @@ export const ChallengeTopEntryRow = React.memo(
       : undefined;
 
     return (
-      <div
-        className="game-room-score-row challenge-lb-row flex items-center justify-between text-sm"
+      <LeaderboardCompactRow
+        className="challenge-lb-row"
         title={rowTitle}
-        aria-label={rowTitle}
-      >
-        <span className="challenge-lb-row__identity flex min-w-0 flex-1 items-center gap-2 truncate">
-          <span className="w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none text-slate-500">
-            {displayRank !== null ? `#${displayRank}` : "--"}
-          </span>
+        ariaLabel={rowTitle}
+        rankLabel={displayRank !== null ? `#${displayRank}` : "--"}
+        avatarNode={
           <span className="game-room-score-row-avatar-wrap">
             <PlayerAvatar
               username={entry.displayName}
@@ -145,11 +147,11 @@ export const ChallengeTopEntryRow = React.memo(
               className="player-avatar--scoreboard shrink-0"
             />
           </span>
-          <span className="challenge-lb-row__name truncate font-medium text-slate-200">
-            {entry.displayName}
-          </span>
-        </span>
-        <span className="challenge-lb-row__score flex shrink-0 items-baseline gap-1.5 whitespace-nowrap font-mono text-xs">
+        }
+        name={entry.displayName}
+        nameClassName="font-medium text-slate-200"
+        scoreNode={
+          <>
           <span className="font-semibold text-slate-300">
             {formatScoreCombo(entry.bestScore, entry.maxCombo)}
           </span>
@@ -163,8 +165,9 @@ export const ChallengeTopEntryRow = React.memo(
                 : `+${Math.abs(liveGap).toLocaleString()}`}
             </span>
           )}
-        </span>
-      </div>
+          </>
+        }
+      />
     );
   },
 );
@@ -192,14 +195,10 @@ export const ChallengeNearbyRow = React.memo(
       : "--";
 
     return (
-      <div
-        className={`game-room-score-row challenge-lb-nearby-row flex items-center justify-between text-sm ${isPassed ? "challenge-lb-nearby-row--passed opacity-60" : ""
-          }`}
-      >
-        <span className="challenge-lb-row__identity flex min-w-0 flex-1 items-center gap-2 truncate">
-          <span className="w-5 shrink-0 text-center text-xs font-bold tabular-nums leading-none text-slate-500">
-            {rankDisplay}
-          </span>
+      <LeaderboardCompactRow
+        className={`challenge-lb-nearby-row ${isPassed ? "challenge-lb-nearby-row--passed opacity-60" : ""}`}
+        rankLabel={rankDisplay}
+        avatarNode={
           <span className="game-room-score-row-avatar-wrap">
             <PlayerAvatar
               username={opponent.displayName}
@@ -209,11 +208,11 @@ export const ChallengeNearbyRow = React.memo(
               className="player-avatar--scoreboard shrink-0"
             />
           </span>
-          <span className="challenge-lb-row__name truncate text-slate-300">
-            {opponent.displayName}
-          </span>
-        </span>
-        <span className="challenge-lb-row__score flex shrink-0 items-baseline gap-1.5 whitespace-nowrap font-mono text-xs">
+        }
+        name={opponent.displayName}
+        nameClassName="text-slate-300"
+        scoreNode={
+          <>
           <span className="font-semibold text-slate-400">
             {formatScoreCombo(opponent.bestScore, opponent.maxCombo)}
           </span>
@@ -223,8 +222,9 @@ export const ChallengeNearbyRow = React.memo(
           >
             {gapText}
           </span>
-        </span>
-      </div>
+          </>
+        }
+      />
     );
   },
 );
@@ -293,6 +293,7 @@ interface ChallengeSelfRowProps {
    * official rows down.
    */
   displayRank?: number | null;
+  variant?: "list" | "sticky";
 
   /**
    * Gap to the player directly ahead: positive = behind, negative = surpassed.
@@ -312,6 +313,7 @@ export const ChallengeSelfRow = React.memo(
     avatarUrl,
     combo = 0,
     displayRank = null,
+    variant = "list",
     // gapToNext is part of the data model but not rendered on the self row
   }: ChallengeSelfRowProps) {
     const { liveScore, projectedRank, officialRank } = standing;
@@ -331,24 +333,41 @@ export const ChallengeSelfRow = React.memo(
         ? "未上榜"
         : "--";
     const rankColor = isSettled ? "text-amber-300" : "text-sky-300";
+    const effectsEnabled = variant === "list";
     const pulse = useChallengeSelfPulse({
       liveScore,
       rankValue,
       combo,
       isSettled,
+      enabled: effectsEnabled,
     });
-    const pulseText =
-      pulse && pulse.scoreDelta > 0
-        ? `+${pulse.scoreDelta.toLocaleString()}`
-        : pulse && pulse.rankDelta > 0
-          ? `#${rankValue ?? projectedRank ?? "--"}`
-          : "";
+    const comboTier = resolveComboTier(combo);
+    const comboAuraClass =
+      effectsEnabled && comboTier > 0
+        ? `game-room-score-row--combo-flare game-room-score-row--combo-flare-active game-room-score-row--combo-tier-${comboTier} challenge-lb-self-row--combo-active`
+        : "";
 
     return (
-      <div
-        className={`game-room-score-row game-room-score-row--me challenge-lb-self-row challenge-lb-self-row--pulse-${pulse?.tone ?? "idle"} flex items-center justify-between text-sm bg-white/8 ring-1 ring-white/15`}
-      >
-        {pulse && (
+      <LeaderboardCompactRow
+        className={`game-room-score-row--me challenge-lb-self-row challenge-lb-self-row--${variant} challenge-lb-self-row--pulse-${pulse?.tone ?? "idle"} ${comboAuraClass}`}
+        rankLabel={rankLabel}
+        rankClassName={`${isOutsideTop1000 ? "w-10" : ""} ${rankColor}`}
+        avatarNode={
+          <span className="game-room-score-row-avatar-wrap">
+            <PlayerAvatar
+              username={name}
+              avatarUrl={avatarUrl ?? null}
+              size={SCOREBOARD_AVATAR_SIZE}
+              contentSize={SCOREBOARD_AVATAR_CONTENT_SIZE}
+              isMe
+              className="player-avatar--scoreboard shrink-0"
+            />
+          </span>
+        }
+        name={name}
+        nameClassName="font-medium text-white/90"
+        badges={<span className="game-room-score-row-you-badge">YOU</span>}
+        effectsNode={pulse ? (
           <span
             key={`pulse-${pulse.key}`}
             className={`challenge-lb-self-effects challenge-lb-self-effects--${pulse.tone}`}
@@ -356,9 +375,6 @@ export const ChallengeSelfRow = React.memo(
           >
             <span className="challenge-lb-self-effects__ring" />
             <span className="challenge-lb-self-effects__sweep" />
-            <span className="challenge-lb-self-effects__label">
-              {pulseText}
-            </span>
             <span className="challenge-lb-self-effects__particles">
               {Array.from({ length: SELF_ROW_PARTICLE_COUNT }, (_, index) => (
                 <span
@@ -376,34 +392,18 @@ export const ChallengeSelfRow = React.memo(
               ))}
             </span>
           </span>
-        )}
-        <span className="challenge-lb-row__identity flex min-w-0 flex-1 items-center gap-2 truncate">
-          <span
-            className={`${isOutsideTop1000 ? "w-10" : "w-5"} shrink-0 text-center text-xs font-bold tabular-nums leading-none ${rankColor}`}
-          >
-            {rankLabel}
-          </span>
-          <span className="game-room-score-row-avatar-wrap">
-            <PlayerAvatar
-              username={name}
-              avatarUrl={avatarUrl ?? null}
-              size={SCOREBOARD_AVATAR_SIZE}
-              contentSize={SCOREBOARD_AVATAR_CONTENT_SIZE}
-              isMe
-              className="player-avatar--scoreboard shrink-0"
-            />
-          </span>
-          <span className="challenge-lb-row__name truncate font-medium text-white/90">
-            {name}
-          </span>
-          <span className="game-room-score-row-you-badge">YOU</span>
-        </span>
-        <span className="challenge-lb-row__score flex shrink-0 items-baseline whitespace-nowrap text-right font-mono">
-          <span className="text-sm font-semibold tabular-nums text-emerald-300">
-            {formatScoreCombo(liveScore, combo)}
-          </span>
-        </span>
-      </div>
+        ) : undefined}
+        scoreNode={
+          <AnimatedScoreValue
+            score={liveScore}
+            combo={combo}
+            comboPrefix={"\u00d7"}
+            durationMs={2500}
+            className="text-sm font-semibold tabular-nums text-emerald-300"
+            comboClassName="challenge-lb-self-combo-token ml-1 text-slate-500"
+          />
+        }
+      />
     );
   },
 );

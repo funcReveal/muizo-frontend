@@ -489,9 +489,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const resolvedScoreFeedbackTab: GameRoomScoreboardTab = isLeaderboardRoom
     ? scoreFeedbackTab
     : "room";
-  const isChallengeScoreFeedbackActive =
-    resolvedScoreFeedbackTab === "challenge";
-
   useEffect(() => {
     if (resolvedScoreFeedbackTab !== scoreFeedbackTab) {
       deferStateUpdate(() => setScoreFeedbackTab(resolvedScoreFeedbackTab));
@@ -1272,8 +1269,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         : null,
     [meClientId, participants],
   );
-  const challengeProjectionEnabled =
-    isChallengeScoreFeedbackActive && !!meClientId;
   const canPrefetchChallengeProjection =
     isInitialCountdown && startCountdownSec <= 5;
   const canLoadChallengeProjectionDuringPlay =
@@ -1282,16 +1277,19 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     trackSessionKey.trim().length > 0 &&
     !waitingToStart &&
     !isInterTrackWait;
-  const challengeProjectionCanLoadInitial =
-    isChallengeScoreFeedbackActive &&
+  const challengeProjectionEnabled =
+    isLeaderboardRoom &&
     hasStableProjectionSessionKey &&
     gameState.status === "playing" &&
-    (canLoadChallengeProjectionDuringPlay || canPrefetchChallengeProjection) &&
+    !!meClientId &&
     !isRecoveringConnection;
-  const challengeProjectionInitialJitterMs =
-    canPrefetchChallengeProjection && !canLoadChallengeProjectionDuringPlay
-      ? getAdaptiveProjectionInitialJitterMs(participants.length)
-      : 0;
+  const challengeProjectionCanLoadInitial = challengeProjectionEnabled;
+  const challengeProjectionCanRefresh =
+    challengeProjectionEnabled &&
+    (canLoadChallengeProjectionDuringPlay || canPrefetchChallengeProjection);
+  const challengeProjectionInitialJitterMs = !canLoadChallengeProjectionDuringPlay
+    ? getAdaptiveProjectionInitialJitterMs(participants.length)
+    : 0;
   const {
     state: challengeProjectionState,
     refresh: refreshChallengeProjection,
@@ -1302,6 +1300,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     meClientId: meClientId ?? "",
     myLiveScore: meLiveParticipant?.score ?? 0,
     canLoadInitialProjection: challengeProjectionCanLoadInitial,
+    canRefreshProjection: challengeProjectionCanRefresh,
     projectionSessionKey,
     initialFetchJitterMs: challengeProjectionInitialJitterMs,
   });

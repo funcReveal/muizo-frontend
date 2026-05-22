@@ -189,7 +189,7 @@ export const ChallengeLeaderboardPanel = React.memo(
           <div className="game-room-scoreboard-self-sticky-bar px-1">
             <ChallengeSeparatorRow />
             {hasSelfInfo ? (
-              <ChallengeSelfRow {...selfRowBaseProps} />
+              <ChallengeSelfRow {...selfRowBaseProps} variant="sticky" />
             ) : (
               <SkeletonRow opacity={0.7} />
             )}
@@ -255,7 +255,7 @@ export const ChallengeLeaderboardPanel = React.memo(
         {/* Sticky self bar — always visible, separate from animated list */}
         <div className="game-room-scoreboard-self-sticky-bar px-1">
           <ChallengeSeparatorRow />
-          <ChallengeSelfRow {...stickySelfRowBaseProps} />
+          <ChallengeSelfRow {...stickySelfRowBaseProps} variant="sticky" />
         </div>
       </div>
     );
