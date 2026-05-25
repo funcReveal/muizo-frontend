@@ -1449,14 +1449,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   useGameRoomVoteDialogEffects({
     trackSessionKey,
     isManualPlaybackExtensionMode,
-    isAutoPlaybackExtensionMode,
     playbackExtensionVote,
-    playbackExtensionSeconds,
     meClientId,
     myPlaybackVote,
-    playbackVoteResolvedSeconds,
-    gamePhase: gameState.phase,
-    gameStatus: gameState.status,
     setPlaybackVoteDialogOpen,
     setPlaybackVoteRequestPending,
     setPlaybackVoteSubmitPending,
@@ -1479,8 +1474,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     if (lastRestartVoteDockKeyRef.current === activeRestartVoteKey) return;
     lastRestartVoteDockKeyRef.current = activeRestartVoteKey;
     setRestartVoteDockPosition({ x: 0, y: 0 });
-    setRestartVoteDockCollapsed(false);
-  }, [activeRestartVoteKey]);
+    setRestartVoteDockCollapsed(myRestartVote !== null);
+  }, [activeRestartVoteKey, myRestartVote]);
 
   useEffect(() => {
     if (legacyClipWarningShownRef.current) return;
@@ -1637,6 +1632,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       const ok = await onRequestRestartGameVote(action);
       if (ok) {
         setRestartVoteConfirmOpen(false);
+        setRestartVoteDockCollapsed(true);
       }
     } finally {
       setRestartVoteRequestPending(false);
@@ -1669,7 +1665,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       setRestartVoteSubmitPending(vote);
       try {
         const ok = await onCastRestartGameVote(vote);
-        if (ok) setRestartVoteDockCollapsed(false);
+        if (ok) setRestartVoteDockCollapsed(true);
         // If !ok, the server will send updated state via socket; no local manipulation needed.
       } finally {
         setRestartVoteSubmitPending(null);
@@ -1685,20 +1681,28 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => void handleCastRestartVote("reject"),
     [handleCastRestartVote],
   );
+
+  // Separated so restartVoteOverlay doesn't depend on participants directly —
+  // participants changes on every answer/score update, but the requester name
+  // only changes when the vote itself changes.
+  const restartVoteRequesterName = useMemo(
+    () =>
+      restartGameVote
+        ? normalizeVoteRequesterName(restartGameVote, participants)
+        : "",
+    [restartGameVote, participants],
+  );
+
   const restartVoteOverlay = useMemo(() => {
     if (!isRestartVoteActive || !restartGameVote) {
       return null;
     }
 
-    const requesterName = normalizeVoteRequesterName(
-      restartGameVote,
-      participants,
-    );
-
     return (
       <GameRoomRestartVoteDock
+        voteKey={activeRestartVoteKey}
         action={restartVoteAction}
-        requesterName={requesterName}
+        requesterName={restartVoteRequesterName}
         approveCount={restartVoteApproveCount}
         rejectCount={restartVoteRejectCount}
         majorityCount={restartVoteMajorityCount}
@@ -1706,6 +1710,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         myVote={myRestartVote}
         submitPending={restartVoteSubmitPending}
         canVote={canOpenRestartVoteDialog && isRestartVoteEligible}
+        hasPendingVoteAttention={showRestartVoteRedDot}
         collapsed={restartVoteDockCollapsed}
         position={restartVoteDockPosition}
         onCollapsedChange={setRestartVoteDockCollapsed}
@@ -1715,13 +1720,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       />
     );
   }, [
+    activeRestartVoteKey,
     canOpenRestartVoteDialog,
     handleRestartVoteApprove,
     handleRestartVoteReject,
     isRestartVoteActive,
     isRestartVoteEligible,
     myRestartVote,
-    participants,
     restartGameVote,
     restartVoteAction,
     restartVoteApproveCount,
@@ -1730,7 +1735,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     restartVoteEligibleCount,
     restartVoteMajorityCount,
     restartVoteRejectCount,
+    restartVoteRequesterName,
     restartVoteSubmitPending,
+    showRestartVoteRedDot,
   ]);
 
   const {
@@ -2060,19 +2067,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="info"
               size="small"
               startIcon={<MeetingRoomRoundedIcon fontSize="inherit" />}
-              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${returnToLobbyVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
-                ? "game-room-restart-vote-btn--notify"
-                : ""
-                }`}
+              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : "game-room-return-to-lobby-btn"} ${returnToLobbyVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""}`}
               disabled={returnToLobbyVoteView.disabled}
               onClick={() => handleRequestRestartVote("return_to_lobby")}
             >
               {isRestartVoteActive && restartVoteAction === "return_to_lobby"
                 ? returnToLobbyVoteView.desktopActiveLabel
                 : returnToLobbyVoteView.buttonLabel}
-              {showRestartVoteRedDot && restartVoteAction === "return_to_lobby" && (
-                <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
-              )}
             </Button>
 
             <Button
@@ -2085,19 +2086,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="warning"
               size="small"
               startIcon={<RestartAltRoundedIcon />}
-              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${restartNowVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "restart_now"
-                ? "game-room-restart-vote-btn--notify"
-                : ""
-                }`}
+              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : "game-room-restart-now-btn"} ${restartNowVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""}`}
               disabled={restartNowVoteView.disabled}
               onClick={() => handleRequestRestartVote("restart_now")}
             >
               {isRestartVoteActive && restartVoteAction === "restart_now"
                 ? restartBtnLabel
                 : restartNowVoteView.buttonLabel}
-              {showRestartVoteRedDot && restartVoteAction === "restart_now" && (
-                <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
-              )}
             </Button>
           </>
         )}
@@ -2135,7 +2130,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     returnToLobbyVoteView,
     restartNowVoteView,
     restartVoteMajorityCount,
-    showRestartVoteRedDot,
     restartVoteRequestPending,
     showPlaybackVoteRedDot,
   ]);
@@ -2217,9 +2211,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               className={`game-room-mobile-frame-action game-room-mobile-frame-action--return ${isRestartVoteActive && restartVoteAction === "return_to_lobby"
                 ? "game-room-mobile-frame-action--active"
                 : ""
-                } ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
-                  ? "game-room-restart-vote-btn--notify"
-                  : ""
                 } ${returnToLobbyVoteView.isLocked
                   ? "game-room-mobile-frame-action--locked"
                   : ""
@@ -2229,9 +2220,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             >
               <span className="game-room-mobile-frame-action__icon" aria-hidden>
                 <MeetingRoomRoundedIcon fontSize="inherit" />
-                {showRestartVoteRedDot && restartVoteAction === "return_to_lobby" && (
-                  <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
-                )}
               </span>
               <span className="game-room-mobile-frame-action__text">
                 <span className="game-room-mobile-frame-action__label">
@@ -2259,9 +2247,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               className={`game-room-mobile-frame-action game-room-mobile-frame-action--restart ${isRestartVoteActive && restartVoteAction === "restart_now"
                 ? "game-room-mobile-frame-action--active"
                 : ""
-                } ${showRestartVoteRedDot && restartVoteAction === "restart_now"
-                  ? "game-room-restart-vote-btn--notify"
-                  : ""
                 } ${restartNowVoteView.isLocked
                   ? "game-room-mobile-frame-action--locked"
                   : ""
@@ -2271,9 +2256,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             >
               <span className="game-room-mobile-frame-action__icon" aria-hidden>
                 <RestartAltRoundedIcon fontSize="inherit" />
-                {showRestartVoteRedDot && restartVoteAction === "restart_now" && (
-                  <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
-                )}
               </span>
               <span className="game-room-mobile-frame-action__text">
                 <span className="game-room-mobile-frame-action__label">
@@ -2329,12 +2311,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     restartNowVoteView,
     restartVoteAction,
     returnToLobbyVoteView,
-    showRestartVoteRedDot,
   ]);
   const mobileFrameActionsHasAlert =
     isMobileGameViewport &&
     gameState.status === "playing" &&
-    (showRestartVoteRedDot || showPlaybackVoteRedDot);
+    showPlaybackVoteRedDot;
   const mobileChatPreviewNotice = useMemo<MobileChatPreviewNotice | null>(() => {
     if (!isMobileGameViewport || gameState.status !== "playing") return null;
 

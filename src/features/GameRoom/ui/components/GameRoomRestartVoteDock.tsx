@@ -23,6 +23,7 @@ type RestartVoteDockDragBounds = {
 };
 
 type RestartVoteDockProps = {
+  voteKey: string;
   action: RestartGameVoteAction;
   requesterName: string;
   approveCount: number;
@@ -32,6 +33,7 @@ type RestartVoteDockProps = {
   myVote: "approve" | "reject" | null;
   submitPending: "approve" | "reject" | null;
   canVote: boolean;
+  hasPendingVoteAttention: boolean;
   collapsed: boolean;
   position: RestartVoteDockPosition;
   onCollapsedChange: (collapsed: boolean) => void;
@@ -42,6 +44,7 @@ type RestartVoteDockProps = {
 
 const DOCK_VIEWPORT_MARGIN_PX = 8;
 const DEFAULT_DOCK_RAIL_WIDTH_PX = 42;
+const AUTO_COLLAPSE_DELAY_MS = 10_000;
 
 const getDockRailWidth = (dockElement: HTMLElement) => {
   const value = Number.parseFloat(
@@ -118,6 +121,7 @@ const applyDockTransform = (
 };
 
 const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
+  voteKey,
   action,
   requesterName,
   approveCount,
@@ -127,6 +131,7 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
   myVote,
   submitPending,
   canVote,
+  hasPendingVoteAttention,
   collapsed,
   position,
   onCollapsedChange,
@@ -147,12 +152,14 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
   } | null>(null);
   const dragRafRef = useRef<number | null>(null);
   const pendingTransformRef = useRef<RestartVoteDockPosition | null>(null);
+  const autoCollapseTimeoutRef = useRef<number | null>(null);
+  const previousMyVoteRef = useRef<typeof myVote>(myVote);
   const suppressRailClickRef = useRef(false);
 
   const actionLabel =
     action === "return_to_lobby" ? "\u8fd4\u56de\u623f\u9593" : "\u91cd\u65b0\u958b\u59cb";
-  const passProgress =
-    majorityCount > 0 ? Math.min(1, approveCount / majorityCount) : 0;
+  const approvePercent =
+    eligibleCount > 0 ? Math.round((approveCount / eligibleCount) * 100) : 0;
   const votedCount = Math.min(eligibleCount, approveCount + rejectCount);
   const progressSummary = `\u9700\u8981 ${majorityCount} \u7968 / \u5171 ${eligibleCount} \u4eba`;
   const votedSummary = `\u5df2\u6295\u7968 ${votedCount}`;
@@ -196,6 +203,39 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
     },
     [onCollapsedChange, onPositionChange, position],
   );
+
+  const clearAutoCollapseTimer = useCallback(() => {
+    if (autoCollapseTimeoutRef.current === null) return;
+    window.clearTimeout(autoCollapseTimeoutRef.current);
+    autoCollapseTimeoutRef.current = null;
+  }, []);
+
+  const armAutoCollapseTimer = useCallback(() => {
+    clearAutoCollapseTimer();
+    if (collapsed) return;
+    autoCollapseTimeoutRef.current = window.setTimeout(() => {
+      autoCollapseTimeoutRef.current = null;
+      setCollapsed(true);
+    }, AUTO_COLLAPSE_DELAY_MS);
+  }, [clearAutoCollapseTimer, collapsed, setCollapsed]);
+
+  useEffect(() => {
+    armAutoCollapseTimer();
+    return clearAutoCollapseTimer;
+  }, [armAutoCollapseTimer, clearAutoCollapseTimer, voteKey]);
+
+  useEffect(() => {
+    const previousVote = previousMyVoteRef.current;
+    previousMyVoteRef.current = myVote;
+    if (previousVote === null && myVote !== null) {
+      clearAutoCollapseTimer();
+      setCollapsed(true);
+    }
+  }, [clearAutoCollapseTimer, myVote, setCollapsed]);
+
+  const handleDockInteraction = useCallback(() => {
+    armAutoCollapseTimer();
+  }, [armAutoCollapseTimer]);
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
@@ -297,7 +337,11 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
       ref={dockRef}
       className={`game-room-restart-vote-dock ${
         collapsed ? "game-room-restart-vote-dock--collapsed" : ""
+      } ${
+        hasPendingVoteAttention ? "game-room-restart-vote-dock--attention" : ""
       } game-room-restart-vote-dock--${action}`}
+      onPointerDownCapture={handleDockInteraction}
+      onKeyDownCapture={handleDockInteraction}
       aria-label={`${actionLabel}\u6295\u7968`}
       data-vote-state={myVote ?? (canVote ? "pending" : "watching")}
     >
@@ -348,10 +392,23 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
             className="game-room-restart-vote-dock__progress"
             aria-hidden="true"
           >
-            <span
-              className="game-room-restart-vote-dock__progress-fill"
-              style={{ transform: `scaleX(${passProgress})` }}
-            />
+            <div className="game-room-restart-vote-dock__progress-track">
+              {Array.from({ length: eligibleCount }, (_, i) => (
+                <span
+                  key={i}
+                  className={`game-room-restart-vote-dock__progress-seg${
+                    i < approveCount
+                      ? " game-room-restart-vote-dock__progress-seg--approve"
+                      : i < approveCount + rejectCount
+                        ? " game-room-restart-vote-dock__progress-seg--reject"
+                        : ""
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="game-room-restart-vote-dock__progress-pct">
+              {approvePercent}%
+            </span>
           </div>
 
           <div className="game-room-restart-vote-dock__actions">
@@ -360,6 +417,7 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
               variant={myVote === "reject" ? "contained" : "outlined"}
               color="error"
               size="small"
+              className="game-room-vote-chip game-room-vote-chip--reject"
               disabled={!canVote || submitPending !== null || myVote !== null}
             >
               {submitPending === "reject"
@@ -373,6 +431,11 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
               variant="contained"
               color={action === "return_to_lobby" ? "info" : "warning"}
               size="small"
+              className={`game-room-vote-chip${
+                action === "return_to_lobby"
+                  ? " game-room-vote-chip--approve"
+                  : " game-room-vote-chip--approve-warn"
+              }`}
               disabled={!canVote || submitPending !== null || myVote !== null}
             >
               {submitPending === "approve"

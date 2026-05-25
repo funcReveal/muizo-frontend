@@ -224,12 +224,12 @@ const MobileFrameActionsMenu = React.memo(function MobileFrameActionsMenu({
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
+    window.addEventListener("scroll", updateMenuPosition, { capture: true, passive: true });
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
+      window.removeEventListener("scroll", updateMenuPosition, { capture: true });
     };
   }, [open]);
 
