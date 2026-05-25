@@ -3,7 +3,7 @@
  *
  * Unified leaderboard sidebar that supports two modes:
  *   - "room" tab: shows current room participants scoreboard (GameRoomLeftSidebar)
- *   - "challenge" tab: shows projected challenge leaderboard (Top5 + nearby + self)
+ *   - "challenge" tab: shows projected challenge leaderboard (Top6 + nearby + self)
  *
  * Tab rules:
  *   - isLeaderboardRoom === false → always "room" tab, no tabs shown
@@ -75,8 +75,8 @@ export interface GameRoomLeaderboardSidebarProps {
   onActiveTabChange?: (tab: GameRoomScoreboardTab) => void;
   challengeProjectionState: ChallengeProjectionState;
   onChallengeProjectionRefresh: () => void;
-  challengeGainAnimKey: number;
-  challengeGainAmount: number;
+  /** How many opponents overtaken this session (0 / 1 / ≥2). */
+  sessionPassCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,8 +140,7 @@ const GameRoomLeaderboardSidebar: React.FC<GameRoomLeaderboardSidebarProps> = ({
   onActiveTabChange,
   challengeProjectionState,
   onChallengeProjectionRefresh,
-  challengeGainAnimKey,
-  challengeGainAmount,
+  sessionPassCount = 0,
 }) => {
   const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<GameRoomScoreboardTab>(
     isLeaderboardRoom ? "challenge" : "room",
@@ -216,8 +215,13 @@ const GameRoomLeaderboardSidebar: React.FC<GameRoomLeaderboardSidebarProps> = ({
             viewerAvatarUrl={viewerAvatarUrl}
             viewerCombo={viewerCombo}
             viewerScore={myLiveScore}
-            gainAnimKey={challengeGainAnimKey}
-            gainAmount={challengeGainAmount}
+            sessionPassCount={sessionPassCount}
+            scoreboardBorderEnabled={scoreboardBorderEnabled}
+            scoreboardBorderMaskEnabled={scoreboardBorderMaskEnabled}
+            scoreboardBorderAnimation={scoreboardBorderAnimation}
+            scoreboardBorderLineStyle={scoreboardBorderLineStyle}
+            scoreboardBorderTheme={scoreboardBorderTheme}
+            scoreboardBorderParticleCount={scoreboardBorderParticleCount}
           />
         ) : (
           <RoomScoreboardPanel

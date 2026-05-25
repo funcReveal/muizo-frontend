@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useChatInput, useRoomRealtime } from "@features/RoomSession";
+import { useChatInput, useChatMessages, useRoomRealtime } from "@features/RoomSession";
 import type { ChatMessage } from "@features/RoomSession";
 import { DanmuContext } from "@features/RoomChat/model/DanmuContext";
 import useMobileDrawerDragDismiss from "@shared/hooks/useMobileDrawerDragDismiss";
@@ -39,7 +39,8 @@ export interface FloatingChatWindowRef {
 
 const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMobileTrigger?: boolean }>(
   function FloatingChatWindow({ suppressMobileTrigger = false }, ref) {
-  const { currentRoom, messages, clientId, gameState } = useRoomRealtime();
+  const { currentRoom, clientId, gameStatus } = useRoomRealtime();
+  const { messages } = useChatMessages();
   const {
     messageInput,
     setMessageInput,
@@ -251,9 +252,9 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       : "idle";
 
   const shouldSuppressGameChatOutsideDanmuBridge = Boolean(
-    isMobileRoomMode && gameState?.status === "playing" && !danmuCtx,
+    isMobileRoomMode && gameStatus === "playing" && !danmuCtx,
   );
-  const showDanmuToggle = Boolean(gameState?.status === "playing" && danmuCtx);
+  const showDanmuToggle = Boolean(gameStatus === "playing" && danmuCtx);
 
   const handleDanmuEnabledChange = useCallback(
     (checked: boolean) => {

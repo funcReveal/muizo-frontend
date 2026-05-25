@@ -38,6 +38,11 @@ import type {
   ChallengeLeaderboardDisplayRow,
 } from "../../model/buildChallengeLeaderboardDisplayRows";
 import type { ChallengeProjectedMyStanding } from "../../model/projectionTypes";
+import type {
+  ScoreboardBorderAnimationId,
+  ScoreboardBorderLineStyleId,
+  ScoreboardBorderThemeId,
+} from "../../../Setting/model/scoreboardBorderEffects";
 import {
   ChallengeTopEntryRow,
   ChallengeNearbyRow,
@@ -45,7 +50,6 @@ import {
   ChallengeEllipsisRow,
   ChallengePlaceholderRow,
 } from "./ChallengeLeaderboardRow";
-import type { ChallengeRankChangePulse } from "./ChallengeLeaderboardRow";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,9 +62,12 @@ export interface SelfRowBaseProps {
   displayName?: string;
   avatarUrl?: string | null;
   combo?: number;
-  gainAnimKey?: number;
-  gainAmount?: number;
-  rankChange?: ChallengeRankChangePulse | null;
+  scoreboardBorderEnabled?: boolean;
+  scoreboardBorderMaskEnabled?: boolean;
+  scoreboardBorderAnimation?: ScoreboardBorderAnimationId;
+  scoreboardBorderLineStyle?: ScoreboardBorderLineStyleId;
+  scoreboardBorderTheme?: ScoreboardBorderThemeId;
+  scoreboardBorderParticleCount?: number;
 }
 
 interface ChallengeAnimatedRowsProps {
@@ -76,6 +83,7 @@ const SPRING = { type: "spring", stiffness: 310, damping: 30, mass: 0.85 } as co
 const ENTER_EASE = [0.25, 0.8, 0.25, 1] as [number, number, number, number];
 const ENTER_DURATION = 0.35;
 const EXIT_DURATION = 0.22;
+const NEARBY_REEL_EASE = [0.19, 1, 0.22, 1] as [number, number, number, number];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -92,23 +100,57 @@ export const ChallengeAnimatedRows = React.memo(
       [rows],
     );
 
+    // Gate framer-motion layout measurements: only fire when the KEY SEQUENCE
+    // actually changes (rows reorder / enter / exit). Score-only updates leave
+    // keys in the same order and produce an identical string → framer-motion
+    // skips getBoundingClientRect, eliminating the layout-reflow storm that
+    // caused ~337 ms frame drops on every score update.
+    const keyOrderSignature = useMemo(
+      () => rows.map((r) => r.key).join("\0"),
+      [rows],
+    );
     return (
-      <AnimatePresence initial={false} mode="popLayout">
+      // mode="sync" avoids the PopChild/PopChildMeasure/PresenceChild wrapper
+      // stack that mode="popLayout" creates for every child (was x16 renders).
+      // Exiting rows fade out in 0.22 s while remaining rows animate together.
+      <AnimatePresence initial={false} mode="sync">
         {rows.map((row, idx) => {
           const content = renderRowContent(row, selfRowBaseProps);
           const key = row.key;
+          const isNearbyWindowItem = isNearbyWindowRow(row);
+          const isNearbySelfAnchor =
+            row.kind === "self" && row.section === "nearby";
+          const shouldAnimateNearbyContent =
+            isNearbyWindowItem && !isNearbySelfAnchor && !reduced;
+          const renderedContent = shouldAnimateNearbyContent
+            ? (
+              <NearbyReelSlot row={row}>
+                {content}
+              </NearbyReelSlot>
+            )
+            : content;
+          const nearbyClassName = isNearbyWindowItem
+            ? [
+              "challenge-lb-nearby-window-item",
+              isNearbySelfAnchor
+                ? "challenge-lb-nearby-window-item--self-anchor"
+                : "",
+            ].filter(Boolean).join(" ")
+            : undefined;
 
           // Placeholders are spacers — no layout tracking, simple fade only.
           if (row.kind === "placeholder") {
             return (
               <motion.div
                 key={key}
+                className={nearbyClassName}
+                style={{ touchAction: "pan-y" }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: ENTER_DURATION, ease: ENTER_EASE }}
               >
-                {content}
+                {renderedContent}
               </motion.div>
             );
           }
@@ -117,12 +159,14 @@ export const ChallengeAnimatedRows = React.memo(
             return (
               <motion.div
                 key={key}
+                className={nearbyClassName}
+                style={{ touchAction: "pan-y" }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                {content}
+                {renderedContent}
               </motion.div>
             );
           }
@@ -130,22 +174,35 @@ export const ChallengeAnimatedRows = React.memo(
           // Entering rows above self slide in from slightly above (y < 0);
           // rows below self (or when self is not in list) slide in from below.
           const isAboveSelf = selfListIdx >= 0 && idx < selfListIdx;
-          const enterY = isAboveSelf ? -10 : 10;
+          const enterY = isNearbyWindowItem
+            ? 0
+            : isAboveSelf
+              ? -10
+              : 10;
 
           return (
             <motion.div
               key={key}
+              className={nearbyClassName}
               layout="position"
-              initial={{ opacity: 0, y: enterY }}
+              layoutDependency={keyOrderSignature}
+              style={{ touchAction: "pan-y" }}
+              initial={{
+                opacity: isNearbyWindowItem ? 1 : 0,
+                y: enterY,
+              }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, transition: { duration: EXIT_DURATION } }}
+              exit={{
+                opacity: 0,
+                transition: { duration: isNearbyWindowItem ? 0.1 : EXIT_DURATION },
+              }}
               transition={{
-                duration: ENTER_DURATION,
+                duration: isNearbyWindowItem ? 0.12 : ENTER_DURATION,
                 ease: ENTER_EASE,
                 layout: SPRING,
               }}
             >
-              {content}
+              {renderedContent}
             </motion.div>
           );
         })}
@@ -153,6 +210,66 @@ export const ChallengeAnimatedRows = React.memo(
     );
   },
 );
+
+const isNearbyWindowRow = (row: ChallengeLeaderboardDisplayRow): boolean =>
+  (row.kind === "player" && row.section === "nearby") ||
+  (row.kind === "self" && row.section === "nearby") ||
+  row.key.startsWith("nearby-slot:");
+
+const getNearbySlotContentKey = (row: ChallengeLeaderboardDisplayRow): string => {
+  if (row.kind === "player" && row.section === "nearby") {
+    return `nearby-player:${row.userId}`;
+  }
+
+  if (row.kind === "placeholder") {
+    return `nearby-placeholder:${row.key}`;
+  }
+
+  return row.key;
+};
+
+function NearbyReelSlot({
+  row,
+  children,
+}: {
+  row: ChallengeLeaderboardDisplayRow;
+  children: React.ReactNode;
+}): React.ReactElement {
+  const contentKey = getNearbySlotContentKey(row);
+
+  return (
+    <div className="challenge-lb-nearby-reel">
+      <AnimatePresence initial={false} mode="sync">
+        <motion.div
+          key={contentKey}
+          className="challenge-lb-nearby-reel__item"
+          initial={{
+            opacity: 0,
+            y: "-112%",
+            scaleY: 0.96,
+            filter: "blur(7px)",
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scaleY: 1,
+            filter: "blur(0px)",
+          }}
+          exit={{
+            opacity: 0,
+            y: "112%",
+            scaleY: 0.96,
+            filter: "blur(7px)",
+            transition: { duration: 0.26, ease: ENTER_EASE },
+          }}
+          transition={{ duration: 0.48, ease: NEARBY_REEL_EASE }}
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Row content renderer (pure, no hooks)

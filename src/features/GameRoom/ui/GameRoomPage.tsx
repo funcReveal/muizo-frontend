@@ -102,6 +102,7 @@ import { useGameRoomVoteState } from "../model/useGameRoomVoteState";
 import FloatingChatWindow, {
   GameRoomMobileChatPreview,
   type FloatingChatWindowRef,
+  type MobileChatPreviewNotice,
 } from "@features/RoomChat";
 import GameRoomDanmuProviderBridge from "./components/GameRoomDanmuProviderBridge";
 interface GameRoomPageProps {
@@ -160,8 +161,9 @@ const MOBILE_SPLIT_STACK_MAX_TOTAL_VH = 100;
 const MOBILE_SCOREBOARD_PARTICLE_COUNT_CAP = 4;
 
 const MOBILE_SCOREBOARD_DRAWER_WIDTH_PX = 352;
-const MOBILE_SCORE_FEEDBACK_SCORE_DURATION_MS = 2500;
+const MOBILE_SCORE_FEEDBACK_SCORE_DURATION_MS = 5000;
 const MOBILE_SCORE_FEEDBACK_RANK_DURATION_MS = 2500;
+const MOBILE_GAME_VIEWPORT_QUERY = "(max-width: 1479.95px)";
 
 const PLAYBACK_VOTE_DIALOG_PAPER_PROPS = {
   className: "game-room-playback-vote-dialog",
@@ -341,12 +343,14 @@ const useGameRoomUiClock = ({
 const GameRoomMobilePersonalRankCard = React.memo(function GameRoomMobilePersonalRankCard({
   participant,
   rank,
+  rankLabel,
   score,
   combo,
   onOpenLeaderboard,
 }: {
   participant: RoomState["participants"][number] | null;
   rank: number | null;
+  rankLabel?: string | null;
   score: number | null;
   combo: number;
   onOpenLeaderboard: () => void;
@@ -385,7 +389,7 @@ const GameRoomMobilePersonalRankCard = React.memo(function GameRoomMobilePersona
       </span>
 
       <span className="game-room-mobile-rank-card__rank">
-        {rank != null ? `#${rank}` : "--"}
+        {rankLabel ?? (rank != null ? `#${rank}` : "--")}
       </span>
 
       <span className="game-room-mobile-rank-card__score">
@@ -442,7 +446,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     () => getStoredShowVideoPreference(),
   );
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
-  const isMobileGameViewport = useMediaQuery("(max-width: 1023.95px)");
+  const isMobileGameViewport = useMediaQuery(MOBILE_GAME_VIEWPORT_QUERY);
   const [mobileBottomPanel, setMobileBottomPanel] =
     useState<MobileBottomPanel>(null);
   const [scoreFeedbackTab, setScoreFeedbackTab] =
@@ -455,8 +459,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     MOBILE_SCOREBOARD_DEFAULT_HEIGHT_VH,
   );
   const mobilePlaybackFrameRef = useRef<HTMLDivElement | null>(null);
-  const [mobileScoreFeedbackAnchorStyle, setMobileScoreFeedbackAnchorStyle] =
-    useState<CSSProperties | undefined>(undefined);
   const [mobileScoreboardSwapReplayToken, setMobileScoreboardSwapReplayToken] =
     useState(0);
   const [mobileScoreboardSwapArmed, setMobileScoreboardSwapArmed] =
@@ -484,12 +486,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const { keyBindings } = useKeyBindings();
   const legacyClipWarningShownRef = useRef(false);
 
+  const resolvedScoreFeedbackTab: GameRoomScoreboardTab = isLeaderboardRoom
+    ? scoreFeedbackTab
+    : "room";
   useEffect(() => {
-    const nextTab = isLeaderboardRoom ? scoreFeedbackTab : "room";
-    if (nextTab !== scoreFeedbackTab) {
-      deferStateUpdate(() => setScoreFeedbackTab(nextTab));
+    if (resolvedScoreFeedbackTab !== scoreFeedbackTab) {
+      deferStateUpdate(() => setScoreFeedbackTab(resolvedScoreFeedbackTab));
     }
-  }, [isLeaderboardRoom, scoreFeedbackTab]);
+  }, [resolvedScoreFeedbackTab, scoreFeedbackTab]);
 
   const previousPhaseRef = useRef<GameState["phase"]>(gameState.phase);
 
@@ -708,7 +712,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     meClientId,
     playbackVoteRequestPending,
   });
-  // Use the backend-authoritative vote directly — the backend now preserves
+  // Use the backend-authoritative vote directly; the backend now preserves
   // restartGameVote across question advances when the vote is still active.
   const restartGameVote: RestartGameVoteState | null = gameState.restartGameVote ?? null;
   const restartVoteApproveCount = restartGameVote?.approveClientIds.length ?? 0;
@@ -816,6 +820,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         : "確認發起重新開始投票";
 
   const isGamePlaying = gameState.status === "playing";
+  const suppressMobileGameplayToast = isMobileGameViewport && isGamePlaying;
   const isRestartVoteSubmitPending = restartVoteSubmitPending !== null;
   const canRequestReturnToLobbyVote =
     canRequestRestartVoteAction("return_to_lobby");
@@ -875,7 +880,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     ],
   );
 
-  // Toast notifications for restart vote transitions.
+  // Desktop toast notifications for restart vote transitions. Mobile uses the
+  // frame actions badge so notices do not cover gameplay.
   // The backend is now authoritative: it preserves restartGameVote across
   // question advances (active vote) and resets it on game restart.
   const prevRestartVoteStatusRef = useRef<RestartGameVoteState["status"] | null>(null);
@@ -886,31 +892,31 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
     if (prevStatus !== "active" && nextStatus === "active") {
       const isInitiator = currentVote?.requestedByClientId === meClientId;
-      if (!isInitiator) {
+      if (!isInitiator && !suppressMobileGameplayToast) {
         appToast.info(
           currentVote?.action === "return_to_lobby"
-            ? "有人發起了回到房間投票"
-            : "有人發起了重新開始投票",
+            ? "有人發起回到房間投票"
+            : "有人發起重新開始投票",
           {
             id: "restart-vote-started",
             duration: 4000,
           },
         );
       }
-    } else if (prevStatus === "active" && nextStatus === "rejected") {
+    } else if (
+      prevStatus === "active" &&
+      nextStatus === "rejected" &&
+      !suppressMobileGameplayToast
+    ) {
       appToast.error(
-        `${currentVote?.action === "return_to_lobby"
-          ? "回到房間投票"
-          : "重新開始投票"
-        }未通過（${currentVote?.approveClientIds.length ?? 0} / ${currentVote?.eligibleClientIds.length ?? 0
-        } 票贊成）`,
+        `${currentVote?.action === "return_to_lobby" ? "回到房間投票" : "重新開始投票"}未通過：${currentVote?.approveClientIds.length ?? 0} / ${currentVote?.eligibleClientIds.length ?? 0} 人同意`,
         { id: "restart-vote-rejected", duration: 5000 },
       );
     }
-    // "approved" needs no toast — the game restart event is self-evident.
+    // "approved" needs no toast; the game restart event is self-evident.
 
     prevRestartVoteStatusRef.current = nextStatus;
-  }, [gameState.restartGameVote, meClientId]);
+  }, [gameState.restartGameVote, meClientId, suppressMobileGameplayToast]);
 
   const effectiveMobileScoreboardHeight = clampMobileVh(
     normalizedSplitHeights.scoreboardHeight,
@@ -935,7 +941,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     minHeight: MOBILE_SCOREBOARD_MIN_HEIGHT_VH,
     maxHeight: MOBILE_SCOREBOARD_MAX_HEIGHT_VH,
     onHeightChange: handleScoreboardHeightChange,
-    threshold: 52,
+    threshold: 40,
     thresholdBuffer: 20,
   });
   const mobileScoreboardDismissState = mobileScoreboardDragDismiss.canDismiss
@@ -944,7 +950,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ? "armed"
       : "idle";
   const isMobileDrawerGestureActive = mobileScoreboardDragDismiss.isDragging;
-  const mobileSubdockActionCount = isHostInGame ? 1 : 0;
 
   const {
     trackCursor,
@@ -1026,10 +1031,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const startCountdownSec = Math.max(1, Math.ceil(remainingToStartMs / 1000));
   const isInitialCountdown = waitingToStart && trackCursor === 0;
   const isInterTrackWait = waitingToStart && !isInitialCountdown;
-  const isFinalCountdown = isInitialCountdown && startCountdownSec <= 3;
-  const countdownTone = isFinalCountdown
-    ? "border-rose-400/70 bg-rose-500/20 text-rose-100 shadow-[0_0_35px_rgba(244,63,94,0.45)]"
-    : "border-amber-400/60 bg-amber-400/15 text-amber-100 shadow-[0_0_28px_rgba(251,191,36,0.35)]";
 
   const {
     audioUnlocked,
@@ -1080,6 +1081,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     selectedChoice,
     myHasChangedAnswer,
     submitChoiceWithFeedback,
+    getCurrentSelectedChoice,
     answeredOrderForCurrentParticipants,
     answeredClientIdSet,
     answeredRankByClientId,
@@ -1184,11 +1186,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
     lastPlaybackVoteToastKeyRef.current = toastKey;
 
-    appToast.info("有人發起了延長播放投票，點擊右上角「延長播放」進行表態。", {
-      id: "playback-extension-vote-started",
-      duration: 4500,
-    });
-  }, [canOpenPlaybackVotePrompt, playbackExtensionVote, trackSessionKey]);
+    if (!suppressMobileGameplayToast) {
+      appToast.info("有人發起延長播放投票，請選擇是否同意。", {
+        id: "playback-extension-vote-started",
+        duration: 4500,
+      });
+    }
+  }, [
+    canOpenPlaybackVotePrompt,
+    playbackExtensionVote,
+    suppressMobileGameplayToast,
+    trackSessionKey,
+  ]);
 
   const playbackVoteButtonDisabled =
     playbackVoteRequestPending ||
@@ -1260,7 +1269,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         : null,
     [meClientId, participants],
   );
-  const challengeProjectionEnabled = isLeaderboardRoom && !!meClientId;
   const canPrefetchChallengeProjection =
     isInitialCountdown && startCountdownSec <= 5;
   const canLoadChallengeProjectionDuringPlay =
@@ -1269,27 +1277,30 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     trackSessionKey.trim().length > 0 &&
     !waitingToStart &&
     !isInterTrackWait;
-  const challengeProjectionCanLoadInitial =
+  const challengeProjectionEnabled =
     isLeaderboardRoom &&
     hasStableProjectionSessionKey &&
     gameState.status === "playing" &&
-    (canLoadChallengeProjectionDuringPlay || canPrefetchChallengeProjection) &&
+    !!meClientId &&
     !isRecoveringConnection;
-  const challengeProjectionInitialJitterMs =
-    canPrefetchChallengeProjection && !canLoadChallengeProjectionDuringPlay
-      ? getAdaptiveProjectionInitialJitterMs(participants.length)
-      : 0;
+  const challengeProjectionCanLoadInitial = challengeProjectionEnabled;
+  const challengeProjectionCanRefresh =
+    challengeProjectionEnabled &&
+    (canLoadChallengeProjectionDuringPlay || canPrefetchChallengeProjection);
+  const challengeProjectionInitialJitterMs = !canLoadChallengeProjectionDuringPlay
+    ? getAdaptiveProjectionInitialJitterMs(participants.length)
+    : 0;
   const {
     state: challengeProjectionState,
     refresh: refreshChallengeProjection,
-    gainAnimKey: challengeGainAnimKey,
-    gainAmount: challengeGainAmount,
+    sessionPassCount,
   } = useChallengeLeaderboardProjection({
     enabled: challengeProjectionEnabled,
     roomId: room.id,
     meClientId: meClientId ?? "",
     myLiveScore: meLiveParticipant?.score ?? 0,
     canLoadInitialProjection: challengeProjectionCanLoadInitial,
+    canRefreshProjection: challengeProjectionCanRefresh,
     projectionSessionKey,
     initialFetchJitterMs: challengeProjectionInitialJitterMs,
   });
@@ -1297,20 +1308,21 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     challengeProjectionState.status === "loaded"
       ? challengeProjectionState.data
       : null;
+  const scoreFeedbackScope: GameRoomScoreboardTab = resolvedScoreFeedbackTab;
   const { topTwoSwapState, resetTopTwoSwapState } =
     useTopTwoSwapState(sortedParticipants);
   const mobileScoreFeedbackEvent = useMobileScoreFeedback({
     participants,
     meClientId,
-    enabled: isMobileGameViewport && gameState.status === "playing",
+    enabled: gameState.status === "playing",
     gameStatus: gameState.status,
-    scope: isLeaderboardRoom ? scoreFeedbackTab : "room",
+    scope: scoreFeedbackScope,
     resetKey: [
       room.id,
       projectionSessionKey,
       trackSessionKey,
       gameState.status,
-      isLeaderboardRoom ? scoreFeedbackTab : "room",
+      scoreFeedbackScope,
       challengeFeedbackProjection?.collectionId ?? "",
       challengeFeedbackProjection?.profileKey ?? "",
       meClientId ?? "",
@@ -1318,9 +1330,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     scoreDurationMs: MOBILE_SCORE_FEEDBACK_SCORE_DURATION_MS,
     rankDurationMs: MOBILE_SCORE_FEEDBACK_RANK_DURATION_MS,
     challengeProjection:
-      isLeaderboardRoom && scoreFeedbackTab === "challenge"
-        ? challengeFeedbackProjection
-        : null,
+      scoreFeedbackScope === "challenge" ? challengeFeedbackProjection : null,
   });
   const mobileUnansweredFeedbackEvent =
     useMemo<MobileScoreFeedbackEvent | null>(() => {
@@ -1331,77 +1341,20 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
       return {
         type: "unanswered",
-        scope: isLeaderboardRoom ? scoreFeedbackTab : "room",
+        scope: scoreFeedbackScope,
         questionKey: trackSessionKey,
       };
     }, [
       gameState.phase,
       gameState.status,
-      isLeaderboardRoom,
       isMobileGameViewport,
-      scoreFeedbackTab,
+      scoreFeedbackScope,
       selectedChoice,
       trackSessionKey,
     ]);
 
   const mobileFeedbackEvent =
     mobileUnansweredFeedbackEvent ?? mobileScoreFeedbackEvent;
-  useEffect(() => {
-    if (!isMobileGameViewport || gameState.status !== "playing") {
-      deferStateUpdate(() => setMobileScoreFeedbackAnchorStyle(undefined));
-      return;
-    }
-
-    const frame = mobilePlaybackFrameRef.current;
-    if (!frame) {
-      return;
-    }
-
-    let rafId: number | null = null;
-    const updateAnchor = () => {
-      if (rafId !== null) {
-        return;
-      }
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        const rect = frame.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          return;
-        }
-
-        const nextLeft = Math.max(8, Math.round(rect.left + 10));
-        const nextTop = Math.round(rect.top + rect.height * 0.3);
-        setMobileScoreFeedbackAnchorStyle((current) => {
-          if (current?.left === nextLeft && current?.top === nextTop) {
-            return current;
-          }
-          return {
-            left: nextLeft,
-            top: nextTop,
-          };
-        });
-      });
-    };
-
-    updateAnchor();
-    window.addEventListener("resize", updateAnchor, { passive: true });
-    window.addEventListener("scroll", updateAnchor, { passive: true });
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(updateAnchor);
-    resizeObserver?.observe(frame);
-
-    return () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-      window.removeEventListener("resize", updateAnchor);
-      window.removeEventListener("scroll", updateAnchor);
-      resizeObserver?.disconnect();
-    };
-  }, [gameState.status, isMobileGameViewport]);
   const { resetQuestionRecaps } = useGameRoomRecaps({
     isReveal,
     trackSessionKey,
@@ -1498,13 +1451,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [leaderboardLockShakeKey, setLeaderboardLockShakeKey] = useState(0);
   const handleSubmitChoice = useCallback(
     (choiceIndex: number) => {
-      if (isLeaderboardRoom && selectedChoice !== null && selectedChoice !== choiceIndex) {
+      const currentSelectedChoice = getCurrentSelectedChoice();
+      if (
+        isLeaderboardRoom &&
+        currentSelectedChoice !== null &&
+        currentSelectedChoice !== choiceIndex
+      ) {
         setLeaderboardLockShakeKey((k) => k + 1);
         return;
       }
-      submitChoiceWithFeedback(choiceIndex);
+      return submitChoiceWithFeedback(choiceIndex);
     },
-    [isLeaderboardRoom, selectedChoice, submitChoiceWithFeedback],
+    [getCurrentSelectedChoice, isLeaderboardRoom, submitChoiceWithFeedback],
   );
 
   useGameRoomChoiceHotkeys({
@@ -1549,8 +1507,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ? effectiveGuessDurationMs
       : gameState.revealDurationMs;
 
-  const preStartCountdownSfxSec = startCountdownSec;
-
   const executeRequestPlaybackVote = useCallback(async () => {
     if (!canRequestPlaybackExtensionVote || !onRequestPlaybackExtensionVote) {
       return;
@@ -1565,10 +1521,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
       if (ok) {
         setPlaybackVoteConfirmOpen(false);
-        appToast.info("已發起延長播放投票，其他玩家可點擊右上角「延長播放」表態。", {
-          id: "playback-extension-vote-requested",
-          duration: 3500,
-        });
+        if (!suppressMobileGameplayToast) {
+          appToast.info("已發起延長播放投票，等待其他玩家回應。", {
+            id: "playback-extension-vote-requested",
+            duration: 3500,
+          });
+        }
       }
     } finally {
       setPlaybackVoteRequestPending(false);
@@ -1578,6 +1536,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     getServerNowMs,
     onRequestPlaybackExtensionVote,
     phaseEndsAt,
+    suppressMobileGameplayToast,
   ]);
 
   const handleRequestPlaybackVote = useCallback(() => {
@@ -1663,7 +1622,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         if (ok) {
           setRestartVoteDialogOpen(false);
         }
-        // If !ok, the server will send updated state via socket — no local manipulation needed.
+        // If !ok, the server will send updated state via socket; no local manipulation needed.
       } finally {
         setRestartVoteSubmitPending(null);
       }
@@ -1735,7 +1694,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     isReveal,
     isInterTrackWait,
     waitingToStart,
-    preStartCountdownSfxSec,
     phaseEndsAt,
     meClientId,
     selectedChoice,
@@ -1750,6 +1708,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     myComboTier,
     getServerNowMs,
     playGameSfx,
+    scoreFeedbackEvent: mobileFeedbackEvent,
   });
 
   const scoreboardRows = useMemo(
@@ -1774,26 +1733,35 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const mobilePersonalRankCardModel = useMemo(() => {
     const participant = roomScoreboardRankModel.meRoomParticipant;
     const rank =
-      isLeaderboardRoom && scoreFeedbackTab === "challenge"
+      isLeaderboardRoom && resolvedScoreFeedbackTab === "challenge"
         ? challengeFeedbackProjection?.myStanding.projectedRank ?? null
         : roomScoreboardRankModel.meRoomRank;
+    const rankLabel =
+      isLeaderboardRoom &&
+      resolvedScoreFeedbackTab === "challenge" &&
+      challengeFeedbackProjection?.rankingScope === "outside_top1000"
+        ? "未上榜"
+        : null;
 
     return {
       participant,
       rank,
+      rankLabel,
       score: participant?.score ?? null,
       combo: participant?.combo ?? 0,
     };
   }, [
     challengeFeedbackProjection,
     isLeaderboardRoom,
+    resolvedScoreFeedbackTab,
     roomScoreboardRankModel.meRoomParticipant,
     roomScoreboardRankModel.meRoomRank,
-    scoreFeedbackTab,
   ]);
 
   const mobileEmbeddedHudMode: "guess" | "reveal" | null = isMobileGameViewport
-    ? isReveal && !isInterTrackWait && !isEnded && !isRecoveringConnection && Number.isFinite(gameState.revealEndsAt)
+    ? isRecoveringConnection && gameState.phase === "guess" && !isEnded
+      ? "guess"
+      : isReveal && !isInterTrackWait && !isEnded && !isRecoveringConnection && Number.isFinite(gameState.revealEndsAt)
       ? "reveal"
       : gameState.phase === "guess" && !isReveal && !isInterTrackWait && !isEnded && !isRecoveringConnection
         ? "guess"
@@ -1810,6 +1778,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       trackSessionKey,
       allAnsweredReadyForReveal,
       isRecoveringConnection,
+      recoveryStatusText,
       liveAnsweredCount: displayAnsweredCount,
       liveParticipantCount: displayParticipantCount,
     }),
@@ -1822,12 +1791,81 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       trackSessionKey,
       allAnsweredReadyForReveal,
       isRecoveringConnection,
+      recoveryStatusText,
       displayAnsweredCount,
       displayParticipantCount,
     ],
   );
 
-  const shouldHideMobileAnswerPhaseChrome = mobileEmbeddedHudMode !== null;
+  const desktopEmbeddedHudMode: "guess" | null =
+    !isMobileGameViewport &&
+      gameState.phase === "guess" &&
+      !isReveal &&
+      !isInterTrackWait &&
+      !isEnded
+      ? "guess"
+      : null;
+
+  const desktopEmbeddedHudConfig = useMemo(
+    () => ({
+      mode: desktopEmbeddedHudMode,
+      serverOffsetMs,
+      activePhaseDurationMs,
+      phaseEndsAt,
+      revealEndsAt: gameState.revealEndsAt,
+      trackSessionKey,
+      allAnsweredReadyForReveal,
+      isRecoveringConnection,
+      recoveryStatusText,
+      liveAnsweredCount: displayAnsweredCount,
+      liveParticipantCount: displayParticipantCount,
+    }),
+    [
+      desktopEmbeddedHudMode,
+      serverOffsetMs,
+      activePhaseDurationMs,
+      phaseEndsAt,
+      gameState.revealEndsAt,
+      trackSessionKey,
+      allAnsweredReadyForReveal,
+      isRecoveringConnection,
+      recoveryStatusText,
+      displayAnsweredCount,
+      displayParticipantCount,
+    ],
+  );
+
+  const desktopScoreFeedbackOverlay = useMemo(
+    () =>
+      !isMobileGameViewport && gameState.status === "playing" ? (
+        <MobileScoreFeedbackOverlay
+          event={mobileFeedbackEvent}
+          placement="media-embedded"
+        />
+      ) : null,
+    [gameState.status, isMobileGameViewport, mobileFeedbackEvent],
+  );
+  const mobileScoreFeedbackOverlay = useMemo(
+    () =>
+      isMobileGameViewport && gameState.status === "playing" ? (
+        <MobileScoreFeedbackOverlay
+          event={mobileFeedbackEvent}
+          placement="mobile-embedded"
+        />
+      ) : null,
+    [gameState.status, isMobileGameViewport, mobileFeedbackEvent],
+  );
+
+  // Desktop: hide phase chrome during both guess AND reveal phases (embedded HUD owns all chrome).
+  // Recovery / inter-track / ended states are excluded so important prompts remain visible.
+  const shouldHideAnswerPhaseChrome =
+    mobileEmbeddedHudMode !== null ||
+    desktopEmbeddedHudMode !== null ||
+    (!isMobileGameViewport &&
+      isReveal &&
+      !isInterTrackWait &&
+      !isEnded &&
+      !isRecoveringConnection);
 
   const handleShowVideoChange = useCallback((show: boolean) => {
     setShowVideoOverride(show);
@@ -1888,7 +1926,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           color={canOpenPlaybackVotePrompt ? "warning" : "info"}
           size="small"
           startIcon={<HowToVoteRoundedIcon />}
-          className={`game-room-extend-vote-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${playbackExtensionVote?.status === "active"
+          className={`game-room-extend-vote-btn ${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${playbackExtensionVote?.status === "active"
             ? "game-room-extend-vote-btn--active"
             : playbackExtensionVote?.status === "approved"
               ? "game-room-extend-vote-btn--approved"
@@ -1908,15 +1946,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     const showRestartBtn = gameState.status === "playing";
     if (!showRestartBtn && !isHostInGame && !voteButton) return null;
     const restartBtnLabel = restartVoteRequestPending
-      ? "投票中..."
+      ? "處理中..."
       : isRestartVoteActive
-        ? `${restartVoteActionLabel}投票 ${restartVoteApproveCount}/${restartVoteMajorityCount}`
+        ? `${restartVoteActionLabel} ${restartVoteApproveCount}/${restartVoteMajorityCount}`
         : restartNowVoteView.buttonLabel;
     return (
       <Stack
         direction="row"
         spacing={1}
-        className="max-[760px]:w-full max-[760px]:grid max-[760px]:grid-cols-1"
+        className={isMobileGameViewport ? "w-full grid grid-cols-1" : ""}
       >
         {showRestartBtn && (
           <>
@@ -1930,7 +1968,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="info"
               size="small"
               startIcon={<MeetingRoomRoundedIcon fontSize="inherit" />}
-              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${returnToLobbyVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
+              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${returnToLobbyVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
                 ? "game-room-restart-vote-btn--notify"
                 : ""
                 }`}
@@ -1955,7 +1993,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               color="warning"
               size="small"
               startIcon={<RestartAltRoundedIcon />}
-              className={`max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs ${restartNowVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "restart_now"
+              className={`${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""} ${restartNowVoteView.isLocked ? "game-room-vote-btn--request-locked" : ""} ${showRestartVoteRedDot && restartVoteAction === "restart_now"
                 ? "game-room-restart-vote-btn--notify"
                 : ""
                 }`}
@@ -1979,11 +2017,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
             color="info"
             size="small"
             startIcon={<ManageAccountsRoundedIcon />}
-            className="game-room-host-manage-btn max-[760px]:!w-full max-[760px]:!px-2 max-[760px]:!py-1 max-[760px]:!text-xs"
+            className={`game-room-host-manage-btn ${isMobileGameViewport ? "!w-full !px-2 !py-1 !text-xs" : ""}`}
             onClick={handleOpenHostManagement}
-          >
-            房主管理
-          </Button>
+          >房主管理</Button>
         )}
 
       </Stack>
@@ -1995,6 +2031,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     handleRequestPlaybackVote,
     handleRequestRestartVote,
     isHostInGame,
+    isMobileGameViewport,
     isManualPlaybackExtensionMode,
     isRestartVoteActive,
     playbackExtensionVote?.status,
@@ -2053,6 +2090,202 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     playbackVoteActionLabel,
     showPlaybackVoteRedDot,
   ]);
+  const mobileFrameActions = useMemo(() => {
+    if (!isMobileGameViewport) return null;
+
+    return (
+      <div className="game-room-mobile-frame-actions-list">
+        {isHostInGame && (
+          <button
+            type="button"
+            className="game-room-mobile-frame-action game-room-mobile-frame-action--host"
+            onClick={handleOpenHostManagement}
+          >
+            <span className="game-room-mobile-frame-action__icon" aria-hidden>
+              <ManageAccountsRoundedIcon fontSize="inherit" />
+            </span>
+            <span className="game-room-mobile-frame-action__text">
+              <span className="game-room-mobile-frame-action__label">
+                房主管理
+              </span>
+              <span className="game-room-mobile-frame-action__hint">
+                成員與房間控制
+              </span>
+            </span>
+            <span className="game-room-mobile-frame-action__meta">
+              {`${hostManageParticipants.length} 人`}
+            </span>
+          </button>
+        )}
+
+        {gameState.status === "playing" && (
+          <>
+            <button
+              type="button"
+              className={`game-room-mobile-frame-action game-room-mobile-frame-action--return ${isRestartVoteActive && restartVoteAction === "return_to_lobby"
+                ? "game-room-mobile-frame-action--active"
+                : ""
+                } ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
+                  ? "game-room-restart-vote-btn--notify"
+                  : ""
+                } ${returnToLobbyVoteView.isLocked
+                  ? "game-room-mobile-frame-action--locked"
+                  : ""
+                }`}
+              disabled={returnToLobbyVoteView.disabled}
+              onClick={() => handleRequestRestartVote("return_to_lobby")}
+            >
+              <span className="game-room-mobile-frame-action__icon" aria-hidden>
+                <MeetingRoomRoundedIcon fontSize="inherit" />
+                {showRestartVoteRedDot && restartVoteAction === "return_to_lobby" && (
+                  <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
+                )}
+              </span>
+              <span className="game-room-mobile-frame-action__text">
+                <span className="game-room-mobile-frame-action__label">
+                  {isRestartVoteActive && restartVoteAction === "return_to_lobby"
+                    ? returnToLobbyVoteView.countLabel
+                    : returnToLobbyVoteView.buttonLabel}
+                </span>
+                <span className="game-room-mobile-frame-action__hint">
+                  {isRestartVoteActive && restartVoteAction === "return_to_lobby"
+                    ? "正在投票"
+                    : returnToLobbyVoteView.isLocked
+                      ? "本局已發起"
+                      : "回到等待房間"}
+                </span>
+              </span>
+              {returnToLobbyVoteView.isLocked && (
+                <span className="game-room-mobile-frame-action__lock" aria-hidden>
+                  <LockRoundedIcon fontSize="inherit" />
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className={`game-room-mobile-frame-action game-room-mobile-frame-action--restart ${isRestartVoteActive && restartVoteAction === "restart_now"
+                ? "game-room-mobile-frame-action--active"
+                : ""
+                } ${showRestartVoteRedDot && restartVoteAction === "restart_now"
+                  ? "game-room-restart-vote-btn--notify"
+                  : ""
+                } ${restartNowVoteView.isLocked
+                  ? "game-room-mobile-frame-action--locked"
+                  : ""
+                }`}
+              disabled={restartNowVoteView.disabled}
+              onClick={() => handleRequestRestartVote("restart_now")}
+            >
+              <span className="game-room-mobile-frame-action__icon" aria-hidden>
+                <RestartAltRoundedIcon fontSize="inherit" />
+                {showRestartVoteRedDot && restartVoteAction === "restart_now" && (
+                  <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
+                )}
+              </span>
+              <span className="game-room-mobile-frame-action__text">
+                <span className="game-room-mobile-frame-action__label">
+                  {isRestartVoteActive && restartVoteAction === "restart_now"
+                    ? restartNowVoteView.countLabel
+                    : restartNowVoteView.buttonLabel}
+                </span>
+                <span className="game-room-mobile-frame-action__hint">
+                  {isRestartVoteActive && restartVoteAction === "restart_now"
+                    ? "正在投票"
+                    : restartNowVoteView.isLocked
+                      ? "本局已發起"
+                      : "重新開始本局"}
+                </span>
+              </span>
+              {restartNowVoteView.isLocked && (
+                <span className="game-room-mobile-frame-action__lock" aria-hidden>
+                  <LockRoundedIcon fontSize="inherit" />
+                </span>
+              )}
+            </button>
+          </>
+        )}
+
+        <button
+          type="button"
+          className="game-room-mobile-frame-action game-room-mobile-frame-action--leave"
+          onClick={openExitConfirm}
+        >
+          <span className="game-room-mobile-frame-action__icon" aria-hidden>
+            <LogoutRoundedIcon fontSize="inherit" />
+          </span>
+          <span className="game-room-mobile-frame-action__text">
+            <span className="game-room-mobile-frame-action__label">
+              離開房間
+            </span>
+            <span className="game-room-mobile-frame-action__hint">
+              返回上一頁
+            </span>
+          </span>
+        </button>
+      </div>
+    );
+  }, [
+    gameState.status,
+    handleOpenHostManagement,
+    handleRequestRestartVote,
+    hostManageParticipants.length,
+    isHostInGame,
+    isMobileGameViewport,
+    isRestartVoteActive,
+    openExitConfirm,
+    restartNowVoteView,
+    restartVoteAction,
+    returnToLobbyVoteView,
+    showRestartVoteRedDot,
+  ]);
+  const mobileFrameActionsHasAlert =
+    isMobileGameViewport &&
+    gameState.status === "playing" &&
+    (showRestartVoteRedDot || showPlaybackVoteRedDot);
+  const mobileChatPreviewNotice = useMemo<MobileChatPreviewNotice | null>(() => {
+    if (!isMobileGameViewport || gameState.status !== "playing") return null;
+
+    if (showRestartVoteRedDot && restartGameVote) {
+      const requester = restartGameVote.requestedByUsername?.trim() || "玩家";
+      const actionLabel =
+        restartGameVote.action === "return_to_lobby"
+          ? "返回房間"
+          : "重新開始";
+      return {
+        id: `restart-vote-${restartGameVote.action}-${restartGameVote.startedAt}`,
+        title: `${requester} 發起${actionLabel}投票`,
+        detail:
+          restartVoteMajorityCount > 0
+            ? `需要 ${restartVoteMajorityCount}/${restartVoteEligibleCount} 人同意`
+            : "請點開投票",
+        tone: "vote",
+      };
+    }
+
+    if (showPlaybackVoteRedDot && playbackExtensionVote) {
+      const requester = playbackVoteRequesterName.trim() || "玩家";
+      return {
+        id: `playback-vote-${playbackExtensionVote.startedAt}`,
+        title: `${requester} 發起延長播放投票`,
+        detail: `延長 ${playbackVoteProposalSeconds} 秒，請點開投票`,
+        tone: "vote",
+      };
+    }
+
+    return null;
+  }, [
+    gameState.status,
+    isMobileGameViewport,
+    playbackExtensionVote,
+    playbackVoteProposalSeconds,
+    playbackVoteRequesterName,
+    restartGameVote,
+    restartVoteEligibleCount,
+    restartVoteMajorityCount,
+    showPlaybackVoteRedDot,
+    showRestartVoteRedDot,
+  ]);
 
   const shouldMountMobileScoreboardDrawer =
     isMobileGameViewport && mobileScoreboardOpen;
@@ -2085,7 +2318,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
         {hostManageParticipants.length === 0 ? (
           <div className="game-room-host-manage-empty">
             <span className="game-room-host-manage-empty__eyebrow">
-              管理列表
+              房主工具
             </span>
             <Typography
               variant="body1"
@@ -2097,7 +2330,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               variant="body2"
               className="game-room-host-manage-empty__note"
             >
-              有玩家加入房間後，就可以在這裡進行轉移房主、踢出或封鎖。
+              玩家加入後會顯示在這裡，你可以轉移房主、踢出或封鎖玩家。
             </Typography>
           </div>
         ) : (
@@ -2189,7 +2422,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     data-hm-action="kick"
                     data-hm-client-id={participant.clientId}
                   >
-                    踢出(永久封鎖)
+                    踢出(5 分鐘)
                   </Button>
                   <Button
                     size="small"
@@ -2199,7 +2432,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     data-hm-action="ban"
                     data-hm-client-id={participant.clientId}
                   >
-                    踢出(5分鐘)
+                    永久封鎖
                   </Button>
                 </Stack>
               </Stack>
@@ -2218,13 +2451,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   return (
     <GameRoomDanmuProviderBridge roomId={room.id}>
       <div className="game-room-shell">
-        <MobileScoreFeedbackOverlay
-          event={mobileFeedbackEvent}
-          anchorStyle={mobileScoreFeedbackAnchorStyle}
-        />
-        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 lg:grid-cols-[minmax(274px,318px)_minmax(0,1fr)] lg:pb-8 xl:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] lg:h-[calc(100vh-124px)] lg:items-stretch">
+        <div className="game-room-grid grid w-full grid-cols-1 gap-3 px-0 pb-10 min-[1480px]:grid-cols-[minmax(290px,334px)_minmax(0,1fr)] min-[1480px]:pb-8 2xl:grid-cols-[minmax(304px,348px)_minmax(0,1fr)] min-[1480px]:h-[calc(100vh-124px)] min-[1480px]:items-stretch">
           {!isMobileGameViewport && (
-            <div className="game-room-leaderboard-column hidden lg:block lg:h-full">
+            <div className="game-room-leaderboard-column hidden min-[1480px]:block min-[1480px]:h-full">
               <GameRoomLeaderboardSidebar
                 scoreboardRows={scoreboardRows}
                 answeredClientIdSet={answeredClientIdSet}
@@ -2248,23 +2477,21 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   mobileScoreboardBorderParticleCount
                 }
                 isLeaderboardRoom={isLeaderboardRoom}
-                activeTab={scoreFeedbackTab}
+                activeTab={resolvedScoreFeedbackTab}
                 onActiveTabChange={setScoreFeedbackTab}
                 challengeProjectionState={challengeProjectionState}
                 onChallengeProjectionRefresh={refreshChallengeProjection}
-                challengeGainAnimKey={challengeGainAnimKey}
-                challengeGainAmount={challengeGainAmount}
                 isSettled={gameState.status === "ended"}
+                sessionPassCount={sessionPassCount}
               />
             </div>
           )}
-          <section className="game-room-main-section game-room-main-section--immersive flex min-h-0 flex-col gap-2 lg:h-full lg:overflow-visible">
+          <section className={`game-room-main-section${!isMobileGameViewport ? " game-room-main-section--immersive" : ""} flex min-h-0 flex-col gap-2 min-[1480px]:h-full min-[1480px]:overflow-visible`}>
             <GameRoomPlaybackPanel
               mediaFrameRef={mobilePlaybackFrameRef}
               isMobileView={isMobileGameViewport}
               isCompactMobile={isMobileGameViewport}
               isRevealPhase={isReveal}
-              revealAnswerTitle={resolvedAnswerTitle}
               roomName={resolvedRoomName}
               boundedCursor={boundedCursor}
               trackOrderLength={trackOrderLength}
@@ -2288,203 +2515,94 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               onGameVolumeChange={setGameVolume}
               videoId={videoId}
               mobileEmbeddedHud={isMobileGameViewport ? mobileEmbeddedHudConfig : undefined}
-            />
-            <GameRoomAnswerPanel
-              isMobileView={isMobileGameViewport}
-              isInitialCountdown={isInitialCountdown}
-              countdownTone={countdownTone}
-              isReveal={isReveal}
-              revealTone={revealTone}
-              isInterTrackWait={isInterTrackWait}
-              phaseLabel={phaseLabel}
-              activePhaseDurationMs={activePhaseDurationMs}
-              phaseEndsAt={phaseEndsAt}
-              gamePhase={gameState.phase}
-              startedAt={gameState.startedAt}
-              isTimeAttackMode={isTimeAttackMode}
-              timeAttackTimeLimitMs={timeAttackTimeLimitMs}
-              timeAttackRemainingMs={timeAttackRemainingMs}
-              timeAttackEndReason={timeAttackEndReason}
-              choices={gameState.choices}
-              selectedChoice={selectedChoice}
-              correctChoiceIndex={correctChoiceIndex}
-              isEnded={isEnded}
-              playlist={playlist}
-              trackSessionKey={trackSessionKey}
-              myComboTier={myComboTier}
-              myComboNow={myComboNow}
-              isComboBreakThisQuestion={isComboBreakThisQuestion}
-              comboBreakTier={comboBreakTier}
-              waitingToStart={waitingToStart}
-              shouldShowGestureOverlay={shouldShowGestureOverlay}
-              canAnswerNow={canAnswerNow}
-              onSubmitChoice={handleSubmitChoice}
-              keyBindings={keyBindings}
-              myHasChangedAnswer={myHasChangedAnswer}
-              myFeedback={myFeedback}
-              gameStatus={gameState.status}
-              revealEndsAt={gameState.revealEndsAt}
-              resolvedAnswerTitle={resolvedAnswerTitle}
-              onOpenExitConfirm={openExitConfirm}
-              isPendingFeedbackCard={isPendingFeedbackCard}
-              allAnsweredReadyForReveal={allAnsweredReadyForReveal}
-              isRevealPendingServerSync={isRevealPendingServerSync}
-              isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
-              revealChoicePickMap={revealChoicePickMap}
-              serverOffsetMs={serverOffsetMs}
-              mobileHeaderAction={mobilePlaybackVoteAction}
-              liveParticipantCount={displayParticipantCount}
-              liveAnsweredCount={displayAnsweredCount}
-              liveCorrectCount={
-                typeof gameState.questionStats?.correctCount === "number"
-                  ? Math.max(
-                    0,
-                    Math.floor(gameState.questionStats.correctCount),
-                  )
-                  : null
-              }
-              liveWrongCount={
-                typeof gameState.questionStats?.wrongCount === "number"
-                  ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
-                  : null
-              }
-              liveUnansweredCount={displayUnansweredCount}
-              isRecoveringConnection={isRecoveringConnection}
+              desktopEmbeddedHud={!isMobileGameViewport ? desktopEmbeddedHudConfig : undefined}
               recoveryStatusText={recoveryStatusText}
-              isLeaderboardRoom={isLeaderboardRoom}
-              leaderboardLockShakeKey={leaderboardLockShakeKey}
-              shouldHideMobileAnswerPhaseChrome={shouldHideMobileAnswerPhaseChrome}
+              mobileScoreFeedbackOverlay={mobileScoreFeedbackOverlay}
+              desktopScoreFeedbackOverlay={desktopScoreFeedbackOverlay}
+              mobileFrameActions={mobileFrameActions}
+              mobileFrameActionsHasAlert={mobileFrameActionsHasAlert}
             />
-            {isMobileGameViewport && gameState.status === "playing" && (
+            {!isRecoveringConnection && (
+              <GameRoomAnswerPanel
+                isMobileView={isMobileGameViewport}
+                isInitialCountdown={isInitialCountdown}
+                isReveal={isReveal}
+                revealTone={revealTone}
+                isInterTrackWait={isInterTrackWait}
+                phaseLabel={phaseLabel}
+                activePhaseDurationMs={activePhaseDurationMs}
+                phaseEndsAt={phaseEndsAt}
+                gamePhase={gameState.phase}
+                startedAt={gameState.startedAt}
+                isTimeAttackMode={isTimeAttackMode}
+                timeAttackTimeLimitMs={timeAttackTimeLimitMs}
+                timeAttackRemainingMs={timeAttackRemainingMs}
+                timeAttackEndReason={timeAttackEndReason}
+                choices={gameState.choices}
+                selectedChoice={selectedChoice}
+                correctChoiceIndex={correctChoiceIndex}
+                isEnded={isEnded}
+                playlist={playlist}
+                trackSessionKey={trackSessionKey}
+                myComboTier={myComboTier}
+                myComboNow={myComboNow}
+                isComboBreakThisQuestion={isComboBreakThisQuestion}
+                comboBreakTier={comboBreakTier}
+                waitingToStart={waitingToStart}
+                shouldShowGestureOverlay={shouldShowGestureOverlay}
+                canAnswerNow={canAnswerNow}
+                onSubmitChoice={handleSubmitChoice}
+                keyBindings={keyBindings}
+                myHasChangedAnswer={myHasChangedAnswer}
+                myFeedback={myFeedback}
+                gameStatus={gameState.status}
+                revealEndsAt={gameState.revealEndsAt}
+                resolvedAnswerTitle={resolvedAnswerTitle}
+                onOpenExitConfirm={openExitConfirm}
+                isPendingFeedbackCard={isPendingFeedbackCard}
+                allAnsweredReadyForReveal={allAnsweredReadyForReveal}
+                isRevealPendingServerSync={isRevealPendingServerSync}
+                isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
+                revealChoicePickMap={revealChoicePickMap}
+                serverOffsetMs={serverOffsetMs}
+                mobileHeaderAction={mobilePlaybackVoteAction}
+                liveParticipantCount={displayParticipantCount}
+                liveAnsweredCount={displayAnsweredCount}
+                liveCorrectCount={
+                  typeof gameState.questionStats?.correctCount === "number"
+                    ? Math.max(
+                      0,
+                      Math.floor(gameState.questionStats.correctCount),
+                    )
+                    : null
+                }
+                liveWrongCount={
+                  typeof gameState.questionStats?.wrongCount === "number"
+                    ? Math.max(0, Math.floor(gameState.questionStats.wrongCount))
+                    : null
+                }
+                liveUnansweredCount={displayUnansweredCount}
+                isRecoveringConnection={isRecoveringConnection}
+                recoveryStatusText={recoveryStatusText}
+                isLeaderboardRoom={isLeaderboardRoom}
+                leaderboardLockShakeKey={leaderboardLockShakeKey}
+                shouldHideAnswerPhaseChrome={shouldHideAnswerPhaseChrome}
+              />
+            )}
+            {isMobileGameViewport && gameState.status === "playing" && !isRecoveringConnection && (
               <div className="game-room-mobile-after-options">
                 <GameRoomMobilePersonalRankCard
                   participant={mobilePersonalRankCardModel.participant}
                   rank={mobilePersonalRankCardModel.rank}
+                  rankLabel={mobilePersonalRankCardModel.rankLabel}
                   score={mobilePersonalRankCardModel.score}
                   combo={mobilePersonalRankCardModel.combo}
                   onOpenLeaderboard={handleToggleMobileScoreboard}
                 />
-                <GameRoomMobileChatPreview onOpen={handleOpenChat} />
-              </div>
-            )}
-            {isMobileGameViewport && (
-              <div className="game-room-mobile-action-dock lg:hidden">
-                <div
-                  className={`game-room-mobile-action-subdock col-span-2 ${mobileSubdockActionCount <= 1
-                    ? "game-room-mobile-action-subdock--compact"
-                    : ""
-                    }`}
-                >
-                  {isHostInGame && (
-                    <button
-                      type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--primary game-room-mobile-toggle-chip--wide game-room-mobile-toggle-chip--host ${hostManagementOpen
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
-                        }`}
-                      onClick={handleOpenHostManagement}
-                    >
-                      <span
-                        className="game-room-mobile-action-icon"
-                        aria-hidden
-                      >
-                        <ManageAccountsRoundedIcon fontSize="inherit" />
-                      </span>
-                      <span>房主管理</span>
-                      <span className="game-room-mobile-action-meta">
-                        {`${hostManageParticipants.length} 人`}
-                      </span>
-                    </button>
-                  )}
-                </div>
-                {gameState.status === "playing" && (
-                  <div className="game-room-mobile-vote-row col-span-2 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--return game-room-mobile-vote-row__btn ${isRestartVoteActive && restartVoteAction === "return_to_lobby"
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
-                        } ${showRestartVoteRedDot && restartVoteAction === "return_to_lobby"
-                          ? "game-room-restart-vote-btn--notify"
-                          : ""
-                        } ${returnToLobbyVoteView.isLocked
-                          ? "game-room-mobile-toggle-chip--request-locked"
-                          : ""
-                        }`}
-                      disabled={returnToLobbyVoteView.disabled}
-                      onClick={() => handleRequestRestartVote("return_to_lobby")}
-                    >
-                      <span className="game-room-mobile-action-icon" aria-hidden>
-                        <MeetingRoomRoundedIcon fontSize="inherit" />
-                        {showRestartVoteRedDot && restartVoteAction === "return_to_lobby" && (
-                          <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
-                        )}
-                      </span>
-                      <span>
-                        {isRestartVoteActive && restartVoteAction === "return_to_lobby"
-                          ? returnToLobbyVoteView.countLabel
-                          : returnToLobbyVoteView.buttonLabel}
-                      </span>
-
-                      {returnToLobbyVoteView.isLocked && (
-                        <span
-                          className="game-room-mobile-toggle-chip__lock-corner"
-                          aria-hidden="true"
-                        >
-                          <LockRoundedIcon fontSize="inherit" />
-                        </span>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`game-room-mobile-toggle-chip game-room-mobile-toggle-chip--restart game-room-mobile-vote-row__btn ${isRestartVoteActive && restartVoteAction === "restart_now"
-                        ? "game-room-mobile-toggle-chip--active"
-                        : ""
-                        } ${showRestartVoteRedDot && restartVoteAction === "restart_now"
-                          ? "game-room-restart-vote-btn--notify"
-                          : ""
-                        } ${restartNowVoteView.isLocked
-                          ? "game-room-mobile-toggle-chip--request-locked"
-                          : ""
-                        }`}
-                      disabled={restartNowVoteView.disabled}
-                      onClick={() => handleRequestRestartVote("restart_now")}
-                    >
-                      <span className="game-room-mobile-action-icon" aria-hidden>
-                        <RestartAltRoundedIcon fontSize="inherit" />
-                        {showRestartVoteRedDot && restartVoteAction === "restart_now" && (
-                          <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
-                        )}
-                      </span>
-
-                      <span>
-                        {isRestartVoteActive && restartVoteAction === "restart_now"
-                          ? restartNowVoteView.countLabel
-                          : restartNowVoteView.buttonLabel}
-                      </span>
-
-                      {restartNowVoteView.isLocked && (
-                        <span
-                          className="game-room-mobile-toggle-chip__lock-corner"
-                          aria-hidden="true"
-                        >
-                          <LockRoundedIcon fontSize="inherit" />
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="game-room-mobile-toggle-chip game-room-mobile-toggle-chip--leave col-span-2"
-                  onClick={openExitConfirm}
-                >
-                  <span className="game-room-mobile-action-icon" aria-hidden="true">
-                    <LogoutRoundedIcon fontSize="inherit" />
-                  </span>
-                  <span>離開房間</span>
-                </button>
+                <GameRoomMobileChatPreview
+                  onOpen={handleOpenChat}
+                  notice={mobileChatPreviewNotice}
+                />
               </div>
             )}
           </section>
@@ -2497,7 +2615,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 />
               )}
               <Drawer
-                className="game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard game-room-mobile-drawer-root--scoreboard-side lg:!hidden"
+                className="game-room-mobile-drawer-root game-room-mobile-drawer-root--scoreboard game-room-mobile-drawer-root--scoreboard-side min-[1480px]:!hidden"
                 anchor="left"
                 open={mobileScoreboardOpen}
                 onClose={handleCloseMobileScoreboard}
@@ -2567,13 +2685,12 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                       mobileScoreboardBorderParticleCount
                     }
                     isLeaderboardRoom={isLeaderboardRoom}
-                    activeTab={scoreFeedbackTab}
+                    activeTab={resolvedScoreFeedbackTab}
                     onActiveTabChange={setScoreFeedbackTab}
                     challengeProjectionState={challengeProjectionState}
                     onChallengeProjectionRefresh={refreshChallengeProjection}
-                    challengeGainAnimKey={challengeGainAnimKey}
-                    challengeGainAmount={challengeGainAmount}
                     isSettled={gameState.status === "ended"}
+                    sessionPassCount={sessionPassCount}
                   />
                 </div>
               </Drawer>
@@ -2595,10 +2712,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               <DialogContent dividers>
                 <Stack spacing={1.2}>
                   <Typography variant="body2" className="text-slate-300">
-                    發起後，所有符合資格的玩家都可以投票。多數玩家同意後，本題會延長播放時間。
+                    發起後會讓玩家投票是否延長目前歌曲播放時間，方便大家確認答案。
                   </Typography>
                   <Typography variant="caption" className="text-slate-500">
-                    投票會持續到目前歌曲結束前。若投票未通過，本題你將不能再次發起延長播放投票。
+                    投票通過後才會延長播放；未通過則維持原本流程。
                   </Typography>
                 </Stack>
               </DialogContent>
@@ -2635,13 +2752,13 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 <Stack spacing={1.2}>
                   <Typography variant="body2" className="text-slate-200">
                     {playbackVoteRequesterName}{" "}
-                    {`提議將本題多播放 ${playbackVoteProposalSeconds} 秒。`}
+                    {`提議延長播放 ${playbackVoteProposalSeconds} 秒`}
                   </Typography>
                   <div className="game-room-playback-vote-dialog__stats">
                     <span>{`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
                     <span>{`不同意 ${playbackVoteRejectCount}`}</span>
                     <Typography variant="body2" className="text-slate-300">
-                      這個投票會持續到目前歌曲結束前。多數玩家同意後，會立即延長播放時間。
+                      多數玩家同意後會延長目前播放時間，已投票後不可變更。
                     </Typography>
                   </div>
                 </Stack>
@@ -2660,8 +2777,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   {playbackVoteSubmitPending === "reject"
                     ? "送出中..."
                     : myPlaybackVote === "reject"
-                      ? "已選擇維持原長度"
-                      : "維持原播放長度"}
+                      ? "已選擇不同意"
+                      : "不同意延長"}
                 </Button>
 
                 <Button
@@ -2677,8 +2794,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   {playbackVoteSubmitPending === "approve"
                     ? "送出中..."
                     : myPlaybackVote === "approve"
-                      ? "已同意延長"
-                      : `延長 ${playbackVoteProposalSeconds} 秒`}
+                      ? "已同意"
+                      : `同意延長 ${playbackVoteProposalSeconds} 秒`}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -2703,8 +2820,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   </Typography>
                   <Typography variant="caption" className="text-slate-500">
                     {isSoloGameSession
-                      ? "目前只有你在遊戲中，確認後會直接執行，不需要投票。"
-                      : "發起後需要多數玩家同意才會執行。若投票未通過，本局你將不能再次發起這類投票。"}
+                      ? "單人房會直接執行，不需要投票。"
+                      : "多人房會發起投票，達到門檻後才會執行。"}
                   </Typography>
                 </Stack>
               </DialogContent>
@@ -2743,11 +2860,11 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     {restartVoteDialogDescription}
                   </Typography>
                   <div className="game-room-playback-vote-dialog__stats">
-                    <span>{`贊成 ${restartVoteApproveCount} / ${restartVoteMajorityCount} 票`}</span>
-                    <span>{`反對 ${restartVoteRejectCount}`}</span>
+                    <span>{`同意 ${restartVoteApproveCount} / ${restartVoteMajorityCount} 人`}</span>
+                    <span>{`不同意 ${restartVoteRejectCount}`}</span>
                   </div>
                   <Typography variant="caption" className="text-slate-500">
-                    {`需過半（${restartVoteMajorityCount} / ${restartVoteEligibleCount} 票）才能通過`}
+                    {`需要 ${restartVoteMajorityCount} / ${restartVoteEligibleCount} 人同意才會通過。`}
                   </Typography>
                 </Stack>
               </DialogContent>
@@ -2758,7 +2875,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   color="inherit"
                   disabled={restartVoteSubmitPending !== null}
                 >
-                  再想想
+                  稍後再說
                 </Button>
                 <Button
                   onClick={handleRestartVoteReject}
@@ -2766,7 +2883,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                   color="inherit"
                   disabled={restartVoteSubmitPending !== null}
                 >
-                  {restartVoteSubmitPending === "reject" ? "送出中..." : "否"}
+                  {restartVoteSubmitPending === "reject" ? "送出中..." : "不同意"}
                 </Button>
                 <Button
                   onClick={handleRestartVoteApprove}
@@ -2806,7 +2923,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
           ) : null}
           {isHostInGame && isMobileGameViewport && hostManagementOpen && (
             <Drawer
-              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage lg:!hidden"
+              className="game-room-mobile-drawer-root game-room-mobile-drawer-root--host-manage min-[1480px]:!hidden"
               anchor="bottom"
               open={hostManagementOpen}
               onClose={handleCloseHostManagement}

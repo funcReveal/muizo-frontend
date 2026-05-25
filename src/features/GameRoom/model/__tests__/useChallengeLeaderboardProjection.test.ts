@@ -12,10 +12,10 @@ import {
   getProjectionSessionKey,
   PROJECTION_CACHE_FRESH_MS,
   projectionCacheByKey,
-  shouldRefetchNearbyWindow,
   shouldStartProjectionFetch,
   shouldUseFreshProjectionCache,
 } from "../useChallengeLeaderboardProjection";
+import { shouldRefreshChallengeProjectionForScoreGain } from "../challengeProjectionRefreshPolicy";
 
 function makeData(
   overrides: Partial<ChallengeProjectedLeaderboardResponse> = {},
@@ -39,7 +39,7 @@ function makeData(
       viewerDbUserId: "me",
       nextTarget: null,
     },
-    cache: { source: "memory", ttlMs: 5000 },
+    cache: { source: "redis", ttlMs: 5000 },
     ...overrides,
   };
 }
@@ -145,10 +145,10 @@ describe("challenge leaderboard projection request guards", () => {
   });
 
   it("uses wider initial jitter for larger rooms", () => {
-    expect(getAdaptiveProjectionInitialJitterMs(10)).toBe(1500);
-    expect(getAdaptiveProjectionInitialJitterMs(80)).toBe(4000);
-    expect(getAdaptiveProjectionInitialJitterMs(250)).toBe(8000);
-    expect(getAdaptiveProjectionInitialJitterMs(1000)).toBe(12000);
+    expect(getAdaptiveProjectionInitialJitterMs(10)).toBe(0);
+    expect(getAdaptiveProjectionInitialJitterMs(80)).toBe(2000);
+    expect(getAdaptiveProjectionInitialJitterMs(250)).toBe(4000);
+    expect(getAdaptiveProjectionInitialJitterMs(1000)).toBe(5000);
   });
 
   it("manual refresh does not create a duplicate request while in flight", () => {
@@ -300,40 +300,132 @@ describe("challenge leaderboard projection request guards", () => {
 
   it("score changes only refresh when a visible ahead opponent is crossed", () => {
     const data = makeData({
+      myStanding: { ...makeData().myStanding, projectedRank: 5 },
       nearbyOpponents: [makeOpponent(150), makeOpponent(90)],
     });
 
-    expect(shouldRefetchNearbyWindow(100, 120, data)).toBe(false);
-    expect(shouldRefetchNearbyWindow(100, 151, data)).toBe(true);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 100, newScore: 120, data }),
+    ).toBe(false);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 100, newScore: 151, data }),
+    ).toBe(true);
   });
 
   it("score changes refresh when reaching a visible ahead opponent tie", () => {
     const data = makeData({
+      myStanding: { ...makeData().myStanding, projectedRank: 5 },
       nearbyOpponents: [makeOpponent(150), makeOpponent(90)],
     });
 
-    expect(shouldRefetchNearbyWindow(100, 150, data)).toBe(true);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 100, newScore: 150, data }),
+    ).toBe(true);
   });
 
-  it("score changes refresh when moving above an equal-score visible opponent", () => {
+  it("score changes refresh when moving above a tied-ahead opponent", () => {
+    const tiedAhead: ChallengeNearbyOpponent = { ...makeOpponent(100), relation: "ahead" };
     const data = makeData({
-      nearbyOpponents: [makeOpponent(100)],
+      myStanding: { ...makeData().myStanding, projectedRank: 5 },
+      nearbyOpponents: [tiedAhead],
     });
 
-    expect(shouldRefetchNearbyWindow(100, 100, data)).toBe(false);
-    expect(shouldRefetchNearbyWindow(100, 101, data)).toBe(true);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 100, newScore: 100, data }),
+    ).toBe(false);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 100, newScore: 101, data }),
+    ).toBe(true);
   });
 
   it("does not refetch on score gain when there was no ahead opponent", () => {
     const data = makeData({
+      myStanding: { ...makeData().myStanding, projectedRank: 5 },
       nearbyOpponents: [makeOpponent(80), makeOpponent(90)],
     });
 
-    expect(shouldRefetchNearbyWindow(100, 130, data)).toBe(false);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 100, newScore: 130, data }),
+    ).toBe(false);
   });
 
   it("does not refetch on score gain when nearby opponents are empty", () => {
-    expect(shouldRefetchNearbyWindow(100, 130, makeData())).toBe(false);
+    const data = makeData({
+      myStanding: { ...makeData().myStanding, projectedRank: 5 },
+    });
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 100, newScore: 130, data }),
+    ).toBe(false);
+  });
+
+  it("does not refetch when target score was already surpassed before this score gain", () => {
+    const data = makeData({
+      myStanding: { ...makeData().myStanding, projectedRank: 5 },
+      nearbyOpponents: [makeOpponent(150)],
+    });
+
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({ previousScore: 200, newScore: 210, data }),
+    ).toBe(false);
+  });
+
+  it("does not refresh projection while score remains below the authoritative next target", () => {
+    const data = makeData({
+      myStanding: {
+        ...makeData().myStanding,
+        projectedRank: 85,
+        nextTarget: {
+          userId: "rank84",
+          displayName: "rank84",
+          avatarUrl: null,
+          rank: 84,
+          score: 210,
+          gap: 210,
+        },
+      },
+      nearbyOpponents: [makeOpponent(210)],
+    });
+
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 0,
+        newScore: 70,
+        data,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 170,
+        newScore: 310,
+        data,
+      }),
+    ).toBe(true);
+  });
+
+  it("falls back to nearby opponents when backend nextTarget is absent", () => {
+    const data = makeData({
+      myStanding: {
+        ...makeData().myStanding,
+        projectedRank: 85,
+        nextTarget: null,
+      },
+      nearbyOpponents: [makeOpponent(210)],
+    });
+
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 170,
+        newScore: 209,
+        data,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshChallengeProjectionForScoreGain({
+        previousScore: 170,
+        newScore: 210,
+        data,
+      }),
+    ).toBe(true);
   });
 });
 

@@ -4,6 +4,16 @@ export {
   type ChatInputContextValue,
 } from "./model/ChatInputContext";
 export {
+  ChatMessagesContext,
+  useChatMessages,
+  type ChatMessagesContextValue,
+} from "./model/ChatMessagesContext";
+export {
+  RoomDirectoryContext,
+  useRoomDirectory,
+  type RoomDirectoryContextValue,
+} from "./model/RoomDirectoryContext";
+export {
   AuthSessionProvider,
   RoomContentProvider,
   RoomSessionProvider,
@@ -13,6 +23,9 @@ export {
   useRoomSession,
   useRoomCreate,
   useRoomGame,
+  useRoomGameState,
+  useRoomGameActions,
+  useRoomGameStatus,
   useSitePresence,
   useRoomRealtime,
 } from "./model/runtimeHooks";

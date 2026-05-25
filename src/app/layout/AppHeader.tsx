@@ -555,4 +555,4 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   );
 };
 
-export default AppHeader;
+export default React.memo(AppHeader);

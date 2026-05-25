@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@shared/auth/AuthContext";
 import { isCareerFeatureEnabled } from "@shared/config/featureFlags";
-import { useRoomGame, useRoomSession } from "@features/RoomSession";
+import { useRoomGameStatus, useRoomSession } from "@features/RoomSession";
 import ConfirmDialog from "@shared/ui/ConfirmDialog";
 
 type NavigationTarget = "rooms" | "collections" | "career" | "settings";
@@ -31,7 +31,7 @@ export function useRoomAwareNavigationGuards({
   const navigate = useNavigate();
   const { authLoading, loginWithGoogle, logout } = useAuth();
   const { currentRoom, handleLeaveRoom } = useRoomSession();
-  const { gameState } = useRoomGame();
+  const { gameStatus } = useRoomGameStatus();
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [privacyConfirmOpen, setPrivacyConfirmOpen] = useState(false);
   const [termsConfirmOpen, setTermsConfirmOpen] = useState(false);
@@ -147,7 +147,7 @@ export function useRoomAwareNavigationGuards({
         : navigationConfirmTarget === "collections"
           ? "收藏庫"
           : "生涯總覽";
-    if (gameState?.status === "playing") {
+    if (gameStatus === "playing") {
       return {
         title: `離開對戰並前往${targetLabel}？`,
         description: `目前房間正在遊玩中。前往 ${targetLabel} 前會先離開房間，之後可再重新加入。`,
@@ -157,7 +157,24 @@ export function useRoomAwareNavigationGuards({
       title: `離開房間並前往${targetLabel}？`,
       description: `前往 ${targetLabel} 前會先離開目前房間，以避免保留舊的房間連線狀態。`,
     };
-  }, [gameState?.status, navigationConfirmTarget]);
+  }, [gameStatus, navigationConfirmTarget]);
+
+  const handleNavigateCollections = useCallback(
+    () => handleNavigateRequest("collections"),
+    [handleNavigateRequest],
+  );
+  const handleNavigateCareer = useCallback(
+    () => handleNavigateRequest("career"),
+    [handleNavigateRequest],
+  );
+  const handleNavigateRooms = useCallback(
+    () => handleNavigateRequest("rooms"),
+    [handleNavigateRequest],
+  );
+  const handleNavigateSettings = useCallback(
+    () => handleNavigateRequest("settings"),
+    [handleNavigateRequest],
+  );
 
   const dialogs = (
     <>
@@ -204,10 +221,10 @@ export function useRoomAwareNavigationGuards({
     dialogs,
     handleLoginRequest,
     handleLogoutRequest,
-    handleNavigateCollections: () => handleNavigateRequest("collections"),
-    handleNavigateCareer: () => handleNavigateRequest("career"),
-    handleNavigateRooms: () => handleNavigateRequest("rooms"),
-    handleNavigateSettings: () => handleNavigateRequest("settings"),
+    handleNavigateCollections,
+    handleNavigateCareer,
+    handleNavigateRooms,
+    handleNavigateSettings,
     handlePrivacyRequest,
     handleTermsRequest,
   };

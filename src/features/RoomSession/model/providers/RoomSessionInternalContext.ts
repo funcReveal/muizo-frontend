@@ -73,6 +73,7 @@ export interface RoomSessionInternalContextValue {
 
 export const RoomSessionInternalContext =
   createContext<RoomSessionInternalContextValue | null>(null);
+RoomSessionInternalContext.displayName = "RoomSessionInternalContext";
 
 export const useRoomSessionInternal = (): RoomSessionInternalContextValue => {
   const ctx = useContext(RoomSessionInternalContext);

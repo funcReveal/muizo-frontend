@@ -1,6 +1,7 @@
 import type { RoomParticipant } from "@features/RoomSession";
 
 import { sortParticipantsByScore } from "./gameRoomDerivations";
+import { buildChallengeLeaderboardDisplayRows } from "./buildChallengeLeaderboardDisplayRows";
 import type {
   ChallengeProjectedLeaderboardResponse,
   GameRoomScoreboardTab,
@@ -25,16 +26,32 @@ export type MobileScoreFeedbackEvent =
       oldRank: number;
       newRank: number;
       me: FeedbackPlayer;
+      /** The player who was just passed (now displaced to newRank+1). */
       target: FeedbackPlayer | null;
+      /** The player directly above the new rank (newRank-1); null when me is rank 1. */
+      nextTarget: FeedbackPlayer | null;
+      /** max(0, nextTarget.score - me.score); 0 when tied; null when nextTarget is null and no snapshot fallback. */
+      nextTargetGap: number | null;
+      /** Display name for the next target; from nextTarget.username or snapshot fallback. */
+      nextTargetName: string | null;
+      /** Runner-up at rank 2; populated only when me reaches rank 1. */
+      runnerUp: FeedbackPlayer | null;
+      /** me.score - runnerUp.score; populated only when me reaches rank 1. */
+      leadScore: number | null;
     }
   | {
       type: "overtaken";
       scope: MobileScoreFeedbackScope;
+      scoreGain: number;
       oldRank: number;
       newRank: number;
       me: FeedbackPlayer;
       target: FeedbackPlayer | null;
       targetScoreGain: number | null;
+      /** Points needed to catch up to the player directly above after being overtaken. */
+      nextTargetGap: number | null;
+      /** Display name of the player directly above after being overtaken. */
+      nextTargetName: string | null;
     }
   | {
       type: "score";
@@ -45,6 +62,10 @@ export type MobileScoreFeedbackEvent =
       remainingScore: number | null;
       runnerUp: FeedbackPlayer | null;
       leadScore: number | null;
+      /** Points needed to overtake the next opponent; null when rank 1. */
+      nextTargetGap: number | null;
+      /** Display name of the next opponent to overtake; null when rank 1. */
+      nextTargetName: string | null;
     }
   | {
       type: "unanswered";
@@ -58,6 +79,10 @@ export type MobileScoreFeedbackSnapshot = {
   players: FeedbackPlayer[];
   rankByClientId: Map<string, number>;
   scoreByClientId: Map<string, number>;
+  /** Points needed to overtake the next opponent; null when rank 1 or unknown. */
+  nextTargetGap: number | null;
+  /** Display name of the next opponent; null when rank 1 or unknown. */
+  nextTargetName: string | null;
 };
 
 const ME_CHALLENGE_CLIENT_ID = "__challenge_me__";
@@ -78,6 +103,8 @@ const createSnapshot = (
   scope: MobileScoreFeedbackScope,
   players: FeedbackPlayer[],
   me: FeedbackPlayer | null,
+  nextTargetGap: number | null = null,
+  nextTargetName: string | null = null,
 ): MobileScoreFeedbackSnapshot => ({
   scope,
   me,
@@ -88,7 +115,67 @@ const createSnapshot = (
   scoreByClientId: new Map(
     players.map((player) => [player.clientId, player.score]),
   ),
+  nextTargetGap,
+  nextTargetName,
 });
+
+const toChallengeOpponentFeedbackPlayer = (
+  opponent: ChallengeProjectedLeaderboardResponse["nearbyOpponents"][number],
+): FeedbackPlayer | null => {
+  if (typeof opponent.rank !== "number") return null;
+
+  return {
+    clientId: `challenge:${opponent.userId}`,
+    username: opponent.displayName,
+    avatarUrl: opponent.avatarUrl,
+    score: opponent.bestScore,
+    rank: opponent.rank,
+    combo: opponent.maxCombo,
+  };
+};
+
+const findChallengeNextTarget = ({
+  projection,
+  displayMe,
+  meScore,
+}: {
+  projection: ChallengeProjectedLeaderboardResponse;
+  displayMe: FeedbackPlayer | null;
+  meScore: number;
+}): FeedbackPlayer | null => {
+  const meRank = displayMe?.rank ?? projection.myStanding.projectedRank;
+  if (typeof meRank !== "number" || meRank <= 1) return null;
+
+  const explicitTarget = projection.myStanding.nextTarget;
+  if (
+    explicitTarget &&
+    typeof explicitTarget.rank === "number" &&
+    explicitTarget.score >= meScore
+  ) {
+    return {
+      clientId: explicitTarget.userId
+        ? `challenge:${explicitTarget.userId}`
+        : "__challenge_next_target__",
+      username: explicitTarget.displayName,
+      avatarUrl: explicitTarget.avatarUrl,
+      score: explicitTarget.score,
+      rank: explicitTarget.rank,
+      combo: null,
+    };
+  }
+
+  return (
+    projection.nearbyOpponents
+      .map(toChallengeOpponentFeedbackPlayer)
+      .filter(
+        (player): player is FeedbackPlayer =>
+          player !== null &&
+          player.rank <= meRank &&
+          player.score >= meScore,
+      )
+      .sort((a, b) => b.rank - a.rank || a.score - b.score)[0] ?? null
+  );
+};
 
 export const buildRoomMobileScoreFeedbackSnapshot = (
   participants: RoomParticipant[],
@@ -100,8 +187,19 @@ export const buildRoomMobileScoreFeedbackSnapshot = (
   const me = meClientId
     ? (players.find((player) => player.clientId === meClientId) ?? null)
     : null;
+  const nextTarget =
+    me !== null && me.rank > 1
+      ? (players.find(
+          (player) => player.rank === me.rank - 1 && player.clientId !== me.clientId,
+        ) ?? null)
+      : null;
+  const nextTargetGap =
+    nextTarget !== null && me !== null
+      ? Math.max(0, nextTarget.score - me.score)
+      : null;
+  const nextTargetName = nextTarget?.username ?? null;
 
-  return createSnapshot("room", players, me);
+  return createSnapshot("room", players, me, nextTargetGap, nextTargetName);
 };
 
 export const buildChallengeMobileScoreFeedbackSnapshot = ({
@@ -144,63 +242,108 @@ export const buildChallengeMobileScoreFeedbackSnapshot = ({
     }
   };
 
-  projection.topEntries.forEach((entry) => {
-    if (entry.userId === projection.myStanding.viewerDbUserId) {
-      if (me) addPlayer(me);
+  // Feedback lookup needs both lower slots so a locally displaced player can be
+  // selected as the passed target. This does not control the visual row stage.
+  const displayRows = buildChallengeLeaderboardDisplayRows({
+    data: projection,
+    viewerScore: meScore,
+    meUserId: projection.myStanding.viewerDbUserId,
+    sessionPassCount: 2,
+  }).listRows;
+  const nearbyPlayers: FeedbackPlayer[] = [];
+  let selfDisplaySection: "top-window" | "top-eleven" | "nearby" | null = null;
+
+  displayRows.forEach((row) => {
+    if (row.kind === "self") {
+      selfDisplaySection = row.section;
+      if (me && typeof row.displayRank === "number") {
+        addPlayer({ ...me, rank: row.displayRank });
+      }
       return;
     }
-    if (typeof entry.rank !== "number") return;
-    addPlayer({
-      clientId: `challenge:${entry.userId}`,
-      username: entry.displayName,
-      avatarUrl: entry.avatarUrl,
-      score: entry.bestScore,
-      rank: entry.rank,
-      combo: entry.maxCombo,
-    });
-  });
 
-  projection.nearbyOpponents.forEach((opponent) => {
-    if (opponent.userId === projection.myStanding.viewerDbUserId) {
-      if (me) addPlayer(me);
+    if (row.kind !== "player") return;
+    if (row.userId === projection.myStanding.viewerDbUserId) return;
+
+    if (row.section === "top") {
+      if (typeof row.displayRank !== "number") return;
+      addPlayer({
+        clientId: `challenge:${row.entry.userId}`,
+        username: row.entry.displayName,
+        avatarUrl: row.entry.avatarUrl,
+        score: row.entry.bestScore,
+        rank: row.displayRank,
+        combo: row.entry.maxCombo,
+      });
       return;
     }
-    if (typeof opponent.rank !== "number") return;
-    addPlayer({
-      clientId: `challenge:${opponent.userId}`,
-      username: opponent.displayName,
-      avatarUrl: opponent.avatarUrl,
-      score: opponent.bestScore,
-      rank: opponent.rank,
-      combo: opponent.maxCombo,
-    });
+
+    if (typeof row.approxRank !== "number") return;
+    const player = {
+      clientId: `challenge:${row.opponent.userId}`,
+      username: row.opponent.displayName,
+      avatarUrl: row.opponent.avatarUrl,
+      score: row.opponent.bestScore,
+      rank: row.approxRank,
+      combo: row.opponent.maxCombo,
+    };
+    nearbyPlayers.push(player);
+    addPlayer(player);
   });
 
-  if (me) addPlayer(me);
-
-  const { nextTarget } = projection.myStanding;
-  if (
-    nextTarget?.userId &&
-    typeof meRank === "number" &&
-    nextTarget.userId !== projection.myStanding.viewerDbUserId
-  ) {
-    addPlayer({
-      clientId: `challenge:${nextTarget.userId}`,
-      username: nextTarget.displayName,
-      avatarUrl: null,
-      score: nextTarget.score,
-      rank: Math.max(1, meRank - 1),
-      combo: null,
-    });
-  }
+  if (me && !byClientId.has(me.clientId)) addPlayer(me);
 
   const players = Array.from(byClientId.values()).sort((a, b) => {
     if (a.rank !== b.rank) return a.rank - b.rank;
     if (b.score !== a.score) return b.score - a.score;
     return a.clientId.localeCompare(b.clientId);
   });
+  const displayMe =
+    me !== null
+      ? (players.find((player) => player.clientId === me.clientId) ?? me)
+      : null;
+  const displayMeRank = displayMe?.rank ?? meRank;
 
-  return createSnapshot("challenge", players, me);
+  // Compute the gap to the visible player directly above the viewer's current
+  // display rank.  This avoids comparing against a far-away top score when the
+  // nearby window is already showing the correct local opponent.
+  let snapshotNextTargetGap: number | null = null;
+  let snapshotNextTargetName: string | null = null;
+
+  const projectionNextTarget = findChallengeNextTarget({
+    projection,
+    displayMe,
+    meScore,
+  });
+
+  if (projectionNextTarget) {
+    snapshotNextTargetGap = Math.max(0, projectionNextTarget.score - meScore);
+    snapshotNextTargetName = projectionNextTarget.username;
+  } else if (typeof displayMeRank === "number" && displayMeRank > 1) {
+    const nextTargetCandidates =
+      selfDisplaySection === "nearby" ? nearbyPlayers : players;
+    const immediateAbove = nextTargetCandidates
+      .filter(
+        (player) =>
+          player.clientId !== displayMe?.clientId &&
+          player.rank <= displayMeRank &&
+          player.score >= meScore,
+      )
+      .sort((a, b) => b.rank - a.rank || a.score - b.score)[0];
+
+    if (immediateAbove) {
+      snapshotNextTargetGap = Math.max(0, immediateAbove.score - meScore);
+      snapshotNextTargetName = immediateAbove.username;
+    }
+  }
+
+  return createSnapshot(
+    "challenge",
+    players,
+    displayMe,
+    snapshotNextTargetGap,
+    snapshotNextTargetName,
+  );
 };
 
 export const buildMobileScoreFeedbackSnapshot = ({
@@ -236,33 +379,46 @@ const findPassedTarget = (
   nextSnapshot: MobileScoreFeedbackSnapshot,
   oldRank: number,
   newRank: number,
-) =>
-  nextSnapshot.players
-    .filter(
-      (player) =>
-        player.rank >= newRank &&
-        player.rank < oldRank &&
-        player.clientId !== nextSnapshot.me?.clientId,
-    )
-    .sort((a, b) => a.rank - b.rank)
-    .find((player) => {
-      const previousTargetRank = prevSnapshot.rankByClientId.get(
-        player.clientId,
-      );
+): FeedbackPlayer | null => {
+  if (newRank >= oldRank) return null;
+  const nextMe = nextSnapshot.me;
+  if (!nextMe) return null;
 
-      return (
-        typeof previousTargetRank === "number" && previousTargetRank < oldRank
-      );
-    }) ??
-  prevSnapshot.players
+  // The player who held newRank before the jump is now at newRank+1 in
+  // nextSnapshot, so the displaced player is directly below the viewer.
+  const displaced = nextSnapshot.players.find(
+    (p) => p.rank === newRank + 1 && p.clientId !== nextMe.clientId,
+  ) ?? null;
+
+  if (displaced) {
+    return displaced;
+  }
+
+  // Fallback: look in prevSnapshot where the player was still at newRank
+  const inPrev = prevSnapshot.players.find(
+    (p) => p.rank === newRank && p.clientId !== prevSnapshot.me?.clientId,
+  ) ?? null;
+  if (inPrev) {
+    return inPrev;
+  }
+
+  // Projection windows can be stale by one visible slot while the new request is
+  // in-flight. Keep the swap feedback only when the next visible below-row is
+  // still adjacent to the new rank; never jump to a far stale row such as #71
+  // after the viewer already moved to #59.
+  const adjacentVisibleBelow = nextSnapshot.players
     .filter(
       (player) =>
-        player.rank >= newRank &&
+        player.clientId !== nextMe.clientId &&
+        player.rank > newRank &&
         player.rank < oldRank &&
-        player.clientId !== prevSnapshot.me?.clientId,
+        player.rank - newRank <= 2 &&
+        player.score <= nextMe.score,
     )
-    .sort((a, b) => a.rank - b.rank)[0] ??
-  null;
+    .sort((a, b) => a.rank - b.rank)[0] ?? null;
+
+  return adjacentVisibleBelow;
+};
 
 const findOvertakingTarget = (
   prevSnapshot: MobileScoreFeedbackSnapshot,
@@ -271,8 +427,8 @@ const findOvertakingTarget = (
   newRank: number,
 ) =>
   nextSnapshot.players
-    .filter((player) => player.rank > oldRank && player.rank <= newRank)
-    .sort((a, b) => b.rank - a.rank)
+    .filter((player) => player.rank >= oldRank && player.rank < newRank)
+    .sort((a, b) => a.rank - b.rank)
     .find((player) => {
       const previousTargetRank = prevSnapshot.rankByClientId.get(
         player.clientId,
@@ -320,6 +476,37 @@ export const buildMobileScoreFeedbackEvent = (
       newRank,
     );
 
+    const isFirst = newRank === 1;
+    const rawNextTarget = isFirst
+      ? null
+      : (nextSnapshot.players.find(
+          (p) => p.rank === newRank - 1 && p.clientId !== nextSnapshot.me?.clientId,
+        ) ?? null);
+
+    // Guard: only trust the rank-based nextTarget if their settled score is
+    // still >= the viewer's current score. A stale snapshot can place an
+    // already-beaten player at newRank-1; Math.max(0, ...) would silently
+    // clamp the negative gap to 0 and show a misleading zero-gap target.
+    // When beaten, fall through to the snapshot-level gap/name which was
+    // computed directly from projection data in buildChallengeMobileScoreFeedbackSnapshot.
+    const nextTarget =
+      rawNextTarget && rawNextTarget.score >= nextMe.score ? rawNextTarget : null;
+
+    // Gap is nextTarget.score - me.score (always >= 0 when nextTarget is set).
+    // Ties show a zero gap and keep the target name.
+    const nextTargetGap =
+      nextTarget !== null
+        ? nextTarget.score - nextMe.score
+        : nextSnapshot.nextTargetGap;
+    const nextTargetName =
+      nextTarget?.username ?? nextSnapshot.nextTargetName;
+
+    const runnerUp = isFirst
+      ? (nextSnapshot.players.find((p) => p.rank === 2) ?? null)
+      : null;
+    const leadScore =
+      runnerUp !== null ? Math.max(0, nextMe.score - runnerUp.score) : null;
+
     return {
       type: "passed",
       scope: nextSnapshot.scope,
@@ -328,6 +515,11 @@ export const buildMobileScoreFeedbackEvent = (
       newRank,
       me: nextMe,
       target: passedTarget,
+      nextTarget,
+      nextTargetGap,
+      nextTargetName,
+      runnerUp,
+      leadScore,
     };
   }
 
@@ -338,6 +530,11 @@ export const buildMobileScoreFeedbackEvent = (
       oldRank,
       newRank,
     );
+    const nextTarget =
+      nextSnapshot.players.find(
+        (player) =>
+          player.rank === newRank - 1 && player.clientId !== nextMe.clientId,
+      ) ?? overtakingTarget;
 
     const prevTargetScore = overtakingTarget
       ? prevSnapshot.scoreByClientId.get(overtakingTarget.clientId)
@@ -346,6 +543,7 @@ export const buildMobileScoreFeedbackEvent = (
     return {
       type: "overtaken",
       scope: nextSnapshot.scope,
+      scoreGain: Math.max(0, scoreGain),
       oldRank,
       newRank,
       me: nextMe,
@@ -354,16 +552,18 @@ export const buildMobileScoreFeedbackEvent = (
         overtakingTarget && typeof prevTargetScore === "number"
           ? Math.max(0, overtakingTarget.score - prevTargetScore)
           : null,
+      nextTargetGap:
+        nextTarget !== null ? Math.max(0, nextTarget.score - nextMe.score) : null,
+      nextTargetName: nextTarget?.username ?? null,
     };
   }
 
-  if (scoreGain <= 0) {
-    return null;
-  }
-
-  if (newRank === 1) {
-    const runnerUp =
-      nextSnapshot.players.find((player) => player.rank === 2) ?? null;
+  // Rank unchanged but score increased: always show score feedback with gap info.
+  if (scoreGain > 0) {
+    const isFirst = newRank === 1;
+    const runnerUp = isFirst
+      ? (nextSnapshot.players.find((player) => player.rank === 2) ?? null)
+      : null;
 
     return {
       type: "score",
@@ -373,21 +573,12 @@ export const buildMobileScoreFeedbackEvent = (
       target: null,
       remainingScore: null,
       runnerUp,
-      leadScore: runnerUp ? nextMe.score - runnerUp.score : null,
+      leadScore:
+        runnerUp !== null ? Math.max(0, nextMe.score - runnerUp.score) : null,
+      nextTargetGap: nextSnapshot.nextTargetGap,
+      nextTargetName: nextSnapshot.nextTargetName,
     };
   }
 
-  const target =
-    nextSnapshot.players.find((player) => player.rank === newRank - 1) ?? null;
-
-  return {
-    type: "score",
-    scope: nextSnapshot.scope,
-    scoreGain,
-    me: nextMe,
-    target,
-    remainingScore: target ? target.score - nextMe.score + 1 : null,
-    runnerUp: null,
-    leadScore: null,
-  };
+  return null;
 };

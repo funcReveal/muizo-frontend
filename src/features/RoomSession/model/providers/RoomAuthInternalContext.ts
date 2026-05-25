@@ -12,6 +12,7 @@ export interface RoomAuthInternalContextValue {
 
 export const RoomAuthInternalContext =
   createContext<RoomAuthInternalContextValue | null>(null);
+RoomAuthInternalContext.displayName = "RoomAuthInternalContext";
 
 export const useRoomAuthInternal = (): RoomAuthInternalContextValue => {
   const ctx = useContext(RoomAuthInternalContext);

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@mui/material";
 import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import VideocamRoundedIcon from "@mui/icons-material/VideocamRounded";
 import VolumeDownRoundedIcon from "@mui/icons-material/VolumeDownRounded";
 import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
@@ -22,6 +24,7 @@ interface MobileEmbeddedHudConfig {
   trackSessionKey: string;
   allAnsweredReadyForReveal: boolean;
   isRecoveringConnection: boolean;
+  recoveryStatusText?: string | null;
   liveAnsweredCount: number;
   liveParticipantCount: number;
 }
@@ -37,6 +40,10 @@ const formatMobileHudTime = (totalSeconds: number): string => {
 const MOBILE_GUESS_RING_RADIUS = 30;
 const MOBILE_GUESS_RING_CIRCUMFERENCE =
   2 * Math.PI * MOBILE_GUESS_RING_RADIUS;
+const DESKTOP_GUESS_RING_RADIUS = 64;
+const DESKTOP_GUESS_RING_CIRCUMFERENCE =
+  2 * Math.PI * DESKTOP_GUESS_RING_RADIUS;
+
 interface GameRoomPlaybackPanelProps {
   rootRef?: React.Ref<HTMLDivElement>;
   mediaFrameRef?: React.Ref<HTMLDivElement>;
@@ -68,6 +75,12 @@ interface GameRoomPlaybackPanelProps {
   gameVolume: number;
   onGameVolumeChange: (volume: number) => void;
   mobileEmbeddedHud?: MobileEmbeddedHudConfig;
+  desktopEmbeddedHud?: MobileEmbeddedHudConfig;
+  recoveryStatusText?: string | null;
+  mobileScoreFeedbackOverlay?: React.ReactNode;
+  desktopScoreFeedbackOverlay?: React.ReactNode;
+  mobileFrameActions?: React.ReactNode;
+  mobileFrameActionsHasAlert?: boolean;
 }
 
 const GameRoomDanmuLayer = React.memo(function GameRoomDanmuLayer({
@@ -152,42 +165,320 @@ const MobilePlayerSwitch = React.memo(function MobilePlayerSwitch({
   );
 });
 
-const GameRoomVideoModeSegment = React.memo(function GameRoomVideoModeSegment({
-  previewMode,
-  compact = false,
-  onChange,
+const MobileFrameActionsMenu = React.memo(function MobileFrameActionsMenu({
+  actions,
+  hasAlert,
 }: {
-  previewMode: "video" | "thumbnail";
-  compact?: boolean;
-  onChange: (nextMode: "video" | "thumbnail") => void;
+  actions: React.ReactNode;
+  hasAlert?: boolean;
 }) {
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties | null>(
+    null,
+  );
+
+  const toggleOpen = React.useCallback(() => {
+    setOpen((current) => !current);
+  }, []);
+
+  const close = React.useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const updateMenuPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger || typeof window === "undefined") return;
+      const rect = trigger.getBoundingClientRect();
+      const width = Math.min(236, Math.max(188, window.innerWidth - 28));
+      const left = Math.max(
+        10,
+        Math.min(window.innerWidth - width - 10, rect.right - width),
+      );
+      const top = Math.max(
+        10,
+        Math.min(window.innerHeight - 252, rect.bottom + 8),
+      );
+      setMenuStyle({ left, top, width });
+    };
+
+    updateMenuPosition();
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const root = rootRef.current;
+      const menu = menuRef.current;
+      const target = event.target as Node;
+      if (!root || root.contains(target) || menu?.contains(target)) return;
+      setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open]);
+
+  const menu =
+    open && menuStyle && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="game-room-mobile-frame-actions__menu"
+            style={menuStyle}
+            onClick={close}
+          >
+            {actions}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <div
-      className={`game-room-video-mode-seg ${compact ? "game-room-video-mode-seg--compact" : ""
-        }`}
-      role="group"
-      aria-label="影片顯示模式切換"
+      ref={rootRef}
+      className="game-room-mobile-frame-actions"
+      data-open={open ? "true" : "false"}
+      data-alert={hasAlert ? "true" : "false"}
     >
       <button
+        ref={triggerRef}
         type="button"
-        className={`game-room-video-mode-seg-btn ${previewMode === "video" ? "game-room-video-mode-seg-btn--active" : ""
-          }`}
-        onClick={() => onChange("video")}
-        aria-pressed={previewMode === "video"}
+        className="game-room-mobile-frame-actions__trigger"
+        aria-label={
+          open
+            ? "關閉房間功能"
+            : hasAlert
+              ? "展開房間功能，有投票提醒"
+              : "展開房間功能"
+        }
+        aria-expanded={open}
+        onClick={toggleOpen}
       >
-        顯示影片
+        <SettingsRoundedIcon style={{ fontSize: 18 }} />
+        {hasAlert ? (
+          <span
+            className="game-room-mobile-frame-actions__alert-dot"
+            aria-hidden="true"
+          />
+        ) : null}
       </button>
-      <button
-        type="button"
-        className={`game-room-video-mode-seg-btn ${previewMode === "thumbnail"
-          ? "game-room-video-mode-seg-btn--active"
-          : ""
-          }`}
-        onClick={() => onChange("thumbnail")}
-        aria-pressed={previewMode === "thumbnail"}
+      {menu}
+    </div>
+  );
+});
+
+const DesktopEmbeddedVideoModeToggle = React.memo(
+  function DesktopEmbeddedVideoModeToggle({
+    previewMode,
+    onChange,
+  }: {
+    previewMode: "video" | "thumbnail";
+    onChange: (nextMode: "video" | "thumbnail") => void;
+  }) {
+    return (
+      <div
+        className="game-room-desktop-video-tabs"
+        role="tablist"
+        aria-label="播放器顯示模式"
       >
-        顯示縮圖
-      </button>
+        <button
+          type="button"
+          role="tab"
+          className={`game-room-desktop-video-tab ${
+            previewMode === "video" ? "game-room-desktop-video-tab--active" : ""
+          }`}
+          aria-selected={previewMode === "video"}
+          onClick={() => onChange("video")}
+        >
+          <VideocamRoundedIcon fontSize="small" aria-hidden="true" />
+          <span>顯示影片</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={`game-room-desktop-video-tab ${
+            previewMode === "thumbnail"
+              ? "game-room-desktop-video-tab--active"
+              : ""
+          }`}
+          aria-selected={previewMode === "thumbnail"}
+          onClick={() => onChange("thumbnail")}
+        >
+          <ImageRoundedIcon fontSize="small" aria-hidden="true" />
+          <span>顯示縮圖</span>
+        </button>
+      </div>
+    );
+  },
+);
+
+const DesktopEmbeddedGuessHud = React.memo(function DesktopEmbeddedGuessHud({
+  boundedCursor,
+  trackOrderLength,
+  serverOffsetMs,
+  activePhaseDurationMs,
+  phaseEndsAt,
+  trackSessionKey,
+  allAnsweredReadyForReveal,
+  liveAnsweredCount,
+  liveParticipantCount,
+  isRecoveringConnection = false,
+  recoveryStatusText = null,
+}: {
+  boundedCursor: number;
+  trackOrderLength: number;
+  serverOffsetMs: number;
+  activePhaseDurationMs: number;
+  phaseEndsAt: number;
+  trackSessionKey: string;
+  allAnsweredReadyForReveal: boolean;
+  liveAnsweredCount: number;
+  liveParticipantCount: number;
+  isRecoveringConnection?: boolean;
+  recoveryStatusText?: string | null;
+}) {
+  const progressCircleRef = React.useRef<SVGCircleElement | null>(null);
+  const [seconds, setSeconds] = React.useState(() =>
+    Math.ceil(Math.max(0, phaseEndsAt - (Date.now() + serverOffsetMs)) / 1000),
+  );
+
+  React.useEffect(() => {
+    if (isRecoveringConnection || allAnsweredReadyForReveal) {
+      setSeconds(0);
+      return;
+    }
+    let timerId: number | null = null;
+    const tick = () => {
+      const remainingMs = Math.max(0, phaseEndsAt - (Date.now() + serverOffsetMs));
+      const nextSec = Math.ceil(remainingMs / 1000);
+      setSeconds((prev) => (prev === nextSec ? prev : nextSec));
+      if (remainingMs <= 0) return;
+      const nextDelay =
+        remainingMs > 1000 ? (remainingMs % 1000) || 1000 : Math.min(250, remainingMs);
+      timerId = window.setTimeout(tick, nextDelay);
+    };
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [allAnsweredReadyForReveal, isRecoveringConnection, phaseEndsAt, serverOffsetMs, trackSessionKey]);
+
+  React.useLayoutEffect(() => {
+    const circle = progressCircleRef.current;
+    if (!circle) return;
+
+    if (isRecoveringConnection) {
+      circle.style.transition = "none";
+      circle.style.strokeDashoffset = String(-DESKTOP_GUESS_RING_CIRCUMFERENCE * 0.26);
+      return;
+    }
+
+    if (allAnsweredReadyForReveal) {
+      circle.style.transition = "stroke-dashoffset 220ms ease-out";
+      circle.style.strokeDashoffset = String(-DESKTOP_GUESS_RING_CIRCUMFERENCE);
+      return;
+    }
+
+    const remainingMs = Math.max(0, phaseEndsAt - (Date.now() + serverOffsetMs));
+    const fraction =
+      activePhaseDurationMs > 0
+        ? Math.max(0, Math.min(1, remainingMs / activePhaseDurationMs))
+        : 1;
+
+    circle.style.transition = "none";
+    circle.style.strokeDashoffset = String(
+      -DESKTOP_GUESS_RING_CIRCUMFERENCE * (1 - fraction),
+    );
+
+    void circle.getBoundingClientRect();
+
+    if (remainingMs > 0) {
+      circle.style.transition = `stroke-dashoffset ${remainingMs}ms linear`;
+      circle.style.strokeDashoffset = String(-DESKTOP_GUESS_RING_CIRCUMFERENCE);
+    }
+  }, [
+    activePhaseDurationMs,
+    allAnsweredReadyForReveal,
+    isRecoveringConnection,
+    phaseEndsAt,
+    serverOffsetMs,
+    trackSessionKey,
+  ]);
+
+  const isUrgent = !isRecoveringConnection && seconds > 0 && seconds <= 3;
+
+  return (
+    <div
+      className={`game-room-desktop-embedded-hud ${
+        isRecoveringConnection
+          ? "game-room-desktop-embedded-hud--recovering"
+          : isUrgent
+            ? "game-room-desktop-embedded-hud--urgent"
+            : ""
+      }`}
+    >
+      <span className="game-room-desktop-embedded-hud__question">
+        題目 {boundedCursor + 1}/{trackOrderLength || "?"}
+      </span>
+      {isRecoveringConnection && (
+        <span className="game-room-desktop-embedded-hud__recovery-title">
+          {recoveryStatusText ?? "正在恢復連線..."}
+        </span>
+      )}
+      <div className="game-room-desktop-embedded-hud__ring-wrap">
+        <svg
+          className="game-room-desktop-embedded-hud__ring-svg"
+          viewBox="0 0 160 160"
+          width="160"
+          height="160"
+          aria-hidden="true"
+        >
+          <circle
+            className="game-room-desktop-embedded-hud__ring-track"
+            cx="80"
+            cy="80"
+            r={DESKTOP_GUESS_RING_RADIUS}
+            fill="none"
+          />
+          <circle
+            ref={progressCircleRef}
+            className="game-room-desktop-embedded-hud__ring-progress"
+            cx="80"
+            cy="80"
+            r={DESKTOP_GUESS_RING_RADIUS}
+            fill="none"
+            strokeDasharray={DESKTOP_GUESS_RING_CIRCUMFERENCE}
+            strokeDashoffset="0"
+            transform="rotate(-90 80 80)"
+          />
+        </svg>
+        <span className="game-room-desktop-embedded-hud__timer">
+          {formatMobileHudTime(seconds)}
+        </span>
+      </div>
+      {isRecoveringConnection ? (
+        <span className="game-room-desktop-embedded-hud__answered">
+          請稍候，正在同步遊戲進度
+        </span>
+      ) : liveParticipantCount > 0 && (
+        <span className="game-room-desktop-embedded-hud__answered">
+          已答 {liveAnsweredCount}/{liveParticipantCount}
+        </span>
+      )}
     </div>
   );
 });
@@ -202,6 +493,8 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
   allAnsweredReadyForReveal,
   liveAnsweredCount,
   liveParticipantCount,
+  isRecoveringConnection = false,
+  recoveryStatusText = null,
 }: {
   boundedCursor: number;
   trackOrderLength: number;
@@ -212,6 +505,8 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
   allAnsweredReadyForReveal: boolean;
   liveAnsweredCount: number;
   liveParticipantCount: number;
+  isRecoveringConnection?: boolean;
+  recoveryStatusText?: string | null;
 }) {
   const progressCircleRef = React.useRef<SVGCircleElement | null>(null);
 
@@ -281,16 +576,27 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
     trackSessionKey,
   ]);
 
-  const isUrgent = seconds > 0 && seconds <= 3;
+  const isUrgent = !isRecoveringConnection && seconds > 0 && seconds <= 3;
 
   return (
     <div
-      className={`game-room-mobile-guess-hud ${isUrgent ? "game-room-mobile-guess-hud--urgent" : ""
-        }`}
+      className={`game-room-mobile-guess-hud ${
+        isRecoveringConnection
+          ? "game-room-mobile-guess-hud--recovering"
+          : isUrgent
+            ? "game-room-mobile-guess-hud--urgent"
+            : ""
+      }`}
     >
-      <span className="game-room-mobile-guess-hud__question">
-        題目 {boundedCursor + 1}/{trackOrderLength || "?"}
-      </span>
+      {isRecoveringConnection ? (
+        <span className="game-room-mobile-guess-hud__question">
+          {recoveryStatusText ?? "重新連接中..."}
+        </span>
+      ) : (
+        <span className="game-room-mobile-guess-hud__question">
+          題目 {boundedCursor + 1}/{trackOrderLength || "?"}
+        </span>
+      )}
 
       <div className="game-room-mobile-guess-hud__ring-wrap">
         <svg
@@ -326,7 +632,11 @@ const MobileGuessCountdownHud = React.memo(function MobileGuessCountdownHud({
         </span>
       </div>
 
-      {liveParticipantCount > 0 && (
+      {isRecoveringConnection ? (
+        <span className="game-room-mobile-guess-hud__answered">
+          請稍候，正在同步遊戲進度
+        </span>
+      ) : liveParticipantCount > 0 && (
         <span className="game-room-mobile-guess-hud__answered">
           已答 {liveAnsweredCount}/{liveParticipantCount}
         </span>
@@ -405,6 +715,12 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   onGameVolumeChange,
   videoId,
   mobileEmbeddedHud,
+  desktopEmbeddedHud,
+  recoveryStatusText = null,
+  mobileScoreFeedbackOverlay,
+  desktopScoreFeedbackOverlay,
+  mobileFrameActions,
+  mobileFrameActionsHasAlert,
 }) => {
   const revealMarqueeWrapRef = React.useRef<HTMLSpanElement | null>(null);
   const revealMarqueeTrackRef = React.useRef<HTMLSpanElement | null>(null);
@@ -550,10 +866,15 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
     showGuessMask || showAudioOnlyMask || showPreStartMask || isRevealPhase;
   const shouldUseSimpleMobileGuessSpinner = isMobileView;
   const isMobileGuessHudActive = Boolean(
-    mobileEmbeddedHud?.mode === "guess" && showGuessMask && !mobileEmbeddedHud.isRecoveringConnection,
+    mobileEmbeddedHud?.mode === "guess" && showGuessMask,
   );
   const isMobileRevealHudActive = mobileEmbeddedHud?.mode === "reveal";
   const isMobileEmbeddedHudActive = isMobileGuessHudActive || isMobileRevealHudActive;
+  const isDesktopGuessHudActive = Boolean(
+    !isMobileView &&
+      desktopEmbeddedHud?.mode === "guess" &&
+      showGuessMask,
+  );
   const handleVideoModeChange = useCallback(
     (nextMode: "video" | "thumbnail") => {
       onShowVideoChange(nextMode === "video");
@@ -566,14 +887,6 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
       題目 {boundedCursor + 1}/{trackOrderLength || "?"}
     </div>
   );
-  const videoModeControl = (
-    <GameRoomVideoModeSegment
-      previewMode={previewMode}
-      compact={isMobileView}
-      onChange={handleVideoModeChange}
-    />
-  );
-
   const revealAnswerNode = shouldShowMobileReveal ? (
     <div className="game-room-reveal-inline">
       <span className="game-room-reveal-inline__label">答案</span>
@@ -593,7 +906,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
     </div>
   ) : null;
 
-  const mobileInfoBar = isMobileView && !isMobileEmbeddedHudActive ? (
+  const mobileInfoBar = isMobileView && !isMobileEmbeddedHudActive && !showPreStartMask ? (
     <div className="game-room-mobile-info-bar">
       <div className="game-room-mobile-info-bar__top">
         <div className="game-room-mobile-info-bar__counter">{trackCounterNode}</div>
@@ -636,7 +949,6 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           >
             {!isMobileView ? (
               <div className="game-room-playback-title-row">
-                {trackCounterNode}
                 {shouldShowRoomName && <p className="game-room-title">{roomName}</p>}
               </div>
             ) : (
@@ -665,10 +977,61 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 
       {mobileInfoBar}
 
+      {!isMobileView && desktopScoreFeedbackOverlay ? (
+        <div className="game-room-desktop-score-feedback-slot game-room-desktop-score-feedback-slot--outside-frame">
+          {desktopScoreFeedbackOverlay}
+        </div>
+      ) : null}
+
       <div
         ref={mediaFrameRef}
         className={`game-room-media-frame relative w-full overflow-hidden ${mediaFrameHeightClass}`}
       >
+        {isMobileView && mobileScoreFeedbackOverlay ? (
+          <div className="game-room-mobile-score-feedback-slot">
+            {mobileScoreFeedbackOverlay}
+          </div>
+        ) : null}
+
+        {!isMobileView && (
+          <>
+            <div className="game-room-desktop-video-toggle-slot">
+              <DesktopEmbeddedVideoModeToggle
+                previewMode={previewMode}
+                onChange={handleVideoModeChange}
+              />
+            </div>
+
+            {!isOverlayMode ? (
+              <div className="game-room-desktop-volume-overlay">
+                <div className="game-room-playback-volume-panel">
+                  <span className="game-room-playback-volume-panel__icon" aria-hidden="true">
+                    {volumeIcon}
+                  </span>
+                  <span
+                    ref={volumeTextRef}
+                    className="game-room-playback-volume-panel__value"
+                  >
+                    {Math.round(gameVolume)}%
+                  </span>
+                </div>
+                <input
+                  ref={sliderRef}
+                  type="range"
+                  min={0}
+                  max={100}
+                  defaultValue={gameVolume}
+                  onChange={handleVolumeChange}
+                  onPointerDown={handleVolumePointerDown}
+                  onPointerUp={handleVolumePointerUp}
+                  aria-label="遊戲音量"
+                  className="game-room-playback-volume-slider"
+                />
+              </div>
+            ) : null}
+          </>
+        )}
+
         {iframeSrc ? (
           <div
             className={iframeWrapClassName}
@@ -713,14 +1076,35 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         )}
 
         {isMobileView && (
-          <MobilePlayerSwitch previewMode={previewMode} onChange={handleVideoModeChange} />
+          <>
+            <MobilePlayerSwitch previewMode={previewMode} onChange={handleVideoModeChange} />
+            {mobileFrameActions ? (
+              <MobileFrameActionsMenu
+                actions={mobileFrameActions}
+                hasAlert={mobileFrameActionsHasAlert}
+              />
+            ) : null}
+          </>
         )}
 
         {showGuessMask && (
           <div className="game-room-playback-mask game-room-playback-mask--guess pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950">
-            {shouldUseSimpleMobileGuessSpinner &&
-              mobileEmbeddedHud?.mode === "guess" &&
-              !mobileEmbeddedHud.isRecoveringConnection ? (
+            {isDesktopGuessHudActive && desktopEmbeddedHud ? (
+              <DesktopEmbeddedGuessHud
+                boundedCursor={boundedCursor}
+                trackOrderLength={trackOrderLength}
+                serverOffsetMs={desktopEmbeddedHud.serverOffsetMs}
+                activePhaseDurationMs={desktopEmbeddedHud.activePhaseDurationMs}
+                phaseEndsAt={desktopEmbeddedHud.phaseEndsAt}
+                trackSessionKey={desktopEmbeddedHud.trackSessionKey}
+                allAnsweredReadyForReveal={desktopEmbeddedHud.allAnsweredReadyForReveal}
+                liveAnsweredCount={desktopEmbeddedHud.liveAnsweredCount}
+                liveParticipantCount={desktopEmbeddedHud.liveParticipantCount}
+                isRecoveringConnection={desktopEmbeddedHud.isRecoveringConnection}
+                recoveryStatusText={desktopEmbeddedHud.recoveryStatusText ?? recoveryStatusText}
+              />
+            ) : shouldUseSimpleMobileGuessSpinner &&
+              mobileEmbeddedHud?.mode === "guess" ? (
               <MobileGuessCountdownHud
                 boundedCursor={boundedCursor}
                 trackOrderLength={trackOrderLength}
@@ -731,6 +1115,8 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 allAnsweredReadyForReveal={mobileEmbeddedHud.allAnsweredReadyForReveal}
                 liveAnsweredCount={mobileEmbeddedHud.liveAnsweredCount}
                 liveParticipantCount={mobileEmbeddedHud.liveParticipantCount}
+                isRecoveringConnection={mobileEmbeddedHud.isRecoveringConnection}
+                recoveryStatusText={mobileEmbeddedHud.recoveryStatusText ?? recoveryStatusText}
               />
             ) : (
               <>
@@ -835,42 +1221,6 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           </div>
         )}
       </div>
-
-      {!isMobileView && (
-        <div className="game-room-playback-footer game-room-playback-footer--desktop">
-          <div className="game-room-playback-footer__toggle">{videoModeControl}</div>
-          {!isOverlayMode ? (
-            <div className="game-room-playback-footer__volume">
-              <div className="game-room-playback-volume-panel">
-                <span className="game-room-playback-volume-panel__icon" aria-hidden="true">
-                  {volumeIcon}
-                </span>
-                <div className="game-room-playback-volume-panel__copy">
-                  <span className="game-room-playback-volume-panel__label">遊戲音量</span>
-                  <span
-                    ref={volumeTextRef}
-                    className="game-room-playback-volume-panel__value"
-                  >
-                    {Math.round(gameVolume)}%
-                  </span>
-                </div>
-              </div>
-              <input
-                ref={sliderRef}
-                type="range"
-                min={0}
-                max={100}
-                defaultValue={gameVolume}
-                onChange={handleVolumeChange}
-                onPointerDown={handleVolumePointerDown}
-                onPointerUp={handleVolumePointerUp}
-                aria-label="遊戲音量"
-                className="game-room-playback-volume-slider"
-              />
-            </div>
-          ) : null}
-        </div>
-      )}
     </div>
   );
 };

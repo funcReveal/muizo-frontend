@@ -6,6 +6,21 @@ import type {
   BorderEffectVariant,
 } from "./borderEffectThemes";
 
+// ---------------------------------------------------------------------------
+// Performance constants — will be wired into user-facing performanceMode
+// setting once that feature lands. Adjust here to tune baseline behaviour.
+// ---------------------------------------------------------------------------
+export const FIRE_CANVAS_DESKTOP_FPS = 60;
+export const FIRE_CANVAS_MOBILE_FPS = 24;
+export const FIRE_CANVAS_DESKTOP_EMITTER_COUNT = 54;
+export const FIRE_CANVAS_MOBILE_EMITTER_COUNT = 28;
+export const FIRE_CANVAS_DESKTOP_MAX_PARTICLES = 112;
+export const FIRE_CANVAS_MOBILE_MAX_PARTICLES = 56;
+export const FIRE_CANVAS_DESKTOP_MAX_DPR = 1.5;
+export const FIRE_CANVAS_MOBILE_MAX_DPR = 1.0;
+
+const FIRE_CANVAS_MOBILE_QUERY = "(max-width: 1023.95px), (pointer: coarse)";
+
 interface BurningFireRingFieldProps {
   frame: {
     path: string;
@@ -209,9 +224,39 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
   duration,
 }) => {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+
+  // Mobile viewport detection — same query as AnimatedScoreboardBorder.
+  // When the viewport class changes (e.g. desktop ↔ phone emulator) the
+  // canvas effect re-initialises automatically via useEffect dependency.
+  const [isMobileViewport, setIsMobileViewport] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(FIRE_CANVAS_MOBILE_QUERY).matches;
+  });
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(FIRE_CANVAS_MOBILE_QUERY);
+    const handleChange = (e: MediaQueryListEvent) => setIsMobileViewport(e.matches);
+    setIsMobileViewport(mq.matches);
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", handleChange);
+      return () => mq.removeEventListener("change", handleChange);
+    }
+    // Safari < 14 fallback
+    mq.addListener(handleChange);
+    return () => mq.removeListener(handleChange);
+  }, []);
+
+  const emitterCount =
+    detailMode === "visual"
+      ? 72
+      : isMobileViewport
+        ? FIRE_CANVAS_MOBILE_EMITTER_COUNT
+        : FIRE_CANVAS_DESKTOP_EMITTER_COUNT;
+
   const emitters = React.useMemo(
-    () => buildEmitters(frame, detailMode === "visual" ? 72 : 54),
-    [detailMode, frame],
+    () => buildEmitters(frame, emitterCount),
+    [frame, emitterCount],
   );
 
   React.useEffect(() => {
@@ -225,10 +270,10 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
       return;
     }
 
-    const dpr = Math.min(
-      window.devicePixelRatio || 1,
-      detailMode === "visual" ? 2 : 1.5,
-    );
+    // DPR cap: mobile gets 1.0 to avoid GPU pressure; preview always 2.
+    const maxDpr =
+      detailMode === "visual" ? 2 : isMobileViewport ? FIRE_CANVAS_MOBILE_MAX_DPR : FIRE_CANVAS_DESKTOP_MAX_DPR;
+    const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
     const displayWidth = frame.outerWidth;
     const displayHeight = frame.outerHeight;
     canvas.width = Math.max(1, Math.round(displayWidth * dpr));
@@ -237,6 +282,16 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
     canvas.style.height = `${displayHeight}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = true;
+
+    // FPS throttle: mobile targets FIRE_CANVAS_MOBILE_FPS, desktop targets
+    // FIRE_CANVAS_DESKTOP_FPS. Preview mode always runs at full rate.
+    const targetFps =
+      detailMode === "visual"
+        ? FIRE_CANVAS_DESKTOP_FPS
+        : isMobileViewport
+          ? FIRE_CANVAS_MOBILE_FPS
+          : FIRE_CANVAS_DESKTOP_FPS;
+    const frameIntervalMs = 1000 / targetFps;
 
     const config =
       detailMode === "visual"
@@ -253,19 +308,35 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
             drag: 0.989,
             innerPull: 0.04,
           }
-        : {
-            maxParticles: 112,
-            baseEmission: 0.34,
-            minLife: 0.46,
-            maxLife: 0.88,
-            minSize: 4.2,
-            maxSize: 8,
-            minSpeed: 3.2,
-            maxSpeed: 8.2,
-            tangentDrift: 2.1,
-            drag: 0.992,
-            innerPull: 0.032,
-          };
+        : isMobileViewport
+          ? {
+              // Mobile: half the particles, lighter emission — matches the
+              // halved emitter count so visual density stays consistent.
+              maxParticles: FIRE_CANVAS_MOBILE_MAX_PARTICLES,
+              baseEmission: 0.20,
+              minLife: 0.42,
+              maxLife: 0.78,
+              minSize: 4.0,
+              maxSize: 7.5,
+              minSpeed: 3.0,
+              maxSpeed: 7.5,
+              tangentDrift: 1.8,
+              drag: 0.993,
+              innerPull: 0.028,
+            }
+          : {
+              maxParticles: FIRE_CANVAS_DESKTOP_MAX_PARTICLES,
+              baseEmission: 0.34,
+              minLife: 0.46,
+              maxLife: 0.88,
+              minSize: 4.2,
+              maxSize: 8,
+              minSpeed: 3.2,
+              maxSpeed: 8.2,
+              tangentDrift: 2.1,
+              drag: 0.992,
+              innerPull: 0.032,
+            };
 
     const emissionCarry = emitters.map(() => Math.random());
     const flameSprite = createFireSprite({
@@ -281,6 +352,7 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
     let frameId = 0;
     let paused = false;
     let lastTime = performance.now();
+    let lastRenderAt = 0;
     let driftPhase = Math.random() * Math.PI * 2;
     const slowMode =
       typeof window.matchMedia === "function" &&
@@ -357,6 +429,16 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
     const render = (now: number) => {
       frameId = 0;
       if (paused) return;
+
+      // FPS throttle: skip render but keep the rAF loop alive so we don't
+      // miss the next eligible frame. lastTime is NOT updated during a skip
+      // so that the physics delta stays correct on the next real render.
+      if (now - lastRenderAt < frameIntervalMs) {
+        frameId = window.requestAnimationFrame(render);
+        return;
+      }
+      lastRenderAt = now;
+
       const deltaSeconds = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
       driftPhase +=
@@ -457,6 +539,7 @@ const BurningFireCanvasLayer: React.FC<BurningFireCanvasLayerProps> = ({
     frame.outerWidth,
     hotCore,
     hotEdge,
+    isMobileViewport,
     variant,
   ]);
 

@@ -1,16 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo } from "react";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import type {
   ChallengeProjectedMyStanding,
   ChallengeProjectionState,
 } from "../../model/projectionTypes";
+import type {
+  ScoreboardBorderAnimationId,
+  ScoreboardBorderLineStyleId,
+  ScoreboardBorderThemeId,
+} from "../../../Setting/model/scoreboardBorderEffects";
 import { buildChallengeLeaderboardDisplayRows } from "../../model/buildChallengeLeaderboardDisplayRows";
 import {
   ChallengeSeparatorRow,
   ChallengeSelfRow,
   ChallengeEllipsisRow,
 } from "./ChallengeLeaderboardRow";
-import type { ChallengeRankChangePulse } from "./ChallengeLeaderboardRow";
 import { ChallengeAnimatedRows } from "./ChallengeAnimatedRows";
 import type { SelfRowBaseProps } from "./ChallengeAnimatedRows";
 import { useScoreboardWheelScroll } from "./useScoreboardWheelScroll";
@@ -21,7 +25,7 @@ import { useScoreboardWheelScroll } from "./useScoreboardWheelScroll";
 
 const SkeletonRow: React.FC<{ opacity?: number }> = ({ opacity = 1 }) => (
   <div
-    className="game-room-score-row flex items-center justify-between animate-pulse"
+    className="game-room-score-row leaderboard-compact-row flex items-center justify-between animate-pulse"
     style={{ opacity }}
   >
     <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -45,16 +49,19 @@ interface ChallengeLeaderboardPanelProps {
   viewerAvatarUrl?: string | null;
   viewerCombo?: number;
   viewerScore?: number;
-  gainAnimKey?: number;
-  gainAmount?: number;
+  /** Controls nearby self placement: bottom, one-up, then centered. */
+  sessionPassCount?: number;
+  scoreboardBorderEnabled?: boolean;
+  scoreboardBorderMaskEnabled?: boolean;
+  scoreboardBorderAnimation?: ScoreboardBorderAnimationId;
+  scoreboardBorderLineStyle?: ScoreboardBorderLineStyleId;
+  scoreboardBorderTheme?: ScoreboardBorderThemeId;
+  scoreboardBorderParticleCount?: number;
 }
 
 // ---------------------------------------------------------------------------
 // Panel
 // ---------------------------------------------------------------------------
-
-const SCORE_GAIN_VISIBLE_BEFORE_RANK_SWAP_MS = 0;
-const RANK_CHANGE_LANE_VISIBLE_MS = 2500;
 
 export const ChallengeLeaderboardPanel = React.memo(
   function ChallengeLeaderboardPanel({
@@ -65,113 +72,18 @@ export const ChallengeLeaderboardPanel = React.memo(
     viewerAvatarUrl,
     viewerCombo = 0,
     viewerScore = 0,
-    gainAnimKey = 0,
-    gainAmount = 0,
+    sessionPassCount = 0,
+    scoreboardBorderEnabled,
+    scoreboardBorderMaskEnabled,
+    scoreboardBorderAnimation,
+    scoreboardBorderLineStyle,
+    scoreboardBorderTheme,
+    scoreboardBorderParticleCount,
   }: ChallengeLeaderboardPanelProps) {
     const { setScrollNodeRef, onWheel } =
       useScoreboardWheelScroll<HTMLDivElement>();
 
-    const sourceData = state.status === "loaded" ? state.data : null;
-    const [displayData, setDisplayData] = useState(sourceData);
-    const [rankChange, setRankChange] =
-      useState<ChallengeRankChangePulse | null>(null);
-    const displayDataRef = useRef(displayData);
-    const presentationScopeKeyRef = useRef<string | null>(null);
-    const rankChangeKeyRef = useRef(0);
-    const commitTimerRef = useRef<number | null>(null);
-    const clearRankChangeTimerRef = useRef<number | null>(null);
-
-    useEffect(() => {
-      const clearTimers = () => {
-        if (commitTimerRef.current !== null) {
-          window.clearTimeout(commitTimerRef.current);
-          commitTimerRef.current = null;
-        }
-        if (clearRankChangeTimerRef.current !== null) {
-          window.clearTimeout(clearRankChangeTimerRef.current);
-          clearRankChangeTimerRef.current = null;
-        }
-      };
-
-      const commitDisplayData = (
-        nextData: typeof sourceData,
-        nextRankChange: ChallengeRankChangePulse | null,
-      ) => {
-        displayDataRef.current = nextData;
-        setDisplayData(nextData);
-        setRankChange(nextRankChange);
-      };
-
-      if (!sourceData) {
-        clearTimers();
-        presentationScopeKeyRef.current = null;
-        commitDisplayData(null, null);
-        return clearTimers;
-      }
-
-      const presentationScopeKey = [
-        sourceData.roomId,
-        sourceData.collectionId,
-        sourceData.profileKey,
-        sourceData.myStanding.viewerDbUserId ?? "",
-        viewerDisplayName ?? "",
-        viewerAvatarUrl ?? "",
-      ].join(":");
-      const previousData = displayDataRef.current;
-      if (
-        !previousData ||
-        presentationScopeKeyRef.current !== presentationScopeKey
-      ) {
-        clearTimers();
-        presentationScopeKeyRef.current = presentationScopeKey;
-        commitDisplayData(sourceData, null);
-        return clearTimers;
-      }
-
-      const fromRank = previousData.myStanding.projectedRank;
-      const toRank = sourceData.myStanding.projectedRank;
-      if (
-        fromRank === null ||
-        toRank === null ||
-        fromRank === toRank
-      ) {
-        clearTimers();
-        commitDisplayData(sourceData, null);
-        return clearTimers;
-      }
-
-      clearTimers();
-      const commitRankChange = () => {
-        const nextRankChange: ChallengeRankChangePulse = {
-          key: ++rankChangeKeyRef.current,
-          fromRank,
-          toRank,
-          direction: toRank < fromRank ? "up" : "down",
-        };
-        commitDisplayData(sourceData, nextRankChange);
-        clearRankChangeTimerRef.current = window.setTimeout(() => {
-          setRankChange(null);
-          clearRankChangeTimerRef.current = null;
-        }, RANK_CHANGE_LANE_VISIBLE_MS);
-      };
-
-      if (
-        gainAnimKey <= 0 ||
-        gainAmount <= 0 ||
-        SCORE_GAIN_VISIBLE_BEFORE_RANK_SWAP_MS <= 0
-      ) {
-        commitRankChange();
-      } else {
-        commitTimerRef.current = window.setTimeout(
-          commitRankChange,
-          SCORE_GAIN_VISIBLE_BEFORE_RANK_SWAP_MS,
-        );
-      }
-
-      return clearTimers;
-    }, [gainAmount, gainAnimKey, sourceData, viewerAvatarUrl, viewerDisplayName]);
-
-    const data = displayData;
+    const data = state.status === "loaded" ? state.data : null;
 
     const meUserId = data?.myStanding.viewerDbUserId ?? null;
 
@@ -210,9 +122,12 @@ export const ChallengeLeaderboardPanel = React.memo(
             displayName: viewerDisplayName,
             avatarUrl: viewerAvatarUrl,
             combo: viewerCombo,
-            gainAnimKey,
-            gainAmount,
-            rankChange,
+            scoreboardBorderEnabled,
+            scoreboardBorderMaskEnabled,
+            scoreboardBorderAnimation,
+            scoreboardBorderLineStyle,
+            scoreboardBorderTheme,
+            scoreboardBorderParticleCount,
           }
           : {
             standing: skeletonStanding,
@@ -220,9 +135,12 @@ export const ChallengeLeaderboardPanel = React.memo(
             displayName: viewerDisplayName,
             avatarUrl: viewerAvatarUrl,
             combo: viewerCombo,
-            gainAnimKey,
-            gainAmount,
-            rankChange: null,
+            scoreboardBorderEnabled,
+            scoreboardBorderMaskEnabled,
+            scoreboardBorderAnimation,
+            scoreboardBorderLineStyle,
+            scoreboardBorderTheme,
+            scoreboardBorderParticleCount,
           },
       [
         data,
@@ -231,10 +149,13 @@ export const ChallengeLeaderboardPanel = React.memo(
         viewerDisplayName,
         viewerAvatarUrl,
         viewerCombo,
-        gainAnimKey,
-        gainAmount,
-        rankChange,
         skeletonStanding,
+        scoreboardBorderEnabled,
+        scoreboardBorderMaskEnabled,
+        scoreboardBorderAnimation,
+        scoreboardBorderLineStyle,
+        scoreboardBorderTheme,
+        scoreboardBorderParticleCount,
       ],
     );
 
@@ -251,9 +172,10 @@ export const ChallengeLeaderboardPanel = React.memo(
             data,
             viewerScore,
             meUserId,
+            sessionPassCount,
           })
           : { layoutMode: "nearby" as const, listRows: [] },
-      [data, viewerScore, meUserId],
+      [data, viewerScore, meUserId, sessionPassCount],
     );
 
     const stickySelfRowBaseProps = useMemo<SelfRowBaseProps>(() => {
@@ -302,7 +224,7 @@ export const ChallengeLeaderboardPanel = React.memo(
           <div className="game-room-scoreboard-self-sticky-bar px-1">
             <ChallengeSeparatorRow />
             {hasSelfInfo ? (
-              <ChallengeSelfRow {...selfRowBaseProps} showGainLane={false} />
+              <ChallengeSelfRow {...selfRowBaseProps} variant="sticky" />
             ) : (
               <SkeletonRow opacity={0.7} />
             )}
@@ -339,9 +261,9 @@ export const ChallengeLeaderboardPanel = React.memo(
     // Loaded render
     //
     // Layout is fully determined by buildChallengeLeaderboardDisplayRows:
-    //   top-window  (projectedRank ≤ 10) — self injected into Top-10 list
-    //   top-eleven  (projectedRank = 11) — Top-10 + self at #11, no ellipsis
-    //   nearby      (projectedRank ≥ 12 or null) — Top-5 + ellipsis + nearby
+    //   top-window  (projectedRank ≤ 11) — self injected into Top-11 list
+    //   top-eleven  (projectedRank = 12) — Top-11 + self at #12, no ellipsis
+    //   nearby      (projectedRank ≥ 13 or null) — Top-6 + ellipsis + nearby
     //
     // ChallengeAnimatedRows handles move / enter / exit animations.
     // The sticky self bar is rendered separately and never participates in
@@ -355,7 +277,7 @@ export const ChallengeLeaderboardPanel = React.memo(
       >
         <div
           ref={setScrollNodeRef}
-          className="game-room-scoreboard-list mq-autohide-scrollbar px-1 py-1"
+          className="game-room-scoreboard-list mq-autohide-scrollbar relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-1 py-1"
         >
           <div className="game-room-scoreboard-stack challenge-lb-animated-stack">
             <ChallengeAnimatedRows
@@ -368,7 +290,7 @@ export const ChallengeLeaderboardPanel = React.memo(
         {/* Sticky self bar — always visible, separate from animated list */}
         <div className="game-room-scoreboard-self-sticky-bar px-1">
           <ChallengeSeparatorRow />
-          <ChallengeSelfRow {...stickySelfRowBaseProps} showGainLane={false} />
+          <ChallengeSelfRow {...stickySelfRowBaseProps} variant="sticky" />
         </div>
       </div>
     );

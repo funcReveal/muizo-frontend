@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useRoomRealtime } from "@features/RoomSession";
+import { useChatMessages } from "@features/RoomSession";
 import useGameRoomDanmu from "../../model/useGameRoomDanmu";
 import { DanmuContext, DanmuItemsContext } from "@features/RoomChat/model/DanmuContext";
 
@@ -7,7 +7,7 @@ const GameRoomDanmuProviderBridge: React.FC<{
     roomId: string;
     children: React.ReactNode;
 }> = ({ roomId, children }) => {
-    const { messages } = useRoomRealtime();
+    const { messages } = useChatMessages();
     const { danmuEnabled, setDanmuEnabled, danmuItems } = useGameRoomDanmu({
         roomId,
         messages,

@@ -6,14 +6,12 @@ import {
 } from "react";
 
 import type {
-  ChatMessage,
   LeaderboardSettlementReadyPayload,
   RoomLookupResult,
   RoomParticipant,
   RoomSettlementHistorySummary,
   RoomSettlementSnapshot,
   RoomState,
-  RoomSummary,
   SessionProgressPayload,
 } from "./types";
 import type {
@@ -39,7 +37,6 @@ export interface RoomSessionContextValue {
   currentRoom: RoomState["room"] | null;
   currentRoomId: string | null;
   participants: RoomParticipant[];
-  messages: ChatMessage[];
   settlementHistory: RoomSettlementSnapshot[];
   statusText: string | null;
   setStatusText: (value: string | null, options?: RoomStatusOptions) => void;
@@ -54,8 +51,6 @@ export interface RoomSessionContextValue {
   serverOffsetMs: number;
   syncServerOffset: (serverNow: number) => void;
   hostRoomPassword: string | null;
-  rooms: RoomSummary[];
-  fetchRooms: () => Promise<void>;
   fetchRoomById: (roomId: string) => Promise<RoomLookupResult>;
   inviteRoomId: string | null;
   inviteNotFound: boolean;
@@ -87,6 +82,7 @@ export interface RoomSessionContextValue {
 export const RoomSessionContext = createContext<RoomSessionContextValue | null>(
   null,
 );
+RoomSessionContext.displayName = "RoomSessionContext";
 
 export const useRoomSession = (): RoomSessionContextValue => {
   const ctx = useContext(RoomSessionContext);

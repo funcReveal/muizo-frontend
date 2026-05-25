@@ -35,20 +35,11 @@ export const sortParticipantsByScore = (participants: RoomParticipant[]) =>
 
 export const buildScoreboardRows = (
   sortedParticipants: RoomParticipant[],
-  meClientId: string | undefined,
+  _meClientId: string | undefined,
   slots = 12,
   maxPlayers?: number | null,
 ): ScoreboardRow[] => {
-  const topPlayers = sortedParticipants.slice(0, slots);
-  const self = sortedParticipants.find(
-    (participant) => participant.clientId === meClientId,
-  );
-  const scoreboardPlayers =
-    self &&
-    !topPlayers.some((participant) => participant.clientId === self.clientId)
-      ? [...topPlayers.slice(0, slots - 1), self]
-      : topPlayers;
-  const scoreboardEntries = scoreboardPlayers.slice(0, slots);
+  const scoreboardEntries = sortedParticipants.slice(0, slots);
   // Effective limit: how many slots are "open" (players + available seats)
   const effectiveMax =
     maxPlayers && maxPlayers > 0 ? Math.min(maxPlayers, slots) : slots;

@@ -23,7 +23,11 @@ export type GameSfxEvent =
   | "correctCombo4"
   | "correctCombo5"
   | "wrong"
-  | "unanswered";
+  | "unanswered"
+  | "scoreGain"
+  | "rankPass"
+  | "rankOvertaken"
+  | "rankLead";
 
 type SfxStep = {
   atSec: number;
@@ -606,6 +610,130 @@ const getSfxSteps = (preset: SfxPresetProfile, event: GameSfxEvent): SfxStep[] =
           type: preset.softWave,
         },
       ];
+    case "scoreGain":
+      return [
+        {
+          atSec: 0,
+          durationSec: 0.055,
+          freq: p(780),
+          endFreq: p(980),
+          gain: g(0.12),
+          type: preset.softWave,
+        },
+        {
+          atSec: 0.045,
+          durationSec: 0.075,
+          freq: p(1180),
+          endFreq: p(1480),
+          gain: g(0.13),
+          type: preset.accentWave,
+        },
+        {
+          atSec: 0.11,
+          durationSec: 0.09,
+          freq: p(1620),
+          endFreq: p(1980),
+          gain: g(0.095),
+          type: preset.primaryWave,
+        },
+      ];
+    case "rankPass":
+      return [
+        {
+          atSec: 0,
+          durationSec: 0.09,
+          freq: p(520),
+          endFreq: p(760),
+          gain: g(0.15),
+          type: preset.softWave,
+        },
+        {
+          atSec: 0.055,
+          durationSec: 0.105,
+          freq: p(940),
+          endFreq: p(1320),
+          gain: g(0.17),
+          type: preset.primaryWave,
+        },
+        {
+          atSec: 0.14,
+          durationSec: 0.1,
+          freq: p(1480),
+          endFreq: p(1960),
+          gain: g(0.13),
+          type: preset.accentWave,
+        },
+        {
+          atSec: 0.22,
+          durationSec: 0.14,
+          freq: p(2160),
+          endFreq: p(2820),
+          gain: g(0.09),
+          type: preset.softWave,
+        },
+      ];
+    case "rankOvertaken":
+      return [
+        {
+          atSec: 0,
+          durationSec: 0.075,
+          freq: p(740),
+          endFreq: p(560),
+          gain: g(0.13),
+          type: preset.accentWave,
+        },
+        {
+          atSec: 0.055,
+          durationSec: 0.13,
+          freq: p(520),
+          endFreq: p(300),
+          gain: g(0.12),
+          type: "sawtooth",
+        },
+        {
+          atSec: 0.16,
+          durationSec: 0.12,
+          freq: p(360),
+          endFreq: p(240),
+          gain: g(0.08),
+          type: preset.softWave,
+        },
+      ];
+    case "rankLead":
+      return [
+        {
+          atSec: 0,
+          durationSec: 0.1,
+          freq: p(620),
+          endFreq: p(880),
+          gain: g(0.13),
+          type: preset.softWave,
+        },
+        {
+          atSec: 0.06,
+          durationSec: 0.12,
+          freq: p(1040),
+          endFreq: p(1520),
+          gain: g(0.16),
+          type: preset.primaryWave,
+        },
+        {
+          atSec: 0.145,
+          durationSec: 0.12,
+          freq: p(1560),
+          endFreq: p(2120),
+          gain: g(0.13),
+          type: preset.accentWave,
+        },
+        {
+          atSec: 0.23,
+          durationSec: 0.18,
+          freq: p(2420),
+          endFreq: p(3180),
+          gain: g(0.09),
+          type: preset.softWave,
+        },
+      ];
     default:
       return [];
   }
@@ -665,19 +793,26 @@ export const playSynthSfx = (
     event === "correctCombo2" ||
     event === "correctCombo3" ||
     event === "correctCombo4" ||
-    event === "correctCombo5";
+    event === "correctCombo5" ||
+    event === "scoreGain" ||
+    event === "rankPass" ||
+    event === "rankLead";
   const eventBoost =
     event === "lock"
       ? 1.08
-      : event === "wrong" || event === "comboBreak"
+      : event === "rankPass" || event === "rankLead"
+        ? 1.32
+        : event === "wrong" || event === "comboBreak" || event === "rankOvertaken"
         ? 1.12
         : isComboEvent
           ? 1.26
           : 1;
   const releaseSec =
-    isComboEvent || event === "comboBreak"
+    event === "rankPass" || event === "rankLead"
+      ? 0.96
+      : isComboEvent || event === "comboBreak"
       ? 0.88
-      : event === "wrong"
+      : event === "wrong" || event === "rankOvertaken"
         ? 0.66
         : 0.56;
 

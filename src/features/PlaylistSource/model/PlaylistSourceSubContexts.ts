@@ -60,6 +60,7 @@ export interface PlaylistLiveSettersContextValue {
 
 export const PlaylistLiveSettersContext =
   createContext<PlaylistLiveSettersContextValue | null>(null);
+PlaylistLiveSettersContext.displayName = "PlaylistLiveSettersContext";
 
 export const usePlaylistLiveSetters = (): PlaylistLiveSettersContextValue => {
   const ctx = useContext(PlaylistLiveSettersContext);
@@ -100,6 +101,7 @@ export interface PlaylistInputControlContextValue {
 
 export const PlaylistInputControlContext =
   createContext<PlaylistInputControlContextValue | null>(null);
+PlaylistInputControlContext.displayName = "PlaylistInputControlContext";
 
 export const usePlaylistInputControl =
   (): PlaylistInputControlContextValue => {
@@ -121,6 +123,7 @@ export interface PlaylistSocketBridgeContextValue {
 
 export const PlaylistSocketBridgeContext =
   createContext<PlaylistSocketBridgeContextValue | null>(null);
+PlaylistSocketBridgeContext.displayName = "PlaylistSocketBridgeContext";
 
 export const usePlaylistSocketBridge = (): PlaylistSocketBridgeContextValue => {
   const ctx = useContext(PlaylistSocketBridgeContext);

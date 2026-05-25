@@ -8,6 +8,7 @@ import {
   resolveGuessDeadlineSfxEvent,
 } from "../../../shared/sfx/gameSfxEngine";
 import { triggerHapticFeedback } from "./gameRoomUtils";
+import type { MobileScoreFeedbackEvent } from "./mobileScoreFeedback";
 import type { PlayGameSfx } from "./useGameSfx";
 
 interface UseGameRoomSfxEffectsInput {
@@ -18,7 +19,6 @@ interface UseGameRoomSfxEffectsInput {
   isReveal: boolean;
   isInterTrackWait: boolean;
   waitingToStart: boolean;
-  preStartCountdownSfxSec: number;
   phaseEndsAt: number;
   meClientId?: string;
   // Reveal result fields
@@ -35,6 +35,7 @@ interface UseGameRoomSfxEffectsInput {
   myComboTier: number;
   getServerNowMs: () => number;
   playGameSfx: PlayGameSfx;
+  scoreFeedbackEvent?: MobileScoreFeedbackEvent | null;
 }
 
 /**
@@ -58,7 +59,6 @@ export function useGameRoomSfxEffects({
   isReveal,
   isInterTrackWait,
   waitingToStart,
-  preStartCountdownSfxSec,
   phaseEndsAt,
   meClientId,
   selectedChoice,
@@ -73,25 +73,51 @@ export function useGameRoomSfxEffects({
   myComboTier,
   getServerNowMs,
   playGameSfx,
+  scoreFeedbackEvent = null,
 }: UseGameRoomSfxEffectsInput) {
   const lastPreStartCountdownSfxKeyRef = useRef<string | null>(null);
   const lastGuessUrgencySfxKeyRef = useRef<string | null>(null);
   const lastCountdownGoSfxKeyRef = useRef<string | null>(null);
   const lastRevealResultSfxKeyRef = useRef<string | null>(null);
   const lastComboStateSfxKeyRef = useRef<string | null>(null);
+  const lastScoreFeedbackSfxKeyRef = useRef<string | null>(null);
 
-  // Pre-start countdown beep
+  // Pre-start final 3 / 2 / 1 beeps, scheduled from server time.
   useEffect(() => {
     if (isEnded || !waitingToStart || isInterTrackWait) return;
-    const sfxKey = `${trackSessionKey}:prestart:${preStartCountdownSfxSec}`;
-    if (lastPreStartCountdownSfxKeyRef.current === sfxKey) return;
-    lastPreStartCountdownSfxKeyRef.current = sfxKey;
-    playGameSfx(resolveCountdownSfxEvent(preStartCountdownSfxSec));
+
+    const nowMs = getServerNowMs();
+    const msUntilStart = gameStartedAt - nowMs;
+    if (msUntilStart <= 0) return;
+
+    const timerIds: number[] = [];
+
+    [3, 2, 1].forEach((sec) => {
+      const fireInMs = msUntilStart - sec * 1000;
+      if (fireInMs < -220) return;
+
+      const timerId = window.setTimeout(
+        () => {
+          const sfxKey = `${trackSessionKey}:prestart:${sec}`;
+          if (lastPreStartCountdownSfxKeyRef.current === sfxKey) return;
+          lastPreStartCountdownSfxKeyRef.current = sfxKey;
+          playGameSfx(resolveCountdownSfxEvent(sec));
+        },
+        Math.max(0, fireInMs),
+      );
+
+      timerIds.push(timerId);
+    });
+
+    return () => {
+      timerIds.forEach((timerId) => window.clearTimeout(timerId));
+    };
   }, [
+    gameStartedAt,
+    getServerNowMs,
     isEnded,
     isInterTrackWait,
     playGameSfx,
-    preStartCountdownSfxSec,
     trackSessionKey,
     waitingToStart,
   ]);
@@ -274,6 +300,58 @@ export function useGameRoomSfxEffects({
     myIsCorrectForCombo,
     playGameSfx,
     trackSessionKey,
+    waitingToStart,
+  ]);
+
+  // Score/rank feedback SFX. This follows the same frontend feedback event that
+  // drives the overlay, so audio never invents a rank transition on its own.
+  useEffect(() => {
+    if (isEnded || waitingToStart || !meClientId || !scoreFeedbackEvent) return;
+
+    const eventKey =
+      scoreFeedbackEvent.type === "unanswered"
+        ? `${scoreFeedbackEvent.scope}:unanswered:${scoreFeedbackEvent.questionKey}`
+        : scoreFeedbackEvent.type === "score"
+          ? `${scoreFeedbackEvent.scope}:score:${scoreFeedbackEvent.me.clientId}:${scoreFeedbackEvent.me.score}:${scoreFeedbackEvent.scoreGain}:${scoreFeedbackEvent.me.rank}`
+          : `${scoreFeedbackEvent.scope}:${scoreFeedbackEvent.type}:${scoreFeedbackEvent.me.clientId}:${scoreFeedbackEvent.oldRank}:${scoreFeedbackEvent.newRank}:${scoreFeedbackEvent.me.score}:${scoreFeedbackEvent.target?.clientId ?? "none"}`;
+
+    if (lastScoreFeedbackSfxKeyRef.current === eventKey) return;
+    lastScoreFeedbackSfxKeyRef.current = eventKey;
+
+    if (scoreFeedbackEvent.type === "passed") {
+      playGameSfx(
+        scoreFeedbackEvent.newRank === 1 ? "rankLead" : "rankPass",
+      );
+      triggerHapticFeedback("combo");
+      return;
+    }
+
+    if (scoreFeedbackEvent.type === "overtaken") {
+      playGameSfx("rankOvertaken");
+      triggerHapticFeedback("wrong");
+      return;
+    }
+
+    if (scoreFeedbackEvent.type === "score") {
+      if (scoreFeedbackEvent.scoreGain > 0) {
+        playGameSfx(
+          scoreFeedbackEvent.me.rank === 1 ? "rankLead" : "scoreGain",
+        );
+        triggerHapticFeedback(
+          scoreFeedbackEvent.me.rank === 1 ? "combo" : "correct",
+        );
+      }
+      return;
+    }
+
+    if (scoreFeedbackEvent.type === "unanswered") {
+      playGameSfx("unanswered");
+    }
+  }, [
+    isEnded,
+    meClientId,
+    playGameSfx,
+    scoreFeedbackEvent,
     waitingToStart,
   ]);
 }

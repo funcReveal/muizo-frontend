@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useMediaQuery } from "@mui/material";
 
@@ -7,7 +7,7 @@ import SettingsDrawer from "./SettingsDrawer";
 import IdentityProfileDialog from "./IdentityProfileDialog";
 import { useRoomAwareNavigationGuards } from "./useRoomAwareNavigationGuards";
 import { useAuth } from "@shared/auth/AuthContext";
-import { useRoomGame, useRoomSession } from "@features/RoomSession";
+import { useRoomGameStatus, useRoomSession } from "@features/RoomSession";
 
 const RoomAwareLayoutShell: React.FC = () => {
   const location = useLocation();
@@ -26,12 +26,15 @@ const RoomAwareLayoutShell: React.FC = () => {
   } = useAuth();
 
   const { statusNotification, setStatusText, currentRoom } = useRoomSession();
-  const { gameState } = useRoomGame();
+  const { gameStatus } = useRoomGameStatus();
   const [inRoomSettingsOpen, setInRoomSettingsOpen] = useState(false);
   const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
+  const handleOpenInRoomSettings = useCallback(() => {
+    setInRoomSettingsOpen(true);
+  }, []);
 
   const navigationGuards = useRoomAwareNavigationGuards({
-    onOpenSettings: () => setInRoomSettingsOpen(true),
+    onOpenSettings: handleOpenInRoomSettings,
   });
 
   useEffect(() => {
@@ -39,9 +42,9 @@ const RoomAwareLayoutShell: React.FC = () => {
     setStatusText(null);
   }, [setStatusText, statusNotification]);
 
-  const isGameMode = Boolean(currentRoom && gameState);
+  const isGameMode = Boolean(currentRoom && gameStatus);
   const shouldDeferNicknameConfirm = Boolean(
-    currentRoom && gameState?.status === "playing",
+    currentRoom && gameStatus === "playing",
   );
   const isRoomsHubPage = location.pathname === "/rooms";
   const isCareerPage = location.pathname === "/career";
