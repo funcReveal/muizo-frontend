@@ -51,7 +51,10 @@ export {
   clampStartOffsetSec,
   getQuestionMax,
 } from "./model/roomUtils";
-export { normalizePlaybackExtensionMode } from "./model/roomProviderUtils";
+export {
+  isLeaderboardChallengeSettings,
+  normalizePlaybackExtensionMode,
+} from "./model/roomProviderUtils";
 export {
   getStoredShowVideoPreference,
   setStoredShowVideoPreference,

@@ -471,6 +471,9 @@ const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
         disabled={false}
         onClick={handleClick}
       >
+        {!isReveal && isSelected && (
+          <span className="game-room-choice-selection-frame" aria-hidden="true" />
+        )}
         <div className="game-room-choice-content game-room-choice-content--text-only">
           <span className="game-room-choice-main">
             <GameRoomChoiceText text={choiceDisplayTitle} />
