@@ -8,6 +8,9 @@ import type {
   VirtualLibraryListRowComponent,
   VirtualLibraryListRowProps,
 } from "./VirtualLibraryListRow";
+import VirtualLibraryGridRow, {
+  type VirtualLibraryGridRowProps,
+} from "./VirtualLibraryGridRow";
 
 type YoutubeSourceContentProps = {
   youtubePlaylistsLoading: boolean;
@@ -40,6 +43,12 @@ const YoutubeSourceContent = ({
   renderYoutubeCard,
   VirtualLibraryListRow,
 }: YoutubeSourceContentProps) => {
+  const gridRowCount = Math.ceil(
+    filteredCreateYoutubePlaylists.length / createLibraryColumns,
+  );
+  const gridRowHeight = 256;
+  const gridMinCardWidth = 260;
+
   if (youtubePlaylistsLoading) {
     return (
       <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
@@ -48,7 +57,7 @@ const YoutubeSourceContent = ({
             <div
               className="grid gap-2"
               style={{
-                gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(${gridMinCardWidth}px, 1fr))`,
               }}
             >
               {Array.from({ length: 6 }).map((_, idx) =>
@@ -114,20 +123,23 @@ const YoutubeSourceContent = ({
   return (
     <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
       {createLibraryView === "grid" ? (
-        <div className="h-full min-h-0 overflow-y-auto sm:pr-1">
-          <div
-            className="grid gap-2"
-            style={{
-              gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
-            }}
-          >
-            {filteredCreateYoutubePlaylists.map((playlist, index) =>
-              renderYoutubeCard(playlist, index, "grid"),
-            )}
-          </div>
-        </div>
+        <List<VirtualLibraryGridRowProps>
+          key="youtube-grid"
+          style={{ height: "100%", width: "100%" }}
+          rowCount={gridRowCount}
+          rowHeight={gridRowHeight}
+          rowProps={{
+            items: filteredCreateYoutubePlaylists,
+            columns: createLibraryColumns,
+            minCardWidth: gridMinCardWidth,
+            renderItem: renderYoutubeCard,
+          }}
+          rowComponent={VirtualLibraryGridRow}
+          overscanCount={2}
+        />
       ) : (
         <List<VirtualLibraryListRowProps>
+          key="youtube-list"
           style={{ height: "100%", width: "100%" }}
           rowCount={filteredCreateYoutubePlaylists.length}
           rowHeight={youtubeListRowHeight}

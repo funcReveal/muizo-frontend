@@ -31,7 +31,7 @@ const YoutubePlaylistCard = ({
         type="button"
         disabled={disabled}
         onClick={onSelect}
-        className={`group h-full overflow-hidden rounded-[22px] border text-left transition ${
+        className={`group h-full w-full overflow-hidden rounded-[22px] border text-left transition ${
           disabled
             ? "cursor-not-allowed border-white/10 bg-slate-950/42 opacity-70"
             : selected
@@ -65,12 +65,12 @@ const YoutubePlaylistCard = ({
             </div>
           ) : null}
         </div>
-        <div className="space-y-3 px-4 py-3.5">
-          <div className="space-y-1.5">
+        <div className="space-y-2.5 px-4 py-3">
+          <div className="space-y-1">
             <p className="line-clamp-1 text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
               {playlist.title}
             </p>
-            <p className="line-clamp-2 min-h-[2.5rem] text-[12px] leading-5 text-slate-300/88">
+            <p className="line-clamp-1 text-[12px] leading-5 text-slate-300/88">
               {disabledReason ?? "YouTube 播放清單匯入來源"}
             </p>
           </div>
@@ -93,13 +93,13 @@ const YoutubePlaylistCard = ({
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className={`rounded-xl border text-left transition ${
+      className={`w-full border-b border-slate-700/55 px-3 py-3 text-left transition ${
         disabled
-          ? "cursor-not-allowed border-white/10 bg-slate-950/20 opacity-70"
+          ? "cursor-not-allowed bg-slate-950/20 opacity-70"
           : selected
-          ? "border-rose-300/50 bg-rose-500/10"
-          : "border-rose-300/18 bg-slate-950/25 hover:border-rose-300/34"
-      } flex w-full items-center gap-3 px-3 py-2`}
+          ? "bg-rose-500/10"
+          : "hover:bg-rose-500/[0.06]"
+      } flex items-center gap-3`}
     >
       <div className="h-11 w-16 shrink-0 overflow-hidden rounded-md bg-slate-900/40">
         {playlist.thumbnail ? (

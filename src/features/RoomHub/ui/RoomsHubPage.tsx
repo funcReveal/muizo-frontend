@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type UIEvent,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useContext } from "react";
@@ -368,7 +367,7 @@ const RoomsHubPage: React.FC = () => {
   } = useRoomGame();
   const isDesktopLibraryLayout = useMediaQuery("(min-width:1024px)");
   const isLibraryGridWide = useMediaQuery("(min-width:640px)");
-  const isLibraryGridThreeColumn = useMediaQuery("(min-width:1536px)");
+  const isLibraryGridFourColumn = useMediaQuery("(min-width:1536px)");
   const [guideMode, setGuideMode] = useState<"create" | "join">(() => {
     if (typeof window === "undefined") return "create";
     const stored = window.sessionStorage.getItem(GUIDE_MODE_STORAGE_KEY);
@@ -511,7 +510,6 @@ const RoomsHubPage: React.FC = () => {
     previousCreateLibraryTabRef,
   } = useLibrarySourceUiState();
   const hasRequestedYoutubePlaylistsRef = useRef(false);
-  const createLibraryScrollRef = useRef<HTMLDivElement | null>(null);
   const directRoomCodeInputRef = useRef<HTMLInputElement | null>(null);
   const publicLibrarySearchPanelRef = useRef<HTMLDivElement | null>(null);
   const roomsHubBgmRef = useRef<HTMLAudioElement | null>(null);
@@ -1315,8 +1313,8 @@ const RoomsHubPage: React.FC = () => {
     (roomCreateSourceMode === "link" || roomCreateSourceMode === "youtube"
       ? playlistLoading
       : collectionItemsLoading);
-  const createLibraryColumns = isLibraryGridThreeColumn
-    ? 3
+  const createLibraryColumns = isLibraryGridFourColumn
+    ? 4
     : isLibraryGridWide
       ? 2
       : 1;
@@ -1440,30 +1438,6 @@ const RoomsHubPage: React.FC = () => {
     setSourceSetupDrawer(null);
   }, [createLibraryTab, guideMode]);
 
-  useEffect(() => {
-    if (
-      createLibraryView !== "grid" ||
-      (createLibraryTab !== "public" && createLibraryTab !== "personal") ||
-      collectionsLoading ||
-      collectionsLoadingMore ||
-      !collectionsHasMore
-    ) {
-      return;
-    }
-    const container = createLibraryScrollRef.current;
-    if (!container) return;
-    if (container.scrollHeight <= container.clientHeight + 24) {
-      void loadMoreCollections();
-    }
-  }, [
-    collections.length,
-    collectionsHasMore,
-    collectionsLoading,
-    collectionsLoadingMore,
-    createLibraryTab,
-    createLibraryView,
-    loadMoreCollections,
-  ]);
   const handlePickYoutubeSource = async (playlistId: string) => {
     const playlist = youtubePlaylists.find((item) => item.id === playlistId);
     if (playlist && playlist.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT) {
@@ -1676,23 +1650,6 @@ const RoomsHubPage: React.FC = () => {
       roomRequiresPin(resolvedDirectJoinRoom),
     );
   };
-  const handleCollectionGridScroll = (event: UIEvent<HTMLDivElement>) => {
-    if (
-      collectionsLoading ||
-      collectionsLoadingMore ||
-      !collectionsHasMore ||
-      createLibraryView !== "grid"
-    ) {
-      return;
-    }
-    const target = event.currentTarget;
-    const remaining =
-      target.scrollHeight - target.scrollTop - target.clientHeight;
-    if (remaining <= 180) {
-      void loadMoreCollections();
-    }
-  };
-
   return (
     <div className="mx-auto flex h-full min-h-0 w-full flex-1 flex-col text-[var(--mc-text)]">
       {!currentRoom?.id && (
@@ -1968,10 +1925,6 @@ const RoomsHubPage: React.FC = () => {
                               setCreateLibraryTab={setCreateLibraryTab}
                               handleActivateLinkSource={
                                 handleActivateLinkSource
-                              }
-                              createLibraryScrollRef={createLibraryScrollRef}
-                              handleCollectionGridScroll={
-                                handleCollectionGridScroll
                               }
                               createLibraryColumns={createLibraryColumns}
                               renderCollectionCard={renderCollectionCard}

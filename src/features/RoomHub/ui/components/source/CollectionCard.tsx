@@ -279,8 +279,8 @@ const CollectionCard = ({
             </div>
           ) : null}
         </div>
-        <div className="space-y-3 px-4 py-3.5">
-          <div className="space-y-1.5">
+        <div className="space-y-2.5 px-4 py-3">
+          <div className="space-y-1">
             <p className="truncate text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
               {collection.title}
             </p>
