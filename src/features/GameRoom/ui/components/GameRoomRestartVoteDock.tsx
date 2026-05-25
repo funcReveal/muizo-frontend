@@ -1,8 +1,8 @@
 import React, {
   memo,
   useCallback,
+  useEffect,
   useRef,
-  type CSSProperties,
 } from "react";
 import { Button } from "@mui/material";
 import HowToVoteRoundedIcon from "@mui/icons-material/HowToVoteRounded";
@@ -13,6 +13,13 @@ import type { RestartGameVoteAction } from "@features/RoomSession";
 type RestartVoteDockPosition = {
   x: number;
   y: number;
+};
+
+type RestartVoteDockDragBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
 };
 
 type RestartVoteDockProps = {
@@ -52,14 +59,15 @@ const getViewportSize = () => ({
   height: window.visualViewport?.height ?? window.innerHeight,
 });
 
-const clampPositionToViewport = (
-  position: RestartVoteDockPosition,
+const getDragBounds = (
   dockElement: HTMLElement | null,
-): RestartVoteDockPosition => {
+): RestartVoteDockDragBounds => {
   if (!dockElement) {
     return {
-      x: Math.min(0, position.x),
-      y: Math.max(0, position.y),
+      minX: Number.NEGATIVE_INFINITY,
+      maxX: 0,
+      minY: 0,
+      maxY: Number.POSITIVE_INFINITY,
     };
   }
 
@@ -79,10 +87,34 @@ const clampPositionToViewport = (
     viewportHeight - DOCK_VIEWPORT_MARGIN_PX - baseTop - dockHeight,
   );
 
-  return {
-    x: Math.min(maxX, Math.max(minX, position.x)),
-    y: Math.min(maxY, Math.max(minY, position.y)),
-  };
+  return { minX, maxX, minY, maxY };
+};
+
+const clampPositionToBounds = (
+  position: RestartVoteDockPosition,
+  bounds: RestartVoteDockDragBounds,
+): RestartVoteDockPosition => ({
+  x: Math.min(bounds.maxX, Math.max(bounds.minX, position.x)),
+  y: Math.min(bounds.maxY, Math.max(bounds.minY, position.y)),
+});
+
+const getDockTransform = (
+  position: RestartVoteDockPosition,
+  collapsed: boolean,
+) => {
+  const transformX = collapsed
+    ? "var(--game-room-restart-vote-dock-collapse-x)"
+    : `${position.x}px`;
+  return `translate3d(${transformX}, ${position.y}px, 0)`;
+};
+
+const applyDockTransform = (
+  dockElement: HTMLElement | null,
+  position: RestartVoteDockPosition,
+  collapsed: boolean,
+) => {
+  if (!dockElement) return;
+  dockElement.style.transform = getDockTransform(position, collapsed);
 };
 
 const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
@@ -109,8 +141,12 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
     clientY: number;
     originX: number;
     originY: number;
+    bounds: RestartVoteDockDragBounds;
+    latestPosition: RestartVoteDockPosition;
     moved: boolean;
   } | null>(null);
+  const dragRafRef = useRef<number | null>(null);
+  const pendingTransformRef = useRef<RestartVoteDockPosition | null>(null);
   const suppressRailClickRef = useRef(false);
 
   const actionLabel =
@@ -120,21 +156,45 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
   const votedCount = Math.min(eligibleCount, approveCount + rejectCount);
   const progressSummary = `\u9700\u8981 ${majorityCount} \u7968 / \u5171 ${eligibleCount} \u4eba`;
   const votedSummary = `\u5df2\u6295\u7968 ${votedCount}`;
-  const transformX = collapsed
-    ? "var(--game-room-restart-vote-dock-collapse-x)"
-    : `${position.x}px`;
-  const dockStyle = {
-    transform: `translate3d(${transformX}, ${position.y}px, 0)`,
-  } satisfies CSSProperties;
+
+  useEffect(() => {
+    if (dragStartRef.current) return;
+    applyDockTransform(dockRef.current, position, collapsed);
+  }, [collapsed, position]);
+
+  useEffect(
+    () => () => {
+      if (dragRafRef.current !== null) {
+        window.cancelAnimationFrame(dragRafRef.current);
+      }
+    },
+    [],
+  );
+
+  const scheduleDockTransform = useCallback(
+    (nextPosition: RestartVoteDockPosition) => {
+      pendingTransformRef.current = nextPosition;
+      if (dragRafRef.current !== null) return;
+      dragRafRef.current = window.requestAnimationFrame(() => {
+        dragRafRef.current = null;
+        const pendingPosition = pendingTransformRef.current;
+        if (!pendingPosition) return;
+        applyDockTransform(dockRef.current, pendingPosition, collapsed);
+      });
+    },
+    [collapsed],
+  );
 
   const setCollapsed = useCallback(
     (nextCollapsed: boolean) => {
+      const nextPosition = nextCollapsed ? { x: 0, y: position.y } : position;
+      applyDockTransform(dockRef.current, nextPosition, nextCollapsed);
       if (nextCollapsed) {
-        onPositionChange({ x: 0, y: position.y });
+        onPositionChange(nextPosition);
       }
       onCollapsedChange(nextCollapsed);
     },
-    [onCollapsedChange, onPositionChange, position.y],
+    [onCollapsedChange, onPositionChange, position],
   );
 
   const handlePointerDown = useCallback(
@@ -146,11 +206,14 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
         clientY: event.clientY,
         originX: position.x,
         originY: position.y,
+        bounds: getDragBounds(dockRef.current),
+        latestPosition: position,
         moved: false,
       };
+      dockRef.current?.classList.add("game-room-restart-vote-dock--dragging");
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [position.x, position.y],
+    [position],
   );
 
   const handlePointerMove = useCallback(
@@ -162,17 +225,17 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
       if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
         drag.moved = true;
       }
-      onPositionChange(
-        clampPositionToViewport(
-          {
-            x: collapsed ? 0 : drag.originX + deltaX,
-            y: drag.originY + deltaY,
-          },
-          dockRef.current,
-        ),
+      const nextPosition = clampPositionToBounds(
+        {
+          x: collapsed ? 0 : drag.originX + deltaX,
+          y: drag.originY + deltaY,
+        },
+        drag.bounds,
       );
+      drag.latestPosition = nextPosition;
+      scheduleDockTransform(nextPosition);
     },
-    [collapsed, onPositionChange],
+    [collapsed, scheduleDockTransform],
   );
 
   const handlePointerEnd = useCallback(
@@ -181,17 +244,25 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
       if (!drag || drag.pointerId !== event.pointerId) return;
       suppressRailClickRef.current = drag.moved;
       dragStartRef.current = null;
+      if (dragRafRef.current !== null) {
+        window.cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      pendingTransformRef.current = null;
+      dockRef.current?.classList.remove("game-room-restart-vote-dock--dragging");
       if (collapsed) {
-        onPositionChange({
-          ...clampPositionToViewport(position, dockRef.current),
-          x: 0,
-        });
+        const nextPosition = { ...drag.latestPosition, x: 0 };
+        applyDockTransform(dockRef.current, nextPosition, true);
+        onPositionChange(nextPosition);
+      } else {
+        applyDockTransform(dockRef.current, drag.latestPosition, false);
+        onPositionChange(drag.latestPosition);
       }
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
     },
-    [collapsed, onPositionChange, position],
+    [collapsed, onPositionChange],
   );
 
   const handleRailClick = useCallback(
@@ -227,7 +298,6 @@ const GameRoomRestartVoteDock = memo(function GameRoomRestartVoteDock({
       className={`game-room-restart-vote-dock ${
         collapsed ? "game-room-restart-vote-dock--collapsed" : ""
       } game-room-restart-vote-dock--${action}`}
-      style={dockStyle}
       aria-label={`${actionLabel}\u6295\u7968`}
       data-vote-state={myVote ?? (canVote ? "pending" : "watching")}
     >
