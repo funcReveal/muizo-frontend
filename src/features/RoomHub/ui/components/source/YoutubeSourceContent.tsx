@@ -46,7 +46,7 @@ const YoutubeSourceContent = ({
   const gridRowCount = Math.ceil(
     filteredCreateYoutubePlaylists.length / createLibraryColumns,
   );
-  const gridRowHeight = 256;
+  const gridRowHeight = 276;
   const gridMinCardWidth = 260;
 
   if (youtubePlaylistsLoading) {
@@ -55,7 +55,7 @@ const YoutubeSourceContent = ({
         {createLibraryView === "grid" ? (
           <div className="h-full min-h-0 overflow-y-auto sm:pr-1">
             <div
-              className="grid gap-2"
+              className="grid gap-3"
               style={{
                 gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(${gridMinCardWidth}px, 1fr))`,
               }}

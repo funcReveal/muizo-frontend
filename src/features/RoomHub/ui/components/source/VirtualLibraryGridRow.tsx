@@ -34,9 +34,9 @@ const VirtualLibraryGridRow = ({
   }, [hasMore, isLoaderRow, isLoadingMore, onLoadMore]);
 
   return (
-    <div style={style} className="box-border pb-2 pr-1">
+    <div style={style} className="box-border pb-5 pr-1">
       <div
-        className="grid h-full gap-2"
+        className="grid h-full gap-3"
         style={{
           gridTemplateColumns: `repeat(${columns}, minmax(${minCardWidth}px, 1fr))`,
         }}

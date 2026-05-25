@@ -68,7 +68,7 @@ const CollectionsSourceContent = ({
   const gridRowCount =
     Math.ceil(filteredCreateCollections.length / createLibraryColumns) +
     (collectionsHasMore || collectionsLoadingMore ? 1 : 0);
-  const gridRowHeight = 256;
+  const gridRowHeight = 276;
   const gridMinCardWidth = 240;
 
   if (shouldShowCollectionSkeleton) {
@@ -77,7 +77,7 @@ const CollectionsSourceContent = ({
         {createLibraryView === "grid" ? (
           <div className="h-full min-h-0 overflow-y-auto sm:pr-1">
             <div
-              className="grid gap-2"
+              className="grid gap-3"
               style={{
                 gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
               }}

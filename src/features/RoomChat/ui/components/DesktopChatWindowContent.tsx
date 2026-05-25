@@ -21,6 +21,7 @@ interface DesktopChatWindowContentProps {
     messageInput: string;
     setMessageInput: (value: string) => void;
     handleSend: () => void;
+    onCloseWhenEmpty: () => void;
     isChatCooldownActive: boolean;
     chatCooldownLeft: number;
 }
@@ -39,6 +40,7 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
     messageInput,
     setMessageInput,
     handleSend,
+    onCloseWhenEmpty,
     isChatCooldownActive,
     chatCooldownLeft,
 }) => {
@@ -64,6 +66,9 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
                         <ChatBubbleRoundedIcon fontSize="small" />
                     </Badge>
                     <span className="floating-chat-fab-label">聊天室</span>
+                    <span className="floating-chat-key-hint" aria-hidden="true">
+                        Enter
+                    </span>
                     <span className="floating-chat-fab-toggle-icon" aria-hidden="true">
                         <ExpandLessRoundedIcon fontSize="small" />
                     </span>
@@ -89,6 +94,9 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
                         <div className="floating-chat-header-title">
                             <ChatBubbleRoundedIcon sx={{ fontSize: 14, opacity: 0.8 }} />
                             <span>聊天室</span>
+                            <span className="floating-chat-key-hint" aria-hidden="true">
+                                Esc
+                            </span>
                         </div>
 
                         <div className="floating-chat-header-actions">
@@ -132,6 +140,7 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
                         messageInput={messageInput}
                         setMessageInput={setMessageInput}
                         handleSend={handleSend}
+                        onRequestCloseWhenEmpty={onCloseWhenEmpty}
                         isChatCooldownActive={isChatCooldownActive}
                         chatCooldownLeft={chatCooldownLeft}
                     />
