@@ -22,19 +22,18 @@ export function useRoomSocketConnectionGate({
     getStoredRoomId() && getStoredRoomSessionToken(),
   );
 
-  const hasRealtimeIdentity = Boolean(
-    authToken || activeUsername || canResumeRoomSession,
-  );
-
   const shouldConnectRoomSocket =
     routeNeedsRoomRealtime &&
     !authLoading &&
     Boolean(clientId) &&
-    hasRealtimeIdentity;
+    (pathname === "/rooms" ||
+      Boolean(authToken || activeUsername || canResumeRoomSession));
 
   return {
     canResumeRoomSession,
-    hasRealtimeIdentity,
+    hasRealtimeIdentity: Boolean(
+      authToken || activeUsername || canResumeRoomSession,
+    ),
     routeNeedsRoomRealtime,
     shouldConnectRoomSocket,
   };

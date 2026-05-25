@@ -5,6 +5,7 @@ export type CareerTabKey = "overview" | "collectionRanks" | "history" | "share";
 interface CareerTabsProps {
   activeTab: CareerTabKey;
   onChange: (tab: CareerTabKey) => void;
+  docked?: boolean;
 }
 
 const tabs: Array<{
@@ -37,6 +38,7 @@ const tabs: Array<{
 const CareerTabs: React.FC<CareerTabsProps> = ({
   activeTab,
   onChange,
+  docked = false,
 }) => {
   return (
     <nav>
@@ -50,7 +52,9 @@ const CareerTabs: React.FC<CareerTabsProps> = ({
               type="button"
               onClick={() => onChange(tab.key)}
               aria-pressed={active}
-              className={`relative min-w-0 rounded-[16px] border px-2 py-2 text-center transition sm:px-3 ${
+              className={`relative min-w-0 border px-2 py-2 text-center transition sm:px-3 ${
+                docked ? "rounded-b-[16px] rounded-t-none" : "rounded-[16px]"
+              } ${
                 active
                   ? "border-amber-300/40 bg-amber-300/12 text-amber-50"
                   : "border-transparent text-[var(--mc-text-muted)] hover:border-amber-300/18 hover:bg-amber-300/8 hover:text-[var(--mc-text)]"

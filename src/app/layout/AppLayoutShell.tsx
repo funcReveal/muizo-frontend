@@ -6,6 +6,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  useMediaQuery,
 } from "@mui/material";
 
 import AppHeader from "./AppHeader";
@@ -49,9 +50,9 @@ const AppLayoutShell: React.FC = () => {
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
 
   const isRoomsHubPage = location.pathname === "/rooms";
-  const isRoomsEntryGatePage = isRoomsHubPage && !username;
 
   const handleLoginRequest = useCallback(() => {
     if (authLoading) return;
@@ -70,11 +71,11 @@ const AppLayoutShell: React.FC = () => {
     [navigate],
   );
 
-  const roomsOutletClassName = isRoomsEntryGatePage
+  const roomsOutletClassName = isRoomsHubPage && isMobileViewport
     ? [
         "min-h-0 flex-1",
         "overflow-y-auto overflow-x-hidden",
-        "pb-[calc(88px+env(safe-area-inset-bottom))]",
+        "pb-[calc(16px+env(safe-area-inset-bottom))]",
         "[-webkit-overflow-scrolling:touch]",
         "overscroll-y-contain",
         "[&>*]:!h-auto",

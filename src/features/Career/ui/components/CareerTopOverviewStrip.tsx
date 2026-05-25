@@ -9,7 +9,6 @@ import {
 interface CareerTopOverviewStripProps {
   hero: CareerHeroStats;
   avatarUrl?: string | null;
-  children?: React.ReactNode;
 }
 
 const quickCardClass =
@@ -18,7 +17,6 @@ const quickCardClass =
 const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
   hero,
   avatarUrl,
-  children,
 }) => {
   const avatarLabel = hero.displayName.trim().slice(0, 2).toUpperCase() || "MU";
 
@@ -78,9 +76,6 @@ const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
         </div>
       </div>
 
-      {children && (
-        <div className="mt-3 border-t border-white/8 pt-2.5">{children}</div>
-      )}
     </section>
   );
 };
