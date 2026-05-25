@@ -41,6 +41,7 @@ import type {
 } from "@features/RoomSession";
 import {
   getStoredShowVideoPreference,
+  isLeaderboardChallengeSettings,
   setStoredShowVideoPreference,
 } from "@features/RoomSession";
 import { normalizeRoomDisplayText } from "../../../shared/utils/text";
@@ -465,7 +466,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     scoreboardBorderTheme,
     scoreboardBorderParticleCount,
   } = useSettingsModel();
-  const isLeaderboardRoom = Boolean(room.gameSettings?.leaderboardProfileKey);
+  const isLeaderboardRoom = isLeaderboardChallengeSettings(room.gameSettings);
   const requiresAudioGesture = useMemo(() => {
     if (typeof window === "undefined") return false;
     return isMobileDevice();
@@ -727,17 +728,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [hostManagementConfirm, isHostInGame, onKickPlayer, onTransferHost]);
   const {
     isManualPlaybackExtensionMode,
-    isAutoPlaybackExtensionMode,
     playbackExtensionVote,
     playbackVoteApproveCount,
     playbackVoteRejectCount,
     playbackVoteMajorityCount,
-    playbackExtensionSeconds,
     hasRequestedRejectedPlaybackExtensionVote,
     myPlaybackVote,
     playbackVoteRequesterName,
     playbackVoteProposalSeconds,
-    playbackVoteResolvedSeconds,
     playbackVoteButtonLabel,
   } = useGameRoomVoteState({
     gameState,
