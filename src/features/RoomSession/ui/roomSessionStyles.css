@@ -17298,28 +17298,6 @@
     0 16px 34px -22px rgba(245, 158, 11, 0.78);
 }
 
-.game-room-extend-vote-btn--prompt {
-  position: relative;
-  border-color: rgba(251, 191, 36, 0.9) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 0 1px rgba(251, 191, 36, 0.18),
-    0 18px 36px -22px rgba(245, 158, 11, 0.88);
-  animation:
-    game-room-vote-prompt-pulse 1.1s ease-in-out infinite,
-    game-room-vote-prompt-shake 0.36s linear infinite;
-}
-
-.game-room-extend-vote-btn--prompt::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  border: 1px solid rgba(251, 191, 36, 0.34);
-  opacity: 0.8;
-  pointer-events: none;
-}
-
 .game-room-extend-vote-btn--approved {
   border-color: rgba(74, 222, 128, 0.44) !important;
   background:
@@ -17341,8 +17319,7 @@
 .game-room-extend-vote-btn--mobile-inline:hover,
 .game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--active,
 .game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--approved,
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--rejected,
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--prompt {
+.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--rejected {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.045),
     0 8px 20px -18px rgba(245, 158, 11, 0.46);
@@ -17365,58 +17342,6 @@
 .game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--rejected {
   border-color: rgba(148, 163, 184, 0.34) !important;
   background: rgba(15, 23, 42, 0.42) !important;
-}
-
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--prompt::after {
-  display: none;
-}
-
-@keyframes game-room-vote-prompt-pulse {
-  0%,
-  100% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 0 0 1px rgba(251, 191, 36, 0.18),
-      0 18px 36px -22px rgba(245, 158, 11, 0.88);
-    filter: saturate(1);
-  }
-
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      0 0 0 1px rgba(251, 191, 36, 0.28),
-      0 22px 40px -22px rgba(251, 191, 36, 1);
-    filter: saturate(1.08);
-  }
-}
-
-@keyframes game-room-vote-prompt-shake {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) rotate(0deg);
-  }
-
-  20% {
-    transform: translate3d(-1px, 0, 0) rotate(-1.2deg);
-  }
-
-  40% {
-    transform: translate3d(1.5px, -0.5px, 0) rotate(1deg);
-  }
-
-  60% {
-    transform: translate3d(-1.5px, 0.5px, 0) rotate(-0.8deg);
-  }
-
-  80% {
-    transform: translate3d(1px, 0, 0) rotate(0.8deg);
-  }
-}
-
-.game-room-mobile-toggle-chip--vote-prompt {
-  animation:
-    game-room-vote-prompt-pulse 1.1s ease-in-out infinite,
-    game-room-vote-prompt-shake 0.36s linear infinite;
 }
 
 .game-room-playback-vote-dialog.MuiPaper-root {
@@ -22080,9 +22005,6 @@
 
 .game-room-restart-vote-btn--notify {
   position: relative;
-  animation:
-    game-room-vote-prompt-pulse 1.1s ease-in-out infinite,
-    game-room-vote-prompt-shake 0.36s linear infinite;
 }
 
 .game-room-restart-vote-red-dot {
@@ -22124,15 +22046,269 @@
   color: #e2e8f0;
 }
 
-.game-room-extend-vote-btn {
-  position: relative;
+.game-room-embedded-vote-overlay-slot {
+  position: absolute;
+  top: 45px;
+  right: 12px;
+  z-index: 86;
+  pointer-events: none;
 }
 
-.game-room-extend-vote-btn--prompt {
-  animation: game-room-extend-vote-nudge 1.4s ease-in-out infinite;
+.game-room-restart-vote-dock {
+  --game-room-restart-vote-dock-collapse-x: 340px;
+  --game-room-restart-vote-dock-rail-width: 42px;
+  position: relative;
+  width: min(340px, calc(100vw - 64px));
+  pointer-events: auto;
+  color: #e2e8f0;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 180ms ease;
+  will-change: transform;
+}
+
+.game-room-restart-vote-dock__rail {
+  position: absolute;
+  top: 10px;
+  left: calc(-1 * var(--game-room-restart-vote-dock-rail-width));
+  z-index: 2;
+  display: inline-flex;
+  min-height: 42px;
+  width: var(--game-room-restart-vote-dock-rail-width);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.26), transparent 64%),
+    rgba(4, 10, 22, 0.92);
+  color: #bae6fd;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
+}
+
+.game-room-restart-vote-dock__rail:active {
+  cursor: grabbing;
+}
+
+.game-room-restart-vote-dock__body {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(56, 189, 248, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(5, 9, 19, 0.96), rgba(2, 4, 10, 0.98));
   box-shadow:
-    0 0 0 1px rgba(251, 191, 36, 0.36),
-    0 0 18px rgba(251, 191, 36, 0.24);
+    0 18px 42px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.game-room-restart-vote-dock--restart_now .game-room-restart-vote-dock__body {
+  border-color: rgba(245, 158, 11, 0.34);
+  background:
+    linear-gradient(90deg, rgba(245, 158, 11, 0.16), transparent 42%),
+    linear-gradient(180deg, rgba(15, 10, 4, 0.96), rgba(4, 4, 10, 0.98));
+}
+
+.game-room-restart-vote-dock__handle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 13px 4px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.game-room-restart-vote-dock__handle:active {
+  cursor: grabbing;
+}
+
+.game-room-restart-vote-dock__collapse {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.58);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.game-room-restart-vote-dock__content {
+  padding: 0 14px 14px;
+}
+
+.game-room-restart-vote-dock__title {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  color: #f8fafc;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.08;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-room-restart-vote-dock__stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 4px;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.game-room-restart-vote-dock__stats > span:nth-child(3) {
+  color: #5eead4;
+}
+
+.game-room-restart-vote-dock__stats > span:nth-child(4) {
+  color: #fb7185;
+}
+
+.game-room-restart-vote-dock__progress {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  height: 10px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.86);
+}
+
+.game-room-restart-vote-dock__progress-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  transform-origin: left center;
+  transition: transform 220ms ease;
+  background: linear-gradient(90deg, #14b8a6, #34d399);
+}
+
+.game-room-restart-vote-dock--restart_now
+  .game-room-restart-vote-dock__progress-fill {
+  background: linear-gradient(90deg, #f59e0b, #facc15);
+}
+
+.game-room-restart-vote-dock__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.game-room-restart-vote-dock__actions .MuiButton-root {
+  min-height: 38px;
+  padding: 6px 13px;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.game-room-restart-vote-dock--collapsed {
+  filter: saturate(0.92);
+  pointer-events: none;
+}
+
+.game-room-restart-vote-dock--collapsed .game-room-restart-vote-dock__rail {
+  pointer-events: auto;
+}
+
+.game-room-restart-vote-dock--collapsed .game-room-restart-vote-dock__body {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-room-restart-vote-dock,
+  .game-room-restart-vote-dock__progress-fill {
+    transition: none;
+  }
+}
+
+@media (max-width: 1479px) {
+  .game-room-embedded-vote-overlay-slot {
+    top: 6px;
+    right: 8px;
+  }
+
+  .game-room-restart-vote-dock {
+    --game-room-restart-vote-dock-collapse-x: 250px;
+    --game-room-restart-vote-dock-rail-width: 32px;
+    width: min(250px, calc(100vw - 74px));
+  }
+
+  .game-room-restart-vote-dock__rail {
+    top: 8px;
+    min-height: 32px;
+    border-radius: 10px 0 0 10px;
+    font-size: 10px;
+  }
+
+  .game-room-restart-vote-dock__body {
+    border-radius: 12px;
+  }
+
+  .game-room-restart-vote-dock__handle {
+    gap: 8px;
+    min-height: 34px;
+    padding: 7px 9px 3px;
+  }
+
+  .game-room-restart-vote-dock__collapse {
+    width: 20px;
+    height: 20px;
+  }
+
+  .game-room-restart-vote-dock__content {
+    padding: 0 11px 11px;
+  }
+
+  .game-room-restart-vote-dock__title {
+    font-size: 13px;
+  }
+
+  .game-room-restart-vote-dock__stats {
+    gap: 6px;
+    margin-top: 7px;
+    font-size: 12px;
+  }
+
+  .game-room-restart-vote-dock__progress {
+    height: 7px;
+    margin-top: 7px;
+  }
+
+  .game-room-restart-vote-dock__actions {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .game-room-restart-vote-dock__actions .MuiButton-root {
+    min-height: 30px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+}
+
+.game-room-extend-vote-btn {
+  position: relative;
 }
 
 .game-room-playback-vote-red-dot {
@@ -22147,39 +22323,6 @@
     0 0 0 3px rgba(244, 63, 94, 0.18),
     0 0 12px rgba(244, 63, 94, 0.55);
   pointer-events: none;
-}
-
-@keyframes game-room-extend-vote-nudge {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  8% {
-    transform: translateX(-1px);
-  }
-
-  16% {
-    transform: translateX(2px);
-  }
-
-  24% {
-    transform: translateX(-1px);
-  }
-
-  32% {
-    transform: translateX(1px);
-  }
-
-  40% {
-    transform: translateX(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .game-room-extend-vote-btn--prompt {
-    animation: none;
-  }
 }
 
 .game-room-mobile-toggle-chip--request-locked {

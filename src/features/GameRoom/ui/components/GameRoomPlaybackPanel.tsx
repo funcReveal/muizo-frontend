@@ -79,6 +79,7 @@ interface GameRoomPlaybackPanelProps {
   recoveryStatusText?: string | null;
   mobileScoreFeedbackOverlay?: React.ReactNode;
   desktopScoreFeedbackOverlay?: React.ReactNode;
+  voteOverlay?: React.ReactNode;
   mobileFrameActions?: React.ReactNode;
   mobileFrameActionsHasAlert?: boolean;
 }
@@ -719,6 +720,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   recoveryStatusText = null,
   mobileScoreFeedbackOverlay,
   desktopScoreFeedbackOverlay,
+  voteOverlay,
   mobileFrameActions,
   mobileFrameActionsHasAlert,
 }) => {
@@ -983,6 +985,12 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         </div>
       ) : null}
 
+      {voteOverlay ? (
+        <div className="game-room-embedded-vote-overlay-slot">
+          {voteOverlay}
+        </div>
+      ) : null}
+
       <div
         ref={mediaFrameRef}
         className={`game-room-media-frame relative w-full overflow-hidden ${mediaFrameHeightClass}`}
@@ -1029,6 +1037,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
                 />
               </div>
             ) : null}
+
           </>
         )}
 
