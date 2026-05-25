@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import type { SettlementQuestionRecap } from "@features/Settlement/ui/components/GameSettlementPanel";
-import HistoryReplayModal from "@features/Settlement/ui/components/HistoryReplayModal";
+import HistoryReplayDrawer from "@features/Settlement/ui/components/HistoryReplayDrawer";
 import HistoryReplayCompactView from "@features/Settlement/ui/components/HistoryReplayCompactView";
 import { HistoryReplaySkeleton } from "@features/Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 import LeaderboardSettlementShowcase from "@features/Settlement/ui/components/LeaderboardSettlementShowcase";
@@ -3203,7 +3203,7 @@ const RoomLobbyPage: React.FC = () => {
   );
 
   const battleHistoryReplayDialog = (
-    <HistoryReplayModal
+    <HistoryReplayDrawer
       open={Boolean(historyReplaySummary)}
       onClose={closeHistoryReplayModal}
       selectedSummary={historyReplaySummary}
@@ -3285,7 +3285,7 @@ const RoomLobbyPage: React.FC = () => {
           找不到可顯示的回放資料。
         </div>
       )}
-    </HistoryReplayModal>
+    </HistoryReplayDrawer>
   );
   const settlementReviewLoadingBanner = isSettlementReviewLoading ? (
     <div

@@ -20,9 +20,6 @@ type SettingsSidebarNavProps = {
   compactMobile?: boolean;
 };
 
-const cardClassName =
-  "rounded-2xl border border-slate-700/70 bg-[linear-gradient(180deg,rgba(8,12,20,0.96),rgba(6,10,16,0.92))] p-3 shadow-[0_18px_48px_-38px_rgba(2,6,23,0.95)]";
-
 const SettingsSidebarNav: React.FC<SettingsSidebarNavProps> = ({
   categories,
   activeCategoryId,
@@ -47,7 +44,7 @@ const SettingsSidebarNav: React.FC<SettingsSidebarNavProps> = ({
 
   return (
     <aside className="flex h-full min-h-0 flex-col gap-3 sm:gap-4">
-      <section className={compactMobile ? "p-0" : cardClassName}>
+      <section className={compactMobile ? "p-0" : ""}>
         <div
           className={
             compactMobile

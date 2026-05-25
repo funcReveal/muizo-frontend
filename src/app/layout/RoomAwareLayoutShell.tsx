@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useMediaQuery } from "@mui/material";
 
 import AppHeader from "./AppHeader";
-import EmbeddedSettingsDialog from "./EmbeddedSettingsDialog";
+import SettingsDrawer from "./SettingsDrawer";
 import IdentityProfileDialog from "./IdentityProfileDialog";
 import { useRoomAwareNavigationGuards } from "./useRoomAwareNavigationGuards";
 import { useAuth } from "@shared/auth/AuthContext";
@@ -47,13 +47,14 @@ const RoomAwareLayoutShell: React.FC = () => {
     currentRoom && gameStatus === "playing",
   );
   const isRoomsHubPage = location.pathname === "/rooms";
-  const isRoomsEntryGatePage = isRoomsHubPage && !username;
+  const isCareerPage = location.pathname === "/career";
+  const shouldUseCareerPageScroll = isCareerPage && !isMobileViewport;
 
-  const roomsOutletClassName = isRoomsEntryGatePage
+  const roomsOutletClassName = isRoomsHubPage && isMobileViewport
     ? [
         "min-h-0 flex-1",
         "overflow-y-auto overflow-x-hidden",
-        "pb-[calc(88px+env(safe-area-inset-bottom))]",
+        "pb-[calc(16px+env(safe-area-inset-bottom))]",
         "[-webkit-overflow-scrolling:touch]",
         "overscroll-y-contain",
         "[&>*]:!h-auto",
@@ -65,15 +66,25 @@ const RoomAwareLayoutShell: React.FC = () => {
   return (
     <div
       className={`flex bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start ${
-        isRoomsHubPage ? "h-dvh overflow-hidden" : "min-h-screen"
+        isRoomsHubPage
+          ? "h-dvh overflow-hidden"
+          : shouldUseCareerPageScroll
+            ? "h-dvh overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
+          : "min-h-screen"
       }`}
     >
       <div
         className={`flex w-full min-w-0 ${
-          isGameMode ? "max-w-none px-3 pt-3 xl:px-5" : "max-w-[1600px] p-4"
+          isGameMode ? "max-w-none px-3 pt-3 xl:px-5" : "p-4"
         } flex-col ${isRoomsHubPage ? "space-y-2" : "space-y-4"}${
           currentRoom && isMobileViewport ? " pb-4" : ""
-        } ${isRoomsHubPage ? "h-full min-h-0" : ""}`}
+        } ${
+          isRoomsHubPage
+            ? "h-full min-h-0"
+            : shouldUseCareerPageScroll
+              ? "min-h-full"
+            : "min-h-screen"
+        }`}
       >
         <AppHeader
           displayUsername={displayUsername}
@@ -94,13 +105,17 @@ const RoomAwareLayoutShell: React.FC = () => {
           <div className={roomsOutletClassName}>
             <Outlet />
           </div>
+        ) : shouldUseCareerPageScroll ? (
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Outlet />
+          </div>
         ) : (
           <Outlet />
         )}
 
         {navigationGuards.dialogs}
 
-        <EmbeddedSettingsDialog
+        <SettingsDrawer
           open={inRoomSettingsOpen}
           onClose={() => setInRoomSettingsOpen(false)}
         />

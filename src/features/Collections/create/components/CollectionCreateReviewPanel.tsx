@@ -3,11 +3,15 @@ import { useTranslation } from "react-i18next";
 
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
-import RestoreRounded from "@mui/icons-material/RestoreRounded";
 import GraphicEqRounded from "@mui/icons-material/GraphicEqRounded";
 import AutoFixHighOutlined from "@mui/icons-material/AutoFixHighOutlined";
 import CircularProgress from "@mui/material/CircularProgress";
 
+import VirtualPlaylistItemList, {
+  type VirtualPlaylistItemStatus,
+  type VirtualPlaylistItemView,
+} from "../../shared/components/VirtualPlaylistItemList";
+import type { CollectionCreateImportSourceType } from "../hooks/useCollectionCreateImportSources";
 import type { DraftPlaylistItem } from "../utils/createCollectionImport";
 
 type CollectionPreview = {
@@ -23,6 +27,7 @@ type ImportSourceSummary = {
   title?: string;
   label?: string;
   sourceTitle?: string;
+  type?: CollectionCreateImportSourceType;
   source?: "url" | "youtube" | string;
   url?: string;
   importedCount?: number;
@@ -30,6 +35,7 @@ type ImportSourceSummary = {
   totalCount?: number;
   skippedCount?: number;
   removedCount?: number;
+  items?: Array<{ thumbnail?: string; title?: string }>;
 };
 
 type Props = {
@@ -100,13 +106,20 @@ function getSourceCount(source: ImportSourceSummary) {
   return source.importedCount ?? source.itemCount ?? source.totalCount ?? 0;
 }
 
-function getItemTitle(item: DraftPlaylistItem) {
-  return item.title || item.answerText || "未命名歌曲";
+function getSourceTypeLabel(source: ImportSourceSummary) {
+  if (source.type === "youtube_account_playlist" || source.source === "youtube") {
+    return "YouTube 清單";
+  }
+
+  return "播放清單連結";
 }
 
-function getItemMeta(item: DraftPlaylistItem) {
-  const uploader = item.uploader || "未知上傳者";
-  return item.duration ? `${uploader} ・ ${item.duration}` : uploader;
+function getSourceThumbnail(source: ImportSourceSummary) {
+  return source.items?.find((item) => item.thumbnail)?.thumbnail ?? null;
+}
+
+function getItemTitle(item: DraftPlaylistItem) {
+  return item.title || item.answerText || "未命名歌曲";
 }
 
 function ImportProgressCard({
@@ -280,15 +293,27 @@ function ImportSourceList({
           return (
             <div
               key={sourceKey}
-              className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 px-3 py-2"
+              className="flex min-w-0 items-center gap-2.5 rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 px-2.5 py-2"
             >
+              {getSourceThumbnail(source) ? (
+                <img
+                  src={getSourceThumbnail(source) ?? ""}
+                  alt={getSourceTitle(source)}
+                  loading="lazy"
+                  className="h-11 w-[78px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover"
+                />
+              ) : (
+                <div className="flex h-11 w-[78px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.16),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)]">
+                  No Cover
+                </div>
+              )}
+
               <div className="min-w-0 flex-1">
                 <div className="overflow-hidden text-xs font-semibold leading-5 text-[var(--mc-text)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:1] sm:text-sm">
                   {getSourceTitle(source)}
                 </div>
                 <div className="mt-0.5 truncate text-[11px] text-[var(--mc-text-muted)]">
-                  {source.source === "youtube" ? "YouTube" : "URL"} ・{" "}
-                  {getSourceCount(source)}{" "}
+                  {getSourceTypeLabel(source)} ・ {getSourceCount(source)}{" "}
                   {t("common.items", { defaultValue: "首" })}
                   {source.skippedCount ? ` ・ 略過 ${source.skippedCount}` : ""}
                 </div>
@@ -312,78 +337,6 @@ function ImportSourceList({
   );
 }
 
-function SongRow({
-  item,
-  variant,
-  onRemove,
-  onRestore,
-}: {
-  item: DraftPlaylistItem;
-  variant: "normal" | "long" | "removed";
-  onRemove?: (item: DraftPlaylistItem) => void;
-  onRestore?: (draftKey: string) => void;
-}) {
-  const { t } = useTranslation("collectionCreate");
-
-  const rowTone =
-    variant === "long"
-      ? "border-amber-300/20 bg-amber-300/8"
-      : variant === "removed"
-        ? "border-slate-300/15 bg-slate-500/8 opacity-80"
-        : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25";
-
-  return (
-    <div
-      className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-2.5 py-2 sm:gap-3 sm:px-3 ${rowTone}`}
-    >
-      {item.thumbnail ? (
-        <img
-          src={item.thumbnail}
-          alt={getItemTitle(item)}
-          loading="lazy"
-          className="h-10 w-[70px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover sm:h-11 sm:w-20"
-        />
-      ) : (
-        <div className="flex h-10 w-[70px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.16),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)] sm:h-11 sm:w-20">
-          No Cover
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className="overflow-hidden text-xs font-semibold leading-5 text-[var(--mc-text)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-sm">
-          {getItemTitle(item)}
-        </div>
-
-        <div className="mt-0.5 overflow-hidden text-[11px] leading-4 text-[var(--mc-text-muted)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:1]">
-          {getItemMeta(item)}
-        </div>
-      </div>
-
-      {variant !== "removed" && onRemove && (
-        <button
-          type="button"
-          onClick={() => onRemove(item)}
-          className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-rose-400/10 hover:text-rose-200"
-          aria-label={t("review.removeItem", { defaultValue: "移除曲目" })}
-        >
-          <DeleteOutlineRounded sx={{ fontSize: 18 }} />
-        </button>
-      )}
-
-      {variant === "removed" && onRestore && (
-        <button
-          type="button"
-          onClick={() => onRestore(item.importItemKey ?? item.draftKey)}
-          className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-emerald-400/10 hover:text-emerald-200"
-          aria-label={t("review.restoreItem", { defaultValue: "復原曲目" })}
-        >
-          <RestoreRounded sx={{ fontSize: 18 }} />
-        </button>
-      )}
-    </div>
-  );
-}
-
 function SongSection({
   title,
   count,
@@ -403,6 +356,25 @@ function SongSection({
   onRequestRemoveImportItem?: (item: DraftPlaylistItem) => void;
   onRestoreImportItem?: (draftKey: string) => void;
 }) {
+  const { t } = useTranslation("collectionCreate");
+  const listItems = useMemo<VirtualPlaylistItemView[]>(
+    () =>
+      items.map((item) => ({
+        key: item.draftKey,
+        title: getItemTitle(item),
+        answerText: item.answerText,
+        uploader: item.uploader,
+        duration: item.duration,
+        thumbnail: item.thumbnail,
+        sourceTitle: item.sourceTitle,
+        startSec: item.startSec,
+        endSec: item.endSec,
+        status: variant as VirtualPlaylistItemStatus,
+        raw: item,
+      })),
+    [items, variant],
+  );
+
   return (
     <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -418,19 +390,48 @@ function SongSection({
       </div>
 
       {items.length > 0 ? (
-        <div
-          className={`space-y-2 overflow-y-auto overscroll-contain pr-1 ${maxHeightClassName}`}
-        >
-          {items.map((item) => (
-            <SongRow
-              key={item.draftKey}
-              item={item}
-              variant={variant}
-              onRemove={onRequestRemoveImportItem}
-              onRestore={onRestoreImportItem}
-            />
-          ))}
-        </div>
+        <VirtualPlaylistItemList
+          items={listItems}
+          emptyText={emptyText}
+          labels={{
+            noCover: "No Cover",
+            unknownUploader: t("review.unknownUploader", {
+              defaultValue: "未知上傳者",
+            }),
+            answer: t("review.answerLabel", { defaultValue: "答案" }),
+            playbackRange: t("review.playbackRangeLabel", {
+              defaultValue: "播放區間",
+            }),
+            fullTrack: t("review.fullTrackRange", {
+              defaultValue: "播放整首",
+            }),
+            remove: t("review.removeItem", { defaultValue: "移除曲目" }),
+            restore: t("review.restoreItem", { defaultValue: "復原曲目" }),
+          }}
+          height={
+            maxHeightClassName.includes("260")
+              ? 260
+              : maxHeightClassName.includes("320")
+                ? 320
+                : 520
+          }
+          rowHeight={92}
+          onRemove={
+            onRequestRemoveImportItem
+              ? (viewItem) => {
+                  onRequestRemoveImportItem(viewItem.raw as DraftPlaylistItem);
+                }
+              : undefined
+          }
+          onRestore={
+            onRestoreImportItem
+              ? (viewItem) => {
+                  const rawItem = viewItem.raw as DraftPlaylistItem;
+                  onRestoreImportItem(rawItem.importItemKey ?? rawItem.draftKey);
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className="rounded-xl border border-dashed border-[var(--mc-border)] px-3 py-3 text-xs text-[var(--mc-text-muted)]">
           {emptyText}

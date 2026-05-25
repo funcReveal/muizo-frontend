@@ -5,10 +5,9 @@ import type {
   CareerCollectionRankSortKey,
   CareerCollectionRankSortOrder,
 } from "../../types/career";
-import CareerCollectionRanksHeaderSection from "./collectionRanks/CareerCollectionRanksHeaderSection";
+import CareerCollectionRanksToolbar from "./collectionRanks/CareerCollectionRanksToolbar";
 import CareerCollectionRanksMobileList from "./collectionRanks/CareerCollectionRanksMobileList";
 import CareerCollectionRanksTable from "./collectionRanks/CareerCollectionRanksTable";
-import CareerCollectionRanksToolbar from "./collectionRanks/CareerCollectionRanksToolbar";
 import CareerStatePanel from "./primitives/CareerStatePanel";
 import CareerWorkbenchShell from "./primitives/CareerWorkbenchShell";
 
@@ -32,11 +31,9 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
   error,
 }) => {
   return (
-    <div className="flex flex-col gap-4">
-      <CareerWorkbenchShell className="shrink-0 p-4">
-        <CareerCollectionRanksHeaderSection />
-
-        <div className="mt-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <CareerWorkbenchShell className="flex min-h-0 flex-1 flex-col overflow-visible p-0">
+        <div className="border-b border-[var(--mc-border)] p-3">
           <CareerCollectionRanksToolbar
             sortKey={sortKey}
             sortOrder={sortOrder}
@@ -44,10 +41,8 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
             setSortOrder={setSortOrder}
           />
         </div>
-      </CareerWorkbenchShell>
 
-      <CareerWorkbenchShell className="p-4">
-        <div>
+        <div className="min-h-0 flex-1 p-4">
           {isLoading ? (
             <CareerStatePanel>載入題庫戰績中...</CareerStatePanel>
           ) : error ? (

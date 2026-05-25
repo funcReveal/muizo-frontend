@@ -1,9 +1,4 @@
-import {
-  Fragment,
-  type ReactNode,
-  type RefObject,
-  type UIEvent,
-} from "react";
+import { type ReactNode } from "react";
 import { Button } from "@mui/material";
 import { BookmarkBorderRounded, SearchRounded } from "@mui/icons-material";
 import { List } from "react-window";
@@ -13,6 +8,9 @@ import type {
   VirtualLibraryListRowComponent,
   VirtualLibraryListRowProps,
 } from "./VirtualLibraryListRow";
+import VirtualLibraryGridRow, {
+  type VirtualLibraryGridRowProps,
+} from "./VirtualLibraryGridRow";
 import { useTransientScrollbar } from "@shared/hooks/useTransientScrollbar";
 
 type CreateLibraryTab = "public" | "personal";
@@ -30,8 +28,6 @@ type CollectionsSourceContentProps = {
   normalizedCreateLibrarySearch: string;
   setCreateLibraryTab: (value: "public") => void;
   handleActivateLinkSource: () => void;
-  createLibraryScrollRef: RefObject<HTMLDivElement | null>;
-  handleCollectionGridScroll: (event: UIEvent<HTMLDivElement>) => void;
   createLibraryColumns: number;
   renderCollectionCard: (
     item: unknown,
@@ -57,8 +53,6 @@ const CollectionsSourceContent = ({
   normalizedCreateLibrarySearch,
   setCreateLibraryTab,
   handleActivateLinkSource,
-  createLibraryScrollRef,
-  handleCollectionGridScroll,
   createLibraryColumns,
   renderCollectionCard,
   collectionsLoadingMore,
@@ -71,17 +65,11 @@ const CollectionsSourceContent = ({
   const { transientScrollbarClassName, revealScrollbar } =
     useTransientScrollbar();
 
-  const getCollectionRenderKey = (collection: unknown, index: number) => {
-    if (
-      collection &&
-      typeof collection === "object" &&
-      "id" in collection &&
-      typeof (collection as { id?: unknown }).id === "string"
-    ) {
-      return (collection as { id: string }).id;
-    }
-    return `collection-${index}`;
-  };
+  const gridRowCount =
+    Math.ceil(filteredCreateCollections.length / createLibraryColumns) +
+    (collectionsHasMore || collectionsLoadingMore ? 1 : 0);
+  const gridRowHeight = 276;
+  const gridMinCardWidth = 240;
 
   if (shouldShowCollectionSkeleton) {
     return (
@@ -89,7 +77,7 @@ const CollectionsSourceContent = ({
         {createLibraryView === "grid" ? (
           <div className="h-full min-h-0 overflow-y-auto sm:pr-1">
             <div
-              className="grid gap-2"
+              className="grid gap-3"
               style={{
                 gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
               }}
@@ -176,36 +164,44 @@ const CollectionsSourceContent = ({
   return (
     <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
       {createLibraryView === "grid" ? (
-        <div
-          ref={createLibraryScrollRef}
-          className={`transient-scrollbar h-full min-h-0 overflow-y-auto sm:pr-1 ${transientScrollbarClassName}`}
-          onScroll={(event) => {
-            handleCollectionGridScroll(event);
+        <List<VirtualLibraryGridRowProps>
+          key="collections-grid"
+          className={`transient-scrollbar ${transientScrollbarClassName}`}
+          style={{ height: "100%", width: "100%" }}
+          rowCount={gridRowCount}
+          rowHeight={gridRowHeight}
+          rowProps={{
+            items: filteredCreateCollections,
+            columns: createLibraryColumns,
+            minCardWidth: gridMinCardWidth,
+            renderItem: renderCollectionCard,
+            hasMore: collectionsHasMore,
+            isLoadingMore: collectionsLoadingMore,
+            onLoadMore: () => {
+              void loadMoreCollections();
+            },
+            renderLoader: (loaderIndex) =>
+              renderCollectionSkeletonCard(loaderIndex + 1000, "grid"),
+          }}
+          rowComponent={VirtualLibraryGridRow}
+          overscanCount={2}
+          onRowsRendered={(visibleRows) => {
+            if (
+              collectionsLoadingMore ||
+              !collectionsHasMore ||
+              visibleRows.stopIndex < gridRowCount - 2
+            ) {
+              return;
+            }
+            void loadMoreCollections();
+          }}
+          onScroll={() => {
             revealScrollbar();
           }}
-        >
-          <div
-            className="grid gap-2"
-            style={{
-              gridTemplateColumns: `repeat(${createLibraryColumns}, minmax(0, 1fr))`,
-            }}
-          >
-            {filteredCreateCollections.map((collection, index) => (
-              <Fragment key={getCollectionRenderKey(collection, index)}>
-                {renderCollectionCard(collection, index, "grid")}
-              </Fragment>
-            ))}
-            {collectionsLoadingMore
-              ? Array.from({ length: createLibraryColumns }).map((_, idx) => (
-                  <Fragment key={`collection-loader-${idx}`}>
-                    {renderCollectionSkeletonCard(idx + 1000, "grid")}
-                  </Fragment>
-                ))
-              : null}
-          </div>
-        </div>
+        />
       ) : (
         <List<VirtualLibraryListRowProps>
+          key="collections-list"
           style={{
             height: "100%",
             width: "100%",

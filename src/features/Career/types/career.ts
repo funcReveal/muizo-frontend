@@ -1,3 +1,5 @@
+import type { RoomSettlementHistorySummary } from "@features/RoomSession";
+
 export type CareerTabKey = "overview" | "collectionRanks" | "history" | "share";
 
 export interface CareerHeroStats {
@@ -23,6 +25,13 @@ export interface CareerCompositeStats {
   firstPlaceCount: number;
   averageAccuracyRate: number | null;
   trend: CareerTrendPoint[];
+}
+
+export interface CareerCompositeScope {
+  key: string;
+  kind: "casual" | "leaderboard";
+  label: string;
+  stats: CareerCompositeStats;
 }
 
 export interface CareerWeeklyStats {
@@ -56,14 +65,21 @@ export interface CareerHighlightItem {
 export interface CareerCollectionRankShortcutItem {
   id: string;
   title: string;
+  coverThumbnailUrl: string | null;
+  sourceLabel: string | null;
+  matchSummary: RoomSettlementHistorySummary | null;
   leaderboardRank: number | null;
+  recentRank: number | null;
+  recentPlayerCount: number | null;
   previousLeaderboardRank: number | null;
   delta: number | null;
+  lastPlayedAt: string | null;
 }
 
 export interface CareerCollectionRankRow {
   id: string;
   title: string;
+  coverThumbnailUrl: string | null;
   leaderboardRank: number | null;
   previousLeaderboardRank: number | null;
   delta: number | null;
@@ -82,6 +98,12 @@ export type CareerCollectionRankSortKey =
 export type CareerCollectionRankSortOrder = "asc" | "desc";
 
 export type CareerShareTemplate = "career" | "weekly" | "highlight";
+
+export interface CareerOverviewScopeContent {
+  scopeKey: string;
+  highlights: CareerHighlightItem[];
+  collectionShortcuts: CareerCollectionRankShortcutItem[];
+}
 
 export interface CareerShareCardData {
   playerName: string;
@@ -103,9 +125,11 @@ export interface CareerShareCardData {
 export interface CareerOverviewData {
   hero: CareerHeroStats;
   composite: CareerCompositeStats;
+  compositeScopes: CareerCompositeScope[];
   weekly: CareerWeeklyStats;
   highlights: CareerHighlightItem[];
   collectionShortcuts: CareerCollectionRankShortcutItem[];
+  scopeContent: CareerOverviewScopeContent[];
 }
 
 export interface CareerOverviewQueryResult {

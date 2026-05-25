@@ -6,14 +6,14 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
 import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
-import { Dialog, DialogContent } from "@mui/material";
+import { Drawer } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import React from "react";
 
 import type { RoomSettlementHistorySummary } from "@features/RoomSession";
 import { getHistorySummaryPlaylistTitle } from "../../model/historySummaryAdapter";
 
-interface HistoryReplayModalProps {
+interface HistoryReplayDrawerProps {
   open: boolean;
   onClose: () => void;
   selectedSummary: RoomSettlementHistorySummary | null;
@@ -25,7 +25,7 @@ interface HistoryReplayModalProps {
   children: React.ReactNode;
 }
 
-const HistoryReplayModal: React.FC<HistoryReplayModalProps> = ({
+const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
   open,
   onClose,
   selectedSummary,
@@ -40,6 +40,7 @@ const HistoryReplayModal: React.FC<HistoryReplayModalProps> = ({
     ? getHistorySummaryPlaylistTitle(selectedSummary)
     : null;
   const isWide = useMediaQuery("(min-width: 640px)");
+  const isMobileDrawer = useMediaQuery("(max-width: 639.95px)");
   const visibleRoundCount = Math.min(relatedSummaries.length, isWide ? 5 : 3);
   const selectedRelatedIndex = React.useMemo(
     () =>
@@ -98,67 +99,17 @@ const HistoryReplayModal: React.FC<HistoryReplayModalProps> = ({
     : [];
 
   return (
-    <Dialog
+    <Drawer
+      anchor={isMobileDrawer ? "bottom" : "right"}
       open={open}
-      onClose={(_, reason) => {
-        if (reason === "backdropClick" || reason === "escapeKeyDown") {
-          onClose();
-        }
-      }}
-      disableAutoFocus
-      disableEnforceFocus
-      disableRestoreFocus
-      maxWidth={false}
-      BackdropProps={{
-        sx: {
-          background:
-            "radial-gradient(circle at top, rgba(15,23,42,0.18), rgba(2,6,16,0.34))",
-          backdropFilter: "blur(2px)",
-        },
-      }}
-      sx={{
-        "& .MuiDialog-container": {
-          alignItems: { xs: "flex-start", lg: "center" },
-          justifyContent: "center",
-          px: { xs: 0.5, sm: 1, lg: 1.2 },
-          py: { xs: 0.5, sm: 0.85, lg: 1.1 },
-        },
-      }}
+      onClose={onClose}
+      ModalProps={{ keepMounted: true }}
       PaperProps={{
-        sx: {
-          m: 0,
-          width: {
-            xs: "calc(100vw - 12px)",
-            sm: "calc(100vw - 24px)",
-            lg: "min(1456px, calc(100vw - 28px))",
-          },
-          maxWidth: {
-            xs: "calc(100vw - 12px)",
-            sm: "calc(100vw - 24px)",
-            lg: "min(1456px, calc(100vw - 28px))",
-          },
-          maxHeight: { xs: "calc(100vh - 8px)", sm: "calc(100vh - 20px)" },
-          borderRadius: { xs: "28px", sm: "32px" },
-          overflow: "hidden",
-          background:
-            "linear-gradient(180deg,rgba(11,18,31,0.97),rgba(5,9,18,0.992))",
-          boxShadow:
-            "0 28px 78px -36px rgba(0,0,0,0.82), 0 0 0 1px rgba(148,163,184,0.1)",
-          backdropFilter: "blur(12px)",
-        },
+        className:
+          "!overflow-hidden !bg-slate-950 !text-slate-100 !shadow-2xl !shadow-slate-950/80 max-sm:!h-[92dvh] max-sm:!w-full max-sm:!rounded-t-[24px] max-sm:!border-t max-sm:!border-white/10 sm:!h-dvh sm:!w-[min(1180px,calc(100vw-24px))] sm:!max-w-none sm:!rounded-l-[24px] sm:!border-l sm:!border-white/10",
       }}
     >
-      <DialogContent
-        sx={{
-          p: { xs: 0.75, sm: 0.9, lg: 1 },
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-          overflow: "hidden",
-          overflowX: "hidden",
-        }}
-      >
-        <div className="flex min-h-0 w-full flex-1 flex-col">
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden p-2 sm:p-3">
           {selectedSummary ? (
             <section
               className={`mb-3 border border-[var(--mc-border)] bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.12),transparent_24%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.12),transparent_30%),linear-gradient(180deg,rgba(13,17,28,0.9),rgba(5,8,16,0.98))] shadow-[0_18px_42px_-32px_rgba(0,0,0,0.86)] ${
@@ -359,9 +310,8 @@ const HistoryReplayModal: React.FC<HistoryReplayModalProps> = ({
             {children}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </Drawer>
   );
 };
 
-export default HistoryReplayModal;
+export default HistoryReplayDrawer;

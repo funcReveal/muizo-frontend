@@ -33,7 +33,6 @@ import {
   resolveCollectionItemLimit,
 } from "../../shared/model/collectionLimits";
 import CollectionCreateActionBar from "../components/CollectionCreateActionBar";
-import CollectionCreateInspectorPanel from "../components/CollectionCreateInspectorPanel";
 import CollectionCreateReviewPanel from "../components/CollectionCreateReviewPanel";
 import CollectionCreatePublishPanel from "../components/CollectionCreatePublishPanel";
 import CollectionCreateSourcePanel from "../components/CollectionCreateSourcePanel";
@@ -154,8 +153,9 @@ const CollectionCreatePage = () => {
     >
   >({});
   const [bulkPlaybackOpen, setBulkPlaybackOpen] = useState(false);
-  const [bulkPlaybackDraft, setBulkPlaybackDraft] =
-    useState<BulkPlaybackDraft>(DEFAULT_BULK_PLAYBACK_DRAFT);
+  const [bulkPlaybackDraft, setBulkPlaybackDraft] = useState<BulkPlaybackDraft>(
+    DEFAULT_BULK_PLAYBACK_DRAFT,
+  );
   const [bulkPlaybackApplying, setBulkPlaybackApplying] = useState(false);
   const [bulkPlaybackProgress, setBulkPlaybackProgress] = useState<{
     completed: number;
@@ -283,7 +283,7 @@ const CollectionCreatePage = () => {
       const preview = previewById.get(item.draftKey);
       return Boolean(
         preview &&
-          (item.startSec !== preview.startSec || item.endSec !== preview.endSec),
+        (item.startSec !== preview.startSec || item.endSec !== preview.endSec),
       );
     });
 
@@ -463,9 +463,7 @@ const CollectionCreatePage = () => {
 
   const playlistUrlTooltipMessage = showPlaylistUrlError
     ? t("source.invalidPlaylistUrl")
-    : playlistUrlReadOnly
-      ? t("source.playlistLockedHint")
-      : "";
+    : "";
 
   const effectiveCollectionTitle = (
     collectionTitle ||
@@ -476,9 +474,6 @@ const CollectionCreatePage = () => {
   const hasImportedItems = draftPlaylistItems.length > 0;
 
   const {
-    privateCollectionsCount,
-    remainingCollectionSlots,
-    remainingPrivateCollectionSlots,
     reachedCollectionLimit,
     reachedPrivateCollectionLimit,
     canGoReview,
@@ -814,24 +809,14 @@ const CollectionCreatePage = () => {
         )}
 
         <div className="relative">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate("/collections")}
-                aria-label={t("page.backToCollections")}
-                className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--mc-surface-strong)]/40 text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/60"
-              >
-                <ArrowBackIosNew fontSize="small" />
-              </button>
-
-              <div className="min-w-0">
-                <div className="text-xl font-semibold leading-none text-[var(--mc-text)] sm:text-2xl">
-                  {t("page.title")}
-                </div>
-              </div>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/collections")}
+            aria-label={t("page.backToCollections")}
+            className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--mc-surface-strong)]/40 text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/60"
+          >
+            <ArrowBackIosNew fontSize="small" />
+          </button>
 
           {!authToken && !authLoading && (
             <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
@@ -847,13 +832,7 @@ const CollectionCreatePage = () => {
               canOpenPublish={canGoPublish}
             />
 
-            <div
-              className={
-                createStep === "source"
-                  ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]"
-                  : "grid gap-4"
-              }
-            >
+            <div className="grid gap-4">
               <div className="min-w-0 space-y-3">
                 {createStep === "source" && (
                   <CollectionCreateSourcePanel
@@ -979,37 +958,13 @@ const CollectionCreatePage = () => {
                   onNext={handleGoNextStep}
                   onCreate={() => void handleCreateCollection()}
                 />
-              </div>
 
-              {createStep === "source" && (
-                <CollectionCreateInspectorPanel
-                  totalImportedItems={totalImportedItemCount}
-                  selectedItems={importedPlaylistItems.length}
-                  removedItems={removedImportItemCount}
-                  readyItems={batchEditedDraftPlaylistItems.length}
-                  longItems={batchEditedLongDraftPlaylistItems.length}
-                  removedDuplicateCount={removedDuplicateCount}
-                  skippedCount={playlistIssueTotal}
-                  isDraftOverflow={isDraftOverflow}
-                  draftOverflowCount={draftOverflowCount}
-                  collectionItemLimit={collectionItemLimit}
-                  collectionsCount={collections.length}
-                  privateCollectionsCount={privateCollectionsCount}
-                  remainingCollectionSlots={remainingCollectionSlots}
-                  remainingPrivateCollectionSlots={
-                    remainingPrivateCollectionSlots
-                  }
-                  maxCollectionsPerUser={MAX_COLLECTIONS_PER_USER}
-                  maxPrivateCollectionsPerUser={
-                    MAX_PRIVATE_COLLECTIONS_PER_USER
-                  }
-                  reachedCollectionLimit={reachedCollectionLimit}
-                  reachedPrivateCollectionLimit={reachedPrivateCollectionLimit}
-                  isAdmin={isAdmin}
-                  visibility={effectiveVisibility}
-                  createError={createError}
-                />
-              )}
+                {createError && (
+                  <div className="rounded-xl border border-rose-400/35 bg-rose-950/30 px-3 py-2 text-xs leading-5 text-rose-100">
+                    {createError}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

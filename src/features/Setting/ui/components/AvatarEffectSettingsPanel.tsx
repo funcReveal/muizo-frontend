@@ -68,7 +68,7 @@ const AvatarEffectSettingsPanel: React.FC<AvatarEffectSettingsPanelProps> = ({
       }
     >
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
+        <div className="rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-400/18 bg-cyan-500/10 text-cyan-100">
               <AutoAwesomeRoundedIcon fontSize="small" />
@@ -131,7 +131,7 @@ const AvatarEffectSettingsPanel: React.FC<AvatarEffectSettingsPanelProps> = ({
         </div>
 
         <div className="grid gap-5">
-          <div className="settings-mobile-plain-card settings-mobile-plain-card--glow rounded-[22px] border border-cyan-400/18 bg-[radial-gradient(360px_180px_at_14%_0%,rgba(56,189,248,0.14),transparent_64%),linear-gradient(180deg,rgba(2,6,12,0.98),rgba(7,12,20,0.95))] p-4 shadow-[0_24px_64px_-44px_rgba(8,145,178,0.7)]">
+          <div className="rounded-[22px] border border-cyan-400/18 bg-[radial-gradient(360px_180px_at_14%_0%,rgba(56,189,248,0.14),transparent_64%),linear-gradient(180deg,rgba(2,6,12,0.98),rgba(7,12,20,0.95))] p-4 shadow-[0_24px_64px_-44px_rgba(8,145,178,0.7)]">
             <div className="mb-3 flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-400/18 bg-cyan-500/10 text-cyan-100">
                 <PaletteRoundedIcon fontSize="small" />
@@ -173,7 +173,7 @@ const AvatarEffectSettingsPanel: React.FC<AvatarEffectSettingsPanelProps> = ({
             </div>
           </div>
 
-          <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
+          <div className="rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
             <div className="mb-3 flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-300/18 bg-amber-400/10 text-amber-100">
                 <EmojiEventsRoundedIcon fontSize="small" />
@@ -217,7 +217,7 @@ const AvatarEffectSettingsPanel: React.FC<AvatarEffectSettingsPanelProps> = ({
             </div>
           </div>
 
-          <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
+          <div className="rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
             <div className="mb-3 flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-300/18 bg-sky-500/10 text-sky-100">
                 <FlashOnRoundedIcon fontSize="small" />

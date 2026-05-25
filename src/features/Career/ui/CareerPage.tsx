@@ -3,6 +3,7 @@
 import { useAuth } from "@shared/auth/AuthContext";
 
 import useCareerCollectionRanksData from "../model/useCareerCollectionRanksData";
+import useCareerHistoryWorkspace from "../model/useCareerHistoryWorkspace";
 import useCareerOverviewData from "../model/useCareerOverviewData";
 import useCareerShareData from "../model/useCareerShareData";
 import CareerCollectionRanksTab from "./components/CareerCollectionRanksTab";
@@ -12,11 +13,38 @@ import CareerShareTab from "./components/CareerShareTab";
 import CareerTabs, { type CareerTabKey } from "./components/CareerTabs";
 import CareerTopOverviewStrip from "./components/CareerTopOverviewStrip";
 import CareerStatePanel from "./components/primitives/CareerStatePanel";
+import HistoryReplayDialog from "@features/Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
+
+const getScrollParent = (element: HTMLElement): HTMLElement | null => {
+  let parent = element.parentElement;
+
+  while (parent) {
+    const { overflowY } = window.getComputedStyle(parent);
+
+    if (/(auto|scroll|overlay)/.test(overflowY)) {
+      return parent;
+    }
+
+    parent = parent.parentElement;
+  }
+
+  return null;
+};
+
+const getStickyBoundaryTop = (sentinel: HTMLElement) => {
+  const scrollParent = getScrollParent(sentinel);
+  return scrollParent ? scrollParent.getBoundingClientRect().top : 0;
+};
+
+const isStickySentinelPassed = (sentinel: HTMLElement) => {
+  const boundaryTop = getStickyBoundaryTop(sentinel);
+  return sentinel.getBoundingClientRect().bottom <= boundaryTop + 1;
+};
 
 const CareerPageSkeleton: React.FC = () => {
   return (
     <div className="space-y-3">
-      <div className="rounded-[26px] border border-cyan-100/12 bg-[linear-gradient(180deg,rgba(8,15,28,0.94),rgba(2,6,23,0.98))] p-4">
+      <div className="rounded-[26px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.94),rgba(8,7,5,0.98))] p-4">
         <div className="flex items-center gap-3">
           <div className="h-14 w-14 animate-pulse rounded-2xl bg-white/10" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -35,7 +63,7 @@ const CareerPageSkeleton: React.FC = () => {
         </div>
       </div>
 
-      <div className="h-[64px] animate-pulse rounded-[22px] border border-cyan-100/12 bg-white/[0.04]" />
+      <div className="h-[64px] animate-pulse rounded-[22px] border border-[var(--mc-border)] bg-white/[0.04]" />
       <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr]">
         <div className="h-[360px] animate-pulse rounded-[24px] border border-white/8 bg-white/[0.045]" />
         <div className="h-[360px] animate-pulse rounded-[24px] border border-white/8 bg-white/[0.045]" />
@@ -46,11 +74,14 @@ const CareerPageSkeleton: React.FC = () => {
 
 const CareerPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<CareerTabKey>("overview");
+  const [tabsDocked, setTabsDocked] = useState(false);
+  const tabsStickySentinelRef = React.useRef<HTMLDivElement | null>(null);
   const { authUser } = useAuth();
 
   const overviewQuery = useCareerOverviewData();
   const collectionRanksQuery = useCareerCollectionRanksData();
   const shareQuery = useCareerShareData(overviewQuery.data);
+  const historyWorkspace = useCareerHistoryWorkspace();
 
   const topLevelError = useMemo(() => {
     if (overviewQuery.error) return overviewQuery.error;
@@ -66,8 +97,52 @@ const CareerPage: React.FC = () => {
 
   const isInitialLoading = overviewQuery.isLoading && !overviewQuery.error;
 
+  React.useEffect(() => {
+    if (isInitialLoading) return;
+
+    const sentinel = tabsStickySentinelRef.current;
+    if (!sentinel) return;
+
+    let animationFrameId = 0;
+
+    const updateTabsDocked = () => {
+      setTabsDocked(isStickySentinelPassed(sentinel));
+    };
+
+    const scheduleUpdate = () => {
+      if (animationFrameId) return;
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = 0;
+        updateTabsDocked();
+      });
+    };
+
+    updateTabsDocked();
+    document.addEventListener("scroll", scheduleUpdate, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("scroll", scheduleUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
+      document.removeEventListener("scroll", scheduleUpdate, {
+        capture: true,
+      });
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [isInitialLoading]);
+
   return (
-    <main className="mx-auto flex w-full max-w-[1420px] min-w-0 flex-col px-1 pb-8 sm:px-0">
+    <main className="flex min-h-full w-full min-w-0 flex-col px-1 pb-8 sm:px-0">
       {isInitialLoading ? (
         <CareerPageSkeleton />
       ) : (
@@ -83,19 +158,48 @@ const CareerPage: React.FC = () => {
             avatarUrl={authUser?.avatar_url ?? null}
           />
 
-          <div className="sticky top-2 z-20 mt-3">
-            <CareerTabs activeTab={activeTab} onChange={setActiveTab} />
+          <div
+            ref={tabsStickySentinelRef}
+            className="h-px"
+            aria-hidden="true"
+          />
+
+          <div
+            data-tabs-docked={tabsDocked ? "true" : "false"}
+            className={`sticky top-0 z-40 -mx-1 px-1 pb-2 transition-[margin,background-color,box-shadow,backdrop-filter] duration-200 sm:mx-0 sm:px-0 ${
+              tabsDocked
+                ? "mt-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.96),rgba(0,0,0,0.84))] shadow-[0_18px_36px_-24px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+                : "mt-2 bg-transparent shadow-none"
+            }`}
+          >
+            <div
+              className={`border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.98),rgba(8,7,5,0.99))] p-1.5 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl ${
+                tabsDocked ? "rounded-b-[20px] rounded-t-none" : "rounded-[20px]"
+              }`}
+            >
+              <CareerTabs
+                activeTab={activeTab}
+                onChange={setActiveTab}
+                docked={tabsDocked}
+              />
+            </div>
           </div>
 
-          <section className="mt-3 min-w-0" aria-live="polite">
+          <section
+            className="mt-1 flex min-w-0 flex-1 flex-col overflow-visible"
+            aria-live="polite"
+          >
             {activeTab === "overview" && (
               <CareerOverviewTab
                 composite={overviewQuery.data.composite}
-                weekly={overviewQuery.data.weekly}
+                compositeScopes={overviewQuery.data.compositeScopes}
                 highlights={overviewQuery.data.highlights}
                 collectionShortcuts={overviewQuery.data.collectionShortcuts}
+                scopeContent={overviewQuery.data.scopeContent}
                 onOpenCollectionRanks={() => setActiveTab("collectionRanks")}
-                onOpenShare={() => setActiveTab("share")}
+                onOpenRecentMatch={(summary) => {
+                  void historyWorkspace.openReplayDetail(summary);
+                }}
               />
             )}
 
@@ -111,7 +215,32 @@ const CareerPage: React.FC = () => {
               />
             )}
 
-            {activeTab === "history" && <CareerHistoryWorkspace />}
+            {activeTab === "history" && (
+              <CareerHistoryWorkspace workspace={historyWorkspace} />
+            )}
+
+            {activeTab !== "history" && (
+              <HistoryReplayDialog
+                open={Boolean(historyWorkspace.selectedSummary)}
+                onClose={historyWorkspace.closeReplayDetail}
+                selectedSummary={historyWorkspace.selectedSummary}
+                relatedSummaries={historyWorkspace.selectedRelatedSummaries}
+                selectedReplay={historyWorkspace.selectedReplay}
+                isLoadingSelectedReplay={
+                  historyWorkspace.isLoadingSelectedReplay
+                }
+                onSelectSummary={(summary) => {
+                  void historyWorkspace.openReplayDetail(summary);
+                }}
+                meClientId={historyWorkspace.clientId}
+                questionRecaps={
+                  historyWorkspace.normalizedSelectedQuestionRecaps
+                }
+                formatDateTime={historyWorkspace.formatDateTime}
+                getMatchDurationMs={historyWorkspace.getMatchDurationMs}
+                formatDuration={historyWorkspace.formatDuration}
+              />
+            )}
 
             {activeTab === "share" && (
               <CareerShareTab

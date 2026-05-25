@@ -1,17 +1,23 @@
 import { CircularProgress } from "@mui/material";
 import { KeyboardArrowUpRounded } from "@mui/icons-material";
 import React from "react";
-import { useNavigate } from "react-router-dom";
 
-import HistoryArchiveHeader from "@features/Settlement/ui/components/roomHistoryPage/HistoryArchiveHeader";
 import HistoryReplayDialog from "@features/Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 
 import useCareerHistoryWorkspace from "../../model/useCareerHistoryWorkspace";
 import CareerHistoryGroupedList from "./history/CareerHistoryGroupedList";
 
-const CareerHistoryWorkspace: React.FC = () => {
-  const navigate = useNavigate();
+type CareerHistoryWorkspaceController = ReturnType<
+  typeof useCareerHistoryWorkspace
+>;
 
+interface CareerHistoryWorkspaceProps {
+  workspace: CareerHistoryWorkspaceController;
+}
+
+const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
+  workspace,
+}) => {
   const {
     clientId,
     scrollHostRef,
@@ -22,16 +28,11 @@ const CareerHistoryWorkspace: React.FC = () => {
     isHistoryRequestBlocked,
     showBackToTop,
     historyDisplayMode,
-    setHistoryDisplayMode,
     groupedHistoryItems,
     isGroupCollapsed,
     toggleGroup,
     setGroupContainerRef,
     getSelfRankForSummary,
-    recentTopScoreEntry,
-    recentBestRankEntry,
-    recentBestComboEntry,
-    recentBestAccuracyEntry,
     selectedSummary,
     selectedRelatedSummaries,
     selectedReplay,
@@ -44,28 +45,10 @@ const CareerHistoryWorkspace: React.FC = () => {
     formatDateTime,
     getMatchDurationMs,
     formatDuration,
-    formatRankFraction,
-  } = useCareerHistoryWorkspace();
+  } = workspace;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-4">
-      <div className="shrink-0">
-        <HistoryArchiveHeader
-          loadingList={loadingList}
-          historyDisplayMode={historyDisplayMode}
-          onHistoryDisplayModeChange={setHistoryDisplayMode}
-          recentTopScoreEntry={recentTopScoreEntry}
-          recentBestRankEntry={recentBestRankEntry}
-          recentBestComboEntry={recentBestComboEntry}
-          recentBestAccuracyEntry={recentBestAccuracyEntry}
-          onOpenReplay={(summary) => {
-            void openReplayDetail(summary);
-          }}
-          onBackToRooms={() => navigate("/rooms", { replace: true })}
-          formatRankFraction={formatRankFraction}
-        />
-      </div>
-
       <div ref={scrollHostRef} className="min-h-0 flex-1 overflow-auto pr-1">
         <section className="space-y-4">
           {isHistoryRequestBlocked && (

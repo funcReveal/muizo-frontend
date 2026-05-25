@@ -12,6 +12,10 @@ import { ensureFreshAuthToken } from "../../../shared/auth/token";
 import { connectRoomSocket, disconnectRoomSocket } from "./roomSocket";
 import { translateRoomErrorDetail } from "./roomErrorText";
 import {
+  resolveRestoredRoomMessages,
+  writeCachedRoomMessages,
+} from "./roomMessagePersistence";
+import {
   formatAckError,
   mergeRoomSummaryIntoCurrentRoom,
 } from "./roomProviderUtils";
@@ -467,7 +471,12 @@ export const useRoomProviderSocketLifecycle = ({
                       mergeCachedParticipantPing(state.participants, prev),
                     );
                     seedPresenceParticipants(state.room.id, state.participants);
-                    setMessages(state.messages);
+                    setMessages(
+                      resolveRestoredRoomMessages(
+                        state.room.id,
+                        state.messages,
+                      ),
+                    );
                     setSettlementHistory(state.settlementHistory ?? []);
                     setPlaylistProgress({
                       received: state.room.playlist.receivedCount,
@@ -732,7 +741,9 @@ export const useRoomProviderSocketLifecycle = ({
             mergeCachedParticipantPing(state.participants, prev),
           );
           seedPresenceParticipants(state.room.id, state.participants);
-          setMessages(state.messages);
+          setMessages(
+            resolveRestoredRoomMessages(state.room.id, state.messages),
+          );
           setSettlementHistory(state.settlementHistory ?? []);
           setPlaylistSuggestions([]);
           setPlaylistProgress({
@@ -899,7 +910,11 @@ export const useRoomProviderSocketLifecycle = ({
         onMessageAdded: ({ roomId, message }) => {
           if (roomId !== currentRoomIdRef.current) return;
           startTransition(() => {
-            setMessages((prev) => [...prev, message]);
+            setMessages((prev) => {
+              const next = [...prev, message];
+              writeCachedRoomMessages(roomId, next);
+              return next;
+            });
           });
         },
         onGameStarted: ({ roomId, gameState, serverNow, syncVersion }) => {

@@ -68,6 +68,9 @@ const getSourceTypeLabelKey = (type: CollectionCreateImportSource["type"]) => {
   return "source.sourceTypeYoutubeUrl";
 };
 
+const getImportSourceThumbnail = (source: CollectionCreateImportSource) =>
+  source.items.find((item) => item.thumbnail)?.thumbnail ?? null;
+
 export default function CollectionCreateSourcePanel({
   authUserExists,
   needsGoogleReauth,
@@ -320,12 +323,6 @@ export default function CollectionCreateSourcePanel({
               />
             </Tooltip>
 
-            <div className="mt-3 text-xs text-[var(--mc-text-muted)]">
-              {hasResolvedPlaylist
-                ? t("source.playlistLockedHint")
-                : t("source.playlistUrlHint")}
-            </div>
-
             {playlistLoading ? (
               <div className="mt-4 flex justify-end">
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/8 px-3 py-1.5 text-xs text-cyan-100/90">
@@ -441,9 +438,22 @@ export default function CollectionCreateSourcePanel({
             {importSources.map((source) => (
               <div
                 key={source.id}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/45 px-3 py-2.5"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/45 px-2.5 py-2.5"
               >
-                <div className="min-w-0">
+                {getImportSourceThumbnail(source) ? (
+                  <img
+                    src={getImportSourceThumbnail(source) ?? ""}
+                    alt={source.title}
+                    loading="lazy"
+                    className="h-12 w-[84px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover"
+                  />
+                ) : (
+                  <div className="flex h-12 w-[84px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.16),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)]">
+                    No Cover
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
                       {t(getSourceTypeLabelKey(source.type))}

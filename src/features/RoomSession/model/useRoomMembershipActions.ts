@@ -2,6 +2,7 @@ import { useCallback, type Dispatch, type SetStateAction } from "react";
 
 import { trackEvent } from "../../../shared/analytics/track";
 import { translateRoomErrorDetail } from "./roomErrorText";
+import { resolveRestoredRoomMessages } from "./roomMessagePersistence";
 import { formatAckError } from "./roomProviderUtils";
 import type {
   Ack,
@@ -154,7 +155,9 @@ export const useRoomMembershipActions = ({
               mergeCachedParticipantPing(state.participants, prev),
             );
             seedPresenceParticipants(state.room.id, state.participants);
-            setMessages(state.messages);
+            setMessages(
+              resolveRestoredRoomMessages(state.room.id, state.messages),
+            );
             setSettlementHistory(state.settlementHistory ?? []);
             setPlaylistProgress({
               received: state.room.playlist.receivedCount,

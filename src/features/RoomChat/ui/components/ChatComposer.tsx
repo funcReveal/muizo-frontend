@@ -7,6 +7,7 @@ interface ChatComposerProps {
     messageInput: string;
     setMessageInput: (value: string) => void;
     handleSend: () => void;
+    onRequestCloseWhenEmpty?: () => void;
     isChatCooldownActive: boolean;
     chatCooldownLeft: number;
 }
@@ -16,6 +17,7 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
     messageInput,
     setMessageInput,
     handleSend,
+    onRequestCloseWhenEmpty,
     isChatCooldownActive,
     chatCooldownLeft,
 }) => {
@@ -39,7 +41,19 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
                             if (event.key === "Enter") {
                                 if (isImeComposingKeyboardEvent(event)) return;
                                 event.preventDefault();
+                                if (!messageInput.trim() && onRequestCloseWhenEmpty) {
+                                    event.stopPropagation();
+                                    onRequestCloseWhenEmpty();
+                                    return;
+                                }
                                 handleSend();
+                                return;
+                            }
+
+                            if (event.key === "Escape" && !messageInput.trim() && onRequestCloseWhenEmpty) {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                onRequestCloseWhenEmpty();
                             }
                         }}
                         autoComplete="off"

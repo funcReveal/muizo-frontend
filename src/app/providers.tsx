@@ -33,6 +33,35 @@ const theme = createTheme({
   typography: {
     fontFamily: '"Inter","Segoe UI","Noto Sans TC",sans-serif',
   },
+  components: {
+    MuiModal: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiPopover: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiMenu: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiDialog: {
+      defaultProps: {
+        disableScrollLock: true,
+      },
+    },
+    MuiDrawer: {
+      defaultProps: {
+        ModalProps: {
+          disableScrollLock: true,
+        },
+      },
+    },
+  },
 });
 
 export function AppProviders({ children }: { children: ReactNode }) {

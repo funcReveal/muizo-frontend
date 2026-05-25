@@ -115,7 +115,7 @@ const CareerHistoryGroupedList: React.FC<CareerHistoryGroupedListProps> = ({
                       style={{ transform: "translateY(9px)" }}
                     />
                     <span
-                      className="pointer-events-none absolute inset-x-2 top-0 z-10 h-full rounded-[16px] border border-amber-300/14 bg-[linear-gradient(180deg,rgba(16,13,10,0.9),rgba(8,7,5,0.97))]"
+                      className="pointer-events-none absolute inset-x-2 top-0 z-[1] h-full rounded-[16px] border border-amber-300/14 bg-[linear-gradient(180deg,rgba(16,13,10,0.9),rgba(8,7,5,0.97))]"
                       style={{ transform: "translateY(5px)" }}
                     />
                   </>
@@ -123,7 +123,7 @@ const CareerHistoryGroupedList: React.FC<CareerHistoryGroupedListProps> = ({
 
                 <button
                   type="button"
-                  className={`group relative z-20 block w-full min-w-0 overflow-hidden rounded-[16px] border px-3 py-3 text-left transition duration-200 ${
+                  className={`group relative z-[2] block w-full min-w-0 overflow-hidden rounded-[16px] border px-3 py-3 text-left transition duration-200 ${
                     historyDisplayMode === "expanded"
                       ? "cursor-default border-amber-300/45 bg-[linear-gradient(180deg,rgba(24,20,14,0.97),rgba(10,8,6,1))] shadow-[0_12px_24px_-20px_rgba(245,158,11,0.38)]"
                       : collapsed

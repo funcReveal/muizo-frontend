@@ -4,7 +4,12 @@ Allow: /
 # Keep private/internal routes out of search indexes
 Disallow: /collections
 Disallow: /collections/
+Disallow: /career
+Disallow: /career/
+Disallow: /history
+Disallow: /history/
 Disallow: /invited
 Disallow: /invited/
+Disallow: /rooms/
 
 Sitemap: https://muizo.org/sitemap.xml

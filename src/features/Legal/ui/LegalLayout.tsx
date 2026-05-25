@@ -2,10 +2,12 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import AppHeader from "../../../app/layout/AppHeader";
+import SettingsDrawer from "../../../app/layout/SettingsDrawer";
 import { useAuth } from "../../../shared/auth/AuthContext";
 
 const LegalLayout: React.FC = () => {
   const navigate = useNavigate();
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const {
     displayUsername,
     username,
@@ -29,8 +31,12 @@ const LegalLayout: React.FC = () => {
           onEditProfile={() => navigate("/rooms")}
           onNavigateRooms={() => navigate("/rooms")}
           onNavigateCollections={() => navigate("/collections")}
-          onNavigateSettings={() => navigate("/settings")}
+          onNavigateSettings={() => setSettingsOpen(true)}
           onNavigatePrivacy={() => navigate("/privacy")}
+        />
+        <SettingsDrawer
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
         />
       </div>
 

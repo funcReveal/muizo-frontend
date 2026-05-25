@@ -6,34 +6,24 @@
   Login,
   Logout,
   ManageAccounts,
-  Memory,
   MeetingRoom,
   Policy,
-  Refresh,
   Settings,
 } from "@mui/icons-material";
 import {
   Box,
-  Chip,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   Divider,
-  IconButton,
-  LinearProgress,
   ListItemIcon,
   ListItemText,
   MenuItem,
   MenuList,
   Popover,
-  Stack,
   Typography,
 } from "@mui/material";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import SiteAnnouncementNotice from "@/shared/announcement/SiteAnnouncementNotice";
-import { isAdminRole } from "@/shared/auth/roles";
 import { isCareerFeatureEnabled } from "@/shared/config/featureFlags";
 import BrandLogo from "@/shared/ui/BrandLogo";
 
@@ -60,95 +50,6 @@ interface AppHeaderProps {
   careerMenuDescription?: string;
 }
 
-type SystemStatusPayload = {
-  status: "ok";
-  timestamp: string;
-  process: {
-    pid: number;
-    uptimeSec: number;
-    nodeVersion: string;
-    rssBytes: number;
-    heapUsedBytes: number;
-    heapTotalBytes: number;
-  };
-  os: {
-    hostname: string;
-    platform: string;
-    release: string;
-    arch: string;
-    uptimeSec: number;
-    cpus: number;
-    loadAverage: [number, number, number];
-    memory: {
-      freeBytes: number;
-      usedBytes: number;
-      totalBytes: number;
-      usedPercent: number;
-    };
-    containerMemory?: {
-      source: "cgroup-v1" | "cgroup-v2";
-      usedBytes: number | null;
-      limitBytes: number | null;
-      remainingBytes: number | null;
-      usedPercent: number | null;
-    } | null;
-  };
-};
-
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  (typeof window !== "undefined" ? window.location.origin : "");
-
-const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const power = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
-  const value = bytes / 1024 ** power;
-  return `${value.toFixed(power === 0 ? 0 : 1)} ${units[power]}`;
-};
-
-const formatDuration = (sec: number) => {
-  if (!Number.isFinite(sec) || sec <= 0) return "0s";
-  const day = Math.floor(sec / 86400);
-  const hour = Math.floor((sec % 86400) / 3600);
-  const min = Math.floor((sec % 3600) / 60);
-  if (day > 0) return `${day}d ${hour}h`;
-  if (hour > 0) return `${hour}h ${min}m`;
-  return `${min}m`;
-};
-
-const clampPercentage = (value: number) => {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(value, 100));
-};
-
-const getLoadPercentByCores = (load: number, cpus: number) => {
-  if (!Number.isFinite(load) || !Number.isFinite(cpus) || cpus <= 0) {
-    return 0;
-  }
-
-  return Number(((load / cpus) * 100).toFixed(1));
-};
-
-const getCpuLoadLabel = (percent: number) => {
-  if (percent < 15) return "閒置";
-  if (percent < 50) return "穩定";
-  if (percent < 80) return "忙碌";
-  if (percent < 100) return "高負載";
-  return "過載";
-};
-
-const getCpuLoadColor = (percent: number) => {
-  if (percent < 15) return "#22c55e";
-  if (percent < 50) return "#38bdf8";
-  if (percent < 80) return "#f59e0b";
-  if (percent < 100) return "#fb7185";
-  return "#ef4444";
-};
-
 const AppHeader: React.FC<AppHeaderProps> = ({
   displayUsername,
   hasGuestIdentity = false,
@@ -171,15 +72,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     authUser?.display_name || authUser?.id || displayUsername || "Guest";
   const isAnonymousVisitor = !authUser && !hasGuestIdentity;
   const isGuestVisitor = !authUser && hasGuestIdentity;
-  const isAdmin = isAdminRole(authUser?.role);
 
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
-  const [systemOpen, setSystemOpen] = useState(false);
-  const [systemLoading, setSystemLoading] = useState(false);
-  const [systemError, setSystemError] = useState<string | null>(null);
-  const [systemStatus, setSystemStatus] = useState<SystemStatusPayload | null>(
-    null,
-  );
 
   const isMenuOpen = Boolean(menuAnchorEl);
   const menuId = isMenuOpen ? "header-menu-popover" : undefined;
@@ -207,74 +101,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     },
     [authUser, hasGuestIdentity, navigate, onNavigateRooms],
   );
-
-  const fetchSystemStatus = useCallback(async () => {
-    setSystemLoading(true);
-    setSystemError(null);
-    try {
-      const res = await fetch(`${API_URL}/api/system/status`);
-      if (!res.ok) {
-        throw new Error(`status ${res.status}`);
-      }
-      const payload = (await res.json()) as SystemStatusPayload;
-      setSystemStatus(payload);
-    } catch (error) {
-      setSystemError(
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch system status",
-      );
-    } finally {
-      setSystemLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!systemOpen) return;
-    void fetchSystemStatus();
-    const timer = window.setInterval(() => {
-      void fetchSystemStatus();
-    }, 10_000);
-    return () => window.clearInterval(timer);
-  }, [fetchSystemStatus, systemOpen]);
-
-  const cpuSummary = useMemo(() => {
-    const cores = systemStatus?.os.cpus ?? 0;
-    const [load1 = 0, load5 = 0, load15 = 0] = systemStatus?.os.loadAverage ?? [
-      0, 0, 0,
-    ];
-
-    const items = [
-      {
-        key: "1m",
-        label: "1 分鐘平均負載",
-        load: load1,
-        percent: getLoadPercentByCores(load1, cores),
-      },
-      {
-        key: "5m",
-        label: "5 分鐘平均負載",
-        load: load5,
-        percent: getLoadPercentByCores(load5, cores),
-      },
-      {
-        key: "15m",
-        label: "15 分鐘平均負載",
-        load: load15,
-        percent: getLoadPercentByCores(load15, cores),
-      },
-    ];
-
-    const latestPercent = items[0]?.percent ?? 0;
-
-    return {
-      cores,
-      items,
-      latestPercent,
-      statusLabel: getCpuLoadLabel(latestPercent),
-      statusColor: getCpuLoadColor(latestPercent),
-    };
-  }, [systemStatus]);
 
   const menuItemSx = useMemo(
     () => ({
@@ -683,43 +509,23 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           </MenuList>
 
           {!isAnonymousVisitor && (
-            <>
-              {isAdmin && (
-                <MenuItem
-                  onClick={() => {
-                    handleMenuClose();
-                    setSystemOpen(true);
-                  }}
-                  sx={menuItemSx}
-                >
-                  <ListItemIcon sx={{ minWidth: 30, color: "#f59e0b" }}>
-                    <Memory fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="系統狀態"
-                    secondary="檢視後端 OS 與執行狀態"
-                  />
-                </MenuItem>
-              )}
-
-              <MenuItem
-                onClick={() => {
-                  handleMenuClose();
-                  if (onNavigateSettings) {
-                    onNavigateSettings();
-                  }
-                }}
-                sx={menuItemSx}
-              >
-                <ListItemIcon sx={{ minWidth: 30, color: "#c4b5fd" }}>
-                  <Settings fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="設定"
-                  secondary="調整快捷鍵、遊玩音量與房間大廳背景音"
-                />
-              </MenuItem>
-            </>
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                if (onNavigateSettings) {
+                  onNavigateSettings();
+                }
+              }}
+              sx={menuItemSx}
+            >
+              <ListItemIcon sx={{ minWidth: 30, color: "#c4b5fd" }}>
+                <Settings fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="設定"
+                secondary="調整快捷鍵、遊玩音量與房間大廳背景音"
+              />
+            </MenuItem>
           )}
 
           <Divider sx={{ borderColor: "rgba(148, 163, 184, 0.12)" }} />
@@ -744,329 +550,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             />
           </MenuItem>
         </Popover>
-
-        <Dialog
-          open={isAdmin && systemOpen}
-          onClose={() => setSystemOpen(false)}
-          fullWidth
-          maxWidth="sm"
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              border: "1px solid var(--mc-border)",
-              background:
-                "linear-gradient(180deg, rgba(20, 17, 13, 0.98), rgba(11, 10, 8, 0.98))",
-            },
-          }}
-        >
-          <DialogTitle
-            sx={{
-              borderBottom: "1px solid rgba(245, 158, 11, 0.14)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 1.5,
-            }}
-          >
-            <Stack direction="row" spacing={1.2} alignItems="center">
-              <Memory fontSize="small" />
-              <Typography variant="subtitle1" fontWeight={700}>
-                後端系統狀態
-              </Typography>
-              <Chip
-                label={systemStatus?.status === "ok" ? "Healthy" : "Unknown"}
-                size="small"
-                sx={{
-                  bgcolor:
-                    systemStatus?.status === "ok"
-                      ? "rgba(16, 185, 129, 0.2)"
-                      : "rgba(148, 163, 184, 0.2)",
-                  color: "#e2e8f0",
-                }}
-              />
-            </Stack>
-
-            <IconButton
-              size="small"
-              onClick={() => {
-                void fetchSystemStatus();
-              }}
-              disabled={systemLoading}
-              sx={{ color: "var(--mc-text-muted)" }}
-            >
-              <Refresh fontSize="small" />
-            </IconButton>
-          </DialogTitle>
-
-          <DialogContent sx={{ pt: 2 }}>
-            {systemError ? (
-              <Typography color="#fca5a5" variant="body2">
-                Failed to load system status: {systemError}
-              </Typography>
-            ) : (
-              <Stack spacing={1.4} sx={{ color: "var(--mc-text)" }}>
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    border: "1px solid rgba(245, 158, 11, 0.16)",
-                    background: "rgba(0,0,0,0.26)",
-                  }}
-                >
-                  <Typography variant="caption" color="var(--mc-text-muted)">
-                    更新時間
-                  </Typography>
-                  <Typography variant="body2">
-                    {systemStatus?.timestamp
-                      ? new Date(systemStatus.timestamp).toLocaleString()
-                      : "-"}
-                  </Typography>
-                </Box>
-
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip
-                    label={`Host: ${systemStatus?.os.hostname ?? "-"}`}
-                    sx={{
-                      border: "1px solid rgba(245, 158, 11, 0.22)",
-                      color: "var(--mc-text)",
-                      bgcolor: "rgba(0,0,0,0.2)",
-                    }}
-                  />
-                  <Chip
-                    label={`OS: ${systemStatus?.os.platform ?? "-"} ${
-                      systemStatus?.os.arch ?? ""
-                    }`}
-                    sx={{
-                      border: "1px solid rgba(245, 158, 11, 0.22)",
-                      color: "var(--mc-text)",
-                      bgcolor: "rgba(0,0,0,0.2)",
-                    }}
-                  />
-                  <Chip
-                    label={`Node: ${systemStatus?.process.nodeVersion ?? "-"}`}
-                    sx={{
-                      border: "1px solid rgba(245, 158, 11, 0.22)",
-                      color: "var(--mc-text)",
-                      bgcolor: "rgba(0,0,0,0.2)",
-                    }}
-                  />
-                </Stack>
-
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-                    gap: 1,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      p: 1.4,
-                      borderRadius: 2,
-                      border: "1px solid rgba(245, 158, 11, 0.12)",
-                      background: "rgba(0,0,0,0.22)",
-                    }}
-                  >
-                    <Typography variant="caption" color="var(--mc-text-muted)">
-                      服務運行時間
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDuration(systemStatus?.process.uptimeSec ?? 0)}
-                    </Typography>
-                  </Box>
-
-                  <Box
-                    sx={{
-                      p: 1.4,
-                      borderRadius: 2,
-                      border: "1px solid rgba(245, 158, 11, 0.12)",
-                      background: "rgba(0,0,0,0.22)",
-                    }}
-                  >
-                    <Typography variant="caption" color="var(--mc-text-muted)">
-                      系統運行時間
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDuration(systemStatus?.os.uptimeSec ?? 0)}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box
-                  sx={{
-                    p: 1.4,
-                    borderRadius: 2,
-                    border: "1px solid rgba(245, 158, 11, 0.12)",
-                    background: "rgba(0,0,0,0.22)",
-                  }}
-                >
-                  <Stack spacing={1.2}>
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      flexWrap="wrap"
-                      useFlexGap
-                    >
-                      <Typography
-                        variant="caption"
-                        color="var(--mc-text-muted)"
-                      >
-                        CPU 負載概況
-                      </Typography>
-
-                      <Chip
-                        label={`${cpuSummary.statusLabel} · ${cpuSummary.latestPercent.toFixed(
-                          0,
-                        )}%`}
-                        size="small"
-                        sx={{
-                          bgcolor: `${cpuSummary.statusColor}22`,
-                          color: "#e2e8f0",
-                          border: `1px solid ${cpuSummary.statusColor}55`,
-                        }}
-                      />
-                    </Stack>
-
-                    <Typography variant="body2">
-                      核心數：{cpuSummary.cores > 0 ? cpuSummary.cores : "-"}
-                    </Typography>
-
-                    {cpuSummary.items.map((item) => (
-                      <Box key={item.key}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          justifyContent="space-between"
-                          spacing={1}
-                        >
-                          <Typography
-                            variant="caption"
-                            color="var(--mc-text-muted)"
-                          >
-                            {item.label}
-                          </Typography>
-                          <Typography variant="caption">
-                            {item.load.toFixed(2)} / {item.percent.toFixed(1)}%
-                          </Typography>
-                        </Stack>
-                        <LinearProgress
-                          variant="determinate"
-                          value={clampPercentage(item.percent)}
-                          sx={{
-                            mt: 0.6,
-                            height: 7,
-                            borderRadius: 999,
-                            bgcolor: "rgba(148, 163, 184, 0.16)",
-                            "& .MuiLinearProgress-bar": {
-                              borderRadius: 999,
-                              bgcolor: getCpuLoadColor(item.percent),
-                            },
-                          }}
-                        />
-                      </Box>
-                    ))}
-                  </Stack>
-                </Box>
-
-                <Box
-                  sx={{
-                    p: 1.4,
-                    borderRadius: 2,
-                    border: "1px solid rgba(245, 158, 11, 0.12)",
-                    background: "rgba(0,0,0,0.22)",
-                  }}
-                >
-                  <Stack spacing={1.2}>
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      justifyContent="space-between"
-                    >
-                      <Typography
-                        variant="caption"
-                        color="var(--mc-text-muted)"
-                      >
-                        系統記憶體
-                      </Typography>
-                      <Typography variant="caption">
-                        {clampPercentage(
-                          systemStatus?.os.memory.usedPercent ?? 0,
-                        ).toFixed(1)}
-                        %
-                      </Typography>
-                    </Stack>
-
-                    <LinearProgress
-                      variant="determinate"
-                      value={clampPercentage(
-                        systemStatus?.os.memory.usedPercent ?? 0,
-                      )}
-                      sx={{
-                        height: 7,
-                        borderRadius: 999,
-                        bgcolor: "rgba(148, 163, 184, 0.16)",
-                        "& .MuiLinearProgress-bar": {
-                          borderRadius: 999,
-                          bgcolor: "#38bdf8",
-                        },
-                      }}
-                    />
-
-                    <Typography variant="body2">
-                      {formatBytes(systemStatus?.os.memory.usedBytes ?? 0)} /{" "}
-                      {formatBytes(systemStatus?.os.memory.totalBytes ?? 0)}
-                    </Typography>
-                  </Stack>
-                </Box>
-
-                <Box
-                  sx={{
-                    p: 1.4,
-                    borderRadius: 2,
-                    border: "1px solid rgba(245, 158, 11, 0.12)",
-                    background: "rgba(0,0,0,0.22)",
-                  }}
-                >
-                  <Typography variant="caption" color="var(--mc-text-muted)">
-                    Node.js Process Memory
-                  </Typography>
-                  <Typography variant="body2">
-                    RSS {formatBytes(systemStatus?.process.rssBytes ?? 0)} ·
-                    Heap {formatBytes(systemStatus?.process.heapUsedBytes ?? 0)}{" "}
-                    / {formatBytes(systemStatus?.process.heapTotalBytes ?? 0)}
-                  </Typography>
-                </Box>
-
-                {systemStatus?.os.containerMemory && (
-                  <Box
-                    sx={{
-                      p: 1.4,
-                      borderRadius: 2,
-                      border: "1px solid rgba(245, 158, 11, 0.12)",
-                      background: "rgba(0,0,0,0.22)",
-                    }}
-                  >
-                    <Typography variant="caption" color="var(--mc-text-muted)">
-                      Container Memory
-                    </Typography>
-                    <Typography variant="body2">
-                      {systemStatus.os.containerMemory.usedBytes !== null
-                        ? formatBytes(systemStatus.os.containerMemory.usedBytes)
-                        : "-"}{" "}
-                      /{" "}
-                      {systemStatus.os.containerMemory.limitBytes !== null
-                        ? formatBytes(
-                            systemStatus.os.containerMemory.limitBytes,
-                          )
-                        : "-"}
-                    </Typography>
-                  </Box>
-                )}
-              </Stack>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </header>
   );

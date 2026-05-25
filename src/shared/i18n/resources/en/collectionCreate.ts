@@ -46,8 +46,6 @@ const collectionCreate = {
       "A playlist is being analyzed. Please wait before switching sources.",
     playlistUrlLabel: "YouTube playlist URL",
     playlistUrlPlaceholder: "https://www.youtube.com/playlist?list=...",
-    playlistUrlHint:
-      "Paste a playlist URL. We will automatically analyze available items and remove duplicates when possible.",
     invalidPlaylistUrl:
       "Please paste a valid YouTube playlist URL that contains a list parameter.",
     loading: "Loading...",
@@ -71,8 +69,6 @@ const collectionCreate = {
       "The current parsed playlist and import result will be cleared. You can paste or select another playlist afterward.",
     clearPlaylistDialogCancel: "Cancel",
     clearPlaylistDialogConfirm: "Clear and reselect",
-    playlistLockedHint:
-      "The playlist has been parsed. To change it, click the X button and choose another playlist.",
     importedSourcesTitle: "Imported sources",
     importedSourcesDescription: "{{sourceCount}} sources · {{itemCount}} songs",
     importedSourcesEmpty:

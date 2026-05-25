@@ -45,7 +45,6 @@ const collectionCreate = {
     sourceSwitchDisabledHint: "播放清單解析中，請等待完成後再切換來源。",
     playlistUrlLabel: "YouTube 播放清單連結",
     playlistUrlPlaceholder: "https://www.youtube.com/playlist?list=...",
-    playlistUrlHint: "貼上播放清單連結後，會自動分析可用項目，並移除重複歌曲。",
     invalidPlaylistUrl:
       "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。",
     loading: "載入中...",
@@ -68,8 +67,6 @@ const collectionCreate = {
       "目前已解析的播放清單與匯入結果會被清除，你可以重新貼上或選擇另一份清單。",
     clearPlaylistDialogCancel: "取消",
     clearPlaylistDialogConfirm: "清除並重選",
-    playlistLockedHint:
-      "播放清單已解析完成。若要更換清單，請點擊右側的 X 清除後重新選擇。",
     importedSourcesTitle: "已匯入來源",
     importedSourcesDescription: "{{sourceCount}} 個來源 · {{itemCount}} 首歌曲",
     importedSourcesEmpty:

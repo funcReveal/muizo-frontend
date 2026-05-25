@@ -4,11 +4,10 @@ import {
   useMemo,
   useRef,
   useState,
-  type UIEvent,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useContext } from "react";
-import { Button, TextField, useMediaQuery } from "@mui/material";
+import { Button, useMediaQuery } from "@mui/material";
 import {
   AddCircleOutlineRounded,
   MeetingRoomRounded,
@@ -44,7 +43,6 @@ import {
   DEFAULT_PLAYBACK_EXTENSION_MODE,
   PLAYER_MAX,
   PLAYER_MIN,
-  USERNAME_MAX,
   YOUTUBE_PLAYLIST_MIN_ITEM_COUNT,
 } from "@domain/room/constants";
 import { generateGuestUsername } from "@domain/room/guestUsername";
@@ -297,8 +295,6 @@ const RoomsHubPage: React.FC = () => {
   const bgmVolume = settingsModel?.bgmVolume ?? DEFAULT_BGM_VOLUME;
   const {
     username,
-    usernameInput,
-    setUsernameInput,
     handleSetUsername,
     loginWithGoogle,
     authLoading,
@@ -371,8 +367,9 @@ const RoomsHubPage: React.FC = () => {
     allowCollectionClipTiming,
     updateAllowCollectionClipTiming,
   } = useRoomGame();
+  const isDesktopLibraryLayout = useMediaQuery("(min-width:1024px)");
   const isLibraryGridWide = useMediaQuery("(min-width:640px)");
-  const isLibraryGridThreeColumn = useMediaQuery("(min-width:1536px)");
+  const isLibraryGridFourColumn = useMediaQuery("(min-width:1536px)");
   const [guideMode, setGuideMode] = useState<"create" | "join">(() => {
     if (typeof window === "undefined") return "create";
     const stored = window.sessionStorage.getItem(GUIDE_MODE_STORAGE_KEY);
@@ -448,6 +445,12 @@ const RoomsHubPage: React.FC = () => {
     collectionId: string;
   } | null>(null);
   const [pendingGuestRoomCreate, setPendingGuestRoomCreate] = useState(false);
+  const [pendingGuestJoinRoom, setPendingGuestJoinRoom] = useState<{
+    roomCode: string;
+    roomName: string;
+    hasPassword: boolean;
+    pin?: string;
+  } | null>(null);
   const {
     passwordDialog,
     setPasswordDialog,
@@ -509,7 +512,6 @@ const RoomsHubPage: React.FC = () => {
     previousCreateLibraryTabRef,
   } = useLibrarySourceUiState();
   const hasRequestedYoutubePlaylistsRef = useRef(false);
-  const createLibraryScrollRef = useRef<HTMLDivElement | null>(null);
   const directRoomCodeInputRef = useRef<HTMLInputElement | null>(null);
   const publicLibrarySearchPanelRef = useRef<HTMLDivElement | null>(null);
   const roomsHubBgmRef = useRef<HTMLAudioElement | null>(null);
@@ -1067,6 +1069,16 @@ const RoomsHubPage: React.FC = () => {
     (createLibraryTab === "personal" && !normalizedCreateLibrarySearch)
       ? collectionsTotalCount
       : null;
+  const mobileSourceCountLabel =
+    createLibraryTab === "link"
+      ? linkPlaylistCount > 0
+        ? `${linkPlaylistCount} 筆`
+        : null
+      : createLibraryTab === "youtube"
+        ? `${filteredCreateYoutubePlaylists.length} 筆`
+        : collectionsLoading
+          ? "載入中"
+          : `${createCollectionsTotalCount ?? filteredCreateCollections.length} 筆`;
   const shouldShowCollectionSkeleton =
     collectionsLoading &&
     !(
@@ -1155,9 +1167,14 @@ const RoomsHubPage: React.FC = () => {
     suggestedGuestUsername,
     username,
   ]);
+  const ensureGuestIdentity = useCallback(() => {
+    if (username) return true;
+    prepareGuestIdentity();
+    return false;
+  }, [prepareGuestIdentity, username]);
   const handleCreateCasualRoomFromDrawer = () => {
     if (!canSubmitRoomCreate()) return;
-    if (prepareGuestIdentity()) {
+    if (!ensureGuestIdentity()) {
       setPendingGuestRoomCreate(true);
       return;
     }
@@ -1226,7 +1243,7 @@ const RoomsHubPage: React.FC = () => {
       return;
     }
     if (playlistItems.length === 0) return;
-    if (prepareGuestIdentity()) return;
+    if (!ensureGuestIdentity()) return;
     if (!isConnected) return;
 
     setPendingCustomRoomStart(null);
@@ -1236,10 +1253,10 @@ const RoomsHubPage: React.FC = () => {
     collectionItemsLoading,
     buildCreateRoomOptions,
     handleCreateRoom,
+    ensureGuestIdentity,
     isConnected,
     pendingCustomRoomStart,
     playlistItems.length,
-    prepareGuestIdentity,
     roomCreateSourceMode,
     selectedCreateCollectionId,
   ]);
@@ -1298,8 +1315,8 @@ const RoomsHubPage: React.FC = () => {
     (roomCreateSourceMode === "link" || roomCreateSourceMode === "youtube"
       ? playlistLoading
       : collectionItemsLoading);
-  const createLibraryColumns = isLibraryGridThreeColumn
-    ? 3
+  const createLibraryColumns = isLibraryGridFourColumn
+    ? 4
     : isLibraryGridWide
       ? 2
       : 1;
@@ -1345,7 +1362,8 @@ const RoomsHubPage: React.FC = () => {
     const suppressSharedLinkHighlight =
       detailDrawerState?.source === "sharedLink" &&
       detailDrawerState.collectionId === collection.id;
-    const playableRequirement = resolveCollectionPlayableRequirement(collection);
+    const playableRequirement =
+      resolveCollectionPlayableRequirement(collection);
 
     return (
       <CollectionCard
@@ -1422,30 +1440,6 @@ const RoomsHubPage: React.FC = () => {
     setSourceSetupDrawer(null);
   }, [createLibraryTab, guideMode]);
 
-  useEffect(() => {
-    if (
-      createLibraryView !== "grid" ||
-      (createLibraryTab !== "public" && createLibraryTab !== "personal") ||
-      collectionsLoading ||
-      collectionsLoadingMore ||
-      !collectionsHasMore
-    ) {
-      return;
-    }
-    const container = createLibraryScrollRef.current;
-    if (!container) return;
-    if (container.scrollHeight <= container.clientHeight + 24) {
-      void loadMoreCollections();
-    }
-  }, [
-    collections.length,
-    collectionsHasMore,
-    collectionsLoading,
-    collectionsLoadingMore,
-    createLibraryTab,
-    createLibraryView,
-    loadMoreCollections,
-  ]);
   const handlePickYoutubeSource = async (playlistId: string) => {
     const playlist = youtubePlaylists.find((item) => item.id === playlistId);
     if (playlist && playlist.itemCount < YOUTUBE_PLAYLIST_MIN_ITEM_COUNT) {
@@ -1527,13 +1521,18 @@ const RoomsHubPage: React.FC = () => {
     roomCode: string,
     roomName: string,
     hasPassword: boolean,
+    pin?: string,
   ) => {
     if (hasPassword) {
       openPasswordDialog(roomCode, roomName);
       return;
     }
+    if (!ensureGuestIdentity()) {
+      setPendingGuestJoinRoom({ roomCode, roomName, hasPassword, pin });
+      return;
+    }
     setJoinPasswordInput("");
-    handleJoinRoom(roomCode, false);
+    handleJoinRoom(roomCode, false, pin);
   };
   const openInProgressJoinDialog = (room: RoomSummary) => {
     setJoinConfirmDialog({
@@ -1572,10 +1571,41 @@ const RoomsHubPage: React.FC = () => {
     const trimmed = passwordDraft.trim();
     if (!trimmed) return;
     if (!/^\d{4}$/.test(trimmed)) return;
+    if (!ensureGuestIdentity()) {
+      setPendingGuestJoinRoom({
+        roomCode: passwordDialog.roomId,
+        roomName: passwordDialog.roomName,
+        hasPassword: true,
+        pin: trimmed,
+      });
+      closePasswordDialog();
+      return;
+    }
     setJoinPasswordInput(trimmed);
     handleJoinRoom(passwordDialog.roomId, true, trimmed);
     closePasswordDialog();
   };
+  useEffect(() => {
+    if (!pendingGuestJoinRoom) return;
+    if (!username) return;
+    if (!isConnected) return;
+
+    setPendingGuestJoinRoom(null);
+    setJoinPasswordInput(
+      pendingGuestJoinRoom.hasPassword ? (pendingGuestJoinRoom.pin ?? "") : "",
+    );
+    handleJoinRoom(
+      pendingGuestJoinRoom.roomCode,
+      pendingGuestJoinRoom.hasPassword,
+      pendingGuestJoinRoom.pin,
+    );
+  }, [
+    handleJoinRoom,
+    isConnected,
+    pendingGuestJoinRoom,
+    setJoinPasswordInput,
+    username,
+  ]);
   const handleJoinRoomEntry = (room: RoomSummary) => {
     if (roomIsLeaderboardChallenge(room) && !authUser) {
       loginWithGoogle();
@@ -1622,306 +1652,114 @@ const RoomsHubPage: React.FC = () => {
       roomRequiresPin(resolvedDirectJoinRoom),
     );
   };
-  const handleCollectionGridScroll = (event: UIEvent<HTMLDivElement>) => {
-    if (
-      collectionsLoading ||
-      collectionsLoadingMore ||
-      !collectionsHasMore ||
-      createLibraryView !== "grid"
-    ) {
-      return;
-    }
-    const target = event.currentTarget;
-    const remaining =
-      target.scrollHeight - target.scrollTop - target.clientHeight;
-    if (remaining <= 180) {
-      void loadMoreCollections();
-    }
-  };
-
   return (
     <div className="mx-auto flex h-full min-h-0 w-full flex-1 flex-col text-[var(--mc-text)]">
-      {!currentRoom?.id && !username && (
-        <section className="relative w-full overflow-hidden p-5 sm:p-6">
-          <div className="relative">
-            <h2 className="mt-2 text-2xl font-semibold text-[var(--mc-text)]">
-              選擇進入方式，開始遊戲
-            </h2>
-
-            <div className="mt-5 grid items-stretch gap-4 lg:grid-cols-2">
-              <article className="relative flex min-h-[17.5rem] flex-col overflow-hidden rounded-2xl border border-cyan-300/35 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.86))] p-[18px] shadow-[0_12px_24px_-22px_rgba(2,6,23,0.9)]">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(34,211,238,0.5),transparent)]" />
-
-                <header className="space-y-3">
-                  <span className="inline-flex w-fit items-center rounded-full border border-cyan-300/35 bg-cyan-300/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-cyan-50">
-                    推薦登入
-                  </span>
-                  <h3 className="text-[1.35rem] font-semibold leading-tight text-[var(--mc-text)]">
-                    Google 登入
-                  </h3>
-                  <p className="text-[13px] leading-[1.55] text-[var(--mc-text-muted)]">
-                    你的進度與資料會穩定保存，避免重整後狀態遺失，也能跨裝置無縫延續。
-                  </p>
-                </header>
-
-                <ul className="mt-4 grid flex-1 gap-2">
-                  {[
-                    "同步 YouTube 播放清單，快速建立題庫",
-                    "保留個人收藏與編輯紀錄",
-                    "跨裝置延續登入狀態",
-                    "新功能優先支援登入用戶",
-                  ].map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-center gap-2 text-sm leading-snug text-[#c9f9eb]"
-                    >
-                      <span className="h-2 w-2 shrink-0 rotate-45 rounded-[1px] border border-cyan-300/60 shadow-[0_0_6px_rgba(56,189,248,0.18)]" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  sx={{
-                    mt: 3,
-                    minHeight: 46,
-                    borderRadius: "16px",
-                    borderColor: "rgba(34, 211, 238, 0.44)",
-                    backgroundColor: "rgba(8, 90, 110, 0.48)",
-                    color: "#eafaf2",
-                    letterSpacing: "0.14em",
-                    "&:hover": {
-                      borderColor: "rgba(34, 211, 238, 0.62)",
-                      backgroundColor: "rgba(8, 90, 110, 0.62)",
-                      filter: "brightness(1.05)",
-                    },
-                  }}
-                  onClick={loginWithGoogle}
-                  disabled={authLoading}
-                >
-                  {authLoading ? "登入中..." : "透過 Google 登入"}
-                </Button>
-              </article>
-
-              <article className="relative flex min-h-[17.5rem] flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-amber-300/35 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.86))] p-[18px] shadow-[0_12px_24px_-22px_rgba(2,6,23,0.9)]">
-                <header className="space-y-3">
-                  <span className="inline-flex w-fit items-center rounded-full border border-amber-300/35 bg-amber-400/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-amber-100">
-                    快速試玩
-                  </span>
-                  <h3 className="text-[1.35rem] font-semibold leading-tight text-[var(--mc-text)]">
-                    訪客快速進入
-                  </h3>
-                  <p className="text-[13px] leading-[1.55] text-[var(--mc-text-muted)]">
-                    不綁定帳號，輸入暱稱即可開局；留空會使用下方隨機名稱。
-                  </p>
-                </header>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <label
-                      htmlFor="nickname"
-                      className="text-[15px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]"
-                    >
-                      暱稱
-                    </label>
-                    <span className="text-[11px] text-[var(--mc-text-muted)]">
-                      {usernameInput.length}/{USERNAME_MAX}
-                    </span>
-                  </div>
-
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder={suggestedGuestUsername}
-                    value={usernameInput}
-                    onChange={(e) =>
-                      setUsernameInput(e.target.value.slice(0, USERNAME_MAX))
-                    }
-                    autoComplete="off"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "16px",
-                        backgroundColor: "rgba(15, 23, 42, 0.78)",
-                        color: "var(--mc-text)",
-                        "& fieldset": {
-                          borderColor: "rgba(245, 158, 11, 0.28)",
-                        },
-                        "&:hover fieldset": {
-                          borderColor: "rgba(251, 191, 36, 0.52)",
-                        },
-                        "&.Mui-focused fieldset": {
-                          borderColor: "rgba(251, 191, 36, 0.72)",
-                          boxShadow: "0 0 0 2px rgba(245, 158, 11, 0.14)",
-                        },
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: "var(--mc-text-muted)",
-                        letterSpacing: "0.14em",
-                      },
-                      "& .MuiInputBase-input::placeholder": {
-                        color: "rgba(252, 211, 77, 0.46)",
-                        opacity: 1,
-                      },
-                    }}
-                    slotProps={{
-                      input: { sx: { mb: "10px" } },
-                      htmlInput: { maxLength: USERNAME_MAX },
-                    }}
-                  />
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    sx={{
-                      minHeight: 46,
-                      borderRadius: "16px",
-                      borderColor: "rgba(251, 191, 36, 0.44)",
-                      backgroundColor: "rgba(245, 158, 11, 0.2)",
-                      color: "var(--mc-text)",
-                      letterSpacing: "0.18em",
-                      "&:hover": {
-                        borderColor: "rgba(251, 191, 36, 0.62)",
-                        backgroundColor: "rgba(245, 158, 11, 0.28)",
-                        filter: "brightness(1.05)",
-                      },
-                    }}
-                    onClick={() =>
-                      handleSetUsername(
-                        usernameInput.trim()
-                          ? undefined
-                          : suggestedGuestUsername,
-                      )
-                    }
-                  >
-                    {usernameInput.trim()
-                      ? "以訪客身份繼續"
-                      : `使用隨機暱稱開始`}
-                  </Button>
-                </div>
-              </article>
-            </div>
-
-            <div className="mt-4 text-xs text-[var(--mc-text-muted)]">
-              先看看玩法？可前往
-              <button
-                type="button"
-                onClick={() => navigate("/")}
-                className="ml-1 text-cyan-300 hover:text-cyan-200"
-              >
-                首頁導覽
-              </button>
-              。
-            </div>
-          </div>
-        </section>
-      )}
-
-      {!currentRoom?.id && username && (
+      {!currentRoom?.id && (
         <section className="flex min-h-0 w-full flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col sm:p-5">
-            <div className="relative grid w-full grid-cols-2 gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-1">
-              <div
-                aria-hidden="true"
-                className={`pointer-events-none absolute bottom-1 top-1 overflow-hidden rounded-xl border transition-[transform,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  guideMode === "create"
-                    ? "border-cyan-300/55 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(14,165,233,0.09))] shadow-[0_22px_42px_-30px_rgba(34,211,238,0.72)]"
-                    : "border-amber-300/55 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(245,158,11,0.1))] shadow-[0_22px_42px_-30px_rgba(251,191,36,0.68)]"
-                }`}
-                style={{
-                  left: "0.25rem",
-                  width: "calc(50% - 0.375rem)",
-                  transform:
+            <div className="sticky top-0 z-50 bg-[var(--mc-bg)] pb-2 lg:static lg:bg-transparent lg:pb-0">
+              <div className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-bg)] p-1 shadow-[0_14px_30px_-28px_rgba(2,6,23,0.95)] lg:bg-[var(--mc-surface-strong)]/40 lg:shadow-none">
+                <button
+                  type="button"
+                  className={`relative z-10 cursor-pointer rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5 sm:py-4.5 lg:px-4 lg:py-4 ${
                     guideMode === "create"
-                      ? "translateX(0)"
-                      : "translateX(calc(100% + 0.25rem))",
-                }}
-              >
-                <div
-                  className={`absolute inset-x-[10%] top-0 h-[58%] rounded-full blur-2xl transition-opacity duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    guideMode === "create"
-                      ? "bg-cyan-200/22 opacity-100"
-                      : "bg-amber-100/22 opacity-100"
+                      ? "border-cyan-300/55 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(14,165,233,0.09))] text-cyan-50 shadow-[0_18px_34px_-28px_rgba(34,211,238,0.72)]"
+                      : "border-transparent text-[var(--mc-text-muted)] hover:border-cyan-300/45 hover:bg-cyan-500/12 hover:text-cyan-100"
                   }`}
-                />
-                <div
-                  className={`absolute inset-y-0 w-20 -skew-x-12 bg-gradient-to-r from-transparent via-white/12 to-transparent transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    guideMode === "create"
-                      ? "translate-x-[-20%] opacity-90"
-                      : "translate-x-[180%] opacity-90"
-                  }`}
-                />
-              </div>
-              <button
-                type="button"
-                className={`relative z-10 cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  guideMode === "create"
-                    ? "border-transparent bg-transparent text-cyan-50"
-                    : "border-transparent text-[var(--mc-text-muted)] hover:border-cyan-300/45 hover:bg-cyan-500/12 hover:text-cyan-100"
-                }`}
-                onClick={() => setGuideMode("create")}
-              >
-                <div
-                  className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    guideMode === "create"
-                      ? "translate-y-[-1px] scale-[1.01]"
-                      : "translate-y-0 scale-100"
-                  }`}
+                  onClick={() => setGuideMode("create")}
                 >
-                  <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  <div
+                    className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                       guideMode === "create"
-                        ? "border-cyan-300/45 bg-cyan-400/14 text-cyan-100 shadow-[0_10px_24px_-18px_rgba(34,211,238,0.85)]"
-                        : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
+                        ? "translate-y-[-1px] scale-[1.01]"
+                        : "translate-y-0 scale-100"
                     }`}
                   >
-                    <AddCircleOutlineRounded fontSize="small" />
-                  </span>
-                  <p className="text-base font-semibold text-[var(--mc-text)]">
-                    創建房間
-                  </p>
-                </div>
-              </button>
-              <button
-                type="button"
-                className={`relative z-10 cursor-pointer rounded-xl border px-4 py-4 sm:px-5 sm:py-4.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  guideMode === "join"
-                    ? "border-transparent bg-transparent text-amber-50"
-                    : "border-transparent text-[var(--mc-text-muted)] hover:border-amber-300/45 hover:bg-amber-400/12 hover:text-amber-100"
-                }`}
-                onClick={() => setGuideMode("join")}
-              >
-                <div
-                  className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    guideMode === "join"
-                      ? "translate-y-[-1px] scale-[1.01]"
-                      : "translate-y-0 scale-100"
-                  }`}
-                >
-                  <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                      guideMode === "join"
-                        ? "border-amber-300/45 bg-amber-400/14 text-amber-100 shadow-[0_10px_24px_-18px_rgba(251,191,36,0.9)]"
-                        : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
-                    }`}
-                  >
-                    <MeetingRoomRounded fontSize="small" />
-                  </span>
-                  <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-                    <p className="text-base font-semibold text-[var(--mc-text)]">
-                      加入房間
-                    </p>
-                    <span className="text-[11px] font-medium leading-none text-[var(--mc-text-muted)] sm:translate-y-[1px]">
-                      {displayedSiteOnlineCount ?? "--"} 人在線
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-10 sm:w-10 sm:rounded-2xl ${
+                        guideMode === "create"
+                          ? "border-cyan-300/45 bg-cyan-400/14 text-cyan-100 shadow-[0_10px_24px_-18px_rgba(34,211,238,0.85)]"
+                          : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
+                      }`}
+                    >
+                      <AddCircleOutlineRounded fontSize="small" />
                     </span>
+                    <p className="text-base font-semibold text-[var(--mc-text)]">
+                      創建房間
+                    </p>
                   </div>
+                </button>
+                <button
+                  type="button"
+                  className={`relative z-10 cursor-pointer rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5 sm:py-4.5 lg:px-4 lg:py-4 ${
+                    guideMode === "join"
+                      ? "border-amber-300/55 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(245,158,11,0.1))] text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.68)]"
+                      : "border-transparent text-[var(--mc-text-muted)] hover:border-amber-300/45 hover:bg-amber-400/12 hover:text-amber-100"
+                  }`}
+                  onClick={() => setGuideMode("join")}
+                >
+                  <div
+                    className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                      guideMode === "join"
+                        ? "translate-y-[-1px] scale-[1.01]"
+                        : "translate-y-0 scale-100"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-10 sm:w-10 sm:rounded-2xl ${
+                        guideMode === "join"
+                          ? "border-amber-300/45 bg-amber-400/14 text-amber-100 shadow-[0_10px_24px_-18px_rgba(251,191,36,0.9)]"
+                          : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
+                      }`}
+                    >
+                      <MeetingRoomRounded fontSize="small" />
+                    </span>
+                    <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+                      <p className="text-base font-semibold text-[var(--mc-text)]">
+                        加入房間
+                      </p>
+                      <span className="text-[11px] font-medium leading-none text-[var(--mc-text-muted)] sm:translate-y-[1px]">
+                        {displayedSiteOnlineCount ?? "--"} 人在線
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {guideMode === "create" ? (
+                <div className="mt-2 bg-[var(--mc-bg)] lg:hidden">
+                  <LibrarySourceToolbar
+                    createLibraryTab={createLibraryTab}
+                    publicLibrarySearchPanelRef={publicLibrarySearchPanelRef}
+                    publicLibrarySearchActive={publicLibrarySearchActive}
+                    createLibrarySearch={createLibrarySearch}
+                    setCreateLibrarySearch={setCreateLibrarySearch}
+                    collectionsLoading={collectionsLoading}
+                    filteredCreateCollectionsLength={
+                      filteredCreateCollections.length
+                    }
+                    createCollectionsTotalCount={createCollectionsTotalCount}
+                    filteredCreateYoutubePlaylistsLength={
+                      filteredCreateYoutubePlaylists.length
+                    }
+                    createLibraryView={createLibraryView}
+                    setCreateLibraryView={setCreateLibraryView}
+                    togglePublicLibrarySearch={togglePublicLibrarySearch}
+                    publicCollectionsSort={publicCollectionsSort}
+                    setPublicCollectionsSort={setPublicCollectionsSort}
+                    canUseGoogleLibraries={canUseGoogleLibraries}
+                    setCreateLibraryTab={setCreateLibraryTab}
+                    onLockedSourceClick={loginWithGoogle}
+                    mobileSourceMeta={mobileSourceCountLabel ?? undefined}
+                    mobileEmbedded
+                  />
                 </div>
-              </button>
+              ) : null}
             </div>
 
             <div
               key={`guide-panel-${guideMode}`}
-              className="mt-2 flex min-h-0 flex-1 flex-col animate-[guide-panel-enter_220ms_ease-out]"
+              className="flex min-h-0 flex-1 flex-col animate-[guide-panel-enter_220ms_ease-out] sm:mt-2"
             >
               {guideMode === "create" ? (
                 <div className="flex min-h-0 flex-1 flex-col lg:rounded-2xl lg:border lg:border-[var(--mc-border)] lg:p-4">
@@ -1937,35 +1775,46 @@ const RoomsHubPage: React.FC = () => {
                   >
                     <div className="flex min-h-0 flex-1 flex-col bg-[var(--mc-surface)]/10 lg:rounded-none lg:border-l lg:border-[var(--mc-border)]/45 lg:pl-5">
                       <div className="flex min-h-0 flex-1 flex-col">
-                        {createLibraryTab !== "link" && (
-                          <LibrarySourceToolbar
-                            createLibraryTab={createLibraryTab}
-                            publicLibrarySearchPanelRef={
-                              publicLibrarySearchPanelRef
-                            }
-                            publicLibrarySearchActive={
-                              publicLibrarySearchActive
-                            }
-                            createLibrarySearch={createLibrarySearch}
-                            setCreateLibrarySearch={setCreateLibrarySearch}
-                            collectionsLoading={collectionsLoading}
-                            filteredCreateCollectionsLength={
-                              filteredCreateCollections.length
-                            }
-                            createCollectionsTotalCount={
-                              createCollectionsTotalCount
-                            }
-                            filteredCreateYoutubePlaylistsLength={
-                              filteredCreateYoutubePlaylists.length
-                            }
-                            createLibraryView={createLibraryView}
-                            setCreateLibraryView={setCreateLibraryView}
-                            togglePublicLibrarySearch={
-                              togglePublicLibrarySearch
-                            }
-                            publicCollectionsSort={publicCollectionsSort}
-                            setPublicCollectionsSort={setPublicCollectionsSort}
-                          />
+                        {isDesktopLibraryLayout &&
+                          createLibraryTab !== "link" && (
+                          <div className="block">
+                            <LibrarySourceToolbar
+                              createLibraryTab={createLibraryTab}
+                              publicLibrarySearchPanelRef={
+                                publicLibrarySearchPanelRef
+                              }
+                              publicLibrarySearchActive={
+                                publicLibrarySearchActive
+                              }
+                              createLibrarySearch={createLibrarySearch}
+                              setCreateLibrarySearch={setCreateLibrarySearch}
+                              collectionsLoading={collectionsLoading}
+                              filteredCreateCollectionsLength={
+                                filteredCreateCollections.length
+                              }
+                              createCollectionsTotalCount={
+                                createCollectionsTotalCount
+                              }
+                              filteredCreateYoutubePlaylistsLength={
+                                filteredCreateYoutubePlaylists.length
+                              }
+                              createLibraryView={createLibraryView}
+                              setCreateLibraryView={setCreateLibraryView}
+                              togglePublicLibrarySearch={
+                                togglePublicLibrarySearch
+                              }
+                              publicCollectionsSort={publicCollectionsSort}
+                              setPublicCollectionsSort={
+                                setPublicCollectionsSort
+                              }
+                              canUseGoogleLibraries={canUseGoogleLibraries}
+                              setCreateLibraryTab={setCreateLibraryTab}
+                              onLockedSourceClick={loginWithGoogle}
+                              mobileSourceMeta={
+                                mobileSourceCountLabel ?? undefined
+                              }
+                            />
+                          </div>
                         )}
 
                         {!canUseGoogleLibraries &&
@@ -2078,10 +1927,6 @@ const RoomsHubPage: React.FC = () => {
                               setCreateLibraryTab={setCreateLibraryTab}
                               handleActivateLinkSource={
                                 handleActivateLinkSource
-                              }
-                              createLibraryScrollRef={createLibraryScrollRef}
-                              handleCollectionGridScroll={
-                                handleCollectionGridScroll
                               }
                               createLibraryColumns={createLibraryColumns}
                               renderCollectionCard={renderCollectionCard}

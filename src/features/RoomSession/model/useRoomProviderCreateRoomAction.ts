@@ -11,6 +11,7 @@ import {
   runRoomCreationFlow,
 } from "@features/RoomCreation";
 import { translateRoomErrorDetail } from "./roomErrorText";
+import { writeCachedRoomMessages } from "./roomMessagePersistence";
 import type { CreateRoomOptions, RoomCreateSourceMode } from "./RoomCreateContext";
 import {
   CHUNK_SIZE,
@@ -536,6 +537,7 @@ export const useRoomProviderCreateRoomAction = ({
       finalizedState.participants,
     );
     setMessages(finalizedState.messages);
+    writeCachedRoomMessages(finalizedState.room.id, finalizedState.messages);
     setSettlementHistory(finalizedState.settlementHistory ?? []);
     persistRoomSessionToken(finalizeAck.data.roomSessionToken ?? null);
     persistRoomId(finalizeAck.data.roomId);

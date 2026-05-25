@@ -6,10 +6,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  useMediaQuery,
 } from "@mui/material";
 
 import AppHeader from "./AppHeader";
-import EmbeddedSettingsDialog from "./EmbeddedSettingsDialog";
+import SettingsDrawer from "./SettingsDrawer";
 import IdentityProfileDialog from "./IdentityProfileDialog";
 import { useAuth } from "@shared/auth/AuthContext";
 
@@ -23,8 +24,6 @@ const getNavigationPath = (target: NavigationTarget) => {
       return "/collections";
     case "career":
       return "/career";
-    case "settings":
-      return "/settings";
     default:
       return "/rooms";
   }
@@ -51,9 +50,9 @@ const AppLayoutShell: React.FC = () => {
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
 
   const isRoomsHubPage = location.pathname === "/rooms";
-  const isRoomsEntryGatePage = isRoomsHubPage && !username;
 
   const handleLoginRequest = useCallback(() => {
     if (authLoading) return;
@@ -96,11 +95,11 @@ const AppLayoutShell: React.FC = () => {
     navigate("/privacy");
   }, [navigate]);
 
-  const roomsOutletClassName = isRoomsEntryGatePage
+  const roomsOutletClassName = isRoomsHubPage && isMobileViewport
     ? [
         "min-h-0 flex-1",
         "overflow-y-auto overflow-x-hidden",
-        "pb-[calc(88px+env(safe-area-inset-bottom))]",
+        "pb-[calc(16px+env(safe-area-inset-bottom))]",
         "[-webkit-overflow-scrolling:touch]",
         "overscroll-y-contain",
         "[&>*]:!h-auto",
@@ -116,9 +115,9 @@ const AppLayoutShell: React.FC = () => {
       }`}
     >
       <div
-        className={`flex w-full min-w-0 max-w-[1600px] p-4 flex-col ${
+        className={`flex w-full min-w-0 p-4 flex-col ${
           isRoomsHubPage ? "space-y-2" : "space-y-4"
-        }${isRoomsHubPage ? " h-full min-h-0" : ""}`}
+        }${isRoomsHubPage ? " h-full min-h-0" : " min-h-screen"}`}
       >
         <AppHeader
           displayUsername={displayUsername}
@@ -175,7 +174,7 @@ const AppLayoutShell: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        <EmbeddedSettingsDialog
+        <SettingsDrawer
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}
         />

@@ -69,13 +69,21 @@ const sanitizeBindings = (
   candidate: Partial<KeyBindings> | null | undefined,
 ): KeyBindings => {
   const used = new Set<string>();
-  const next: KeyBindings = { ...DEFAULT_KEY_BINDINGS };
+  const next: KeyBindings = {};
 
   for (const slot of [0, 1, 2, 3] as const) {
+    const hasCandidateValue = Object.prototype.hasOwnProperty.call(
+      candidate ?? {},
+      slot,
+    );
     const raw = normalizeKey(candidate?.[slot]);
     if (raw && !used.has(raw)) {
       next[slot] = raw;
       used.add(raw);
+      continue;
+    }
+    if (hasCandidateValue) {
+      next[slot] = "";
       continue;
     }
     const fallback = normalizeKey(DEFAULT_KEY_BINDINGS[slot]);

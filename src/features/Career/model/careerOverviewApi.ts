@@ -3,10 +3,12 @@ import { ensureFreshAuthToken } from "@shared/auth/token";
 import type {
   CareerCollectionRankShortcutItem,
   CareerCollectionRankRow,
+  CareerCompositeScope,
   CareerCompositeStats,
   CareerHeroStats,
   CareerHighlightItem,
   CareerOverviewData,
+  CareerOverviewScopeContent,
   CareerWeeklyStats,
 } from "../types/career";
 
@@ -31,9 +33,11 @@ type CareerCollectionRanksApiResponse = {
 type PartialCareerOverviewData = {
   hero?: Partial<CareerHeroStats>;
   composite?: Partial<CareerCompositeStats>;
+  compositeScopes?: Array<Partial<CareerCompositeScope>>;
   weekly?: Partial<CareerWeeklyStats>;
   highlights?: CareerHighlightItem[];
   collectionShortcuts?: CareerCollectionRankShortcutItem[];
+  scopeContent?: Array<Partial<CareerOverviewScopeContent>>;
 };
 
 interface FetchCareerOverviewParams {
@@ -61,6 +65,7 @@ export const emptyCareerOverviewData: CareerOverviewData = {
     averageAccuracyRate: null,
     trend: [],
   },
+  compositeScopes: [],
   weekly: {
     currentMatches: 0,
     previousMatches: 0,
@@ -74,7 +79,19 @@ export const emptyCareerOverviewData: CareerOverviewData = {
   },
   highlights: [],
   collectionShortcuts: [],
+  scopeContent: [],
 };
+
+const normalizeCareerCompositeStats = (
+  incoming?: Partial<CareerCompositeStats>,
+): CareerCompositeStats => ({
+  ...emptyCareerOverviewData.composite,
+  ...(incoming ?? {}),
+  trend:
+    incoming?.trend && Array.isArray(incoming.trend)
+      ? incoming.trend
+      : emptyCareerOverviewData.composite.trend,
+});
 
 const buildHeaders = async (
   authToken: string | null,
@@ -109,13 +126,22 @@ const normalizeCareerOverviewData = (
       ...(incoming.hero ?? {}),
     },
     composite: {
-      ...base.composite,
-      ...(incoming.composite ?? {}),
-      trend:
-        incoming.composite?.trend && Array.isArray(incoming.composite.trend)
-          ? incoming.composite.trend
-          : base.composite.trend,
+      ...normalizeCareerCompositeStats(incoming.composite),
     },
+    compositeScopes: Array.isArray(incoming.compositeScopes)
+      ? incoming.compositeScopes
+          .filter(
+            (item): item is Partial<CareerCompositeScope> =>
+              typeof item?.key === "string" &&
+              typeof item?.label === "string",
+          )
+          .map((item) => ({
+            key: item.key ?? "overall",
+            kind: item.kind === "leaderboard" ? "leaderboard" : "casual",
+            label: item.label ?? "總覽",
+            stats: normalizeCareerCompositeStats(item.stats),
+          }))
+      : [],
     weekly: {
       ...base.weekly,
       ...(incoming.weekly ?? {}),
@@ -123,8 +149,43 @@ const normalizeCareerOverviewData = (
     highlights: Array.isArray(incoming.highlights) ? incoming.highlights : [],
     collectionShortcuts:
       incoming.collectionShortcuts && Array.isArray(incoming.collectionShortcuts)
-        ? incoming.collectionShortcuts
+        ? incoming.collectionShortcuts.map((item) => ({
+            ...item,
+            coverThumbnailUrl: item.coverThumbnailUrl ?? null,
+            sourceLabel: item.sourceLabel ?? null,
+            matchSummary: item.matchSummary ?? null,
+            lastPlayedAt: item.lastPlayedAt ?? null,
+            recentRank: item.recentRank ?? null,
+            recentPlayerCount: item.recentPlayerCount ?? null,
+            previousLeaderboardRank: item.previousLeaderboardRank ?? null,
+            delta: item.delta ?? null,
+          }))
         : [],
+    scopeContent: Array.isArray(incoming.scopeContent)
+      ? incoming.scopeContent
+          .filter(
+            (item): item is Partial<CareerOverviewScopeContent> =>
+              typeof item?.scopeKey === "string",
+          )
+          .map((item) => ({
+            scopeKey: item.scopeKey ?? "casual",
+            highlights: Array.isArray(item.highlights) ? item.highlights : [],
+            collectionShortcuts: Array.isArray(item.collectionShortcuts)
+              ? item.collectionShortcuts.map((shortcut) => ({
+                  ...shortcut,
+                  coverThumbnailUrl: shortcut.coverThumbnailUrl ?? null,
+                  sourceLabel: shortcut.sourceLabel ?? null,
+                  matchSummary: shortcut.matchSummary ?? null,
+                  lastPlayedAt: shortcut.lastPlayedAt ?? null,
+                  recentRank: shortcut.recentRank ?? null,
+                  recentPlayerCount: shortcut.recentPlayerCount ?? null,
+                  previousLeaderboardRank:
+                    shortcut.previousLeaderboardRank ?? null,
+                  delta: shortcut.delta ?? null,
+                }))
+              : [],
+          }))
+      : [],
   };
 };
 
@@ -193,5 +254,10 @@ export const fetchCareerCollectionRanks = async ({
     throw new Error(payload?.error ?? "讀取題庫戰績失敗");
   }
 
-  return payload.data?.items ?? [];
+  return (payload.data?.items ?? []).map((item) => ({
+    ...item,
+    coverThumbnailUrl: item.coverThumbnailUrl ?? null,
+    previousLeaderboardRank: item.previousLeaderboardRank ?? null,
+    delta: item.delta ?? null,
+  }));
 };

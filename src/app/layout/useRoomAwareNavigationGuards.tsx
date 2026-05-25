@@ -16,8 +16,6 @@ const getNavigationPath = (target: NavigationTarget) => {
       return "/collections";
     case "career":
       return "/career";
-    case "settings":
-      return "/settings";
     default:
       return "/rooms";
   }

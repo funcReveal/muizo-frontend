@@ -1,6 +1,7 @@
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from "react";
 
 import type { RoomClosedNotice } from "./RoomSessionContext";
+import { clearCachedRoomMessages } from "./roomMessagePersistence";
 import type { RoomStatusOptions } from "./providers/RoomStatusContexts";
 import type {
   Ack,
@@ -92,6 +93,7 @@ export const useRoomClosureActions = ({
     ) => {
       const targetRoomId =
         roomId ?? currentRoomIdRef.current ?? currentRoom?.id ?? "";
+      clearCachedRoomMessages(targetRoomId);
       setClosedRoomNotice({
         roomId: targetRoomId,
         kind,

@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   CampaignRounded,
   GraphicEqRounded,
@@ -109,7 +109,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           >
             重設
           </Button>
-          <div className="settings-mobile-plain-pill flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-1">
+          <div className="flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-1">
             <span className="text-xs text-slate-300">啟用</span>
             <Switch
               size="small"
@@ -122,7 +122,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
       }
     >
       <div className="space-y-4">
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <GraphicEqRounded sx={{ fontSize: 18, color: "#a5f3fc" }} />
@@ -130,7 +130,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                 遊戲歌曲音量
               </p>
             </div>
-            <span className="settings-mobile-plain-badge rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
+            <span className="rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
               {gameVolume}%
             </span>
           </div>
@@ -152,7 +152,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           <p className="mt-2 text-xs text-slate-400">影響題目播放音量。</p>
         </div>
 
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <GraphicEqRounded sx={{ fontSize: 18, color: "#7dd3fc" }} />
@@ -160,7 +160,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                 背景音樂音量
               </p>
             </div>
-            <span className="settings-mobile-plain-badge rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
+            <span className="rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
               {bgmVolume}%
             </span>
           </div>
@@ -184,13 +184,13 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           </p>
         </div>
 
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <GraphicEqRounded sx={{ fontSize: 18, color: "#67e8f9" }} />
               <p className="text-sm font-semibold text-slate-100">提示音音量</p>
             </div>
-            <span className="settings-mobile-plain-badge rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
+            <span className="rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-cyan-100">
               {sfxVolume}%
             </span>
           </div>
@@ -218,14 +218,14 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
               type="button"
               disabled={!sfxEnabled}
               onClick={() => setSfxVolume(DEFAULT_SFX_VOLUME)}
-              className="settings-mobile-plain-chip rounded-full border border-cyan-300/25 bg-cyan-400/5 px-2 py-0.5 text-[11px] font-semibold text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-400/10 disabled:opacity-50"
+              className="rounded-full border border-cyan-300/25 bg-cyan-400/5 px-2 py-0.5 text-[11px] font-semibold text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-400/10 disabled:opacity-50"
             >
               套用建議音量 {DEFAULT_SFX_VOLUME}%
             </button>
           </div>
         </div>
 
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <CampaignRounded sx={{ fontSize: 18, color: "#7dd3fc" }} />
@@ -233,7 +233,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                 結算試聽音量
               </p>
             </div>
-            <div className="settings-mobile-plain-pill flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-1">
+            <div className="flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-2 py-1">
               <span className="text-xs text-slate-300">同步遊玩音量</span>
               <Switch
                 size="small"
@@ -270,7 +270,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           </p>
         </div>
 
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
           <div className="mb-3 flex items-center gap-2">
             <TuneRounded sx={{ fontSize: 18, color: "#c4b5fd" }} />
             <p className="text-sm font-semibold text-slate-100">音效風格</p>
@@ -284,7 +284,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                   type="button"
                   disabled={!sfxEnabled}
                   onClick={() => setSfxPreset(preset.id)}
-                  className={`settings-mobile-plain-choice rounded-xl border px-3 py-2 text-left transition ${
+                  className={`rounded-xl border px-3 py-2 text-left transition ${
                     active
                       ? "border-cyan-300/45 bg-cyan-400/8 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]"
                       : "border-slate-700/60 bg-slate-900/45 hover:border-slate-500/70"
@@ -295,7 +295,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                       {preset.label}
                     </span>
                     {active && (
-                      <span className="settings-mobile-plain-badge rounded-full border border-cyan-300/35 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
+                      <span className="rounded-full border border-cyan-300/35 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
                         目前
                       </span>
                     )}
@@ -315,7 +315,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
           </p>
         </div>
 
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
+        <div className="rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
           <div className="mb-3 flex items-center gap-2">
             <NotificationsActiveRounded
               sx={{ fontSize: 18, color: "#fcd34d" }}
@@ -330,14 +330,14 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                 type="button"
                 disabled={!sfxEnabled}
                 onClick={() => playSample(sample.event)}
-                className={`settings-mobile-plain-choice rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${sampleButtonClassByTone[sample.tone]}`}
+                className={`rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${sampleButtonClassByTone[sample.tone]}`}
               >
                 {sample.label}
               </button>
             ))}
           </div>
 
-          <div className="settings-mobile-plain-card mt-3 rounded-xl border border-slate-700/60 bg-slate-900/45 p-2.5">
+          <div className="mt-3 rounded-xl border border-slate-700/60 bg-slate-900/45 p-2.5">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-xs font-semibold text-slate-200">
                 Combo 答對音（5 段）
@@ -370,7 +370,7 @@ const SfxSettingsPanel: React.FC<SfxSettingsPanelProps> = ({ sectionId }) => {
                   type="button"
                   disabled={!sfxEnabled}
                   onClick={() => playSample(item.event)}
-                  className="settings-mobile-plain-choice rounded-lg border border-amber-300/20 bg-amber-400/5 px-2 py-1.5 text-center text-[11px] font-bold text-amber-100 transition hover:border-amber-300/35 hover:bg-amber-400/10 disabled:opacity-50"
+                  className="rounded-lg border border-amber-300/20 bg-amber-400/5 px-2 py-1.5 text-center text-[11px] font-bold text-amber-100 transition hover:border-amber-300/35 hover:bg-amber-400/10 disabled:opacity-50"
                   title={`Combo 加成 +${item.comboBonusPoints}`}
                 >
                   T{idx + 1}

@@ -73,7 +73,7 @@ const ScoreboardEffectSettingsPanel: React.FC<
         />
       }
     >
-      <div className="settings-mobile-plain-card settings-mobile-plain-card--glow rounded-[24px] border border-cyan-400/18 bg-[radial-gradient(340px_180px_at_18%_0%,rgba(56,189,248,0.14),transparent_65%),linear-gradient(180deg,rgba(2,6,12,0.98),rgba(7,12,20,0.95))] p-5 shadow-[0_24px_64px_-44px_rgba(8,145,178,0.7)]">
+      <div className="rounded-[24px] border border-cyan-400/18 bg-[radial-gradient(340px_180px_at_18%_0%,rgba(56,189,248,0.14),transparent_65%),linear-gradient(180deg,rgba(2,6,12,0.98),rgba(7,12,20,0.95))] p-5 shadow-[0_24px_64px_-44px_rgba(8,145,178,0.7)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
@@ -101,9 +101,9 @@ const ScoreboardEffectSettingsPanel: React.FC<
           </div>
         </div>
 
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft mt-4 rounded-[24px] border border-cyan-400/18 bg-[radial-gradient(460px_190px_at_12%_0%,rgba(56,189,248,0.12),transparent_62%),linear-gradient(180deg,rgba(4,8,15,0.96),rgba(6,10,18,0.94))] p-4">
-          <div className="settings-mobile-plain-card scoreboard-effect-preview-stage rounded-[20px] border border-white/6 bg-[linear-gradient(180deg,rgba(2,6,12,0.54),rgba(2,6,12,0.18))] p-4">
-            <div className="settings-mobile-plain-pill mb-3 flex items-center gap-2 rounded-full border border-cyan-400/18 bg-cyan-400/5 px-3 py-1.5 text-[12px] text-cyan-100/84">
+        <div className="mt-4 rounded-[24px] border border-cyan-400/18 bg-[radial-gradient(460px_190px_at_12%_0%,rgba(56,189,248,0.12),transparent_62%),linear-gradient(180deg,rgba(4,8,15,0.96),rgba(6,10,18,0.94))] p-4">
+          <div className="scoreboard-effect-preview-stage rounded-[20px] border border-white/6 bg-[linear-gradient(180deg,rgba(2,6,12,0.54),rgba(2,6,12,0.18))] p-4">
+            <div className="mb-3 flex items-center gap-2 rounded-full border border-cyan-400/18 bg-cyan-400/5 px-3 py-1.5 text-[12px] text-cyan-100/84">
               <TipsAndUpdatesRoundedIcon sx={{ fontSize: 16 }} />
               <span>
                 預覽會固定顯示 combo 1、combo 5、combo 10 三個層級。把粒子拉到
@@ -159,7 +159,7 @@ const ScoreboardEffectSettingsPanel: React.FC<
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
-        <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
+        <div className="rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
           <div className="mb-3 flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-400/20 bg-rose-500/10 text-rose-200">
               <LocalFireDepartmentRoundedIcon fontSize="small" />
@@ -205,7 +205,7 @@ const ScoreboardEffectSettingsPanel: React.FC<
         </div>
 
         <div className="grid gap-5">
-          <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
+          <div className="rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
             <div className="mb-3 flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-500/10 text-amber-200">
                 <AutoAwesomeRoundedIcon fontSize="small" />
@@ -233,7 +233,7 @@ const ScoreboardEffectSettingsPanel: React.FC<
             </div>
           </div>
 
-          <div className="settings-mobile-plain-card settings-mobile-plain-card--soft rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
+          <div className="rounded-[22px] border border-slate-700/70 bg-slate-950/35 p-4">
             <div className="mb-4 flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-100">
                 <PolylineRoundedIcon fontSize="small" />
@@ -310,7 +310,7 @@ const SelectableCard: React.FC<SelectableCardProps> = ({
 }) => (
   <button
     type="button"
-    className={`settings-mobile-plain-choice w-full rounded-[18px] border p-3 text-left transition duration-200 ${
+    className={`w-full rounded-[18px] border p-3 text-left transition duration-200 ${
       selected
         ? "border-cyan-300/45 bg-cyan-400/10 shadow-[0_20px_40px_-34px_rgba(56,189,248,0.68)]"
         : "border-slate-700/70 bg-slate-950/45 hover:border-slate-500/80 hover:bg-slate-900/70"
@@ -348,7 +348,7 @@ const ThemeSelectableCard: React.FC<ThemeSelectableCardProps> = ({
 }) => (
   <button
     type="button"
-    className={`settings-mobile-plain-choice w-full rounded-[18px] border p-3 text-left transition duration-200 ${
+    className={`w-full rounded-[18px] border p-3 text-left transition duration-200 ${
       selected
         ? "border-cyan-300/45 bg-cyan-400/10 shadow-[0_20px_40px_-34px_rgba(56,189,248,0.68)]"
         : "border-slate-700/70 bg-slate-950/45 hover:border-slate-500/80 hover:bg-slate-900/70"
@@ -361,7 +361,7 @@ const ThemeSelectableCard: React.FC<ThemeSelectableCardProps> = ({
           <h4 className="text-sm font-black tracking-[0.01em] text-slate-100">
             {title}
           </h4>
-          <span className="settings-mobile-plain-badge rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300">
             {accentLabel}
           </span>
         </div>
@@ -372,7 +372,7 @@ const ThemeSelectableCard: React.FC<ThemeSelectableCardProps> = ({
       <SelectionDot selected={selected} />
     </div>
     <div className="mt-3 flex items-center gap-2">
-      <div className="settings-mobile-plain-swatch flex min-w-0 flex-1 overflow-hidden rounded-full border border-white/10 bg-slate-950/70 p-1">
+      <div className="flex min-w-0 flex-1 overflow-hidden rounded-full border border-white/10 bg-slate-950/70 p-1">
         {swatches.map((color) => (
           <span
             key={color}

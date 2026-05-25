@@ -225,6 +225,45 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     handleOpen();
   }, [handleClose, handleOpen, open]);
 
+  useEffect(() => {
+    if (isMobileRoomMode) return;
+
+    const handleDesktopChatKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      const target = event.target;
+      const targetElement =
+        target instanceof HTMLElement ? target : document.activeElement;
+
+      if (!open && event.key === "Enter") {
+        if (
+          targetElement instanceof HTMLElement &&
+          targetElement.closest(
+            "input, textarea, select, button, a, [contenteditable='true'], [role='button'], [role='textbox']",
+          )
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+        handleOpen();
+        return;
+      }
+
+      if (open && !messageInput.trim() && (event.key === "Enter" || event.key === "Escape")) {
+        event.preventDefault();
+        handleClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleDesktopChatKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleDesktopChatKeyDown);
+    };
+  }, [handleClose, handleOpen, isMobileRoomMode, messageInput, open]);
+
   const handleSend = useCallback(() => {
     if (isChatCooldownActive) return;
     if (!messageInput.trim()) return;
@@ -310,6 +349,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       messageInput={messageInput}
       setMessageInput={setMessageInput}
       handleSend={handleSend}
+      onCloseWhenEmpty={handleClose}
       isChatCooldownActive={isChatCooldownActive}
       chatCooldownLeft={chatCooldownLeft}
     />

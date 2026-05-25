@@ -1,10 +1,11 @@
 import React from "react";
+import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
+import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 
 import type {
   CareerCollectionRankSortKey,
   CareerCollectionRankSortOrder,
 } from "../../../types/career";
-import CareerActionButton from "../primitives/CareerActionButton";
 
 interface CareerCollectionRanksToolbarProps {
   sortKey: CareerCollectionRankSortKey;
@@ -27,12 +28,14 @@ const sortOptions: Array<{
 const CareerCollectionRanksToolbar: React.FC<
   CareerCollectionRanksToolbarProps
 > = ({ sortKey, sortOrder, setSortKey, setSortOrder }) => {
+  const nextSortOrder = sortOrder === "asc" ? "desc" : "asc";
+
   return (
-    <div className="flex flex-col gap-3 rounded-[18px] border border-[var(--mc-border)] bg-[rgba(10,18,30,0.36)] p-3 xl:flex-row xl:items-center xl:justify-between">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <label
           htmlFor="career-collection-rank-sort"
-          className="text-[11px] font-semibold tracking-[0.12em] text-[var(--mc-text-muted)]"
+          className="shrink-0 text-[11px] font-semibold tracking-[0.12em] text-amber-100/72"
         >
           排序
         </label>
@@ -43,7 +46,7 @@ const CareerCollectionRanksToolbar: React.FC<
           onChange={(event) =>
             setSortKey(event.target.value as CareerCollectionRankSortKey)
           }
-          className="rounded-[12px] border border-[var(--mc-border)] bg-[rgba(8,14,24,0.92)] px-3 py-2 text-sm text-[var(--mc-text)] outline-none transition focus:border-sky-300/40"
+          className="h-9 min-w-0 flex-1 rounded-[12px] border border-white/10 bg-black/24 px-3 text-sm font-semibold text-[var(--mc-text)] outline-none transition hover:border-amber-300/32 focus:border-amber-300/48 focus:bg-black/34 sm:max-w-[220px]"
         >
           {sortOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -53,21 +56,19 @@ const CareerCollectionRanksToolbar: React.FC<
         </select>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <CareerActionButton
-          tone={sortOrder === "asc" ? "primary" : "secondary"}
-          onClick={() => setSortOrder("asc")}
-        >
-          升冪
-        </CareerActionButton>
-
-        <CareerActionButton
-          tone={sortOrder === "desc" ? "primary" : "secondary"}
-          onClick={() => setSortOrder("desc")}
-        >
-          降冪
-        </CareerActionButton>
-      </div>
+      <button
+        type="button"
+        title={sortOrder === "asc" ? "目前升冪，點擊切換降冪" : "目前降冪，點擊切換升冪"}
+        aria-label={sortOrder === "asc" ? "切換為降冪" : "切換為升冪"}
+        onClick={() => setSortOrder(nextSortOrder)}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border border-amber-300/22 bg-amber-300/10 text-amber-50 transition hover:border-amber-300/42 hover:bg-amber-300/18 focus:outline-none focus:ring-2 focus:ring-amber-200/28"
+      >
+        {sortOrder === "asc" ? (
+          <ArrowUpwardRoundedIcon sx={{ fontSize: 20 }} />
+        ) : (
+          <ArrowDownwardRoundedIcon sx={{ fontSize: 20 }} />
+        )}
+      </button>
     </div>
   );
 };

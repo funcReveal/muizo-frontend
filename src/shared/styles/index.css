@@ -26,7 +26,12 @@
 }
 
 html {
-  /* Keep viewport scrollbar behavior default so pages without overflow do not show an empty gutter. */
+  background: var(--mc-bg);
+  scrollbar-gutter: stable;
+}
+
+html:has(.MuiDrawer-root.MuiModal-root) {
+  scrollbar-gutter: auto;
 }
 
 body {
@@ -46,7 +51,7 @@ body {
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(20, 17, 13, 0.6);
+  background: var(--mc-bg);
   border-radius: 999px;
   border: 1px solid rgba(245, 158, 11, 0.08);
 }
