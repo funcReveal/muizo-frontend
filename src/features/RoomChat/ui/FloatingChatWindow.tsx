@@ -70,6 +70,12 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
 
   const roomId = currentRoom?.id ?? null;
 
+  const scrollChatToBottom = useCallback(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+  }, []);
+
   const focusInputWithoutScroll = useCallback(() => {
     const input = inputRef.current;
     if (!input) return;
@@ -89,17 +95,42 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   );
 
   useEffect(() => {
-    if (!open || !scrollRef.current) return;
+    if (!open) return;
 
-    const node = scrollRef.current;
     const rafId = window.requestAnimationFrame(() => {
-      node.scrollTop = node.scrollHeight;
+      scrollChatToBottom();
     });
 
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [messages.length, open]);
+  }, [messages.length, open, scrollChatToBottom]);
+
+  useEffect(() => {
+    if (!open || !isMobileRoomMode || !mobileBodyActive) return;
+
+    let innerRafId: number | null = null;
+    const rafId = window.requestAnimationFrame(() => {
+      scrollChatToBottom();
+      innerRafId = window.requestAnimationFrame(scrollChatToBottom);
+    });
+    const timeoutId = window.setTimeout(scrollChatToBottom, 180);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      if (innerRafId !== null) {
+        window.cancelAnimationFrame(innerRafId);
+      }
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    isMobileRoomMode,
+    messages.length,
+    mobileBodyActive,
+    mobileHeight,
+    open,
+    scrollChatToBottom,
+  ]);
 
   const clampMobileHeight = useCallback((value: number) => {
     return Math.min(MOBILE_CHAT_MAX_HEIGHT_VH, Math.max(MOBILE_CHAT_MIN_HEIGHT_VH, value));
