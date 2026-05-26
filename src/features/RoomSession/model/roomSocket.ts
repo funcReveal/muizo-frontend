@@ -76,11 +76,6 @@ type RoomSocketHandlers = {
     roomId: string;
     settlementHistory: RoomSettlementSnapshot[];
   }) => void;
-  onSettlementRankChange?: (payload: {
-    roomId: string;
-    roundKey: string;
-    rankChangeByClientId: Record<string, number | null>;
-  }) => void;
   onLeaderboardSettlementReady?: (
     payload: LeaderboardSettlementReadyPayload,
   ) => void;
@@ -200,9 +195,6 @@ export const connectRoomSocket = (
   );
   socket.on("settlementHistoryUpdated", (payload) =>
     handlers.onSettlementHistoryUpdated?.(payload),
-  );
-  socket.on("settlementRankChange", (payload) =>
-    handlers.onSettlementRankChange?.(payload),
   );
   socket.on("leaderboardSettlementReady", (payload) =>
     handlers.onLeaderboardSettlementReady?.(payload),

@@ -1212,13 +1212,6 @@ body {
   position: relative;
 }
 
-.game-room-extend-vote-btn--prompt {
-  animation: game-room-extend-vote-nudge 1.4s ease-in-out infinite;
-  box-shadow:
-    0 0 0 1px rgba(251, 191, 36, 0.36),
-    0 0 18px rgba(251, 191, 36, 0.24);
-}
-
 .game-room-playback-vote-red-dot {
   position: absolute;
   top: -4px;
@@ -1231,39 +1224,6 @@ body {
     0 0 0 3px rgba(244, 63, 94, 0.18),
     0 0 12px rgba(244, 63, 94, 0.55);
   pointer-events: none;
-}
-
-@keyframes game-room-extend-vote-nudge {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  8% {
-    transform: translateX(-1px);
-  }
-
-  16% {
-    transform: translateX(2px);
-  }
-
-  24% {
-    transform: translateX(-1px);
-  }
-
-  32% {
-    transform: translateX(1px);
-  }
-
-  40% {
-    transform: translateX(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .game-room-extend-vote-btn--prompt {
-    animation: none;
-  }
 }
 
 /* Challenge leaderboard — self row shell + external gain lane */

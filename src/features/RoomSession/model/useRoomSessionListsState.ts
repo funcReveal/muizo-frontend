@@ -17,9 +17,6 @@ export const useRoomSessionListsState = () => {
   const [settlementHistory, setSettlementHistory] = useState<
     RoomSettlementSnapshot[]
   >([]);
-  const [rankChangeByRoundKey, setRankChangeByRoundKey] = useState<
-    Record<string, Record<string, number | null>>
-  >({});
   const [leaderboardSettlementReadyByRoundKey, setLeaderboardSettlementReadyByRoundKey] =
     useState<Record<string, LeaderboardSettlementReadyPayload>>({});
 
@@ -51,16 +48,6 @@ export const useRoomSessionListsState = () => {
     });
   }, []);
 
-  const mergeRankChange = useCallback(
-    (roundKey: string, changes: Record<string, number | null>) => {
-      setRankChangeByRoundKey((prev) => ({
-        ...prev,
-        [roundKey]: { ...(prev[roundKey] ?? {}), ...changes },
-      }));
-    },
-    [],
-  );
-
   const mergeLeaderboardSettlementReady = useCallback(
     (payload: LeaderboardSettlementReadyPayload) => {
       setLeaderboardSettlementReadyByRoundKey((prev) => ({
@@ -76,9 +63,7 @@ export const useRoomSessionListsState = () => {
     setMessagesWithCap,
     settlementHistory,
     setSettlementHistoryWithCap,
-    rankChangeByRoundKey,
     leaderboardSettlementReadyByRoundKey,
-    mergeRankChange,
     mergeLeaderboardSettlementReady,
   };
 };

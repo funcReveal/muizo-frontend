@@ -77,7 +77,9 @@ export function useGameRoomVoteState({
     if (playbackExtensionVote.rejectClientIds.includes(meClientId))
       return "reject";
     return null;
-  }, [meClientId, playbackExtensionVote]);
+  // Use specific sub-arrays so a new vote object with unchanged IDs doesn't retrigger
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meClientId, playbackExtensionVote?.approveClientIds, playbackExtensionVote?.rejectClientIds]);
 
   const playbackVoteRequesterName = normalizeRoomDisplayText(
     playbackExtensionVote?.requestedByUsername,

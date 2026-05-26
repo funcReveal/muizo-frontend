@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Badge, Chip } from "@mui/material";
+import { Badge } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
@@ -583,13 +583,8 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
           <div className="leaderboard-compact-row__status relative flex shrink-0 items-center justify-end overflow-visible">
             {typeof answerRank === "number" ? (() => {
               const shouldUseAnswerOrderTone = !isReveal;
-
               return (
-                <Chip
-                  label={`第 ${answerRank} 答`}
-                  size="small"
-                  color="default"
-                  variant="outlined"
+                <span
                   className={[
                     "game-room-chip",
                     "game-room-chip--scoreboard-state",
@@ -600,15 +595,14 @@ const GameRoomScorePlayerRow = React.memo(function GameRoomScorePlayerRow({
                       ? resolveScoreboardAnswerRankToneClass(answerRank)
                       : resolveScoreboardAnswerResultToneClass(answerChipColor),
                   ].filter(Boolean).join(" ")}
-                />
+                >
+                  {`\u7b2c ${answerRank} \u7b54`}
+                </span>
               );
             })() : (
-              <Chip
-                label={isReveal ? "未作答" : "待答"}
-                size="small"
-                variant="outlined"
-                className="game-room-chip game-room-chip--scoreboard-state"
-              />
+              <span className="game-room-chip game-room-chip--scoreboard-state">
+                {isReveal ? "\u672a\u4f5c\u7b54" : "\u5f85\u7b54"}
+              </span>
             )}
           </div>
           <div className="leaderboard-compact-row__score challenge-lb-row__score relative flex shrink-0 items-baseline justify-end whitespace-nowrap text-right font-mono overflow-visible">
@@ -744,6 +738,20 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   const sidebarRef = React.useRef<HTMLElement | null>(null);
   const rowShellByClientIdRef = React.useRef(new Map<string, HTMLDivElement>());
   const rowElementByClientIdRef = React.useRef(new Map<string, HTMLDivElement>());
+  // Stable ref-callback factory: same clientId always returns the same function,
+  // so React.memo on GameRoomScorePlayerRow is never defeated by a new reference.
+  const rowElementRefCacheRef = React.useRef(new Map<string, (node: HTMLDivElement | null) => void>());
+  const getRowElementRef = React.useCallback((clientId: string) => {
+    let cb = rowElementRefCacheRef.current.get(clientId);
+    if (!cb) {
+      cb = (node) => {
+        if (node) rowElementByClientIdRef.current.set(clientId, node);
+        else rowElementByClientIdRef.current.delete(clientId);
+      };
+      rowElementRefCacheRef.current.set(clientId, cb);
+    }
+    return cb;
+  }, []);
   const previousDesktopTopByClientIdRef = React.useRef(new Map<string, number>());
   const desktopFlipAnimationsRef = React.useRef<Animation[]>([]);
   const desktopFlipBurstClientIdByAnimationRef = React.useRef(
@@ -1506,13 +1514,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                       rowSwapStyle={rowSwapStyle}
                       rowClassName={rowClassName}
                       rowShellRef={undefined}
-                      rowElementRef={(node) => {
-                        if (node) {
-                          rowElementByClientIdRef.current.set(p.clientId, node);
-                          return;
-                        }
-                        rowElementByClientIdRef.current.delete(p.clientId);
-                      }}
+                      rowElementRef={getRowElementRef(p.clientId)}
                       displayName={displayName}
                       comboDisplayClass={comboDisplayClass}
                       shouldShowComboChampion={shouldShowComboChampion}

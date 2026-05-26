@@ -334,10 +334,16 @@ const useGameRoomAnswerFlow = ({
     [participants],
   );
   const answeredOrderForCurrentParticipants = useMemo(
-    () =>
-      answeredOrderSnapshot.order.filter((clientId) =>
-        participantIdSet.has(clientId),
-      ),
+    () => {
+      const uniqueOrder: string[] = [];
+      const seen = new Set<string>();
+      answeredOrderSnapshot.order.forEach((clientId) => {
+        if (!participantIdSet.has(clientId) || seen.has(clientId)) return;
+        seen.add(clientId);
+        uniqueOrder.push(clientId);
+      });
+      return uniqueOrder;
+    },
     [answeredOrderSnapshot.order, participantIdSet],
   );
   const answeredClientIdSet = useMemo(
