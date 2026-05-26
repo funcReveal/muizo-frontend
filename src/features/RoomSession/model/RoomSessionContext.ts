@@ -64,7 +64,6 @@ export interface RoomSessionContextValue {
     durationMs?: number | null,
   ) => void;
   handleTransferHost: (targetClientId: string) => void;
-  rankChangeByRoundKey: Record<string, Record<string, number | null>>;
   leaderboardSettlementReadyByRoundKey: Record<
     string,
     LeaderboardSettlementReadyPayload

@@ -28,10 +28,23 @@ type InflightRequest = {
   promise: Promise<LeaderboardSettlementResponse>;
 };
 
+const MAX_SETTLEMENT_CACHE_SIZE = 50;
 const settlementCache = new Map<string, LeaderboardSettlementResponse>();
 const inflightRequests = new Map<string, InflightRequest>();
 const LEADERBOARD_SETTLEMENT_INITIAL_LIMIT = 100;
 const LEADERBOARD_SETTLEMENT_PAGE_SIZE = 100;
+
+const putSettlementCache = (
+  key: string,
+  value: LeaderboardSettlementResponse,
+) => {
+  if (settlementCache.size >= MAX_SETTLEMENT_CACHE_SIZE && !settlementCache.has(key)) {
+    // Evict the oldest entry (Map preserves insertion order).
+    const firstKey = settlementCache.keys().next().value;
+    if (firstKey !== undefined) settlementCache.delete(firstKey);
+  }
+  settlementCache.set(key, value);
+};
 
 const getCacheKey = (
   matchId?: string | null,
@@ -225,7 +238,7 @@ export const useLeaderboardSettlement = ({
           return;
         }
 
-        settlementCache.set(cacheKey, data);
+        putSettlementCache(cacheKey, data);
 
         if (requestKeyRef.current !== requestKey) return;
 
@@ -328,7 +341,7 @@ export const useLeaderboardSettlement = ({
       setState((current) => {
         if (current.key !== cacheKey || !current.data) return current;
         const merged = mergeLeaderboardSettlementPage(current.data, nextPage);
-        settlementCache.set(cacheKey, merged);
+        putSettlementCache(cacheKey, merged);
         return {
           key: cacheKey,
           data: merged,

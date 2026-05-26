@@ -58,7 +58,6 @@ type LeaderboardSettlementShowcaseProps = {
   meClientId?: string;
   matchId?: string | null;
   questionRecaps?: SettlementQuestionRecap[];
-  rankChangeByClientId?: Record<string, number | null>;
   leaderboardSettlement?: LeaderboardSettlementResponse | null;
   leaderboardSettlementLoading?: boolean;
   leaderboardSettlementLoadingMore?: boolean;
@@ -793,7 +792,6 @@ const LeaderboardSettlementShowcase: React.FC<
   playedQuestionCount,
   meClientId,
   questionRecaps = [],
-  rankChangeByClientId,
   leaderboardSettlement = null,
   leaderboardSettlementLoading = false,
   leaderboardSettlementLoadingMore = false,
@@ -943,11 +941,7 @@ const LeaderboardSettlementShowcase: React.FC<
       scoreGapToPrev:
         backendCurrentRun?.gapToPrevious ??
         (previous && localMe ? previous.score - localMe.score : null),
-      myRankChange:
-        backendCurrentRun?.rankChange ??
-        (localMe && rankChangeByClientId
-          ? (rankChangeByClientId[localMe.clientId] ?? null)
-          : null),
+      myRankChange: backendCurrentRun?.rankChange ?? null,
       accuracy:
         backendCurrentRun && backendCurrentRun.questionCount > 0
           ? (backendCurrentRun.correctCount / backendCurrentRun.questionCount) *
@@ -968,7 +962,6 @@ const LeaderboardSettlementShowcase: React.FC<
     localMe,
     localMyIndex,
     playedQuestionCount,
-    rankChangeByClientId,
     sortedParticipants,
   ]);
 
@@ -1025,7 +1018,7 @@ const LeaderboardSettlementShowcase: React.FC<
           : null,
       durationSec: null,
       isMe: participant.clientId === meClientId,
-      rankChange: rankChangeByClientId?.[participant.clientId] ?? null,
+      rankChange: null,
     }));
   }, [
     backendCurrentRun,
@@ -1033,7 +1026,6 @@ const LeaderboardSettlementShowcase: React.FC<
     leaderboardSettlementLoading,
     meClientId,
     participants.length,
-    rankChangeByClientId,
     sortedParticipants,
   ]);
   const leaderboardComparisonRows = useMemo(
@@ -1261,7 +1253,7 @@ const LeaderboardSettlementShowcase: React.FC<
             : null,
         durationSec: null,
         isMe: true,
-        rankChange: rankChangeByClientId?.[localMe.clientId] ?? null,
+        rankChange: null,
       };
     }
 
@@ -1273,7 +1265,6 @@ const LeaderboardSettlementShowcase: React.FC<
     localMe,
     meClientId,
     meSummary.myRank,
-    rankChangeByClientId,
   ]);
 
   const coverThumbnail =

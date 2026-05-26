@@ -187,9 +187,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     setMessagesWithCap,
     settlementHistory,
     setSettlementHistoryWithCap,
-    rankChangeByRoundKey,
     leaderboardSettlementReadyByRoundKey,
-    mergeRankChange,
     mergeLeaderboardSettlementReady,
   } = useRoomSessionListsState();
   const {
@@ -424,7 +422,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setParticipants,
       setMessages: setMessagesWithCap,
       setSettlementHistory: setSettlementHistoryWithCap,
-      mergeRankChange,
       mergeLeaderboardSettlementReady,
       setPlaylistSuggestions,
       setPlaylistProgress,
@@ -730,7 +727,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       handleLeaveRoom,
       handleKickPlayer,
       handleTransferHost,
-      rankChangeByRoundKey,
       leaderboardSettlementReadyByRoundKey,
       fetchSettlementHistorySummaries,
       fetchSettlementReplay,
@@ -740,7 +736,6 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       currentRoomId,
       participants,
       settlementHistory,
-      rankChangeByRoundKey,
       leaderboardSettlementReadyByRoundKey,
       statusText,
       setStatusText,

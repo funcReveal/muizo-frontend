@@ -1050,7 +1050,6 @@ const RoomLobbyPage: React.FC = () => {
     currentRoom,
     participants,
     settlementHistory,
-    rankChangeByRoundKey,
     leaderboardSettlementReadyByRoundKey,
     isConnected,
     routeRoomResolved,
@@ -3238,9 +3237,6 @@ const RoomLobbyPage: React.FC = () => {
             meClientId={clientId}
             matchId={historyReplaySnapshot.matchId}
             questionRecaps={historyReplayQuestionRecaps}
-            rankChangeByClientId={
-              rankChangeByRoundKey[historyReplaySnapshot.roundKey] ?? undefined
-            }
             leaderboardSettlement={historyReplayLeaderboardSettlement.data}
             leaderboardSettlementLoading={
               historyReplayLeaderboardSettlement.isLoading
@@ -3640,10 +3636,6 @@ const RoomLobbyPage: React.FC = () => {
                 meClientId={clientId}
                 matchId={activeSettlementSnapshot.matchId}
                 questionRecaps={activeSettlementQuestionRecaps}
-                rankChangeByClientId={
-                  rankChangeByRoundKey[activeSettlementSnapshot.roundKey] ??
-                  undefined
-                }
                 leaderboardSettlement={safeLeaderboardSettlement}
                 leaderboardSettlementLoading={
                   effectiveLeaderboardSettlementLoading
