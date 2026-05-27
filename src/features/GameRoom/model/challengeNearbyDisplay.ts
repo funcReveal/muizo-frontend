@@ -25,7 +25,6 @@ interface BuildNearbyDisplayRowsInput {
   myStanding: ChallengeProjectedMyStanding;
   /** Current live score from room participant state, not the API-time score. */
   liveScore: number;
-  meUserId: string | null;
   slots?: number;
   /**
    * How many opponents the viewer has overtaken in this session.
@@ -48,6 +47,11 @@ interface BuildNearbyDisplayRowsInput {
  * 12 or better. Missing above/below slots become placeholders so the 5-slot
  * section remains fixed height.
  *
+ * All entries — including the viewer's own settled historical record when it
+ * falls within the nearby score window — are rendered as normal opponent rows
+ * with the same display style (no YOU badge, no special label). The live self
+ * is always shown separately via the dedicated self row (kind: "self").
+ *
  * Ranks:
  *   Backend sets opponent.rank via projectedRank offsets. Used directly;
  *   approx fallback is computed only when opponent.rank is absent.
@@ -56,15 +60,15 @@ export function buildChallengeNearbyDisplayRows({
   nearbyOpponents,
   myStanding,
   liveScore,
-  meUserId,
   slots = 5,
   sessionPassCount = 0,
 }: BuildNearbyDisplayRowsInput): ChallengeDisplayRow[] {
   const { projectedRank, totalPlayers } = myStanding;
 
-  const opponents = meUserId
-    ? nearbyOpponents.filter((opponent) => opponent.userId !== meUserId)
-    : nearbyOpponents;
+  // Use nearbyOpponents as-is. The backend is the sole authority on which
+  // entries appear in the nearby window, including the viewer's own settled
+  // historical entry when its score falls within the window range.
+  const opponents = nearbyOpponents;
 
   const maxBelowSlots = Math.floor((slots - 1) / 2);
   const belowSlots = Math.min(
