@@ -31,6 +31,7 @@ import type {
   RoomSettlementSnapshot,
   RoomState,
   RoomSummary,
+  RoomViewerAccess,
   SessionProgressPayload,
   SitePresencePayload,
 } from "./types";
@@ -95,6 +96,9 @@ interface SocketLifecycleSetters {
   setPlaylistLoadingMore: Dispatch<SetStateAction<boolean>>;
   setServerOffsetMs: Dispatch<SetStateAction<number>>;
   setRooms: Dispatch<SetStateAction<RoomSummary[]>>;
+  setViewerAccessByRoomId: Dispatch<
+    SetStateAction<Record<string, RoomViewerAccess>>
+  >;
   setInviteNotFound: Dispatch<SetStateAction<boolean>>;
   setSitePresence: (payload: SitePresencePayload | null) => void;
   setPostResumeGate: Dispatch<SetStateAction<PostResumeGate>>;
@@ -236,6 +240,7 @@ export const useRoomProviderSocketLifecycle = ({
     setPlaylistLoadingMore,
     setServerOffsetMs,
     setRooms,
+    setViewerAccessByRoomId,
     setInviteNotFound,
     setSitePresence,
     setPostResumeGate,
@@ -279,8 +284,33 @@ export const useRoomProviderSocketLifecycle = ({
   const removeRoomSummary = useCallback(
     (roomId: string) => {
       setRooms((prev) => prev.filter((room) => room.id !== roomId));
+      setViewerAccessByRoomId((prev) => {
+        if (!(roomId in prev)) return prev;
+        const next = { ...prev };
+        delete next[roomId];
+        return next;
+      });
     },
-    [setRooms],
+    [setRooms, setViewerAccessByRoomId],
+  );
+  const requestRoomDirectorySnapshot = useCallback(
+    (socket: ClientSocket) => {
+      socket.emit("listRooms", (ack) => {
+        if (!ack?.ok) return;
+        syncCollectionAvailabilityFromRooms(ack.data.rooms);
+        startTransition(() => {
+          setRooms(ack.data.rooms);
+          setViewerAccessByRoomId(ack.data.viewerAccess ?? {});
+        });
+        syncServerOffset(ack.data.serverNow);
+      });
+    },
+    [
+      setRooms,
+      setViewerAccessByRoomId,
+      syncCollectionAvailabilityFromRooms,
+      syncServerOffset,
+    ],
   );
   const clearActiveRoomState = useCallback(
     ({
@@ -431,6 +461,7 @@ export const useRoomProviderSocketLifecycle = ({
         onConnect: (socket) => {
           setIsConnected(true);
           setSessionProgress(null);
+          requestRoomDirectorySnapshot(socket);
           const storedRoomId = currentRoomIdRef.current;
           if (shouldAnnounceReconnectRef.current && !storedRoomId) {
             setStatusText("已重新連線到房間伺服器");
@@ -459,6 +490,12 @@ export const useRoomProviderSocketLifecycle = ({
                     const state = ack.data;
                     syncCollectionAvailabilityFromRoom(state.room);
                     setKickedNotice(null);
+                    setViewerAccessByRoomId((prev) => {
+                      if (!(state.room.id in prev)) return prev;
+                      const next = { ...prev };
+                      delete next[state.room.id];
+                      return next;
+                    });
                     setClosedRoomNotice(null);
                     syncServerOffset(state.serverNow);
                     setCurrentRoom(state.room);
@@ -728,6 +765,12 @@ export const useRoomProviderSocketLifecycle = ({
           setSessionProgress(null);
           syncCollectionAvailabilityFromRoom(state.room);
           setKickedNotice(null);
+          setViewerAccessByRoomId((prev) => {
+            if (!(state.room.id in prev)) return prev;
+            const next = { ...prev };
+            delete next[state.room.id];
+            return next;
+          });
           setClosedRoomNotice(null);
           releaseCreateRoomLockRef.current?.();
           syncServerOffset(state.serverNow);
@@ -1019,6 +1062,10 @@ export const useRoomProviderSocketLifecycle = ({
         onKicked: ({ roomId, reason, bannedUntil }) => {
           if (roomId !== currentRoomIdRef.current) return;
           const translatedReason = translateRoomErrorDetail(reason);
+          setViewerAccessByRoomId((prev) => ({
+            ...prev,
+            [roomId]: { kickedUntil: bannedUntil },
+          }));
           clearActiveRoomState({
             kickedNotice: {
               roomId,
@@ -1110,6 +1157,7 @@ export const useRoomProviderSocketLifecycle = ({
     setServerOffsetMs,
     serverOffsetRef,
     setRooms,
+    setViewerAccessByRoomId,
     setInviteNotFound,
     setSitePresence,
     appendPresenceSystemMessage,
@@ -1120,6 +1168,7 @@ export const useRoomProviderSocketLifecycle = ({
     setIsConnected,
     socketRef,
     applyIncomingRoomSummary,
+    requestRoomDirectorySnapshot,
     clearActiveRoomState,
     clearRoomAfterClosure,
     syncCollectionAvailabilityFromPlaylist,

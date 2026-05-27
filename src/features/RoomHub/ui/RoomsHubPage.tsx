@@ -301,8 +301,9 @@ const RoomsHubPage: React.FC = () => {
     authUser,
   } = useAuth();
   const { siteOnlineCount } = useSitePresence();
-  const { currentRoom, isConnected } = useRoomSession();
-  const { rooms } = useRoomDirectory();
+  const { currentRoom, isConnected, serverOffsetMs, setStatusText } =
+    useRoomSession();
+  const { rooms, viewerAccessByRoomId } = useRoomDirectory();
   const displayedSiteOnlineCount = siteOnlineCount ?? (isConnected ? 1 : null);
   const suggestedGuestUsername = useMemo(() => generateGuestUsername(), []);
   const {
@@ -1607,6 +1608,19 @@ const RoomsHubPage: React.FC = () => {
     username,
   ]);
   const handleJoinRoomEntry = (room: RoomSummary) => {
+    const kickedUntil = viewerAccessByRoomId[room.id]?.kickedUntil;
+    const now = Date.now() + serverOffsetMs;
+    if (
+      kickedUntil === null ||
+      (typeof kickedUntil === "number" && kickedUntil > now)
+    ) {
+      setStatusText(
+        typeof kickedUntil === "number"
+          ? "你暫時無法加入這個房間，請等倒數結束後再試。"
+          : "你已被此房間封鎖，無法加入。",
+      );
+      return;
+    }
     if (roomIsLeaderboardChallenge(room) && !authUser) {
       loginWithGoogle();
       return;
@@ -1635,6 +1649,20 @@ const RoomsHubPage: React.FC = () => {
     }
     if (!resolvedDirectJoinRoom) {
       setDirectJoinError("請先等待房間資訊載入完成。");
+      return;
+    }
+    const kickedUntil =
+      viewerAccessByRoomId[resolvedDirectJoinRoom.id]?.kickedUntil;
+    const now = Date.now() + serverOffsetMs;
+    if (
+      kickedUntil === null ||
+      (typeof kickedUntil === "number" && kickedUntil > now)
+    ) {
+      setDirectJoinError(
+        typeof kickedUntil === "number"
+          ? "你暫時無法加入這個房間，請等倒數結束後再試。"
+          : "你已被此房間封鎖，無法加入。",
+      );
       return;
     }
     if (roomIsLeaderboardChallenge(resolvedDirectJoinRoom) && !authUser) {
@@ -1971,11 +1999,20 @@ const RoomsHubPage: React.FC = () => {
                   joinSortMode={joinSortMode}
                   setJoinSortMode={setJoinSortMode}
                   filteredJoinRooms={filteredJoinRooms}
+                  viewerAccessByRoomId={viewerAccessByRoomId}
+                  serverOffsetMs={serverOffsetMs}
                   filteredJoinPlayerTotal={filteredJoinPlayerTotal}
                   siteOnlineCount={displayedSiteOnlineCount}
                   joinRoomsView={joinRoomsView}
                   setJoinRoomsView={setJoinRoomsView}
                   handleJoinRoomEntry={handleJoinRoomEntry}
+                  onBlockedRoomClick={(room, label) => {
+                    setStatusText(
+                      label
+                        ? `你暫時無法加入「${room.name}」，剩餘 ${label}。`
+                        : `你已被「${room.name}」封鎖，無法加入。`,
+                    );
+                  }}
                   roomRequiresPin={roomRequiresPin}
                   roomIsLeaderboardChallenge={roomIsLeaderboardChallenge}
                   isRoomCurrentlyPlaying={isRoomCurrentlyPlaying}
