@@ -3652,6 +3652,16 @@ const RoomLobbyPage: React.FC = () => {
                     ? handleToggleSettlementFavorite
                     : undefined
                 }
+                enableReviewPrompt={Boolean(
+                  authToken &&
+                    safeLeaderboardSettlement &&
+                    !effectiveLeaderboardSettlementLoading,
+                )}
+                reviewPromptKey={
+                  activeMatchId ??
+                  activeSettlementSnapshot.matchId ??
+                  activeSettlementSnapshot.roundKey
+                }
                 onBackToLobby={handleBackFromSettlement}
                 onRetry={handleRetryLeaderboardChallenge}
               />
