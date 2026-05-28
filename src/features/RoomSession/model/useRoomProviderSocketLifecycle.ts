@@ -39,6 +39,14 @@ import type { PostResumeGate } from "./useRoomSessionRecoveryState";
 
 const SYNC_DEBUG_STORAGE_KEY = "musicquiz:debug-sync";
 
+const normalizeRoomSummaries = (
+  value: RoomSummary[] | { rooms?: RoomSummary[] } | null | undefined,
+): RoomSummary[] => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.rooms)) return value.rooms;
+  return [];
+};
+
 type PlaylistProgressState = {
   received: number;
   total: number;
@@ -693,12 +701,13 @@ export const useRoomProviderSocketLifecycle = ({
           setPlaylistSuggestions([]);
         },
         onRoomsUpdated: (updatedRooms: RoomSummary[]) => {
-          syncCollectionAvailabilityFromRooms(updatedRooms);
+          const rooms = normalizeRoomSummaries(updatedRooms);
+          syncCollectionAvailabilityFromRooms(rooms);
           startTransition(() => {
-            setRooms(updatedRooms);
+            setRooms(rooms);
           });
           if (isInviteMode && inviteRoomId) {
-            const found = updatedRooms.some(
+            const found = rooms.some(
               (r) => r.id === inviteRoomId || r.roomCode === inviteRoomId,
             );
             if (found) {
