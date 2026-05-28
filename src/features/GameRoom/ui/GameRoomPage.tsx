@@ -107,6 +107,7 @@ import FloatingChatWindow, {
 } from "@features/RoomChat";
 import GameRoomDanmuProviderBridge from "./components/GameRoomDanmuProviderBridge";
 import GameRoomRestartVoteDock from "./components/GameRoomRestartVoteDock";
+import GameRoomPlaybackVoteDock from "./components/GameRoomPlaybackVoteDock";
 interface GameRoomPageProps {
   room: RoomState["room"];
   gameState: GameState;
@@ -495,10 +496,17 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   const [hostManagementOpen, setHostManagementOpen] = useState(false);
   const [hostManagementConfirm, setHostManagementConfirm] =
     useState<HostManagementAction | null>(null);
-  const [playbackVoteDialogOpen, setPlaybackVoteDialogOpen] = useState(false);
+  const [, setPlaybackVoteDialogOpen] = useState(false);
   const [playbackVoteConfirmOpen, setPlaybackVoteConfirmOpen] = useState(false);
   const [playbackVoteRequestPending, setPlaybackVoteRequestPending] =
     useState(false);
+
+  const [playbackVoteDockCollapsed, setPlaybackVoteDockCollapsed] =
+    useState(false);
+  const [playbackVoteDockPosition, setPlaybackVoteDockPosition] = useState({
+    x: 0,
+    y: 60,
+  });
 
   const [restartVoteDockCollapsed, setRestartVoteDockCollapsed] =
     useState(false);
@@ -704,10 +712,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       confirmLabel: "確認永久封鎖",
     };
   }, [hostManagementConfirm]);
-  const handleClosePlaybackVoteDialog = useCallback(() => {
-    if (playbackVoteSubmitPending !== null) return;
-    setPlaybackVoteDialogOpen(false);
-  }, [playbackVoteSubmitPending]);
   const handleCancelHostManagementConfirm = useCallback(() => {
     setHostManagementConfirm(null);
   }, []);
@@ -1111,6 +1115,39 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     !isEnded &&
     !allAnsweredByServer &&
     !shouldShowGestureOverlay;
+
+  // Rate-limit feedback is owned here so the flow layer can trigger it directly
+  // without relying on submit results propagating back through the panel.
+  const [rateLimitShakeKey, setRateLimitShakeKey] = useState(0);
+  const [showRateLimitToast, setShowRateLimitToast] = useState(false);
+  const [showRateLimitTooltip, setShowRateLimitTooltip] = useState(false);
+  const rateLimitLastFeedbackRef = React.useRef<number>(0);
+  const rateLimitTooltipTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null);
+
+  const handleRateLimited = useCallback(() => {
+    const now = Date.now();
+    if (now - rateLimitLastFeedbackRef.current <= 2000) return;
+    rateLimitLastFeedbackRef.current = now;
+    setRateLimitShakeKey((k) => k + 1);
+    setShowRateLimitToast(true);
+    setShowRateLimitTooltip(true);
+    if (rateLimitTooltipTimerRef.current !== null) {
+      window.clearTimeout(rateLimitTooltipTimerRef.current);
+    }
+    rateLimitTooltipTimerRef.current = window.setTimeout(() => {
+      setShowRateLimitTooltip(false);
+      rateLimitTooltipTimerRef.current = null;
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rateLimitTooltipTimerRef.current !== null) {
+        window.clearTimeout(rateLimitTooltipTimerRef.current);
+      }
+    };
+  }, []);
+
   const {
     selectedChoiceState,
     selectedChoice,
@@ -1133,6 +1170,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     getServerNowMs,
     primeSfxAudio,
     playGameSfx,
+    onRateLimited: handleRateLimited,
   });
   const allAnsweredByLocalSnapshot =
     gameState.phase === "guess" &&
@@ -1475,6 +1513,22 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     setRestartVoteDockCollapsed(myRestartVote !== null);
   }, [activeRestartVoteKey, myRestartVote]);
 
+  // Reset playback vote dock when vote ends or a new vote starts.
+  const lastPlaybackVoteDockKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!playbackExtensionVote || playbackExtensionVote.status !== "active") {
+      setPlaybackVoteDockCollapsed(false);
+      setPlaybackVoteDockPosition({ x: 0, y: 60 });
+      lastPlaybackVoteDockKeyRef.current = null;
+      return;
+    }
+    const voteKey = `playback:${playbackExtensionVote.startedAt}`;
+    if (lastPlaybackVoteDockKeyRef.current === voteKey) return;
+    lastPlaybackVoteDockKeyRef.current = voteKey;
+    setPlaybackVoteDockPosition({ x: 0, y: 60 });
+    setPlaybackVoteDockCollapsed(myPlaybackVote !== null);
+  }, [playbackExtensionVote, myPlaybackVote]);
+
   useEffect(() => {
     if (legacyClipWarningShownRef.current) return;
     if (
@@ -1584,7 +1638,9 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   const handleRequestPlaybackVote = useCallback(() => {
     if (canViewPlaybackVoteDialog) {
-      setPlaybackVoteDialogOpen(true);
+      // Vote is active — expand the dock instead of opening a dialog so the
+      // game view stays unobstructed.
+      setPlaybackVoteDockCollapsed(false);
       return;
     }
 
@@ -1738,6 +1794,51 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     showRestartVoteRedDot,
   ]);
 
+  const playbackVoteOverlay = useMemo(() => {
+    if (!isPlaybackExtensionVoteActive || !playbackExtensionVote) {
+      return null;
+    }
+    const voteKey = `playback:${playbackExtensionVote.startedAt}`;
+    return (
+      <GameRoomPlaybackVoteDock
+        voteKey={voteKey}
+        requesterName={playbackVoteRequesterName}
+        proposalSeconds={playbackVoteProposalSeconds}
+        approveCount={playbackVoteApproveCount}
+        rejectCount={playbackVoteRejectCount}
+        majorityCount={playbackVoteMajorityCount}
+        eligibleCount={playbackExtensionVote.eligibleClientIds.length}
+        myVote={myPlaybackVote}
+        submitPending={playbackVoteSubmitPending}
+        canVote={isPlaybackVoteEligible && myPlaybackVote === null && !!onCastPlaybackExtensionVote}
+        hasPendingVoteAttention={showPlaybackVoteRedDot}
+        collapsed={playbackVoteDockCollapsed}
+        position={playbackVoteDockPosition}
+        onCollapsedChange={setPlaybackVoteDockCollapsed}
+        onPositionChange={setPlaybackVoteDockPosition}
+        onApprove={handleVoteApprove}
+        onReject={handleVoteReject}
+      />
+    );
+  }, [
+    handleVoteApprove,
+    handleVoteReject,
+    isPlaybackExtensionVoteActive,
+    isPlaybackVoteEligible,
+    myPlaybackVote,
+    onCastPlaybackExtensionVote,
+    playbackExtensionVote,
+    playbackVoteApproveCount,
+    playbackVoteDockCollapsed,
+    playbackVoteDockPosition,
+    playbackVoteMajorityCount,
+    playbackVoteProposalSeconds,
+    playbackVoteRejectCount,
+    playbackVoteRequesterName,
+    playbackVoteSubmitPending,
+    showPlaybackVoteRedDot,
+  ]);
+
   const {
     myHasAnswered,
     myIsCorrect,
@@ -1761,6 +1862,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     liveAccuracyPct,
     selectedChoice,
     correctChoiceIndex,
+    myServerAnswerResult:
+      meClientId && gameState.questionStats?.answersByClientId
+        ? (gameState.questionStats.answersByClientId[meClientId]?.result ?? null)
+        : null,
     myBackendScoreBreakdown:
       meClientId && gameState.questionStats?.scoreBreakdownsByClientId
         ? (gameState.questionStats.scoreBreakdownsByClientId[meClientId] ??
@@ -1782,6 +1887,33 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       ),
     [gameState.questionStats?.scoreBreakdownsByClientId],
   );
+
+  /**
+   * Server-confirmed per-player answer results for the current question.
+   * Sourced directly from questionStats.answersByClientId so the scoreboard
+   * row chip color (correct / wrong) is driven by the authoritative backend
+   * result, not by the client-side scoreParts.gain proxy.
+   *
+   * This eliminates the all-players-flash-wrong race: when the reveal phase
+   * begins, there is a brief window before participant.score updates propagate
+   * where gain === 0 for everyone, causing scoreParts.gain > 0 to return false
+   * for all players. Using the server result bypasses that window entirely.
+   */
+  const revealAnswerResultByClientId = React.useMemo(() => {
+    const answersByClientId = gameState.questionStats?.answersByClientId;
+    if (!answersByClientId) return undefined;
+    const map = new Map<string, "correct" | "wrong" | "unanswered">();
+    for (const [clientId, answer] of Object.entries(answersByClientId)) {
+      if (
+        answer?.result === "correct" ||
+        answer?.result === "wrong" ||
+        answer?.result === "unanswered"
+      ) {
+        map.set(clientId, answer.result);
+      }
+    }
+    return map;
+  }, [gameState.questionStats?.answersByClientId]);
 
   useGameRoomSfxEffects({
     gamePhase: gameState.phase,
@@ -2131,49 +2263,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     restartVoteRequestPending,
     showPlaybackVoteRedDot,
   ]);
-  const mobilePlaybackVoteAction = useMemo(() => {
-    if (
-      !isMobileGameViewport ||
-      gameState.status !== "playing" ||
-      !isManualPlaybackExtensionMode
-    ) {
-      return null;
-    }
-    return (
-      <button
-        type="button"
-        className={`game-room-extend-vote-btn game-room-extend-vote-btn--mobile-inline ${playbackExtensionVote?.status === "active"
-          ? "game-room-extend-vote-btn--active"
-          : playbackExtensionVote?.status === "approved"
-            ? "game-room-extend-vote-btn--approved"
-            : playbackExtensionVote?.status === "rejected"
-              ? "game-room-extend-vote-btn--rejected"
-              : ""
-          } ${showPlaybackVoteRedDot ? "game-room-restart-vote-btn--notify" : ""}`}
-        disabled={playbackVoteButtonDisabled}
-        onClick={handleRequestPlaybackVote}
-      >
-        <span className="game-room-extend-vote-btn__icon" aria-hidden="true">
-          <HowToVoteRoundedIcon fontSize="inherit" />
-        </span>
-        <span className="game-room-extend-vote-btn__copy">
-          {playbackVoteActionLabel}
-        </span>
-        {showPlaybackVoteRedDot && (
-          <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
-        )}
-      </button>
-    );
-  }, [
-    gameState.status,
-    handleRequestPlaybackVote,
-    isManualPlaybackExtensionMode,
-    isMobileGameViewport,
-    playbackExtensionVote?.status,
-    playbackVoteButtonDisabled,
-    playbackVoteActionLabel,
-    showPlaybackVoteRedDot,
-  ]);
   const mobileFrameActions = useMemo(() => {
     if (!isMobileGameViewport) return null;
 
@@ -2275,6 +2364,44 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 </span>
               )}
             </button>
+
+            {isManualPlaybackExtensionMode && (
+              <button
+                type="button"
+                className={`game-room-mobile-frame-action game-room-mobile-frame-action--playback-vote ${
+                  isPlaybackExtensionVoteActive
+                    ? "game-room-mobile-frame-action--active"
+                    : ""
+                } ${
+                  hasRequestedRejectedPlaybackExtensionVote
+                    ? "game-room-mobile-frame-action--locked"
+                    : ""
+                }`}
+                disabled={playbackVoteButtonDisabled}
+                onClick={handleRequestPlaybackVote}
+              >
+                <span className="game-room-mobile-frame-action__icon" aria-hidden>
+                  <HowToVoteRoundedIcon fontSize="inherit" />
+                </span>
+                <span className="game-room-mobile-frame-action__text">
+                  <span className="game-room-mobile-frame-action__label">
+                    {isPlaybackExtensionVoteActive
+                      ? `延長播放 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`
+                      : playbackVoteButtonLabel}
+                  </span>
+                  <span className="game-room-mobile-frame-action__hint">
+                    {isPlaybackExtensionVoteActive
+                      ? "正在投票"
+                      : hasRequestedRejectedPlaybackExtensionVote
+                        ? "本題已發起"
+                        : "延長音樂播放"}
+                  </span>
+                </span>
+                {showPlaybackVoteRedDot && (
+                  <span className="game-room-restart-vote-red-dot" aria-hidden="true" />
+                )}
+              </button>
+            )}
           </>
         )}
 
@@ -2300,15 +2427,24 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
   }, [
     gameState.status,
     handleOpenHostManagement,
+    handleRequestPlaybackVote,
     handleRequestRestartVote,
+    hasRequestedRejectedPlaybackExtensionVote,
     hostManageParticipants.length,
     isHostInGame,
     isMobileGameViewport,
+    isManualPlaybackExtensionMode,
+    isPlaybackExtensionVoteActive,
     isRestartVoteActive,
     openExitConfirm,
+    playbackVoteApproveCount,
+    playbackVoteButtonDisabled,
+    playbackVoteButtonLabel,
+    playbackVoteMajorityCount,
     restartNowVoteView,
     restartVoteAction,
     returnToLobbyVoteView,
+    showPlaybackVoteRedDot,
   ]);
   const mobileFrameActionsHasAlert =
     isMobileGameViewport &&
@@ -2535,6 +2671,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 answeredRankByClientId={answeredRankByClientId}
                 scorePartsByClientId={scorePartsByClientId}
                 scoreBreakdownByClientId={scoreBreakdownByClientId}
+                revealAnswerResultByClientId={revealAnswerResultByClientId}
                 isReveal={isReveal}
                 meClientId={meClientId ?? ""}
                 participants={participants ?? []}
@@ -2594,7 +2731,14 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               recoveryStatusText={recoveryStatusText}
               mobileScoreFeedbackOverlay={mobileScoreFeedbackOverlay}
               desktopScoreFeedbackOverlay={desktopScoreFeedbackOverlay}
-              voteOverlay={restartVoteOverlay}
+              voteOverlay={
+                restartVoteOverlay || playbackVoteOverlay ? (
+                  <>
+                    {restartVoteOverlay}
+                    {playbackVoteOverlay}
+                  </>
+                ) : null
+              }
               mobileFrameActions={mobileFrameActions}
               mobileFrameActionsHasAlert={mobileFrameActionsHasAlert}
             />
@@ -2641,7 +2785,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 isRevealPendingOptimisticSync={isRevealPendingOptimisticSync}
                 revealChoicePickMap={revealChoicePickMap}
                 serverOffsetMs={serverOffsetMs}
-                mobileHeaderAction={mobilePlaybackVoteAction}
                 liveParticipantCount={displayParticipantCount}
                 liveAnsweredCount={displayAnsweredCount}
                 liveCorrectCount={
@@ -2663,6 +2806,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                 isLeaderboardRoom={isLeaderboardRoom}
                 leaderboardLockShakeKey={leaderboardLockShakeKey}
                 shouldHideAnswerPhaseChrome={shouldHideAnswerPhaseChrome}
+                rateLimitShakeKey={rateLimitShakeKey}
+                showRateLimitToast={showRateLimitToast}
+                onRateLimitToastClose={() => setShowRateLimitToast(false)}
+                isRateLimitTooltipVisible={showRateLimitTooltip}
               />
             )}
             {isMobileGameViewport && gameState.status === "playing" && !isRecoveringConnection && (
@@ -2735,6 +2882,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
                     answeredRankByClientId={answeredRankByClientId}
                     scorePartsByClientId={scorePartsByClientId}
                     scoreBreakdownByClientId={scoreBreakdownByClientId}
+                    revealAnswerResultByClientId={revealAnswerResultByClientId}
                     isReveal={isReveal}
                     meClientId={meClientId ?? ""}
                     participants={participants ?? []}
@@ -2815,67 +2963,8 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               </DialogActions>
             </Dialog>
           ) : null}
-          {playbackVoteDialogOpen && canViewPlaybackVoteDialog ? (
-            <Dialog
-              onClose={handleClosePlaybackVoteDialog}
-              maxWidth="xs"
-              fullWidth
-              open
-              PaperProps={PLAYBACK_VOTE_DIALOG_PAPER_PROPS}
-            >
-              <DialogTitle>延長播放投票</DialogTitle>
-              <DialogContent dividers>
-                <Stack spacing={1.2}>
-                  <Typography variant="body2" className="text-slate-200">
-                    {playbackVoteRequesterName}{" "}
-                    {`提議延長播放 ${playbackVoteProposalSeconds} 秒`}
-                  </Typography>
-                  <div className="game-room-playback-vote-dialog__stats">
-                    <span>{`同意 ${playbackVoteApproveCount}/${playbackVoteMajorityCount}`}</span>
-                    <span>{`不同意 ${playbackVoteRejectCount}`}</span>
-                    <Typography variant="body2" className="text-slate-300">
-                      多數玩家同意後會延長目前播放時間，已投票後不可變更。
-                    </Typography>
-                  </div>
-                </Stack>
-              </DialogContent>
-              <DialogActions>
-                <Button
-                  onClick={handleVoteReject}
-                  variant="outlined"
-                  color="inherit"
-                  disabled={
-                    playbackVoteSubmitPending !== null ||
-                    !canOpenPlaybackVotePrompt ||
-                    myPlaybackVote !== null
-                  }
-                >
-                  {playbackVoteSubmitPending === "reject"
-                    ? "送出中..."
-                    : myPlaybackVote === "reject"
-                      ? "已選擇不同意"
-                      : "不同意延長"}
-                </Button>
-
-                <Button
-                  onClick={handleVoteApprove}
-                  variant="contained"
-                  color="warning"
-                  disabled={
-                    playbackVoteSubmitPending !== null ||
-                    !canOpenPlaybackVotePrompt ||
-                    myPlaybackVote !== null
-                  }
-                >
-                  {playbackVoteSubmitPending === "approve"
-                    ? "送出中..."
-                    : myPlaybackVote === "approve"
-                      ? "已同意"
-                      : `同意延長 ${playbackVoteProposalSeconds} 秒`}
-                </Button>
-              </DialogActions>
-            </Dialog>
-          ) : null}
+          {/* Playback extension active-vote UI is now handled by GameRoomPlaybackVoteDock
+              rendered via voteOverlay — no Dialog needed here. */}
           {restartVoteConfirmOpen && canRequestPendingRestartVoteAction ? (
             <Dialog
               onClose={() => {

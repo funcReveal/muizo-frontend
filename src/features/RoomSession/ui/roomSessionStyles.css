@@ -5448,6 +5448,7 @@
   min-height: 0;
   overflow: visible;
   padding: 0 0 4px;
+  box-sizing: border-box;
   align-content: start;
 }
 
@@ -11110,6 +11111,7 @@
 }
 
 .game-room-answer-panel--desktop.game-room-panel--blaze {
+  height: 100%;
   overflow: visible;
 }
 
@@ -13781,11 +13783,9 @@
 }
 
 .game-room-choice-button--selected-live.game-room-choice-button--combo-focus.MuiButton-root {
-  border-color: color-mix(
-    in srgb,
-    var(--gr-choice-accent) 84%,
-    white 8%
-  ) !important;
+  /* Outline (inherited from selected-live rule) provides the single visible
+     border; clear the explicit border-color so only one layer is visible. */
+  border-color: transparent !important;
   background:
     linear-gradient(
       135deg,
@@ -13802,8 +13802,6 @@
     linear-gradient(180deg, rgba(12, 31, 44, 0.42), rgba(10, 24, 37, 0.34)) !important;
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 34%, transparent),
-    inset 0 0 0 2px rgba(15, 23, 42, 0.16),
-    0 0 0 1px color-mix(in srgb, var(--gr-choice-accent) 16%, transparent),
     0 16px 34px -28px color-mix(in srgb, var(--gr-choice-glow) 68%, transparent) !important;
 }
 
@@ -14764,11 +14762,18 @@
   margin-bottom: 3px;
 }
 
-/* Selected choice frame: keep the mood layer on the button/::before and paint
-   one inner frame on ::after. This avoids outline/real-border clipping and
-   prevents the previous double-frame cascade from border + pseudo-element. */
+/* Single-layer selection border: use outline so it follows the exact button
+   dimensions, respects border-radius in modern browsers, and is never clipped
+   by the shell's overflow:hidden (outline-offset:-2px keeps it within the
+   button's own border box). The span-based selection-frame has been removed.
+   background-clip:border-box overrides the global padding-box default so the
+   button background fills the transparent-border area, eliminating the 1px
+   dark gap that would otherwise appear between the button edge and the outline
+   on desktop (where the button has a 1px transparent border). */
 .game-room-choice-button--selected-live.MuiButton-root {
-  outline: none;
+  outline: 2px solid var(--gr-choice-accent);
+  outline-offset: -2px;
+  background-clip: border-box;
   border-color: transparent !important;
   background:
     radial-gradient(
@@ -14791,18 +14796,25 @@
   display: none;
 }
 
-.game-room-choice-selection-frame {
-  position: absolute;
-  inset: 3px 3px 8px;
-  z-index: 3;
-  pointer-events: none;
-  border-radius: calc(14px - 3px);
-  border: 2px solid color-mix(in srgb, var(--gr-choice-accent) 92%, white 6%);
-  box-shadow:
-    inset 0 0 0 1px rgba(2, 6, 23, 0.48),
-    0 0 18px -10px color-mix(in srgb, var(--gr-choice-glow) 82%, transparent);
-  opacity: 0.98;
-  transform: none;
+@media (min-width: 981px) {
+  .game-room-answer-panel--desktop .game-room-choice-shell {
+    overflow: visible;
+  }
+
+  .game-room-answer-panel--desktop
+    .game-room-choice-button--selected-live.MuiButton-root {
+    outline: 2px solid var(--gr-choice-accent);
+    outline-offset: -2px;
+    border-color: transparent !important;
+    box-shadow:
+      0 14px 30px -26px color-mix(in srgb, var(--gr-choice-glow) 62%, transparent) !important;
+  }
+
+  .game-room-answer-panel--desktop
+    .game-room-choice-button--selected-live.MuiButton-root::before {
+    inset: 0;
+    border-radius: inherit;
+  }
 }
 
 .game-room-choice-button.MuiButton-root {
@@ -16964,15 +16976,6 @@
     flex: 0 0 auto;
   }
 
-  .game-room-answer-layout--mobile .game-room-answer-head__action {
-    margin-left: auto;
-  }
-
-  .game-room-answer-layout--mobile .game-room-extend-vote-btn--mobile-inline {
-    min-width: 120px;
-    max-width: 42vw;
-  }
-
   .game-room-answer-layout--mobile .game-room-answer-body {
     gap: 8px;
   }
@@ -17527,25 +17530,6 @@
   white-space: nowrap;
 }
 
-.game-room-extend-vote-btn--mobile-inline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 96px;
-  max-width: 128px;
-  min-height: 30px;
-  padding: 0 10px !important;
-  gap: 5px;
-  font-size: 10px !important;
-  line-height: 1.1;
-  text-align: center;
-  border-color: rgba(251, 191, 36, 0.2) !important;
-  background: rgba(245, 158, 11, 0.055) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 8px 20px -18px rgba(245, 158, 11, 0.46);
-}
-
 .game-room-mobile-chat-alert-toggle {
   display: inline-flex;
   align-items: center;
@@ -17605,34 +17589,6 @@
   border-color: rgba(148, 163, 184, 0.38) !important;
   background: rgba(15, 23, 42, 0.72) !important;
   color: rgba(226, 232, 240, 0.84) !important;
-}
-
-.game-room-extend-vote-btn--mobile-inline:hover,
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--active,
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--approved,
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--rejected {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 8px 20px -18px rgba(245, 158, 11, 0.46);
-}
-
-.game-room-extend-vote-btn--mobile-inline:hover {
-  background: rgba(245, 158, 11, 0.085) !important;
-}
-
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--active {
-  border-color: rgba(251, 191, 36, 0.52) !important;
-  background: rgba(245, 158, 11, 0.12) !important;
-}
-
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--approved {
-  border-color: rgba(74, 222, 128, 0.44) !important;
-  background: rgba(22, 101, 52, 0.16) !important;
-}
-
-.game-room-extend-vote-btn--mobile-inline.game-room-extend-vote-btn--rejected {
-  border-color: rgba(148, 163, 184, 0.34) !important;
-  background: rgba(15, 23, 42, 0.42) !important;
 }
 
 .game-room-playback-vote-dialog.MuiPaper-root {
@@ -19754,8 +19710,13 @@
 .room-lobby-column {
   position: relative;
   display: grid;
+  /* Single explicit column: prevents the implicit auto track from expanding to
+     match the widest child (e.g. a playlist card with a very long title).
+     minmax(0, 1fr) caps at the available width while allowing shrinking to 0. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   min-height: 0;
+  min-width: 0;
   border-radius: 28px;
   padding: 14px 18px 18px;
   background:
@@ -22432,6 +22393,13 @@
     linear-gradient(180deg, rgba(15, 10, 4, 0.96), rgba(4, 4, 10, 0.98));
 }
 
+.game-room-restart-vote-dock--playback_extension .game-room-restart-vote-dock__body {
+  border-color: rgba(20, 184, 166, 0.32);
+  background:
+    linear-gradient(90deg, rgba(20, 184, 166, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(4, 14, 13, 0.96), rgba(4, 4, 10, 0.98));
+}
+
 .game-room-restart-vote-dock__handle {
   display: flex;
   align-items: center;
@@ -22945,34 +22913,6 @@
 
 .game-room-mobile-toggle-chip--leave .game-room-mobile-action-icon {
   color: rgba(252, 165, 165, 0.96);
-}
-
-.game-room-extend-vote-btn--mobile-inline {
-  color: rgba(254, 243, 199, 0.96);
-  border-color: rgba(245, 158, 11, 0.62);
-  background: linear-gradient(
-    180deg,
-    rgba(146, 64, 14, 0.34),
-    rgba(15, 23, 42, 0.9)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(245, 158, 11, 0.1),
-    0 8px 18px rgba(2, 6, 23, 0.18);
-}
-
-.game-room-extend-vote-btn--mobile-inline:hover:not(:disabled) {
-  color: rgba(255, 251, 235, 1);
-  border-color: rgba(251, 191, 36, 0.78);
-  background: linear-gradient(
-    180deg,
-    rgba(180, 83, 9, 0.4),
-    rgba(15, 23, 42, 0.94)
-  );
-}
-
-.game-room-extend-vote-btn--mobile-inline .game-room-extend-vote-btn__icon {
-  color: rgba(251, 191, 36, 0.96);
 }
 
 .game-room-vote-btn--request-locked.MuiButton-root,
@@ -25288,8 +25228,10 @@
   }
 
   .game-room-main-section--immersive {
+    --game-room-desktop-bottom-safe: clamp(16px, 2vh, 28px);
     gap: 10px;
-    padding: clamp(4px, 0.7vw, 10px) 0 0;
+    padding: clamp(4px, 0.7vw, 10px) 0
+      var(--game-room-desktop-bottom-safe);
     border-radius: 0;
     border: none;
     background: transparent;
@@ -25297,6 +25239,7 @@
     backdrop-filter: none;
     align-self: stretch;
     height: calc(100vh - 112px);
+    box-sizing: border-box;
   }
 
   .game-room-main-section--immersive > .game-room-panel--accent,
@@ -25351,7 +25294,7 @@
   }
 
   .game-room-main-section--immersive > .game-room-panel--warm {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     padding: 0;
     background: transparent;
@@ -25361,6 +25304,7 @@
 
   .game-room-main-section--immersive .game-room-answer-layout {
     --gr-feedback-row: 0px;
+    height: 100%;
     gap: 3px;
     grid-template-rows: minmax(0, 1fr) var(--gr-feedback-row);
   }
@@ -25371,6 +25315,7 @@
   }
 
   .game-room-main-section--immersive .game-room-answer-body {
+    height: 100%;
     gap: 3px;
     grid-template-rows: auto auto minmax(0, 1fr);
   }
@@ -25484,14 +25429,20 @@
   }
 
   .game-room-main-section--immersive .game-room-options-grid {
-    gap: 6px;
+    --game-room-desktop-choice-gap: clamp(16px, 0.9vw, 20px);
+    height: 100%;
+    gap: var(--game-room-desktop-choice-gap);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
     align-content: stretch;
-    padding: 0 0 8px;
+    padding: 0;
+    box-sizing: border-box;
     overflow: visible;
   }
 
   .game-room-main-section--immersive .game-room-options-grid--blaze {
-    padding: 0 0 8px;
+    margin-bottom: 0;
+    padding: 0;
     border-radius: 0;
     background: transparent;
     border: none;
@@ -25499,15 +25450,18 @@
 
   .game-room-main-section--immersive .game-room-choice-shell {
     min-height: 0;
-    padding-bottom: 3px;
+    height: 100%;
+    padding-bottom: 0;
+    overflow: visible;
   }
 
   .game-room-main-section--immersive
     .game-room-options-grid
     .game-room-choice-button.MuiButton-root,
   .game-room-main-section--immersive .game-room-choice-button.MuiButton-root {
-    min-height: clamp(88px, 10.5vh, 128px);
-    height: 97%;
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
     border-radius: 13px;
     align-items: stretch;
     background: linear-gradient(
@@ -25528,6 +25482,14 @@
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.03),
       0 18px 34px -28px rgba(34, 211, 238, 0.18);
+  }
+
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-choice-button--selected-live.MuiButton-root {
+    outline: 2px solid var(--gr-choice-accent);
+    outline-offset: -2px;
+    border-color: transparent !important;
   }
 
   .game-room-main-section--immersive .game-room-choice-content {
@@ -25697,6 +25659,9 @@
     flex-direction: column;
     gap: 16px;
     min-height: 0;
+    /* Prevent the flex column container from growing to the intrinsic content
+       width of its children (e.g. playlist card with a very long title). */
+    min-width: 0;
   }
 
   .room-lobby-current-playlist-list {
@@ -27652,14 +27617,14 @@
   .game-room-main-section--immersive
     .game-room-answer-panel--desktop
     .game-room-options-grid {
-    gap: 16px;
+    gap: var(--game-room-desktop-choice-gap);
   }
 
   .game-room-main-section--immersive
     .game-room-answer-panel--desktop
     .game-room-choice-button.MuiButton-root {
-    min-height: clamp(132px, 15.5vh, 172px);
-    height: auto;
+    min-height: 0;
+    height: 100%;
     padding: 24px 28px;
     align-items: center;
   }
@@ -27730,6 +27695,91 @@
   overflow-wrap: anywhere;
   word-break: normal;
   text-overflow: clip;
+}
+
+@media (min-width: 1280px) {
+  .game-room-main-section--immersive {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: visible;
+    box-sizing: border-box;
+  }
+
+  .game-room-main-section--immersive > .game-room-panel--accent {
+    flex: 0 0 auto;
+  }
+
+  .game-room-main-section--immersive > .game-room-answer-panel--desktop {
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-answer-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    align-content: stretch;
+  }
+
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-answer-body {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    align-content: stretch;
+  }
+
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-options-grid {
+    flex: 1 1 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    gap: var(--game-room-desktop-choice-gap);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    align-content: stretch;
+    align-items: stretch;
+    align-self: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-choice-shell,
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-choice-button.MuiButton-root {
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-choice-content {
+    min-height: 0;
+  }
+
+  .game-room-main-section--immersive
+    .game-room-answer-panel--desktop
+    .game-room-choice-text {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
 }
 
 .game-room-mobile-score-feedback-card--unanswered {

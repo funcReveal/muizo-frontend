@@ -53,8 +53,18 @@ export function useRoomAwareNavigationGuards({
 
   const handleConfirmLogout = useCallback(() => {
     setLogoutConfirmOpen(false);
-    logout();
-  }, [logout]);
+    if (currentRoom) {
+      // Leave the room first so the socket is cleanly disconnected before
+      // auth state is cleared.  Navigate to /rooms after the leave callback
+      // so the user lands on the room list instead of staying on the game page.
+      handleLeaveRoom(() => {
+        logout();
+        navigate("/rooms", { replace: true });
+      });
+    } else {
+      logout();
+    }
+  }, [currentRoom, handleLeaveRoom, logout, navigate]);
 
   const handleNavigateRequest = useCallback(
     (target: NavigationTarget) => {
@@ -128,16 +138,19 @@ export function useRoomAwareNavigationGuards({
 
   const logoutConfirmText = useMemo(() => {
     if (currentRoom) {
+      const inGame = gameStatus === "playing";
       return {
         title: "確定要登出？",
-        description: "登出後會離開目前登入狀態，並返回首頁入口頁。",
+        description: inGame
+          ? "目前正在遊玩中。登出後將離開房間並返回房間列表。"
+          : "登出後將離開房間並返回房間列表。",
       };
     }
     return {
       title: "確定要登出？",
       description: "你將登出目前帳號。",
     };
-  }, [currentRoom]);
+  }, [currentRoom, gameStatus]);
 
   const navigationConfirmText = useMemo(() => {
     if (!navigationConfirmTarget) return null;

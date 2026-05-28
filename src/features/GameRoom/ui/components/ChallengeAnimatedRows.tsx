@@ -247,7 +247,10 @@ function NearbyReelSlot({
             opacity: 0,
             y: "-112%",
             scaleY: 0.96,
-            filter: "blur(7px)",
+            // P-2: Reduced from blur(7px) → blur(3px).  The heavier blur forces
+            // GPU compositing on every rank change; on mid-range Android this
+            // causes FilterPaint repaints that raise CPU/GPU temperature.
+            filter: "blur(3px)",
           }}
           animate={{
             opacity: 1,
@@ -259,7 +262,7 @@ function NearbyReelSlot({
             opacity: 0,
             y: "112%",
             scaleY: 0.96,
-            filter: "blur(7px)",
+            filter: "blur(3px)",
             transition: { duration: 0.26, ease: ENTER_EASE },
           }}
           transition={{ duration: 0.48, ease: NEARBY_REEL_EASE }}
@@ -313,6 +316,6 @@ function renderRowContent(
       return <ChallengeEllipsisRow />;
 
     case "placeholder":
-      return <ChallengePlaceholderRow dim />;
+      return <ChallengePlaceholderRow dim displayRank={row.displayRank} />;
   }
 }

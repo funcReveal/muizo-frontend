@@ -274,21 +274,41 @@ export const ChallengeEllipsisRow = React.memo(
   },
 );
 
+interface ChallengePlaceholderRowProps {
+  dim?: boolean;
+  /**
+   * When provided, renders as `#N` rank label and "···" text for name/score
+   * to evoke "waiting for others to play and fill these spots".
+   * When absent, renders fully anonymous skeleton bars.
+   */
+  displayRank?: number;
+}
+
 export const ChallengePlaceholderRow = React.memo(
-  function ChallengePlaceholderRow({ dim = false }: { dim?: boolean }) {
+  function ChallengePlaceholderRow({ dim = false, displayRank }: ChallengePlaceholderRowProps) {
+    const hasRank = displayRank !== undefined;
     return (
       <div
-        className={`game-room-score-row leaderboard-compact-row challenge-lb-placeholder-row flex items-center justify-between text-sm ${dim ? "opacity-10" : "opacity-20"
-          }`}
+        className={`game-room-score-row leaderboard-compact-row challenge-lb-placeholder-row flex items-center justify-between text-sm ${
+          dim ? "opacity-10" : "opacity-20"
+        }`}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="w-5 shrink-0 text-center text-xs text-slate-600">
-            --
+          <span className="w-5 shrink-0 text-center text-xs text-slate-500">
+            {hasRank ? `#${displayRank}` : "--"}
           </span>
           <div className="game-room-score-row-avatar-skeleton shrink-0 rounded-full bg-white/10" />
-          <div className="h-2.5 w-24 rounded bg-white/10" />
+          {hasRank ? (
+            <span className="text-xs text-slate-600">···</span>
+          ) : (
+            <div className="h-2.5 w-24 rounded bg-white/10" />
+          )}
         </span>
-        <div className="h-2.5 w-14 shrink-0 rounded bg-white/10" />
+        {hasRank ? (
+          <span className="shrink-0 text-xs text-slate-600">···</span>
+        ) : (
+          <div className="h-2.5 w-14 shrink-0 rounded bg-white/10" />
+        )}
       </div>
     );
   },

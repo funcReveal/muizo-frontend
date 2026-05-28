@@ -1,5 +1,5 @@
 ﻿import React from "react";
-import { Button, Chip, LinearProgress } from "@mui/material";
+import { Alert, Button, Chip, LinearProgress, Snackbar } from "@mui/material";
 
 import RevealChoiceAvatarRow from "./RevealChoiceAvatarRow";
 import type {
@@ -55,7 +55,6 @@ interface GameRoomAnswerPanelProps {
   isRevealPendingOptimisticSync: boolean;
   revealChoicePickMap: RevealChoicePickMap;
   serverOffsetMs: number;
-  mobileHeaderAction?: React.ReactNode;
   liveParticipantCount: number;
   liveAnsweredCount: number;
   liveCorrectCount: number | null;
@@ -74,6 +73,19 @@ interface GameRoomAnswerPanelProps {
    *  Covers both guess and reveal embedded HUD modes. */
   shouldHideAnswerPhaseChrome?: boolean;
   shouldHideMobileAnswerPhaseChrome?: boolean;
+  /**
+   * Rate-limit feedback props — managed by GameRoomPage and driven directly
+   * from the flow layer so the feedback fires reliably regardless of async
+   * result propagation timing.
+   */
+  /** Incrementing key; each increment triggers the shake animation. */
+  rateLimitShakeKey?: number;
+  /** When true the "操作過於頻繁" Snackbar is open. */
+  showRateLimitToast?: boolean;
+  /** Called when the Snackbar requests to be closed. */
+  onRateLimitToastClose?: () => void;
+  /** When true the selected choice row shows the inline rate-limit tip. */
+  isRateLimitTooltipVisible?: boolean;
 }
 type InlineStatusSegmentTone =
   | "neutral"
@@ -341,6 +353,8 @@ interface GameRoomChoiceRowProps {
   isMobileView: boolean;
   onChoiceClick: (choiceIndex: number) => void;
   selectedShellRef: React.RefCallback<HTMLDivElement>;
+  /** When true and this row is selected, show the rate-limit tooltip. */
+  isRateLimitTooltipVisible?: boolean;
 }
 
 const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
@@ -362,6 +376,7 @@ const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
   isMobileView,
   onChoiceClick,
   selectedShellRef,
+  isRateLimitTooltipVisible = false,
 }: GameRoomChoiceRowProps) {
   const isLocked = isReveal || isEnded;
   const isLeaderboardAnswerLocked =
@@ -401,7 +416,7 @@ const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
   return (
     <div
       ref={isSelected ? selectedShellRef : undefined}
-      className={`game-room-choice-shell ${hasRevealPicks ? "game-room-choice-shell--with-avatars" : ""
+      className={`relative game-room-choice-shell ${hasRevealPicks ? "game-room-choice-shell--with-avatars" : ""
         }`}
       onAnimationEnd={isSelected ? handleAnimationEnd : undefined}
     >
@@ -471,9 +486,6 @@ const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
         disabled={false}
         onClick={handleClick}
       >
-        {!isReveal && isSelected && (
-          <span className="game-room-choice-selection-frame" aria-hidden="true" />
-        )}
         <div className="game-room-choice-content game-room-choice-content--text-only">
           <span className="game-room-choice-main">
             <GameRoomChoiceText text={choiceDisplayTitle} />
@@ -483,6 +495,22 @@ const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
           </span>
         </div>
       </Button>
+      {/* Rate-limit inline tip — absolutely positioned above the button.
+          Avoids MUI Tooltip which conflicts with the Button's native title attr. */}
+      {isSelected && isRateLimitTooltipVisible && (
+        <div
+          className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md border border-amber-500/30 bg-slate-900/95 px-3 py-1.5 text-xs font-semibold text-amber-200 shadow-lg"
+          role="alert"
+          aria-live="assertive"
+        >
+          操作過於頻繁，請稍後再試
+          {/* Down-pointing arrow */}
+          <span
+            className="absolute left-1/2 top-full -translate-x-1/2 border-x-[5px] border-t-[5px] border-x-transparent border-t-slate-900/95"
+            aria-hidden="true"
+          />
+        </div>
+      )}
     </div>
   );
 });
@@ -524,7 +552,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   allAnsweredReadyForReveal,
   revealChoicePickMap,
   serverOffsetMs,
-  mobileHeaderAction,
   liveParticipantCount,
   liveAnsweredCount,
   liveCorrectCount,
@@ -536,6 +563,10 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   leaderboardLockShakeKey = 0,
   shouldHideAnswerPhaseChrome = false,
   shouldHideMobileAnswerPhaseChrome = false,
+  rateLimitShakeKey = 0,
+  showRateLimitToast = false,
+  onRateLimitToastClose,
+  isRateLimitTooltipVisible = false,
 }) => {
   const hideAnswerPhaseChrome =
     shouldHideAnswerPhaseChrome || shouldHideMobileAnswerPhaseChrome;
@@ -564,8 +595,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     choiceIndex: number | null;
   } | null>(null);
   const localSubmitSeqRef = React.useRef(0);
+  const canUseLocalSelectedChoice =
+    gamePhase === "guess" && !isReveal && !isEnded;
   const localSelectedChoice =
-    localSelectedChoiceState?.trackSessionKey === trackSessionKey
+    canUseLocalSelectedChoice &&
+      localSelectedChoiceState?.trackSessionKey === trackSessionKey
       ? localSelectedChoiceState.choiceIndex
       : null;
   const displaySelectedChoice = localSelectedChoice ?? selectedChoice;
@@ -592,6 +626,11 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   }, [trackSessionKey]);
 
   React.useEffect(() => {
+    if (canUseLocalSelectedChoice) return;
+    setLocalSelectedChoiceState(null);
+  }, [canUseLocalSelectedChoice]);
+
+  React.useEffect(() => {
     if (!leaderboardLockShakeKey) return;
     const el = shakeSelectedRef.current;
     if (!el) return;
@@ -599,6 +638,16 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
     void el.offsetWidth; // force reflow to restart animation
     el.classList.add("game-room-choice-shake");
   }, [leaderboardLockShakeKey]);
+
+  React.useEffect(() => {
+    if (!rateLimitShakeKey) return;
+    const el = shakeSelectedRef.current;
+    if (!el) return;
+    el.classList.remove("game-room-choice-shake");
+    void el.offsetWidth;
+    el.classList.add("game-room-choice-shake");
+  }, [rateLimitShakeKey]);
+
   const shouldShowInlinePhaseStatus = !isInitialCountdown;
   const desktopStatusLabel = isReveal
     ? myFeedback.tone === "correct"
@@ -821,6 +870,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
   }, []);
 
   return (
+    <>
     <div
       className={`game-room-panel game-room-panel--warm game-room-panel--blaze ${isMobileView ? "game-room-answer-panel--mobile" : ""
         } ${!isMobileView ? "game-room-answer-panel--desktop" : ""} flex min-h-0 flex-col text-slate-50 lg:flex-1`}
@@ -917,11 +967,6 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                   </div>
                 ) : null}
               </div>
-              {isMobileView && mobileHeaderAction ? (
-                <div className="game-room-answer-head__action">
-                  {mobileHeaderAction}
-                </div>
-              ) : null}
             </div>
 
             {!hideAnswerPhaseChrome && (
@@ -1015,6 +1060,7 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
                       isMobileView={isMobileView}
                       onChoiceClick={handleChoiceClick}
                       selectedShellRef={handleSelectedShellRef}
+                      isRateLimitTooltipVisible={isRateLimitTooltipVisible}
                     />
                   );
                 })}
@@ -1129,6 +1175,24 @@ const GameRoomAnswerPanel: React.FC<GameRoomAnswerPanelProps> = ({
           )}
         </div>
     </div>
+    {/* Rate-limit toast — rendered via MUI Portal at document body level,
+        so it floats above all game UI regardless of layout stacking context. */}
+    <Snackbar
+      open={showRateLimitToast}
+      autoHideDuration={2500}
+      onClose={onRateLimitToastClose}
+      anchorOrigin={{ vertical: "top", horizontal: "center" }}
+    >
+      <Alert
+        severity="warning"
+        variant="filled"
+        onClose={onRateLimitToastClose}
+        sx={{ width: "100%", fontWeight: 600 }}
+      >
+        操作過於頻繁，請稍後再試
+      </Alert>
+    </Snackbar>
+    </>
   );
 };
 
