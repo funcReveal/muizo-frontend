@@ -5,7 +5,6 @@ import type { RoomParticipant, RoomState } from "@features/RoomSession";
 import { useAuth } from "@shared/auth/AuthContext";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import {
-  RANKED_CHALLENGE_PROFILE_KEY,
   type RankedChallengeBestRun,
   type RankedChallengeLeaderboardEntry,
   type RankedChallengeRun,
@@ -201,7 +200,7 @@ export const useRankedChallengeSettlementData = ({
   const isRankedChallenge =
     Boolean(collectionId) &&
     isCollectionSourceType(room.playlist.sourceType ?? room.playlistSourceType) &&
-    leaderboardProfileKey === RANKED_CHALLENGE_PROFILE_KEY;
+    Boolean(leaderboardProfileKey);
 
   const currentRun = useMemo<RankedChallengeRun | null>(() => {
     if (!isRankedChallenge) return null;
@@ -249,7 +248,7 @@ export const useRankedChallengeSettlementData = ({
           ? await ensureFreshAuthToken({ token: authToken, refreshAuthToken })
           : null;
         const params = new URLSearchParams({
-          profileKey: RANKED_CHALLENGE_PROFILE_KEY,
+          profileKey: leaderboardProfileKey ?? "",
         });
         if (matchId) {
           params.set("matchId", matchId);
@@ -354,6 +353,7 @@ export const useRankedChallengeSettlementData = ({
     authToken,
     collectionId,
     isRankedChallenge,
+    leaderboardProfileKey,
     matchId,
     refreshAuthToken,
   ]);
@@ -386,7 +386,7 @@ export const useRankedChallengeSettlementData = ({
           ? await ensureFreshAuthToken({ token: authToken, refreshAuthToken })
           : null;
         const params = new URLSearchParams({
-          profileKey: RANKED_CHALLENGE_PROFILE_KEY,
+          profileKey: leaderboardProfileKey ?? "",
           limit: String(LEADERBOARD_PAGE_SIZE),
           offset: String(offset),
         });
@@ -458,6 +458,7 @@ export const useRankedChallengeSettlementData = ({
     authToken,
     collectionId,
     isRankedChallenge,
+    leaderboardProfileKey,
     refreshAuthToken,
     remoteState.hasMore,
     remoteState.loading,
