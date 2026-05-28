@@ -29,6 +29,7 @@ function makeData(
     generatedAt: new Date(0).toISOString(),
     topEntries: [],
     nearbyOpponents: [],
+    viewerSettledEntry: null,
     myStanding: {
       liveScore: 100,
       officialBestScore: null,

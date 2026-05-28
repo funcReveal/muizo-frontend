@@ -146,6 +146,19 @@ const findChallengeNextTarget = ({
   const meRank = displayMe?.rank ?? projection.myStanding.projectedRank;
   if (typeof meRank !== "number" || meRank <= 1) return null;
 
+  const visibleNearbyTarget =
+    projection.nearbyOpponents
+      .map(toChallengeOpponentFeedbackPlayer)
+      .filter(
+        (player): player is FeedbackPlayer =>
+          player !== null &&
+          player.rank <= meRank &&
+          player.score >= meScore,
+      )
+      .sort((a, b) => b.rank - a.rank || a.score - b.score)[0] ?? null;
+
+  if (visibleNearbyTarget) return visibleNearbyTarget;
+
   const explicitTarget = projection.myStanding.nextTarget;
   if (
     explicitTarget &&
@@ -164,17 +177,7 @@ const findChallengeNextTarget = ({
     };
   }
 
-  return (
-    projection.nearbyOpponents
-      .map(toChallengeOpponentFeedbackPlayer)
-      .filter(
-        (player): player is FeedbackPlayer =>
-          player !== null &&
-          player.rank <= meRank &&
-          player.score >= meScore,
-      )
-      .sort((a, b) => b.rank - a.rank || a.score - b.score)[0] ?? null
-  );
+  return null;
 };
 
 export const buildRoomMobileScoreFeedbackSnapshot = (

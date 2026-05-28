@@ -1754,7 +1754,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
     return (
       <GameRoomRestartVoteDock
-        voteKey={activeRestartVoteKey}
+        voteKey={activeRestartVoteKey ?? "restart-vote"}
         action={restartVoteAction}
         requesterName={restartVoteRequesterName}
         approveCount={restartVoteApproveCount}

@@ -1,4 +1,5 @@
 const CHUNK_RELOAD_STORAGE_KEY = `muizo_chunk_reload:${__APP_BUILD_ID__}`;
+const MAX_CHUNK_RELOAD_ATTEMPTS = 2;
 
 const chunkErrorPatterns = [
   "ChunkLoadError",
@@ -49,9 +50,24 @@ const sessionStorageSet = (key: string, value: string) => {
 
 export const reloadOnceForChunkError = () => {
   if (typeof window === "undefined") return false;
-  if (sessionStorageGet(CHUNK_RELOAD_STORAGE_KEY) === "1") return false;
-  sessionStorageSet(CHUNK_RELOAD_STORAGE_KEY, "1");
-  window.location.reload();
+
+  const currentAttempts = Number.parseInt(
+    sessionStorageGet(CHUNK_RELOAD_STORAGE_KEY) ?? "0",
+    10,
+  );
+  const attempts = Number.isFinite(currentAttempts) ? currentAttempts : 0;
+  if (attempts >= MAX_CHUNK_RELOAD_ATTEMPTS) return false;
+
+  sessionStorageSet(CHUNK_RELOAD_STORAGE_KEY, String(attempts + 1));
+
+  if (attempts === 0) {
+    window.location.reload();
+    return true;
+  }
+
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("__muizo_reload", String(Date.now()));
+  window.location.replace(nextUrl.toString());
   return true;
 };
 
