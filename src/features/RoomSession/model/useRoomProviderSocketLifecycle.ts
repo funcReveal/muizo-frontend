@@ -305,9 +305,10 @@ export const useRoomProviderSocketLifecycle = ({
     (socket: ClientSocket) => {
       socket.emit("listRooms", (ack) => {
         if (!ack?.ok) return;
-        syncCollectionAvailabilityFromRooms(ack.data.rooms);
+        const rooms = normalizeRoomSummaries(ack.data.rooms);
+        syncCollectionAvailabilityFromRooms(rooms);
         startTransition(() => {
-          setRooms(ack.data.rooms);
+          setRooms(rooms);
           setViewerAccessByRoomId(ack.data.viewerAccess ?? {});
         });
         syncServerOffset(ack.data.serverNow);
