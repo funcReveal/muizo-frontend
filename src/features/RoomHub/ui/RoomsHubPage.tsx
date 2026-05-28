@@ -26,6 +26,7 @@ import {
   useCollectionContent,
   type CollectionEntry,
 } from "@features/CollectionContent";
+import FloatingChatWindow from "@features/RoomChat";
 import {
   buildPlaylistIssueSummary,
   getPlaylistIssueTotal,
@@ -1996,6 +1997,8 @@ const RoomsHubPage: React.FC = () => {
                 />
               )}
             </div>
+
+            <FloatingChatWindow />
 
             <style>
               {`

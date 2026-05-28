@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   ClientSocket,
   GameLiveUpdatePayload,
+  HubChatMessage,
   LeaderboardSettlementReadyPayload,
   PlaylistState,
   PlaylistSuggestion,
@@ -56,6 +57,7 @@ type RoomSocketHandlers = {
     playlist: PlaylistState;
   }) => void;
   onMessageAdded?: (payload: { roomId: string; message: ChatMessage }) => void;
+  onHubChatMessageAdded?: (message: HubChatMessage) => void;
   onGameStarted?: (payload: GameLiveUpdatePayload) => void;
   onGameUpdated?: (payload: GameLiveUpdatePayload) => void;
   onRoomUpdated?: (payload: { room: RoomSummary }) => void;
@@ -183,6 +185,9 @@ export const connectRoomSocket = (
     handlers.onPlaylistUpdated?.(payload),
   );
   socket.on("messageAdded", (payload) => handlers.onMessageAdded?.(payload));
+  socket.on("hubChatMessageAdded", (message) =>
+    handlers.onHubChatMessageAdded?.(message),
+  );
   socket.on("gameStarted", (payload) => handlers.onGameStarted?.(payload));
   socket.on("gameUpdated", (payload) => handlers.onGameUpdated?.(payload));
   socket.on("roomUpdated", (payload) => handlers.onRoomUpdated?.(payload));

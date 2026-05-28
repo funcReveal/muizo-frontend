@@ -10,6 +10,7 @@ import type {
   ChatMessageQuestionContext,
   FinalizeRoomCreationPayload,
   FinalizeRoomCreationResult,
+  HubChatMessage,
   PlaylistItem,
   PlaylistSourceType,
   PlaylistState,
@@ -83,6 +84,11 @@ export interface ClientToServerEvents {
   sendMessage: (
     payload: { content: string; questionContext?: ChatMessageQuestionContext },
     callback?: (ack: Ack<ChatMessage>) => void,
+  ) => void;
+  listHubChatMessages: (callback?: (ack: Ack<HubChatMessage[]>) => void) => void;
+  sendHubChatMessage: (
+    payload: { content: string },
+    callback?: (ack: Ack<HubChatMessage>) => void,
   ) => void;
   listRooms: (callback?: (ack: Ack<RoomSummary[]>) => void) => void;
   getSitePresence: (callback?: (ack: Ack<SitePresencePayload>) => void) => void;
@@ -332,6 +338,7 @@ export interface ServerToClientEvents {
   }) => void;
   userLeft: (payload: { roomId: string; clientId: string }) => void;
   messageAdded: (payload: { roomId: string; message: ChatMessage }) => void;
+  hubChatMessageAdded: (message: HubChatMessage) => void;
   gameStarted: (payload: GameLiveUpdatePayload) => void;
   gameUpdated: (payload: GameLiveUpdatePayload) => void;
   gameReturnedToLobby: (payload: { roomId: string; serverNow: number }) => void;

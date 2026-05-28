@@ -1,8 +1,7 @@
 import React from "react";
-import { Badge, Switch } from "@mui/material";
+import { Badge } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
-import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import type { ChatMessage } from "@features/RoomSession";
 import ChatMessagesList from "./ChatMessagesList";
 import ChatComposer from "./ChatComposer";
@@ -10,9 +9,9 @@ import ChatComposer from "./ChatComposer";
 interface DesktopChatWindowContentProps {
     open: boolean;
     unread: number;
-    showDanmuToggle: boolean;
-    danmuEnabled: boolean;
-    onDanmuEnabledChange: (checked: boolean) => void;
+    title?: string;
+    variant?: "room" | "hub";
+    headerTabs?: React.ReactNode;
     onToggle: () => void;
     messages: ChatMessage[];
     clientId: string;
@@ -24,14 +23,16 @@ interface DesktopChatWindowContentProps {
     onCloseWhenEmpty: () => void;
     isChatCooldownActive: boolean;
     chatCooldownLeft: number;
+    children?: React.ReactNode;
+    composer?: React.ReactNode;
 }
 
 const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
     open,
     unread,
-    showDanmuToggle,
-    danmuEnabled,
-    onDanmuEnabledChange,
+    title = "聊天室",
+    variant = "room",
+    headerTabs,
     onToggle,
     messages,
     clientId,
@@ -43,11 +44,14 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
     onCloseWhenEmpty,
     isChatCooldownActive,
     chatCooldownLeft,
+    children,
+    composer,
 }) => {
     return (
         <div
             className="floating-chat-root floating-chat-root--desktop"
             data-open={open ? "true" : "false"}
+            data-variant={variant}
         >
             {!open && (
                 <button
@@ -55,7 +59,7 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
                     className="floating-chat-fab"
                     onClick={onToggle}
                     aria-label={
-                        unread > 0 ? `展開聊天室，目前有 ${unread} 則未讀訊息` : "展開聊天室"
+                        unread > 0 ? `展開${title}，目前有 ${unread} 則未讀訊息` : `展開${title}`
                     }
                 >
                     <Badge
@@ -65,7 +69,7 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
                     >
                         <ChatBubbleRoundedIcon fontSize="small" />
                     </Badge>
-                    <span className="floating-chat-fab-label">聊天室</span>
+                    <span className="floating-chat-fab-label">{title}</span>
                     <span className="floating-chat-key-hint" aria-hidden="true">
                         Enter
                     </span>
@@ -76,13 +80,12 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
             )}
 
             {open && (
-                <div className="floating-chat-window" role="dialog" aria-label="聊天室">
+                <div className="floating-chat-window-shell">
                     <div
-                        className="floating-chat-header"
+                        className="floating-chat-topbar"
                         role="button"
                         tabIndex={0}
-                        aria-expanded={open}
-                        aria-label="收合聊天室"
+                        aria-label={`收合${title}`}
                         onClick={onToggle}
                         onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
@@ -91,59 +94,29 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
                             }
                         }}
                     >
-                        <div className="floating-chat-header-title">
-                            <ChatBubbleRoundedIcon sx={{ fontSize: 14, opacity: 0.8 }} />
-                            <span>聊天室</span>
-                            <span className="floating-chat-key-hint" aria-hidden="true">
-                                Esc
-                            </span>
-                        </div>
-
-                        <div className="floating-chat-header-actions">
-                            {showDanmuToggle ? (
-                                <label
-                                    className="floating-chat-danmu-toggle"
-                                    onClick={(event) => event.stopPropagation()}
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                    onTouchStart={(event) => event.stopPropagation()}
-                                    onKeyDown={(event) => event.stopPropagation()}
-                                >
-                                    <span>彈幕</span>
-                                    <Switch
-                                        size="small"
-                                        color="info"
-                                        checked={danmuEnabled}
-                                        onChange={(event) => onDanmuEnabledChange(event.target.checked)}
-                                        onClick={(event) => event.stopPropagation()}
-                                        onMouseDown={(event) => event.stopPropagation()}
-                                        onPointerDown={(event) => event.stopPropagation()}
-                                        onTouchStart={(event) => event.stopPropagation()}
-                                    />
-                                </label>
-                            ) : null}
-
-                            <span className="floating-chat-toggle-icon" aria-hidden="true">
-                                <ExpandMoreRoundedIcon sx={{ fontSize: 18 }} />
-                            </span>
-                        </div>
+                        {headerTabs}
                     </div>
+                    <div className="floating-chat-window" role="dialog" aria-label={title}>
+                        {children ?? (
+                            <ChatMessagesList
+                                messages={messages}
+                                clientId={clientId}
+                                setScrollNodeRef={setScrollNodeRef}
+                            />
+                        )}
 
-                    <ChatMessagesList
-                        messages={messages}
-                        clientId={clientId}
-                        setScrollNodeRef={setScrollNodeRef}
-                    />
-
-                    <ChatComposer
-                        inputRef={inputRef}
-                        messageInput={messageInput}
-                        setMessageInput={setMessageInput}
-                        handleSend={handleSend}
-                        onRequestCloseWhenEmpty={onCloseWhenEmpty}
-                        isChatCooldownActive={isChatCooldownActive}
-                        chatCooldownLeft={chatCooldownLeft}
-                    />
+                        {composer ?? (
+                            <ChatComposer
+                                inputRef={inputRef}
+                                messageInput={messageInput}
+                                setMessageInput={setMessageInput}
+                                handleSend={handleSend}
+                                onRequestCloseWhenEmpty={onCloseWhenEmpty}
+                                isChatCooldownActive={isChatCooldownActive}
+                                chatCooldownLeft={chatCooldownLeft}
+                            />
+                        )}
+                    </div>
                 </div>
             )}
         </div>
