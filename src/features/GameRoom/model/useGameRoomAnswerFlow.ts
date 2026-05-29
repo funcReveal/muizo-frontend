@@ -27,6 +27,12 @@ interface UseGameRoomAnswerFlowParams {
   getServerNowMs: () => number;
   primeSfxAudio: () => void;
   playGameSfx: (event: GameSfxEvent) => boolean;
+  /**
+   * Called when the backend returns "rate limited" for a submitAnswer request.
+   * Owned by the parent (GameRoomPage) so it can drive UI state (shake, toast,
+   * inline tip) regardless of how many layers the result has to traverse.
+   */
+  onRateLimited?: () => void;
 }
 
 const useGameRoomAnswerFlow = ({
@@ -40,6 +46,7 @@ const useGameRoomAnswerFlow = ({
   getServerNowMs,
   primeSfxAudio,
   playGameSfx,
+  onRateLimited,
 }: UseGameRoomAnswerFlowParams) => {
   const [selectedChoiceState, setSelectedChoiceState] = useState<{
     trackIndex: number;
@@ -276,6 +283,9 @@ const useGameRoomAnswerFlow = ({
       }
       if (!result.ok) {
         triggerHapticFeedback("wrong");
+        if (result.error === "rate limited") {
+          onRateLimited?.();
+        }
         return result;
       }
       triggerHapticFeedback("confirm");
@@ -322,6 +332,7 @@ const useGameRoomAnswerFlow = ({
       getCurrentSelectedChoice,
       getServerNowMs,
       meClientId,
+      onRateLimited,
       onSubmitChoice,
       playGameSfx,
       primeSfxAudio,

@@ -193,7 +193,13 @@ export const useRoomGameActions = ({
                 resolve({ ok: false, error: ack.error || "Room closed" });
                 return;
               }
-              if (ack.error !== "Not in guess phase") {
+              // "rate limited" has dedicated shake/toast/tip feedback in the
+              // answer panel — suppress the generic status text for it.
+              // "Not in guess phase" is also suppressed (expected no-op).
+              if (
+                ack.error !== "Not in guess phase" &&
+                ack.error !== "rate limited"
+              ) {
                 setStatusText(formatAckError("提交答案失敗", ack.error));
               }
               resolve({ ok: false, error: ack.error || "Submit failed" });

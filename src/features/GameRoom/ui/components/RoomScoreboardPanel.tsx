@@ -24,6 +24,7 @@ export interface RoomScoreboardPanelProps {
   answeredRankByClientId: Map<string, number>;
   scorePartsByClientId: Map<string, { base: number; gain: number }>;
   scoreBreakdownByClientId?: Map<string, QuestionScoreBreakdown>;
+  revealAnswerResultByClientId?: ReadonlyMap<string, "correct" | "wrong" | "unanswered">;
   isReveal: boolean;
   meClientId?: string;
   meRoomRank?: number | null;

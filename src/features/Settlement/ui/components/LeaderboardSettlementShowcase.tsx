@@ -1453,13 +1453,15 @@ const LeaderboardSettlementShowcase: React.FC<
     displayedCurrentRank > 0
       ? Math.max(
           0,
-          Math.round(
-            ((displayedTotalPlayers - displayedCurrentRank) /
-              displayedTotalPlayers) *
-              100,
-          ),
+          displayedTotalPlayers <= 1
+            ? 100
+            : Math.round(
+                ((displayedTotalPlayers - displayedCurrentRank) /
+                  (displayedTotalPlayers - 1)) *
+                  100,
+              ),
         )
-      : meSummary.rankPercentile;
+      : (meSummary.rankPercentile ?? 0);
 
   const previousLeaderboardGap = useMemo(() => {
     if (!currentLeaderboardRow) return null;

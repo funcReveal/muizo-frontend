@@ -179,7 +179,7 @@ const CurrentPlaylistCard = ({
       tabIndex={canOpenSelector ? 0 : undefined}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
-      className={`relative overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(7,11,18,0.74),rgba(7,11,18,0.56))] p-0 shadow-[0_24px_44px_-34px_rgba(2,6,23,0.9)] transition max-sm:p-4 ${
+      className={`relative w-full min-w-0 overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(7,11,18,0.74),rgba(7,11,18,0.56))] p-0 shadow-[0_24px_44px_-34px_rgba(2,6,23,0.9)] transition max-sm:p-4 ${
         canOpenSelector
           ? "cursor-pointer hover:border-cyan-300/20 hover:bg-[linear-gradient(180deg,rgba(10,18,30,0.8),rgba(7,11,18,0.62))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/25"
           : ""
@@ -205,7 +205,7 @@ const CurrentPlaylistCard = ({
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
               <Typography
                 variant="h5"
-                className="truncate min-w-0 !font-semibold !leading-tight !tracking-[-0.03em] !text-slate-50 max-sm:!text-[1.45rem] sm:!text-[1.45rem]"
+                className="flex-1 truncate min-w-0 !font-semibold !leading-tight !tracking-[-0.03em] !text-slate-50 max-sm:!text-[1.45rem] sm:!text-[1.45rem]"
               >
                 {title}
               </Typography>

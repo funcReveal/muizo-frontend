@@ -230,12 +230,14 @@ const useMobileScoreFeedback = ({
         pendingChallengeRankRef.current = null;
       }
       const latestScoreEvent = latestScoreEventRef.current;
+      const delayedScoreMe = nextSnapshot.me;
       const canPublishDelayedScore =
         latestScoreEvent !== null &&
+        delayedScoreMe !== null &&
         latestScoreEvent.expiresAt > Date.now() &&
         latestScoreEvent.event.scope === "challenge" &&
-        latestScoreEvent.event.me.clientId === nextSnapshot.me?.clientId &&
-        latestScoreEvent.event.me.score <= (nextSnapshot.me?.score ?? -1) &&
+        latestScoreEvent.event.me.clientId === delayedScoreMe.clientId &&
+        latestScoreEvent.event.me.score <= delayedScoreMe.score &&
         !shouldDelayChallengeScoreFeedback(
           latestScoreEvent.event,
           challengeProjection,
@@ -248,7 +250,7 @@ const useMobileScoreFeedback = ({
       ) {
         const enrichedScoreEvent: ScoreFeedbackEvent = {
           ...latestScoreEvent.event,
-          me: nextSnapshot.me,
+          me: delayedScoreMe,
           nextTargetGap:
             nextSnapshot.nextTargetGap ?? latestScoreEvent.event.nextTargetGap,
           nextTargetName:

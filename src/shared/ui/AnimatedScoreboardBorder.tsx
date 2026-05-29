@@ -192,6 +192,7 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
 
     const context = canvas.getContext("2d");
     if (!context) return;
+    const ctx = context;
 
     const palette = getParticlePalette(lineStyleId);
     let frameId = 0;
@@ -226,7 +227,7 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
       canvas.height = Math.round(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
     const resizeObserver = new ResizeObserver(resize);
@@ -263,7 +264,7 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
         return;
       }
       lastRenderAt = timestamp;
-      context.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, width, height);
 
       const time = timestamp / 1000;
       const amplitude = variant === "preview" ? 6 : isMobileViewport ? 7 : 10;
@@ -282,14 +283,14 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
           (variant === "preview" ? 0.92 : 1);
         const size = seed.size * (variant === "preview" ? 1.45 : 1.75);
         if (alpha > 0.015) {
-          drawParticle(context, lineStyleId, x, y, size, alpha, palette);
+          drawParticle(ctx, lineStyleId, x, y, size, alpha, palette);
         }
 
         if (lineStyleId === "silver-glint" && index % 7 === 0) {
           const flashAlpha = alpha * 0.55;
           if (flashAlpha > 0.02) {
             drawParticle(
-              context,
+              ctx,
               lineStyleId,
               x + 4,
               y - 2,
@@ -315,7 +316,7 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
         window.cancelAnimationFrame(frameId);
         frameId = 0;
       }
-      context.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, width, height);
     };
   }, [isMobileViewport, lineStyleId, seeds, shouldHideEffect, variant]);
 

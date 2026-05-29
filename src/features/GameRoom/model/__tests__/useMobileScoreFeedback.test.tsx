@@ -6,6 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RoomParticipant } from "@features/RoomSession";
 
 import useMobileScoreFeedback from "../useMobileScoreFeedback";
+import type { MobileScoreFeedbackEvent } from "../mobileScoreFeedback";
+
+type ScoreFeedbackEvent = Extract<MobileScoreFeedbackEvent, { type: "score" }>;
 
 function makeParticipant(
   clientId: string,
@@ -79,12 +82,13 @@ describe("useMobileScoreFeedback", () => {
     });
     await flushMicrotasks();
 
-    expect(result.current?.type).toBe("score");
-    if (result.current?.type !== "score") return;
-    expect(result.current.scope).toBe("room");
-    expect(result.current.scoreGain).toBe(1000);
-    expect(result.current.leadScore).toBe(160);
-    expect(result.current.runnerUp?.clientId).toBe("leader");
+    const scoreFollowUp = result.current as unknown as ScoreFeedbackEvent | null;
+    expect(scoreFollowUp?.type).toBe("score");
+    if (scoreFollowUp?.type !== "score") return;
+    expect(scoreFollowUp.scope).toBe("room");
+    expect(scoreFollowUp.scoreGain).toBe(1000);
+    expect(scoreFollowUp.leadScore).toBe(160);
+    expect(scoreFollowUp.runnerUp?.clientId).toBe("leader");
   });
 
   it("shows room overtaken feedback first, then my score gain and comeback gap", async () => {
@@ -133,11 +137,12 @@ describe("useMobileScoreFeedback", () => {
     });
     await flushMicrotasks();
 
-    expect(result.current?.type).toBe("score");
-    if (result.current?.type !== "score") return;
-    expect(result.current.scope).toBe("room");
-    expect(result.current.scoreGain).toBe(120);
-    expect(result.current.nextTargetGap).toBe(380);
-    expect(result.current.nextTargetName).toBe("rival");
+    const scoreFollowUp = result.current as unknown as ScoreFeedbackEvent | null;
+    expect(scoreFollowUp?.type).toBe("score");
+    if (scoreFollowUp?.type !== "score") return;
+    expect(scoreFollowUp.scope).toBe("room");
+    expect(scoreFollowUp.scoreGain).toBe(120);
+    expect(scoreFollowUp.nextTargetGap).toBe(380);
+    expect(scoreFollowUp.nextTargetName).toBe("rival");
   });
 });

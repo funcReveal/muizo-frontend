@@ -324,7 +324,55 @@ const useGameRoomPlayerSync = ({
         if (!frame || !frame.isConnected) return false;
         const target = frame.contentWindow;
         if (!target) return false;
-        target.postMessage(JSON.stringify(payload), "*");
+        // S-5: Determine the correct targetOrigin without hardcoding any provider.
+        //
+        // Strategy (two-step):
+        //
+        // 1. Attempt to read frame.contentWindow.location.origin directly.
+        //    This succeeds for same-origin frames (e.g. a local dev wrapper
+        //    at localhost:5173) and gives us the exact origin to use.
+        //
+        // 2. If the read throws a SecurityError the frame is cross-origin.
+        //    In that case parse frame.src with the URL constructor to extract
+        //    the origin.  This is provider-agnostic: YouTube, Spotify, or any
+        //    future embed all work as long as their src is an absolute URL,
+        //    which is always true for cross-origin iframes.
+        //
+        // Why not check frame.src directly in step 1?
+        //   A same-origin wrapper iframe can have an src that *contains* a
+        //   provider URL as a query parameter (e.g. /player?url=https://...
+        //   youtube-nocookie.com/embed/…).  String-matching src would then
+        //   produce the wrong targetOrigin for the same-origin wrapper.
+        let targetOrigin: string;
+        try {
+          // Step 1 — same-origin: read directly (never throws for same-origin).
+          const origin = frame.contentWindow!.location.origin;
+          // "null" is the opaque-origin string browsers return for about:blank
+          // and not-yet-navigated iframes.  postMessage rejects it with a
+          // SyntaxError, and there is nothing useful to send to an unloaded
+          // player — bail out silently so the caller retries when ready.
+          if (origin === "null") return false;
+          targetOrigin = origin;
+        } catch {
+          // Step 2 — cross-origin: derive from src (always absolute for
+          // cross-origin iframes; new URL() is safe here).
+          const src = frame.src;
+          if (!src || src === "about:blank") {
+            // src not yet set — player iframe not ready, skip silently.
+            return false;
+          }
+          try {
+            const parsed = new URL(src).origin;
+            // Guard against data: / blob: URLs whose origin is also "null".
+            if (parsed === "null") return false;
+            targetOrigin = parsed;
+          } catch {
+            // Malformed src — should never happen; use wildcard as last resort
+            // since player commands (play/pause/seek) carry no sensitive data.
+            targetOrigin = "*";
+          }
+        }
+        target.postMessage(JSON.stringify(payload), targetOrigin);
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

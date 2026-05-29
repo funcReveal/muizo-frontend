@@ -42,6 +42,13 @@ export interface GameRoomLeaderboardSidebarProps {
   answeredRankByClientId: Map<string, number>;
   scorePartsByClientId: Map<string, { base: number; gain: number }>;
   scoreBreakdownByClientId?: Map<string, QuestionScoreBreakdown>;
+  /**
+   * Server-confirmed answer results keyed by clientId, derived from
+   * questionStats.answersByClientId. Used as the authoritative source for
+   * chip color (correct / wrong) during reveal to eliminate the brief flash
+   * where gain === 0 before participant scores update.
+   */
+  revealAnswerResultByClientId?: ReadonlyMap<string, "correct" | "wrong" | "unanswered">;
   isReveal: boolean;
   meClientId: string;
   participants: RoomParticipant[];
@@ -111,6 +118,7 @@ const GameRoomLeaderboardSidebar: React.FC<GameRoomLeaderboardSidebarProps> = ({
   answeredRankByClientId,
   scorePartsByClientId,
   scoreBreakdownByClientId,
+  revealAnswerResultByClientId,
   isReveal,
   meClientId,
   participants,
@@ -230,6 +238,7 @@ const GameRoomLeaderboardSidebar: React.FC<GameRoomLeaderboardSidebarProps> = ({
             answeredRankByClientId={answeredRankByClientId}
             scorePartsByClientId={scorePartsByClientId}
             scoreBreakdownByClientId={scoreBreakdownByClientId}
+            revealAnswerResultByClientId={revealAnswerResultByClientId}
             isReveal={isReveal}
             meClientId={meClientId}
             meRoomRank={meRoomRank}

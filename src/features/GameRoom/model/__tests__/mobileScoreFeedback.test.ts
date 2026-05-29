@@ -121,6 +121,7 @@ function makeProjection({
       makeEntry(`top-${index + 1}`, index + 1, 5000 - index * 100),
     ),
     nearbyOpponents,
+    viewerSettledEntry: null,
     myStanding: {
       liveScore,
       officialBestScore: null,
@@ -503,6 +504,7 @@ describe("buildMobileScoreFeedbackEvent", () => {
         userId: "top5",
         displayName: "Oiiu",
         avatarUrl: null,
+        rank: 5,
         score: 14185,
         gap: 13155,
       },

@@ -73,6 +73,7 @@ function makeData(
     generatedAt: new Date().toISOString(),
     topEntries,
     nearbyOpponents,
+    viewerSettledEntry: null,
     myStanding: makeStanding(projectedRank, viewerScore, viewerUserId),
     cache: { source: "redis", ttlMs: 5000 },
   };
@@ -193,7 +194,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
 
     expect(layoutMode).toBe("top-window");
     expect(listRows.filter((r) => r.kind === "ellipsis")).toHaveLength(0);
-    expect(listRows).toHaveLength(11);
+    expect(listRows).toHaveLength(12);
 
     const selfIdx = listRows.findIndex((r) => r.kind === "self");
     expect(selfIdx).toBe(9); // 0-based index 9 = rank 10
@@ -246,8 +247,8 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     // No player row with userId "me" (official entry filtered out)
     expect(listRows.filter((r) => r.kind === "player" && r.userId === "me")).toHaveLength(0);
 
-    // Total = 10 rows (9 others + self)
-    expect(listRows).toHaveLength(10);
+    // Total = 12 rows (9 others + self + placeholders)
+    expect(listRows).toHaveLength(12);
   });
 
   // ?? Test case 7: stable keys across section transitions ???????????????????

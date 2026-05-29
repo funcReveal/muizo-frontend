@@ -18,6 +18,7 @@ import { generateGuestUsername } from "@domain/room/guestUsername";
 import { roomIsLeaderboardChallenge } from "@domain/room/viewModels";
 import {
   useRoomCreate,
+  useRoomDirectory,
   useRoomSession,
   type RoomLookupResult,
   type RoomSummary,
@@ -127,7 +128,6 @@ const InvitedPage: React.FC = () => {
     handleSetUsername,
   } = useAuth();
   const {
-    rooms,
     currentRoom,
     inviteNotFound,
     setInviteRoomId,
@@ -139,6 +139,7 @@ const InvitedPage: React.FC = () => {
     setJoinPasswordInput,
     handleJoinRoom,
   } = useRoomCreate();
+  const { rooms } = useRoomDirectory();
 
   const [inviteRoomApi, setInviteRoomApi] = useState<{
     roomReference: string;

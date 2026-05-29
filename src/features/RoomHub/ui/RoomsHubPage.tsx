@@ -732,7 +732,7 @@ const RoomsHubPage: React.FC = () => {
 
   const canUseGoogleLibraries = Boolean(authUser);
   const filteredJoinRooms = useMemo(() => {
-    const next = [...rooms].filter((room) => {
+    const next = (Array.isArray(rooms) ? [...rooms] : []).filter((room) => {
       if (room.maxPlayers === 1) return false;
       if (joinPasswordFilter === "no_password") return !roomRequiresPin(room);
       if (joinPasswordFilter === "password_required")

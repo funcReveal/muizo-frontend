@@ -101,6 +101,12 @@ export type ChallengeLeaderboardDisplayRow =
   | {
       kind: "placeholder";
       key: string;
+      /**
+       * When present, renders as `#N` in the rank column.
+       * Used to evoke "waiting for others to fill these spots" when the
+       * challenge has fewer than 12 participants.
+       */
+      displayRank?: number;
     };
 
 // ---------------------------------------------------------------------------
@@ -228,6 +234,13 @@ const finalizeSequentialTopRows = (
 // top-window mode (projectedRank <= 11)
 // ---------------------------------------------------------------------------
 
+/**
+ * Total rows always rendered in top-window and top-eleven modes.
+ * Matches the room leaderboard slot count so the panel never feels sparse
+ * when a challenge is new and has fewer than 12 participants.
+ */
+const CHALLENGE_LB_DISPLAY_ROWS = 12;
+
 function buildTopWindowRows(
   data: ChallengeProjectedLeaderboardResponse,
   viewerScore: number,
@@ -301,7 +314,24 @@ function buildTopWindowRows(
    */
   const maxRows = officialCandidates.length >= TARGET ? TARGET + 1 : TARGET;
 
-  return finalizeSequentialTopRows(rows.slice(0, maxRows), viewerScore);
+  const finalized = finalizeSequentialTopRows(rows.slice(0, maxRows), viewerScore);
+
+  // Pad to CHALLENGE_LB_DISPLAY_ROWS with ranked placeholder rows so the
+  // panel always shows the same height. Each placeholder carries its sequential
+  // rank number to evoke "waiting for others to play and fill these spots."
+  if (finalized.length >= CHALLENGE_LB_DISPLAY_ROWS) {
+    return finalized;
+  }
+
+  const result: ChallengeLeaderboardDisplayRow[] = [...finalized];
+  for (let i = finalized.length; i < CHALLENGE_LB_DISPLAY_ROWS; i += 1) {
+    result.push({
+      kind: "placeholder",
+      key: `placeholder:top:${i}`,
+      displayRank: i + 1,
+    });
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -326,7 +356,7 @@ function buildTopElevenRows(
   );
 
   for (let i = topEleven.length; i < TARGET; i += 1) {
-    rows.push({ kind: "placeholder", key: `placeholder:top:${i}` });
+    rows.push({ kind: "placeholder", key: `placeholder:top:${i}`, displayRank: i + 1 });
   }
 
   const gapToNext =

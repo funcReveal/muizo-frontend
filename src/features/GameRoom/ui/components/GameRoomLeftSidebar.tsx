@@ -44,6 +44,14 @@ interface GameRoomLeftSidebarProps {
   answeredRankByClientId: Map<string, number>;
   scorePartsByClientId: Map<string, { base: number; gain: number }>;
   scoreBreakdownByClientId?: Map<string, QuestionScoreBreakdown>;
+  /**
+   * Server-confirmed answer results for the current question, keyed by
+   * clientId. When present, used as the authoritative source for chip colour
+   * (correct / wrong) during the reveal phase instead of the `scoreParts.gain
+   * > 0` heuristic, which briefly returns 0 for every player in the window
+   * between the phase-change event and the participant-score update event.
+   */
+  revealAnswerResultByClientId?: ReadonlyMap<string, "correct" | "wrong" | "unanswered">;
   isReveal: boolean;
   meClientId?: string;
   meRoomRank?: number | null;
@@ -639,6 +647,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
   answeredRankByClientId,
   scorePartsByClientId,
   scoreBreakdownByClientId,
+  revealAnswerResultByClientId,
   isReveal,
   meClientId,
   meRoomRank,
@@ -1331,9 +1340,16 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
                 };
                 const scoreBreakdown = scoreBreakdownByClientId?.get(p.clientId);
                 const isMeRow = p.clientId === meClientId;
+                // During reveal: use the server-confirmed result as the primary
+                // source for chip colour. scoreParts.gain > 0 is only a
+                // fallback for when answersByClientId hasn't arrived yet, and
+                // it can transiently be 0 for every player (causing the
+                // all-players-flash-wrong bug) in the brief window between the
+                // phase-change event and the participant-score update event.
+                const serverResult = revealAnswerResultByClientId?.get(p.clientId);
                 const rowAnswerState = isReveal
                   ? hasAnswered
-                    ? scoreParts.gain > 0
+                    ? (serverResult === "correct" || (serverResult == null && scoreParts.gain > 0))
                       ? "correct"
                       : "wrong"
                     : "unanswered"

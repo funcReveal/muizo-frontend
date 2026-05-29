@@ -15,6 +15,18 @@ interface UseGameRoomStatsParams {
   liveAccuracyPct: number | null;
   selectedChoice: number | null;
   correctChoiceIndex: number;
+  /**
+   * Server-confirmed answer result for the local player, sourced from
+   * questionStats.answersByClientId[meClientId].result.
+   *
+   * Used as an authoritative fallback for myIsCorrect to handle the race
+   * condition where the reveal broadcast arrives before the submit ACK (the
+   * last player to answer triggers the reveal, so the broadcast and ACK are
+   * racing). Without this, selectedChoice is still null when the reveal fires,
+   * causing a false "wrong" tone even though the backend scored the answer as
+   * correct.
+   */
+  myServerAnswerResult: "correct" | "wrong" | "unanswered" | null;
   myBackendScoreBreakdown: QuestionScoreBreakdown | null;
   gamePhase: GameState["phase"];
   isReveal: boolean;
@@ -35,6 +47,7 @@ const useGameRoomStats = ({
   liveAccuracyPct,
   selectedChoice,
   correctChoiceIndex,
+  myServerAnswerResult,
   myBackendScoreBreakdown,
   gamePhase,
   isReveal,
@@ -62,7 +75,13 @@ const useGameRoomStats = ({
   const myHasAnswered =
     selectedChoice !== null ||
     Boolean(meClientId && answeredClientIdSet.has(meClientId));
-  const myIsCorrect = selectedChoice !== null && selectedChoice === correctChoiceIndex;
+  // Primary: client-side selection matches the revealed correct index.
+  // Fallback: server-confirmed result, which resolves the race condition where
+  // the reveal broadcast arrives before the submit ACK (last player to answer
+  // triggers the reveal simultaneously).
+  const myIsCorrect =
+    (selectedChoice !== null && selectedChoice === correctChoiceIndex) ||
+    myServerAnswerResult === "correct";
   const myResolvedScoreBreakdown = myBackendScoreBreakdown;
   const myResolvedGain = myResolvedScoreBreakdown?.totalGainPoints ?? myGain;
   const myComboNow = Math.max(0, meParticipant?.combo ?? 0);
