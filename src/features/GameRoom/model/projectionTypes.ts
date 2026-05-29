@@ -60,6 +60,17 @@ export type ChallengeProjectedLeaderboardResponse = {
   generatedAt: string;
   topEntries: ChallengeLeaderboardEntry[];
   nearbyOpponents: ChallengeNearbyOpponent[];
+  /**
+   * Viewer's full settled entry when they have a historical best record.
+   *
+   * Present even when viewer's rank > 11 (outside topEntries) and when their
+   * settled entry is excluded from nearbyOpponents.  Used by the frontend to
+   * render the "你的歷史最佳紀錄" row in the nearby section so the viewer
+   * always sees their own past best alongside their current live run.
+   *
+   * null when viewer has no settled record for this leaderboard profile.
+   */
+  viewerSettledEntry: ChallengeLeaderboardEntry | null;
   myStanding: ChallengeProjectedMyStanding;
   rankingScope?: ProjectedLeaderboardRankingScope;
   cache: {

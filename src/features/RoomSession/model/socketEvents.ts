@@ -18,6 +18,7 @@ import type {
   RoomCreationState,
   RoomParticipant,
   RoomState,
+  RoomListForViewerPayload,
   RoomSummary,
   SessionProgressPayload,
   SitePresencePayload,
@@ -90,7 +91,7 @@ export interface ClientToServerEvents {
     payload: { content: string },
     callback?: (ack: Ack<HubChatMessage>) => void,
   ) => void;
-  listRooms: (callback?: (ack: Ack<RoomSummary[]>) => void) => void;
+  listRooms: (callback?: (ack: Ack<RoomListForViewerPayload>) => void) => void;
   getSitePresence: (callback?: (ack: Ack<SitePresencePayload>) => void) => void;
   getPlaylistPage: (
     payload: { roomId: string; page: number; pageSize?: number },

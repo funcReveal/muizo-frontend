@@ -199,9 +199,22 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
     let height = 0;
     let destroyed = false;
     let lastRenderAt = 0;
+    // Visibility state: RAF runs only when both conditions are true.
+    // Optimistic inViewport=true so rendering starts immediately on mount;
+    // IntersectionObserver corrects it on the first callback.
+    let tabVisible = !document.hidden;
+    let inViewport = true;
     const maxDpr = isMobileViewport ? MOBILE_MAX_DPR : DESKTOP_MAX_DPR;
     const targetFps = isMobileViewport ? MOBILE_TARGET_FPS : DESKTOP_TARGET_FPS;
     const frameIntervalMs = 1000 / targetFps;
+
+    const canRender = () => tabVisible && inViewport;
+
+    const resume = () => {
+      if (!destroyed && canRender() && frameId === 0) {
+        frameId = window.requestAnimationFrame(render);
+      }
+    };
 
     const resize = () => {
       if (!root || !canvas) return;
@@ -216,12 +229,35 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
-    const observer = new ResizeObserver(resize);
-    observer.observe(root);
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(root);
     resize();
 
-    const render = (timestamp: number) => {
-      if (destroyed || !context) return;
+    // Pause RAF when element leaves the viewport (e.g. scrolled away).
+    const intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        inViewport = entries[0]?.isIntersecting ?? false;
+        if (canRender()) resume();
+      },
+      { threshold: 0 },
+    );
+    intersectionObserver.observe(root);
+
+    // Pause RAF when browser tab is hidden (phone screen off / app switched).
+    const onVisibilityChange = () => {
+      tabVisible = !document.hidden;
+      if (canRender()) resume();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    // render is declared with `function` so resume() can reference it before
+    // the const initialiser runs (temporal dead zone safe via hoisting).
+    function render(timestamp: number) {
+      if (destroyed) return;
+      frameId = 0; // clear so resume() can re-schedule if needed
+
+      if (!canRender()) return; // suspended — will resume via event handler
+
       if (timestamp - lastRenderAt < frameIntervalMs) {
         frameId = window.requestAnimationFrame(render);
         return;
@@ -266,15 +302,18 @@ const AnimatedScoreboardBorder: React.FC<AnimatedScoreboardBorderProps> = ({
       });
 
       frameId = window.requestAnimationFrame(render);
-    };
+    }
 
     frameId = window.requestAnimationFrame(render);
 
     return () => {
       destroyed = true;
-      observer.disconnect();
+      resizeObserver.disconnect();
+      intersectionObserver.disconnect();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (frameId) {
         window.cancelAnimationFrame(frameId);
+        frameId = 0;
       }
       context.clearRect(0, 0, width, height);
     };

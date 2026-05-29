@@ -86,6 +86,10 @@ export interface RoomSummary {
   };
 }
 
+export type RoomViewerAccess = {
+  kickedUntil: number | null;
+};
+
 export type RoomListPayload = {
   rooms?: RoomSummary[];
   error?: string;

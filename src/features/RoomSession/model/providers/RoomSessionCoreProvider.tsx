@@ -26,6 +26,7 @@ import type {
   RoomParticipant,
   RoomState,
   RoomSummary,
+  RoomViewerAccess,
   SessionProgressPayload,
 } from "../types";
 import { useAuth } from "../../../../shared/auth/AuthContext";
@@ -178,6 +179,9 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
 
   const [isConnected, setIsConnected] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
+  const [viewerAccessByRoomId, setViewerAccessByRoomId] = useState<
+    Record<string, RoomViewerAccess>
+  >({});
   const [currentRoom, setCurrentRoom] = useState<RoomState["room"] | null>(
     null,
   );
@@ -433,6 +437,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
       setPlaylistLoadingMore,
       setServerOffsetMs,
       setRooms,
+      setViewerAccessByRoomId,
       setInviteNotFound,
       setSitePresence,
       setPostResumeGate,
@@ -768,8 +773,8 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const roomDirectoryCtxValue = useMemo(
-    () => ({ rooms, fetchRooms }),
-    [rooms, fetchRooms],
+    () => ({ rooms, viewerAccessByRoomId, fetchRooms }),
+    [rooms, viewerAccessByRoomId, fetchRooms],
   );
 
   const roomGameStateCtxValue = useMemo<RoomGameStateContextValue>(

@@ -1,9 +1,10 @@
 import { createContext, useContext } from "react";
 
-import type { RoomSummary } from "./types";
+import type { RoomSummary, RoomViewerAccess } from "./types";
 
 export interface RoomDirectoryContextValue {
   rooms: RoomSummary[];
+  viewerAccessByRoomId: Record<string, RoomViewerAccess>;
   fetchRooms: () => Promise<void>;
 }
 

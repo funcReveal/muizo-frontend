@@ -158,6 +158,16 @@ export interface RoomSummary {
   totalQuestionCount?: number;
 }
 
+export type RoomViewerAccess = {
+  kickedUntil: number | null;
+};
+
+export type RoomListForViewerPayload = {
+  rooms: RoomSummary[];
+  viewerAccess: Record<string, RoomViewerAccess>;
+  serverNow: number;
+};
+
 export type RoomLookupFailureReason =
   | "missing_api_url"
   | "not_found"

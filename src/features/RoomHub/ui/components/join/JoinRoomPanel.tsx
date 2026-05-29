@@ -1,4 +1,10 @@
-import { useMemo, useState, type RefObject, type UIEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type RefObject,
+  type UIEvent,
+} from "react";
 import {
   Button,
   Dialog,
@@ -29,8 +35,14 @@ import SwapVertRounded from "@mui/icons-material/SwapVertRounded";
 import TipsAndUpdatesRounded from "@mui/icons-material/TipsAndUpdatesRounded";
 import VisibilityRounded from "@mui/icons-material/VisibilityRounded";
 import ViewAgendaRounded from "@mui/icons-material/ViewAgendaRounded";
+import BlockRounded from "@mui/icons-material/BlockRounded";
+import TimerRounded from "@mui/icons-material/TimerRounded";
 
-import type { PlaybackExtensionMode, RoomSummary } from "@domain/room/types";
+import type {
+  PlaybackExtensionMode,
+  RoomSummary,
+  RoomViewerAccess,
+} from "@domain/room/types";
 import { formatPlaylistAvailabilityLabel } from "@features/RoomSession/model/playlistAvailability";
 import VirtualJoinRoomRow, {
   type VirtualJoinRoomRowProps,
@@ -91,11 +103,14 @@ type JoinRoomPanelProps = {
   joinSortMode: JoinSortMode;
   setJoinSortMode: (value: JoinSortMode) => void;
   filteredJoinRooms: RoomSummary[];
+  viewerAccessByRoomId: Record<string, RoomViewerAccess>;
+  serverOffsetMs: number;
   filteredJoinPlayerTotal: number;
   siteOnlineCount: number | null;
   joinRoomsView: JoinRoomsView;
   setJoinRoomsView: (value: JoinRoomsView) => void;
   handleJoinRoomEntry: (room: RoomSummary) => void;
+  onBlockedRoomClick: (room: RoomSummary, remainingLabel: string | null) => void;
   roomRequiresPin: (room: RoomSummary) => boolean;
   roomIsLeaderboardChallenge: (room: RoomSummary) => boolean;
   isRoomCurrentlyPlaying: (room: RoomSummary) => boolean;
@@ -141,11 +156,14 @@ const JoinRoomPanel = ({
   joinSortMode,
   setJoinSortMode,
   filteredJoinRooms,
+  viewerAccessByRoomId,
+  serverOffsetMs,
   filteredJoinPlayerTotal,
   siteOnlineCount,
   joinRoomsView,
   setJoinRoomsView,
   handleJoinRoomEntry,
+  onBlockedRoomClick,
   roomRequiresPin,
   roomIsLeaderboardChallenge,
   isRoomCurrentlyPlaying,
@@ -166,6 +184,59 @@ const JoinRoomPanel = ({
 }: JoinRoomPanelProps) => {
   const JOIN_ROOM_BATCH_SIZE = 12;
   const JOIN_ROOM_LIST_ROW_HEIGHT = 148;
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [shakingRoomId, setShakingRoomId] = useState<string | null>(null);
+  const serverNow = clockNow + serverOffsetMs;
+  const hasActiveKickCountdown = useMemo(
+    () =>
+      Object.values(viewerAccessByRoomId).some(
+        (access) =>
+          typeof access.kickedUntil === "number" &&
+          access.kickedUntil > serverNow,
+      ),
+    [serverNow, viewerAccessByRoomId],
+  );
+
+  useEffect(() => {
+    if (!hasActiveKickCountdown) return;
+    const timeoutId = window.setTimeout(() => {
+      setClockNow(Date.now());
+    }, 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [clockNow, hasActiveKickCountdown]);
+
+  const formatKickRemainingLabel = (kickedUntil: number) => {
+    const totalSeconds = Math.max(0, Math.ceil((kickedUntil - serverNow) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const restMinutes = minutes % 60;
+      return `${hours}:${String(restMinutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  const getRoomKickState = (room: RoomSummary) => {
+    const access = viewerAccessByRoomId[room.id];
+    if (!access) return null;
+    if (access.kickedUntil === null) {
+      return { blocked: true, label: null };
+    }
+    if (access.kickedUntil <= serverNow) return null;
+    return {
+      blocked: true,
+      label: formatKickRemainingLabel(access.kickedUntil),
+    };
+  };
+
+  const triggerBlockedRoomFeedback = (room: RoomSummary, label: string | null) => {
+    setShakingRoomId(room.id);
+    window.setTimeout(() => {
+      setShakingRoomId((current) => (current === room.id ? null : current));
+    }, 460);
+    onBlockedRoomClick(room, label);
+  };
   const joinStatusOptions: Array<{
     key: JoinStatusFilter;
     label: string;
@@ -376,6 +447,8 @@ const JoinRoomPanel = ({
   ) => {
     const isLeaderboardRoom = roomIsLeaderboardChallenge(room);
     const requiresLogin = isLeaderboardRoom && !isAuthenticated;
+    const kickState = getRoomKickState(room);
+    const isViewerBlocked = Boolean(kickState?.blocked);
     const maxPlayers =
       typeof room.maxPlayers === "number" && room.maxPlayers > 0
         ? room.maxPlayers
@@ -385,10 +458,16 @@ const JoinRoomPanel = ({
     const playlistCoverUrl = getRoomPlaylistCoverUrl(room);
     const playerCapacityLabel = `${room.playerCount}${maxPlayers ? `/${maxPlayers}` : ""}`;
     const handleRoomAction = () => {
+      if (isViewerBlocked) {
+        triggerBlockedRoomFeedback(room, kickState?.label ?? null);
+        return;
+      }
       if (isRoomFull) return;
       handleJoinRoomEntry(room);
     };
-    const statusPillClass = isRoomFull
+    const statusPillClass = isViewerBlocked
+      ? "border-rose-200/45 bg-rose-400/12 text-rose-100"
+      : isRoomFull
       ? "border-rose-300/45 bg-rose-400/12 text-rose-100"
       : isRoomCurrentlyPlaying(room)
         ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
@@ -409,12 +488,14 @@ const JoinRoomPanel = ({
             }
           }}
           className={`relative h-[140px] rounded-2xl border px-3 py-3 text-left transition focus:outline-none focus-visible:ring-2 ${
-            isRoomFull
+            isViewerBlocked
+              ? "cursor-pointer border-rose-300/45 bg-[linear-gradient(180deg,rgba(127,29,29,0.22),rgba(15,23,42,0.3))] text-slate-200 hover:border-rose-200/65 focus-visible:border-rose-200/70 focus-visible:ring-rose-300/25"
+              : isRoomFull
               ? "cursor-not-allowed border-rose-300/35 bg-[linear-gradient(180deg,rgba(127,29,29,0.18),rgba(15,23,42,0.28))] text-slate-300"
               : isLeaderboardRoom
                 ? "cursor-pointer border-amber-300/22 bg-[linear-gradient(180deg,rgba(31,22,8,0.34),rgba(15,23,42,0.25))] hover:border-amber-300/42 hover:bg-slate-900/34 focus-visible:border-amber-300/60 focus-visible:ring-amber-300/25"
                 : "cursor-pointer border-[var(--mc-border)] bg-slate-950/25 hover:border-amber-300/35 hover:bg-slate-900/30 focus-visible:border-amber-300/55 focus-visible:ring-amber-300/25"
-          }`}
+          } ${shakingRoomId === room.id ? "animate-[room-card-denied-shake_420ms_cubic-bezier(0.36,0.07,0.19,0.97)]" : ""}`}
         >
           <div className="flex h-full min-w-0 items-stretch gap-3">
             <div
@@ -465,7 +546,7 @@ const JoinRoomPanel = ({
                 <span
                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${statusPillClass}`}
                 >
-                  {getRoomStatusLabel(room)}
+                  {isViewerBlocked ? "限制中" : getRoomStatusLabel(room)}
                 </span>
               </div>
 
@@ -509,6 +590,16 @@ const JoinRoomPanel = ({
 
             </div>
           </div>
+          {isViewerBlocked ? (
+            <div className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full border border-rose-200/35 bg-slate-950/88 px-2 py-1 text-[11px] font-semibold text-rose-50 shadow-[0_12px_26px_-20px_rgba(251,113,133,0.95)]">
+              {kickState?.label ? (
+                <TimerRounded sx={{ fontSize: 13 }} />
+              ) : (
+                <BlockRounded sx={{ fontSize: 13 }} />
+              )}
+              <span>{kickState?.label ?? "封鎖"}</span>
+            </div>
+          ) : null}
         </div>
       );
     }
@@ -527,12 +618,14 @@ const JoinRoomPanel = ({
           }
         }}
         className={`relative rounded-2xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 ${
-          isRoomFull
+          isViewerBlocked
+            ? "cursor-pointer border-rose-300/45 bg-[linear-gradient(180deg,rgba(127,29,29,0.22),rgba(15,23,42,0.3))] text-slate-200 hover:border-rose-200/65 focus-visible:border-rose-200/70 focus-visible:ring-rose-300/25"
+            : isRoomFull
             ? "cursor-not-allowed border-rose-300/35 bg-[linear-gradient(180deg,rgba(127,29,29,0.18),rgba(15,23,42,0.28))] text-slate-300"
             : isLeaderboardRoom
             ? "border-amber-300/22 bg-[linear-gradient(180deg,rgba(31,22,8,0.34),rgba(15,23,42,0.25))] hover:border-amber-300/42 hover:bg-slate-900/34 focus-visible:border-amber-300/60 focus-visible:ring-amber-300/25"
             : "border-[var(--mc-border)] bg-slate-950/25 hover:border-amber-300/35 hover:bg-slate-900/30 focus-visible:border-amber-300/55 focus-visible:ring-amber-300/25"
-        }`}
+        } ${shakingRoomId === room.id ? "animate-[room-card-denied-shake_420ms_cubic-bezier(0.36,0.07,0.19,0.97)]" : ""}`}
       >
         <div className="space-y-3">
           <div className="space-y-3">
@@ -564,7 +657,7 @@ const JoinRoomPanel = ({
               <span
                 className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${statusPillClass}`}
               >
-                {getRoomStatusLabel(room)}
+                {isViewerBlocked ? "限制中" : getRoomStatusLabel(room)}
               </span>
             </div>
 
@@ -663,7 +756,19 @@ const JoinRoomPanel = ({
             </p>
           </div>
         </div>
-        {requiresLogin && !isRoomFull ? (
+        {isViewerBlocked ? (
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-end">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200/35 bg-slate-950/88 px-2.5 py-1 text-[11px] font-semibold text-rose-50 shadow-[0_12px_26px_-20px_rgba(251,113,133,0.95)]">
+              {kickState?.label ? (
+                <TimerRounded sx={{ fontSize: 14 }} />
+              ) : (
+                <BlockRounded sx={{ fontSize: 14 }} />
+              )}
+              {kickState?.label ? `剩 ${kickState.label}` : "已封鎖"}
+            </span>
+          </div>
+        ) : null}
+        {requiresLogin && !isRoomFull && !isViewerBlocked ? (
           <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-end">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/20 bg-slate-950/80 px-2.5 py-1 text-[11px] font-semibold text-cyan-50 shadow-[0_12px_26px_-22px_rgba(34,211,238,0.85)]">
               <LoginRounded sx={{ fontSize: 14 }} />
@@ -678,7 +783,9 @@ const JoinRoomPanel = ({
               color: "rgba(250, 204, 21, 0.92)",
             }}
             className={`pointer-events-none absolute right-3 ${
-              requiresLogin || isRoomFull ? "bottom-10" : "bottom-3"
+              requiresLogin || isRoomFull || isViewerBlocked
+                ? "bottom-10"
+                : "bottom-3"
             }`}
           />
         ) : null}
@@ -688,6 +795,17 @@ const JoinRoomPanel = ({
 
   return (
     <>
+      <style>
+        {`
+          @keyframes room-card-denied-shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-4px); }
+            40% { transform: translateX(4px); }
+            60% { transform: translateX(-3px); }
+            80% { transform: translateX(3px); }
+          }
+        `}
+      </style>
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div className="shrink-0">
           <div className="flex flex-col gap-3">

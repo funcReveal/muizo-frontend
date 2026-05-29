@@ -23,7 +23,10 @@ import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import { List, type RowComponentProps } from "react-window";
 
-import { CollectionReviewPanel } from "@features/CollectionReview";
+import {
+  CollectionReviewPanel,
+  CollectionReviewPromptDialog,
+} from "@features/CollectionReview";
 import type {
   LeaderboardSettlementResponse,
   PlaylistItem,
@@ -62,6 +65,8 @@ type LeaderboardSettlementShowcaseProps = {
   leaderboardSettlementLoading?: boolean;
   leaderboardSettlementLoadingMore?: boolean;
   leaderboardSettlementError?: string | null;
+  enableReviewPrompt?: boolean;
+  reviewPromptKey?: string | null;
   onRefreshLeaderboardSettlement?: () => void | Promise<void>;
   onLoadMoreLeaderboardSettlement?: () => void | Promise<void>;
   isFavorited?: boolean;
@@ -796,6 +801,8 @@ const LeaderboardSettlementShowcase: React.FC<
   leaderboardSettlementLoading = false,
   leaderboardSettlementLoadingMore = false,
   leaderboardSettlementError = null,
+  enableReviewPrompt = false,
+  reviewPromptKey = null,
   onRefreshLeaderboardSettlement,
   onLoadMoreLeaderboardSettlement,
   isFavorited,
@@ -1550,11 +1557,12 @@ const LeaderboardSettlementShowcase: React.FC<
   };
 
   return (
-    <div
-      className={`mx-auto w-full max-w-[1820px] min-w-0 overflow-hidden pt-2 text-[var(--mc-text)] ${
-        isDesktopLayout ? "h-[calc(100dvh-112px)]" : ""
-      }`}
-    >
+    <>
+      <div
+        className={`mx-auto w-full max-w-[1820px] min-w-0 overflow-hidden pt-2 text-[var(--mc-text)] ${
+          isDesktopLayout ? "h-[calc(100dvh-112px)]" : ""
+        }`}
+      >
       <section
         className={`min-h-0 ${isDesktopLayout ? "flex h-full flex-col" : ""}`}
       >
@@ -2110,7 +2118,13 @@ const LeaderboardSettlementShowcase: React.FC<
           </div>
         </div>
       </section>
-    </div>
+      </div>
+      <CollectionReviewPromptDialog
+        collectionId={reviewableCollectionId}
+        promptKey={reviewPromptKey}
+        enabled={enableReviewPrompt && Boolean(reviewableCollectionId)}
+      />
+    </>
   );
 };
 
