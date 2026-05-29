@@ -36,22 +36,8 @@ export const formatDurationLabel = (durationSec?: number | null) => {
 export const roomRequiresPin = (room: RoomSummary) =>
   Boolean(room.hasPin ?? room.hasPassword);
 
-export const roomIsLeaderboardChallenge = (room: RoomSummary | null | undefined) => {
-  if (!room) return false;
-  const source = room as RoomSummary &
-    Record<string, unknown> & {
-      gameSettings?: Record<string, unknown> | null;
-      game_settings?: Record<string, unknown> | null;
-    };
-  const gameSettings = source.gameSettings ?? source.game_settings;
-  return Boolean(
-    room.gameSettings?.leaderboardProfileKey ??
-      source.leaderboardProfileKey ??
-      source.leaderboard_profile_key ??
-      gameSettings?.leaderboardProfileKey ??
-      gameSettings?.leaderboard_profile_key,
-  );
-};
+export const roomIsLeaderboardChallenge = (room: RoomSummary | null | undefined): boolean =>
+  Boolean(room?.gameSettings?.leaderboardProfileKey);
 
 export const normalizeRoomCodeInput = (value: string) =>
   value
@@ -65,74 +51,19 @@ export const formatRoomCodeDisplay = (value: string) => {
   return `${normalized.slice(0, 3)}-${normalized.slice(3)}`;
 };
 
-export const getRoomPlaylistLabel = (room: RoomSummary) => {
-  const source = room as RoomSummary &
-    Record<string, unknown> & {
-      playlist?: { title?: unknown } | null;
-    };
+export const getRoomPlaylistLabel = (room: RoomSummary): string => {
+  const title = room.playlistTitle?.trim();
+  if (title) return title;
 
-  const candidates = [
-    room.playlistTitle,
-    source.playlist_title,
-    source.sourceTitle,
-    source.source_title,
-    source.collectionTitle,
-    source.collection_title,
-    source.playlist?.title,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate !== "string") continue;
-    const trimmed = candidate.trim();
-    if (trimmed) return trimmed;
-  }
-
-  const playableCount =
-    typeof room.playlistPlayableCount === "number"
-      ? Math.max(0, Math.floor(room.playlistPlayableCount))
-      : Math.max(0, Math.floor(room.playlistCount));
-
+  const playableCount = Math.max(
+    0,
+    Math.floor(room.playlistPlayableCount ?? room.playlistCount),
+  );
   return playableCount > 0 ? `${playableCount} 題` : "題庫資料準備中";
 };
 
-const detectRoomCurrentlyPlaying = (room: RoomSummary) => {
-  const source = room as RoomSummary &
-    Record<string, unknown> & {
-      gameState?: { status?: unknown } | null;
-    };
-
-  const boolCandidates = [
-    source.isPlaying,
-    source.playing,
-    source.inGame,
-    source.hasActiveGame,
-  ];
-  if (boolCandidates.some((value) => value === true)) return true;
-
-  const stringCandidates = [
-    source.gameStatus,
-    source.game_status,
-    source.status,
-    source.liveStatus,
-    source.roomStatus,
-    source.gameState?.status,
-  ];
-  for (const value of stringCandidates) {
-    if (typeof value !== "string") continue;
-    const normalized = value.trim().toLowerCase();
-    if (
-      normalized === "playing" ||
-      normalized === "in_progress" ||
-      normalized === "active" ||
-      normalized === "started" ||
-      normalized === "running"
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-};
+const detectRoomCurrentlyPlaying = (room: RoomSummary): boolean =>
+  room.isPlaying === true || room.gameStatus === "playing";
 
 export const getRoomStatusLabel = (room: RoomSummary) =>
   detectRoomCurrentlyPlaying(room) ? "遊玩中" : "待機中";
