@@ -17,9 +17,6 @@ interface CareerHistoryGroup {
 
 interface CareerHistoryGroupedListProps {
   groupedHistoryItems: CareerHistoryGroup[];
-  getSelfRankForSummary: (
-    summary: RoomSettlementHistorySummary,
-  ) => number | null;
   onOpenReplay: (summary: RoomSettlementHistorySummary) => void;
   nextCursorToken: string | null;
   loadingMoreList: boolean;
@@ -35,15 +32,11 @@ type CareerHistoryVirtualRow = {
 
 interface CareerHistoryVirtualRowProps {
   rows: CareerHistoryVirtualRow[];
-  getSelfRankForSummary: (
-    summary: RoomSettlementHistorySummary,
-  ) => number | null;
   onOpenReplay: (summary: RoomSettlementHistorySummary) => void;
 }
 
 const CareerHistoryGroupedList: React.FC<CareerHistoryGroupedListProps> = ({
   groupedHistoryItems,
-  getSelfRankForSummary,
   onOpenReplay,
   nextCursorToken,
   loadingMoreList,
@@ -81,11 +74,9 @@ const CareerHistoryGroupedList: React.FC<CareerHistoryGroupedListProps> = ({
   const rowProps = useMemo<CareerHistoryVirtualRowProps>(
     () => ({
       rows,
-      getSelfRankForSummary,
       onOpenReplay,
     }),
     [
-      getSelfRankForSummary,
       onOpenReplay,
       rows,
     ],
@@ -167,7 +158,6 @@ const CareerHistoryVirtualRow = ({
   index,
   style,
   rows,
-  getSelfRankForSummary,
   onOpenReplay,
 }: RowComponentProps<CareerHistoryVirtualRowProps>) => {
   const row = rows[index];
@@ -179,7 +169,6 @@ const CareerHistoryVirtualRow = ({
       <CareerHistoryMatchCard
         item={row.item}
         onOpenReplay={onOpenReplay}
-        getSelfRankForSummary={getSelfRankForSummary}
         animationDelayMs={Math.min(row.index * 22, 180)}
       />
     </div>

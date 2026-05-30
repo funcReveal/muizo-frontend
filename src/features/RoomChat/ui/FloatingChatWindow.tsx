@@ -104,7 +104,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   const effectiveTab: ChatTab = currentRoom ? activeTab : "hub";
   const isHubTab = effectiveTab === "hub";
   const windowTitle = currentRoom ? "聊天室" : "大廳聊天室";
-  const windowVariant = currentRoom ? "room" : "hub";
+  const windowVariant = isHubTab ? "hub" : "room";
 
   const scrollChatToBottom = useCallback(() => {
     const node = scrollRef.current;

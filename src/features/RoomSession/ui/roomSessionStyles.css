@@ -24694,25 +24694,51 @@
   border-color: rgba(245, 158, 11, 0.44);
 }
 
+.floating-chat-root[data-variant="room"] .floating-chat-fab {
+  border-color: rgba(245, 158, 11, 0.26);
+  background: rgba(28, 18, 7, 0.94);
+}
+
+.floating-chat-root[data-variant="room"] .floating-chat-fab-label,
+.floating-chat-root[data-variant="room"] .floating-chat-header-title {
+  color: rgba(255, 237, 213, 0.96);
+}
+
+.floating-chat-root[data-variant="room"] .floating-chat-window,
+.game-room-mobile-chat-drawer[data-variant="room"] {
+  border-color: rgba(245, 158, 11, 0.28) !important;
+  box-shadow:
+    0 -24px 54px -34px rgba(245, 158, 11, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset !important;
+}
+
+.floating-chat-root[data-variant="room"] .floating-chat-header,
+.game-room-mobile-chat-drawer[data-variant="room"] .game-room-mobile-drawer-head--chat {
+  border-bottom-color: rgba(245, 158, 11, 0.18);
+}
+
 .floating-chat-root[data-variant="hub"] .floating-chat-fab {
-  border-color: rgba(34, 211, 238, 0.22);
-  background: rgba(7, 20, 32, 0.94);
+  border-color: rgba(45, 212, 191, 0.28);
+  background: rgba(4, 24, 26, 0.94);
 }
 
 .floating-chat-root[data-variant="hub"] .floating-chat-fab-label,
 .floating-chat-root[data-variant="hub"] .floating-chat-header-title {
-  color: rgba(207, 250, 254, 0.96);
+  color: rgba(204, 251, 241, 0.96);
 }
 
 .floating-chat-root[data-variant="hub"] .floating-chat-window,
 .game-room-mobile-chat-drawer[data-variant="hub"] {
-  border-color: rgba(34, 211, 238, 0.2);
-  background: rgba(5, 15, 27, 0.98);
+  border-color: rgba(45, 212, 191, 0.3) !important;
+  background: rgba(4, 18, 20, 0.98) !important;
+  box-shadow:
+    0 -24px 54px -34px rgba(45, 212, 191, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset !important;
 }
 
 .floating-chat-root[data-variant="hub"] .floating-chat-header,
 .game-room-mobile-chat-drawer[data-variant="hub"] .game-room-mobile-drawer-head--chat {
-  border-bottom-color: rgba(34, 211, 238, 0.14);
+  border-bottom-color: rgba(45, 212, 191, 0.18);
 }
 
 /* ── Mobile: full-width bottom bar ── */
