@@ -61,6 +61,7 @@ export interface RoomSettlementHistorySummary {
   playlistTitle?: string | null;
   playlistSourceType?: PlaylistSourceType | null;
   playlistItemCount?: number | null;
+  playlistCoverThumbnailUrl?: string | null;
   startedAt: number;
   endedAt: number;
   status: "ended" | "aborted";

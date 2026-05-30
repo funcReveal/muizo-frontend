@@ -118,7 +118,6 @@ const LibrarySourcePanel = ({
               <div className="mt-auto hidden pt-3 lg:block">
                 <RoomsHubSocialLinks />
                 <CreatePublicCollectionSourceAction
-                  isAuthenticated={canUseGoogleLibraries}
                   onClick={onCreatePublicCollection!}
                 />
               </div>

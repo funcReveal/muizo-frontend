@@ -24357,11 +24357,9 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px 0;
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-bottom: 0;
-  border-radius: 14px 14px 0 0;
-  background: rgb(6, 12, 22);
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
   cursor: pointer;
 }
 

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type UIEvent,
+} from "react";
 
 import { useAuth } from "@shared/auth/AuthContext";
 import { ensureFreshAuthToken } from "@shared/auth/token";
@@ -699,6 +706,14 @@ export const useCareerHistoryWorkspace = () => {
     };
   }, []);
 
+  const handleHistoryScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      scrollHostRef.current = event.currentTarget;
+      setShowBackToTop(event.currentTarget.scrollTop > 240);
+    },
+    [],
+  );
+
   const handleLoadMoreHistory = useCallback(async () => {
     if (!nextCursorToken || loadingList || loadingMoreList) return;
     if (!acquireHistoryRequestPermit("list")) return;
@@ -1088,6 +1103,7 @@ export const useCareerHistoryWorkspace = () => {
     closeReplayDetail,
     handleLoadMoreHistory,
     handleBackToTop,
+    handleHistoryScroll,
     formatDateTime: formatCareerHistoryDateTime,
     getMatchDurationMs: getCareerHistoryMatchDurationMs,
     formatDuration: formatCareerHistoryDuration,

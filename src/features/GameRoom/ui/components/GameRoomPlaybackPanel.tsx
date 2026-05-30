@@ -189,6 +189,13 @@ const MobileFrameActionsMenu = React.memo(function MobileFrameActionsMenu({
     setOpen(false);
   }, []);
 
+  const blurPointerTrigger = React.useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      event.currentTarget.blur();
+    },
+    [],
+  );
+
   React.useEffect(() => {
     if (!open) return;
 
@@ -268,6 +275,7 @@ const MobileFrameActionsMenu = React.memo(function MobileFrameActionsMenu({
         }
         aria-expanded={open}
         onClick={toggleOpen}
+        onPointerUp={blurPointerTrigger}
       >
         <SettingsRoundedIcon style={{ fontSize: 18 }} />
         {hasAlert ? (

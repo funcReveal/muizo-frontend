@@ -7,7 +7,6 @@ type CreatePublicCollectionSourceActionProps = {
 
 const CreatePublicCollectionSourceAction = ({
   onClick,
-  isAuthenticated = false,
 }: CreatePublicCollectionSourceActionProps) => {
   return (
     <button
@@ -27,9 +26,6 @@ const CreatePublicCollectionSourceAction = ({
           <p className="mt-1 text-xs leading-5 text-[var(--mc-text-muted)]">
             讓其他玩家也能用你的題庫開房。
           </p>
-          <span className="mt-2 inline-flex rounded-full border border-cyan-300/22 bg-cyan-300/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-100">
-            {isAuthenticated ? "開始建立" : "登入後建立"}
-          </span>
         </div>
       </div>
     </button>

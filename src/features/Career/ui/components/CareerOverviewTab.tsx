@@ -11,6 +11,8 @@ import type { RoomSettlementHistorySummary } from "@features/RoomSession";
 import CareerCollectionShortcutsSection from "./overview/CareerCollectionShortcutsSection";
 import CareerCompositeSection from "./overview/CareerCompositeSection";
 
+const CAREER_OVERVIEW_SCOPE_STORAGE_KEY = "career_overview_active_scope";
+
 interface CareerOverviewTabProps {
   composite: CareerCompositeStats;
   compositeScopes: CareerCompositeScope[];
@@ -31,12 +33,35 @@ const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
   onOpenRecentMatch,
 }) => {
   const fallbackScopeKey = compositeScopes[0]?.key ?? "overall";
-  const [activeScopeKey, setActiveScopeKey] = React.useState(fallbackScopeKey);
+  const [activeScopeKey, setActiveScopeKey] = React.useState(() => {
+    if (typeof window === "undefined") return fallbackScopeKey;
+
+    try {
+      return (
+        window.localStorage.getItem(CAREER_OVERVIEW_SCOPE_STORAGE_KEY) ??
+        fallbackScopeKey
+      );
+    } catch {
+      return fallbackScopeKey;
+    }
+  });
 
   React.useEffect(() => {
     if (compositeScopes.some((scope) => scope.key === activeScopeKey)) return;
     setActiveScopeKey(fallbackScopeKey);
   }, [activeScopeKey, compositeScopes, fallbackScopeKey]);
+
+  const handleActiveScopeChange = React.useCallback((scopeKey: string) => {
+    setActiveScopeKey(scopeKey);
+
+    if (typeof window === "undefined") return;
+
+    try {
+      window.localStorage.setItem(CAREER_OVERVIEW_SCOPE_STORAGE_KEY, scopeKey);
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
 
   const activeScope =
     compositeScopes.find((scope) => scope.key === activeScopeKey) ??
@@ -59,7 +84,7 @@ const CareerOverviewTab: React.FC<CareerOverviewTabProps> = ({
             composite={composite}
             compositeScopes={compositeScopes}
             activeScopeKey={activeScopeKey}
-            onActiveScopeChange={setActiveScopeKey}
+            onActiveScopeChange={handleActiveScopeChange}
             highlights={activeHighlights}
           />
         </div>
