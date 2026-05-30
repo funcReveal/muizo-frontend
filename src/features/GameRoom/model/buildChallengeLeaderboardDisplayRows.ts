@@ -385,28 +385,8 @@ function buildNearbyRows(
 ): ChallengeLeaderboardDisplayRow[] {
   const TARGET_TOP = 6;
 
-  // The backend provides up to 11 settled entries in topEntries (enough to
-  // cover top-window mode).  In nearby mode we normally show only the top 6.
-  //
-  // Exception: if the viewer has a settled record at rank 7–11 (present in
-  // topEntries but beyond the 6-entry slice), extend the displayed top section
-  // to include it so the viewer always sees their historical best in the top
-  // section when it falls there.  The historical top entry renders as a normal
-  // player row with isViewerHistoricalBest: true (title "你的歷史最佳紀錄"),
-  // consistent with top-window / top-eleven modes.
-  const viewerHistoricalIdx =
-    meUserId !== null
-      ? data.topEntries.findIndex((e) => e.userId === meUserId)
-      : -1;
-
-  // Extend the slice only when the viewer's settled entry falls outside the
-  // default top-6 window.  If it's within top 6 (or absent) keep TARGET_TOP.
-  const effectiveTopCount =
-    viewerHistoricalIdx >= TARGET_TOP
-      ? viewerHistoricalIdx + 1
-      : TARGET_TOP;
-
-  const topDisplay = data.topEntries.slice(0, effectiveTopCount);
+  // Nearby mode always keeps the official top section capped at six rows.
+  const topDisplay = data.topEntries.slice(0, TARGET_TOP);
   const topUserIds = new Set(topDisplay.map((entry) => entry.userId));
   const nearbyOpponents = data.nearbyOpponents.filter(
     (opponent) => !topUserIds.has(opponent.userId),

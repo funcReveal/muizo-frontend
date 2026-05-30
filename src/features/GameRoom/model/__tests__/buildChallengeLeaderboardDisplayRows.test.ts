@@ -360,6 +360,33 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     expect(listRows).toHaveLength(12);
   });
 
+  it("nearby mode keeps the top section capped at six when viewer historical best is rank 7-11", () => {
+    const topElevenWithMe = elevenTopEntries.map((entry, index) =>
+      index === 8 ? makeEntry("me", 9, 1200) : entry,
+    );
+    const nearby = [
+      makeNearbyOpponent("rank128", 128, 255, 165),
+      makeNearbyOpponent("rank129", 129, 235, 165),
+      makeNearbyOpponent("rank130", 130, 210, 165),
+      makeNearbyOpponent("rank131", 131, 180, 165),
+    ];
+    const data = makeData(132, topElevenWithMe, nearby, "me", 165);
+
+    const { listRows } = buildChallengeLeaderboardDisplayRows({
+      data,
+      viewerScore: 165,
+      meUserId: "me",
+    });
+
+    const topPlayerRows = listRows.filter(
+      (row) => row.kind === "player" && row.section === "top",
+    );
+    expect(topPlayerRows).toHaveLength(6);
+    expect(topPlayerRows.some((row) => row.kind === "player" && row.userId === "me"))
+      .toBe(false);
+    expect(listRows).toHaveLength(12);
+  });
+
   // ?? Test case 12: top-eleven when topEntries < 11 uses placeholders ????????
   it("top-eleven with fewer than 11 topEntries adds placeholder rows", () => {
     const fewEntries = Array.from({ length: 7 }, (_, i) =>

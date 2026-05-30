@@ -2666,7 +2666,8 @@
   top: 50%;
   transform: translateY(-50%);
   min-height: 120px;
-  width: 220px;
+  width: clamp(292px, 22vw, 336px);
+  max-width: calc(100% - 72px);
   pointer-events: none;
 }
 
@@ -26701,7 +26702,7 @@
   display: block;
   left: auto;
   top: auto;
-  width: 280px;
+  width: 100%;
   transform: none;
 }
 
@@ -26726,7 +26727,9 @@
 
 .game-room-score-feedback-layer--media-embedded
   .game-room-mobile-score-feedback-card {
-  width: 280px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 116px;
   padding: 18px 16px;
 }
 
@@ -26734,6 +26737,8 @@
   .game-room-mobile-score-feedback-gain {
   font-size: 72px;
   line-height: 0.9;
+  max-width: 100%;
+  flex-wrap: nowrap;
 }
 
 .game-room-score-feedback-layer--media-embedded
@@ -26753,12 +26758,14 @@
   .game-room-mobile-score-feedback-score-lines {
   gap: 5px;
   margin-top: 14px;
+  max-width: 100%;
 }
 
 .game-room-score-feedback-layer--media-embedded
   .game-room-mobile-score-feedback-gap {
   font-size: 22px;
   font-weight: 900;
+  line-height: 1.18;
 }
 
 .game-room-score-feedback-layer--media-embedded
