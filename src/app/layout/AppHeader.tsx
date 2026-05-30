@@ -234,6 +234,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         <button
           type="button"
           onClick={handleBrandNavigate}
+          onPointerUp={(event) => {
+            event.currentTarget.blur();
+          }}
           className="inline-flex shrink-0 cursor-pointer items-center px-1.5 py-2 transition sm:px-3"
         >
           <BrandLogo compact />

@@ -70,6 +70,7 @@ export type {
   GameChoice,
   GameQuestionStats,
   GameState,
+  HubChatMessage,
   PlaybackExtensionMode,
   PlaybackExtensionVoteState,
   RestartGameVoteAction,

@@ -4,6 +4,7 @@ import { Tooltip } from "@mui/material";
 import { ChevronLeftRounded, LockOutlined } from "@mui/icons-material";
 
 import CreatePublicCollectionSourceAction from "./CreatePublicCollectionSourceAction";
+import RoomsHubSocialLinks from "./RoomsHubSocialLinks";
 import {
   type CreateLibraryTab,
   librarySourceItems,
@@ -115,8 +116,8 @@ const LibrarySourcePanel = ({
 
             {shouldShowDesktopCreatePublicCollectionAction ? (
               <div className="mt-auto hidden pt-3 lg:block">
+                <RoomsHubSocialLinks />
                 <CreatePublicCollectionSourceAction
-                  isAuthenticated={canUseGoogleLibraries}
                   onClick={onCreatePublicCollection!}
                 />
               </div>

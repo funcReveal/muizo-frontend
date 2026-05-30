@@ -104,3 +104,25 @@ export const getHistorySummaryPlaylistItemCount = (
 
   return null;
 };
+
+export const getHistorySummaryPlaylistCoverThumbnailUrl = (
+  summary: RoomSettlementHistorySummary,
+) => {
+  const topLevelUrl = summary.playlistCoverThumbnailUrl?.trim();
+  if (topLevelUrl) return topLevelUrl;
+
+  const candidateFields = [
+    "playlistCoverThumbnailUrl",
+    "coverThumbnailUrl",
+    "thumbnail",
+  ];
+
+  for (const field of candidateFields) {
+    const value = readSummaryJsonField(summary, field);
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return null;
+};

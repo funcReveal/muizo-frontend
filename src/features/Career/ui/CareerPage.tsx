@@ -15,35 +15,9 @@ import CareerTopOverviewStrip from "./components/CareerTopOverviewStrip";
 import CareerStatePanel from "./components/primitives/CareerStatePanel";
 import HistoryReplayDialog from "@features/Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
 
-const getScrollParent = (element: HTMLElement): HTMLElement | null => {
-  let parent = element.parentElement;
-
-  while (parent) {
-    const { overflowY } = window.getComputedStyle(parent);
-
-    if (/(auto|scroll|overlay)/.test(overflowY)) {
-      return parent;
-    }
-
-    parent = parent.parentElement;
-  }
-
-  return null;
-};
-
-const getStickyBoundaryTop = (sentinel: HTMLElement) => {
-  const scrollParent = getScrollParent(sentinel);
-  return scrollParent ? scrollParent.getBoundingClientRect().top : 0;
-};
-
-const isStickySentinelPassed = (sentinel: HTMLElement) => {
-  const boundaryTop = getStickyBoundaryTop(sentinel);
-  return sentinel.getBoundingClientRect().bottom <= boundaryTop + 1;
-};
-
 const CareerPageSkeleton: React.FC = () => {
   return (
-    <div className="space-y-3">
+    <div className="h-full min-h-0 space-y-3 overflow-y-auto pr-1">
       <div className="rounded-[26px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.94),rgba(8,7,5,0.98))] p-4">
         <div className="flex items-center gap-3">
           <div className="h-14 w-14 animate-pulse rounded-2xl bg-white/10" />
@@ -74,8 +48,6 @@ const CareerPageSkeleton: React.FC = () => {
 
 const CareerPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<CareerTabKey>("overview");
-  const [tabsDocked, setTabsDocked] = useState(false);
-  const tabsStickySentinelRef = React.useRef<HTMLDivElement | null>(null);
   const { authUser } = useAuth();
 
   const overviewQuery = useCareerOverviewData();
@@ -97,52 +69,8 @@ const CareerPage: React.FC = () => {
 
   const isInitialLoading = overviewQuery.isLoading && !overviewQuery.error;
 
-  React.useEffect(() => {
-    if (isInitialLoading) return;
-
-    const sentinel = tabsStickySentinelRef.current;
-    if (!sentinel) return;
-
-    let animationFrameId = 0;
-
-    const updateTabsDocked = () => {
-      setTabsDocked(isStickySentinelPassed(sentinel));
-    };
-
-    const scheduleUpdate = () => {
-      if (animationFrameId) return;
-
-      animationFrameId = window.requestAnimationFrame(() => {
-        animationFrameId = 0;
-        updateTabsDocked();
-      });
-    };
-
-    updateTabsDocked();
-    document.addEventListener("scroll", scheduleUpdate, {
-      capture: true,
-      passive: true,
-    });
-    window.addEventListener("scroll", scheduleUpdate, {
-      passive: true,
-    });
-    window.addEventListener("resize", scheduleUpdate);
-
-    return () => {
-      if (animationFrameId) {
-        window.cancelAnimationFrame(animationFrameId);
-      }
-
-      document.removeEventListener("scroll", scheduleUpdate, {
-        capture: true,
-      });
-      window.removeEventListener("scroll", scheduleUpdate);
-      window.removeEventListener("resize", scheduleUpdate);
-    };
-  }, [isInitialLoading]);
-
   return (
-    <main className="flex min-h-full w-full min-w-0 flex-col px-1 pb-8 sm:px-0">
+    <main className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden px-1 pb-1 sm:px-0">
       {isInitialLoading ? (
         <CareerPageSkeleton />
       ) : (
@@ -158,102 +86,92 @@ const CareerPage: React.FC = () => {
             avatarUrl={authUser?.avatar_url ?? null}
           />
 
-          <div
-            ref={tabsStickySentinelRef}
-            className="h-px"
-            aria-hidden="true"
-          />
-
-          <div
-            data-tabs-docked={tabsDocked ? "true" : "false"}
-            className={`sticky top-0 z-40 -mx-1 px-1 pb-2 transition-[margin,background-color,box-shadow,backdrop-filter] duration-200 sm:mx-0 sm:px-0 ${
-              tabsDocked
-                ? "mt-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.96),rgba(0,0,0,0.84))] shadow-[0_18px_36px_-24px_rgba(0,0,0,0.9)] backdrop-blur-xl"
-                : "mt-2 bg-transparent shadow-none"
-            }`}
-          >
-            <div
-              className={`border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.98),rgba(8,7,5,0.99))] p-1.5 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl ${
-                tabsDocked ? "rounded-b-[20px] rounded-t-none" : "rounded-[20px]"
-              }`}
-            >
+          <div className="mt-2 shrink-0 pb-2">
+            <div className="rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.98),rgba(8,7,5,0.99))] p-1.5 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
               <CareerTabs
                 activeTab={activeTab}
                 onChange={setActiveTab}
-                docked={tabsDocked}
               />
             </div>
           </div>
 
           <section
-            className="mt-1 flex min-w-0 flex-1 flex-col overflow-visible"
+            className="mt-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             aria-live="polite"
           >
             {activeTab === "overview" && (
-              <CareerOverviewTab
-                composite={overviewQuery.data.composite}
-                compositeScopes={overviewQuery.data.compositeScopes}
-                highlights={overviewQuery.data.highlights}
-                collectionShortcuts={overviewQuery.data.collectionShortcuts}
-                scopeContent={overviewQuery.data.scopeContent}
-                onOpenCollectionRanks={() => setActiveTab("collectionRanks")}
-                onOpenRecentMatch={(summary) => {
-                  void historyWorkspace.openReplayDetail(summary);
-                }}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+                <CareerOverviewTab
+                  composite={overviewQuery.data.composite}
+                  compositeScopes={overviewQuery.data.compositeScopes}
+                  highlights={overviewQuery.data.highlights}
+                  collectionShortcuts={overviewQuery.data.collectionShortcuts}
+                  scopeContent={overviewQuery.data.scopeContent}
+                  onOpenCollectionRanks={() => setActiveTab("collectionRanks")}
+                  onOpenRecentMatch={(summary) => {
+                    void historyWorkspace.openReplayDetail(summary);
+                  }}
+                />
+              </div>
             )}
 
             {activeTab === "collectionRanks" && (
-              <CareerCollectionRanksTab
-                items={collectionRanksQuery.items}
-                sortKey={collectionRanksQuery.sortKey}
-                sortOrder={collectionRanksQuery.sortOrder}
-                setSortKey={collectionRanksQuery.setSortKey}
-                setSortOrder={collectionRanksQuery.setSortOrder}
-                isLoading={collectionRanksQuery.isLoading}
-                error={collectionRanksQuery.error}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+                <CareerCollectionRanksTab
+                  items={collectionRanksQuery.items}
+                  sortKey={collectionRanksQuery.sortKey}
+                  sortOrder={collectionRanksQuery.sortOrder}
+                  setSortKey={collectionRanksQuery.setSortKey}
+                  setSortOrder={collectionRanksQuery.setSortOrder}
+                  isLoading={collectionRanksQuery.isLoading}
+                  error={collectionRanksQuery.error}
+                />
+              </div>
             )}
 
             {activeTab === "history" && (
-              <CareerHistoryWorkspace workspace={historyWorkspace} />
-            )}
-
-            {activeTab !== "history" && (
-              <HistoryReplayDialog
-                open={Boolean(historyWorkspace.selectedSummary)}
-                onClose={historyWorkspace.closeReplayDetail}
-                selectedSummary={historyWorkspace.selectedSummary}
-                relatedSummaries={historyWorkspace.selectedRelatedSummaries}
-                selectedReplay={historyWorkspace.selectedReplay}
-                isLoadingSelectedReplay={
-                  historyWorkspace.isLoadingSelectedReplay
-                }
-                onSelectSummary={(summary) => {
-                  void historyWorkspace.openReplayDetail(summary);
-                }}
-                meClientId={historyWorkspace.clientId}
-                questionRecaps={
-                  historyWorkspace.normalizedSelectedQuestionRecaps
-                }
-                formatDateTime={historyWorkspace.formatDateTime}
-                getMatchDurationMs={historyWorkspace.getMatchDurationMs}
-                formatDuration={historyWorkspace.formatDuration}
-              />
+              <div className="min-h-0 flex-1">
+                <CareerHistoryWorkspace workspace={historyWorkspace} />
+              </div>
             )}
 
             {activeTab === "share" && (
-              <CareerShareTab
-                activeTemplate={shareQuery.activeTemplate}
-                setActiveTemplate={shareQuery.setActiveTemplate}
-                templates={shareQuery.templates}
-                preview={shareQuery.preview}
-                caption={shareQuery.caption}
-                isLoading={shareQuery.isLoading}
-                error={shareQuery.error}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+                <CareerShareTab
+                  activeTemplate={shareQuery.activeTemplate}
+                  setActiveTemplate={shareQuery.setActiveTemplate}
+                  templates={shareQuery.templates}
+                  preview={shareQuery.preview}
+                  caption={shareQuery.caption}
+                  isLoading={shareQuery.isLoading}
+                  error={shareQuery.error}
+                />
+              </div>
             )}
           </section>
+
+          {activeTab !== "history" && (
+            <HistoryReplayDialog
+              open={Boolean(historyWorkspace.selectedSummary)}
+              onClose={historyWorkspace.closeReplayDetail}
+              selectedSummary={historyWorkspace.selectedSummary}
+              relatedSummaries={historyWorkspace.selectedRelatedSummaries}
+              selectedReplay={historyWorkspace.selectedReplay}
+              isLoadingSelectedReplay={
+                historyWorkspace.isLoadingSelectedReplay
+              }
+              onSelectSummary={(summary) => {
+                void historyWorkspace.openReplayDetail(summary);
+              }}
+              meClientId={historyWorkspace.clientId}
+              questionRecaps={
+                historyWorkspace.normalizedSelectedQuestionRecaps
+              }
+              formatDateTime={historyWorkspace.formatDateTime}
+              getMatchDurationMs={historyWorkspace.getMatchDurationMs}
+              formatDuration={historyWorkspace.formatDuration}
+            />
+          )}
         </>
       )}
     </main>

@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import type {
+  ClientSocket,
   LeaderboardSettlementReadyPayload,
   RoomLookupResult,
   RoomParticipant,
@@ -50,6 +51,7 @@ export interface RoomSessionContextValue {
   recoveryStatusText: string | null;
   serverOffsetMs: number;
   syncServerOffset: (serverNow: number) => void;
+  getSocket: () => ClientSocket | null;
   hostRoomPassword: string | null;
   fetchRoomById: (roomId: string) => Promise<RoomLookupResult>;
   inviteRoomId: string | null;

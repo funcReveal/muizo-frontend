@@ -24,6 +24,9 @@ const CHAT_DRAWER_TRANSITION_DURATION = {
 interface MobileChatDrawerContentProps {
     open: boolean;
     unread: number;
+    title?: string;
+    variant?: "room" | "hub";
+    headerTabs?: React.ReactNode;
     bodyActive: boolean;
     showDanmuToggle: boolean;
     danmuEnabled: boolean;
@@ -43,11 +46,16 @@ interface MobileChatDrawerContentProps {
     isChatCooldownActive: boolean;
     chatCooldownLeft: number;
     suppressTrigger?: boolean;
+    children?: React.ReactNode;
+    composer?: React.ReactNode;
 }
 
 const MobileChatDrawerContent: React.FC<MobileChatDrawerContentProps> = ({
     open,
     unread,
+    title = "聊天室",
+    variant = "room",
+    headerTabs,
     bodyActive,
     showDanmuToggle,
     danmuEnabled,
@@ -67,14 +75,17 @@ const MobileChatDrawerContent: React.FC<MobileChatDrawerContentProps> = ({
     isChatCooldownActive,
     chatCooldownLeft,
     suppressTrigger = false,
+    children,
+    composer,
 }) => {
     const paperProps = useMemo(
         () => ({
             className: `game-room-mobile-chat-drawer ${open ? "game-room-mobile-chat-drawer--open" : "game-room-mobile-chat-drawer--closed"
                 }`,
             style: paperStyle,
+            "data-variant": variant,
         }),
-        [open, paperStyle],
+        [open, paperStyle, variant],
     );
 
     const stopInteractivePropagation = useCallback((event: React.SyntheticEvent) => {
@@ -97,10 +108,10 @@ const MobileChatDrawerContent: React.FC<MobileChatDrawerContentProps> = ({
                     className="game-room-mobile-chat-drawer-trigger"
                     onClick={onOpen}
                     aria-label={
-                        unread > 0 ? `開啟聊天室，目前有 ${unread} 則未讀訊息` : "開啟聊天室"
+                        unread > 0 ? `開啟${title}，目前有 ${unread} 則未讀訊息` : `開啟${title}`
                     }
                 >
-                    <span className="game-room-mobile-chat-drawer-trigger__label">聊天室</span>
+                    <span className="game-room-mobile-chat-drawer-trigger__label">{title}</span>
                     <div className="game-room-mobile-chat-drawer-trigger__actions">
                         <Badge
                             color="error"
@@ -128,6 +139,8 @@ const MobileChatDrawerContent: React.FC<MobileChatDrawerContentProps> = ({
                 ModalProps={GAME_ROOM_DRAWER_MODAL_PROPS}
                 PaperProps={paperProps}
             >
+                {headerTabs}
+
                 <div
                     className="game-room-mobile-drawer-head game-room-mobile-drawer-head--chat"
                     role="presentation"
@@ -143,7 +156,7 @@ const MobileChatDrawerContent: React.FC<MobileChatDrawerContentProps> = ({
 
                     <div className="game-room-mobile-chat-drawer-headline">
                         <div className="game-room-mobile-chat-drawer-title-group">
-                            <span className="game-room-mobile-chat-drawer-title">聊天室</span>
+                            <span className="game-room-mobile-chat-drawer-title">{title}</span>
                         </div>
 
                         <div className="game-room-mobile-chat-drawer-actions">
@@ -185,20 +198,24 @@ const MobileChatDrawerContent: React.FC<MobileChatDrawerContentProps> = ({
                 {bodyActive ? (
                     <div className="game-room-mobile-chat-drawer-body">
                         <div className="game-room-mobile-chat-drawer-panel">
-                            <ChatMessagesList
-                                messages={messages}
-                                clientId={clientId}
-                                setScrollNodeRef={setScrollNodeRef}
-                            />
+                            {children ?? (
+                                <ChatMessagesList
+                                    messages={messages}
+                                    clientId={clientId}
+                                    setScrollNodeRef={setScrollNodeRef}
+                                />
+                            )}
 
-                            <ChatComposer
-                                inputRef={inputRef}
-                                messageInput={messageInput}
-                                setMessageInput={setMessageInput}
-                                handleSend={handleSend}
-                                isChatCooldownActive={isChatCooldownActive}
-                                chatCooldownLeft={chatCooldownLeft}
-                            />
+                            {composer ?? (
+                                <ChatComposer
+                                    inputRef={inputRef}
+                                    messageInput={messageInput}
+                                    setMessageInput={setMessageInput}
+                                    handleSend={handleSend}
+                                    isChatCooldownActive={isChatCooldownActive}
+                                    chatCooldownLeft={chatCooldownLeft}
+                                />
+                            )}
                         </div>
                     </div>
                 ) : (

@@ -67,6 +67,16 @@ export interface ChatMessage {
   avatarUrl?: string | null;
 }
 
+export interface HubChatMessage {
+  id: string;
+  userId: string;
+  username: string;
+  content: string;
+  timestamp: number;
+  avatarUrl?: string | null;
+  role?: "admin" | "member";
+}
+
 export interface ChatMessageQuestionContext {
   questionNo: number;
   totalQuestions: number;

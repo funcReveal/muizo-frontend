@@ -2267,7 +2267,15 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     if (!isMobileGameViewport) return null;
 
     return (
-      <div className="game-room-mobile-frame-actions-list">
+      <div
+        className="game-room-mobile-frame-actions-list"
+        onPointerUp={(event) => {
+          const button = (event.target as HTMLElement | null)?.closest(
+            "button",
+          );
+          button?.blur();
+        }}
+      >
         {isHostInGame && (
           <button
             type="button"

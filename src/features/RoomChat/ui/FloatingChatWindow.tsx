@@ -1,15 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useChatInput, useChatMessages, useRoomRealtime } from "@features/RoomSession";
-import type { ChatMessage } from "@features/RoomSession";
+import { useChatInput, useChatMessages, useRoomRealtime, useRoomSession } from "@features/RoomSession";
+import type { Ack, ChatMessage, HubChatMessage } from "@features/RoomSession";
+import { useAuth } from "@shared/auth/AuthContext";
 import { DanmuContext } from "@features/RoomChat/model/DanmuContext";
 import useMobileDrawerDragDismiss from "@shared/hooks/useMobileDrawerDragDismiss";
 import useAutoHideScrollbar from "@shared/hooks/useAutoHideScrollbar";
 import { blurActiveInteractiveElement } from "@shared/utils/dom";
 import MobileChatDrawerContent from "./components/MobileChatDrawerContent";
 import DesktopChatWindowContent from "./components/DesktopChatWindowContent";
+import HubChatMessagesList from "./components/HubChatMessagesList";
+import HubChatComposer from "./components/HubChatComposer";
 
 const LAST_READ_KEY_PREFIX = "room_chat_last_read_message:";
+const HUB_LAST_READ_KEY = "hub_chat_last_read_message";
+const HUB_CHAT_MAX_MESSAGES = 80;
 const MOBILE_CHAT_MIN_HEIGHT_VH = 26;
 const MOBILE_CHAT_MAX_HEIGHT_VH = 72;
 const MOBILE_CHAT_DEFAULT_HEIGHT_VH = 48;
@@ -30,8 +35,25 @@ const writeLastReadId = (roomId: string | null, id: string | null) => {
   window.sessionStorage.setItem(key, id);
 };
 
+const readHubLastReadId = () => {
+  if (typeof window === "undefined") return null;
+  const value = window.sessionStorage.getItem(HUB_LAST_READ_KEY);
+  return value?.trim() ? value : null;
+};
+
+const writeHubLastReadId = (id: string | null) => {
+  if (typeof window === "undefined") return;
+  if (!id) {
+    window.sessionStorage.removeItem(HUB_LAST_READ_KEY);
+    return;
+  }
+  window.sessionStorage.setItem(HUB_LAST_READ_KEY, id);
+};
+
 const isFromOther = (msg: ChatMessage, clientId: string) =>
   !msg.userId.startsWith("system:") && msg.userId !== clientId;
+
+type ChatTab = "room" | "hub";
 
 export interface FloatingChatWindowRef {
   openChat: () => void;
@@ -40,6 +62,8 @@ export interface FloatingChatWindowRef {
 const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMobileTrigger?: boolean }>(
   function FloatingChatWindow({ suppressMobileTrigger = false }, ref) {
   const { currentRoom, clientId, gameStatus } = useRoomRealtime();
+  const { getSocket, isConnected } = useRoomSession();
+  const { authUser, loginWithGoogle } = useAuth();
   const { messages } = useChatMessages();
   const {
     messageInput,
@@ -52,6 +76,12 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   const danmuCtx = React.useContext(DanmuContext);
 
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ChatTab>(() => currentRoom ? "room" : "hub");
+  const [hubMessages, setHubMessages] = useState<HubChatMessage[]>([]);
+  const [hubMessageInput, setHubMessageInput] = useState("");
+  const [hubStatusText, setHubStatusText] = useState<string | null>(null);
+  const [hubSending, setHubSending] = useState(false);
+  const [hubLastReadId, setHubLastReadId] = useState<string | null>(() => readHubLastReadId());
   const [mobileBodyActive, setMobileBodyActive] = useState(false);
   const [roomReadState, setRoomReadState] = useState<Record<string, string | null>>({});
   const [mobileHeight, setMobileHeight] = useState(MOBILE_CHAT_DEFAULT_HEIGHT_VH);
@@ -60,30 +90,26 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   const mobileHeightPendingRef = useRef<number>(MOBILE_CHAT_DEFAULT_HEIGHT_VH);
 
   const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
-  const isMobileRoomMode = Boolean(currentRoom && isMobileViewport);
+  const isMobileChatMode = isMobileViewport;
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useAutoHideScrollbar<HTMLDivElement>();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const hubInputRef = useRef<HTMLInputElement | null>(null);
   const focusTimerRef = useRef<number | null>(null);
   const mobileBodyRafRef = useRef<number | null>(null);
 
   const roomId = currentRoom?.id ?? null;
+  const showTabs = Boolean(currentRoom);
+  const effectiveTab: ChatTab = currentRoom ? activeTab : "hub";
+  const isHubTab = effectiveTab === "hub";
+  const windowTitle = currentRoom ? "聊天室" : "大廳聊天室";
+  const windowVariant = currentRoom ? "room" : "hub";
 
   const scrollChatToBottom = useCallback(() => {
     const node = scrollRef.current;
     if (!node) return;
     node.scrollTop = node.scrollHeight;
-  }, []);
-
-  const focusInputWithoutScroll = useCallback(() => {
-    const input = inputRef.current;
-    if (!input) return;
-    try {
-      input.focus({ preventScroll: true });
-    } catch {
-      input.focus();
-    }
   }, []);
 
   const setScrollNodeRef = useCallback(
@@ -95,6 +121,38 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   );
 
   useEffect(() => {
+    if (!currentRoom) {
+      setActiveTab("hub");
+    }
+  }, [currentRoom]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !isConnected) return;
+
+    const handleHubChatMessageAdded = (message: HubChatMessage) => {
+      setHubMessages((prev) =>
+        [...prev, message].slice(-HUB_CHAT_MAX_MESSAGES),
+      );
+    };
+
+    socket.emit("listHubChatMessages", (ack: Ack<HubChatMessage[]>) => {
+      if (!ack) return;
+      if (ack.ok) {
+        setHubMessages(ack.data.slice(-HUB_CHAT_MAX_MESSAGES));
+        setHubStatusText(null);
+        return;
+      }
+      setHubStatusText("無法載入大廳聊天室");
+    });
+    socket.on("hubChatMessageAdded", handleHubChatMessageAdded);
+
+    return () => {
+      socket.off("hubChatMessageAdded", handleHubChatMessageAdded);
+    };
+  }, [getSocket, isConnected]);
+
+  useEffect(() => {
     if (!open) return;
 
     const rafId = window.requestAnimationFrame(() => {
@@ -104,10 +162,10 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [messages.length, open, scrollChatToBottom]);
+  }, [hubMessages.length, messages.length, open, scrollChatToBottom]);
 
   useEffect(() => {
-    if (!open || !isMobileRoomMode || !mobileBodyActive) return;
+    if (!open || !isMobileChatMode || !mobileBodyActive) return;
 
     let innerRafId: number | null = null;
     const rafId = window.requestAnimationFrame(() => {
@@ -124,7 +182,8 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       window.clearTimeout(timeoutId);
     };
   }, [
-    isMobileRoomMode,
+    isMobileChatMode,
+    hubMessages.length,
     messages.length,
     mobileBodyActive,
     mobileHeight,
@@ -180,6 +239,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
 
   const persistedLastReadId = useMemo(() => readLastReadId(roomId), [roomId]);
   const latestOtherMessageId = otherMessages[otherMessages.length - 1]?.id ?? null;
+  const latestHubMessageId = hubMessages[hubMessages.length - 1]?.id ?? null;
 
   const unread = useMemo(() => {
     if (open || !roomId || !latestOtherMessageId) return 0;
@@ -196,15 +256,55 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       : Math.max(0, otherMessages.length - (lastSeenIndex + 1));
   }, [latestOtherMessageId, open, otherMessages, persistedLastReadId, roomId, roomReadState]);
 
+  const hubUnread = useMemo(() => {
+    if ((open && isHubTab) || !latestHubMessageId) return 0;
+    if (!hubLastReadId) return hubMessages.length;
+    if (hubLastReadId === latestHubMessageId) return 0;
+    const lastSeenIndex = hubMessages.findIndex((message) => message.id === hubLastReadId);
+    return lastSeenIndex < 0
+      ? hubMessages.length
+      : Math.max(0, hubMessages.length - (lastSeenIndex + 1));
+  }, [hubLastReadId, hubMessages, isHubTab, latestHubMessageId, open]);
+
+  const totalUnread = unread + hubUnread;
+
   const markRoomRead = useCallback(() => {
     if (!roomId) return;
     setRoomReadState((prev) => ({ ...prev, [roomId]: latestOtherMessageId }));
     writeLastReadId(roomId, latestOtherMessageId);
   }, [latestOtherMessageId, roomId]);
 
+  const markHubRead = useCallback(() => {
+    setHubLastReadId(latestHubMessageId);
+    writeHubLastReadId(latestHubMessageId);
+  }, [latestHubMessageId]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (isHubTab) {
+      markHubRead();
+    } else {
+      markRoomRead();
+    }
+  }, [isHubTab, markHubRead, markRoomRead, open]);
+
+  const focusActiveInputWithoutScroll = useCallback(() => {
+    const input = isHubTab ? hubInputRef.current : inputRef.current;
+    if (!input) return;
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus();
+    }
+  }, [isHubTab]);
+
   const handleOpen = useCallback(() => {
     setOpen(true);
-    markRoomRead();
+    if (isHubTab) {
+      markHubRead();
+    } else {
+      markRoomRead();
+    }
 
     if (focusTimerRef.current !== null) {
       window.clearTimeout(focusTimerRef.current);
@@ -216,7 +316,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       mobileBodyRafRef.current = null;
     }
 
-    if (isMobileRoomMode) {
+    if (isMobileChatMode) {
       setMobileBodyActive(false);
       mobileBodyRafRef.current = window.requestAnimationFrame(() => {
         mobileBodyRafRef.current = null;
@@ -225,10 +325,10 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     } else {
       focusTimerRef.current = window.setTimeout(() => {
         focusTimerRef.current = null;
-        focusInputWithoutScroll();
+        focusActiveInputWithoutScroll();
       }, 80);
     }
-  }, [focusInputWithoutScroll, isMobileRoomMode, markRoomRead]);
+  }, [focusActiveInputWithoutScroll, isHubTab, isMobileChatMode, markHubRead, markRoomRead]);
 
   const handleClose = useCallback(() => {
     blurActiveInteractiveElement();
@@ -245,8 +345,12 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
 
     setMobileBodyActive(false);
     setOpen(false);
-    markRoomRead();
-  }, [markRoomRead]);
+    if (isHubTab) {
+      markHubRead();
+    } else {
+      markRoomRead();
+    }
+  }, [isHubTab, markHubRead, markRoomRead]);
 
   const toggleOpen = useCallback(() => {
     if (open) {
@@ -257,7 +361,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   }, [handleClose, handleOpen, open]);
 
   useEffect(() => {
-    if (isMobileRoomMode) return;
+    if (isMobileChatMode) return;
 
     const handleDesktopChatKeyDown = (event: KeyboardEvent) => {
       if (event.altKey || event.ctrlKey || event.metaKey) {
@@ -283,7 +387,8 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
         return;
       }
 
-      if (open && !messageInput.trim() && (event.key === "Enter" || event.key === "Escape")) {
+      const activeInput = isHubTab ? hubMessageInput : messageInput;
+      if (open && !activeInput.trim() && (event.key === "Enter" || event.key === "Escape")) {
         event.preventDefault();
         handleClose();
       }
@@ -293,7 +398,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     return () => {
       window.removeEventListener("keydown", handleDesktopChatKeyDown);
     };
-  }, [handleClose, handleOpen, isMobileRoomMode, messageInput, open]);
+  }, [handleClose, handleOpen, hubMessageInput, isHubTab, isMobileChatMode, messageInput, open]);
 
   const handleSend = useCallback(() => {
     if (isChatCooldownActive) return;
@@ -301,10 +406,50 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     handleSendMessage();
   }, [handleSendMessage, isChatCooldownActive, messageInput]);
 
+  const handleSendHubMessage = useCallback(() => {
+    if (hubSending) return;
+    const trimmed = hubMessageInput.trim();
+    if (!trimmed) return;
+    const socket = getSocket();
+    if (!socket) {
+      setHubStatusText("尚未連線到聊天室");
+      return;
+    }
+
+    setHubSending(true);
+    socket.emit("sendHubChatMessage", { content: trimmed }, (ack) => {
+      setHubSending(false);
+      if (!ack) return;
+      if (ack.ok) {
+        setHubMessageInput("");
+        setHubStatusText(null);
+        return;
+      }
+      setHubStatusText(
+        ack.error === "LOGIN_REQUIRED"
+          ? "登入會員後才能在大廳聊天室發言"
+          : ack.error,
+      );
+    });
+  }, [getSocket, hubMessageInput, hubSending]);
+
+  const switchTab = useCallback(
+    (nextTab: ChatTab) => {
+      setActiveTab(nextTab);
+      if (nextTab === "hub") {
+        markHubRead();
+      } else {
+        markRoomRead();
+      }
+      window.requestAnimationFrame(scrollChatToBottom);
+    },
+    [markHubRead, markRoomRead, scrollChatToBottom],
+  );
+
   React.useImperativeHandle(ref, () => ({ openChat: handleOpen }), [handleOpen]);
 
   const mobileChatDragDismiss = useMobileDrawerDragDismiss({
-    open: isMobileRoomMode && open,
+    open: isMobileChatMode && open,
     direction: "down",
     onDismiss: handleClose,
     height: mobileHeight,
@@ -322,9 +467,9 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       : "idle";
 
   const shouldSuppressGameChatOutsideDanmuBridge = Boolean(
-    isMobileRoomMode && gameStatus === "playing" && !danmuCtx,
+    currentRoom && isMobileChatMode && gameStatus === "playing" && !danmuCtx,
   );
-  const showDanmuToggle = Boolean(gameStatus === "playing" && danmuCtx);
+  const showDanmuToggle = Boolean(!isHubTab && gameStatus === "playing" && danmuCtx);
 
   const handleDanmuEnabledChange = useCallback(
     (checked: boolean) => {
@@ -333,15 +478,82 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     [danmuCtx],
   );
 
+  const headerTabs = (
+    <div
+      className="floating-chat-tabs"
+      role={showTabs ? "tablist" : undefined}
+      aria-label={showTabs ? "聊天室分頁" : undefined}
+    >
+      <button
+        type="button"
+        role={showTabs ? "tab" : undefined}
+        aria-selected={showTabs ? !isHubTab : undefined}
+        className="floating-chat-tab"
+        data-active={!isHubTab || !showTabs ? "true" : "false"}
+        onClick={
+          showTabs
+            ? (event) => {
+                event.stopPropagation();
+                switchTab("room");
+              }
+            : undefined
+        }
+      >
+        {showTabs ? "房間" : windowTitle}
+        {unread > 0 ? <span className="floating-chat-tab-badge">{unread > 99 ? "99+" : unread}</span> : null}
+      </button>
+      {showTabs ? (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isHubTab}
+          className="floating-chat-tab"
+          data-active={isHubTab ? "true" : "false"}
+          onClick={(event) => {
+            event.stopPropagation();
+            switchTab("hub");
+          }}
+        >
+          大廳
+          {hubUnread > 0 ? <span className="floating-chat-tab-badge">{hubUnread > 99 ? "99+" : hubUnread}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const chatBody = isHubTab ? (
+    <HubChatMessagesList
+      messages={hubMessages}
+      setScrollNodeRef={setScrollNodeRef}
+    />
+  ) : undefined;
+
+  const chatComposer = isHubTab ? (
+    <HubChatComposer
+      isAuthenticated={Boolean(authUser?.id)}
+      isConnected={isConnected}
+      inputRef={hubInputRef}
+      messageInput={hubMessageInput}
+      setMessageInput={setHubMessageInput}
+      handleSend={handleSendHubMessage}
+      onLoginRequired={loginWithGoogle}
+      isSending={hubSending}
+      statusText={hubStatusText}
+    />
+  ) : undefined;
+
   if (shouldSuppressGameChatOutsideDanmuBridge) {
     return null;
   }
 
-  if (isMobileRoomMode) {
+  if (isMobileChatMode) {
     return (
       <MobileChatDrawerContent
         open={open}
-        unread={unread}
+        unread={totalUnread}
+        title={windowTitle}
+        variant={windowVariant}
+        headerTabs={headerTabs}
         bodyActive={mobileBodyActive}
         showDanmuToggle={showDanmuToggle}
         danmuEnabled={Boolean(danmuCtx?.danmuEnabled)}
@@ -351,39 +563,45 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
         paperStyle={mobileChatDragDismiss.paperStyle}
         onOpen={handleOpen}
         onClose={handleClose}
-        messages={messages}
+        messages={isHubTab ? [] : messages}
         clientId={clientId}
         setScrollNodeRef={setScrollNodeRef}
         inputRef={inputRef}
-        messageInput={messageInput}
+        messageInput={isHubTab ? hubMessageInput : messageInput}
         setMessageInput={setMessageInput}
-        handleSend={handleSend}
+        handleSend={isHubTab ? handleSendHubMessage : handleSend}
         isChatCooldownActive={isChatCooldownActive}
         chatCooldownLeft={chatCooldownLeft}
         suppressTrigger={suppressMobileTrigger}
-      />
+        composer={chatComposer}
+      >
+        {chatBody}
+      </MobileChatDrawerContent>
     );
   }
 
   return (
     <DesktopChatWindowContent
       open={open}
-      unread={unread}
-      showDanmuToggle={showDanmuToggle}
-      danmuEnabled={Boolean(danmuCtx?.danmuEnabled)}
-      onDanmuEnabledChange={handleDanmuEnabledChange}
+      unread={totalUnread}
+      title={windowTitle}
+      variant={windowVariant}
+      headerTabs={headerTabs}
       onToggle={toggleOpen}
-      messages={messages}
+      messages={isHubTab ? [] : messages}
       clientId={clientId}
       setScrollNodeRef={setScrollNodeRef}
       inputRef={inputRef}
-      messageInput={messageInput}
+      messageInput={isHubTab ? hubMessageInput : messageInput}
       setMessageInput={setMessageInput}
-      handleSend={handleSend}
+      handleSend={isHubTab ? handleSendHubMessage : handleSend}
       onCloseWhenEmpty={handleClose}
       isChatCooldownActive={isChatCooldownActive}
       chatCooldownLeft={chatCooldownLeft}
-    />
+      composer={chatComposer}
+    >
+      {chatBody}
+    </DesktopChatWindowContent>
   );
 });
 
