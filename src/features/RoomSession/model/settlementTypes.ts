@@ -58,6 +58,9 @@ export interface RoomSettlementHistorySummary {
   roundNo: number;
   roomId: string;
   roomName: string;
+  collectionId?: string | null;
+  playMode?: "casual" | "leaderboard";
+  leaderboardProfileKey?: string | null;
   playlistTitle?: string | null;
   playlistSourceType?: PlaylistSourceType | null;
   playlistItemCount?: number | null;
@@ -70,10 +73,21 @@ export interface RoomSettlementHistorySummary {
   summaryJson?: Record<string, unknown> | null;
   selfRank?: number | null;
   selfPlayer?: {
+    matchPlayerId?: string | null;
+    userId?: string | null;
+    clientIdSnapshot?: string | null;
     usernameSnapshot: string | null;
     finalScore: number;
     maxCombo: number;
     correctCount: number;
+  } | null;
+  selfRecordBreakthrough?: {
+    isPersonalBest: boolean;
+    hasPreviousBest: boolean;
+    previousBestScore: number | null;
+    scoreDelta: number | null;
+    correctCountDelta: number | null;
+    maxComboDelta: number | null;
   } | null;
 }
 

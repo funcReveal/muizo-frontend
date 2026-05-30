@@ -17,6 +17,11 @@ import {
   type RoomSettlementSnapshot,
 } from "@features/RoomSession";
 import type { SettlementQuestionRecap } from "@features/Settlement/ui/components/GameSettlementPanel";
+import {
+  getHistorySummaryCollectionId,
+  getHistorySummaryPlayMode,
+  getHistorySummaryPlaylistDisplayTitle,
+} from "@features/Settlement/model/historySummaryAdapter";
 
 import {
   formatCareerHistoryDateTime,
@@ -67,6 +72,13 @@ type HistoryRequestGuardPayload = {
 };
 
 export type HistoryListDisplayMode = "expanded" | "collapsed";
+export type CareerHistoryModeFilter = "all" | "casual" | "leaderboard";
+
+export type CareerHistoryCollectionFilterOption = {
+  id: string;
+  title: string;
+  matchCount: number;
+};
 
 const buildHistoryHeaders = (token: string | null) => ({
   "Content-Type": "application/json",
@@ -234,6 +246,10 @@ export const useCareerHistoryWorkspace = () => {
   >({});
   const [historyRequestBlockedUntil, setHistoryRequestBlockedUntil] =
     useState(0);
+  const [historyModeFilter, setHistoryModeFilter] =
+    useState<CareerHistoryModeFilter>("all");
+  const [historyCollectionFilterId, setHistoryCollectionFilterId] =
+    useState<string>("all");
 
   const inFlightReplayMatchIdsRef = useRef<Set<string>>(new Set());
   const groupContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -927,6 +943,65 @@ export const useCareerHistoryWorkspace = () => {
     return best;
   }, [recentItems]);
 
+  const historyCollectionFilterOptions =
+    useMemo<CareerHistoryCollectionFilterOption[]>(() => {
+      const options = new Map<string, CareerHistoryCollectionFilterOption>();
+
+      for (const item of items) {
+        const collectionId = getHistorySummaryCollectionId(item);
+        if (!collectionId) continue;
+
+        const existing = options.get(collectionId);
+        if (existing) {
+          existing.matchCount += 1;
+          continue;
+        }
+
+        options.set(collectionId, {
+          id: collectionId,
+          title: getHistorySummaryPlaylistDisplayTitle(item),
+          matchCount: 1,
+        });
+      }
+
+      return Array.from(options.values()).sort(
+        (a, b) => b.matchCount - a.matchCount || a.title.localeCompare(b.title),
+      );
+    }, [items]);
+
+  useEffect(() => {
+    if (historyCollectionFilterId === "all") return;
+    if (
+      historyCollectionFilterOptions.some(
+        (option) => option.id === historyCollectionFilterId,
+      )
+    ) {
+      return;
+    }
+
+    setHistoryCollectionFilterId("all");
+  }, [historyCollectionFilterId, historyCollectionFilterOptions]);
+
+  const filteredHistoryItems = useMemo(() => {
+    return items.filter((item) => {
+      if (
+        historyModeFilter !== "all" &&
+        getHistorySummaryPlayMode(item) !== historyModeFilter
+      ) {
+        return false;
+      }
+
+      if (
+        historyCollectionFilterId !== "all" &&
+        getHistorySummaryCollectionId(item) !== historyCollectionFilterId
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [historyCollectionFilterId, historyModeFilter, items]);
+
   const groupedHistoryItems = useMemo(() => {
     const groups = new Map<
       string,
@@ -937,7 +1012,7 @@ export const useCareerHistoryWorkspace = () => {
       }
     >();
 
-    for (const item of items) {
+    for (const item of filteredHistoryItems) {
       const key = getCareerHistoryGroupKeyFromSummary(item);
       const existing = groups.get(key);
 
@@ -964,7 +1039,7 @@ export const useCareerHistoryWorkspace = () => {
           (b.items[0]?.endedAt ?? 0) - (a.items[0]?.endedAt ?? 0) ||
           (b.items[0]?.roundNo ?? 0) - (a.items[0]?.roundNo ?? 0),
       );
-  }, [items]);
+  }, [filteredHistoryItems]);
 
   const selectedRelatedSummaries = useMemo(() => {
     if (!selectedSummary) return [];
@@ -1086,6 +1161,13 @@ export const useCareerHistoryWorkspace = () => {
     historyDisplayMode,
     setHistoryDisplayMode,
     groupedHistoryItems,
+    historyModeFilter,
+    setHistoryModeFilter,
+    historyCollectionFilterId,
+    setHistoryCollectionFilterId,
+    historyCollectionFilterOptions,
+    filteredHistoryItemCount: filteredHistoryItems.length,
+    totalHistoryItemCount: items.length,
     isGroupCollapsed,
     toggleGroup,
     setGroupContainerRef,
