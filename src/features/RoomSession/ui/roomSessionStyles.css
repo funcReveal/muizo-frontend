@@ -2768,7 +2768,7 @@
   top: 50%;
   transform: translateY(-50%);
   min-height: 120px;
-  width: clamp(292px, 22vw, 336px);
+  width: clamp(287px, 22vw, 331px);
   max-width: calc(100% - 72px);
   pointer-events: none;
 }
