@@ -2640,6 +2640,108 @@
   min-width: 0;
 }
 
+.game-room-song-bookmark-slot {
+  position: absolute;
+  z-index: 34;
+  pointer-events: auto;
+}
+
+.game-room-song-bookmark-slot--desktop {
+  top: 10px;
+  left: 10px;
+}
+
+.game-room-song-bookmark-slot--mobile {
+  bottom: 10px;
+  left: 10px;
+}
+
+.song-bookmark-button-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Icon-only button: no border, no background, no shadow */
+.song-bookmark-button {
+  width: 38px;
+  height: 38px;
+  color: rgba(226, 232, 240, 0.72) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: color 0.15s ease, filter 0.15s ease !important;
+}
+
+.song-bookmark-button:hover {
+  color: #fef3c7 !important;
+  background: transparent !important;
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.4));
+}
+
+.song-bookmark-button--active {
+  color: #fcd34d !important;
+  background: transparent !important;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+}
+
+.song-bookmark-button--active:hover {
+  color: #fde68a !important;
+  filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.65));
+}
+
+/* Favorited-and-locked state: keep amber glow, don't dim heavily */
+.song-bookmark-button.Mui-disabled {
+  color: rgba(252, 211, 77, 0.8) !important;
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.35));
+}
+
+/* ── Success toast (portal — rendered in document.body to escape overflow:hidden) ── */
+.song-bookmark-success-toast {
+  position: fixed;
+  /* left / top are set inline via style prop (getBoundingClientRect at click time) */
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(20, 83, 45, 0.92);
+  color: #bbf7d0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  /* Sits above game UI (z-index 34) and MUI overlays */
+  z-index: 1400;
+}
+
+.song-bookmark-success-toast--below {
+  animation:
+    song-bookmark-toast-below-in 0.18s ease-out forwards,
+    song-bookmark-toast-out 0.22s ease-in 1.78s forwards;
+}
+
+.song-bookmark-success-toast--above {
+  animation:
+    song-bookmark-toast-above-in 0.18s ease-out forwards,
+    song-bookmark-toast-out 0.22s ease-in 1.78s forwards;
+}
+
+@keyframes song-bookmark-toast-below-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
+}
+
+/* For "above": top is anchored to button top; translateY(-100%) moves toast fully above */
+@keyframes song-bookmark-toast-above-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(calc(-100% + 5px)); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(-100%);             }
+}
+
+@keyframes song-bookmark-toast-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 .game-room-desktop-header-bar {
   min-height: 40px;
 }

@@ -1,5 +1,6 @@
 ﻿import {
   ExpandMore,
+  Bookmark,
   HistoryEdu,
   LibraryMusic,
   LockOutlined,
@@ -43,6 +44,7 @@ interface AppHeaderProps {
   onEditProfile?: () => void;
   onNavigateRooms?: () => void;
   onNavigateCollections?: () => void;
+  onNavigateFavorites?: () => void;
   onNavigateCareer?: () => void;
   onNavigateSettings?: () => void;
   onNavigatePrivacy?: () => void;
@@ -60,6 +62,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onEditProfile,
   onNavigateRooms,
   onNavigateCollections,
+  onNavigateFavorites,
   onNavigateCareer,
   onNavigateSettings,
   onNavigatePrivacy,
@@ -461,6 +464,28 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   />
                 </MenuItem>
               )
+            )}
+
+            {authUser && (
+              <MenuItem
+                onClick={() => {
+                  handleMenuClose();
+                  if (onNavigateFavorites) {
+                    onNavigateFavorites();
+                    return;
+                  }
+                  navigate("/me/favorites");
+                }}
+                sx={menuItemSx}
+              >
+                <ListItemIcon sx={{ minWidth: 30, color: "#67e8f9" }}>
+                  <Bookmark fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="收藏歌曲"
+                  secondary="查看遊戲中記錄的歌曲與影片"
+                />
+              </MenuItem>
             )}
 
             <MenuItem

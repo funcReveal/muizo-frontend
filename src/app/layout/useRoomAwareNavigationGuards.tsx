@@ -6,7 +6,12 @@ import { isCareerFeatureEnabled } from "@shared/config/featureFlags";
 import { useRoomGameStatus, useRoomSession } from "@features/RoomSession";
 import ConfirmDialog from "@shared/ui/ConfirmDialog";
 
-type NavigationTarget = "rooms" | "collections" | "career" | "settings";
+type NavigationTarget =
+  | "rooms"
+  | "collections"
+  | "favorites"
+  | "career"
+  | "settings";
 
 const getNavigationPath = (target: NavigationTarget) => {
   switch (target) {
@@ -14,6 +19,8 @@ const getNavigationPath = (target: NavigationTarget) => {
       return "/rooms";
     case "collections":
       return "/collections";
+    case "favorites":
+      return "/me/favorites";
     case "career":
       return "/career";
     default:
@@ -154,12 +161,14 @@ export function useRoomAwareNavigationGuards({
 
   const navigationConfirmText = useMemo(() => {
     if (!navigationConfirmTarget) return null;
-    const targetLabel =
+    const favoriteTargetLabel =
+      navigationConfirmTarget === "favorites" ? "收藏歌曲" : null;
+    const targetLabel = favoriteTargetLabel ?? (
       navigationConfirmTarget === "rooms"
         ? "房間列表"
         : navigationConfirmTarget === "collections"
           ? "收藏庫"
-          : "生涯總覽";
+          : "生涯總覽");
     if (gameStatus === "playing") {
       return {
         title: `離開對戰並前往${targetLabel}？`,
@@ -178,6 +187,10 @@ export function useRoomAwareNavigationGuards({
   );
   const handleNavigateCareer = useCallback(
     () => handleNavigateRequest("career"),
+    [handleNavigateRequest],
+  );
+  const handleNavigateFavorites = useCallback(
+    () => handleNavigateRequest("favorites"),
     [handleNavigateRequest],
   );
   const handleNavigateRooms = useCallback(
@@ -235,6 +248,7 @@ export function useRoomAwareNavigationGuards({
     handleLoginRequest,
     handleLogoutRequest,
     handleNavigateCollections,
+    handleNavigateFavorites,
     handleNavigateCareer,
     handleNavigateRooms,
     handleNavigateSettings,

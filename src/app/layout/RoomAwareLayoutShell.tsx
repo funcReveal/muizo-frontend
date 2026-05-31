@@ -95,6 +95,7 @@ const RoomAwareLayoutShell: React.FC = () => {
           onEditProfile={openProfileEditor}
           onNavigateRooms={navigationGuards.handleNavigateRooms}
           onNavigateCollections={navigationGuards.handleNavigateCollections}
+          onNavigateFavorites={navigationGuards.handleNavigateFavorites}
           onNavigateCareer={navigationGuards.handleNavigateCareer}
           onNavigateSettings={navigationGuards.handleNavigateSettings}
           onNavigatePrivacy={navigationGuards.handlePrivacyRequest}

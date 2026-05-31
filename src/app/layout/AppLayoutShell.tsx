@@ -14,7 +14,12 @@ import SettingsDrawer from "./SettingsDrawer";
 import IdentityProfileDialog from "./IdentityProfileDialog";
 import { useAuth } from "@shared/auth/AuthContext";
 
-type NavigationTarget = "rooms" | "collections" | "career" | "settings";
+type NavigationTarget =
+  | "rooms"
+  | "collections"
+  | "favorites"
+  | "career"
+  | "settings";
 
 const getNavigationPath = (target: NavigationTarget) => {
   switch (target) {
@@ -22,6 +27,8 @@ const getNavigationPath = (target: NavigationTarget) => {
       return "/rooms";
     case "collections":
       return "/collections";
+    case "favorites":
+      return "/me/favorites";
     case "career":
       return "/career";
     default:
@@ -87,6 +94,10 @@ const AppLayoutShell: React.FC = () => {
     () => handleNavigateRequest("career"),
     [handleNavigateRequest],
   );
+  const handleNavigateFavorites = useCallback(
+    () => handleNavigateRequest("favorites"),
+    [handleNavigateRequest],
+  );
   const handleNavigateSettings = useCallback(
     () => handleNavigateRequest("settings"),
     [handleNavigateRequest],
@@ -129,6 +140,7 @@ const AppLayoutShell: React.FC = () => {
           onEditProfile={openProfileEditor}
           onNavigateRooms={handleNavigateRooms}
           onNavigateCollections={handleNavigateCollections}
+          onNavigateFavorites={handleNavigateFavorites}
           onNavigateCareer={handleNavigateCareer}
           onNavigateSettings={handleNavigateSettings}
           onNavigatePrivacy={handleNavigatePrivacy}
