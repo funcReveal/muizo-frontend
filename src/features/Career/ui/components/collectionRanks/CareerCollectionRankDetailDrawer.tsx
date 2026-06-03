@@ -41,6 +41,7 @@ const CareerCollectionRankDetailDrawer: React.FC<
         anchor={isMobileDrawer ? "bottom" : "right"}
         open={open}
         onClose={onClose}
+        sx={{ zIndex: 1510 }}
         ModalProps={{ keepMounted: true }}
         PaperProps={{
           className:

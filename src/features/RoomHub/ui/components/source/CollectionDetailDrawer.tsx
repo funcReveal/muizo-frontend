@@ -1675,6 +1675,7 @@ const CollectionDetailDrawer = ({
       anchor={isCompact ? "bottom" : "right"}
       open={open}
       onClose={onClose}
+      sx={{ zIndex: 1500 }}
       slotProps={{
         paper: {
           sx: {

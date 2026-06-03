@@ -299,6 +299,7 @@ const CareerCollectionRankShareDialog: React.FC<
       onClose={onClose}
       TransitionComponent={ShareDialogTransition}
       maxWidth={false}
+      sx={{ zIndex: 1520 }}
       PaperProps={{
         className:
           "!m-3 !w-[min(720px,calc(100vw-24px))] !max-w-none !overflow-hidden !rounded-[28px] !border !border-white/12 !bg-slate-950 !text-slate-100 !shadow-2xl !shadow-black/70",
