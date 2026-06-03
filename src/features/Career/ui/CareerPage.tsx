@@ -5,11 +5,9 @@ import { useAuth } from "@shared/auth/AuthContext";
 import useCareerCollectionRanksData from "../model/useCareerCollectionRanksData";
 import useCareerHistoryWorkspace from "../model/useCareerHistoryWorkspace";
 import useCareerOverviewData from "../model/useCareerOverviewData";
-import useCareerShareData from "../model/useCareerShareData";
 import CareerCollectionRanksTab from "./components/CareerCollectionRanksTab";
 import CareerHistoryWorkspace from "./components/CareerHistoryWorkspace";
 import CareerOverviewTab from "./components/CareerOverviewTab";
-import CareerShareTab from "./components/CareerShareTab";
 import CareerTabs, { type CareerTabKey } from "./components/CareerTabs";
 import CareerTopOverviewStrip from "./components/CareerTopOverviewStrip";
 import CareerStatePanel from "./components/primitives/CareerStatePanel";
@@ -48,24 +46,17 @@ const CareerPageSkeleton: React.FC = () => {
 
 const CareerPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<CareerTabKey>("overview");
-  const { authUser } = useAuth();
+  const { authUser, openProfileEditor } = useAuth();
 
   const overviewQuery = useCareerOverviewData();
   const collectionRanksQuery = useCareerCollectionRanksData();
-  const shareQuery = useCareerShareData(overviewQuery.data);
   const historyWorkspace = useCareerHistoryWorkspace();
 
   const topLevelError = useMemo(() => {
     if (overviewQuery.error) return overviewQuery.error;
     if (activeTab === "collectionRanks") return collectionRanksQuery.error;
-    if (activeTab === "share") return shareQuery.error;
     return null;
-  }, [
-    activeTab,
-    collectionRanksQuery.error,
-    overviewQuery.error,
-    shareQuery.error,
-  ]);
+  }, [activeTab, collectionRanksQuery.error, overviewQuery.error]);
 
   const isInitialLoading = overviewQuery.isLoading && !overviewQuery.error;
 
@@ -84,6 +75,7 @@ const CareerPage: React.FC = () => {
           <CareerTopOverviewStrip
             hero={overviewQuery.data.hero}
             avatarUrl={authUser?.avatar_url ?? null}
+            onEditProfile={openProfileEditor}
           />
 
           <div className="mt-2 shrink-0 pb-2">
@@ -125,6 +117,9 @@ const CareerPage: React.FC = () => {
                   setSortOrder={collectionRanksQuery.setSortOrder}
                   isLoading={collectionRanksQuery.isLoading}
                   error={collectionRanksQuery.error}
+                  onOpenMatch={(summary) => {
+                    void historyWorkspace.openReplayDetail(summary);
+                  }}
                 />
               </div>
             )}
@@ -135,19 +130,6 @@ const CareerPage: React.FC = () => {
               </div>
             )}
 
-            {activeTab === "share" && (
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
-                <CareerShareTab
-                  activeTemplate={shareQuery.activeTemplate}
-                  setActiveTemplate={shareQuery.setActiveTemplate}
-                  templates={shareQuery.templates}
-                  preview={shareQuery.preview}
-                  caption={shareQuery.caption}
-                  isLoading={shareQuery.isLoading}
-                  error={shareQuery.error}
-                />
-              </div>
-            )}
           </section>
 
           {activeTab !== "history" && (

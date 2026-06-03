@@ -55,9 +55,6 @@ const LibrarySourcePanel = ({
               <ChevronLeftRounded sx={{ fontSize: 24 }} />
             </button>
           ) : null}
-          <p className="text-base font-semibold tracking-[0.18em] text-[var(--mc-text)] sm:text-lg">
-            {createLeftTab === "library" ? "題庫來源" : "房間設定"}
-          </p>
         </div>
 
         {createLeftTab === "settings" && sidebarContent ? (

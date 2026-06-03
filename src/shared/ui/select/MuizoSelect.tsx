@@ -13,6 +13,7 @@ export type MuizoSelectOption = {
   label: string;
   description?: string;
   thumbnail?: string;
+  hideThumbnail?: boolean;
   disabled?: boolean;
   meta?: ReactNode;
 };
@@ -80,7 +81,7 @@ export default function MuizoSelect({
 
             return (
               <div className="flex min-w-0 items-center gap-3">
-                {selectedOption.thumbnail ? (
+                {selectedOption.hideThumbnail ? null : selectedOption.thumbnail ? (
                   <img
                     src={selectedOption.thumbnail}
                     alt=""
@@ -106,7 +107,7 @@ export default function MuizoSelect({
                 </div>
 
                 {selectedOption.meta && (
-                  <div className="shrink-0 text-xs text-[var(--mc-text-muted)]">
+                  <div className="ml-auto shrink-0 text-right text-xs text-[var(--mc-text-muted)]">
                     {selectedOption.meta}
                   </div>
                 )}
@@ -141,6 +142,8 @@ export default function MuizoSelect({
             borderRadius: "20px",
             backgroundColor: "rgba(2, 6, 23, 0.32)",
             color: "var(--mc-text)",
+            cursor: disabled || loading ? "not-allowed" : "pointer",
+            userSelect: "none",
             boxShadow:
               "0 0 0 1px rgba(148, 163, 184, 0.12), 0 10px 28px rgba(2, 6, 23, 0.18)",
             transition:
@@ -149,13 +152,18 @@ export default function MuizoSelect({
               display: "flex",
               alignItems: "center",
               minHeight: "54px",
+              cursor: disabled || loading ? "not-allowed" : "pointer",
               py: 0.75,
               pr: "44px !important",
+            },
+            "& input": {
+              cursor: disabled || loading ? "not-allowed" : "pointer",
             },
             "& .MuiOutlinedInput-notchedOutline": {
               borderColor: hasError
                 ? "rgba(248, 113, 113, 0.5)"
                 : "rgba(148, 163, 184, 0.2)",
+              pointerEvents: "none",
             },
             "&:hover": {
               backgroundColor: "rgba(15, 23, 42, 0.52)",
@@ -181,6 +189,7 @@ export default function MuizoSelect({
             },
             "& .MuiSelect-icon": {
               color: "var(--mc-text-muted)",
+              pointerEvents: "none",
               right: 14,
             },
             "&.Mui-disabled": {
@@ -218,6 +227,7 @@ export default function MuizoSelect({
                 disabled={option.disabled}
                 sx={{
                   borderRadius: "16px",
+                  my: 0.35,
                   px: 1.25,
                   py: 1,
                   color: "var(--mc-text)",
@@ -233,7 +243,7 @@ export default function MuizoSelect({
                 }}
               >
                 <div className="flex min-w-0 w-full items-center gap-3">
-                  {option.thumbnail ? (
+                  {option.hideThumbnail ? null : option.thumbnail ? (
                     <img
                       src={option.thumbnail}
                       alt=""
@@ -259,7 +269,7 @@ export default function MuizoSelect({
                   </div>
 
                   {option.meta && (
-                    <div className="shrink-0 text-xs text-[var(--mc-text-muted)]">
+                    <div className="ml-auto shrink-0 text-right text-xs text-[var(--mc-text-muted)]">
                       {option.meta}
                     </div>
                   )}

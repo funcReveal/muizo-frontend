@@ -1,6 +1,6 @@
 import type { RoomSettlementHistorySummary } from "@features/RoomSession";
 
-export type CareerTabKey = "overview" | "collectionRanks" | "history" | "share";
+export type CareerTabKey = "overview" | "collectionRanks" | "history";
 
 export interface CareerHeroStats {
   displayName: string;
@@ -80,7 +80,11 @@ export interface CareerCollectionRankRow {
   id: string;
   title: string;
   coverThumbnailUrl: string | null;
+  sourceLabel?: string | null;
+  matchSummary?: RoomSettlementHistorySummary | null;
   leaderboardRank: number | null;
+  recentRank?: number | null;
+  recentPlayerCount?: number | null;
   previousLeaderboardRank: number | null;
   delta: number | null;
   bestScore: number | null;

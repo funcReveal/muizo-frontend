@@ -3,6 +3,7 @@ import { KeyboardArrowUpRounded } from "@mui/icons-material";
 import React from "react";
 
 import HistoryReplayDialog from "@features/Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
+import { MuizoSelect, type MuizoSelectOption } from "@shared/ui/select";
 
 import useCareerHistoryWorkspace from "../../model/useCareerHistoryWorkspace";
 import CareerHistoryGroupedList from "./history/CareerHistoryGroupedList";
@@ -33,7 +34,6 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
     historyCollectionFilterId,
     setHistoryCollectionFilterId,
     historyCollectionFilterOptions,
-    filteredHistoryItemCount,
     totalHistoryItemCount,
     selectedSummary,
     selectedRelatedSummaries,
@@ -49,107 +49,82 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
     getMatchDurationMs,
     formatDuration,
   } = workspace;
-  const shouldShowFilterBar =
-    !loadingList && !listError && totalHistoryItemCount > 0;
+  const shouldShowFilterBar = !listError && totalHistoryItemCount > 0;
   const hasVisibleHistoryItems = groupedHistoryItems.length > 0;
   const isFilteredEmpty =
     shouldShowFilterBar && totalHistoryItemCount > 0 && !hasVisibleHistoryItems;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-4">
+      {shouldShowFilterBar && (
+        <CareerHistoryFilterBar
+          modeFilter={historyModeFilter}
+          onModeFilterChange={setHistoryModeFilter}
+          collectionFilterId={historyCollectionFilterId}
+          onCollectionFilterChange={setHistoryCollectionFilterId}
+          collectionOptions={historyCollectionFilterOptions}
+          totalCount={totalHistoryItemCount}
+        />
+      )}
+
+      {isHistoryRequestBlocked && (
+        <div className="shrink-0 rounded-2xl border border-amber-300/28 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+          你的查詢頻率過高，已暫時限制歷史請求，請稍後再試。
+        </div>
+      )}
+
       <div className="min-h-0 flex-1">
         {loadingList || listError || !hasVisibleHistoryItems ? (
           <div ref={scrollHostRef} className="h-full overflow-auto pr-1">
-            <section className="space-y-4">
-              {shouldShowFilterBar && (
-                <CareerHistoryFilterBar
-                  modeFilter={historyModeFilter}
-                  onModeFilterChange={setHistoryModeFilter}
-                  collectionFilterId={historyCollectionFilterId}
-                  onCollectionFilterChange={setHistoryCollectionFilterId}
-                  collectionOptions={historyCollectionFilterOptions}
-                  filteredCount={filteredHistoryItemCount}
-                  totalCount={totalHistoryItemCount}
-                />
-              )}
-
-              {isHistoryRequestBlocked && (
-                <div className="rounded-2xl border border-amber-300/28 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                  你的查詢頻率過高，已暫時限制歷史請求，請稍後再試。
+            {loadingList ? (
+              <div className="flex items-center justify-center rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.86),rgba(8,7,5,0.96))] px-6 py-10 text-[var(--mc-text-muted)]">
+                <div className="inline-flex items-center gap-3">
+                  <CircularProgress
+                    size={18}
+                    thickness={5}
+                    sx={{ color: "#f59e0b" }}
+                  />
+                  載入對戰歷史中...
                 </div>
-              )}
-
-              {loadingList ? (
-                <div className="flex items-center justify-center rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.86),rgba(8,7,5,0.96))] px-6 py-10 text-[var(--mc-text-muted)]">
-                  <div className="inline-flex items-center gap-3">
-                    <CircularProgress
-                      size={18}
-                      thickness={5}
-                      sx={{ color: "#f59e0b" }}
-                    />
-                    載入對戰歷史中...
-                  </div>
-                </div>
-              ) : listError ? (
-                <div className="rounded-[24px] border border-rose-400/20 bg-rose-950/20 px-6 py-5 text-sm text-rose-100">
-                  {listError}
-                </div>
-              ) : isFilteredEmpty ? (
-                <div className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.86),rgba(8,7,5,0.96))] p-6 text-center">
-                  <h2 className="text-lg font-semibold text-[var(--mc-text)]">
-                    沒有符合篩選的對戰紀錄
-                  </h2>
-                  <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)]">
-                    調整休閒、排行或收藏庫篩選後，可以重新查看已載入的紀錄。
-                  </p>
-                </div>
-              ) : (
-                <div className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.86),rgba(8,7,5,0.96))] p-6 text-center">
-                  <h2 className="text-lg font-semibold text-[var(--mc-text)]">
-                    尚無對戰紀錄
-                  </h2>
-                  <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)]">
-                    完成一場遊戲後，系統會將結算摘要與回顧資料存到歷史頁。之後可以回來查看分數、答對數與
-                    Combo 表現。
-                  </p>
-                </div>
-              )}
-            </section>
-          </div>
-        ) : (
-          <div className="flex h-full min-h-0 flex-col gap-3">
-            {shouldShowFilterBar && (
-              <CareerHistoryFilterBar
-                modeFilter={historyModeFilter}
-                onModeFilterChange={setHistoryModeFilter}
-                collectionFilterId={historyCollectionFilterId}
-                onCollectionFilterChange={setHistoryCollectionFilterId}
-                collectionOptions={historyCollectionFilterOptions}
-                filteredCount={filteredHistoryItemCount}
-                totalCount={totalHistoryItemCount}
-              />
-            )}
-
-            {isHistoryRequestBlocked && (
-              <div className="shrink-0 rounded-2xl border border-amber-300/28 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                你的查詢頻率過高，已暫時限制歷史請求，請稍後再試。
+              </div>
+            ) : listError ? (
+              <div className="rounded-[24px] border border-rose-400/20 bg-rose-950/20 px-6 py-5 text-sm text-rose-100">
+                {listError}
+              </div>
+            ) : isFilteredEmpty ? (
+              <div className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.86),rgba(8,7,5,0.96))] p-6 text-center">
+                <h2 className="text-lg font-semibold text-[var(--mc-text)]">
+                  沒有符合篩選的對戰紀錄
+                </h2>
+                <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)]">
+                  調整休閒、排行或收藏庫篩選後，可以重新查看已載入的紀錄。
+                </p>
+              </div>
+            ) : (
+              <div className="relative overflow-hidden rounded-[24px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.86),rgba(8,7,5,0.96))] p-6 text-center">
+                <h2 className="text-lg font-semibold text-[var(--mc-text)]">
+                  尚無對戰紀錄
+                </h2>
+                <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-[var(--mc-text-muted)]">
+                  完成一場遊戲後，系統會將結算摘要與回顧資料存到歷史頁。之後可以回來查看分數、答對數與
+                  Combo 表現。
+                </p>
               </div>
             )}
-            <div className="min-h-0 flex-1">
-              <CareerHistoryGroupedList
-                groupedHistoryItems={groupedHistoryItems}
-                onOpenReplay={(summary) => {
-                  void openReplayDetail(summary);
-                }}
-                nextCursorToken={nextCursorToken}
-                loadingMoreList={loadingMoreList}
-                onLoadMore={() => {
-                  void handleLoadMoreHistory();
-                }}
-                onScroll={handleHistoryScroll}
-              />
-            </div>
           </div>
+        ) : (
+          <CareerHistoryGroupedList
+            groupedHistoryItems={groupedHistoryItems}
+            onOpenReplay={(summary) => {
+              void openReplayDetail(summary);
+            }}
+            nextCursorToken={nextCursorToken}
+            loadingMoreList={loadingMoreList}
+            onLoadMore={() => {
+              void handleLoadMoreHistory();
+            }}
+            onScroll={handleHistoryScroll}
+          />
         )}
       </div>
 
@@ -193,8 +168,8 @@ type CareerHistoryFilterBarProps = {
     id: string;
     title: string;
     matchCount: number;
+    thumbnail?: string | null;
   }>;
-  filteredCount: number;
   totalCount: number;
 };
 
@@ -242,9 +217,23 @@ const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
   collectionFilterId,
   onCollectionFilterChange,
   collectionOptions,
-  filteredCount,
   totalCount,
 }) => {
+  const collectionSelectOptions: MuizoSelectOption[] = [
+    {
+      value: "all",
+      label: "全部收藏庫",
+      hideThumbnail: true,
+      meta: `${totalCount} 筆`,
+    },
+    ...collectionOptions.map((option) => ({
+      value: option.id,
+      label: option.title,
+      thumbnail: option.thumbnail ?? undefined,
+      meta: `${option.matchCount} 筆`,
+    })),
+  ];
+
   return (
     <section className="shrink-0 rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.92),rgba(8,7,5,0.98))] px-3 py-3 shadow-[0_16px_32px_-28px_rgba(0,0,0,0.72)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -271,29 +260,13 @@ const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
         </div>
 
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-          <label
-            htmlFor="career-history-collection-filter"
-            className="text-xs font-semibold text-[var(--mc-text-muted)]"
-          >
-            收藏庫
-          </label>
-          <select
-            id="career-history-collection-filter"
+          <MuizoSelect
             value={collectionFilterId}
-            onChange={(event) => onCollectionFilterChange(event.target.value)}
-            className="h-9 min-w-0 rounded-[12px] border border-white/10 bg-stone-950/70 px-3 text-sm font-medium text-[var(--mc-text)] outline-none transition hover:border-white/18 focus:border-amber-200/45 sm:w-[260px]"
-          >
-            <option value="all">全部收藏庫</option>
-            {collectionOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.title}（{option.matchCount}）
-              </option>
-            ))}
-          </select>
-
-          <span className="whitespace-nowrap text-xs text-[var(--mc-text-muted)]">
-            {filteredCount}/{totalCount} 筆
-          </span>
+            options={collectionSelectOptions}
+            placeholder="選擇收藏庫"
+            className="min-w-0 sm:w-[320px]"
+            onChange={onCollectionFilterChange}
+          />
         </div>
       </div>
     </section>

@@ -1,6 +1,6 @@
 import React from "react";
 
-export type CareerTabKey = "overview" | "collectionRanks" | "history" | "share";
+export type CareerTabKey = "overview" | "collectionRanks" | "history";
 
 interface CareerTabsProps {
   activeTab: CareerTabKey;
@@ -28,11 +28,6 @@ const tabs: Array<{
     label: "對戰歷史",
     shortLabel: "歷史",
   },
-  {
-    key: "share",
-    label: "分享",
-    shortLabel: "分享",
-  },
 ];
 
 const CareerTabs: React.FC<CareerTabsProps> = ({
@@ -42,7 +37,7 @@ const CareerTabs: React.FC<CareerTabsProps> = ({
 }) => {
   return (
     <nav>
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-3 gap-1.5">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
 

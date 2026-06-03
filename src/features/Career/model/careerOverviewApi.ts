@@ -257,6 +257,10 @@ export const fetchCareerCollectionRanks = async ({
   return (payload.data?.items ?? []).map((item) => ({
     ...item,
     coverThumbnailUrl: item.coverThumbnailUrl ?? null,
+    sourceLabel: item.sourceLabel ?? null,
+    matchSummary: item.matchSummary ?? null,
+    recentRank: item.recentRank ?? null,
+    recentPlayerCount: item.recentPlayerCount ?? null,
     previousLeaderboardRank: item.previousLeaderboardRank ?? null,
     delta: item.delta ?? null,
   }));

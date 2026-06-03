@@ -1,4 +1,5 @@
 import React from "react";
+import EditRounded from "@mui/icons-material/EditRounded";
 
 import type { CareerHeroStats } from "../../types/career";
 import {
@@ -9,6 +10,7 @@ import {
 interface CareerTopOverviewStripProps {
   hero: CareerHeroStats;
   avatarUrl?: string | null;
+  onEditProfile?: () => void;
 }
 
 const quickCardClass =
@@ -17,6 +19,7 @@ const quickCardClass =
 const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
   hero,
   avatarUrl,
+  onEditProfile,
 }) => {
   const avatarLabel = hero.displayName.trim().slice(0, 2).toUpperCase() || "MU";
 
@@ -56,9 +59,19 @@ const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
           </div>
 
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold tracking-tight text-[var(--mc-text)] sm:text-lg">
-              {hero.displayName}
-            </h2>
+            <button
+              type="button"
+              onClick={onEditProfile}
+              className="group/name inline-flex max-w-full items-center gap-1.5 rounded-[10px] text-left outline-none transition hover:bg-white/[0.055] focus-visible:bg-white/[0.07] focus-visible:ring-2 focus-visible:ring-amber-200/42"
+            >
+              <span className="truncate px-1 py-0.5 text-base font-semibold tracking-tight text-[var(--mc-text)] sm:text-lg">
+                {hero.displayName}
+              </span>
+              <EditRounded
+                sx={{ fontSize: 15 }}
+                className="shrink-0 text-amber-100/54 transition group-hover/name:text-amber-100"
+              />
+            </button>
           </div>
         </div>
 
@@ -75,7 +88,6 @@ const CareerTopOverviewStrip: React.FC<CareerTopOverviewStripProps> = ({
           ))}
         </div>
       </div>
-
     </section>
   );
 };

@@ -17,11 +17,6 @@ import {
   type RoomSettlementSnapshot,
 } from "@features/RoomSession";
 import type { SettlementQuestionRecap } from "@features/Settlement/ui/components/GameSettlementPanel";
-import {
-  getHistorySummaryCollectionId,
-  getHistorySummaryPlayMode,
-  getHistorySummaryPlaylistDisplayTitle,
-} from "@features/Settlement/model/historySummaryAdapter";
 
 import {
   formatCareerHistoryDateTime,
@@ -42,12 +37,19 @@ const HISTORY_GUARD_WINDOW_MS = 15_000;
 const HISTORY_GUARD_MAX_REQUESTS = 16;
 const HISTORY_GUARD_BLOCK_MS = 30_000;
 
+type HistoryListMeta = {
+  collectionOptions?: CareerHistoryCollectionFilterOption[];
+  filteredCount?: number;
+  totalCount?: number;
+};
+
 type HistoryListResponse = {
   ok: boolean;
   data?: {
     items: RoomSettlementHistorySummary[];
     nextCursor: number | null;
     nextCursorToken?: string | null;
+    meta?: HistoryListMeta;
   };
   error?: string;
 };
@@ -64,6 +66,9 @@ type HistoryListCachePayload = {
   savedAt: number;
   items: RoomSettlementHistorySummary[];
   nextCursorToken?: string | null;
+  collectionOptions?: CareerHistoryCollectionFilterOption[];
+  filteredCount?: number;
+  totalCount?: number;
 };
 
 type HistoryRequestGuardPayload = {
@@ -78,6 +83,7 @@ export type CareerHistoryCollectionFilterOption = {
   id: string;
   title: string;
   matchCount: number;
+  thumbnail?: string | null;
 };
 
 const buildHistoryHeaders = (token: string | null) => ({
@@ -85,8 +91,17 @@ const buildHistoryHeaders = (token: string | null) => ({
   ...(token ? { Authorization: `Bearer ${token}` } : {}),
 });
 
-const buildHistoryListCacheKey = (clientId: string | null) =>
-  `history_list_v1:${clientId ?? "guest"}`;
+const buildHistoryListCacheKey = (
+  clientId: string | null,
+  modeFilter: CareerHistoryModeFilter,
+  collectionFilterId: string,
+) =>
+  [
+    "history_list_v4",
+    clientId ?? "guest",
+    modeFilter,
+    collectionFilterId || "all",
+  ].join(":");
 
 const buildHistoryGuardKey = (clientId: string | null) =>
   `history_guard_v1:${clientId ?? "guest"}`;
@@ -250,6 +265,12 @@ export const useCareerHistoryWorkspace = () => {
     useState<CareerHistoryModeFilter>("all");
   const [historyCollectionFilterId, setHistoryCollectionFilterId] =
     useState<string>("all");
+  const [
+    historyCollectionFilterOptions,
+    setHistoryCollectionFilterOptions,
+  ] = useState<CareerHistoryCollectionFilterOption[]>([]);
+  const [filteredHistoryItemCount, setFilteredHistoryItemCount] = useState(0);
+  const [totalHistoryItemCount, setTotalHistoryItemCount] = useState(0);
 
   const inFlightReplayMatchIdsRef = useRef<Set<string>>(new Set());
   const groupContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -258,8 +279,13 @@ export const useCareerHistoryWorkspace = () => {
   const scrollHostRef = useRef<HTMLDivElement | null>(null);
 
   const historyListCacheKey = useMemo(
-    () => buildHistoryListCacheKey(clientId),
-    [clientId],
+    () =>
+      buildHistoryListCacheKey(
+        clientId,
+        historyModeFilter,
+        historyCollectionFilterId,
+      ),
+    [clientId, historyCollectionFilterId, historyModeFilter],
   );
   const historyGuardKey = useMemo(
     () => buildHistoryGuardKey(clientId),
@@ -411,6 +437,19 @@ export const useCareerHistoryWorkspace = () => {
         items: parsed.items.sort(
           (a, b) => b.endedAt - a.endedAt || b.roundNo - a.roundNo,
         ),
+        collectionOptions: Array.isArray(parsed.collectionOptions)
+          ? parsed.collectionOptions
+          : [],
+        filteredCount:
+          typeof parsed.filteredCount === "number" &&
+          Number.isFinite(parsed.filteredCount)
+            ? parsed.filteredCount
+            : parsed.items.length,
+        totalCount:
+          typeof parsed.totalCount === "number" &&
+          Number.isFinite(parsed.totalCount)
+            ? parsed.totalCount
+            : parsed.items.length,
         nextCursorToken:
           typeof parsed.nextCursorToken === "string" &&
           parsed.nextCursorToken.trim().length > 0
@@ -426,6 +465,7 @@ export const useCareerHistoryWorkspace = () => {
     (
       nextItems: RoomSettlementHistorySummary[],
       nextPageCursorToken: string | null,
+      meta?: HistoryListMeta,
     ) => {
       if (typeof window === "undefined") return;
 
@@ -434,6 +474,9 @@ export const useCareerHistoryWorkspace = () => {
           savedAt: Date.now(),
           items: nextItems,
           nextCursorToken: nextPageCursorToken,
+          collectionOptions: meta?.collectionOptions,
+          filteredCount: meta?.filteredCount,
+          totalCount: meta?.totalCount,
         };
         window.sessionStorage.setItem(
           historyListCacheKey,
@@ -546,6 +589,12 @@ export const useCareerHistoryWorkspace = () => {
       if (clientId) params.set("clientId", clientId);
       params.set("limit", String(HISTORY_PAGE_LIMIT));
       if (beforeCursor) params.set("beforeCursor", beforeCursor);
+      if (historyModeFilter !== "all") {
+        params.set("playMode", historyModeFilter);
+      }
+      if (historyCollectionFilterId !== "all") {
+        params.set("collectionId", historyCollectionFilterId);
+      }
 
       const res = await fetch(
         `${API_URL}/api/history/matches?${params.toString()}`,
@@ -574,9 +623,24 @@ export const useCareerHistoryWorkspace = () => {
           payload.data.nextCursorToken.trim().length > 0
             ? payload.data.nextCursorToken
             : null,
+        meta: {
+          collectionOptions: Array.isArray(payload.data.meta?.collectionOptions)
+            ? payload.data.meta.collectionOptions
+            : [],
+          filteredCount:
+            typeof payload.data.meta?.filteredCount === "number" &&
+            Number.isFinite(payload.data.meta.filteredCount)
+              ? payload.data.meta.filteredCount
+              : payload.data.items.length,
+          totalCount:
+            typeof payload.data.meta?.totalCount === "number" &&
+            Number.isFinite(payload.data.meta.totalCount)
+              ? payload.data.meta.totalCount
+              : payload.data.items.length,
+        },
       };
     },
-    [clientId, getBearerToken],
+    [clientId, getBearerToken, historyCollectionFilterId, historyModeFilter],
   );
 
   const fetchReplay = useCallback(
@@ -646,18 +710,23 @@ export const useCareerHistoryWorkspace = () => {
     let cancelled = false;
     const cachedItems = readHistoryListCache();
 
-    if (cachedItems && cachedItems.items.length > 0) {
+    if (cachedItems) {
       setItems(cachedItems.items);
       setNextCursorToken(cachedItems.nextCursorToken);
+      setHistoryCollectionFilterOptions(cachedItems.collectionOptions);
+      setFilteredHistoryItemCount(cachedItems.filteredCount);
+      setTotalHistoryItemCount(cachedItems.totalCount);
       setLoadingList(false);
       setListError(null);
     } else {
+      setItems([]);
+      setNextCursorToken(null);
       setLoadingList(true);
       setListError(null);
     }
 
     if (!acquireHistoryRequestPermit("list")) {
-      if (!cachedItems || cachedItems.items.length === 0) {
+      if (!cachedItems) {
         setListError("歷史請求過於頻繁，請稍後再試。");
         setLoadingList(false);
       } else {
@@ -674,8 +743,12 @@ export const useCareerHistoryWorkspace = () => {
         if (cancelled) return;
         setItems(page.items);
         setNextCursorToken(page.nextCursorToken);
-        writeHistoryListCache(page.items, page.nextCursorToken);
+        setHistoryCollectionFilterOptions(page.meta.collectionOptions ?? []);
+        setFilteredHistoryItemCount(page.meta.filteredCount ?? page.items.length);
+        setTotalHistoryItemCount(page.meta.totalCount ?? page.items.length);
+        writeHistoryListCache(page.items, page.nextCursorToken, page.meta);
         setListError(null);
+        scrollHostRef.current?.scrollTo({ top: 0 });
       })
       .catch((error) => {
         if (cancelled) return;
@@ -746,7 +819,10 @@ export const useCareerHistoryWorkspace = () => {
       });
 
       setNextCursorToken(page.nextCursorToken);
-      writeHistoryListCache(mergedItems, page.nextCursorToken);
+      setHistoryCollectionFilterOptions(page.meta.collectionOptions ?? []);
+      setFilteredHistoryItemCount(page.meta.filteredCount ?? mergedItems.length);
+      setTotalHistoryItemCount(page.meta.totalCount ?? mergedItems.length);
+      writeHistoryListCache(mergedItems, page.nextCursorToken, page.meta);
       setListError(null);
     } catch (error) {
       const message =
@@ -943,33 +1019,8 @@ export const useCareerHistoryWorkspace = () => {
     return best;
   }, [recentItems]);
 
-  const historyCollectionFilterOptions =
-    useMemo<CareerHistoryCollectionFilterOption[]>(() => {
-      const options = new Map<string, CareerHistoryCollectionFilterOption>();
-
-      for (const item of items) {
-        const collectionId = getHistorySummaryCollectionId(item);
-        if (!collectionId) continue;
-
-        const existing = options.get(collectionId);
-        if (existing) {
-          existing.matchCount += 1;
-          continue;
-        }
-
-        options.set(collectionId, {
-          id: collectionId,
-          title: getHistorySummaryPlaylistDisplayTitle(item),
-          matchCount: 1,
-        });
-      }
-
-      return Array.from(options.values()).sort(
-        (a, b) => b.matchCount - a.matchCount || a.title.localeCompare(b.title),
-      );
-    }, [items]);
-
   useEffect(() => {
+    if (loadingList) return;
     if (historyCollectionFilterId === "all") return;
     if (
       historyCollectionFilterOptions.some(
@@ -980,27 +1031,7 @@ export const useCareerHistoryWorkspace = () => {
     }
 
     setHistoryCollectionFilterId("all");
-  }, [historyCollectionFilterId, historyCollectionFilterOptions]);
-
-  const filteredHistoryItems = useMemo(() => {
-    return items.filter((item) => {
-      if (
-        historyModeFilter !== "all" &&
-        getHistorySummaryPlayMode(item) !== historyModeFilter
-      ) {
-        return false;
-      }
-
-      if (
-        historyCollectionFilterId !== "all" &&
-        getHistorySummaryCollectionId(item) !== historyCollectionFilterId
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [historyCollectionFilterId, historyModeFilter, items]);
+  }, [historyCollectionFilterId, historyCollectionFilterOptions, loadingList]);
 
   const groupedHistoryItems = useMemo(() => {
     const groups = new Map<
@@ -1012,7 +1043,7 @@ export const useCareerHistoryWorkspace = () => {
       }
     >();
 
-    for (const item of filteredHistoryItems) {
+    for (const item of items) {
       const key = getCareerHistoryGroupKeyFromSummary(item);
       const existing = groups.get(key);
 
@@ -1039,7 +1070,7 @@ export const useCareerHistoryWorkspace = () => {
           (b.items[0]?.endedAt ?? 0) - (a.items[0]?.endedAt ?? 0) ||
           (b.items[0]?.roundNo ?? 0) - (a.items[0]?.roundNo ?? 0),
       );
-  }, [filteredHistoryItems]);
+  }, [items]);
 
   const selectedRelatedSummaries = useMemo(() => {
     if (!selectedSummary) return [];
@@ -1166,8 +1197,8 @@ export const useCareerHistoryWorkspace = () => {
     historyCollectionFilterId,
     setHistoryCollectionFilterId,
     historyCollectionFilterOptions,
-    filteredHistoryItemCount: filteredHistoryItems.length,
-    totalHistoryItemCount: items.length,
+    filteredHistoryItemCount,
+    totalHistoryItemCount,
     isGroupCollapsed,
     toggleGroup,
     setGroupContainerRef,

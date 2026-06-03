@@ -2,8 +2,8 @@ import {
   AccessTime,
   ChevronRightRounded,
   EmojiEvents,
+  Groups2Rounded,
   LibraryMusic,
-  MeetingRoom,
   QueueMusic,
   YouTube,
 } from "@mui/icons-material";
@@ -31,13 +31,41 @@ interface CareerHistoryMatchCardProps {
   animationDelayMs?: number;
 }
 
-const formatCareerHistoryAccuracy = (
+const getCareerHistoryAccuracyRate = (
   correctCount: number,
   questionCount: number,
 ) => {
-  if (!Number.isFinite(questionCount) || questionCount <= 0) return "-/- (-)";
-  const rate = Math.max(0, Math.min(100, (correctCount / questionCount) * 100));
+  if (!Number.isFinite(questionCount) || questionCount <= 0) return null;
+  return Math.max(0, Math.min(100, (correctCount / questionCount) * 100));
+};
+
+const formatCareerHistoryAccuracy = (
+  correctCount: number,
+  questionCount: number,
+  rate: number | null,
+) => {
+  if (rate === null) return "-/- (-)";
   return `${correctCount}/${questionCount} (${Math.round(rate)}%)`;
+};
+
+const getAccuracyToneClassName = (rate: number | null) => {
+  if (rate === null) {
+    return "text-stone-100";
+  }
+
+  if (rate >= 85) {
+    return "text-emerald-100";
+  }
+
+  if (rate >= 65) {
+    return "text-sky-100";
+  }
+
+  if (rate >= 40) {
+    return "text-amber-100";
+  }
+
+  return "text-rose-100";
 };
 
 const formatPositiveDelta = (value: number | null | undefined) => {
@@ -76,6 +104,12 @@ const cardToneClassName = [
   "hover:shadow-[0_0_0_1px_rgba(214,211,209,0.08),0_16px_34px_-24px_rgba(214,211,209,0.38)]",
 ].join(" ");
 
+const metricChipClassName =
+  "inline-flex items-center justify-between gap-2 rounded-[12px] border border-stone-300/14 bg-white/[0.035] px-2.5 py-1.5 text-stone-100";
+
+const metricLabelClassName =
+  "mr-1.5 text-[11px] font-medium text-stone-100/58";
+
 const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
   item,
   onOpenReplay,
@@ -95,10 +129,16 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
   const isCollectionSource = isCollectionHistorySummary(item);
   const isYouTubeSource = isYouTubeHistorySummary(item);
   const playMode = getHistorySummaryPlayMode(item);
-  const accuracy = formatCareerHistoryAccuracy(
+  const accuracyRate = getCareerHistoryAccuracyRate(
     correctCount,
     item.questionCount,
   );
+  const accuracy = formatCareerHistoryAccuracy(
+    correctCount,
+    item.questionCount,
+    accuracyRate,
+  );
+  const accuracyValueClassName = getAccuracyToneClassName(accuracyRate);
   const recordBreakthroughDetails = buildRecordBreakthroughDetails(
     item.selfRecordBreakthrough,
   );
@@ -136,10 +176,6 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
         <div className="flex min-w-0 flex-1 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
           <div className="min-w-0 pr-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <div className="min-w-0 truncate text-base font-semibold tracking-tight text-[var(--mc-text)]">
-                {playlistTitle}
-              </div>
-
               <span
                 className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
                   playMode === "leaderboard"
@@ -149,6 +185,10 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
               >
                 {playMode === "leaderboard" ? "排行挑戰" : "休閒對戰"}
               </span>
+
+              <div className="min-w-0 truncate text-base font-semibold tracking-tight text-[var(--mc-text)]">
+                {playlistTitle}
+              </div>
 
               <span
                 className={`inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold ${
@@ -194,8 +234,8 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
             )}
 
             <div className="mt-2 flex flex-wrap gap-1.5 text-sm font-semibold text-[var(--mc-text)]">
-              <span className="inline-flex w-[112px] items-center justify-between gap-2 rounded-[12px] border border-emerald-300/18 bg-emerald-300/8 px-2.5 py-1.5 text-emerald-100">
-                <span className="mr-1.5 text-[11px] font-medium text-emerald-100/62">
+              <span className={`w-[112px] ${metricChipClassName}`}>
+                <span className={metricLabelClassName}>
                   分數
                 </span>
                 <span className="min-w-0 truncate">
@@ -203,15 +243,17 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
                 </span>
               </span>
 
-              <span className="inline-flex w-[148px] items-center justify-between gap-2 rounded-[12px] border border-teal-300/18 bg-teal-300/8 px-2.5 py-1.5 text-teal-100">
-                <span className="mr-1.5 text-[11px] font-medium text-teal-100/62">
+              <span className={`w-[148px] ${metricChipClassName}`}>
+                <span className={metricLabelClassName}>
                   答對率
                 </span>
-                <span className="min-w-0 truncate">{accuracy}</span>
+                <span className={`min-w-0 truncate ${accuracyValueClassName}`}>
+                  {accuracy}
+                </span>
               </span>
 
-              <span className="inline-flex w-[112px] items-center justify-between gap-2 rounded-[12px] border border-amber-300/18 bg-amber-300/8 px-2.5 py-1.5 text-amber-100">
-                <span className="mr-1.5 text-[11px] font-medium text-amber-100/62">
+              <span className={`w-[112px] ${metricChipClassName}`}>
+                <span className={metricLabelClassName}>
                   Combo
                 </span>
                 <span className="min-w-0 truncate">x{maxCombo}</span>
@@ -224,7 +266,7 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
                 <span>{formatCareerHistoryDuration(matchDurationMs)}</span>
               </span>
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                <MeetingRoom sx={{ fontSize: 16 }} />
+                <Groups2Rounded sx={{ fontSize: 16 }} />
                 <span>{item.playerCount} 人</span>
               </span>
             </div>
