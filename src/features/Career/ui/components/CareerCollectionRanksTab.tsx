@@ -6,7 +6,6 @@ import type {
   CareerCollectionRankSortOrder,
 } from "../../types/career";
 import type { RoomSettlementHistorySummary } from "@features/RoomSession";
-import CareerCollectionRanksToolbar from "./collectionRanks/CareerCollectionRanksToolbar";
 import CareerCollectionRanksMobileList from "./collectionRanks/CareerCollectionRanksMobileList";
 import CareerCollectionRanksTable from "./collectionRanks/CareerCollectionRanksTable";
 import CareerCollectionRankDetailDrawer from "./collectionRanks/CareerCollectionRankDetailDrawer";
@@ -55,17 +54,8 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CareerWorkbenchShell className="flex min-h-0 flex-1 flex-col overflow-visible p-0">
-        <div className="border-b border-[var(--mc-border)] p-3">
-          <CareerCollectionRanksToolbar
-            sortKey={sortKey}
-            sortOrder={sortOrder}
-            setSortKey={setSortKey}
-            setSortOrder={setSortOrder}
-          />
-        </div>
-
-        <div className="min-h-0 flex-1 p-4">
+      <CareerWorkbenchShell className="flex min-h-0 flex-1 flex-col overflow-visible rounded-[18px] p-0 sm:rounded-[24px]">
+        <div className="min-h-0 flex-1 p-2.5 sm:p-4">
           {isLoading ? (
             <CareerStatePanel>載入題庫戰績中...</CareerStatePanel>
           ) : error ? (
@@ -77,6 +67,10 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
               <CareerCollectionRanksTable
                 items={items}
                 selectedItemId={selectedItemId}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                setSortKey={setSortKey}
+                setSortOrder={setSortOrder}
                 onSelectItem={handleSelectItem}
               />
               <CareerCollectionRanksMobileList

@@ -23,6 +23,12 @@ const CareerCollectionRanksMobileList: React.FC<
     <div className="space-y-3 lg:hidden">
       {items.map((item) => {
         const selected = selectedItemId === item.id;
+        const matchScore =
+          item.matchScore ?? item.matchSummary?.selfPlayer?.finalScore ?? null;
+        const matchRank =
+          item.recentRank && item.recentPlayerCount
+            ? `${item.recentRank}/${item.recentPlayerCount}`
+            : formatCareerRank(item.recentRank);
 
         return (
           <div
@@ -37,7 +43,7 @@ const CareerCollectionRanksMobileList: React.FC<
               type="button"
               aria-pressed={selected}
               onClick={() => onSelectItem(item)}
-              className="grid w-full grid-cols-[92px_minmax(0,1fr)] text-left"
+              className="grid w-full cursor-pointer grid-cols-[92px_minmax(0,1fr)] text-left"
             >
               <div className="relative min-h-[96px] overflow-hidden bg-[linear-gradient(135deg,rgba(245,158,11,0.22),rgba(15,23,42,0.56))]">
                 {item.coverThumbnailUrl ? (
@@ -84,8 +90,8 @@ const CareerCollectionRanksMobileList: React.FC<
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <CareerStatCard
-                    label="榜單名次"
-                    value={formatCareerRank(item.leaderboardRank)}
+                    label="最佳名次"
+                    value={matchRank}
                     emphasis="soft"
                   />
 
@@ -97,7 +103,7 @@ const CareerCollectionRanksMobileList: React.FC<
 
                   <CareerStatCard
                     label="最佳分數"
-                    value={formatCareerScore(item.bestScore)}
+                    value={formatCareerScore(matchScore)}
                     emphasis="soft"
                   />
 

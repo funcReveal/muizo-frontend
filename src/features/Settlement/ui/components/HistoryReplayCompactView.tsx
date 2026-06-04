@@ -1,10 +1,9 @@
-﻿
+
 import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import HighlightOffRoundedIcon from "@mui/icons-material/HighlightOffRounded";
-import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import PlayCircleOutlineRoundedIcon from "@mui/icons-material/PlayCircleOutlineRounded";
 import RadioButtonCheckedRoundedIcon from "@mui/icons-material/RadioButtonCheckedRounded";
 import RemoveCircleOutlineRoundedIcon from "@mui/icons-material/RemoveCircleOutlineRounded";
@@ -130,63 +129,6 @@ const DashboardMiniCard: React.FC<{
     <div className="mt-1.5 text-lg font-semibold tracking-tight text-slate-50">{value}</div>
   </div>
 );
-
-const DashboardDonut: React.FC<{
-  value: number;
-  total: number;
-  label: string;
-  grade?: string;
-}> = ({ value, total, label, grade }) => {
-  const safeTotal = total > 0 ? total : 1;
-  const clampedValue = Math.max(0, Math.min(value, safeTotal));
-  const radius = 32;
-  const circumference = 2 * Math.PI * radius;
-  const progress = clampedValue / safeTotal;
-  const dashOffset = circumference * (1 - progress);
-
-  return (
-    <div className="flex items-center justify-end gap-4">
-      <div className="flex min-w-[96px] flex-col items-center justify-center text-center">
-        {grade ? (
-          <div className="bg-[linear-gradient(135deg,#f8fafc,#a5f3fc,#f9a8d4)] bg-clip-text text-[1.85rem] font-black italic leading-none tracking-[0.06em] text-transparent drop-shadow-[0_0_12px_rgba(34,211,238,0.18)]">
-            {grade}
-          </div>
-        ) : null}
-        <div className="mt-2 bg-[linear-gradient(90deg,#93c5fd,#e2e8f0,#7dd3fc)] bg-clip-text text-[11px] font-semibold uppercase tracking-[0.32em] text-transparent">
-          {label}
-        </div>
-      </div>
-      <div className="relative h-[116px] w-[116px] shrink-0">
-        <svg viewBox="0 0 88 88" className="h-full w-full -rotate-90">
-          <circle cx="44" cy="44" r={radius} fill="none" stroke="rgba(51,65,85,0.55)" strokeWidth="8" />
-          <circle
-            cx="44"
-            cy="44"
-            r={radius}
-            fill="none"
-            stroke="url(#historyReplayDonut)"
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-          />
-          <defs>
-            <linearGradient id="historyReplayDonut" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#22d3ee" />
-              <stop offset="55%" stopColor="#38bdf8" />
-              <stop offset="100%" stopColor="#34d399" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <div className="text-[1.7rem] font-bold leading-none text-slate-50">
-            {Math.round(progress * 100)}%
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const ResultStackBar: React.FC<{
   correctCount: number;
@@ -358,16 +300,6 @@ const readStoredPreviewAutoplay = () => {
   return raw === "1";
 };
 
-const resolveAccuracyGrade = (percent: number) => {
-  if (percent >= 100) return "SS";
-  if (percent >= 95) return "S";
-  if (percent >= 85) return "A";
-  if (percent >= 75) return "B";
-  if (percent >= 65) return "C";
-  if (percent >= 50) return "D";
-  return "E";
-};
-
 const formatMs = (value: number | null | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return "--";
   if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
@@ -517,7 +449,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   participants,
   playlistItems = [],
   trackOrder = [],
-  playedQuestionCount,
   meClientId,
   questionRecaps = [],
   matchId,
@@ -539,7 +470,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
       ),
     [rankedParticipants],
   );
-  const meParticipant = meClientId ? participantMap[meClientId] ?? null : null;
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
     meClientId && participantMap[meClientId]
       ? meClientId
@@ -560,6 +490,18 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const previewVolumeRetryTimersRef = useRef<number[]>([]);
   const previewPlayRetryTimersRef = useRef<number[]>([]);
   const previewVolumeUpdateSourceRef = useRef<"app" | "iframe" | null>(null);
+  const handleSelectParticipant = useCallback((clientId: string) => {
+    setSelectedParticipantId(clientId);
+    setSelectedRecapKey(null);
+  }, []);
+  useEffect(() => {
+    if (selectedParticipantId && participantMap[selectedParticipantId]) return;
+    setSelectedParticipantId(
+      meClientId && participantMap[meClientId]
+        ? meClientId
+        : rankedParticipants[0]?.clientId ?? null,
+    );
+  }, [meClientId, participantMap, rankedParticipants, selectedParticipantId]);
   const recaps = useMemo<ExtendedRecap[]>(() => {
     if (questionRecaps.length > 0) {
       return questionRecaps.map((recap) => {
@@ -987,15 +929,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
     previewPlaybackIntentRef.current = previewPlayerState;
   }, [previewPlayerState]);
 
-  const collectionTitle = room.playlist.title?.trim() || room.name || "回放紀錄";
-  const meRank =
-    meParticipant && meParticipant.clientId
-      ? rankedParticipants.findIndex((item) => item.clientId === meParticipant.clientId) + 1
-      : 0;
-  const meCorrectCount = meParticipant?.correctCount ?? 0;
-  const accuracyPercent =
-    playedQuestionCount > 0 ? Math.round((meCorrectCount / playedQuestionCount) * 100) : 0;
-  const accuracyGrade = resolveAccuracyGrade(accuracyPercent);
   const selectedResultMeta = RESULT_META[selectedAnswer.result];
   const selectedCorrectCount = selectedRecap?.correctCount ?? 0;
   const selectedWrongCount = selectedRecap?.wrongCount ?? 0;
@@ -1109,54 +1042,10 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   if (isWide) {
     return (
       <div className="space-y-4 overflow-x-hidden">
-        <section className="rounded-[24px] border border-slate-700/70 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.1),transparent_24%),linear-gradient(180deg,rgba(8,14,24,0.92),rgba(4,8,16,0.98))] p-4 sm:p-5">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,380px)] xl:items-start">
-            <div className="min-w-0">
-              <div className="min-w-0 flex items-center gap-2.5">
-                  <MusicNoteRoundedIcon sx={{ fontSize: 22, color: "rgb(186 230 253)" }} />
-                  <p className="truncate text-[1.2rem] font-semibold tracking-tight text-slate-50">
-                    {collectionTitle}
-                  </p>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <DashboardMiniCard
-                  icon={<EmojiEventsRoundedIcon sx={{ fontSize: 16 }} />}
-                  label="名次"
-                  value={meRank > 0 ? `${meRank}/${Math.max(1, rankedParticipants.length)}` : "--"}
-                  toneClassName="text-amber-100"
-                />
-                <DashboardMiniCard
-                  icon={<BarChartRoundedIcon sx={{ fontSize: 16 }} />}
-                  label="分數"
-                  value={String(meParticipant?.score ?? "--")}
-                  toneClassName="text-emerald-100"
-                />
-                <DashboardMiniCard
-                  icon={<CheckCircleRoundedIcon sx={{ fontSize: 16 }} />}
-                  label="答對"
-                  value={`${meCorrectCount}/${playedQuestionCount}`}
-                  toneClassName="text-cyan-100"
-                />
-              </div>
-            </div>
-
-            <div className="xl:max-w-[360px]">
-              <div className="flex justify-end xl:pt-1">
-                <DashboardDonut
-                  value={meCorrectCount}
-                  total={playedQuestionCount}
-                  label="Accuracy"
-                  grade={accuracyGrade}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
         <section className="space-y-3">
           <div className="grid gap-3 xl:grid-cols-[minmax(255px,280px)_minmax(0,1fr)] xl:items-start">
             <aside className="rounded-2xl border border-slate-700/70 bg-slate-950/55 p-3 xl:w-[280px] xl:self-start">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">題目</p>
+              <div className="flex items-center justify-end gap-2">
                 <span className="text-xs text-slate-500">{recaps.length} 題</span>
               </div>
               <div className="mt-3 max-h-[620px] space-y-2 overflow-y-auto pr-1">
@@ -1174,7 +1063,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                       className={`group relative w-full cursor-pointer overflow-hidden rounded-xl border px-3 py-2.5 text-left transition ${
                         active
                           ? "border-amber-300/55 bg-[linear-gradient(180deg,rgba(245,158,11,0.12),rgba(15,23,42,0.82))] shadow-[0_18px_30px_-26px_rgba(245,158,11,0.75)]"
-                          : "border-slate-700/70 bg-slate-900/55 hover:-translate-y-0.5 hover:border-amber-300/35 hover:bg-slate-900/68"
+                          : "border-slate-700/70 bg-slate-900/55 hover:border-amber-300/35 hover:bg-slate-900/68"
                       }`}
                     >
                       {active ? (
@@ -1250,7 +1139,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                           rankedParticipants={rankedParticipants}
                           selectedParticipant={selectedParticipant}
                           meClientId={meClientId}
-                          onSelect={setSelectedParticipantId}
+                          onSelect={handleSelectParticipant}
                         />
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${selectedResultMeta.textClassName} ${selectedResultMeta.softBgClassName}`}>
                           {selectedResultMeta.icon}
@@ -1595,54 +1484,8 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
 
   return (
     <div className="space-y-3 overflow-x-hidden sm:space-y-4">
-      <section className="rounded-[20px] border border-slate-700/70 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.1),transparent_24%),linear-gradient(180deg,rgba(8,14,24,0.94),rgba(4,8,16,0.98))] p-3 sm:rounded-[24px] sm:p-4">
-        <div className="min-w-0 flex items-center gap-2.5">
-          <div className="min-w-0 flex items-center gap-2.5">
-            <MusicNoteRoundedIcon sx={{ fontSize: 20, color: "rgb(186 230 253)" }} />
-            <HoverMarqueeText
-              text={collectionTitle}
-              className="w-full text-[1.3rem] font-semibold leading-tight text-slate-100 sm:text-[1.7rem]"
-              autoRunOnTouch
-            />
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="grid grid-cols-3 gap-2">
-            <DashboardMiniCard
-              icon={<EmojiEventsRoundedIcon sx={{ fontSize: 15 }} />}
-              label="名次"
-              value={meRank > 0 ? `${meRank}/${Math.max(1, rankedParticipants.length)}` : "--"}
-              toneClassName="text-amber-100"
-            />
-            <DashboardMiniCard
-              icon={<BarChartRoundedIcon sx={{ fontSize: 15 }} />}
-              label="分數"
-              value={String(meParticipant?.score ?? "--")}
-              toneClassName="text-emerald-100"
-            />
-            <DashboardMiniCard
-              icon={<CheckCircleRoundedIcon sx={{ fontSize: 15 }} />}
-              label="答對"
-              value={`${meCorrectCount}/${playedQuestionCount}`}
-              toneClassName="text-cyan-100"
-            />
-          </div>
-          <div className="justify-self-end">
-            <DashboardDonut
-              value={meCorrectCount}
-              total={playedQuestionCount}
-              label="Accuracy"
-              grade={accuracyGrade}
-            />
-          </div>
-        </div>
-      </section>
-
       <section className="rounded-[20px] border border-slate-700/70 bg-slate-950/55 p-3 sm:rounded-[24px] sm:p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">題目列表</p>
-          </div>
+        <div className="flex items-center justify-end gap-3">
           <span className="rounded-full border border-slate-600/70 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-200">
             {recaps.length} 題
           </span>
@@ -1662,7 +1505,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                 className={`group relative w-full cursor-pointer overflow-hidden rounded-[18px] border px-3 py-3 text-left transition ${
                   active
                     ? "border-amber-300/48 bg-amber-500/10 shadow-[0_18px_30px_-26px_rgba(245,158,11,0.75)]"
-                    : "border-slate-700/70 bg-slate-900/55 hover:-translate-y-0.5 hover:border-amber-300/35 hover:bg-slate-900/68"
+                    : "border-slate-700/70 bg-slate-900/55 hover:border-amber-300/35 hover:bg-slate-900/68"
                 }`}
               >
                 {active ? (
@@ -1740,7 +1583,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                   rankedParticipants={rankedParticipants}
                   selectedParticipant={selectedParticipant}
                   meClientId={meClientId}
-                  onSelect={setSelectedParticipantId}
+                  onSelect={handleSelectParticipant}
                   minWidthClassName="min-w-[168px]"
                 />
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${selectedResultMeta.textClassName} ${selectedResultMeta.softBgClassName}`}>

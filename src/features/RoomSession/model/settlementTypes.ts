@@ -77,6 +77,7 @@ export interface RoomSettlementHistorySummary {
     userId?: string | null;
     clientIdSnapshot?: string | null;
     usernameSnapshot: string | null;
+    avatarUrl?: string | null;
     finalScore: number;
     maxCombo: number;
     correctCount: number;

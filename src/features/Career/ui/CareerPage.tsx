@@ -15,8 +15,8 @@ import HistoryReplayDialog from "@features/Settlement/ui/components/roomHistoryP
 
 const CareerPageSkeleton: React.FC = () => {
   return (
-    <div className="h-full min-h-0 space-y-3 overflow-y-auto pr-1">
-      <div className="rounded-[26px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.94),rgba(8,7,5,0.98))] p-4">
+    <div className="h-full min-h-0 space-y-2 overflow-y-auto pr-0.5 sm:space-y-3 sm:pr-1">
+      <div className="rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.94),rgba(8,7,5,0.98))] p-3 sm:rounded-[26px] sm:p-4">
         <div className="flex items-center gap-3">
           <div className="h-14 w-14 animate-pulse rounded-2xl bg-white/10" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -61,7 +61,7 @@ const CareerPage: React.FC = () => {
   const isInitialLoading = overviewQuery.isLoading && !overviewQuery.error;
 
   return (
-    <main className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden px-1 pb-1 sm:px-0">
+    <main className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden px-0 pb-1 sm:px-0">
       {isInitialLoading ? (
         <CareerPageSkeleton />
       ) : (
@@ -78,8 +78,8 @@ const CareerPage: React.FC = () => {
             onEditProfile={openProfileEditor}
           />
 
-          <div className="mt-2 shrink-0 pb-2">
-            <div className="rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.98),rgba(8,7,5,0.99))] p-1.5 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
+          <div className="mt-1.5 shrink-0 pb-1.5 sm:mt-2 sm:pb-2">
+            <div className="rounded-[18px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.98),rgba(8,7,5,0.99))] p-1 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:rounded-[20px] sm:p-1.5">
               <CareerTabs
                 activeTab={activeTab}
                 onChange={setActiveTab}
@@ -88,11 +88,11 @@ const CareerPage: React.FC = () => {
           </div>
 
           <section
-            className="mt-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            className="mt-0.5 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden sm:mt-1"
             aria-live="polite"
           >
             {activeTab === "overview" && (
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+              <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch] sm:pr-1">
                 <CareerOverviewTab
                   composite={overviewQuery.data.composite}
                   compositeScopes={overviewQuery.data.compositeScopes}
@@ -108,7 +108,7 @@ const CareerPage: React.FC = () => {
             )}
 
             {activeTab === "collectionRanks" && (
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+              <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch] sm:pr-1">
                 <CareerCollectionRanksTab
                   items={collectionRanksQuery.items}
                   sortKey={collectionRanksQuery.sortKey}

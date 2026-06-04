@@ -99,15 +99,18 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
   const highlightRowCount = Math.max(1, Math.ceil(highlights.length / 2));
 
   return (
-    <CareerSurface className="flex min-h-[360px] flex-1 flex-col xl:min-h-[420px]">
-      <div className="flex shrink-0 items-center justify-between gap-3">
+    <CareerSurface className="flex min-h-0 flex-1 flex-col sm:min-h-[360px] xl:min-h-[420px]">
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div>
           <h3 className="text-base font-semibold tracking-tight text-[var(--mc-text)]">
             綜合表現
           </h3>
         </div>
 
-        <div ref={scopeMenuRef} className="relative min-w-[190px]">
+        <div
+          ref={scopeMenuRef}
+          className="relative w-full sm:w-auto sm:min-w-[190px]"
+        >
           <button
             type="button"
             aria-haspopup="menu"
@@ -162,7 +165,7 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
         </div>
       </div>
 
-      <div className="mt-2.5 grid shrink-0 grid-cols-2 gap-2 lg:grid-cols-5">
+      <div className="mt-2.5 grid shrink-0 grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-5">
         {stats.map((stat) => (
           <div
             key={stat.label}
@@ -171,16 +174,16 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
             <div className="text-[11px] tracking-[0.12em] text-[var(--mc-text-muted)]">
               {stat.label}
             </div>
-            <div className="mt-0.5 truncate text-base font-semibold text-[var(--mc-text)]">
+            <div className="mt-0.5 truncate text-[15px] font-semibold text-[var(--mc-text)] sm:text-base">
               {stat.value}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-2.5 flex min-h-[112px] flex-1 flex-col overflow-hidden rounded-[18px] bg-black/16 p-2.5">
+      <div className="mt-2.5 flex min-h-[128px] flex-1 flex-col overflow-hidden rounded-[16px] bg-black/16 p-2 sm:min-h-[112px] sm:rounded-[18px] sm:p-2.5">
         <div
-          className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-hidden"
+          className="grid min-h-0 flex-1 grid-cols-2 gap-1.5 overflow-hidden sm:gap-2"
           style={{
             gridTemplateRows:
               highlights.length > 0
@@ -192,7 +195,7 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
             highlights.map((item) => (
               <div
                 key={`${item.key}-${item.label}`}
-                className={`flex min-h-0 flex-col justify-between overflow-hidden rounded-[16px] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
+                className={`flex min-h-0 flex-col justify-between overflow-hidden rounded-[14px] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-[16px] sm:p-2.5 ${
                   highlightToneClassByKey[item.key]
                 }`}
               >
@@ -200,11 +203,11 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
                   {item.label}
                 </div>
 
-                <div className="mt-0.5 truncate text-base font-semibold text-white xl:text-lg">
+                <div className="mt-0.5 truncate text-sm font-semibold text-white sm:text-base xl:text-lg">
                   {item.value}
                 </div>
 
-                <div className="mt-1 truncate text-xs text-slate-200/75">
+                <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-200/75 sm:truncate sm:text-xs">
                   {item.subtitle}
                 </div>
               </div>

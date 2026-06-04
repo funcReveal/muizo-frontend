@@ -22,6 +22,8 @@ type MuizoSelectProps = {
   value: string;
   options: MuizoSelectOption[];
   placeholder: string;
+  tone?: "default" | "casual" | "leaderboard";
+  size?: "default" | "compact";
   disabled?: boolean;
   loading?: boolean;
   emptyText?: string;
@@ -37,6 +39,8 @@ export default function MuizoSelect({
   value,
   options,
   placeholder,
+  tone = "default",
+  size = "default",
   disabled = false,
   loading = false,
   emptyText = "No options available",
@@ -49,6 +53,42 @@ export default function MuizoSelect({
 }: MuizoSelectProps) {
   const selectedOption = options.find((option) => option.value === value);
   const hasError = Boolean(errorText);
+  const isCompact = size === "compact";
+  const toneStyles = {
+    default: {
+      hoverRing: "rgba(34, 211, 238, 0.16)",
+      hoverBorder: "rgba(34, 211, 238, 0.34)",
+      hoverShadow: "rgba(8, 47, 73, 0.2)",
+      focusRing: "rgba(251, 191, 36, 0.28)",
+      focusBorder: "rgba(251, 191, 36, 0.72)",
+      focusShadow: "rgba(120, 53, 15, 0.18)",
+      selectedBg: "rgba(251, 191, 36, 0.14)",
+      selectedHoverBg: "rgba(251, 191, 36, 0.2)",
+      optionHoverBg: "rgba(34, 211, 238, 0.1)",
+    },
+    casual: {
+      hoverRing: "rgba(45, 212, 191, 0.18)",
+      hoverBorder: "rgba(45, 212, 191, 0.42)",
+      hoverShadow: "rgba(20, 184, 166, 0.18)",
+      focusRing: "rgba(45, 212, 191, 0.28)",
+      focusBorder: "rgba(45, 212, 191, 0.72)",
+      focusShadow: "rgba(20, 184, 166, 0.2)",
+      selectedBg: "rgba(45, 212, 191, 0.14)",
+      selectedHoverBg: "rgba(45, 212, 191, 0.22)",
+      optionHoverBg: "rgba(45, 212, 191, 0.1)",
+    },
+    leaderboard: {
+      hoverRing: "rgba(251, 191, 36, 0.18)",
+      hoverBorder: "rgba(251, 191, 36, 0.42)",
+      hoverShadow: "rgba(180, 83, 9, 0.18)",
+      focusRing: "rgba(251, 191, 36, 0.3)",
+      focusBorder: "rgba(251, 191, 36, 0.74)",
+      focusShadow: "rgba(120, 53, 15, 0.22)",
+      selectedBg: "rgba(251, 191, 36, 0.14)",
+      selectedHoverBg: "rgba(251, 191, 36, 0.22)",
+      optionHoverBg: "rgba(251, 191, 36, 0.1)",
+    },
+  }[tone];
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     onChange(event.target.value);
@@ -80,16 +120,26 @@ export default function MuizoSelect({
             }
 
             return (
-              <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={`flex min-w-0 items-center ${
+                  isCompact ? "gap-2.5" : "gap-3"
+                }`}
+              >
                 {selectedOption.hideThumbnail ? null : selectedOption.thumbnail ? (
                   <img
                     src={selectedOption.thumbnail}
                     alt=""
-                    className="h-9 w-12 shrink-0 rounded-lg object-cover"
+                    className={`shrink-0 rounded-lg object-cover ${
+                      isCompact ? "h-8 w-11" : "h-9 w-12"
+                    }`}
                     loading="lazy"
                   />
                 ) : (
-                  <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 text-[11px] font-semibold text-[var(--mc-text-muted)]">
+                  <div
+                    className={`flex shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 text-[11px] font-semibold text-[var(--mc-text-muted)] ${
+                      isCompact ? "h-8 w-11" : "h-9 w-12"
+                    }`}
+                  >
                     YT
                   </div>
                 )}
@@ -138,8 +188,8 @@ export default function MuizoSelect({
             },
           }}
           sx={{
-            minHeight: 54,
-            borderRadius: "20px",
+            minHeight: isCompact ? 44 : 54,
+            borderRadius: isCompact ? "16px" : "20px",
             backgroundColor: "rgba(2, 6, 23, 0.32)",
             color: "var(--mc-text)",
             cursor: disabled || loading ? "not-allowed" : "pointer",
@@ -151,10 +201,13 @@ export default function MuizoSelect({
             "& .MuiSelect-select": {
               display: "flex",
               alignItems: "center",
-              minHeight: "54px",
+              minHeight: isCompact ? "44px" : "54px",
               cursor: disabled || loading ? "not-allowed" : "pointer",
-              py: 0.75,
-              pr: "44px !important",
+              py: isCompact ? 0.35 : 0.75,
+              pr: isCompact ? "38px !important" : "44px !important",
+            },
+            "& .MuiSelect-select, & .MuiSelect-select *": {
+              cursor: disabled || loading ? "not-allowed" : "pointer",
             },
             "& input": {
               cursor: disabled || loading ? "not-allowed" : "pointer",
@@ -169,28 +222,28 @@ export default function MuizoSelect({
               backgroundColor: "rgba(15, 23, 42, 0.52)",
               boxShadow: hasError
                 ? "0 0 0 1px rgba(248, 113, 113, 0.26), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                : "0 0 0 1px rgba(34, 211, 238, 0.16), 0 16px 34px rgba(8, 47, 73, 0.2)",
+                : `0 0 0 1px ${toneStyles.hoverRing}, 0 16px 34px ${toneStyles.hoverShadow}`,
             },
             "&:hover .MuiOutlinedInput-notchedOutline": {
               borderColor: hasError
                 ? "rgba(248, 113, 113, 0.66)"
-                : "rgba(34, 211, 238, 0.34)",
+                : toneStyles.hoverBorder,
             },
             "&.Mui-focused": {
               backgroundColor: "rgba(15, 23, 42, 0.62)",
               boxShadow: hasError
                 ? "0 0 0 1px rgba(248, 113, 113, 0.28), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                : "0 0 0 1px rgba(251, 191, 36, 0.28), 0 18px 38px rgba(120, 53, 15, 0.18)",
+                : `0 0 0 1px ${toneStyles.focusRing}, 0 18px 38px ${toneStyles.focusShadow}`,
             },
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
               borderColor: hasError
                 ? "rgba(248, 113, 113, 0.72)"
-                : "rgba(251, 191, 36, 0.72)",
+                : toneStyles.focusBorder,
             },
             "& .MuiSelect-icon": {
               color: "var(--mc-text-muted)",
               pointerEvents: "none",
-              right: 14,
+              right: isCompact ? 10 : 14,
             },
             "&.Mui-disabled": {
               opacity: 0.68,
@@ -232,26 +285,36 @@ export default function MuizoSelect({
                   py: 1,
                   color: "var(--mc-text)",
                   "&.Mui-selected": {
-                    backgroundColor: "rgba(251, 191, 36, 0.14)",
+                    backgroundColor: toneStyles.selectedBg,
                   },
                   "&.Mui-selected:hover": {
-                    backgroundColor: "rgba(251, 191, 36, 0.2)",
+                    backgroundColor: toneStyles.selectedHoverBg,
                   },
                   "&:hover": {
-                    backgroundColor: "rgba(34, 211, 238, 0.1)",
+                    backgroundColor: toneStyles.optionHoverBg,
                   },
                 }}
               >
-                <div className="flex min-w-0 w-full items-center gap-3">
+                <div
+                  className={`flex min-w-0 w-full items-center ${
+                    isCompact ? "gap-2.5" : "gap-3"
+                  }`}
+                >
                   {option.hideThumbnail ? null : option.thumbnail ? (
                     <img
                       src={option.thumbnail}
                       alt=""
-                      className="h-10 w-14 shrink-0 rounded-xl object-cover"
+                      className={`shrink-0 rounded-xl object-cover ${
+                        isCompact ? "h-9 w-12" : "h-10 w-14"
+                      }`}
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 text-[11px] font-semibold text-[var(--mc-text-muted)]">
+                    <div
+                      className={`flex shrink-0 items-center justify-center rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/70 text-[11px] font-semibold text-[var(--mc-text-muted)] ${
+                        isCompact ? "h-9 w-12" : "h-10 w-14"
+                      }`}
+                    >
                       YT
                     </div>
                   )}

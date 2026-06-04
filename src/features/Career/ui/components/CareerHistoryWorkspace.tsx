@@ -34,6 +34,7 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
     historyCollectionFilterId,
     setHistoryCollectionFilterId,
     historyCollectionFilterOptions,
+    modeHistoryItemCount,
     totalHistoryItemCount,
     selectedSummary,
     selectedRelatedSummaries,
@@ -53,17 +54,24 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
   const hasVisibleHistoryItems = groupedHistoryItems.length > 0;
   const isFilteredEmpty =
     shouldShowFilterBar && totalHistoryItemCount > 0 && !hasVisibleHistoryItems;
+  const handleModeFilterChange = React.useCallback(
+    (value: "all" | "casual" | "leaderboard") => {
+      setHistoryModeFilter(value);
+      setHistoryCollectionFilterId("all");
+    },
+    [setHistoryCollectionFilterId, setHistoryModeFilter],
+  );
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col gap-4">
+    <div className="relative flex h-full min-h-0 flex-col gap-2.5 sm:gap-4">
       {shouldShowFilterBar && (
         <CareerHistoryFilterBar
           modeFilter={historyModeFilter}
-          onModeFilterChange={setHistoryModeFilter}
+          onModeFilterChange={handleModeFilterChange}
           collectionFilterId={historyCollectionFilterId}
           onCollectionFilterChange={setHistoryCollectionFilterId}
           collectionOptions={historyCollectionFilterOptions}
-          totalCount={totalHistoryItemCount}
+          modeCount={modeHistoryItemCount}
         />
       )}
 
@@ -170,46 +178,26 @@ type CareerHistoryFilterBarProps = {
     matchCount: number;
     thumbnail?: string | null;
   }>;
-  totalCount: number;
+  modeCount: number;
 };
 
 const modeFilterOptions: Array<{
   value: "all" | "casual" | "leaderboard";
   label: string;
-  className: string;
 }> = [
   {
     value: "all",
     label: "全部",
-    className:
-      "border-stone-300/18 text-stone-200 hover:border-stone-300/34 hover:bg-stone-300/8",
   },
   {
     value: "casual",
-    label: "休閒",
-    className:
-      "border-emerald-300/20 text-emerald-100 hover:border-emerald-300/42 hover:bg-emerald-300/10",
+    label: "休閒派對",
   },
   {
     value: "leaderboard",
-    label: "排行",
-    className:
-      "border-amber-300/20 text-amber-100 hover:border-amber-300/42 hover:bg-amber-300/10",
+    label: "排行挑戰",
   },
 ];
-
-const getModeFilterActiveClassName = (
-  value: CareerHistoryFilterBarProps["modeFilter"],
-) => {
-  switch (value) {
-    case "casual":
-      return "border-emerald-300/48 bg-emerald-300/14 text-emerald-50 shadow-[0_12px_26px_-22px_rgba(52,211,153,0.7)]";
-    case "leaderboard":
-      return "border-amber-300/48 bg-amber-300/14 text-amber-50 shadow-[0_12px_26px_-22px_rgba(245,158,11,0.7)]";
-    default:
-      return "border-stone-200/34 bg-stone-200/10 text-stone-50";
-  }
-};
 
 const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
   modeFilter,
@@ -217,14 +205,27 @@ const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
   collectionFilterId,
   onCollectionFilterChange,
   collectionOptions,
-  totalCount,
+  modeCount,
 }) => {
+  const modeSelectOptions: MuizoSelectOption[] = modeFilterOptions.map(
+    (option) => ({
+      value: option.value,
+      label: option.label,
+      hideThumbnail: true,
+    }),
+  );
+  const modeSelectTone =
+    modeFilter === "casual"
+      ? "casual"
+      : modeFilter === "leaderboard"
+        ? "leaderboard"
+        : "default";
   const collectionSelectOptions: MuizoSelectOption[] = [
     {
       value: "all",
       label: "全部收藏庫",
       hideThumbnail: true,
-      meta: `${totalCount} 筆`,
+      meta: `${modeCount} 筆`,
     },
     ...collectionOptions.map((option) => ({
       value: option.id,
@@ -235,36 +236,29 @@ const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
   ];
 
   return (
-    <section className="shrink-0 rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.92),rgba(8,7,5,0.98))] px-3 py-3 shadow-[0_16px_32px_-28px_rgba(0,0,0,0.72)]">
+    <section className="shrink-0 rounded-[18px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.92),rgba(8,7,5,0.98))] px-2.5 py-2.5 shadow-[0_16px_32px_-28px_rgba(0,0,0,0.72)] sm:rounded-[20px] sm:px-3 sm:py-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {modeFilterOptions.map((option) => {
-            const active = modeFilter === option.value;
+        <div className="grid min-w-0 gap-2 sm:grid-cols-[220px_minmax(260px,320px)] lg:ml-auto">
+          <MuizoSelect
+            value={modeFilter}
+            options={modeSelectOptions}
+            placeholder="選擇模式"
+            tone={modeSelectTone}
+            size="compact"
+            className="min-w-0"
+            onChange={(value) =>
+              onModeFilterChange(
+                value as CareerHistoryFilterBarProps["modeFilter"],
+              )
+            }
+          />
 
-            return (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onModeFilterChange(option.value)}
-                className={`inline-flex h-9 items-center justify-center rounded-[12px] border px-3 text-sm font-semibold transition ${
-                  active
-                    ? getModeFilterActiveClassName(option.value)
-                    : option.className
-                }`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           <MuizoSelect
             value={collectionFilterId}
             options={collectionSelectOptions}
             placeholder="選擇收藏庫"
-            className="min-w-0 sm:w-[320px]"
+            size="compact"
+            className="min-w-0"
             onChange={onCollectionFilterChange}
           />
         </div>

@@ -40,6 +40,7 @@ const HISTORY_GUARD_BLOCK_MS = 30_000;
 type HistoryListMeta = {
   collectionOptions?: CareerHistoryCollectionFilterOption[];
   filteredCount?: number;
+  modeCount?: number;
   totalCount?: number;
 };
 
@@ -68,6 +69,7 @@ type HistoryListCachePayload = {
   nextCursorToken?: string | null;
   collectionOptions?: CareerHistoryCollectionFilterOption[];
   filteredCount?: number;
+  modeCount?: number;
   totalCount?: number;
 };
 
@@ -270,6 +272,7 @@ export const useCareerHistoryWorkspace = () => {
     setHistoryCollectionFilterOptions,
   ] = useState<CareerHistoryCollectionFilterOption[]>([]);
   const [filteredHistoryItemCount, setFilteredHistoryItemCount] = useState(0);
+  const [modeHistoryItemCount, setModeHistoryItemCount] = useState(0);
   const [totalHistoryItemCount, setTotalHistoryItemCount] = useState(0);
 
   const inFlightReplayMatchIdsRef = useRef<Set<string>>(new Set());
@@ -445,6 +448,14 @@ export const useCareerHistoryWorkspace = () => {
           Number.isFinite(parsed.filteredCount)
             ? parsed.filteredCount
             : parsed.items.length,
+        modeCount:
+          typeof parsed.modeCount === "number" &&
+          Number.isFinite(parsed.modeCount)
+            ? parsed.modeCount
+            : typeof parsed.filteredCount === "number" &&
+                Number.isFinite(parsed.filteredCount)
+              ? parsed.filteredCount
+              : parsed.items.length,
         totalCount:
           typeof parsed.totalCount === "number" &&
           Number.isFinite(parsed.totalCount)
@@ -476,6 +487,7 @@ export const useCareerHistoryWorkspace = () => {
           nextCursorToken: nextPageCursorToken,
           collectionOptions: meta?.collectionOptions,
           filteredCount: meta?.filteredCount,
+          modeCount: meta?.modeCount,
           totalCount: meta?.totalCount,
         };
         window.sessionStorage.setItem(
@@ -632,6 +644,14 @@ export const useCareerHistoryWorkspace = () => {
             Number.isFinite(payload.data.meta.filteredCount)
               ? payload.data.meta.filteredCount
               : payload.data.items.length,
+          modeCount:
+            typeof payload.data.meta?.modeCount === "number" &&
+            Number.isFinite(payload.data.meta.modeCount)
+              ? payload.data.meta.modeCount
+              : typeof payload.data.meta?.filteredCount === "number" &&
+                  Number.isFinite(payload.data.meta.filteredCount)
+                ? payload.data.meta.filteredCount
+                : payload.data.items.length,
           totalCount:
             typeof payload.data.meta?.totalCount === "number" &&
             Number.isFinite(payload.data.meta.totalCount)
@@ -715,6 +735,7 @@ export const useCareerHistoryWorkspace = () => {
       setNextCursorToken(cachedItems.nextCursorToken);
       setHistoryCollectionFilterOptions(cachedItems.collectionOptions);
       setFilteredHistoryItemCount(cachedItems.filteredCount);
+      setModeHistoryItemCount(cachedItems.modeCount);
       setTotalHistoryItemCount(cachedItems.totalCount);
       setLoadingList(false);
       setListError(null);
@@ -745,6 +766,7 @@ export const useCareerHistoryWorkspace = () => {
         setNextCursorToken(page.nextCursorToken);
         setHistoryCollectionFilterOptions(page.meta.collectionOptions ?? []);
         setFilteredHistoryItemCount(page.meta.filteredCount ?? page.items.length);
+        setModeHistoryItemCount(page.meta.modeCount ?? page.items.length);
         setTotalHistoryItemCount(page.meta.totalCount ?? page.items.length);
         writeHistoryListCache(page.items, page.nextCursorToken, page.meta);
         setListError(null);
@@ -821,6 +843,7 @@ export const useCareerHistoryWorkspace = () => {
       setNextCursorToken(page.nextCursorToken);
       setHistoryCollectionFilterOptions(page.meta.collectionOptions ?? []);
       setFilteredHistoryItemCount(page.meta.filteredCount ?? mergedItems.length);
+      setModeHistoryItemCount(page.meta.modeCount ?? mergedItems.length);
       setTotalHistoryItemCount(page.meta.totalCount ?? mergedItems.length);
       writeHistoryListCache(mergedItems, page.nextCursorToken, page.meta);
       setListError(null);
@@ -1076,6 +1099,8 @@ export const useCareerHistoryWorkspace = () => {
     if (!selectedSummary) return [];
 
     const targetGroupKey = getCareerHistoryGroupKeyFromSummary(selectedSummary);
+    const targetCollectionId = selectedSummary.collectionId?.trim() || null;
+    const targetPlayMode = selectedSummary.playMode ?? null;
     const matchedGroup = groupedHistoryItems.find((group) => {
       const groupSeed = group.items[0];
       return (
@@ -1084,7 +1109,22 @@ export const useCareerHistoryWorkspace = () => {
       );
     });
 
-    return matchedGroup?.items ?? [selectedSummary];
+    const relatedItems = matchedGroup?.items ?? [selectedSummary];
+    const scopedItems =
+      targetCollectionId || targetPlayMode
+        ? relatedItems.filter((item) => {
+            const itemCollectionId = item.collectionId?.trim() || null;
+            if (targetCollectionId && itemCollectionId !== targetCollectionId) {
+              return false;
+            }
+            if (targetPlayMode && item.playMode !== targetPlayMode) {
+              return false;
+            }
+            return true;
+          })
+        : relatedItems;
+
+    return scopedItems.length > 0 ? scopedItems : [selectedSummary];
   }, [groupedHistoryItems, selectedSummary]);
 
   useEffect(() => {
@@ -1198,6 +1238,7 @@ export const useCareerHistoryWorkspace = () => {
     setHistoryCollectionFilterId,
     historyCollectionFilterOptions,
     filteredHistoryItemCount,
+    modeHistoryItemCount,
     totalHistoryItemCount,
     isGroupCollapsed,
     toggleGroup,

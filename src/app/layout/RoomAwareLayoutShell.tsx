@@ -74,7 +74,11 @@ const RoomAwareLayoutShell: React.FC = () => {
     >
       <div
         className={`flex w-full min-w-0 ${
-          isGameMode ? "max-w-none px-3 pt-3 xl:px-5" : "p-4"
+          isGameMode
+            ? "max-w-none px-3 pt-3 xl:px-5"
+            : isCareerPage
+              ? "px-2 pb-2 pt-3 sm:p-4"
+              : "p-4"
         } flex-col ${isRoomsHubPage ? "space-y-2" : "space-y-4"}${
           currentRoom && isMobileViewport ? " pb-4" : ""
         } ${

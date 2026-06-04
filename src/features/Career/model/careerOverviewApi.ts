@@ -259,9 +259,13 @@ export const fetchCareerCollectionRanks = async ({
     coverThumbnailUrl: item.coverThumbnailUrl ?? null,
     sourceLabel: item.sourceLabel ?? null,
     matchSummary: item.matchSummary ?? null,
+    matchSummaries: Array.isArray(item.matchSummaries)
+      ? item.matchSummaries
+      : [],
     recentRank: item.recentRank ?? null,
     recentPlayerCount: item.recentPlayerCount ?? null,
     previousLeaderboardRank: item.previousLeaderboardRank ?? null,
     delta: item.delta ?? null,
+    matchScore: item.matchScore ?? item.matchSummary?.selfPlayer?.finalScore ?? null,
   }));
 };

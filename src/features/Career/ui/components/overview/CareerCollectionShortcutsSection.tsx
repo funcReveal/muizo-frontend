@@ -48,7 +48,7 @@ const CareerCollectionShortcutsSection: React.FC<
   };
 
   return (
-    <CareerSurface className="flex min-h-[360px] flex-1 flex-col xl:min-h-[420px]">
+    <CareerSurface className="flex min-h-0 flex-1 flex-col sm:min-h-[360px] xl:min-h-[420px]">
       <div className="flex shrink-0 items-center justify-between gap-3">
         <h3 className="text-base font-semibold tracking-tight text-[var(--mc-text)]">
           近期遊玩
@@ -64,7 +64,7 @@ const CareerCollectionShortcutsSection: React.FC<
       </div>
 
       <div
-        className="mt-2.5 grid min-h-0 flex-1 gap-2 overflow-hidden"
+        className="mt-2.5 flex min-h-0 gap-2 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] sm:grid sm:flex-1 sm:overflow-hidden sm:pb-0 [&::-webkit-scrollbar]:hidden"
         style={{
           gridTemplateRows: "repeat(6, minmax(0, 1fr))",
         }}
@@ -81,7 +81,7 @@ const CareerCollectionShortcutsSection: React.FC<
                 }
                 onOpenCollectionRanks();
               }}
-              className="grid h-full min-h-0 w-full grid-cols-[76px_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.04] text-left transition hover:border-amber-200/20 hover:bg-white/[0.06]"
+              className="grid h-[132px] min-h-0 w-[274px] shrink-0 grid-cols-[86px_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.04] text-left transition hover:border-amber-200/20 hover:bg-white/[0.06] sm:h-full sm:w-full sm:grid-cols-[76px_minmax(0,1fr)]"
             >
               <div className="relative h-full min-h-0 overflow-hidden bg-[linear-gradient(135deg,rgba(245,158,11,0.24),rgba(15,23,42,0.58))]">
                 {item.coverThumbnailUrl ? (
@@ -135,7 +135,7 @@ const CareerCollectionShortcutsSection: React.FC<
           ) : (
             <div
               key={key}
-              className="grid h-full min-h-0 w-full grid-cols-[76px_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-dashed border-white/8 bg-white/[0.018]"
+              className="hidden h-full min-h-0 w-full grid-cols-[76px_minmax(0,1fr)] overflow-hidden rounded-[14px] border border-dashed border-white/8 bg-white/[0.018] sm:grid"
             >
               <div className="h-full min-h-0 bg-white/[0.025]" />
               <div className="flex min-h-0 min-w-0 items-center px-2.5 text-[11px] text-[var(--mc-text-muted)]/60">

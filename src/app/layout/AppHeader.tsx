@@ -125,20 +125,47 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     [],
   );
 
+  const handleNavigateCareer = () => {
+    if (!isCareerFeatureEnabled) return;
+
+    handleMenuClose();
+
+    if (isAnonymousVisitor) {
+      onLogin?.();
+      return;
+    }
+
+    if (onNavigateCareer) {
+      onNavigateCareer();
+      return;
+    }
+
+    navigate("/career");
+  };
+
+  const usesCareerAsProfileMenuItem = Boolean(authUser || hasGuestIdentity);
+
   const authMenuItems = authUser
     ? [
         <MenuItem
-          key="edit-profile"
+          key="profile-career"
           onClick={() => {
-            handleMenuClose();
-            onEditProfile?.();
+            handleNavigateCareer();
           }}
+          disabled={!isCareerFeatureEnabled}
           sx={menuItemSx}
         >
           <ListItemIcon sx={{ minWidth: 30, color: "#7dd3fc" }}>
             <ManageAccounts fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary="編輯個人資料" secondary="更新暱稱與頭像" />
+          <ListItemText
+            primary="個人資料"
+            secondary={
+              isCareerFeatureEnabled
+                ? "查看生涯紀錄、題庫戰績與編輯暱稱"
+                : "個人資料功能暫時維護中"
+            }
+          />
         </MenuItem>,
         <MenuItem
           key="logout"
@@ -157,19 +184,23 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     : hasGuestIdentity
       ? [
           <MenuItem
-            key="edit-guest-name"
+            key="guest-profile-career"
             onClick={() => {
-              handleMenuClose();
-              onEditProfile?.();
+              handleNavigateCareer();
             }}
+            disabled={!isCareerFeatureEnabled}
             sx={menuItemSx}
           >
             <ListItemIcon sx={{ minWidth: 30, color: "#fcd34d" }}>
               <ManageAccounts fontSize="small" />
             </ListItemIcon>
             <ListItemText
-              primary="編輯訪客暱稱"
-              secondary="更新你目前的訪客名稱"
+              primary="個人資料"
+              secondary={
+                isCareerFeatureEnabled
+                  ? "登入後查看完整紀錄，並可編輯暱稱"
+                  : "個人資料功能暫時維護中"
+              }
             />
           </MenuItem>,
           <MenuItem
@@ -209,24 +240,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             />
           </MenuItem>,
         ];
-
-  const handleNavigateCareer = () => {
-    if (!isCareerFeatureEnabled) return;
-
-    handleMenuClose();
-
-    if (isAnonymousVisitor) {
-      onLogin?.();
-      return;
-    }
-
-    if (onNavigateCareer) {
-      onNavigateCareer();
-      return;
-    }
-
-    navigate("/career");
-  };
 
   return (
     <header className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-2 text-(--mc-text) sm:gap-x-4 md:flex-nowrap">
@@ -463,52 +476,55 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               )
             )}
 
-            <MenuItem
-              disabled={!isCareerFeatureEnabled}
-              onClick={handleNavigateCareer}
-              sx={menuItemSx}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: 30,
-                  color: !isCareerFeatureEnabled
-                    ? "rgba(148, 163, 184, 0.55)"
-                    : isAnonymousVisitor
-                      ? "#f59e0b"
-                      : "#7dd3fc",
-                }}
+            {!usesCareerAsProfileMenuItem && (
+              <MenuItem
+                disabled={!isCareerFeatureEnabled}
+                onClick={handleNavigateCareer}
+                sx={menuItemSx}
               >
-                <HistoryEdu fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary={
-                  !isCareerFeatureEnabled ? (
-                    "生涯紀錄"
-                  ) : isAnonymousVisitor ? (
-                    <Box
-                      component="span"
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.7,
-                      }}
-                    >
-                      <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                      生涯紀錄
-                    </Box>
-                  ) : (
-                    (careerMenuLabel ?? "生涯紀錄")
-                  )
-                }
-                secondary={
-                  !isCareerFeatureEnabled
-                    ? "功能暫時維護中"
-                    : isAnonymousVisitor
-                    ? "登入或建立訪客身分後可查看戰績"
-                    : (careerMenuDescription ?? "查看總覽、題庫戰績與對戰歷史")
-                }
-              />
-            </MenuItem>
+                <ListItemIcon
+                  sx={{
+                    minWidth: 30,
+                    color: !isCareerFeatureEnabled
+                      ? "rgba(148, 163, 184, 0.55)"
+                      : isAnonymousVisitor
+                        ? "#f59e0b"
+                        : "#7dd3fc",
+                  }}
+                >
+                  <HistoryEdu fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    !isCareerFeatureEnabled ? (
+                      "個人資料"
+                    ) : isAnonymousVisitor ? (
+                      <Box
+                        component="span"
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.7,
+                        }}
+                      >
+                        <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
+                        個人資料
+                      </Box>
+                    ) : (
+                      (careerMenuLabel ?? "個人資料")
+                    )
+                  }
+                  secondary={
+                    !isCareerFeatureEnabled
+                      ? "個人資料功能暫時維護中"
+                      : isAnonymousVisitor
+                        ? "登入後可查看生涯紀錄與題庫戰績"
+                        : (careerMenuDescription ??
+                          "查看生涯紀錄、題庫戰績與編輯暱稱")
+                  }
+                />
+              </MenuItem>
+            )}
           </MenuList>
 
           {!isAnonymousVisitor && (

@@ -23,10 +23,9 @@ const CareerCollectionRankDetailDrawer: React.FC<
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const handleOpenMatch = React.useCallback(
     (summary: RoomSettlementHistorySummary) => {
-      onClose();
       onOpenMatch(summary);
     },
-    [onClose, onOpenMatch],
+    [onOpenMatch],
   );
 
   React.useEffect(() => {

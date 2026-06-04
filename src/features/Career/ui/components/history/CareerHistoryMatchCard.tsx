@@ -1,6 +1,5 @@
 import {
   AccessTime,
-  ChevronRightRounded,
   EmojiEvents,
   Groups2Rounded,
   LibraryMusic,
@@ -105,10 +104,10 @@ const cardToneClassName = [
 ].join(" ");
 
 const metricChipClassName =
-  "inline-flex items-center justify-between gap-2 rounded-[12px] border border-stone-300/14 bg-white/[0.035] px-2.5 py-1.5 text-stone-100";
+  "flex min-w-0 flex-col rounded-[12px] border border-stone-300/14 bg-white/[0.035] px-2 py-1.5 text-stone-100 sm:inline-flex sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:px-2.5";
 
 const metricLabelClassName =
-  "mr-1.5 text-[11px] font-medium text-stone-100/58";
+  "truncate text-[10px] font-medium text-stone-100/58 sm:mr-1.5 sm:text-[11px]";
 
 const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
   item,
@@ -147,7 +146,7 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
   return (
     <button
       type="button"
-      className={`group relative block w-full min-w-0 overflow-hidden rounded-[16px] border px-4 py-3 text-left transition duration-200 ${cardToneClassName}`}
+      className={`group relative block w-full min-w-0 overflow-hidden rounded-[15px] border px-3 py-3 text-left transition duration-200 sm:rounded-[16px] sm:px-4 ${cardToneClassName}`}
       onClick={() => onOpenReplay(item)}
       style={
         animationDelayMs
@@ -157,8 +156,8 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
     >
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent opacity-70 transition group-hover:opacity-100" />
 
-      <div className="flex min-w-0 gap-3">
-        <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-slate-900/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+      <div className="flex min-w-0 gap-2.5 sm:gap-3">
+        <div className="relative h-[66px] w-[66px] shrink-0 overflow-hidden rounded-[13px] border border-white/10 bg-slate-900/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[74px] sm:w-[74px] sm:rounded-[14px]">
           {coverThumbnailUrl ? (
             <img
               src={coverThumbnailUrl}
@@ -173,9 +172,9 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
           )}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
           <div className="min-w-0 pr-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div className="flex min-w-0 items-center gap-2">
               <span
                 className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
                   playMode === "leaderboard"
@@ -186,10 +185,12 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
                 {playMode === "leaderboard" ? "排行挑戰" : "休閒對戰"}
               </span>
 
-              <div className="min-w-0 truncate text-base font-semibold tracking-tight text-[var(--mc-text)]">
+              <div className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-[var(--mc-text)] sm:text-base">
                 {playlistTitle}
               </div>
+            </div>
 
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
               <span
                 className={`inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold ${
                   isYouTubeSource
@@ -233,8 +234,8 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
               </div>
             )}
 
-            <div className="mt-2 flex flex-wrap gap-1.5 text-sm font-semibold text-[var(--mc-text)]">
-              <span className={`w-[112px] ${metricChipClassName}`}>
+            <div className="mt-2 grid grid-cols-3 gap-1.5 text-xs font-semibold text-[var(--mc-text)] sm:flex sm:flex-wrap sm:text-sm">
+              <span className={`w-full sm:w-[112px] ${metricChipClassName}`}>
                 <span className={metricLabelClassName}>
                   分數
                 </span>
@@ -243,7 +244,7 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
                 </span>
               </span>
 
-              <span className={`w-[148px] ${metricChipClassName}`}>
+              <span className={`w-full sm:w-[148px] ${metricChipClassName}`}>
                 <span className={metricLabelClassName}>
                   答對率
                 </span>
@@ -252,7 +253,7 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
                 </span>
               </span>
 
-              <span className={`w-[112px] ${metricChipClassName}`}>
+              <span className={`w-full sm:w-[112px] ${metricChipClassName}`}>
                 <span className={metricLabelClassName}>
                   Combo
                 </span>
@@ -260,7 +261,7 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
               </span>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)]">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--mc-text-muted)] sm:text-[13px]">
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <AccessTime sx={{ fontSize: 16 }} />
                 <span>{formatCareerHistoryDuration(matchDurationMs)}</span>
@@ -270,15 +271,6 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
                 <span>{item.playerCount} 人</span>
               </span>
             </div>
-          </div>
-
-          <div className="shrink-0 self-start xl:self-center">
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-sky-300/30 bg-sky-300/10 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-sky-100 transition group-hover:border-sky-300/50 group-hover:bg-sky-300/18">
-              查看回顧
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-sky-300/40 bg-sky-300/12">
-                <ChevronRightRounded sx={{ fontSize: 15 }} />
-              </span>
-            </span>
           </div>
         </div>
       </div>
