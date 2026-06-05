@@ -2,7 +2,11 @@
 import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
+import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
 import HighlightOffRoundedIcon from "@mui/icons-material/HighlightOffRounded";
 import PlayCircleOutlineRoundedIcon from "@mui/icons-material/PlayCircleOutlineRounded";
 import RadioButtonCheckedRoundedIcon from "@mui/icons-material/RadioButtonCheckedRounded";
@@ -12,6 +16,7 @@ import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownR
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
 import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
+import Drawer from "@mui/material/Drawer";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -171,12 +176,16 @@ const PlayerPerspectivePicker: React.FC<{
   meClientId?: string;
   onSelect: (clientId: string) => void;
   minWidthClassName?: string;
+  resultMeta?: (typeof RESULT_META)[ParticipantResult];
+  getResultMeta?: (clientId: string) => (typeof RESULT_META)[ParticipantResult];
 }> = ({
   rankedParticipants,
   selectedParticipant,
   meClientId,
   onSelect,
   minWidthClassName = "min-w-[220px]",
+  resultMeta,
+  getResultMeta,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -205,11 +214,17 @@ const PlayerPerspectivePicker: React.FC<{
         />
         <span className="min-w-0 flex-1 truncate text-left">
           {selectedParticipant
-            ? `#${selectedRank ?? "-"} ${selectedParticipant.username}${
-                meClientId && selectedParticipant.clientId === meClientId ? "（你）" : ""
-              }`
+            ? `#${selectedRank ?? "-"} ${selectedParticipant.username}`
             : "選擇玩家"}
         </span>
+        {resultMeta ? (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${resultMeta.textClassName} ${resultMeta.softBgClassName}`}
+          >
+            {resultMeta.icon}
+            <span>{resultMeta.shortLabel}</span>
+          </span>
+        ) : null}
         <KeyboardArrowDownRoundedIcon sx={{ fontSize: 18, color: "rgb(148 163 184)" }} />
       </button>
       <Menu
@@ -218,10 +233,12 @@ const PlayerPerspectivePicker: React.FC<{
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
+        sx={{ zIndex: 1800 }}
         slotProps={{
           paper: {
             sx: {
               mt: 1,
+              zIndex: 1801,
               minWidth: 230,
               borderRadius: "16px",
               border: "1px solid rgba(71,85,105,0.7)",
@@ -237,6 +254,7 @@ const PlayerPerspectivePicker: React.FC<{
         {rankedParticipants.map((participant, index) => {
           const isSelected = participant.clientId === selectedParticipant?.clientId;
           const isMe = Boolean(meClientId && participant.clientId === meClientId);
+          const optionResultMeta = getResultMeta?.(participant.clientId);
           return (
             <MenuItem
               key={participant.clientId}
@@ -275,8 +293,15 @@ const PlayerPerspectivePicker: React.FC<{
               />
               <span className="min-w-0 flex-1 truncate text-sm">
                 #{index + 1} {participant.username}
-                {isMe ? "（你）" : ""}
               </span>
+              {optionResultMeta ? (
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${optionResultMeta.textClassName} ${optionResultMeta.softBgClassName}`}
+                >
+                  {optionResultMeta.icon}
+                  <span>{optionResultMeta.shortLabel}</span>
+                </span>
+              ) : null}
             </MenuItem>
           );
         })}
@@ -476,6 +501,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
       : rankedParticipants[0]?.clientId ?? null,
   );
   const [selectedRecapKey, setSelectedRecapKey] = useState<string | null>(null);
+  const [questionListDrawerOpen, setQuestionListDrawerOpen] = useState(false);
   const [previewAutoplayEnabled, setPreviewAutoplayEnabled] = useState<boolean>(() =>
     readStoredPreviewAutoplay(),
   );
@@ -492,7 +518,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const previewVolumeUpdateSourceRef = useRef<"app" | "iframe" | null>(null);
   const handleSelectParticipant = useCallback((clientId: string) => {
     setSelectedParticipantId(clientId);
-    setSelectedRecapKey(null);
   }, []);
   useEffect(() => {
     if (selectedParticipantId && participantMap[selectedParticipantId]) return;
@@ -502,6 +527,9 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
         : rankedParticipants[0]?.clientId ?? null,
     );
   }, [meClientId, participantMap, rankedParticipants, selectedParticipantId]);
+  useEffect(() => {
+    if (isWide) setQuestionListDrawerOpen(false);
+  }, [isWide]);
   const recaps = useMemo<ExtendedRecap[]>(() => {
     if (questionRecaps.length > 0) {
       return questionRecaps.map((recap) => {
@@ -557,6 +585,20 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const selectedRecap = resolvedSelectedRecapKey
     ? recaps.find((recap) => recap.key === resolvedSelectedRecapKey) ?? recaps[0] ?? null
     : null;
+  const selectedRecapIndex = selectedRecap
+    ? recaps.findIndex((recap) => recap.key === selectedRecap.key)
+    : -1;
+  const canSelectPreviousRecap = selectedRecapIndex > 0;
+  const canSelectNextRecap =
+    selectedRecapIndex >= 0 && selectedRecapIndex < recaps.length - 1;
+  const handleSelectRecapByIndex = useCallback(
+    (nextIndex: number) => {
+      const nextRecap = recaps[nextIndex];
+      if (!nextRecap) return;
+      setSelectedRecapKey(nextRecap.key);
+    },
+    [recaps],
+  );
   const selectedRecapTrack = useMemo(
     () => (selectedRecap ? resolveRecapTrack(selectedRecap, playlistItems) : null),
     [playlistItems, selectedRecap],
@@ -579,6 +621,13 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
             scoreGain: null,
           },
     [meClientId, resolvedParticipantId, selectedRecap],
+  );
+  const getParticipantResultMeta = useCallback(
+    (clientId: string) => {
+      if (!selectedRecap) return RESULT_META.unanswered;
+      return RESULT_META[getParticipantAnswer(selectedRecap, clientId, meClientId).result];
+    },
+    [meClientId, selectedRecap],
   );
   const selectedAnswerCorrectRank = useMemo(() => {
     if (!selectedRecap || !resolvedParticipantId) return null;
@@ -1140,11 +1189,9 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
                           selectedParticipant={selectedParticipant}
                           meClientId={meClientId}
                           onSelect={handleSelectParticipant}
+                          resultMeta={selectedResultMeta}
+                          getResultMeta={getParticipantResultMeta}
                         />
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${selectedResultMeta.textClassName} ${selectedResultMeta.softBgClassName}`}>
-                          {selectedResultMeta.icon}
-                          {selectedResultMeta.shortLabel}
-                      </span>
                     </div>
                   </div>
 
@@ -1484,66 +1531,143 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
 
   return (
     <div className="space-y-3 overflow-x-hidden sm:space-y-4">
-      <section className="rounded-[20px] border border-slate-700/70 bg-slate-950/55 p-3 sm:rounded-[24px] sm:p-4">
-        <div className="flex items-center justify-end gap-3">
-          <span className="rounded-full border border-slate-600/70 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-200">
-            {recaps.length} 題
-          </span>
-        </div>
-        <div className="mt-3 max-h-[222px] space-y-2 overflow-y-auto pr-1 sm:max-h-[280px]">
-          {recaps.map((recap) => {
-            const answer = getParticipantAnswer(recap, resolvedParticipantId, meClientId);
-            const resultMeta = RESULT_META[answer.result];
-            const active = selectedRecap?.key === recap.key;
-            return (
-              <button
-                key={recap.key}
-                type="button"
-                onClick={() => {
-                  setSelectedRecapKey(recap.key);
-                }}
-                className={`group relative w-full cursor-pointer overflow-hidden rounded-[18px] border px-3 py-3 text-left transition ${
-                  active
-                    ? "border-amber-300/48 bg-amber-500/10 shadow-[0_18px_30px_-26px_rgba(245,158,11,0.75)]"
-                    : "border-slate-700/70 bg-slate-900/55 hover:border-amber-300/35 hover:bg-slate-900/68"
-                }`}
-              >
-                {active ? (
-                  <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.42)]" />
-                ) : null}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-slate-400">Q{recap.order}</span>
-                    <span className={`inline-flex items-center gap-1.5 text-[11px] ${resultMeta.textClassName}`}>
-                      <span className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${resultMeta.dotClassName}`} />
-                      <span>{resultMeta.shortLabel}</span>
-                    </span>
+      <PlayerPerspectivePicker
+        rankedParticipants={rankedParticipants}
+        selectedParticipant={selectedParticipant}
+        meClientId={meClientId}
+        onSelect={handleSelectParticipant}
+        minWidthClassName="w-full min-w-0"
+        resultMeta={selectedResultMeta}
+        getResultMeta={getParticipantResultMeta}
+      />
+
+      <Drawer
+        anchor="bottom"
+        open={questionListDrawerOpen}
+        onClose={() => setQuestionListDrawerOpen(false)}
+        sx={{ zIndex: 1720 }}
+        PaperProps={{
+          className:
+            "!max-h-[78dvh] !overflow-hidden !rounded-t-[24px] !border-t !border-slate-700/75 !bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(5,9,18,0.99))] !text-slate-100",
+        }}
+      >
+        <div className="flex max-h-[78dvh] min-h-0 flex-col p-3">
+          <div className="flex items-center justify-between gap-3 px-1 pb-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-100">題目清單</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">{recaps.length} 題</p>
+            </div>
+            <button
+              type="button"
+              aria-label="關閉題目清單"
+              onClick={() => setQuestionListDrawerOpen(false)}
+              className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/[0.035] text-slate-300 transition hover:bg-white/8 hover:text-white"
+            >
+              <CloseRoundedIcon sx={{ fontSize: 18 }} />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            {recaps.map((recap) => {
+              const answer = getParticipantAnswer(recap, resolvedParticipantId, meClientId);
+              const resultMeta = RESULT_META[answer.result];
+              const active = selectedRecap?.key === recap.key;
+              return (
+                <button
+                  key={recap.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRecapKey(recap.key);
+                    setQuestionListDrawerOpen(false);
+                  }}
+                  className={`group relative w-full cursor-pointer overflow-hidden rounded-[18px] border px-3 py-3 text-left transition ${
+                    active
+                      ? "border-amber-300/48 bg-amber-500/10 shadow-[0_18px_30px_-26px_rgba(245,158,11,0.75)]"
+                      : "border-slate-700/70 bg-slate-900/55 hover:border-amber-300/35 hover:bg-slate-900/68"
+                  }`}
+                >
+                  {active ? (
+                    <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.42)]" />
+                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-slate-400">Q{recap.order}</span>
+                      <span className={`inline-flex items-center gap-1.5 text-[11px] ${resultMeta.textClassName}`}>
+                        <span className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${resultMeta.dotClassName}`} />
+                        <span>{resultMeta.shortLabel}</span>
+                      </span>
+                    </div>
+                    <HoverMarqueeText
+                      text={recap.title}
+                      className="mt-1 min-w-0 max-w-full text-sm font-semibold text-slate-100"
+                      autoRunOnTouch
+                    />
+                    <p className="mt-1 truncate text-[11px] text-slate-400">
+                      {recap.uploader || "未知作者"}
+                    </p>
                   </div>
-                  <HoverMarqueeText
-                    text={recap.title}
-                    className="mt-1 min-w-0 max-w-full text-sm font-semibold text-slate-100"
-                    autoRunOnTouch
-                  />
-                  <p className="mt-1 truncate text-[11px] text-slate-400">
-                    {recap.uploader || "未知作者"}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </section>
+      </Drawer>
+
+      {selectedRecap ? (
+        <div className="grid grid-cols-[38px_minmax(0,1fr)_38px] items-center gap-2 rounded-[18px] border border-amber-300/18 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(15,23,42,0.68))] p-1.5 shadow-[0_16px_30px_-28px_rgba(245,158,11,0.55)]">
+          <button
+            type="button"
+            aria-label="查看上一題"
+            disabled={!canSelectPreviousRecap}
+            onClick={() => handleSelectRecapByIndex(selectedRecapIndex - 1)}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+              canSelectPreviousRecap
+                ? "cursor-pointer border-slate-600/70 bg-slate-950/55 text-slate-200 hover:border-amber-300/35 hover:bg-slate-900/82 hover:text-white"
+                : "cursor-default border-slate-800/80 bg-slate-950/35 text-slate-600"
+            }`}
+          >
+            <ChevronLeftRoundedIcon sx={{ fontSize: 20 }} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuestionListDrawerOpen(true)}
+            aria-label="展開題目清單"
+            className="group min-w-0 cursor-pointer rounded-[14px] border border-amber-300/16 bg-slate-950/28 px-2 py-1.5 text-center transition hover:border-amber-300/36 hover:bg-amber-300/10"
+          >
+            <span className="flex min-w-0 items-center justify-center gap-1.5 text-[11px] font-semibold text-amber-100">
+              <FormatListNumberedRoundedIcon sx={{ fontSize: 14 }} className="shrink-0" />
+              <span>題目切換</span>
+              <KeyboardArrowDownRoundedIcon
+                sx={{ fontSize: 15 }}
+                className="shrink-0 transition group-hover:translate-y-0.5"
+              />
+            </span>
+            <span className="mt-0.5 block truncate text-sm font-semibold text-slate-100">
+              第 {selectedRecap.order} / {recaps.length} 題
+            </span>
+            <span className="mt-0.5 block text-[10px] font-medium text-slate-400">
+              點擊展開題目清單
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label="查看下一題"
+            disabled={!canSelectNextRecap}
+            onClick={() => handleSelectRecapByIndex(selectedRecapIndex + 1)}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+              canSelectNextRecap
+                ? "cursor-pointer border-slate-600/70 bg-slate-950/55 text-slate-200 hover:border-amber-300/35 hover:bg-slate-900/82 hover:text-white"
+                : "cursor-default border-slate-800/80 bg-slate-950/35 text-slate-600"
+            }`}
+          >
+            <ChevronRightRoundedIcon sx={{ fontSize: 20 }} />
+          </button>
+        </div>
+      ) : null}
 
       <article className="rounded-[20px] border border-slate-700/70 bg-slate-950/55 p-3 sm:rounded-[24px] sm:p-4">
         {selectedRecap ? (
           <>
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300">
-              <span className="rounded-full border border-sky-300/28 bg-sky-500/10 px-2.5 py-1 text-sky-100">第 {selectedRecap.order} 題</span>
-              <span className="rounded-full border border-emerald-300/28 bg-emerald-500/10 px-2.5 py-1 text-emerald-100">答對 {selectedRecap.correctCount ?? 0}</span>
-              <span className="rounded-full border border-slate-600/70 bg-slate-900/70 px-2.5 py-1 text-slate-100">選項 {selectedRecap.choices.length}</span>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex flex-col gap-2.5">
               {selectedRecapLink?.href ? (
                 <button
@@ -1577,19 +1701,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
               ) : (
                 <p className="text-sm text-slate-400">{selectedRecap.uploader || "未知作者"}</p>
               )}
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <PlayerPerspectivePicker
-                  rankedParticipants={rankedParticipants}
-                  selectedParticipant={selectedParticipant}
-                  meClientId={meClientId}
-                  onSelect={handleSelectParticipant}
-                  minWidthClassName="min-w-[168px]"
-                />
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${selectedResultMeta.textClassName} ${selectedResultMeta.softBgClassName}`}>
-                  {selectedResultMeta.icon}
-                  {selectedResultMeta.shortLabel}
-                </span>
               </div>
             </div>
 

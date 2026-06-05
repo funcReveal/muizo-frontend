@@ -48,6 +48,7 @@ const RoomAwareLayoutShell: React.FC = () => {
   );
   const isRoomsHubPage = location.pathname === "/rooms";
   const isCareerPage = location.pathname === "/career";
+  const isDashboardShellPage = isRoomsHubPage || isCareerPage;
 
   const roomsOutletClassName = isRoomsHubPage && isMobileViewport
     ? [
@@ -76,10 +77,10 @@ const RoomAwareLayoutShell: React.FC = () => {
         className={`flex w-full min-w-0 ${
           isGameMode
             ? "max-w-none px-3 pt-3 xl:px-5"
-            : isCareerPage
+            : isDashboardShellPage
               ? "px-2 pb-2 pt-3 sm:p-4"
               : "p-4"
-        } flex-col ${isRoomsHubPage ? "space-y-2" : "space-y-4"}${
+        } flex-col ${isDashboardShellPage ? "space-y-2" : "space-y-4"}${
           currentRoom && isMobileViewport ? " pb-4" : ""
         } ${
           isRoomsHubPage

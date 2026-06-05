@@ -26,7 +26,7 @@ interface CareerCollectionRanksTableProps {
 }
 
 const gridClassName =
-  "grid grid-cols-[minmax(280px,2fr)_112px_112px_104px_128px_132px_34px] gap-3";
+  "grid grid-cols-[minmax(280px,2fr)_112px_104px_128px_132px_34px] gap-3";
 
 const sortableHeaders: Array<{
   key: CareerCollectionRankSortKey | null;
@@ -38,12 +38,6 @@ const sortableHeaders: Array<{
   {
     key: "leaderboardRank",
     label: "榜單名次",
-    defaultOrder: "asc",
-    align: "right",
-  },
-  {
-    key: "previousLeaderboardRank",
-    label: "前期名次",
     defaultOrder: "asc",
     align: "right",
   },
@@ -183,10 +177,6 @@ const CareerCollectionRanksTable: React.FC<CareerCollectionRanksTableProps> = ({
 
                 <div className="self-center text-right font-semibold text-[var(--mc-text)]">
                   {formatCareerRank(item.leaderboardRank)}
-                </div>
-
-                <div className="self-center text-right font-semibold text-[var(--mc-text)]">
-                  {formatCareerRank(item.previousLeaderboardRank)}
                 </div>
 
                 <div

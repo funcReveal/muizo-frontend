@@ -89,10 +89,16 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
 
   const content = (
     <>
-      <DialogTitle>
+      <DialogTitle
+        sx={{
+          pb: 1,
+          fontWeight: 800,
+          letterSpacing: "-0.01em",
+        }}
+      >
         {needsNicknameConfirm ? "請設定暱稱" : "編輯個人資料"}
       </DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ pt: 0 }}>
         <p className="mb-2 text-sm text-[var(--mc-text-muted)]">
           {needsNicknameConfirm
             ? "你已使用 Google 登入，請設定顯示暱稱。之後可在個人資料中修改。"
@@ -107,15 +113,33 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
           }
           maxLength={USERNAME_MAX}
         />
+        <div className="mt-1.5 text-right text-[11px] font-medium text-[var(--mc-text-muted)]">
+          {nicknameDraft.length}/{USERNAME_MAX}
+        </div>
       </DialogContent>
-      <DialogActions>
-        {!needsNicknameConfirm && (
-          <Button onClick={closeProfileEditor} variant="outlined">
-            取消
-          </Button>
-        )}
-        <Button onClick={handleConfirmNickname} variant="contained">
-          確認
+      <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
+        <Button
+          onClick={handleConfirmNickname}
+          variant="contained"
+          fullWidth
+          sx={{
+            minHeight: 42,
+            borderRadius: "14px",
+            background:
+              "linear-gradient(180deg, rgba(251,191,36,1), rgba(245,158,11,1))",
+            color: "#1c1608",
+            fontWeight: 800,
+            boxShadow:
+              "0 18px 34px -24px rgba(245,158,11,0.9), inset 0 1px 0 rgba(255,255,255,0.35)",
+            "&:hover": {
+              background:
+                "linear-gradient(180deg, rgba(253,224,71,1), rgba(245,158,11,1))",
+              boxShadow:
+                "0 20px 38px -24px rgba(245,158,11,0.95), inset 0 1px 0 rgba(255,255,255,0.42)",
+            },
+          }}
+        >
+          保存
         </Button>
       </DialogActions>
     </>

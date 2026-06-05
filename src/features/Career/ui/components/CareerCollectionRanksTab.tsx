@@ -76,8 +76,8 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CareerWorkbenchShell className="flex min-h-0 flex-1 flex-col overflow-visible rounded-[18px] p-0 sm:rounded-[24px]">
-        <div className="min-h-0 flex-1 p-2.5 sm:p-4">
+      <CareerWorkbenchShell className="flex min-h-0 flex-1 flex-col overflow-visible rounded-[18px] p-0 max-lg:border-transparent max-lg:shadow-none max-lg:[background-image:none] sm:rounded-[24px]">
+        <div className="min-h-0 flex-1 p-0 sm:p-4">
           {isLoading ? (
             <CareerStatePanel>載入題庫戰績中...</CareerStatePanel>
           ) : error ? (

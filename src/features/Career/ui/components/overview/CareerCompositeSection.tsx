@@ -208,11 +208,11 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
         </div>
       ) : (
         <>
-          <div className="mt-2.5 flex shrink-0 flex-wrap gap-1.5 sm:gap-2">
+          <div className="-mx-1 mt-2.5 flex shrink-0 flex-nowrap gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 sm:gap-2 [&::-webkit-scrollbar]:hidden">
             {stats.map((stat) => (
               <div
                 key={stat.label}
-                className={`${careerMiniCardClass} min-h-0 w-[calc(50%-3px)] overflow-hidden sm:w-[148px]`}
+                className={`${careerMiniCardClass} min-h-0 w-[128px] shrink-0 overflow-hidden sm:w-[148px]`}
               >
                 <div className="text-[11px] tracking-[0.12em] text-[var(--mc-text-muted)]">
                   {stat.label}

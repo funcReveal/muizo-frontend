@@ -7,9 +7,6 @@ import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
-import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
-import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
-import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import { Drawer } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import React from "react";
@@ -117,9 +114,14 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
   const metadataItems = selectedSummary
     ? [
         {
-          key: "round",
-          icon: <SportsEsportsRoundedIcon sx={{ fontSize: 16 }} />,
-          label: `第 ${selectedSummary.roundNo} 局`,
+          key: "rank",
+          icon: <EmojiEventsRoundedIcon sx={{ fontSize: 16 }} />,
+          label:
+            typeof selectedSummary.selfRank === "number" &&
+            Number.isFinite(selectedSummary.selfRank) &&
+            selectedSummary.selfRank > 0
+              ? `${selectedSummary.selfRank}/${Math.max(1, selectedSummary.playerCount)}`
+              : "--",
           accent: "text-amber-100",
         },
         {
@@ -136,23 +138,6 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
           label: formatDateTime(selectedSummary.endedAt),
           accent: "text-slate-200",
         },
-        {
-          key: "rank",
-          icon: <EmojiEventsRoundedIcon sx={{ fontSize: 16 }} />,
-          label:
-            typeof selectedSummary.selfRank === "number" &&
-            Number.isFinite(selectedSummary.selfRank) &&
-            selectedSummary.selfRank > 0
-              ? `${selectedSummary.selfRank}/${Math.max(1, selectedSummary.playerCount)}`
-              : "--",
-          accent: "text-amber-100",
-        },
-        {
-          key: "questionCount",
-          icon: <FormatListNumberedRoundedIcon sx={{ fontSize: 16 }} />,
-          label: `${selectedSummary.questionCount} 題`,
-          accent: "text-sky-100",
-        },
       ]
     : [];
 
@@ -165,7 +150,7 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
       ModalProps={{ keepMounted: true }}
       PaperProps={{
         className:
-          "!overflow-hidden !bg-[linear-gradient(180deg,rgba(8,14,26,0.98),rgba(4,8,18,0.99))] !text-slate-100 !shadow-2xl !shadow-slate-950/80 max-sm:!h-[92dvh] max-sm:!w-full max-sm:!rounded-t-[24px] max-sm:!border-t max-sm:!border-white/10 sm:!h-dvh sm:!w-[min(1180px,calc(100vw-24px))] sm:!max-w-none sm:!rounded-l-[24px] sm:!border-l sm:!border-slate-700/25",
+          "!overflow-hidden !bg-[linear-gradient(180deg,rgba(8,14,26,0.98),rgba(4,8,18,0.99))] !text-slate-100 !shadow-2xl !shadow-slate-950/80 max-sm:!h-dvh max-sm:!w-screen max-sm:!max-w-none max-sm:!rounded-none max-sm:!border-0 sm:!h-dvh sm:!w-[min(1180px,calc(100vw-24px))] sm:!max-w-none sm:!rounded-l-[24px] sm:!border-l sm:!border-slate-700/25",
       }}
     >
         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden p-2 sm:p-3">
@@ -255,8 +240,8 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
                   <div
                     className={
                       isWide
-                        ? "flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-300"
-                        : "grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] text-slate-300"
+                        ? "flex flex-nowrap items-center gap-x-4 overflow-x-auto whitespace-nowrap text-xs text-slate-300"
+                        : "flex flex-nowrap items-center gap-x-3 overflow-x-auto whitespace-nowrap text-[11px] text-slate-300"
                     }
                   >
                     {metadataItems.map((item) => (
@@ -268,10 +253,6 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
                         <span>{item.label}</span>
                       </span>
                     ))}
-                    <span className="inline-flex items-center gap-1.5 text-slate-400">
-                      <Groups2RoundedIcon sx={{ fontSize: isWide ? 16 : 15 }} />
-                      <span>{selectedSummary.playerCount} 人</span>
-                    </span>
                   </div>
 
                   {relatedSummaries.length > 1 ? (

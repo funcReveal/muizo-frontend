@@ -31,6 +31,7 @@ type MuizoSelectProps = {
   helperText?: string;
   errorText?: string | null;
   className?: string;
+  opaque?: boolean;
   onOpen?: () => void;
   onChange: (value: string) => void;
 };
@@ -48,6 +49,7 @@ export default function MuizoSelect({
   helperText,
   errorText,
   className,
+  opaque = false,
   onOpen,
   onChange,
 }: MuizoSelectProps) {
@@ -190,7 +192,7 @@ export default function MuizoSelect({
           sx={{
             minHeight: isCompact ? 44 : 54,
             borderRadius: isCompact ? "16px" : "20px",
-            backgroundColor: "rgba(2, 6, 23, 0.32)",
+            backgroundColor: opaque ? "rgb(8, 12, 20)" : "rgba(2, 6, 23, 0.32)",
             color: "var(--mc-text)",
             cursor: disabled || loading ? "not-allowed" : "pointer",
             userSelect: "none",
@@ -219,7 +221,7 @@ export default function MuizoSelect({
               pointerEvents: "none",
             },
             "&:hover": {
-              backgroundColor: "rgba(15, 23, 42, 0.52)",
+              backgroundColor: opaque ? "rgb(12, 18, 30)" : "rgba(15, 23, 42, 0.52)",
               boxShadow: hasError
                 ? "0 0 0 1px rgba(248, 113, 113, 0.26), 0 18px 38px rgba(127, 29, 29, 0.18)"
                 : `0 0 0 1px ${toneStyles.hoverRing}, 0 16px 34px ${toneStyles.hoverShadow}`,
@@ -230,7 +232,7 @@ export default function MuizoSelect({
                 : toneStyles.hoverBorder,
             },
             "&.Mui-focused": {
-              backgroundColor: "rgba(15, 23, 42, 0.62)",
+              backgroundColor: opaque ? "rgb(13, 20, 34)" : "rgba(15, 23, 42, 0.62)",
               boxShadow: hasError
                 ? "0 0 0 1px rgba(248, 113, 113, 0.28), 0 18px 38px rgba(127, 29, 29, 0.18)"
                 : `0 0 0 1px ${toneStyles.focusRing}, 0 18px 38px ${toneStyles.focusShadow}`,

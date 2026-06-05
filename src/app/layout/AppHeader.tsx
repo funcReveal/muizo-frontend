@@ -1,7 +1,6 @@
 ﻿import {
   AccountCircleRounded,
   ExpandMore,
-  HistoryEdu,
   LibraryMusic,
   LockOutlined,
   Login,
@@ -46,8 +45,6 @@ interface AppHeaderProps {
   onNavigateCareer?: () => void;
   onNavigateSettings?: () => void;
   onNavigatePrivacy?: () => void;
-  careerMenuLabel?: string;
-  careerMenuDescription?: string;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -62,8 +59,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onNavigateCareer,
   onNavigateSettings,
   onNavigatePrivacy,
-  careerMenuLabel,
-  careerMenuDescription,
 }) => {
   const navigate = useNavigate();
 
@@ -142,8 +137,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     navigate("/career");
   };
 
-  const usesCareerAsProfileMenuItem = Boolean(authUser || hasGuestIdentity);
-
   const authMenuItems = authUser
     ? [
         <MenuItem
@@ -166,42 +159,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             }
           />
         </MenuItem>,
-        <MenuItem
-          key="logout"
-          onClick={() => {
-            handleMenuClose();
-            onLogout?.();
-          }}
-          sx={menuItemSx}
-        >
-          <ListItemIcon sx={{ minWidth: 30, color: "#fca5a5" }}>
-            <Logout fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="登出" secondary="退出目前帳號" />
-        </MenuItem>,
       ]
     : hasGuestIdentity
       ? [
-          <MenuItem
-            key="guest-profile-career"
-            onClick={() => {
-              handleNavigateCareer();
-            }}
-            disabled={!isCareerFeatureEnabled}
-            sx={menuItemSx}
-          >
-            <ListItemIcon sx={{ minWidth: 30, color: "#fcd34d" }}>
-              <AccountCircleRounded fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary="個人資料"
-              secondary={
-                isCareerFeatureEnabled
-                  ? "登入後查看完整紀錄，並可編輯暱稱"
-                  : "個人資料功能暫時維護中"
-              }
-            />
-          </MenuItem>,
           <MenuItem
             key="login"
             onClick={() => {
@@ -216,7 +176,43 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             </ListItemIcon>
             <ListItemText
               primary={authLoading ? "登入中..." : "使用 Google 登入"}
-              secondary="啟用 YouTube 播放清單匯入"
+              secondary="啟用完整帳號同步功能"
+            />
+          </MenuItem>,
+          <MenuItem
+            key="guest-profile-career"
+            onClick={() => {
+              handleNavigateCareer();
+            }}
+            disabled={!isCareerFeatureEnabled}
+            sx={menuItemSx}
+          >
+            <ListItemIcon sx={{ minWidth: 30, color: "#7dd3fc" }}>
+              <AccountCircleRounded fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                isCareerFeatureEnabled ? (
+                  <Box
+                    component="span"
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.7,
+                    }}
+                  >
+                    <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
+                    個人資料
+                  </Box>
+                ) : (
+                  "個人資料"
+                )
+              }
+              secondary={
+                isCareerFeatureEnabled
+                  ? "登入後查看完整紀錄，並可編輯暱稱"
+                  : "個人資料功能暫時維護中"
+              }
             />
           </MenuItem>,
         ]
@@ -236,6 +232,49 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             <ListItemText
               primary={authLoading ? "登入中..." : "登入 / 開始使用"}
               secondary="登入後可解鎖完整功能"
+            />
+          </MenuItem>,
+          <MenuItem
+            key="anonymous-profile-career"
+            onClick={() => {
+              handleNavigateCareer();
+            }}
+            disabled={!isCareerFeatureEnabled}
+            sx={menuItemSx}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 30,
+                color: !isCareerFeatureEnabled
+                  ? "rgba(148, 163, 184, 0.55)"
+                  : "#7dd3fc",
+              }}
+            >
+              <AccountCircleRounded fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                !isCareerFeatureEnabled ? (
+                  "個人資料"
+                ) : (
+                  <Box
+                    component="span"
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.7,
+                    }}
+                  >
+                    <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
+                    個人資料
+                  </Box>
+                )
+              }
+              secondary={
+                isCareerFeatureEnabled
+                  ? "登入後可查看生涯紀錄與題庫戰績"
+                  : "個人資料功能暫時維護中"
+              }
             />
           </MenuItem>,
         ];
@@ -373,23 +412,58 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 "linear-gradient(90deg, rgba(14, 165, 233, 0.12), rgba(129, 140, 248, 0.05))",
             }}
           >
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "rgba(148, 163, 184, 0.8)",
-                  letterSpacing: "0.12em",
-                }}
-              >
-                {isAnonymousVisitor ? "" : isGuestVisitor ? "訪客" : "帳號"}
-              </Typography>
+            <Box sx={{ minWidth: 0 }}>
               <Typography
                 variant="subtitle2"
-                sx={{ color: "#e2e8f0", fontWeight: 700 }}
+                sx={{
+                  color: "#e2e8f0",
+                  fontSize: "1rem",
+                  fontWeight: 800,
+                  lineHeight: 1.25,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
               >
                 {isAnonymousVisitor ? "尚未登入" : authLabel}
               </Typography>
             </Box>
+            {authUser && (
+              <Box
+                component="button"
+                type="button"
+                aria-label="登出"
+                title="登出"
+                onClick={() => {
+                  handleMenuClose();
+                  onLogout?.();
+                }}
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 0.6,
+                  flexShrink: 0,
+                  minHeight: 34,
+                  border: 0,
+                  background: "transparent",
+                  color: "#fecaca",
+                  cursor: "pointer",
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  padding: "0 2px",
+                  transition:
+                    "color 160ms ease, opacity 160ms ease",
+                  "&:hover": {
+                    color: "#fee2e2",
+                    opacity: 0.92,
+                  },
+                }}
+              >
+                <Logout sx={{ fontSize: 17 }} />
+                登出
+              </Box>
+            )}
           </Box>
 
           <Divider sx={{ borderColor: "rgba(148, 163, 184, 0.14)" }} />
@@ -418,12 +492,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 secondary={
                   isAnonymousVisitor
                     ? "先登入即可開始完整對戰體驗"
-                    : "瀏覽與加入遊戲房間"
+                    : "建立與加入遊戲房間"
                 }
               />
             </MenuItem>
 
-            {isAnonymousVisitor ? (
+            {!authUser ? (
               <MenuItem
                 onClick={() => {
                   handleMenuClose();
@@ -448,7 +522,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       收藏庫
                     </Box>
                   }
-                  secondary="登入後可收藏與同步題庫"
+                  secondary="登入後可建立與編輯題庫"
                 />
               </MenuItem>
             ) : (
@@ -473,56 +547,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   />
                 </MenuItem>
               )
-            )}
-
-            {!usesCareerAsProfileMenuItem && (
-              <MenuItem
-                disabled={!isCareerFeatureEnabled}
-                onClick={handleNavigateCareer}
-                sx={menuItemSx}
-              >
-                <ListItemIcon
-                  sx={{
-                    minWidth: 30,
-                    color: !isCareerFeatureEnabled
-                      ? "rgba(148, 163, 184, 0.55)"
-                      : isAnonymousVisitor
-                        ? "#f59e0b"
-                        : "#7dd3fc",
-                  }}
-                >
-                  <HistoryEdu fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    !isCareerFeatureEnabled ? (
-                      "個人資料"
-                    ) : isAnonymousVisitor ? (
-                      <Box
-                        component="span"
-                        sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 0.7,
-                        }}
-                      >
-                        <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                        個人資料
-                      </Box>
-                    ) : (
-                      (careerMenuLabel ?? "個人資料")
-                    )
-                  }
-                  secondary={
-                    !isCareerFeatureEnabled
-                      ? "個人資料功能暫時維護中"
-                      : isAnonymousVisitor
-                        ? "登入後可查看生涯紀錄與題庫戰績"
-                        : (careerMenuDescription ??
-                          "查看生涯紀錄、題庫戰績與編輯暱稱")
-                  }
-                />
-              </MenuItem>
             )}
           </MenuList>
 

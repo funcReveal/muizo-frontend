@@ -21,12 +21,12 @@ const tabs: Array<{
   {
     key: "collectionRanks",
     label: "題庫戰績",
-    shortLabel: "題庫",
+    shortLabel: "題庫戰績",
   },
   {
     key: "history",
     label: "對戰歷史",
-    shortLabel: "歷史",
+    shortLabel: "歷史對戰",
   },
 ];
 

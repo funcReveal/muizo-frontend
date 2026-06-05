@@ -286,10 +286,10 @@ const CareerCollectionRankDetailDrawer: React.FC<
         ModalProps={{ keepMounted: true }}
         PaperProps={{
           className:
-            "!overflow-hidden !bg-[rgb(10,13,20)] !text-slate-100 !shadow-2xl !shadow-slate-950/80 max-sm:!h-[92dvh] max-sm:!w-full max-sm:!rounded-t-[24px] max-sm:!border-t max-sm:!border-white/10 sm:!h-dvh sm:!w-[min(1120px,calc(100vw-24px))] sm:!max-w-none sm:!rounded-l-[24px] sm:!border-l sm:!border-white/10",
+            "!overflow-hidden !bg-[rgb(10,13,20)] !text-slate-100 !shadow-2xl !shadow-slate-950/80 max-sm:!h-dvh max-sm:!w-screen max-sm:!max-w-none max-sm:!rounded-none max-sm:!border-0 sm:!h-dvh sm:!w-[min(1120px,calc(100vw-24px))] sm:!max-w-none sm:!rounded-l-[24px] sm:!border-l sm:!border-white/10",
         }}
       >
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.13),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.62),rgba(10,13,20,0.98))] p-3 sm:p-5">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.13),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.62),rgba(10,13,20,0.98))] p-2.5 sm:p-5">
           <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-[var(--mc-text)] sm:text-lg">

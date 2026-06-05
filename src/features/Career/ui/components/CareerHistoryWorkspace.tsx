@@ -276,9 +276,9 @@ const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
   ];
 
   return (
-    <section className="shrink-0 rounded-[18px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.92),rgba(8,7,5,0.98))] px-2.5 py-2.5 shadow-[0_16px_32px_-28px_rgba(0,0,0,0.72)] sm:rounded-[20px] sm:px-3 sm:py-3">
+    <section className="shrink-0 sm:rounded-[20px] sm:border sm:border-[var(--mc-border)] sm:bg-[linear-gradient(180deg,rgba(20,17,13,0.92),rgba(8,7,5,0.98))] sm:px-3 sm:py-3 sm:shadow-[0_16px_32px_-28px_rgba(0,0,0,0.72)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="grid min-w-0 gap-2 sm:grid-cols-[220px_minmax(260px,320px)] lg:ml-auto">
+        <div className="grid min-w-0 grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] gap-2 sm:grid-cols-[220px_minmax(260px,320px)] lg:ml-auto">
           <MuizoSelect
             value={modeFilter}
             options={modeSelectOptions}
@@ -286,6 +286,7 @@ const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
             tone={modeSelectTone}
             size="compact"
             className="min-w-0"
+            opaque
             onChange={(value) =>
               onModeFilterChange(
                 value as CareerHistoryFilterBarProps["modeFilter"],
@@ -299,6 +300,7 @@ const CareerHistoryFilterBar: React.FC<CareerHistoryFilterBarProps> = ({
             placeholder="選擇收藏庫"
             size="compact"
             className="min-w-0"
+            opaque
             onChange={onCollectionFilterChange}
           />
         </div>
