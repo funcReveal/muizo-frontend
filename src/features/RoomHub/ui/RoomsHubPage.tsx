@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useContext } from "react";
@@ -385,18 +386,31 @@ const RoomsHubPage: React.FC = () => {
 
   // Single-select filter state for the public library tab
   // null = "全部"; specific key = active filter
-  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(
-    null,
+  const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<string[]>(
+    [],
   );
-  const [selectedSubTagKey, setSelectedSubTagKey] = useState<string | null>(
-    null,
-  );
+  const [selectedSubTagKeys, setSelectedSubTagKeys] = useState<string[]>([]);
+  const [isFilterPending, startFilterTransition] = useTransition();
   const handleSelectCategoryFilter = useCallback((key: string | null) => {
-    setSelectedCategoryKey(key);
-  }, []);
+    startFilterTransition(() => {
+      setSelectedCategoryKeys((current) => {
+        if (key === null) return [];
+        return current.includes(key)
+          ? current.filter((item) => item !== key)
+          : [...current, key];
+      });
+    });
+  }, [startFilterTransition]);
   const handleSelectSubTagFilter = useCallback((key: string | null) => {
-    setSelectedSubTagKey(key);
-  }, []);
+    startFilterTransition(() => {
+      setSelectedSubTagKeys((current) => {
+        if (key === null) return [];
+        return current.includes(key)
+          ? current.filter((item) => item !== key)
+          : [...current, key];
+      });
+    });
+  }, [startFilterTransition]);
   // Note: aggregations hook is declared further down (after createLibraryTab is in scope)
 
   const detailCollectionId = detailDrawerState?.collectionId ?? null;
@@ -1061,14 +1075,27 @@ const RoomsHubPage: React.FC = () => {
   const normalizedCreateLibrarySearch = createLibrarySearch
     .trim()
     .toLowerCase();
+  const [debouncedPublicLibrarySearch, setDebouncedPublicLibrarySearch] =
+    useState(createLibrarySearch);
+
+  useEffect(() => {
+    if (createLibraryTab !== "public") {
+      setDebouncedPublicLibrarySearch(createLibrarySearch);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      setDebouncedPublicLibrarySearch(createLibrarySearch);
+    }, 280);
+    return () => window.clearTimeout(handle);
+  }, [createLibrarySearch, createLibraryTab]);
 
   // Server-authoritative cross-dimensional filter counts (only on public tab)
   const filterAggregationsQuery = useFilterAggregationsQuery({
     apiUrl: API_URL,
     visibility: "public",
-    q: createLibrarySearch.trim() || undefined,
-    categoryKey: selectedCategoryKey,
-    subTag: selectedSubTagKey,
+    q: debouncedPublicLibrarySearch.trim() || undefined,
+    categoryKeys: selectedCategoryKeys,
+    subTags: selectedSubTagKeys,
     enabled: createLibraryTab === "public",
   });
 
@@ -1426,22 +1453,14 @@ const RoomsHubPage: React.FC = () => {
 
   useEffect(() => {
     if (createLibraryTab === "public") {
-      const switchedIntoPublic =
-        previousCreateLibraryTabRef.current !== "public";
       previousCreateLibraryTabRef.current = createLibraryTab;
       const fetchOptions = {
-        query: createLibrarySearch,
-        categoryKey: selectedCategoryKey,
-        subTag: selectedSubTagKey,
+        query: debouncedPublicLibrarySearch,
+        categoryKeys: selectedCategoryKeys,
+        subTags: selectedSubTagKeys,
       };
-      if (switchedIntoPublic) {
-        void fetchCollections("public", fetchOptions);
-        return;
-      }
-      const handle = window.setTimeout(() => {
-        void fetchCollections("public", fetchOptions);
-      }, 350);
-      return () => window.clearTimeout(handle);
+      void fetchCollections("public", fetchOptions);
+      return;
     }
     previousCreateLibraryTabRef.current = createLibraryTab;
     if (!canUseGoogleLibraries) return;
@@ -1461,13 +1480,13 @@ const RoomsHubPage: React.FC = () => {
   }, [
     canUseGoogleLibraries,
     createLibraryTab,
-    createLibrarySearch,
+    debouncedPublicLibrarySearch,
     fetchCollections,
     fetchYoutubePlaylists,
     previousCreateLibraryTabRef,
     publicCollectionsSort,
-    selectedCategoryKey,
-    selectedSubTagKey,
+    selectedCategoryKeys,
+    selectedSubTagKeys,
     youtubePlaylists.length,
     youtubePlaylistsLoading,
   ]);
@@ -1823,19 +1842,21 @@ const RoomsHubPage: React.FC = () => {
                     mobileEmbedded
                     filterContent={
                       createLibraryTab === "public" ? (
-                        <CollectionFilterBar
-                          aggregations={filterAggregationsQuery.data}
-                          isLoading={filterAggregationsQuery.isFetching}
-                          selectedCategoryKey={selectedCategoryKey}
-                          selectedSubTagKey={selectedSubTagKey}
+                          <CollectionFilterBar
+                            aggregations={filterAggregationsQuery.data}
+                          isLoading={
+                            filterAggregationsQuery.isFetching ||
+                            isFilterPending
+                          }
+                          selectedCategoryKeys={selectedCategoryKeys}
+                          selectedSubTagKeys={selectedSubTagKeys}
                           onSelectCategory={handleSelectCategoryFilter}
                           onSelectSubTag={handleSelectSubTagFilter}
                         />
                       ) : undefined
                     }
                     activeFilterCount={
-                      (selectedCategoryKey ? 1 : 0) +
-                      (selectedSubTagKey ? 1 : 0)
+                      selectedCategoryKeys.length + selectedSubTagKeys.length
                     }
                   />
                 </div>
@@ -1902,9 +1923,12 @@ const RoomsHubPage: React.FC = () => {
                                 createLibraryTab === "public" ? (
                                   <CollectionFilterBar
                                     aggregations={filterAggregationsQuery.data}
-                                    isLoading={filterAggregationsQuery.isFetching}
-                                    selectedCategoryKey={selectedCategoryKey}
-                                    selectedSubTagKey={selectedSubTagKey}
+                                    isLoading={
+                                      filterAggregationsQuery.isFetching ||
+                                      isFilterPending
+                                    }
+                                    selectedCategoryKeys={selectedCategoryKeys}
+                                    selectedSubTagKeys={selectedSubTagKeys}
                                     onSelectCategory={
                                       handleSelectCategoryFilter
                                     }
@@ -1913,8 +1937,8 @@ const RoomsHubPage: React.FC = () => {
                                 ) : undefined
                               }
                               activeFilterCount={
-                                (selectedCategoryKey ? 1 : 0) +
-                                (selectedSubTagKey ? 1 : 0)
+                                selectedCategoryKeys.length +
+                                selectedSubTagKeys.length
                               }
                             />
                           </div>

@@ -393,7 +393,7 @@ const CollectionsPage = () => {
         setError(err instanceof Error ? err.message : "分類更新失敗");
       }
     },
-    [API_URL, authToken, collections, refreshAuthToken],
+    [authToken, collections, refreshAuthToken],
   );
 
   // Quick-update a collection's sub-tag keys from the card (optimistic UI)

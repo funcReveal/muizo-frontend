@@ -245,7 +245,11 @@ export type UseCollectionContentStateResult = {
   selectCollection: (collectionId: string | null) => void;
   fetchCollections: (
     scope?: "owner" | "public",
-    options?: { query?: string },
+    options?: {
+      query?: string;
+      categoryKeys?: string[] | null;
+      subTags?: string[] | null;
+    },
   ) => Promise<void>;
   fetchCollectionById: (
     collectionId: string,
@@ -306,8 +310,8 @@ export const useCollectionContentState = ({
   const collectionPageRef = useRef(1);
   const collectionRequestScopeRef = useRef<"owner" | "public" | null>(null);
   const publicCollectionsQueryRef = useRef("");
-  const publicCategoryKeyRef = useRef<string | null>(null);
-  const publicSubTagRef = useRef<string | null>(null);
+  const publicCategoryKeysRef = useRef<string[]>([]);
+  const publicSubTagsRef = useRef<string[]>([]);
   const latestCollectionsRequestIdRef = useRef(0);
   const collectionCacheRef = useRef<Record<string, PlaylistItem[]>>({});
   const inFlightCollectionIdRef = useRef<string | null>(null);
@@ -359,8 +363,8 @@ export const useCollectionContentState = ({
       scope?: "owner" | "public",
       options?: {
         query?: string;
-        categoryKey?: string | null;
-        subTag?: string | null;
+        categoryKeys?: string[] | null;
+        subTags?: string[] | null;
       },
     ) => {
       if (!apiUrl) {
@@ -381,11 +385,13 @@ export const useCollectionContentState = ({
         publicCollectionsQueryRef.current = normalizedQuery;
         // Update filter refs when options explicitly provide them; preserve
         // previous value when undefined (allows caller to pass query-only).
-        if (Object.prototype.hasOwnProperty.call(options ?? {}, "categoryKey")) {
-          publicCategoryKeyRef.current = options?.categoryKey ?? null;
+        if (
+          Object.prototype.hasOwnProperty.call(options ?? {}, "categoryKeys")
+        ) {
+          publicCategoryKeysRef.current = options?.categoryKeys ?? [];
         }
-        if (Object.prototype.hasOwnProperty.call(options ?? {}, "subTag")) {
-          publicSubTagRef.current = options?.subTag ?? null;
+        if (Object.prototype.hasOwnProperty.call(options ?? {}, "subTags")) {
+          publicSubTagsRef.current = options?.subTags ?? [];
         }
       }
       collectionPageRef.current = 1;
@@ -502,8 +508,8 @@ export const useCollectionContentState = ({
             visibility: "public",
             sort: publicCollectionsSort,
             q: normalizedQuery || undefined,
-            categoryKey: publicCategoryKeyRef.current,
-            subTag: publicSubTagRef.current,
+            categoryKeys: publicCategoryKeysRef.current,
+            subTags: publicSubTagsRef.current,
             page: 1,
             pageSize: DEFAULT_PAGE_SIZE,
           });
@@ -778,8 +784,8 @@ export const useCollectionContentState = ({
           visibility: "public",
           sort: publicCollectionsSort,
           q: publicCollectionsQueryRef.current || undefined,
-          categoryKey: publicCategoryKeyRef.current,
-          subTag: publicSubTagRef.current,
+          categoryKeys: publicCategoryKeysRef.current,
+          subTags: publicSubTagsRef.current,
           page: nextPage,
           pageSize: DEFAULT_PAGE_SIZE,
         });
@@ -1180,8 +1186,8 @@ export const useCollectionContentState = ({
     collectionPageRef.current = 1;
     collectionRequestScopeRef.current = null;
     publicCollectionsQueryRef.current = "";
-    publicCategoryKeyRef.current = null;
-    publicSubTagRef.current = null;
+    publicCategoryKeysRef.current = [];
+    publicSubTagsRef.current = [];
     latestCollectionsRequestIdRef.current = 0;
     setSelectedCollectionId(null);
     setCollectionItemsLoading(false);

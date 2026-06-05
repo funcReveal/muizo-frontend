@@ -233,6 +233,8 @@ export function useCollectionCreateSubmit({
     collectionTitle,
     collectionDescription,
     draftPlaylistItems,
+    categoryId,
+    subTagKeys,
     reachedCollectionLimit,
     maxCollectionsPerUser,
     visibility,

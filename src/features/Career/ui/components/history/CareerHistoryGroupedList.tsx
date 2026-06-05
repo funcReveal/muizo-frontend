@@ -53,7 +53,7 @@ const CareerHistoryGroupedList: React.FC<CareerHistoryGroupedListProps> = ({
   const autoLoadArmedRef = useRef(false);
   const requestedAutoLoadCursorRef = useRef<string | null>(null);
   const visibleStopIndexRef = useRef(-1);
-  const listRef = useListRef();
+  const listRef = useListRef(null);
 
   const rowHeightCache = useDynamicRowHeight({
     defaultRowHeight: 126,

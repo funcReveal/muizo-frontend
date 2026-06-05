@@ -4,6 +4,17 @@ export type CollectionContentApiResult<T> = {
   payload: T | null;
 };
 
+export const normalizeCollectionFilterKeys = (
+  keys: string[] | null | undefined,
+) =>
+  Array.from(
+    new Set(
+      (keys ?? [])
+        .map((key) => key.trim())
+        .filter((key) => key.length > 0),
+    ),
+  ).sort();
+
 export type CollectionSummary = {
   id: string;
   owner_id: string;
@@ -198,8 +209,8 @@ export const apiFetchCollections = (
     q?: string;
     page?: number;
     pageSize?: number;
-    categoryKey?: string | null;
-    subTag?: string | null;
+    categoryKeys?: string[] | null;
+    subTags?: string[] | null;
   },
 ) => {
   const url = new URL(`${apiUrl}/api/collections`);
@@ -221,12 +232,12 @@ export const apiFetchCollections = (
   if (options.pageSize !== undefined) {
     url.searchParams.set("pageSize", String(options.pageSize));
   }
-  if (options.categoryKey) {
-    url.searchParams.set("category_key", options.categoryKey);
-  }
-  if (options.subTag) {
-    url.searchParams.set("sub_tag", options.subTag);
-  }
+  normalizeCollectionFilterKeys(options.categoryKeys).forEach((key) =>
+    url.searchParams.append("category_key", key),
+  );
+  normalizeCollectionFilterKeys(options.subTags).forEach((key) =>
+    url.searchParams.append("sub_tag", key),
+  );
   const headers = options.token
     ? { Authorization: `Bearer ${options.token}` }
     : undefined;
@@ -248,15 +259,19 @@ export const apiFetchFilterAggregations = (
   options: {
     visibility: "public";
     q?: string;
-    categoryKey?: string | null;
-    subTag?: string | null;
+    categoryKeys?: string[] | null;
+    subTags?: string[] | null;
   },
 ) => {
   const url = new URL(`${apiUrl}/api/collections/filter-aggregations`);
   url.searchParams.set("visibility", options.visibility);
   if (options.q) url.searchParams.set("q", options.q);
-  if (options.categoryKey) url.searchParams.set("category_key", options.categoryKey);
-  if (options.subTag) url.searchParams.set("sub_tag", options.subTag);
+  normalizeCollectionFilterKeys(options.categoryKeys).forEach((key) =>
+    url.searchParams.append("category_key", key),
+  );
+  normalizeCollectionFilterKeys(options.subTags).forEach((key) =>
+    url.searchParams.append("sub_tag", key),
+  );
   return fetchJson<{ ok: boolean; data: FilterAggregations }>(url.toString(), {});
 };
 

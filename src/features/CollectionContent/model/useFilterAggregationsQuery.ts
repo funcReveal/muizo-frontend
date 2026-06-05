@@ -1,6 +1,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   apiFetchFilterAggregations,
+  normalizeCollectionFilterKeys,
   type FilterAggregations,
 } from "./collectionContentApi";
 
@@ -8,8 +9,8 @@ type Options = {
   apiUrl: string;
   visibility: "public";
   q?: string;
-  categoryKey?: string | null;
-  subTag?: string | null;
+  categoryKeys?: string[] | null;
+  subTags?: string[] | null;
   enabled?: boolean;
 };
 
@@ -27,20 +28,25 @@ export function useFilterAggregationsQuery(
   isLoading: boolean;
   isFetching: boolean;
 } {
+  const categoryKeys = normalizeCollectionFilterKeys(opts.categoryKeys);
+  const subTags = normalizeCollectionFilterKeys(opts.subTags);
+  const categoryKeyFingerprint = categoryKeys.join("|");
+  const subTagFingerprint = subTags.join("|");
+
   const query = useQuery({
     queryKey: [
       "collection-filter-aggregations",
       opts.visibility,
       opts.q ?? null,
-      opts.categoryKey ?? null,
-      opts.subTag ?? null,
+      categoryKeyFingerprint,
+      subTagFingerprint,
     ],
     queryFn: async () => {
       const result = await apiFetchFilterAggregations(opts.apiUrl, {
         visibility: opts.visibility,
         q: opts.q,
-        categoryKey: opts.categoryKey,
-        subTag: opts.subTag,
+        categoryKeys,
+        subTags,
       });
       if (!result.ok || !result.payload?.ok || !result.payload?.data) {
         throw new Error("Failed to fetch filter aggregations");

@@ -10,9 +10,9 @@ type Props = {
    */
   aggregations: FilterAggregations | undefined;
   /** Currently selected category key (single-select). null = 全部. */
-  selectedCategoryKey: string | null;
+  selectedCategoryKeys: string[];
   /** Currently selected sub-tag key (single-select). null = 全部. */
-  selectedSubTagKey: string | null;
+  selectedSubTagKeys: string[];
   /** Called when user picks a category (or null to clear). */
   onSelectCategory: (key: string | null) => void;
   /** Called when user picks a sub-tag (or null to clear). */
@@ -28,8 +28,8 @@ type Props = {
  */
 const CollectionFilterBar = ({
   aggregations,
-  selectedCategoryKey,
-  selectedSubTagKey,
+  selectedCategoryKeys,
+  selectedSubTagKeys,
   onSelectCategory,
   onSelectSubTag,
   isLoading = false,
@@ -91,40 +91,34 @@ const CollectionFilterBar = ({
           "__all_cat__",
           "全部",
           totalByCategoryFilter,
-          selectedCategoryKey === null,
+          selectedCategoryKeys.length === 0,
           () => onSelectCategory(null),
         )}
         {categories.map((cat) => {
           const cnt = byCategory[cat.key] ?? 0;
-          if (cnt === 0 && selectedCategoryKey !== cat.key) return null;
+          const active = selectedCategoryKeys.includes(cat.key);
+          if (cnt === 0 && !active) return null;
           return renderChip(
             cat.key,
             cat.label,
             cnt,
-            selectedCategoryKey === cat.key,
-            () =>
-              onSelectCategory(
-                selectedCategoryKey === cat.key ? null : cat.key,
-              ),
+            active,
+            () => onSelectCategory(cat.key),
           );
         })}
-        {(noCategoryCount > 0 || selectedCategoryKey === NO_CATEGORY_KEY) &&
+        {(noCategoryCount > 0 ||
+          selectedCategoryKeys.includes(NO_CATEGORY_KEY)) &&
           renderChip(
             NO_CATEGORY_KEY,
             "未分類",
             noCategoryCount,
-            selectedCategoryKey === NO_CATEGORY_KEY,
-            () =>
-              onSelectCategory(
-                selectedCategoryKey === NO_CATEGORY_KEY
-                  ? null
-                  : NO_CATEGORY_KEY,
-              ),
+            selectedCategoryKeys.includes(NO_CATEGORY_KEY),
+            () => onSelectCategory(NO_CATEGORY_KEY),
           )}
       </div>
 
       {/* Sub-tag (language) row */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="relative flex flex-wrap items-center gap-1.5 pr-14">
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
           語言
         </span>
@@ -132,34 +126,30 @@ const CollectionFilterBar = ({
           "__all_lang__",
           "全部",
           totalBySubTagFilter,
-          selectedSubTagKey === null,
+          selectedSubTagKeys.length === 0,
           () => onSelectSubTag(null),
           "cyan",
         )}
         {subTags.map((tag) => {
           const cnt = bySubTag[tag.key] ?? 0;
-          if (cnt === 0 && selectedSubTagKey !== tag.key) return null;
+          const active = selectedSubTagKeys.includes(tag.key);
+          if (cnt === 0 && !active) return null;
           return renderChip(
             tag.key,
             tag.label,
             cnt,
-            selectedSubTagKey === tag.key,
-            () =>
-              onSelectSubTag(selectedSubTagKey === tag.key ? null : tag.key),
+            active,
+            () => onSelectSubTag(tag.key),
             "cyan",
           );
         })}
-      </div>
-
-      {/* Subtle loading indicator (only when counts are refetching) */}
-      {isLoading && aggregations !== undefined && (
-        <div className="flex justify-end text-[10px] text-cyan-300/45">
-          <span className="inline-flex items-center gap-1">
+        {isLoading && aggregations !== undefined && (
+          <span className="pointer-events-none absolute right-0 top-1/2 inline-flex w-12 -translate-y-1/2 items-center justify-end gap-1 text-[10px] text-cyan-300/45">
             <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-cyan-400/60" />
             更新中
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

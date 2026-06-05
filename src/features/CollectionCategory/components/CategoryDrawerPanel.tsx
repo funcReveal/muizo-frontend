@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Popover } from "@mui/material";
 import { useCategoriesQuery } from "../hooks/useCategoriesQuery";
 import { useSubTagsQuery } from "../hooks/useSubTagsQuery";
@@ -47,6 +47,43 @@ type CategorySuggestionTarget = {
   parentLabel: string | null;
 };
 
+const SuggestionInline = ({
+  label,
+  onClick,
+  title,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  title?: string;
+  disabled: boolean;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={[
+      "group/sg inline-flex items-center gap-1 rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2 py-[1px] text-[10.5px] font-medium text-cyan-100",
+      "transition-colors duration-150 hover:border-cyan-300/65 hover:bg-cyan-500/25",
+      "focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-40",
+    ].join(" ")}
+    aria-label={`套用建議：${label}`}
+  >
+    <span className="text-cyan-300/85" aria-hidden>
+      +
+    </span>
+    <span>{label}</span>
+  </button>
+);
+
+const SuggestionLoading = () => (
+  <span className="inline-flex items-center gap-1 text-[10.5px] text-cyan-300/55">
+    <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-cyan-400/70" />
+    <span>偵測中</span>
+  </span>
+);
+
 export function CategoryDrawerPanel({
   categoryId,
   subTagKeys,
@@ -88,7 +125,7 @@ export function CategoryDrawerPanel({
   };
 
   // Resolve which parent contains the currently selected category (for active highlight)
-  const selectedParent = useMemo(() => {
+  const selectedParent = (() => {
     if (!categoryId) return null;
     for (const parent of categories) {
       if (parent.id === categoryId)
@@ -99,19 +136,22 @@ export function CategoryDrawerPanel({
       }
     }
     return null;
-  }, [categoryId, categories]);
+  })();
 
   const selectedChildLabel =
     selectedParent && selectedParent.isChild
       ? selectedParent.child.label
       : null;
+  const categoryGridClassName = isEmbedded
+    ? "grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+    : "grid grid-cols-2 gap-2 min-[360px]:grid-cols-3";
 
   // ───────────────────────────────────────────────────────────
   // INLINE SUGGESTION RESOLUTION
   // ───────────────────────────────────────────────────────────
 
   /** Resolve detected category key → concrete target with id/label/parent */
-  const categorySuggestion = useMemo<CategorySuggestionTarget | null>(() => {
+  const categorySuggestion = ((): CategorySuggestionTarget | null => {
     if (!detectSuggestion?.categoryKey) return null;
     for (const parent of categories) {
       if (parent.key === detectSuggestion.categoryKey) {
@@ -128,10 +168,10 @@ export function CategoryDrawerPanel({
       }
     }
     return null;
-  }, [detectSuggestion, categories]);
+  })();
 
   /** Resolve detected sub-tag keys → labels with applied / unapplied state */
-  const subTagSuggestions = useMemo(() => {
+  const subTagSuggestions = (() => {
     if (!detectSuggestion) return [];
     return detectSuggestion.subTagKeys
       .map((key) => {
@@ -139,7 +179,7 @@ export function CategoryDrawerPanel({
         return tag ? { key, label: tag.label } : null;
       })
       .filter((t): t is { key: string; label: string } => t !== null);
-  }, [detectSuggestion, subTags]);
+  })();
 
   /** Show category suggestion only when: detection ran, target exists, not already applied */
   const showCategorySuggestion =
@@ -185,45 +225,6 @@ export function CategoryDrawerPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [popoverState]);
-
-  // ───────────────────────────────────────────────────────────
-  // Inline suggestion chip — small, clickable, minimal chrome
-  // ───────────────────────────────────────────────────────────
-  const SuggestionInline = ({
-    label,
-    onClick,
-    title,
-  }: {
-    label: string;
-    onClick: () => void;
-    title?: string;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={isSaving}
-      title={title}
-      className={[
-        "group/sg inline-flex items-center gap-1 rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2 py-[1px] text-[10.5px] font-medium text-cyan-100",
-        "transition-colors duration-150 hover:border-cyan-300/65 hover:bg-cyan-500/25",
-        "focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-40",
-      ].join(" ")}
-      aria-label={`套用建議：${label}`}
-    >
-      <span className="text-cyan-300/85" aria-hidden>
-        ✦
-      </span>
-      <span>{label}</span>
-    </button>
-  );
-
-  const SuggestionLoading = () => (
-    <span className="inline-flex items-center gap-1 text-[10.5px] text-cyan-300/55">
-      <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-cyan-400/70" />
-      <span>偵測中</span>
-    </span>
-  );
-
   return (
     <div
       className={
@@ -269,6 +270,7 @@ export function CategoryDrawerPanel({
                   <SuggestionInline
                     label={categorySuggestion.label}
                     onClick={applyCategorySuggestion}
+                    disabled={isSaving}
                     title={
                       categorySuggestion.parentLabel
                         ? `${categorySuggestion.parentLabel} › ${categorySuggestion.label}`
@@ -285,16 +287,16 @@ export function CategoryDrawerPanel({
             </header>
 
             {catLoading ? (
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className={categoryGridClassName}>
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-14 w-[calc((100%-1rem)/3)] animate-pulse rounded-xl border border-white/5 bg-white/[0.03] sm:w-[calc((100%-0.5rem)/2)]"
+                    className="h-11 animate-pulse rounded-xl border border-white/5 bg-white/[0.03]"
                   />
                 ))}
               </div>
             ) : (
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className={categoryGridClassName}>
                 {categories.map((parent) => {
                   const hasChildren = parent.children.length > 0;
                   const active =
@@ -326,7 +328,7 @@ export function CategoryDrawerPanel({
                       }}
                       className={[
                         // Equal column widths via calc, with the last partial row centered by parent's justify-center
-                        "w-[calc((100%-1rem)/3)] sm:w-[calc((100%-0.5rem)/2)]",
+                        "w-full min-w-0",
                         "group/cat relative overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-all duration-200",
                         "focus:outline-none focus:ring-2 focus:ring-cyan-400/40",
                         active || isPopoverOpenForThis
@@ -392,6 +394,7 @@ export function CategoryDrawerPanel({
                       key={`sg-${tag.key}`}
                       label={tag.label}
                       onClick={applySubTagSuggestion}
+                      disabled={isSaving}
                     />
                   ))}
               </div>
@@ -422,7 +425,7 @@ export function CategoryDrawerPanel({
                       disabled={isSaving || maxReached}
                       onClick={() => toggleSubTag(tag.key)}
                       className={[
-                        "relative overflow-hidden rounded-full border px-3 py-1 text-[12px] font-medium transition-all duration-150",
+                        "relative min-h-9 overflow-hidden rounded-full border px-3.5 py-2 text-[13px] font-medium leading-none transition-all duration-150",
                         "focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-35",
                         active
                           ? "border-cyan-300/60 bg-cyan-400/20 text-cyan-50 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.15)]"
@@ -481,8 +484,8 @@ export function CategoryDrawerPanel({
               mt: 0.5,
               // 280px naturally breaks 5 chips into 3+2 (J-POP, K-POP, 國語流行 fit in
               // ~210px; 4th chip's ~85px width pushes total over 280 → wrap).
-              width: "min(280px, calc(100vw - 24px))",
-              maxWidth: "calc(100vw - 24px)",
+              width: "min(244px, calc(100vw - 28px))",
+              maxWidth: "calc(100vw - 28px)",
               border: "1px solid rgba(34, 211, 238, 0.25)",
               backgroundColor: "rgba(2, 8, 23, 0.96)",
               backdropFilter: "blur(16px)",
@@ -497,8 +500,8 @@ export function CategoryDrawerPanel({
         }}
       >
         {popoverState && (
-          <div className="p-2">
-            <div className="mb-1.5 flex items-center justify-between px-2 pb-1.5 pt-0.5">
+          <div className="p-1.5">
+            <div className="mb-1 flex items-center justify-between px-1.5 pb-1 pt-0.5">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300/70">
                 {popoverState.parent.label}
               </span>
@@ -506,7 +509,7 @@ export function CategoryDrawerPanel({
             </div>
 
             {/* justify-center centers any partial last row (e.g. the 2 chips below 3) */}
-            <div className="flex flex-wrap justify-center gap-1.5 px-1.5 pb-1">
+            <div className="flex flex-wrap justify-center gap-1.5 px-0.5 pb-0.5">
               {popoverState.parent.children.map((child) => {
                 const active = categoryId === child.id;
                 return (
@@ -519,7 +522,7 @@ export function CategoryDrawerPanel({
                       closePopover();
                     }}
                     className={[
-                      "whitespace-nowrap rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-all duration-150",
+                      "min-h-8 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-[12px] font-medium leading-none transition-all duration-150",
                       "focus:outline-none focus:ring-2 focus:ring-cyan-400/40",
                       active
                         ? "border-cyan-400/60 bg-cyan-400/90 text-slate-900 shadow-[0_4px_12px_-6px_rgba(34,211,238,0.7)]"

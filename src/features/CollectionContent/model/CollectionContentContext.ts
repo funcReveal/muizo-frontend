@@ -53,8 +53,8 @@ export interface CollectionContentContextValue {
     scope?: "owner" | "public",
     options?: {
       query?: string;
-      categoryKey?: string | null;
-      subTag?: string | null;
+      categoryKeys?: string[] | null;
+      subTags?: string[] | null;
     },
   ) => Promise<void>;
   fetchCollectionById: (
