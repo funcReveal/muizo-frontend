@@ -48,6 +48,7 @@ import {
   type CollectionItemPreviewRecord,
 } from "@features/CollectionContent/model/collectionContentApi";
 import { useAuth } from "@shared/auth/AuthContext";
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import { useTransientScrollbar } from "@shared/hooks/useTransientScrollbar";
 import PlayerAvatar from "@shared/ui/playerAvatar/PlayerAvatar";
@@ -789,7 +790,7 @@ const CollectionDetailDrawer = ({
   isAuthLoading = false,
   onLoginRequired,
 }: CollectionDetailDrawerProps) => {
-  const { authToken, refreshAuthToken } = useAuth();
+  const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
   const isCompact = useMediaQuery("(max-width:767px)");
   const authTokenRef = useRef(authToken);
   const refreshAuthTokenRef = useRef(refreshAuthToken);
@@ -1276,6 +1277,26 @@ const CollectionDetailDrawer = ({
       onLeaderboardModeChange(modeKey);
     }
     onLeaderboardVariantChange(variantKey);
+    if (authToken && collection?.id) {
+      void recordDbActionEvent({
+        eventName: "collection.detail.leaderboard_profile.changed",
+        authToken,
+        clientId,
+        username: displayUsername,
+        refreshAuthToken,
+        collectionId: collection.id,
+        target: { type: "collection", id: collection.id },
+        metadata: {
+          source: "collection_detail",
+          leaderboardProfileKey: getLeaderboardProfileKey(modeKey, variantKey),
+        },
+      }).catch((error) => {
+        console.error(
+          "[collection/detail] failed to record leaderboard profile event",
+          error,
+        );
+      });
+    }
     setIsLeaderboardProfileMenuOpen(false);
   };
 

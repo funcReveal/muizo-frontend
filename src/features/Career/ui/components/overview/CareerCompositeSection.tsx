@@ -1,30 +1,39 @@
 import React, { useMemo, useState } from "react";
 
+import LockOutlined from "@mui/icons-material/LockOutlined";
+import type { RoomSettlementHistorySummary } from "@features/RoomSession";
 import type {
+  CareerCollectionRankShortcutItem,
   CareerCompositeScope,
   CareerCompositeStats,
-  CareerHighlightItem,
 } from "../../../types/career";
 import {
   formatCareerPercent,
   formatCareerScore,
 } from "../../../model/careerUiFormatters";
 import CareerSurface, { careerMiniCardClass } from "./CareerSurface";
+import CareerRecentPlaysList from "./CareerRecentPlaysList";
 
 interface CareerCompositeSectionProps {
   composite: CareerCompositeStats;
   compositeScopes: CareerCompositeScope[];
+  totalMatches: number;
   activeScopeKey: string;
   onActiveScopeChange: (scopeKey: string) => void;
-  highlights: CareerHighlightItem[];
+  collectionShortcuts: CareerCollectionRankShortcutItem[];
+  onOpenCollectionRanks: () => void;
+  onOpenRecentMatch: (summary: RoomSettlementHistorySummary) => void;
 }
 
 const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
   composite,
   compositeScopes,
+  totalMatches,
   activeScopeKey,
   onActiveScopeChange,
-  highlights,
+  collectionShortcuts,
+  onOpenCollectionRanks,
+  onOpenRecentMatch,
 }) => {
   const scopes = useMemo(
     () =>
@@ -50,6 +59,12 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
   const leaderboardScopes = scopes.filter(
     (scope) => scope.kind === "leaderboard",
   );
+  const requiredMatchCount = 10;
+  const safeTotalMatches = Number.isFinite(totalMatches)
+    ? Math.max(0, Math.floor(totalMatches))
+    : 0;
+  const isOverviewLocked = safeTotalMatches < requiredMatchCount;
+  const remainingMatches = Math.max(0, requiredMatchCount - safeTotalMatches);
 
   React.useEffect(() => {
     if (!scopeMenuOpen) return;
@@ -65,41 +80,38 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
   }, [scopeMenuOpen]);
 
   const stats = [
-    {
-      label: "平均名次",
-      value: activeComposite.averagePlacement?.toFixed(1) ?? "-",
-    },
+    ...(activeScope?.kind === "leaderboard"
+      ? []
+      : [
+          {
+            label: "平均名次",
+            value: activeComposite.averagePlacement?.toFixed(1) ?? "-",
+          },
+        ]),
     {
       label: "平均得分",
       value: formatCareerScore(activeComposite.averageScore),
     },
-    {
-      label: "Top 3 率",
-      value: formatCareerPercent(activeComposite.top3Rate),
-    },
-    {
-      label: "第一名",
-      value: activeComposite.firstPlaceCount.toLocaleString("zh-TW"),
-    },
+    ...(activeScope?.kind === "leaderboard"
+      ? []
+      : [
+          {
+            label: "Top 3 率",
+            value: formatCareerPercent(activeComposite.top3Rate),
+          },
+          {
+            label: "第一名",
+            value: activeComposite.firstPlaceCount.toLocaleString("zh-TW"),
+          },
+        ]),
     {
       label: "平均答對率",
       value: formatCareerPercent(activeComposite.averageAccuracyRate),
     },
   ];
-  const highlightToneClassByKey: Record<CareerHighlightItem["key"], string> = {
-    bestScore:
-      "bg-[linear-gradient(180deg,rgba(147,51,234,0.34),rgba(55,16,74,0.88))]",
-    bestPlacement:
-      "bg-[linear-gradient(180deg,rgba(245,158,11,0.32),rgba(69,41,11,0.9))]",
-    bestCombo:
-      "bg-[linear-gradient(180deg,rgba(16,185,129,0.3),rgba(6,78,59,0.88))]",
-    bestAccuracy:
-      "bg-[linear-gradient(180deg,rgba(244,63,94,0.3),rgba(76,5,25,0.88))]",
-  };
-  const highlightRowCount = Math.max(1, Math.ceil(highlights.length / 2));
 
   return (
-    <CareerSurface className="flex min-h-0 flex-1 flex-col sm:min-h-[360px] xl:min-h-[420px]">
+    <CareerSurface className="flex min-h-full flex-1 flex-col sm:min-h-[360px] xl:min-h-[420px]">
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div>
           <h3 className="text-base font-semibold tracking-tight text-[var(--mc-text)]">
@@ -165,61 +177,78 @@ const CareerCompositeSection: React.FC<CareerCompositeSectionProps> = ({
         </div>
       </div>
 
-      <div className="mt-2.5 grid shrink-0 grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-5">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className={`${careerMiniCardClass} min-h-0 overflow-hidden`}
-          >
-            <div className="text-[11px] tracking-[0.12em] text-[var(--mc-text-muted)]">
-              {stat.label}
-            </div>
-            <div className="mt-0.5 truncate text-[15px] font-semibold text-[var(--mc-text)] sm:text-base">
-              {stat.value}
-            </div>
+      {isOverviewLocked ? (
+        <div className="mt-2.5 flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-[18px] border border-amber-200/16 bg-[radial-gradient(circle_at_50%_0%,rgba(245,158,11,0.18),transparent_38%),linear-gradient(180deg,rgba(24,18,10,0.8),rgba(8,7,5,0.62))] px-4 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-amber-200/24 bg-amber-200/12 text-amber-100 shadow-[0_16px_34px_-24px_rgba(245,158,11,0.8)]">
+            <LockOutlined fontSize="small" />
           </div>
-        ))}
-      </div>
 
-      <div className="mt-2.5 flex min-h-[128px] flex-1 flex-col overflow-hidden rounded-[16px] bg-black/16 p-2 sm:min-h-[112px] sm:rounded-[18px] sm:p-2.5">
-        <div
-          className="grid min-h-0 flex-1 grid-cols-2 gap-1.5 overflow-hidden sm:gap-2"
-          style={{
-            gridTemplateRows:
-              highlights.length > 0
-                ? `repeat(${highlightRowCount}, minmax(0, 1fr))`
-                : undefined,
-          }}
-        >
-          {highlights.length > 0 ? (
-            highlights.map((item) => (
+          <div className="mt-4 text-lg font-semibold tracking-tight text-[var(--mc-text)]">
+            完成 10 場後解鎖總覽
+          </div>
+          <div className="mt-1 max-w-[420px] text-sm leading-6 text-[var(--mc-text-muted)]">
+            目前累積 {safeTotalMatches.toLocaleString("zh-TW")} 場，還差{" "}
+            {remainingMatches.toLocaleString("zh-TW")} 場即可解鎖穩定的綜合表現與近期遊玩分析。
+          </div>
+
+          <div className="mt-5 h-2 w-full max-w-[320px] overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-amber-200 shadow-[0_0_18px_rgba(245,158,11,0.45)]"
+              style={{
+                width: `${Math.min(
+                  100,
+                  (safeTotalMatches / requiredMatchCount) * 100,
+                )}%`,
+              }}
+            />
+          </div>
+          <div className="mt-2 text-xs font-semibold text-amber-100/78">
+            {safeTotalMatches}/{requiredMatchCount}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-2.5 flex shrink-0 flex-wrap gap-1.5 sm:gap-2">
+            {stats.map((stat) => (
               <div
-                key={`${item.key}-${item.label}`}
-                className={`flex min-h-0 flex-col justify-between overflow-hidden rounded-[14px] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-[16px] sm:p-2.5 ${
-                  highlightToneClassByKey[item.key]
-                }`}
+                key={stat.label}
+                className={`${careerMiniCardClass} min-h-0 w-[calc(50%-3px)] overflow-hidden sm:w-[148px]`}
               >
-                <div className="truncate text-[10px] tracking-[0.12em] text-slate-200/90">
-                  {item.label}
+                <div className="text-[11px] tracking-[0.12em] text-[var(--mc-text-muted)]">
+                  {stat.label}
                 </div>
-
-                <div className="mt-0.5 truncate text-sm font-semibold text-white sm:text-base xl:text-lg">
-                  {item.value}
-                </div>
-
-                <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-200/75 sm:truncate sm:text-xs">
-                  {item.subtitle}
+                <div className="mt-0.5 truncate text-[15px] font-semibold text-[var(--mc-text)] sm:text-base">
+                  {stat.value}
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="col-span-2 flex min-h-0 items-center justify-center rounded-[16px] bg-white/[0.035] px-4 py-5 text-center text-sm text-[var(--mc-text-muted)]">
-              尚無高光紀錄
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
 
-      </div>
+          <div className="mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] bg-black/16 p-2 sm:rounded-[18px] sm:p-2.5">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold tracking-tight text-[var(--mc-text)]">
+                近期遊玩
+              </h4>
+
+              <button
+                type="button"
+                onClick={onOpenCollectionRanks}
+                className="rounded-full border border-[var(--mc-border)] bg-amber-300/12 px-3 py-1.5 text-[11px] font-semibold text-[var(--mc-text)] transition hover:border-[var(--mc-accent)] hover:bg-amber-300/20"
+              >
+                全部
+              </button>
+            </div>
+
+            <CareerRecentPlaysList
+              items={collectionShortcuts}
+              activeScopeKind={activeScope?.kind ?? "casual"}
+              onOpenCollectionRanks={onOpenCollectionRanks}
+              onOpenMatch={onOpenRecentMatch}
+              compact
+            />
+          </div>
+        </>
+      )}
     </CareerSurface>
   );
 };

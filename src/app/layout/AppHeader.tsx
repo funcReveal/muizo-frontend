@@ -1,11 +1,11 @@
 ﻿import {
+  AccountCircleRounded,
   ExpandMore,
   HistoryEdu,
   LibraryMusic,
   LockOutlined,
   Login,
   Logout,
-  ManageAccounts,
   MeetingRoom,
   Policy,
   Settings,
@@ -156,7 +156,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           sx={menuItemSx}
         >
           <ListItemIcon sx={{ minWidth: 30, color: "#7dd3fc" }}>
-            <ManageAccounts fontSize="small" />
+            <AccountCircleRounded fontSize="small" />
           </ListItemIcon>
           <ListItemText
             primary="個人資料"
@@ -192,7 +192,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             sx={menuItemSx}
           >
             <ListItemIcon sx={{ minWidth: 30, color: "#fcd34d" }}>
-              <ManageAccounts fontSize="small" />
+              <AccountCircleRounded fontSize="small" />
             </ListItemIcon>
             <ListItemText
               primary="個人資料"

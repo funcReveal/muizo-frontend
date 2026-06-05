@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@shared/auth/AuthContext";
 
@@ -87,6 +87,13 @@ export const useCareerCollectionRanksData =
     const [rawItems, setRawItems] = useState<CareerCollectionRankRow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const authTokenRef = useRef(authToken);
+    const refreshAuthTokenRef = useRef(refreshAuthToken);
+
+    useEffect(() => {
+      authTokenRef.current = authToken;
+      refreshAuthTokenRef.current = refreshAuthToken;
+    }, [authToken, refreshAuthToken]);
 
     useEffect(() => {
       let cancelled = false;
@@ -97,8 +104,8 @@ export const useCareerCollectionRanksData =
           setError(null);
           return fetchCareerCollectionRanks({
             clientId,
-            authToken,
-            refreshAuthToken,
+            authToken: authTokenRef.current,
+            refreshAuthToken: refreshAuthTokenRef.current,
           });
         })
         .then((items) => {
@@ -121,7 +128,7 @@ export const useCareerCollectionRanksData =
       return () => {
         cancelled = true;
       };
-    }, [authToken, clientId, refreshAuthToken]);
+    }, [clientId]);
 
     const items = useMemo(
       () => sortItems(rawItems, sortKey, sortOrder),

@@ -1,6 +1,7 @@
 ﻿import React, { useMemo, useState } from "react";
 
 import { useAuth } from "@shared/auth/AuthContext";
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
 
 import useCareerCollectionRanksData from "../model/useCareerCollectionRanksData";
 import useCareerHistoryWorkspace from "../model/useCareerHistoryWorkspace";
@@ -46,7 +47,14 @@ const CareerPageSkeleton: React.FC = () => {
 
 const CareerPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<CareerTabKey>("overview");
-  const { authUser, openProfileEditor } = useAuth();
+  const {
+    authToken,
+    authUser,
+    clientId,
+    displayUsername,
+    openProfileEditor,
+    refreshAuthToken,
+  } = useAuth();
 
   const overviewQuery = useCareerOverviewData();
   const collectionRanksQuery = useCareerCollectionRanksData();
@@ -59,6 +67,62 @@ const CareerPage: React.FC = () => {
   }, [activeTab, collectionRanksQuery.error, overviewQuery.error]);
 
   const isInitialLoading = overviewQuery.isLoading && !overviewQuery.error;
+  const recordCareerEvent = React.useCallback(
+    (
+      eventName:
+        | "career.tab.changed"
+        | "career.collection_rank.match_detail.opened",
+      metadata?: Record<string, string | number | boolean | null | undefined>,
+      ids?: { collectionId?: string | null; matchId?: string | null },
+    ) => {
+      if (!authToken) return;
+      void recordDbActionEvent({
+        eventName,
+        authToken,
+        clientId,
+        username: displayUsername,
+        refreshAuthToken,
+        collectionId: ids?.collectionId,
+        matchId: ids?.matchId,
+        metadata: {
+          source: "career",
+          ...metadata,
+        },
+      }).catch((error) => {
+        console.error("[career] failed to record action event", error);
+      });
+    },
+    [authToken, clientId, displayUsername, refreshAuthToken],
+  );
+  const handleTabChange = React.useCallback(
+    (nextTab: CareerTabKey) => {
+      setActiveTab((previousTab) => {
+        if (previousTab !== nextTab) {
+          recordCareerEvent("career.tab.changed", { tabKey: nextTab });
+        }
+        return nextTab;
+      });
+    },
+    [recordCareerEvent],
+  );
+  const handleOpenReplayFromCollectionRank = React.useCallback(
+    (summary: Parameters<typeof historyWorkspace.openReplayDetail>[0]) => {
+      recordCareerEvent(
+        "career.collection_rank.match_detail.opened",
+        {
+          source: "career_collection_rank",
+          detailSurface: "career_collection_rank",
+          matchOpenSource: "career_collection_rank_detail",
+        },
+        {
+          collectionId: summary.collectionId,
+          matchId: summary.matchId,
+        },
+      );
+      void historyWorkspace.openReplayDetail(summary);
+    },
+    [historyWorkspace, recordCareerEvent],
+  );
 
   return (
     <main className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden px-0 pb-1 sm:px-0">
@@ -82,7 +146,7 @@ const CareerPage: React.FC = () => {
             <div className="rounded-[18px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.98),rgba(8,7,5,0.99))] p-1 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:rounded-[20px] sm:p-1.5">
               <CareerTabs
                 activeTab={activeTab}
-                onChange={setActiveTab}
+                onChange={handleTabChange}
               />
             </div>
           </div>
@@ -92,14 +156,14 @@ const CareerPage: React.FC = () => {
             aria-live="polite"
           >
             {activeTab === "overview" && (
-              <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch] sm:pr-1">
+              <div className="flex min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch] sm:pr-1">
                 <CareerOverviewTab
                   composite={overviewQuery.data.composite}
                   compositeScopes={overviewQuery.data.compositeScopes}
-                  highlights={overviewQuery.data.highlights}
+                  totalMatches={overviewQuery.data.hero.totalMatches}
                   collectionShortcuts={overviewQuery.data.collectionShortcuts}
                   scopeContent={overviewQuery.data.scopeContent}
-                  onOpenCollectionRanks={() => setActiveTab("collectionRanks")}
+                  onOpenCollectionRanks={() => handleTabChange("collectionRanks")}
                   onOpenRecentMatch={(summary) => {
                     void historyWorkspace.openReplayDetail(summary);
                   }}
@@ -117,9 +181,7 @@ const CareerPage: React.FC = () => {
                   setSortOrder={collectionRanksQuery.setSortOrder}
                   isLoading={collectionRanksQuery.isLoading}
                   error={collectionRanksQuery.error}
-                  onOpenMatch={(summary) => {
-                    void historyWorkspace.openReplayDetail(summary);
-                  }}
+                  onOpenMatch={handleOpenReplayFromCollectionRank}
                 />
               </div>
             )}

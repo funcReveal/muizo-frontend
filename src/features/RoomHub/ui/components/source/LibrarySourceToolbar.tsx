@@ -56,8 +56,8 @@ const publicSortOptions: Array<{
   key: Exclude<PublicCollectionsSort, "favorites_first">;
   label: string;
 }> = [
+  { key: "rating", label: "推薦排序" },
   { key: "popular", label: "最受歡迎" },
-  { key: "rating", label: "評分最高" },
   { key: "updated", label: "近期更新" },
 ];
 

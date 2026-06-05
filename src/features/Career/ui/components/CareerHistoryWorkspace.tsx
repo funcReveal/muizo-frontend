@@ -3,6 +3,8 @@ import { KeyboardArrowUpRounded } from "@mui/icons-material";
 import React from "react";
 
 import HistoryReplayDialog from "@features/Settlement/ui/components/roomHistoryPage/HistoryReplayDialog";
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
+import { useAuth } from "@shared/auth/AuthContext";
 import { MuizoSelect, type MuizoSelectOption } from "@shared/ui/select";
 
 import useCareerHistoryWorkspace from "../../model/useCareerHistoryWorkspace";
@@ -19,6 +21,7 @@ interface CareerHistoryWorkspaceProps {
 const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
   workspace,
 }) => {
+  const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
   const {
     clientId,
     scrollHostRef,
@@ -54,12 +57,44 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
   const hasVisibleHistoryItems = groupedHistoryItems.length > 0;
   const isFilteredEmpty =
     shouldShowFilterBar && totalHistoryItemCount > 0 && !hasVisibleHistoryItems;
+  const recordFilterChange = React.useCallback(
+    (filterName: "mode" | "collection", filterValue: string) => {
+      if (!authToken) return;
+      void recordDbActionEvent({
+        eventName: "career.history.filter.changed",
+        authToken,
+        clientId,
+        username: displayUsername,
+        refreshAuthToken,
+        collectionId:
+          filterName === "collection" && filterValue !== "all"
+            ? filterValue
+            : null,
+        metadata: {
+          source: "career",
+          filterName,
+          filterValue,
+        },
+      }).catch((error) => {
+        console.error("[career] failed to record history filter event", error);
+      });
+    },
+    [authToken, clientId, displayUsername, refreshAuthToken],
+  );
   const handleModeFilterChange = React.useCallback(
     (value: "all" | "casual" | "leaderboard") => {
       setHistoryModeFilter(value);
       setHistoryCollectionFilterId("all");
+      recordFilterChange("mode", value);
     },
-    [setHistoryCollectionFilterId, setHistoryModeFilter],
+    [recordFilterChange, setHistoryCollectionFilterId, setHistoryModeFilter],
+  );
+  const handleCollectionFilterChange = React.useCallback(
+    (value: string) => {
+      setHistoryCollectionFilterId(value);
+      recordFilterChange("collection", value);
+    },
+    [recordFilterChange, setHistoryCollectionFilterId],
   );
 
   return (
@@ -69,7 +104,7 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
           modeFilter={historyModeFilter}
           onModeFilterChange={handleModeFilterChange}
           collectionFilterId={historyCollectionFilterId}
-          onCollectionFilterChange={setHistoryCollectionFilterId}
+          onCollectionFilterChange={handleCollectionFilterChange}
           collectionOptions={historyCollectionFilterOptions}
           modeCount={modeHistoryItemCount}
         />

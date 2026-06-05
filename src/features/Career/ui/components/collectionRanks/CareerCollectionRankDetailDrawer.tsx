@@ -160,13 +160,15 @@ const CareerCollectionRankDetailDrawer: React.FC<
     collection?.item_count ??
     item?.matchSummary?.questionCount ??
     null;
-  const sourceLabel = item?.sourceLabel ?? collection?.cover_channel_title ?? null;
+  const sourceLabel =
+    item?.sourceLabel ?? collection?.cover_channel_title ?? null;
   const previewThumbnail = item
     ? getCollectionThumbnail(item, collection)
     : null;
   const visibility = collection?.visibility ?? null;
   const isPublic = visibility === "public";
-  const ratingCount = reviewSummary?.ratingCount ?? collection?.rating_count ?? 0;
+  const ratingCount =
+    reviewSummary?.ratingCount ?? collection?.rating_count ?? 0;
   const ratingAvg =
     ratingCount > 0
       ? (reviewSummary?.ratingAvg ?? collection?.rating_avg ?? 0)
@@ -232,13 +234,13 @@ const CareerCollectionRankDetailDrawer: React.FC<
           collectionResult.status === "fulfilled" &&
           collectionResult.value.ok &&
           collectionResult.value.payload?.ok
-            ? collectionResult.value.payload.data?.collection ?? null
+            ? (collectionResult.value.payload.data?.collection ?? null)
             : null;
         const nextPreviewItems =
           previewResult.status === "fulfilled" &&
           previewResult.value.ok &&
           previewResult.value.payload?.ok
-            ? previewResult.value.payload.data?.items ?? []
+            ? (previewResult.value.payload.data?.items ?? [])
             : [];
         const nextReviewSummary =
           reviewResult.status === "fulfilled" ? reviewResult.value : null;
@@ -246,7 +248,8 @@ const CareerCollectionRankDetailDrawer: React.FC<
           collectionResult.status === "rejected" ||
           previewResult.status === "rejected" ||
           reviewResult.status === "rejected" ||
-          (collectionResult.status === "fulfilled" && !collectionResult.value.ok);
+          (collectionResult.status === "fulfilled" &&
+            !collectionResult.value.ok);
 
         setDetailState({
           collection: nextCollection,
@@ -292,9 +295,6 @@ const CareerCollectionRankDetailDrawer: React.FC<
               <h2 className="text-base font-semibold text-[var(--mc-text)] sm:text-lg">
                 題庫戰績
               </h2>
-              <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                最佳紀錄與近期遊玩
-              </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">

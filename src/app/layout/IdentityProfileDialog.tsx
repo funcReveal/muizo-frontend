@@ -11,13 +11,15 @@ import {
 import type { Theme } from "@mui/material/styles";
 
 import { USERNAME_MAX } from "@domain/room/constants";
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
+import { useAuth } from "@shared/auth/AuthContext";
 
 type IdentityProfileDialogProps = {
   needsNicknameConfirm: boolean;
   isProfileEditorOpen: boolean;
   nicknameDraft: string;
   setNicknameDraft: (value: string) => void;
-  confirmNickname: () => void;
+  confirmNickname: () => Promise<boolean> | boolean | void;
   closeProfileEditor: () => void;
 };
 
@@ -29,15 +31,60 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
   confirmNickname,
   closeProfileEditor,
 }) => {
+  const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
   const open = needsNicknameConfirm || isProfileEditorOpen;
+  const trackedOpenRef = React.useRef(false);
   const isMobile = useMediaQuery((theme: Theme) =>
     theme.breakpoints.down("sm"),
   );
+
+  const recordProfileRenameEvent = React.useCallback(
+    (
+      eventName:
+        | "career.profile.rename.opened"
+        | "career.profile.rename.saved",
+      profileAction: "rename_open" | "rename_save",
+    ) => {
+      if (!authToken) return;
+      void recordDbActionEvent({
+        eventName,
+        authToken,
+        clientId,
+        username: displayUsername,
+        refreshAuthToken,
+        metadata: {
+          source: "career",
+          profileAction,
+        },
+      }).catch((error) => {
+        console.error("[profile] failed to record rename event", error);
+      });
+    },
+    [authToken, clientId, displayUsername, refreshAuthToken],
+  );
+
+  React.useEffect(() => {
+    if (!open) {
+      trackedOpenRef.current = false;
+      return;
+    }
+    if (!isProfileEditorOpen || trackedOpenRef.current) return;
+    trackedOpenRef.current = true;
+    recordProfileRenameEvent("career.profile.rename.opened", "rename_open");
+  }, [isProfileEditorOpen, open, recordProfileRenameEvent]);
 
   const handleClose = () => {
     if (!needsNicknameConfirm) {
       closeProfileEditor();
     }
+  };
+
+  const handleConfirmNickname = () => {
+    void Promise.resolve(confirmNickname()).then((saved) => {
+      if (isProfileEditorOpen && saved !== false) {
+        recordProfileRenameEvent("career.profile.rename.saved", "rename_save");
+      }
+    });
   };
 
   const content = (
@@ -67,7 +114,7 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
             取消
           </Button>
         )}
-        <Button onClick={confirmNickname} variant="contained">
+        <Button onClick={handleConfirmNickname} variant="contained">
           確認
         </Button>
       </DialogActions>

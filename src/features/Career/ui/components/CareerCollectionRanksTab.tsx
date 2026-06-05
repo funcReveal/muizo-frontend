@@ -1,5 +1,7 @@
 import React from "react";
 
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
+import { useAuth } from "@shared/auth/AuthContext";
 import type {
   CareerCollectionRankRow,
   CareerCollectionRankSortKey,
@@ -33,6 +35,7 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
   error,
   onOpenMatch,
 }) => {
+  const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
   const [selectedItemId, setSelectedItemId] = React.useState<string | null>(
     null,
   );
@@ -48,9 +51,28 @@ const CareerCollectionRanksTab: React.FC<CareerCollectionRanksTabProps> = ({
     }
   }, [selectedItem, selectedItemId]);
 
-  const handleSelectItem = React.useCallback((item: CareerCollectionRankRow) => {
-    setSelectedItemId(item.id);
-  }, []);
+  const handleSelectItem = React.useCallback(
+    (item: CareerCollectionRankRow) => {
+      setSelectedItemId(item.id);
+      if (authToken) {
+        void recordDbActionEvent({
+          eventName: "career.collection_rank.detail.opened",
+          authToken,
+          clientId,
+          username: displayUsername,
+          refreshAuthToken,
+          collectionId: item.collectionId,
+          metadata: {
+            source: "career_collection_rank",
+            detailSurface: "career_collection_rank",
+          },
+        }).catch((error) => {
+          console.error("[career] failed to record detail open event", error);
+        });
+      }
+    },
+    [authToken, clientId, displayUsername, refreshAuthToken],
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

@@ -1,3 +1,4 @@
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 
 import type {
@@ -270,4 +271,53 @@ export const fetchCareerCollectionRanks = async ({
     bestPlayNumber: item.bestPlayNumber ?? null,
     bestRankAtPlay: item.bestRankAtPlay ?? null,
   }));
+};
+
+export const recordCareerCollectionRankActionEvent = async ({
+  eventName,
+  clientId,
+  username,
+  authToken,
+  refreshAuthToken,
+  collectionId,
+  metadata,
+}: FetchCareerOverviewParams & {
+  eventName:
+    | "career.collection_rank.share.opened"
+    | "career.collection_rank.share.clicked"
+    | "career.collection_rank.download.clicked"
+    | "share.image.generate.failed";
+  username: string | null;
+  collectionId?: string | null;
+  metadata?: {
+    buttonPlacement?: string;
+    showReplayCount?: boolean;
+    showPlayCount?: boolean;
+    source?: string;
+    shareFailureStage?: string;
+    shareFailureReason?: string;
+  };
+}) => {
+  const shareAction =
+    eventName === "career.collection_rank.share.opened"
+      ? "open"
+      : eventName === "career.collection_rank.share.clicked"
+        ? "share"
+        : eventName === "career.collection_rank.download.clicked"
+          ? "download"
+          : undefined;
+  await recordDbActionEvent({
+    eventName,
+    clientId,
+    username,
+    authToken,
+    refreshAuthToken,
+    collectionId,
+    metadata: {
+      source: "career_collection_rank",
+      shareSurface: "career_collection_rank_detail",
+      ...(shareAction ? { shareAction } : {}),
+      ...metadata,
+    },
+  });
 };

@@ -31,7 +31,7 @@ const RecentMatchRow = ({
   if (!match) return <div style={style} />;
 
   return (
-    <div style={style} className="box-border">
+    <div style={style} className="box-border rounded-[12px]">
       {renderMatchRow(match)}
     </div>
   );
@@ -76,7 +76,9 @@ const CareerCollectionRankExpandedPanel: React.FC<
       match.questionCount,
     );
     const comboLabel =
-      typeof selfPlayer?.maxCombo === "number" ? `x${selfPlayer.maxCombo}` : "-";
+      typeof selfPlayer?.maxCombo === "number"
+        ? `x${selfPlayer.maxCombo}`
+        : "-";
     const achievementPlayLabel =
       typeof item.bestPlayNumber === "number" &&
       Number.isFinite(item.bestPlayNumber)
@@ -135,7 +137,7 @@ const CareerCollectionRankExpandedPanel: React.FC<
           "grid w-full cursor-pointer grid-cols-1 gap-1.5 px-2.5 py-2 text-left outline outline-1 -outline-offset-1 outline-white/[0.045] transition hover:bg-slate-800/44 hover:outline-amber-200/18",
           options?.isBest
             ? "rounded-[12px] bg-[linear-gradient(180deg,rgba(30,41,59,0.42),rgba(15,23,42,0.26))] sm:grid-cols-[minmax(0,1.25fr)_88px_132px_92px_122px_78px]"
-            : "bg-slate-950/18 border-b border-white/8 last:border-b-0 sm:grid-cols-[minmax(0,1.35fr)_92px_112px_72px]",
+            : "rounded-[12px] border-b border-white/8 bg-slate-950/18 last:border-b-0 sm:grid-cols-[minmax(0,1.35fr)_92px_112px_72px]",
         ].join(" ")}
       >
         <div className="min-w-0">
@@ -179,7 +181,9 @@ const CareerCollectionRankExpandedPanel: React.FC<
           </div>
         </div>
         {summary ? (
-          <div className="mt-2">{renderMatchRow(summary, { isBest: true })}</div>
+          <div className="mt-2">
+            {renderMatchRow(summary, { isBest: true })}
+          </div>
         ) : (
           <div className="mt-2 rounded-[12px] bg-amber-200/[0.045] px-3 py-2 text-xs text-amber-50/76">
             目前只有題庫榜單統計，尚未取得最佳紀錄的完整回顧資料。
