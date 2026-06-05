@@ -35,11 +35,31 @@ const sortableHeaders: Array<{
   align?: "left" | "right" | "center";
 }> = [
   { key: null, label: "題庫" },
-  { key: "leaderboardRank", label: "榜單名次", defaultOrder: "asc", align: "right" },
-  { key: "previousLeaderboardRank", label: "前期名次", defaultOrder: "asc", align: "right" },
+  {
+    key: "leaderboardRank",
+    label: "榜單名次",
+    defaultOrder: "asc",
+    align: "right",
+  },
+  {
+    key: "previousLeaderboardRank",
+    label: "前期名次",
+    defaultOrder: "asc",
+    align: "right",
+  },
   { key: "delta", label: "Δ 變動", defaultOrder: "desc", align: "right" },
-  { key: "matchScore", label: "最佳分數", defaultOrder: "desc", align: "right" },
-  { key: "lastPlayedAt", label: "最近遊玩", defaultOrder: "desc", align: "right" },
+  {
+    key: "matchScore",
+    label: "最佳分數",
+    defaultOrder: "desc",
+    align: "right",
+  },
+  {
+    key: "lastPlayedAt",
+    label: "最近遊玩",
+    defaultOrder: "desc",
+    align: "right",
+  },
   { key: null, label: "", align: "center" },
 ];
 
@@ -74,7 +94,9 @@ const CareerCollectionRanksTable: React.FC<CareerCollectionRanksTableProps> = ({
         className={`${gridClassName} border-b border-[var(--mc-border)] px-1 pb-3 text-[11px] font-semibold tracking-[0.12em] text-[var(--mc-text-muted)]`}
       >
         {sortableHeaders.map((header) => {
-          if (header.key === null) {
+          const headerKey = header.key;
+
+          if (headerKey === null) {
             return (
               <div
                 key={header.label}
@@ -96,18 +118,16 @@ const CareerCollectionRanksTable: React.FC<CareerCollectionRanksTableProps> = ({
               key={header.label}
               type="button"
               onClick={() =>
-                handleHeaderSort(header.key, header.defaultOrder ?? "asc")
+                handleHeaderSort(headerKey, header.defaultOrder ?? "asc")
               }
               className={`inline-flex min-w-0 cursor-pointer items-center gap-1.5 rounded-[8px] px-1.5 py-1 transition hover:bg-amber-300/8 hover:text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-200/22 ${
                 header.align === "right"
                   ? "justify-end text-right"
                   : "justify-start text-left"
-              } ${
-                sortKey === header.key ? "text-amber-100" : ""
-              }`}
+              } ${sortKey === headerKey ? "text-amber-100" : ""}`}
             >
               <span className="truncate">{header.label}</span>
-              {sortKey === header.key ? (
+              {sortKey === headerKey ? (
                 sortOrder === "asc" ? (
                   <NorthRoundedIcon sx={{ fontSize: 13 }} />
                 ) : (
@@ -123,7 +143,9 @@ const CareerCollectionRanksTable: React.FC<CareerCollectionRanksTableProps> = ({
         {items.map((item) => {
           const selected = selectedItemId === item.id;
           const matchScore =
-            item.matchScore ?? item.matchSummary?.selfPlayer?.finalScore ?? null;
+            item.matchScore ??
+            item.matchSummary?.selfPlayer?.finalScore ??
+            null;
 
           return (
             <div key={item.id} className="px-1 py-3">
