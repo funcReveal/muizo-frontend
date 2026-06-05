@@ -254,7 +254,7 @@ const SharePreviewCard: React.FC<{
 
     <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-300/72">
       {showPlayCount ? <span>遊玩場數 {metrics.playCount}</span> : <span />}
-      <span className="font-semibold text-amber-200">muizo.app</span>
+      <span className="font-semibold text-amber-200">muizo.org</span>
     </div>
   </div>
 );
@@ -326,7 +326,10 @@ const CareerCollectionRankShareDialog: React.FC<
         | "career.collection_rank.share.clicked"
         | "career.collection_rank.download.clicked"
         | "share.image.generate.failed",
-      extraMetadata?: Record<string, string | number | boolean | null | undefined>,
+      extraMetadata?: Record<
+        string,
+        string | number | boolean | null | undefined
+      >,
     ) => {
       if (!item || !authToken) return;
       void recordCareerCollectionRankActionEvent({
