@@ -2,8 +2,8 @@ import React, { useCallback, useMemo, useRef } from "react";
 import {
   List,
   useDynamicRowHeight,
+  type ListImperativeAPI,
   type RowComponentProps,
-  useListRef,
 } from "react-window";
 
 import type { RoomSettlementHistorySummary } from "@features/RoomSession";
@@ -46,7 +46,7 @@ const CareerHistoryGroupedList: React.FC<CareerHistoryGroupedListProps> = ({
   const autoLoadArmedRef = useRef(false);
   const requestedAutoLoadCursorRef = useRef<string | null>(null);
   const visibleStopIndexRef = useRef(-1);
-  const listRef = useListRef();
+  const listRef = useRef<ListImperativeAPI | null>(null);
 
   const rowHeightCache = useDynamicRowHeight({
     defaultRowHeight: 150,

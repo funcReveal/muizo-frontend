@@ -28,7 +28,7 @@ const CareerCollectionRanksMobileList: React.FC<
         const matchRank =
           item.recentRank && item.recentPlayerCount
             ? `${item.recentRank}/${item.recentPlayerCount}`
-            : formatCareerRank(item.recentRank);
+            : formatCareerRank(item.recentRank ?? null);
 
         return (
           <div

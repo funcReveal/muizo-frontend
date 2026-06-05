@@ -57,7 +57,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   authLoading = false,
   onLogin,
   onLogout,
-  onEditProfile,
   onNavigateRooms,
   onNavigateCollections,
   onNavigateCareer,

@@ -21,7 +21,12 @@ interface CareerHistoryWorkspaceProps {
 const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
   workspace,
 }) => {
-  const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
+  const {
+    authToken,
+    clientId: analyticsClientId,
+    displayUsername,
+    refreshAuthToken,
+  } = useAuth();
   const {
     clientId,
     scrollHostRef,
@@ -63,7 +68,7 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
       void recordDbActionEvent({
         eventName: "career.history.filter.changed",
         authToken,
-        clientId,
+        clientId: analyticsClientId,
         username: displayUsername,
         refreshAuthToken,
         collectionId:
@@ -79,7 +84,7 @@ const CareerHistoryWorkspace: React.FC<CareerHistoryWorkspaceProps> = ({
         console.error("[career] failed to record history filter event", error);
       });
     },
-    [authToken, clientId, displayUsername, refreshAuthToken],
+    [authToken, analyticsClientId, displayUsername, refreshAuthToken],
   );
   const handleModeFilterChange = React.useCallback(
     (value: "all" | "casual" | "leaderboard") => {

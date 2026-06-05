@@ -73,8 +73,25 @@ const CareerCollectionRanksTable: React.FC<CareerCollectionRanksTableProps> = ({
       <div
         className={`${gridClassName} border-b border-[var(--mc-border)] px-1 pb-3 text-[11px] font-semibold tracking-[0.12em] text-[var(--mc-text-muted)]`}
       >
-        {sortableHeaders.map((header) =>
-          header.key ? (
+        {sortableHeaders.map((header) => {
+          if (header.key === null) {
+            return (
+              <div
+                key={header.label}
+                className={
+                  header.align === "center"
+                    ? "text-center"
+                    : header.align === "right"
+                      ? "text-right"
+                      : ""
+                }
+              >
+                {header.label}
+              </div>
+            );
+          }
+
+          return (
             <button
               key={header.label}
               type="button"
@@ -98,21 +115,8 @@ const CareerCollectionRanksTable: React.FC<CareerCollectionRanksTableProps> = ({
                 )
               ) : null}
             </button>
-          ) : (
-            <div
-              key={header.label}
-              className={
-                header.align === "center"
-                  ? "text-center"
-                  : header.align === "right"
-                    ? "text-right"
-                    : ""
-              }
-            >
-              {header.label}
-            </div>
-          ),
-        )}
+          );
+        })}
       </div>
 
       <div className="divide-y divide-[var(--mc-border)]">
