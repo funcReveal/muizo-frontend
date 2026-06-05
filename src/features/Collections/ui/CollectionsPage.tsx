@@ -5,7 +5,9 @@ import {
   CategoryQuickPicker,
   SubTagQuickPicker,
   useSubTagsQuery,
+  useCategoriesQuery,
 } from "@features/CollectionCategory";
+import type { CategoryTreeItem } from "@features/CollectionCategory";
 
 import {
   Box,
@@ -86,6 +88,23 @@ const TEXT = {
     "設為私人後，其他玩家將無法再瀏覽或使用這份收藏。已分享出去的公開連結也可能失效，確定要設為私人嗎？",
 };
 
+const buildCategoryFromId = (
+  categoryId: string,
+  tree: CategoryTreeItem[],
+): DbCollection["category"] | null => {
+  for (const parent of tree) {
+    if (parent.id === categoryId) {
+      return { id: parent.id, key: parent.key, label: parent.label, parentKey: null, parentLabel: null };
+    }
+    for (const child of parent.children) {
+      if (child.id === categoryId) {
+        return { id: child.id, key: child.key, label: child.label, parentKey: parent.key, parentLabel: parent.label };
+      }
+    }
+  }
+  return null;
+};
+
 const SKELETON_COUNT = 6;
 const skeletonBase =
   "relative overflow-hidden rounded-md bg-gradient-to-r from-slate-900/60 via-slate-800/70 to-slate-900/60 animate-pulse";
@@ -148,6 +167,7 @@ const CollectionsPage = () => {
   const ownerId = authUser?.id ?? null;
   const isAdmin = isAdminRole(authUser?.role);
   const { data: subTagsData = [] } = useSubTagsQuery();
+  const { data: categoriesData = [] } = useCategoriesQuery();
   const subTagLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
     for (const tag of subTagsData) map.set(tag.key, tag.label);
@@ -352,35 +372,33 @@ const CollectionsPage = () => {
       }
 
       const previousCategory = target.category ?? null;
+      const optimisticCategory = buildCategoryFromId(categoryId, categoriesData);
+
+      // Optimistic update — UI reflects immediately using local tree data
+      setCollections((prev) =>
+        prev.map((item) =>
+          item.id === collectionId
+            ? { ...item, category: optimisticCategory }
+            : item,
+        ),
+      );
+
       try {
         const token = await ensureFreshAuthToken({
           token: authToken,
           refreshAuthToken,
         });
-        if (!token) return;
-
+        if (!token) {
+          setCollections((prev) =>
+            prev.map((item) =>
+              item.id === collectionId ? { ...item, category: previousCategory } : item,
+            ),
+          );
+          return;
+        }
         await collectionsApi.updateCollection(token, collectionId, {
           category_id: categoryId,
         });
-
-        // Refetch this collection to get updated category label
-        const res = await fetch(
-          `${API_URL}/api/collections/${collectionId}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        if (res.ok) {
-          const payload = await res.json().catch(() => null);
-          const updated = payload?.data?.collection ?? payload?.data ?? null;
-          if (updated?.category !== undefined) {
-            setCollections((prev) =>
-              prev.map((item) =>
-                item.id === collectionId
-                  ? { ...item, category: updated.category }
-                  : item,
-              ),
-            );
-          }
-        }
       } catch (err) {
         // Revert on error
         setCollections((prev) =>
@@ -393,7 +411,7 @@ const CollectionsPage = () => {
         setError(err instanceof Error ? err.message : "分類更新失敗");
       }
     },
-    [authToken, collections, refreshAuthToken],
+    [authToken, collections, refreshAuthToken, categoriesData],
   );
 
   // Quick-update a collection's sub-tag keys from the card (optimistic UI)

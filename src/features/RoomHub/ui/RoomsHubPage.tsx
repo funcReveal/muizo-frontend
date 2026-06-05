@@ -384,13 +384,28 @@ const RoomsHubPage: React.FC = () => {
   const [detailDrawerState, setDetailDrawerState] =
     useState<CollectionDetailDrawerState>(null);
 
-  // Single-select filter state for the public library tab
-  // null = "全部"; specific key = active filter
-  const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<string[]>(
-    [],
-  );
+  // Filter state for the public library tab.
+  // "selected*" = immediate UI state (chip highlight, active indicator).
+  // "debounced*" = delayed values used for API calls — prevents a request per click.
+  const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<string[]>([]);
   const [selectedSubTagKeys, setSelectedSubTagKeys] = useState<string[]>([]);
+  const [debouncedCategoryKeys, setDebouncedCategoryKeys] = useState<string[]>([]);
+  const [debouncedSubTagKeys, setDebouncedSubTagKeys] = useState<string[]>([]);
+
   const [isFilterPending, startFilterTransition] = useTransition();
+
+  // Debounce filter key changes (same 280ms as search) so rapid chip clicks
+  // only trigger a single API call after the user pauses.
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedCategoryKeys(selectedCategoryKeys), 280);
+    return () => window.clearTimeout(handle);
+  }, [selectedCategoryKeys]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedSubTagKeys(selectedSubTagKeys), 280);
+    return () => window.clearTimeout(handle);
+  }, [selectedSubTagKeys]);
+
   const handleSelectCategoryFilter = useCallback((key: string | null) => {
     startFilterTransition(() => {
       setSelectedCategoryKeys((current) => {
@@ -401,6 +416,7 @@ const RoomsHubPage: React.FC = () => {
       });
     });
   }, [startFilterTransition]);
+
   const handleSelectSubTagFilter = useCallback((key: string | null) => {
     startFilterTransition(() => {
       setSelectedSubTagKeys((current) => {
@@ -1089,13 +1105,14 @@ const RoomsHubPage: React.FC = () => {
     return () => window.clearTimeout(handle);
   }, [createLibrarySearch, createLibraryTab]);
 
-  // Server-authoritative cross-dimensional filter counts (only on public tab)
+  // Server-authoritative cross-dimensional filter counts (only on public tab).
+  // Uses debounced filter keys so rapid chip clicks don't trigger repeated queries.
   const filterAggregationsQuery = useFilterAggregationsQuery({
     apiUrl: API_URL,
     visibility: "public",
     q: debouncedPublicLibrarySearch.trim() || undefined,
-    categoryKeys: selectedCategoryKeys,
-    subTags: selectedSubTagKeys,
+    categoryKeys: debouncedCategoryKeys,
+    subTags: debouncedSubTagKeys,
     enabled: createLibraryTab === "public",
   });
 
@@ -1456,8 +1473,8 @@ const RoomsHubPage: React.FC = () => {
       previousCreateLibraryTabRef.current = createLibraryTab;
       const fetchOptions = {
         query: debouncedPublicLibrarySearch,
-        categoryKeys: selectedCategoryKeys,
-        subTags: selectedSubTagKeys,
+        categoryKeys: debouncedCategoryKeys,
+        subTags: debouncedSubTagKeys,
       };
       void fetchCollections("public", fetchOptions);
       return;
@@ -1481,12 +1498,12 @@ const RoomsHubPage: React.FC = () => {
     canUseGoogleLibraries,
     createLibraryTab,
     debouncedPublicLibrarySearch,
+    debouncedCategoryKeys,
+    debouncedSubTagKeys,
     fetchCollections,
     fetchYoutubePlaylists,
     previousCreateLibraryTabRef,
     publicCollectionsSort,
-    selectedCategoryKeys,
-    selectedSubTagKeys,
     youtubePlaylists.length,
     youtubePlaylistsLoading,
   ]);

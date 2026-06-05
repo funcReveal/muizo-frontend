@@ -79,13 +79,13 @@ export function CategoryQuickPicker({
                   <span>未分類</span>
                 </button>
               )}
-              {categories.map((parent) => (
-                <div key={parent.key} className="mt-1.5">
-                  <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
-                    {parent.label}
-                  </div>
-                  {parent.children.length > 0 ? (
-                    parent.children.map((child) => (
+              {categories.map((parent) =>
+                parent.children.length > 0 ? (
+                  <div key={parent.key} className="mt-1.5">
+                    <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
+                      {parent.label}
+                    </div>
+                    {parent.children.map((child) => (
                       <button
                         key={child.key}
                         type="button"
@@ -100,23 +100,24 @@ export function CategoryQuickPicker({
                         <span className="text-white/30">└</span>
                         <span>{child.label}</span>
                       </button>
-                    ))
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void handlePick(parent.id)}
-                      className={[
-                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
-                        value === parent.id
-                          ? "bg-cyan-500/15 text-cyan-100"
-                          : "text-white/80 hover:bg-white/5",
-                      ].join(" ")}
-                    >
-                      <span>{parent.label}</span>
-                    </button>
-                  )}
-                </div>
-              ))}
+                    ))}
+                  </div>
+                ) : (
+                  <button
+                    key={parent.key}
+                    type="button"
+                    onClick={() => void handlePick(parent.id)}
+                    className={[
+                      "mt-0.5 flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+                      value === parent.id
+                        ? "bg-cyan-500/15 text-cyan-100"
+                        : "text-white/80 hover:bg-white/5",
+                    ].join(" ")}
+                  >
+                    <span>{parent.label}</span>
+                  </button>
+                )
+              )}
             </div>
           )}
         </div>

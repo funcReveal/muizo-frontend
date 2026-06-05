@@ -313,6 +313,7 @@ export const useCollectionContentState = ({
   const publicCategoryKeysRef = useRef<string[]>([]);
   const publicSubTagsRef = useRef<string[]>([]);
   const latestCollectionsRequestIdRef = useRef(0);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
   const collectionCacheRef = useRef<Record<string, PlaylistItem[]>>({});
   const inFlightCollectionIdRef = useRef<string | null>(null);
   const latestLoadRequestIdRef = useRef(0);
@@ -371,6 +372,10 @@ export const useCollectionContentState = ({
         setCollectionsError("尚未設定收藏庫 API 位置 (API_URL)");
         return;
       }
+      // Cancel any previous in-flight fetch to avoid stale responses consuming server resources
+      fetchAbortControllerRef.current?.abort();
+      fetchAbortControllerRef.current = new AbortController();
+
       const requestId = latestCollectionsRequestIdRef.current + 1;
       latestCollectionsRequestIdRef.current = requestId;
       const resolvedScope =
@@ -512,6 +517,7 @@ export const useCollectionContentState = ({
             subTags: publicSubTagsRef.current,
             page: 1,
             pageSize: DEFAULT_PAGE_SIZE,
+            signal: fetchAbortControllerRef.current?.signal,
           });
           if (!ok) {
             throw new Error(payload?.error ?? "載入公開收藏庫失敗");
@@ -1189,6 +1195,8 @@ export const useCollectionContentState = ({
     publicCategoryKeysRef.current = [];
     publicSubTagsRef.current = [];
     latestCollectionsRequestIdRef.current = 0;
+    fetchAbortControllerRef.current?.abort();
+    fetchAbortControllerRef.current = null;
     setSelectedCollectionId(null);
     setCollectionItemsLoading(false);
     setCollectionItemsError(null);

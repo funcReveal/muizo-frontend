@@ -53,6 +53,8 @@ const AppLayoutShell: React.FC = () => {
   const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
 
   const isRoomsHubPage = location.pathname === "/rooms";
+  const isCollectionEditPage = /^\/collections\/[^/]+\/edit$/.test(location.pathname);
+  const isFixedViewportPage = isRoomsHubPage || isCollectionEditPage;
 
   const handleLoginRequest = useCallback(() => {
     if (authLoading) return;
@@ -95,29 +97,30 @@ const AppLayoutShell: React.FC = () => {
     navigate("/privacy");
   }, [navigate]);
 
-  const roomsOutletClassName = isRoomsHubPage && isMobileViewport
-    ? [
-        "min-h-0 flex-1",
-        "overflow-y-auto overflow-x-hidden",
-        "pb-[calc(16px+env(safe-area-inset-bottom))]",
-        "[-webkit-overflow-scrolling:touch]",
-        "overscroll-y-contain",
-        "[&>*]:!h-auto",
-        "[&>*]:!min-h-full",
-        "[&>*]:!overflow-visible",
-      ].join(" ")
-    : "min-h-0 flex-1 overflow-hidden pb-2";
+  const fixedViewportOutletClassName =
+    isRoomsHubPage && isMobileViewport
+      ? [
+          "min-h-0 flex-1",
+          "overflow-y-auto overflow-x-hidden",
+          "pb-[calc(16px+env(safe-area-inset-bottom))]",
+          "[-webkit-overflow-scrolling:touch]",
+          "overscroll-y-contain",
+          "[&>*]:!h-auto",
+          "[&>*]:!min-h-full",
+          "[&>*]:!overflow-visible",
+        ].join(" ")
+      : "min-h-0 flex-1 overflow-hidden pb-2";
 
   return (
     <div
       className={`flex bg-[var(--mc-bg)] text-[var(--mc-text)] justify-center items-start ${
-        isRoomsHubPage ? "h-dvh overflow-hidden" : "min-h-screen"
+        isFixedViewportPage ? "h-dvh overflow-hidden" : "min-h-screen"
       }`}
     >
       <div
         className={`flex w-full min-w-0 p-4 flex-col ${
-          isRoomsHubPage ? "space-y-2" : "space-y-4"
-        }${isRoomsHubPage ? " h-full min-h-0" : " min-h-screen"}`}
+          isFixedViewportPage ? "space-y-2 h-full min-h-0" : "space-y-4 min-h-screen"
+        }`}
       >
         <AppHeader
           displayUsername={displayUsername}
@@ -134,8 +137,8 @@ const AppLayoutShell: React.FC = () => {
           onNavigatePrivacy={handleNavigatePrivacy}
         />
 
-        {isRoomsHubPage ? (
-          <div className={roomsOutletClassName}>
+        {isFixedViewportPage ? (
+          <div className={fixedViewportOutletClassName}>
             <Outlet />
           </div>
         ) : (

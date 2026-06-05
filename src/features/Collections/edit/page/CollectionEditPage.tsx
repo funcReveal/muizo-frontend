@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CategoryDrawerPanel,
   useCategoryAutoDetect,
+  useCategoriesQuery,
 } from "@features/CollectionCategory";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@mui/material";
@@ -367,7 +368,7 @@ const CollectionEditPage = () => {
 
   const isReadOnly = !authToken || authExpired;
 
-  // Category auto-detect (runs when collection has no category yet)
+  // Category auto-detect (runs when collection has no category yet, resets on collection switch)
   const { suggestion: categoryDetectSuggestion, isDetecting: categoryDetecting, hasRun: categoryDetectRan, runDetect: runCategoryDetect } =
     useCategoryAutoDetect({ collectionId: activeCollectionId, token: authToken });
 
@@ -377,6 +378,20 @@ const CollectionEditPage = () => {
     if (categoryDetectRan) return;
     runCategoryDetect();
   }, [activeCollectionId, authToken, activeCollection?.category?.id, categoryDetectRan, runCategoryDetect]);
+
+  // Resolve the suggested category UUID for accurate "not yet applied" check
+  const { data: categoriesDataForDetect = [] } = useCategoriesQuery();
+  const suggestedCategoryId = useMemo(() => {
+    const key = categoryDetectSuggestion?.categoryKey;
+    if (!key) return null;
+    for (const parent of categoriesDataForDetect) {
+      if (parent.key === key) return parent.id;
+      for (const child of parent.children) {
+        if (child.key === key) return child.id;
+      }
+    }
+    return null;
+  }, [categoryDetectSuggestion?.categoryKey, categoriesDataForDetect]);
 
   // Saves the given category/subtag values to the server.
   // Accepts explicit values to avoid stale closure issues inside auto-save timers.
@@ -1620,6 +1635,11 @@ const CollectionEditPage = () => {
         hasCategorySet={!!categoryId}
         collectionIsPublic={collectionVisibility === "public"}
         categorySaving={categorySaving}
+        categoryHasSuggestion={
+          categoryDetectRan &&
+          !!suggestedCategoryId &&
+          suggestedCategoryId !== categoryId
+        }
         categoryDrawerContent={
           activeCollectionId && !isReadOnly ? (
             <CategoryDrawerPanel

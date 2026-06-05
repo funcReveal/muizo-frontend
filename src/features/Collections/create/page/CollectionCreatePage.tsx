@@ -28,6 +28,10 @@ import { appToast } from "../../../../shared/ui/toastApi";
 import { usePlaylistSource } from "@features/PlaylistSource";
 import { useCollectionContent } from "@features/CollectionContent";
 import {
+  useCategoryAutoDetect,
+  type DetectItemInput,
+} from "@features/CollectionCategory";
+import {
   MAX_COLLECTIONS_PER_USER,
   MAX_PRIVATE_COLLECTIONS_PER_USER,
   resolveCollectionItemLimit,
@@ -239,6 +243,28 @@ const CollectionCreatePage = () => {
     playlistItems: importedPlaylistItems,
     collectionItemLimit,
     longDurationThresholdSec: LONG_DURATION_THRESHOLD_SEC,
+  });
+
+  // Memoize detection inputs from import sources — stable against time/answer edits
+  const detectItems = useMemo<DetectItemInput[]>(
+    () =>
+      importedPlaylistItems.slice(0, 50).map((item) => ({
+        channelId: item.channelId ?? null,
+        channelTitle: item.uploader ?? null,
+        title: item.title ?? null,
+        answerText: item.answerText ?? null,
+      })),
+    [importedPlaylistItems],
+  );
+
+  const {
+    suggestion: detectSuggestion,
+    isDetecting: detectIsRunning,
+    hasRun: detectHasRun,
+    runDetect,
+  } = useCategoryAutoDetect({
+    items: detectItems,
+    token: authToken,
   });
 
   const decorateDraftItem = useCallback(
@@ -657,6 +683,14 @@ const CollectionCreatePage = () => {
     });
   }, [isTitleEditing]);
 
+  // Trigger category detection as soon as items are loaded (before publish step)
+  useEffect(() => {
+    if (!authToken || detectHasRun || detectIsRunning) return;
+    if (categoryId) return;
+    if (detectItems.length === 0) return;
+    runDetect();
+  }, [authToken, categoryId, detectHasRun, detectIsRunning, detectItems, runDetect]);
+
   useEffect(() => {
     if (playlistSource !== "url") return;
     if (!playlistUrlLooksValid) return;
@@ -952,13 +986,9 @@ const CollectionCreatePage = () => {
                     isDraftOverflow={isDraftOverflow}
                     draftOverflowCount={draftOverflowCount}
                     isReadyToCreate={canCreateCollection}
-                    authToken={authToken}
-                    draftItems={batchEditedDraftPlaylistItems.map((item) => ({
-                      channelId: item.channelId ?? null,
-                      channelTitle: item.uploader ?? null,
-                      title: item.title ?? null,
-                      answerText: item.answerText ?? null,
-                    }))}
+                    detectSuggestion={detectSuggestion}
+                    detectIsRunning={detectIsRunning}
+                    detectHasRun={detectHasRun}
                     categoryId={categoryId}
                     onCategoryIdChange={setCategoryId}
                     subTagKeys={subTagKeys}

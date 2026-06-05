@@ -17,7 +17,7 @@ const MULTI_LANG_KEY = "multi";
 
 /**
  * Lightweight popover for quickly editing a collection's language tags.
- * Multi-select with built-in mutual exclusion for "多語言".
+ * Multi-select with built-in mutual exclusion for "多語系".
  * Each toggle triggers onChange immediately (parent persists).
  */
 export function SubTagQuickPicker({
@@ -87,7 +87,7 @@ export function SubTagQuickPicker({
           {isLoading ? (
             <div className="px-2 py-3 text-xs text-white/50">載入中…</div>
           ) : (
-            <div className="flex flex-wrap gap-1.5 px-1.5 pb-1">
+            <div className="flex flex-col gap-0.5 pb-1">
               {subTags.map((tag) => {
                 const active = safe.includes(tag.key);
                 const maxReached = !active && safe.length >= max;
@@ -98,18 +98,14 @@ export function SubTagQuickPicker({
                     disabled={maxReached}
                     onClick={() => toggle(tag.key)}
                     className={[
-                      "rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-all duration-150",
-                      "focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-35",
+                      "flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+                      "focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-35",
                       active
-                        ? "border-cyan-300/60 bg-cyan-400/20 text-cyan-50 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.15)]"
-                        : "border-white/10 bg-slate-900/40 text-cyan-100/85 hover:border-cyan-300/40 hover:bg-cyan-500/15 hover:text-cyan-50",
+                        ? "bg-cyan-500/15 text-cyan-100"
+                        : "text-white/80 hover:bg-white/5 hover:text-white",
                     ].join(" ")}
                   >
-                    {active && (
-                      <span className="mr-1 inline-block text-[10px] text-cyan-300/80">
-                        ✓
-                      </span>
-                    )}
+                    <span className={`mr-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-cyan-400" : "bg-white/15"}`} />
                     {tag.label}
                   </button>
                 );

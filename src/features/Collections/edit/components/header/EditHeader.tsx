@@ -57,6 +57,8 @@ type EditHeaderProps = {
   collectionIsPublic?: boolean;
   /** Whether category auto-save is in progress */
   categorySaving?: boolean;
+  /** Whether auto-detect has a pending suggestion the user hasn't applied yet */
+  categoryHasSuggestion?: boolean;
 };
 
 const EditHeader = ({
@@ -94,6 +96,7 @@ const EditHeader = ({
   hasCategorySet = false,
   collectionIsPublic = false,
   categorySaving = false,
+  categoryHasSuggestion = false,
 }: EditHeaderProps) => {
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -205,6 +208,8 @@ const EditHeader = ({
                     <span className="absolute right-0.5 top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-400" />
                   ) : !hasCategorySet && collectionIsPublic ? (
                     <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500" />
+                  ) : categoryHasSuggestion ? (
+                    <span className="absolute right-0.5 top-0.5 h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
                   ) : null}
                 </button>
               </Tooltip>

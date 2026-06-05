@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   categoriesApi,
   type CategoryDetectResult,
@@ -29,11 +29,45 @@ export function useCategoryAutoDetect({
   const [isDetecting, setIsDetecting] = useState(false);
   const [hasRun, setHasRun] = useState(false);
 
+  // Use ref to avoid stale closure on isDetecting check
+  const isDetectingRef = useRef(false);
+  // Abort controller for the current in-flight request
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Reset all detection state when collectionId changes (user switched collection)
+  // and clean up on unmount.
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      isDetectingRef.current = false;
+    };
+  }, [collectionId]);
+
+  useEffect(() => {
+    if (collectionId !== undefined) {
+      setSuggestion(null);
+      setHasRun(false);
+      setIsDetecting(false);
+    }
+  }, [collectionId]);
+
+  // Cancel in-flight request on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const runDetect = useCallback(() => {
-    if (!token || isDetecting) return;
-    // Need either collectionId or items to detect
+    if (!token || isDetectingRef.current) return;
     if (!collectionId && (!items || items.length === 0)) return;
 
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    isDetectingRef.current = true;
     setIsDetecting(true);
 
     const detectPromise = collectionId
@@ -42,17 +76,20 @@ export function useCategoryAutoDetect({
 
     detectPromise
       .then((result) => {
+        if (controller.signal.aborted) return;
         setSuggestion(result);
         setHasRun(true);
       })
       .catch(() => {
-        // Non-fatal — user can still manually select
+        if (controller.signal.aborted) return;
         setHasRun(true);
       })
       .finally(() => {
+        if (controller.signal.aborted) return;
+        isDetectingRef.current = false;
         setIsDetecting(false);
       });
-  }, [collectionId, items, token, isDetecting]);
+  }, [collectionId, items, token]);
 
   return { suggestion, isDetecting, hasRun, runDetect };
 }

@@ -178,6 +178,12 @@ const fetchJson = async <T>(
     API_REQUEST_TIMEOUT_MS,
   );
 
+  // Forward external cancellation signal (e.g. from AbortController in state management)
+  // to the internal controller so the underlying fetch is actually cancelled.
+  const callerSignal = options?.signal;
+  const onCallerAbort = () => controller.abort();
+  callerSignal?.addEventListener("abort", onCallerAbort);
+
   try {
     const res = await fetch(url, {
       ...options,
@@ -196,6 +202,7 @@ const fetchJson = async <T>(
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
+    callerSignal?.removeEventListener("abort", onCallerAbort);
   }
 };
 
@@ -211,6 +218,7 @@ export const apiFetchCollections = (
     pageSize?: number;
     categoryKeys?: string[] | null;
     subTags?: string[] | null;
+    signal?: AbortSignal;
   },
 ) => {
   const url = new URL(`${apiUrl}/api/collections`);
@@ -243,6 +251,7 @@ export const apiFetchCollections = (
     : undefined;
   return fetchJson<WorkerListPayload<CollectionSummary>>(url.toString(), {
     headers,
+    signal: options.signal,
   });
 };
 

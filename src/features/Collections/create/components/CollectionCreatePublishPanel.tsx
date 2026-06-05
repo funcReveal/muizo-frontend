@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import ErrorOutlineRounded from "@mui/icons-material/ErrorOutlineRounded";
@@ -8,8 +8,7 @@ import WarningAmberRounded from "@mui/icons-material/WarningAmberRounded";
 import { Switch, TextField } from "@mui/material";
 import {
   CategoryDrawerPanel,
-  useCategoryAutoDetect,
-  type DetectItemInput,
+  type CategoryDetectResult,
 } from "@features/CollectionCategory";
 
 type ChecklistTone = "success" | "warning" | "danger";
@@ -38,9 +37,9 @@ type Props = {
   isReadyToCreate: boolean;
 
   // Category
-  /** Draft items for items-based detection in create flow */
-  draftItems?: DetectItemInput[];
-  authToken?: string | null;
+  detectSuggestion: CategoryDetectResult | null;
+  detectIsRunning: boolean;
+  detectHasRun: boolean;
   categoryId: string | null;
   onCategoryIdChange: (id: string | null) => void;
   subTagKeys: string[];
@@ -125,8 +124,9 @@ export default function CollectionCreatePublishPanel({
   isDraftOverflow,
   draftOverflowCount,
   isReadyToCreate,
-  draftItems,
-  authToken,
+  detectSuggestion,
+  detectIsRunning,
+  detectHasRun,
   categoryId,
   onCategoryIdChange,
   subTagKeys,
@@ -137,19 +137,6 @@ export default function CollectionCreatePublishPanel({
   const trimmedTitle = title.trim();
   const hasTitle = trimmedTitle.length > 0;
   const hasPlayableItems = readyItems > 0;
-
-  // Items-based detection: uses draft items in memory (no collectionId needed)
-  const { suggestion, isDetecting, hasRun, runDetect } = useCategoryAutoDetect({
-    items: draftItems,
-    token: authToken,
-  });
-
-  // Trigger detection when draft items are available and we have a token
-  useEffect(() => {
-    if (authToken && draftItems && draftItems.length > 0 && !hasRun) {
-      runDetect();
-    }
-  }, [authToken, draftItems, hasRun, runDetect]);
 
   // Category is required for both private and public — backend enforces it
   const needsCategory = !categoryId;
@@ -347,9 +334,9 @@ export default function CollectionCreatePublishPanel({
             subTagKeys={subTagKeys}
             visibility={visibility}
             isSaving={false}
-            detectSuggestion={suggestion}
-            detectIsRunning={isDetecting}
-            detectHasRun={hasRun}
+            detectSuggestion={detectSuggestion}
+            detectIsRunning={detectIsRunning}
+            detectHasRun={detectHasRun}
             onCategoryChange={onCategoryIdChange}
             onSubTagsChange={onSubTagKeysChange}
           />

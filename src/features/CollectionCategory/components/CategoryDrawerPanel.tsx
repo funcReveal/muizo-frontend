@@ -144,7 +144,7 @@ export function CategoryDrawerPanel({
       : null;
   const categoryGridClassName = isEmbedded
     ? "grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
-    : "grid grid-cols-2 gap-2 min-[360px]:grid-cols-3";
+    : "grid grid-cols-2 gap-2";
 
   // ───────────────────────────────────────────────────────────
   // INLINE SUGGESTION RESOLUTION
@@ -241,16 +241,6 @@ export function CategoryDrawerPanel({
             : "relative min-h-0 flex-1 overflow-y-auto"
         }
       >
-        {/* Ambient gradient */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-40"
-          aria-hidden
-          style={{
-            background:
-              "radial-gradient(at 0% 0%, rgba(34,211,238,0.10), transparent 50%), radial-gradient(at 100% 100%, rgba(56,189,248,0.05), transparent 50%)",
-          }}
-        />
-
         <div className="relative flex flex-col gap-5 px-5 py-4">
           {/* ───── MAIN CATEGORY SECTION ───── */}
           <section className="flex flex-col gap-2.5">
@@ -332,7 +322,7 @@ export function CategoryDrawerPanel({
                         "group/cat relative overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-all duration-200",
                         "focus:outline-none focus:ring-2 focus:ring-cyan-400/40",
                         active || isPopoverOpenForThis
-                          ? "border-cyan-400/50 bg-gradient-to-br from-cyan-500/20 via-cyan-500/10 to-transparent text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_20px_-12px_rgba(34,211,238,0.45)]"
+                          ? "border-cyan-400/50 bg-cyan-500/15 text-cyan-50"
                           : "border-white/8 bg-white/[0.02] text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-500/[0.08] hover:text-cyan-100",
                         isSaving ? "opacity-50" : "",
                       ].join(" ")}
@@ -432,11 +422,6 @@ export function CategoryDrawerPanel({
                           : "border-white/8 bg-white/[0.02] text-slate-300 hover:border-cyan-300/30 hover:bg-cyan-500/[0.08] hover:text-cyan-100",
                       ].join(" ")}
                     >
-                      {active && (
-                        <span className="mr-1 inline-block text-[10px] text-cyan-300/80">
-                          ✓
-                        </span>
-                      )}
                       {tag.label}
                     </button>
                   );
@@ -482,7 +467,7 @@ export function CategoryDrawerPanel({
           paper: {
             sx: {
               mt: 0.5,
-              // 280px naturally breaks 5 chips into 3+2 (J-POP, K-POP, 國語流行 fit in
+              // 280px naturally breaks 5 chips into 3+2 (J-POP, K-POP, 華語流行 fit in
               // ~210px; 4th chip's ~85px width pushes total over 280 → wrap).
               width: "min(244px, calc(100vw - 28px))",
               maxWidth: "calc(100vw - 28px)",
