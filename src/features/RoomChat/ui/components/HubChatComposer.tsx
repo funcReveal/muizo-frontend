@@ -11,6 +11,8 @@ type HubChatComposerProps = {
   onLoginRequired: () => void;
   isSending: boolean;
   statusText: string | null;
+  isChatCooldownActive: boolean;
+  chatCooldownLeft: number;
 };
 
 const HubChatComposer = ({
@@ -23,16 +25,25 @@ const HubChatComposer = ({
   onLoginRequired,
   isSending,
   statusText,
+  isChatCooldownActive,
+  chatCooldownLeft,
 }: HubChatComposerProps) => {
   const canSend =
-    isAuthenticated && isConnected && !isSending && messageInput.trim().length > 0;
+    isAuthenticated &&
+    isConnected &&
+    !isSending &&
+    !isChatCooldownActive &&
+    messageInput.trim().length > 0;
+  const sendAndRefocus = () => {
+    handleSend();
+  };
 
   return (
-    <div className="floating-chat-input-wrap">
-      {statusText ? (
+    <div className="floating-chat-input-wrap floating-chat-input-wrap--hub">
+      {statusText && !isChatCooldownActive ? (
         <div className="floating-chat-cooldown-inline">{statusText}</div>
       ) : null}
-      <div className="floating-chat-input-row">
+      <div className="floating-chat-input-row floating-chat-input-row--hub">
         {!isAuthenticated ? (
           <button
             type="button"
@@ -41,6 +52,10 @@ const HubChatComposer = ({
           >
             登入後在大廳發言
           </button>
+        ) : isChatCooldownActive ? (
+          <div className="floating-chat-cooldown-inline">
+            輸入過於頻繁，請於 <strong>{chatCooldownLeft}</strong> 秒後重試
+          </div>
         ) : (
           <>
             <input
@@ -54,14 +69,14 @@ const HubChatComposer = ({
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  handleSend();
+                  sendAndRefocus();
                 }
               }}
             />
             <button
               type="button"
               className="floating-chat-send-btn"
-              onClick={handleSend}
+              onClick={sendAndRefocus}
               disabled={!canSend}
               aria-label="送出大廳訊息"
             >
@@ -69,6 +84,17 @@ const HubChatComposer = ({
             </button>
           </>
         )}
+        {isAuthenticated && isChatCooldownActive ? (
+          <button
+            type="button"
+            className="floating-chat-send-btn"
+            onClick={sendAndRefocus}
+            disabled
+            aria-label="送出大廳訊息"
+          >
+            <SendRoundedIcon fontSize="small" />
+          </button>
+        ) : null}
       </div>
     </div>
   );
