@@ -1,21 +1,60 @@
 import React from "react";
+import { List, type RowComponentProps } from "react-window";
 
 import type { CareerCollectionRankRow } from "../../../types/career";
 import type { RoomSettlementHistorySummary } from "@features/RoomSession";
 import {
   formatCareerHistoryMonthDayTime,
-  formatCareerHistoryRankFraction,
   formatCareerHistoryScore,
 } from "../../../model/careerHistoryFormatters";
-import { formatCareerScore } from "../../../model/careerUiFormatters";
+import { formatCareerRank } from "../../../model/careerUiFormatters";
 
 interface CareerCollectionRankExpandedPanelProps {
   item: CareerCollectionRankRow;
   onOpenMatch: (summary: RoomSettlementHistorySummary) => void;
 }
 
-const detailCellClassName =
-  "rounded-[12px] border border-stone-300/12 bg-white/[0.035] px-3 py-2";
+type RecentMatchRowProps = {
+  items: RoomSettlementHistorySummary[];
+  renderMatchRow: (match: RoomSettlementHistorySummary) => React.ReactNode;
+};
+
+const RECENT_MATCH_ROW_HEIGHT = 68;
+
+const RecentMatchRow = ({
+  index,
+  style,
+  items,
+  renderMatchRow,
+}: RowComponentProps<RecentMatchRowProps>) => {
+  const match = items[index];
+  if (!match) return <div style={style} />;
+
+  return (
+    <div style={style} className="box-border">
+      {renderMatchRow(match)}
+    </div>
+  );
+};
+
+const formatAccuracyLabel = (
+  correctCount: number | null | undefined,
+  questionCount: number | null | undefined,
+) => {
+  if (
+    typeof correctCount !== "number" ||
+    !Number.isFinite(correctCount) ||
+    typeof questionCount !== "number" ||
+    !Number.isFinite(questionCount) ||
+    questionCount <= 0
+  ) {
+    return "-";
+  }
+
+  return `${correctCount}/${questionCount} (${Math.round(
+    (correctCount / questionCount) * 100,
+  )}%)`;
+};
 
 const CareerCollectionRankExpandedPanel: React.FC<
   CareerCollectionRankExpandedPanelProps
@@ -27,61 +66,128 @@ const CareerCollectionRankExpandedPanel: React.FC<
       : summary
         ? [summary]
         : [];
-  const rankDeltaLabel =
-    typeof item.delta === "number" && Number.isFinite(item.delta)
-      ? item.delta > 0
-        ? `進步 ${item.delta}`
-        : item.delta < 0
-          ? `下降 ${Math.abs(item.delta)}`
-          : "持平"
-      : "-";
+  const renderMatchRow = (
+    match: RoomSettlementHistorySummary,
+    options?: { isBest?: boolean },
+  ) => {
+    const selfPlayer = match.selfPlayer ?? null;
+    const accuracyLabel = formatAccuracyLabel(
+      selfPlayer?.correctCount,
+      match.questionCount,
+    );
+    const comboLabel =
+      typeof selfPlayer?.maxCombo === "number" ? `x${selfPlayer.maxCombo}` : "-";
+    const achievementPlayLabel =
+      typeof item.bestPlayNumber === "number" &&
+      Number.isFinite(item.bestPlayNumber)
+        ? `第 ${item.bestPlayNumber.toLocaleString("zh-TW")} 次`
+        : "-";
+    const rankPairLabel = `當下 ${formatCareerRank(
+      item.bestRankAtPlay ?? null,
+    )} / 目前 ${formatCareerRank(item.leaderboardRank)}`;
+    const metricItems = options?.isBest
+      ? [
+          {
+            label: "達成次數",
+            value: achievementPlayLabel,
+          },
+          {
+            label: "排名",
+            value: rankPairLabel,
+          },
+          {
+            label: "分數",
+            value: formatCareerHistoryScore(selfPlayer?.finalScore),
+          },
+          {
+            label: "答對率",
+            value: accuracyLabel,
+          },
+          {
+            label: "Combo",
+            value: comboLabel,
+          },
+        ]
+      : [
+          {
+            label: "分數",
+            value: formatCareerHistoryScore(selfPlayer?.finalScore),
+          },
+          {
+            label: "答對率",
+            value: accuracyLabel,
+          },
+          {
+            label: "Combo",
+            value: comboLabel,
+          },
+        ];
+
+    return (
+      <button
+        key={`${options?.isBest ? "best" : "recent"}-${match.matchId}`}
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenMatch(match);
+        }}
+        className={[
+          "grid w-full cursor-pointer grid-cols-1 gap-1.5 px-2.5 py-2 text-left outline outline-1 -outline-offset-1 outline-white/[0.045] transition hover:bg-slate-800/44 hover:outline-amber-200/18",
+          options?.isBest
+            ? "rounded-[12px] bg-[linear-gradient(180deg,rgba(30,41,59,0.42),rgba(15,23,42,0.26))] sm:grid-cols-[minmax(0,1.25fr)_88px_132px_92px_122px_78px]"
+            : "bg-slate-950/18 border-b border-white/8 last:border-b-0 sm:grid-cols-[minmax(0,1.35fr)_92px_112px_72px]",
+        ].join(" ")}
+      >
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
+            {match.roomName || item.title}
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--mc-text-muted)]">
+            <span>{formatCareerHistoryMonthDayTime(match.endedAt)}</span>
+          </div>
+        </div>
+
+        {metricItems.map((metric) => (
+          <div
+            key={metric.label}
+            className="flex min-w-0 items-center justify-between gap-3 sm:block"
+          >
+            <div className="text-[11px] text-[var(--mc-text-muted)]">
+              {metric.label}
+            </div>
+            <div
+              className={[
+                "truncate text-sm font-semibold text-[var(--mc-text)] sm:mt-0.5",
+                metric.label === "排名" ? "text-[13px]" : "",
+              ].join(" ")}
+              title={metric.value}
+            >
+              {metric.value}
+            </div>
+          </div>
+        ))}
+      </button>
+    );
+  };
 
   return (
-    <div className="space-y-3">
-      <section className="rounded-[16px] border border-amber-200/14 bg-[linear-gradient(180deg,rgba(24,22,18,0.86),rgba(10,9,8,0.96))] p-3">
-        <div className="text-xs font-semibold text-amber-100/76">
-          最佳紀錄
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-          <div className={detailCellClassName}>
-            <div className="text-[11px] text-[var(--mc-text-muted)]">
-              榜單名次
-            </div>
-            <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
-              {formatCareerHistoryRankFraction(item.leaderboardRank, null)}
-            </div>
-          </div>
-
-          <div className={detailCellClassName}>
-            <div className="text-[11px] text-[var(--mc-text-muted)]">
-              最佳分數
-            </div>
-            <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
-              {formatCareerScore(item.bestScore)}
-            </div>
-          </div>
-
-          <div className={detailCellClassName}>
-            <div className="text-[11px] text-[var(--mc-text-muted)]">
-              排名變動
-            </div>
-            <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
-              {rankDeltaLabel}
-            </div>
-          </div>
-
-          <div className={detailCellClassName}>
-            <div className="text-[11px] text-[var(--mc-text-muted)]">
-              遊玩場次
-            </div>
-            <div className="mt-1 text-sm font-semibold text-[var(--mc-text)]">
-              {item.playCount.toLocaleString("zh-TW")}
-            </div>
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <section className="shrink-0 rounded-[16px] bg-slate-900/20 p-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs font-semibold text-amber-100/76">
+            最佳紀錄
           </div>
         </div>
+        {summary ? (
+          <div className="mt-2">{renderMatchRow(summary, { isBest: true })}</div>
+        ) : (
+          <div className="mt-2 rounded-[12px] bg-amber-200/[0.045] px-3 py-2 text-xs text-amber-50/76">
+            目前只有題庫榜單統計，尚未取得最佳紀錄的完整回顧資料。
+          </div>
+        )}
       </section>
 
-      <section className="rounded-[16px] border border-amber-200/14 bg-[linear-gradient(180deg,rgba(24,22,18,0.86),rgba(10,9,8,0.96))] p-3">
+      <section className="flex min-h-0 flex-1 flex-col rounded-[16px] bg-slate-900/20 p-2">
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs font-semibold text-amber-100/76">
             近期遊玩
@@ -92,96 +198,23 @@ const CareerCollectionRankExpandedPanel: React.FC<
         </div>
 
         {recentSummaries.length > 0 ? (
-          <div className="mt-3 space-y-2">
-            {recentSummaries.map((recentSummary) => {
-              const recentSelfPlayer = recentSummary.selfPlayer ?? null;
-              const rankLabel = formatCareerHistoryRankFraction(
-                recentSummary.selfRank ?? null,
-                recentSummary.playerCount,
-              );
-              const correctLabel = recentSelfPlayer
-                ? `${recentSelfPlayer.correctCount}/${recentSummary.questionCount}`
-                : "-";
-              const comboLabel =
-                typeof recentSelfPlayer?.maxCombo === "number"
-                  ? `x${recentSelfPlayer.maxCombo}`
-                  : "-";
-
-              return (
-                <button
-                  key={recentSummary.matchId}
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenMatch(recentSummary);
-                  }}
-                  className="grid w-full cursor-pointer grid-cols-1 gap-2 rounded-[14px] border border-white/10 bg-white/[0.035] px-3 py-2.5 text-left transition hover:border-sky-300/30 hover:bg-sky-300/[0.06] sm:grid-cols-[minmax(0,1.25fr)_86px_96px_84px_74px]"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-amber-100">
-                      {recentSelfPlayer?.avatarUrl ? (
-                        <img
-                          src={recentSelfPlayer.avatarUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        recentSelfPlayer?.usernameSnapshot?.trim().slice(0, 1) ||
-                        "玩"
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                        {recentSummary.roomName || item.title}
-                      </div>
-                      <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                        {formatCareerHistoryMonthDayTime(recentSummary.endedAt)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 sm:block">
-                    <div className="text-[11px] text-[var(--mc-text-muted)]">
-                      名次
-                    </div>
-                    <div className="text-sm font-semibold text-[var(--mc-text)] sm:mt-1">
-                      {rankLabel}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 sm:block">
-                    <div className="text-[11px] text-[var(--mc-text-muted)]">
-                      分數
-                    </div>
-                    <div className="text-sm font-semibold text-[var(--mc-text)] sm:mt-1">
-                      {formatCareerHistoryScore(recentSelfPlayer?.finalScore)}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 sm:block">
-                    <div className="text-[11px] text-[var(--mc-text-muted)]">
-                      答對
-                    </div>
-                    <div className="text-sm font-semibold text-[var(--mc-text)] sm:mt-1">
-                      {correctLabel}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 sm:block">
-                    <div className="text-[11px] text-[var(--mc-text-muted)]">
-                      Combo
-                    </div>
-                    <div className="text-sm font-semibold text-[var(--mc-text)] sm:mt-1">
-                      {comboLabel}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="mt-2 h-[320px] min-h-0 overflow-hidden lg:h-auto lg:flex-1">
+            <List<RecentMatchRowProps>
+              style={{
+                height: "100%",
+                width: "100%",
+              }}
+              rowCount={recentSummaries.length}
+              rowHeight={RECENT_MATCH_ROW_HEIGHT}
+              rowProps={{
+                items: recentSummaries,
+                renderMatchRow,
+              }}
+              rowComponent={RecentMatchRow}
+            />
           </div>
         ) : (
-          <div className="mt-3 rounded-[12px] border border-amber-200/12 bg-amber-200/[0.045] px-3 py-2 text-xs text-amber-50/76">
+          <div className="mt-2 rounded-[12px] bg-amber-200/[0.045] px-3 py-2 text-xs text-amber-50/76">
             目前只有題庫榜單統計，尚未取得近期遊玩的完整回顧資料。
           </div>
         )}

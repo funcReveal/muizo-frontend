@@ -267,5 +267,7 @@ export const fetchCareerCollectionRanks = async ({
     previousLeaderboardRank: item.previousLeaderboardRank ?? null,
     delta: item.delta ?? null,
     matchScore: item.matchScore ?? item.matchSummary?.selfPlayer?.finalScore ?? null,
+    bestPlayNumber: item.bestPlayNumber ?? null,
+    bestRankAtPlay: item.bestRankAtPlay ?? null,
   }));
 };

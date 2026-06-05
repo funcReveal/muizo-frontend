@@ -90,6 +90,8 @@ export interface CareerCollectionRankRow {
   previousLeaderboardRank: number | null;
   delta: number | null;
   matchScore?: number | null;
+  bestPlayNumber?: number | null;
+  bestRankAtPlay?: number | null;
   bestScore: number | null;
   playCount: number;
   lastPlayedAt: string | null;

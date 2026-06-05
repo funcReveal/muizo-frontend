@@ -8,11 +8,9 @@ import type { TransitionProps } from "@mui/material/transitions";
 import { appToast } from "@shared/ui/toastApi";
 import type { CareerCollectionRankRow } from "../../../types/career";
 import {
-  formatCareerDelta,
   formatCareerRank,
   formatCareerScore,
 } from "../../../model/careerUiFormatters";
-import { formatCareerHistoryRankFraction } from "../../../model/careerHistoryFormatters";
 
 interface CareerCollectionRankShareDialogProps {
   open: boolean;
@@ -34,6 +32,10 @@ const ShareDialogTransition = React.forwardRef<
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
+type ShareImageOptions = {
+  showReplayCount: boolean;
+};
+
 const getCollectionShareMetrics = (item: CareerCollectionRankRow) => {
   const summary = item.matchSummary ?? null;
   const selfPlayer = summary?.selfPlayer ?? null;
@@ -49,27 +51,29 @@ const getCollectionShareMetrics = (item: CareerCollectionRankRow) => {
       : "-";
 
   return {
-    rank: formatCareerRank(item.leaderboardRank),
-    previousRank: formatCareerRank(item.previousLeaderboardRank),
-    delta: formatCareerDelta(item.delta),
+    achievedRank: formatCareerRank(item.bestRankAtPlay ?? null),
+    currentRank: formatCareerRank(item.leaderboardRank),
     bestScore: formatCareerScore(item.bestScore),
-    recentScore:
+    score:
       typeof selfPlayer?.finalScore === "number"
         ? formatCareerScore(selfPlayer.finalScore)
         : formatCareerScore(item.bestScore),
     accuracy,
     combo:
-      typeof selfPlayer?.maxCombo === "number" ? `x${selfPlayer.maxCombo}` : "-",
-    players: formatCareerHistoryRankFraction(
-      summary?.selfRank ?? item.recentRank ?? null,
-      summary?.playerCount ?? item.recentPlayerCount ?? null,
-    ),
+      typeof selfPlayer?.maxCombo === "number"
+        ? `x${selfPlayer.maxCombo}`
+        : "-",
+    replayCount:
+      typeof item.bestPlayNumber === "number" &&
+      Number.isFinite(item.bestPlayNumber)
+        ? `第 ${item.bestPlayNumber.toLocaleString("zh-TW")} 次遊玩達成`
+        : "達成次數未記錄",
   };
 };
 
 const buildShareText = (item: CareerCollectionRankRow) => {
   const metrics = getCollectionShareMetrics(item);
-  return `Muizo 題庫戰績｜${item.title}\n榜單名次 ${metrics.rank}，最佳分數 ${metrics.bestScore}，最近一場 ${metrics.recentScore}`;
+  return `Muizo 題庫戰績｜${item.title}\n達成排名 ${metrics.achievedRank}，目前排名 ${metrics.currentRank}，最佳分數 ${metrics.score}`;
 };
 
 const sanitizeFilename = (value: string) =>
@@ -92,7 +96,12 @@ const roundedRect = (
   context.lineTo(x + width - radius, y);
   context.quadraticCurveTo(x + width, y, x + width, y + radius);
   context.lineTo(x + width, y + height - radius);
-  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  context.quadraticCurveTo(
+    x + width,
+    y + height,
+    x + width - radius,
+    y + height,
+  );
   context.lineTo(x + radius, y + height);
   context.quadraticCurveTo(x, y + height, x, y + height - radius);
   context.lineTo(x, y + radius);
@@ -132,7 +141,53 @@ const drawText = (
   });
 };
 
-const createShareImageBlob = async (item: CareerCollectionRankRow) => {
+const loadImage = async (src: string) => {
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+};
+
+const drawCoverImage = (
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) => {
+  const imageRatio = image.naturalWidth / Math.max(1, image.naturalHeight);
+  const targetRatio = width / height;
+  const sourceWidth =
+    imageRatio > targetRatio
+      ? image.naturalHeight * targetRatio
+      : image.naturalWidth;
+  const sourceHeight =
+    imageRatio > targetRatio
+      ? image.naturalHeight
+      : image.naturalWidth / targetRatio;
+  const sourceX = (image.naturalWidth - sourceWidth) / 2;
+  const sourceY = (image.naturalHeight - sourceHeight) / 2;
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    x,
+    y,
+    width,
+    height,
+  );
+};
+
+const createShareImageBlob = async (
+  item: CareerCollectionRankRow,
+  options: ShareImageOptions,
+) => {
   const canvas = document.createElement("canvas");
   canvas.width = cardWidth;
   canvas.height = cardHeight;
@@ -164,6 +219,28 @@ const createShareImageBlob = async (item: CareerCollectionRankRow) => {
   context.lineWidth = 2;
   context.stroke();
 
+  roundedRect(context, 120, 270, 840, 360, 38);
+  context.save();
+  context.clip();
+  context.fillStyle = "rgba(15,23,42,0.72)";
+  context.fillRect(120, 270, 840, 360);
+  if (item.coverThumbnailUrl) {
+    try {
+      const coverImage = await loadImage(item.coverThumbnailUrl);
+      drawCoverImage(context, coverImage, 120, 270, 840, 360);
+    } catch {
+      context.fillStyle = "rgba(245,158,11,0.18)";
+      context.fillRect(120, 270, 840, 360);
+    }
+  }
+  const coverGradient = context.createLinearGradient(120, 270, 120, 630);
+  coverGradient.addColorStop(0, "rgba(2,6,23,0.06)");
+  coverGradient.addColorStop(0.48, "rgba(2,6,23,0.24)");
+  coverGradient.addColorStop(1, "rgba(2,6,23,0.92)");
+  context.fillStyle = coverGradient;
+  context.fillRect(120, 270, 840, 360);
+  context.restore();
+
   context.fillStyle = "#ffffff";
   context.font = "700 64px sans-serif";
   context.fillText("Muizo", 120, 168);
@@ -177,27 +254,42 @@ const createShareImageBlob = async (item: CareerCollectionRankRow) => {
   context.fillStyle = "#fde68a";
   context.font = "700 24px sans-serif";
   context.textAlign = "center";
-  context.fillText(metrics.rank, 840, 167);
+  context.fillText(metrics.currentRank, 840, 167);
   context.textAlign = "left";
 
   context.fillStyle = "#f8fafc";
-  context.font = "700 58px sans-serif";
-  drawText(context, item.title, 120, 330, 820, 72, 2);
+  context.font = "700 54px sans-serif";
+  drawText(context, item.title, 154, 530, 760, 64, 2);
 
   context.fillStyle = "rgba(226,232,240,0.78)";
   context.font = "500 28px sans-serif";
-  context.fillText(item.sourceLabel ?? "題庫戰績", 120, 484);
+  context.fillText(item.sourceLabel ?? "題庫戰績", 154, 594);
+
+  roundedRect(context, 120, 690, 840, 172, 36);
+  context.fillStyle = "rgba(245,158,11,0.16)";
+  context.fill();
+  context.strokeStyle = "rgba(253,230,138,0.22)";
+  context.stroke();
+  context.fillStyle = "rgba(253,230,138,0.82)";
+  context.font = "700 28px sans-serif";
+  context.fillText("達成排行榜名次", 160, 748);
+  context.fillStyle = "#ffffff";
+  context.font = "800 76px sans-serif";
+  context.fillText(metrics.achievedRank, 160, 826);
+  context.fillStyle = "rgba(226,232,240,0.72)";
+  context.font = "600 26px sans-serif";
+  context.fillText(`目前排名 ${metrics.currentRank}`, 610, 794);
 
   const metricCards = [
-    ["最佳分數", metrics.bestScore],
-    ["最近分數", metrics.recentScore],
+    ["分數", metrics.score],
     ["答對率", metrics.accuracy],
     ["Combo", metrics.combo],
+    ["最佳分數", metrics.bestScore],
   ];
 
   metricCards.forEach(([label, value], index) => {
     const x = 120 + (index % 2) * 390;
-    const y = 560 + Math.floor(index / 2) * 190;
+    const y = 910 + Math.floor(index / 2) * 150;
     roundedRect(context, x, y, 340, 136, 30);
     context.fillStyle = "rgba(255,255,255,0.075)";
     context.fill();
@@ -211,22 +303,25 @@ const createShareImageBlob = async (item: CareerCollectionRankRow) => {
     drawText(context, value, x + 28, y + 96, 286, 44, 1);
   });
 
-  roundedRect(context, 120, 960, 840, 132, 32);
-  context.fillStyle = "rgba(15,23,42,0.72)";
-  context.fill();
-  context.fillStyle = "rgba(226,232,240,0.72)";
-  context.font = "600 25px sans-serif";
-  context.fillText(`前期名次 ${metrics.previousRank}`, 160, 1016);
-  context.fillText(`變動 ${metrics.delta}`, 160, 1064);
-  context.fillText(`最近名次 ${metrics.players}`, 550, 1016);
-  context.fillText(`場次 ${item.playCount.toLocaleString("zh-TW")}`, 550, 1064);
+  if (options.showReplayCount) {
+    roundedRect(context, 120, 1210, 840, 64, 28);
+    context.fillStyle = "rgba(15,23,42,0.72)";
+    context.fill();
+    context.fillStyle = "rgba(226,232,240,0.72)";
+    context.font = "600 24px sans-serif";
+    context.fillText(metrics.replayCount, 160, 1250);
+  }
 
   context.fillStyle = "rgba(226,232,240,0.64)";
   context.font = "500 24px sans-serif";
-  context.fillText(`最近遊玩 ${item.lastPlayedAt ?? "-"}`, 120, 1178);
+  context.fillText(
+    `遊玩場數 ${item.playCount.toLocaleString("zh-TW")}`,
+    120,
+    1288,
+  );
   context.fillStyle = "#fcd34d";
   context.font = "700 26px sans-serif";
-  context.fillText("muizo.app", 120, 1226);
+  context.fillText("muizo.app", 780, 1288);
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -240,13 +335,14 @@ const CareerCollectionRankShareDialog: React.FC<
   CareerCollectionRankShareDialogProps
 > = ({ open, item, onClose }) => {
   const [isBusy, setIsBusy] = React.useState(false);
+  const [showReplayCount, setShowReplayCount] = React.useState(true);
   const metrics = item ? getCollectionShareMetrics(item) : null;
 
   const handleDownload = React.useCallback(async () => {
     if (!item) return;
     setIsBusy(true);
     try {
-      const blob = await createShareImageBlob(item);
+      const blob = await createShareImageBlob(item, { showReplayCount });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -259,16 +355,20 @@ const CareerCollectionRankShareDialog: React.FC<
     } finally {
       setIsBusy(false);
     }
-  }, [item]);
+  }, [item, showReplayCount]);
 
   const handleShare = React.useCallback(async () => {
     if (!item) return;
     setIsBusy(true);
     try {
-      const blob = await createShareImageBlob(item);
-      const file = new File([blob], `muizo-${sanitizeFilename(item.title)}.png`, {
-        type: "image/png",
-      });
+      const blob = await createShareImageBlob(item, { showReplayCount });
+      const file = new File(
+        [blob],
+        `muizo-${sanitizeFilename(item.title)}.png`,
+        {
+          type: "image/png",
+        },
+      );
       const shareData: ShareData = {
         title: "Muizo 題庫戰績",
         text: buildShareText(item),
@@ -291,7 +391,7 @@ const CareerCollectionRankShareDialog: React.FC<
     } finally {
       setIsBusy(false);
     }
-  }, [item]);
+  }, [item, showReplayCount]);
 
   return (
     <Dialog
@@ -329,34 +429,45 @@ const CareerCollectionRankShareDialog: React.FC<
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           {item && metrics ? (
             <div className="mx-auto w-full max-w-[520px] rounded-[28px] border border-amber-200/16 bg-[radial-gradient(circle_at_12%_0%,rgba(245,158,11,0.24),transparent_32%),radial-gradient(circle_at_95%_100%,rgba(56,189,248,0.16),transparent_35%),linear-gradient(135deg,rgba(28,19,12,0.98),rgba(6,11,22,0.98))] p-5 shadow-[0_24px_60px_-34px_rgba(245,158,11,0.58)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-3xl font-bold tracking-tight text-white">
-                    Muizo
+              <div className="overflow-hidden rounded-[22px] border border-white/10 bg-slate-950/50">
+                <div className="relative aspect-[16/9] bg-slate-900/80">
+                  {item.coverThumbnailUrl ? (
+                    <img
+                      src={item.coverThumbnailUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+                      無封面
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.22)_46%,rgba(2,6,23,0.9)_100%)]" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="line-clamp-2 text-2xl font-semibold leading-tight text-slate-50">
+                      {item.title}
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs font-semibold tracking-[0.14em] text-amber-200/82">
-                    COLLECTION RANK SNAPSHOT
-                  </div>
-                </div>
-
-                <div className="rounded-full border border-amber-200/28 bg-amber-200/12 px-3 py-1 text-sm font-semibold text-amber-50">
-                  {metrics.rank}
                 </div>
               </div>
 
-              <div className="mt-6">
-                <div className="line-clamp-2 text-2xl font-semibold leading-tight text-slate-50">
-                  {item.title}
+              <div className="mt-4 rounded-[20px] border border-amber-200/18 bg-amber-200/[0.08] p-4">
+                <div className="text-xs font-semibold text-amber-100/76">
+                  達成排行榜名次
                 </div>
-                <div className="mt-2 text-sm text-slate-300/78">
-                  {item.sourceLabel ?? "題庫戰績"}
+                <div className="mt-2 flex items-end justify-between gap-3">
+                  <div className="text-4xl font-bold text-white">
+                    {metrics.achievedRank}
+                  </div>
+                  <div className="pb-1 text-sm font-semibold text-slate-300/82">
+                    目前 {metrics.currentRank}
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-4 grid grid-cols-3 gap-3">
                 {[
-                  ["最佳分數", metrics.bestScore],
-                  ["最近分數", metrics.recentScore],
+                  ["分數", metrics.score],
                   ["答對率", metrics.accuracy],
                   ["Combo", metrics.combo],
                 ].map(([label, value]) => (
@@ -372,18 +483,15 @@ const CareerCollectionRankShareDialog: React.FC<
                 ))}
               </div>
 
-              <div className="mt-4 rounded-[18px] border border-white/10 bg-slate-950/44 p-4 text-sm text-slate-200/82">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <span>前期名次 {metrics.previousRank}</span>
-                  <span>變動 {metrics.delta}</span>
-                  <span>最近名次 {metrics.players}</span>
-                  <span>場次 {item.playCount.toLocaleString("zh-TW")}</span>
+              {showReplayCount ? (
+                <div className="mt-4 rounded-[18px] border border-white/10 bg-slate-950/44 p-4 text-sm font-semibold text-slate-200/82">
+                  {metrics.replayCount}
                 </div>
-              </div>
+              ) : null}
 
               <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-300/72">
-                <span>最近遊玩 {item.lastPlayedAt ?? "-"}</span>
-                <span className="font-semibold text-amber-200">muizo.app</span>
+                <span>遊玩場數 {item.playCount.toLocaleString("zh-TW")}</span>
+                <span className="font-semibold text-amber-200">muizo.org</span>
               </div>
             </div>
           ) : (
@@ -393,30 +501,42 @@ const CareerCollectionRankShareDialog: React.FC<
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 border-t border-white/10 bg-slate-950/96 px-4 py-3 sm:px-5">
-          <button
-            type="button"
-            onClick={() => {
-              void handleShare();
-            }}
-            disabled={!item || isBusy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] border border-amber-200/24 bg-amber-200/12 text-sm font-semibold text-amber-50 transition hover:bg-amber-200/18 disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            <ShareRounded sx={{ fontSize: 18 }} />
-            分享
-          </button>
+        <div className="border-t border-white/10 bg-slate-950/96 px-4 py-3 sm:px-5">
+          <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-[14px] border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-slate-200">
+            <span>顯示重玩次數</span>
+            <input
+              type="checkbox"
+              checked={showReplayCount}
+              onChange={(event) => setShowReplayCount(event.target.checked)}
+              className="h-4 w-4 accent-amber-300"
+            />
+          </label>
 
-          <button
-            type="button"
-            onClick={() => {
-              void handleDownload();
-            }}
-            disabled={!item || isBusy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] border border-sky-200/22 bg-sky-200/10 text-sm font-semibold text-sky-50 transition hover:bg-sky-200/16 disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            <DownloadRounded sx={{ fontSize: 19 }} />
-            下載
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                void handleShare();
+              }}
+              disabled={!item || isBusy}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] border border-amber-200/24 bg-amber-200/12 text-sm font-semibold text-amber-50 transition hover:bg-amber-200/18 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <ShareRounded sx={{ fontSize: 18 }} />
+              分享
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                void handleDownload();
+              }}
+              disabled={!item || isBusy}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] border border-sky-200/22 bg-sky-200/10 text-sm font-semibold text-sky-50 transition hover:bg-sky-200/16 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <DownloadRounded sx={{ fontSize: 19 }} />
+              下載
+            </button>
+          </div>
         </div>
       </div>
     </Dialog>
