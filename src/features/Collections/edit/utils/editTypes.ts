@@ -30,6 +30,14 @@ export type DbCollection = {
   item_count?: number;
   item_limit_override?: number | null;
   effective_item_limit?: number | null;
+  category?: {
+    id: string | null;
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[];
 };
 
 export type DbCollectionItem = {

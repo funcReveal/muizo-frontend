@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCategoriesQuery } from "@features/CollectionCategory";
 import {
   Button,
   CircularProgress,
@@ -1218,19 +1219,29 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
     [activeTab, debouncedSearch],
   );
 
+  const { data: browseCategories = [] } = useCategoriesQuery();
+  const [browseCategoryKey, setBrowseCategoryKey] = useState<string | null>(null);
+
   const publicCollections = useMemo(
     () =>
       collections.filter(
-        (collection) =>
-          (collection.visibility ?? "public") !== "private" &&
-          matchText(
+        (collection) => {
+          if ((collection.visibility ?? "public") === "private") return false;
+          if (browseCategoryKey) {
+            const cat = collection as unknown as { category?: { key?: string; parentKey?: string } | null };
+            const catKey = cat?.category?.key;
+            const parentKey = cat?.category?.parentKey;
+            if (catKey !== browseCategoryKey && parentKey !== browseCategoryKey) return false;
+          }
+          return matchText(
             collection.title,
             collection.description,
             collection.cover_title,
             collection.cover_channel_title,
-          ),
+          );
+        },
       ),
-    [collections, matchText],
+    [collections, matchText, browseCategoryKey],
   );
 
   const ownerCollections = useMemo(
@@ -1857,24 +1868,60 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
         );
       }
 
-      return renderVirtualSources(
-        publicCollections,
-        (item) => renderCollection(item as CollectionEntry),
-        {
-          hasMore: collectionsHasMore,
-          isLoadingMore: collectionsLoadingMore,
-          onLoadMore: onLoadMoreCollections,
-          renderLoader: () => (
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/14 bg-slate-950/42 px-4 py-2 text-xs font-semibold text-slate-300">
-              {collectionsLoadingMore ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : null}
-              <span>
-                {collectionsLoadingMore ? "載入中..." : "準備載入更多"}
-              </span>
+      return (
+        <>
+          {/* Category filter chips for public collections */}
+          {browseCategories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pb-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setBrowseCategoryKey(null)}
+                className={[
+                  "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+                  !browseCategoryKey
+                    ? "border-cyan-500 bg-cyan-500/20 text-cyan-200"
+                    : "border-slate-600 text-slate-400 hover:border-cyan-500/50",
+                ].join(" ")}
+              >
+                全部
+              </button>
+              {browseCategories.map((cat) => (
+                <button
+                  key={cat.key}
+                  type="button"
+                  onClick={() => setBrowseCategoryKey(browseCategoryKey === cat.key ? null : cat.key)}
+                  className={[
+                    "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+                    browseCategoryKey === cat.key
+                      ? "border-cyan-500 bg-cyan-500/20 text-cyan-200"
+                      : "border-slate-600 text-slate-400 hover:border-cyan-500/50",
+                  ].join(" ")}
+                >
+                  {cat.label}
+                </button>
+              ))}
             </div>
-          ),
-        },
+          )}
+          {renderVirtualSources(
+            publicCollections,
+            (item) => renderCollection(item as CollectionEntry),
+            {
+              hasMore: collectionsHasMore,
+              isLoadingMore: collectionsLoadingMore,
+              onLoadMore: onLoadMoreCollections,
+              renderLoader: () => (
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/14 bg-slate-950/42 px-4 py-2 text-xs font-semibold text-slate-300">
+                  {collectionsLoadingMore ? (
+                    <CircularProgress size={14} color="inherit" />
+                  ) : null}
+                  <span>
+                    {collectionsLoadingMore ? "載入中..." : "準備載入更多"}
+                  </span>
+                </div>
+              ),
+            },
+          )}
+        </>
       );
     }
 

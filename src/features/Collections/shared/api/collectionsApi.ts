@@ -115,6 +115,8 @@ export const collectionsApi = {
       title: string;
       description?: string | null;
       visibility?: string;
+      category_id?: string | null;
+      sub_tag_keys?: string[];
     },
   ) {
     if (!API_URL) {
@@ -143,6 +145,8 @@ export const collectionsApi = {
       description?: string | null;
       visibility?: "private" | "public";
       items: Array<Record<string, unknown>>;
+      category_id?: string | null;
+      sub_tag_keys?: string[];
     },
   ) {
     if (!API_URL) {
@@ -170,6 +174,8 @@ export const collectionsApi = {
       title?: string;
       description?: string | null;
       visibility?: "private" | "public";
+      category_id?: string | null;
+      sub_tag_keys?: string[];
     },
   ) {
     if (!API_URL) {

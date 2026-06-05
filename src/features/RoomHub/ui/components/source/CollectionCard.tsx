@@ -20,6 +20,7 @@ import {
   resolveCollectionAvailabilityCounts,
 } from "@features/RoomSession/model/playlistAvailability";
 import { PlaylistAvailabilityWarningIcon } from "@features/RoomSession/ui/PlaylistAvailabilityBadge";
+import { useSubTagsQuery } from "@features/CollectionCategory";
 
 type CollectionCardProps = {
   collection: {
@@ -38,6 +39,12 @@ type CollectionCardProps = {
     item_count?: number | null;
     playable_item_count?: number | null;
     is_favorited?: boolean | null;
+    category?: {
+      key: string;
+      label: string;
+      parentLabel?: string | null;
+    } | null;
+    sub_tag_keys?: string[] | null;
   };
   view: "grid" | "list";
   selected: boolean;
@@ -77,6 +84,10 @@ const CollectionCard = ({
 }: CollectionCardProps) => {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [isActionHovered, setIsActionHovered] = useState(false);
+  const { data: subTags = [] } = useSubTagsQuery();
+  const subTagLabels = (collection.sub_tag_keys ?? [])
+    .map((k) => subTags.find((t) => t.key === k)?.label)
+    .filter((l): l is string => Boolean(l));
   const previewThumbnail =
     collection.cover_thumbnail_url ||
     (collection.cover_provider === "youtube" && collection.cover_source_id
@@ -261,8 +272,8 @@ const CollectionCard = ({
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_46%,rgba(2,6,23,0.82)_100%)]" />
-          {!isPublicLibraryTab ? (
-            <div className="absolute left-3 top-3">
+          <div className="absolute inset-x-3 top-3 flex flex-wrap items-start gap-1.5">
+            {!isPublicLibraryTab ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-slate-100 backdrop-blur-sm">
                 {isPublic ? (
                   <PublicOutlined sx={{ fontSize: 13 }} />
@@ -271,8 +282,25 @@ const CollectionCard = ({
                 )}
                 {visibilityLabel}
               </span>
-            </div>
-          ) : null}
+            ) : null}
+            {/* Language chips — solid dark base for legibility over busy thumbnails */}
+            {subTagLabels.map((label) => (
+              <span
+                key={`lang-${label}`}
+                className="rounded-full border border-cyan-300/40 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-cyan-200 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md"
+              >
+                {label}
+              </span>
+            ))}
+            {/* Category chip — after languages */}
+            {collection.category ? (
+              <span className="rounded-full border border-white/20 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md">
+                {collection.category.parentLabel
+                  ? `${collection.category.parentLabel} › ${collection.category.label}`
+                  : collection.category.label}
+              </span>
+            ) : null}
+          </div>
           {disabledReason ? (
             <div className="absolute inset-x-3 bottom-3 rounded-xl border border-amber-300/30 bg-slate-950/78 px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.55)]">
               {disabledReason}
@@ -387,6 +415,25 @@ const CollectionCard = ({
               </span>
             ) : null}
           </div>
+          {(subTagLabels.length > 0 || collection.category) && (
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {subTagLabels.map((label) => (
+                <span
+                  key={`list-lang-${label}`}
+                  className="rounded-full border border-cyan-300/20 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] text-cyan-100/90"
+                >
+                  {label}
+                </span>
+              ))}
+              {collection.category && (
+                <span className="rounded-full border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-slate-300/80">
+                  {collection.category.parentLabel
+                    ? `${collection.category.parentLabel} › ${collection.category.label}`
+                    : collection.category.label}
+                </span>
+              )}
+            </div>
+          )}
           <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-[var(--mc-text-muted)]">
             <span className="inline-flex min-w-0 items-center gap-1.5">
               <StarRounded

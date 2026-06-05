@@ -71,6 +71,8 @@ const normalizeCollectionEntry = (
   updated_at: Math.max(0, Number(item.updated_at ?? 0)),
   ai_edited_count: Math.max(0, Number(item.ai_edited_count ?? 0)),
   has_ai_edited: Boolean(item.has_ai_edited),
+  category: item.category ?? null,
+  sub_tag_keys: Array.isArray(item.sub_tag_keys) ? item.sub_tag_keys : null,
 });
 
 const toAvailabilityCount = (value: unknown): number | undefined =>
@@ -304,6 +306,8 @@ export const useCollectionContentState = ({
   const collectionPageRef = useRef(1);
   const collectionRequestScopeRef = useRef<"owner" | "public" | null>(null);
   const publicCollectionsQueryRef = useRef("");
+  const publicCategoryKeyRef = useRef<string | null>(null);
+  const publicSubTagRef = useRef<string | null>(null);
   const latestCollectionsRequestIdRef = useRef(0);
   const collectionCacheRef = useRef<Record<string, PlaylistItem[]>>({});
   const inFlightCollectionIdRef = useRef<string | null>(null);
@@ -351,7 +355,14 @@ export const useCollectionContentState = ({
   );
 
   const fetchCollections = useCallback(
-    async (scope?: "owner" | "public", options?: { query?: string }) => {
+    async (
+      scope?: "owner" | "public",
+      options?: {
+        query?: string;
+        categoryKey?: string | null;
+        subTag?: string | null;
+      },
+    ) => {
       if (!apiUrl) {
         setCollectionsError("尚未設定收藏庫 API 位置 (API_URL)");
         return;
@@ -368,6 +379,14 @@ export const useCollectionContentState = ({
       collectionRequestScopeRef.current = resolvedScope;
       if (resolvedScope === "public") {
         publicCollectionsQueryRef.current = normalizedQuery;
+        // Update filter refs when options explicitly provide them; preserve
+        // previous value when undefined (allows caller to pass query-only).
+        if (Object.prototype.hasOwnProperty.call(options ?? {}, "categoryKey")) {
+          publicCategoryKeyRef.current = options?.categoryKey ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(options ?? {}, "subTag")) {
+          publicSubTagRef.current = options?.subTag ?? null;
+        }
       }
       collectionPageRef.current = 1;
       setCollectionScope(resolvedScope);
@@ -483,6 +502,8 @@ export const useCollectionContentState = ({
             visibility: "public",
             sort: publicCollectionsSort,
             q: normalizedQuery || undefined,
+            categoryKey: publicCategoryKeyRef.current,
+            subTag: publicSubTagRef.current,
             page: 1,
             pageSize: DEFAULT_PAGE_SIZE,
           });
@@ -757,6 +778,8 @@ export const useCollectionContentState = ({
           visibility: "public",
           sort: publicCollectionsSort,
           q: publicCollectionsQueryRef.current || undefined,
+          categoryKey: publicCategoryKeyRef.current,
+          subTag: publicSubTagRef.current,
           page: nextPage,
           pageSize: DEFAULT_PAGE_SIZE,
         });
@@ -1157,6 +1180,8 @@ export const useCollectionContentState = ({
     collectionPageRef.current = 1;
     collectionRequestScopeRef.current = null;
     publicCollectionsQueryRef.current = "";
+    publicCategoryKeyRef.current = null;
+    publicSubTagRef.current = null;
     latestCollectionsRequestIdRef.current = 0;
     setSelectedCollectionId(null);
     setCollectionItemsLoading(false);

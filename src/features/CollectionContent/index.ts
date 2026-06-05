@@ -11,3 +11,5 @@ export {
   useCollectionAccess,
   type CollectionAccessContextValue,
 } from "./model/CollectionAccessContext";
+export { useFilterAggregationsQuery } from "./model/useFilterAggregationsQuery";
+export type { FilterAggregations } from "./model/collectionContentApi";

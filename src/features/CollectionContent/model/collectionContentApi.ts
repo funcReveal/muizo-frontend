@@ -34,6 +34,13 @@ export type CollectionSummary = {
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
+  category?: {
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[] | null;
 };
 
 export type CollectionItemRecord = {
@@ -191,6 +198,8 @@ export const apiFetchCollections = (
     q?: string;
     page?: number;
     pageSize?: number;
+    categoryKey?: string | null;
+    subTag?: string | null;
   },
 ) => {
   const url = new URL(`${apiUrl}/api/collections`);
@@ -212,12 +221,43 @@ export const apiFetchCollections = (
   if (options.pageSize !== undefined) {
     url.searchParams.set("pageSize", String(options.pageSize));
   }
+  if (options.categoryKey) {
+    url.searchParams.set("category_key", options.categoryKey);
+  }
+  if (options.subTag) {
+    url.searchParams.set("sub_tag", options.subTag);
+  }
   const headers = options.token
     ? { Authorization: `Bearer ${options.token}` }
     : undefined;
   return fetchJson<WorkerListPayload<CollectionSummary>>(url.toString(), {
     headers,
   });
+};
+
+export type FilterAggregations = {
+  totalByCategoryFilter: number;
+  totalBySubTagFilter: number;
+  byCategory: Record<string, number>;
+  bySubTag: Record<string, number>;
+  noCategoryCount: number;
+};
+
+export const apiFetchFilterAggregations = (
+  apiUrl: string,
+  options: {
+    visibility: "public";
+    q?: string;
+    categoryKey?: string | null;
+    subTag?: string | null;
+  },
+) => {
+  const url = new URL(`${apiUrl}/api/collections/filter-aggregations`);
+  url.searchParams.set("visibility", options.visibility);
+  if (options.q) url.searchParams.set("q", options.q);
+  if (options.categoryKey) url.searchParams.set("category_key", options.categoryKey);
+  if (options.subTag) url.searchParams.set("sub_tag", options.subTag);
+  return fetchJson<{ ok: boolean; data: FilterAggregations }>(url.toString(), {});
 };
 
 export const apiFetchCollectionById = (

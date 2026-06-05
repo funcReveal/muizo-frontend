@@ -231,6 +231,10 @@ const CollectionCreatePage = () => {
     handleReselectOverflowItems,
     handleSelectLongTracksOnly,
     handleClearRemovalSelection,
+    categoryId,
+    setCategoryId,
+    subTagKeys,
+    setSubTagKeys,
   } = useCollectionCreateDraft({
     playlistItems: importedPlaylistItems,
     collectionItemLimit,
@@ -517,6 +521,8 @@ const CollectionCreatePage = () => {
     isDraftOverflow,
     draftOverflowCount,
     playlistSource,
+    categoryId,
+    subTagKeys,
     onDraftOverflow: () => setLimitDialogOpen(true),
     onCreated: (collectionId) => {
       navigate(`/collections/${collectionId}/edit`, { replace: true });
@@ -946,6 +952,17 @@ const CollectionCreatePage = () => {
                     isDraftOverflow={isDraftOverflow}
                     draftOverflowCount={draftOverflowCount}
                     isReadyToCreate={canCreateCollection}
+                    authToken={authToken}
+                    draftItems={batchEditedDraftPlaylistItems.map((item) => ({
+                      channelId: item.channelId ?? null,
+                      channelTitle: item.uploader ?? null,
+                      title: item.title ?? null,
+                      answerText: item.answerText ?? null,
+                    }))}
+                    categoryId={categoryId}
+                    onCategoryIdChange={setCategoryId}
+                    subTagKeys={subTagKeys}
+                    onSubTagKeysChange={setSubTagKeys}
                   />
                 )}
 

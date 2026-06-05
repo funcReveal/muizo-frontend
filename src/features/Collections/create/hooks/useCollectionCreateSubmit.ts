@@ -51,6 +51,8 @@ type UseCollectionCreateSubmitArgs = {
   isDraftOverflow: boolean;
   draftOverflowCount: number;
   playlistSource: "url" | "youtube";
+  categoryId: string | null;
+  subTagKeys: string[];
   onDraftOverflow: () => void;
   onCreated: (collectionId: string) => void;
 };
@@ -71,6 +73,8 @@ export function useCollectionCreateSubmit({
   isDraftOverflow,
   draftOverflowCount,
   playlistSource,
+  categoryId,
+  subTagKeys,
   onDraftOverflow,
   onCreated,
 }: UseCollectionCreateSubmitArgs) {
@@ -196,6 +200,8 @@ export function useCollectionCreateSubmit({
           normalizedDescription.length > 0 ? normalizedDescription : null,
         visibility,
         items: insertItems,
+        category_id: categoryId ?? null,
+        sub_tag_keys: subTagKeys ?? [],
       });
 
       if (!created?.id) {
