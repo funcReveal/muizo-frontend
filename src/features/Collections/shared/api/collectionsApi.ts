@@ -177,6 +177,7 @@ export const collectionsApi = {
       category_id?: string | null;
       sub_tag_keys?: string[];
     },
+    options?: { signal?: AbortSignal },
   ) {
     if (!API_URL) {
       throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
@@ -185,6 +186,7 @@ export const collectionsApi = {
       method: "PATCH",
       headers: buildJsonHeaders(token),
       body: JSON.stringify(payload),
+      signal: options?.signal,
     });
     if (!res.ok) {
       throw new Error(

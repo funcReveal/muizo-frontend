@@ -131,6 +131,9 @@ const CollectionEditPage = () => {
     subTagKeys: string[];
   } | null>(null);
   const categoryAutoSaveTimerRef = useRef<number | null>(null);
+  // Cancels the previous in-flight category PATCH when a new one starts,
+  // preventing out-of-order lastSavedCategoryRef updates.
+  const categoryAutoAbortRef = useRef<AbortController | null>(null);
   const [confirmPublicOpen, setConfirmPublicOpen] = useState(false);
   const [pendingVisibility, setPendingVisibility] = useState<
     "private" | "public" | null
@@ -368,16 +371,21 @@ const CollectionEditPage = () => {
 
   const isReadOnly = !authToken || authExpired;
 
-  // Category auto-detect (runs when collection has no category yet, resets on collection switch)
+  // Category auto-detect — runs once per collection open regardless of whether
+  // a category is already set. CategoryDrawerPanel hides the suggestion chip when
+  // the suggested target equals the current selection, so always running gives
+  // users a chance to switch if the system disagrees with their saved choice.
+  // useCategoryAutoDetect resets state when collectionId changes, so cost is at
+  // most one detect call per collection open; backend hint cache + 7d negative
+  // cache + 30s per-user cooldown keep YouTube quota safe.
   const { suggestion: categoryDetectSuggestion, isDetecting: categoryDetecting, hasRun: categoryDetectRan, runDetect: runCategoryDetect } =
     useCategoryAutoDetect({ collectionId: activeCollectionId, token: authToken });
 
   useEffect(() => {
     if (!activeCollectionId || !authToken) return;
-    if (activeCollection?.category?.id) return; // already has category
     if (categoryDetectRan) return;
     runCategoryDetect();
-  }, [activeCollectionId, authToken, activeCollection?.category?.id, categoryDetectRan, runCategoryDetect]);
+  }, [activeCollectionId, authToken, categoryDetectRan, runCategoryDetect]);
 
   // Resolve the suggested category UUID for accurate "not yet applied" check
   const { data: categoriesDataForDetect = [] } = useCategoriesQuery();
@@ -394,27 +402,40 @@ const CollectionEditPage = () => {
   }, [categoryDetectSuggestion?.categoryKey, categoriesDataForDetect]);
 
   // Saves the given category/subtag values to the server.
-  // Accepts explicit values to avoid stale closure issues inside auto-save timers.
+  // Cancels any previous in-flight save so responses always arrive in the order
+  // they were fired, preventing lastSavedCategoryRef from being set to a stale value.
   const saveCategoryToServer = useCallback(
     async (cid: string | null, tags: string[]) => {
       if (!activeCollectionId || !authToken || isReadOnly) return;
+
+      categoryAutoAbortRef.current?.abort();
+      const controller = new AbortController();
+      categoryAutoAbortRef.current = controller;
+
       setCategorySaving(true);
       try {
         const token = await ensureFreshAuthToken({
           token: authToken,
           refreshAuthToken,
         });
-        if (!token) return;
-        await collectionsApi.updateCollection(token, activeCollectionId, {
-          category_id: cid,
-          sub_tag_keys: tags,
-        });
-        // Update the "last saved" reference so the auto-save effect doesn't fire again
+        if (!token || controller.signal.aborted) return;
+        await collectionsApi.updateCollection(
+          token,
+          activeCollectionId,
+          { category_id: cid, sub_tag_keys: tags },
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
         lastSavedCategoryRef.current = { categoryId: cid, subTagKeys: tags };
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         console.error("[category] save failed:", err);
       } finally {
-        setCategorySaving(false);
+        // Only reset the saving indicator if this is still the latest request.
+        if (categoryAutoAbortRef.current === controller) {
+          categoryAutoAbortRef.current = null;
+          setCategorySaving(false);
+        }
       }
     },
     [activeCollectionId, authToken, isReadOnly, refreshAuthToken],
@@ -1222,6 +1243,8 @@ const CollectionEditPage = () => {
       if (autoSaveTimerRef.current) {
         window.clearTimeout(autoSaveTimerRef.current);
       }
+      // Cancel any in-flight category save on unmount.
+      categoryAutoAbortRef.current?.abort();
     };
   }, []);
 

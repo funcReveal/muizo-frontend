@@ -25,6 +25,8 @@ export function useCategoryAutoDetect({
   items,
   token,
 }: UseCategoryAutoDetectOptions): UseCategoryAutoDetectReturn {
+  // Single state object tracks the collectionId that triggered the last detection
+  // so stale results from a previous collection are never surfaced.
   const [detectionState, setDetectionState] = useState<{
     collectionId: string | null | undefined;
     suggestion: CategoryDetectResult | null;
@@ -37,13 +39,13 @@ export function useCategoryAutoDetect({
     hasRun: false,
   });
 
-  // Use ref to avoid stale closure on isDetecting check
   const isDetectingRef = useRef(false);
-  // Abort controller for the current in-flight request
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Reset all detection state when collectionId changes (user switched collection)
-  // and clean up on unmount.
+  // Abort any in-flight request when:
+  //   a) collectionId changes (user switched collection) — cleanup fires, then new effect runs
+  //   b) component unmounts — final cleanup fires
+  // A single [collectionId] effect handles both cases; a separate [] effect is not needed.
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
@@ -51,13 +53,6 @@ export function useCategoryAutoDetect({
       isDetectingRef.current = false;
     };
   }, [collectionId]);
-
-  // Cancel in-flight request on unmount
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort();
-    };
-  }, []);
 
   const runDetect = useCallback(() => {
     if (!token || isDetectingRef.current) return;
@@ -82,32 +77,31 @@ export function useCategoryAutoDetect({
     detectPromise
       .then((result) => {
         if (controller.signal.aborted) return;
+        // Merge suggestion + terminal state in a single update — no intermediate render.
         setDetectionState({
           collectionId,
           suggestion: result,
-          isDetecting: true,
+          isDetecting: false,
           hasRun: true,
         });
       })
       .catch(() => {
         if (controller.signal.aborted) return;
+        // 429 (rate-limited) or network error: mark as run with no suggestion.
         setDetectionState({
           collectionId,
           suggestion: null,
-          isDetecting: true,
+          isDetecting: false,
           hasRun: true,
         });
       })
       .finally(() => {
-        if (controller.signal.aborted) return;
+        // Only reset the ref — state was already set to isDetecting:false above.
         isDetectingRef.current = false;
-        setDetectionState((current) => ({
-          ...current,
-          isDetecting: false,
-        }));
       });
   }, [collectionId, items, token]);
 
+  // Hide stale results when collectionId changed but runDetect hasn't fired yet.
   const isStaleCollection =
     collectionId !== undefined && detectionState.collectionId !== collectionId;
 

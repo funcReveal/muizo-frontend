@@ -245,17 +245,44 @@ const CollectionCreatePage = () => {
     longDurationThresholdSec: LONG_DURATION_THRESHOLD_SEC,
   });
 
-  // Memoize detection inputs from import sources — stable against time/answer edits
-  const detectItems = useMemo<DetectItemInput[]>(
-    () =>
-      importedPlaylistItems.slice(0, 50).map((item) => ({
-        channelId: item.channelId ?? null,
-        channelTitle: item.uploader ?? null,
-        title: item.title ?? null,
-        answerText: item.answerText ?? null,
-      })),
-    [importedPlaylistItems],
-  );
+  // Build detection input by sending per-song items (NOT channel-deduplicated).
+  //
+  // Both detection axes work best on per-song data:
+  //   - Category: aggregateChannels groups by channelId on the backend, so channel
+  //     counts naturally reflect each channel's actual song share — no manual weighting.
+  //   - Language: classifyItemLanguage runs per item, so each song's distinct
+  //     title/answer text contributes its own vote. Channel-dedup hid this diversity:
+  //     a YOASOBI playlist with mixed Japanese & English songs would only show the
+  //     language of whichever song was picked as the channel representative.
+  //
+  // Payload cap: 500 items keeps the request body under ~100 KB. For larger playlists,
+  // uniform sampling preserves both channel and language distributions.
+  const detectItems = useMemo<DetectItemInput[]>(() => {
+    const MAX_ITEMS = 500;
+    const total = importedPlaylistItems.length;
+    if (total === 0) return [];
+
+    const toDetectItem = (item: typeof importedPlaylistItems[number]): DetectItemInput => ({
+      channelId: item.channelId ?? null,
+      channelTitle: item.uploader ?? null,
+      title: item.title ?? null,
+      answerText: item.answerText ?? null,
+    });
+
+    if (total <= MAX_ITEMS) {
+      return importedPlaylistItems.map(toDetectItem);
+    }
+
+    // Uniform stride sampling: every (total / MAX) -th item. Order-preserving so
+    // ratios of any property (channelId, language signal) match the full playlist
+    // within statistical noise.
+    const step = total / MAX_ITEMS;
+    const result: DetectItemInput[] = new Array(MAX_ITEMS);
+    for (let i = 0; i < MAX_ITEMS; i++) {
+      result[i] = toDetectItem(importedPlaylistItems[Math.floor(i * step)]);
+    }
+    return result;
+  }, [importedPlaylistItems]);
 
   const {
     suggestion: detectSuggestion,
@@ -683,13 +710,40 @@ const CollectionCreatePage = () => {
     });
   }, [isTitleEditing]);
 
-  // Trigger category detection as soon as items are loaded (before publish step)
+  // Trigger category detection ONCE the playlist import has settled.
+  //
+  // Why we wait instead of firing on the first chunk:
+  //   - YouTube playlist API returns items in chunks of ~50. importedPlaylistItems
+  //     grows progressively. Firing on the first chunk runs detection against a
+  //     biased head-slice of the playlist — confidence thresholds often fail and
+  //     the null result locks in via detectHasRun, so the user is forced to paste
+  //     again to retry.
+  //
+  // What "settled" means:
+  //   1. The fetch flags are false (playlistLoading, isImportingYoutubePlaylist).
+  //   2. detectItems.length stops changing for 300 ms — covers React state-flush
+  //      timing AND batches multi-source imports (URL + YouTube playlist).
+  //
+  // This guarantees the FIRST detection sees the complete item set, so YouTube
+  // enrichment writes happen alongside a confident hitRatio calculation.
   useEffect(() => {
     if (!authToken || detectHasRun || detectIsRunning) return;
     if (categoryId) return;
     if (detectItems.length === 0) return;
-    runDetect();
-  }, [authToken, categoryId, detectHasRun, detectIsRunning, detectItems, runDetect]);
+    if (playlistLoading || isImportingYoutubePlaylist) return;
+
+    const timer = window.setTimeout(() => runDetect(), 300);
+    return () => window.clearTimeout(timer);
+  }, [
+    authToken,
+    categoryId,
+    detectHasRun,
+    detectIsRunning,
+    detectItems.length,
+    playlistLoading,
+    isImportingYoutubePlaylist,
+    runDetect,
+  ]);
 
   useEffect(() => {
     if (playlistSource !== "url") return;

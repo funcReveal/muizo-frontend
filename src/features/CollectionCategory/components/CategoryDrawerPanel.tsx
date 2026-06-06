@@ -47,6 +47,14 @@ type CategorySuggestionTarget = {
   parentLabel: string | null;
 };
 
+/**
+ * Inline suggestion chip — sits on the same row as the section label,
+ * zero vertical layout shift whether or not a suggestion is present.
+ *
+ * Amber palette intentionally contrasts with the cyan section labels
+ * so users immediately understand "this is a system action, not a label".
+ * Design produced by the frontend-design skill.
+ */
 const SuggestionInline = ({
   label,
   onClick,
@@ -63,17 +71,18 @@ const SuggestionInline = ({
     onClick={onClick}
     disabled={disabled}
     title={title}
+    aria-label={`套用系統建議：${title ?? label}`}
     className={[
-      "group/sg inline-flex items-center gap-1 rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2 py-[1px] text-[10.5px] font-medium text-cyan-100",
-      "transition-colors duration-150 hover:border-cyan-300/65 hover:bg-cyan-500/25",
-      "focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-40",
+      "inline-flex items-center gap-1 rounded-full",
+      "border border-amber-400/40 bg-amber-500/[0.08] px-2 py-[1px]",
+      "text-[10.5px] font-medium transition-all duration-150",
+      "hover:border-amber-400/65 hover:bg-amber-500/[0.14] hover:shadow-[0_0_8px_rgba(251,191,36,0.18)]",
+      "focus:outline-none focus:ring-1 focus:ring-amber-400/50 disabled:opacity-40",
     ].join(" ")}
-    aria-label={`套用建議：${label}`}
   >
-    <span className="text-cyan-300/85" aria-hidden>
-      +
-    </span>
-    <span>{label}</span>
+    <span className="font-semibold tracking-wide text-amber-300/70">建議</span>
+    <span className="text-amber-500/40" aria-hidden>›</span>
+    <span className="text-amber-50/90">{label}</span>
   </button>
 );
 
@@ -252,7 +261,6 @@ export function CategoryDrawerPanel({
                     *
                   </span>
                 </h3>
-                {/* Inline detection hint for category */}
                 {detectIsRunning && !showCategorySuggestion && (
                   <SuggestionLoading />
                 )}
@@ -374,7 +382,6 @@ export function CategoryDrawerPanel({
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300/80">
                   語系
                 </h3>
-                {/* Inline detection hint for sub-tags */}
                 {detectIsRunning && !showSubTagSuggestion && (
                   <SuggestionLoading />
                 )}
