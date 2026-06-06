@@ -10,7 +10,7 @@ import StarRoundedIcon from "@mui/icons-material/StarRounded";
 
 import type { RoomState } from "@features/RoomSession";
 import { resolvePlaylistAvailabilityCounts } from "@features/RoomSession/model/playlistAvailability";
-import { PlaylistAvailabilityWarningIcon } from "@features/RoomSession/ui/PlaylistAvailabilityBadge";
+import { CollectionMetaChips } from "@features/CollectionCategory";
 import type { CollectionOption } from "./roomLobbyPanelTypes";
 import { normalizeDisplayText } from "./roomLobbyDisplayUtils";
 
@@ -203,12 +203,18 @@ const CurrentPlaylistCard = ({
         <div className="flex min-w-0 flex-1 flex-col gap-3 sm:p-4">
           <div className="flex min-w-0 flex-col gap-2.5 sm:h-full">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
-              <Typography
-                variant="h5"
-                className="flex-1 truncate min-w-0 !font-semibold !leading-tight !tracking-[-0.03em] !text-slate-50 max-sm:!text-[1.45rem] sm:!text-[1.45rem]"
-              >
-                {title}
-              </Typography>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <Typography
+                  variant="h5"
+                  className="min-w-0 flex-1 truncate !font-semibold !leading-tight !tracking-[-0.03em] !text-slate-50 max-sm:!text-[1.45rem] sm:!text-[1.45rem]"
+                >
+                  {title}
+                </Typography>
+                <CollectionMetaChips
+                  collection={currentCollection}
+                  maxVisible={2}
+                />
+              </div>
 
               <span
                 aria-hidden="true"
@@ -257,11 +263,6 @@ const CurrentPlaylistCard = ({
                   </span>
                 ))}
               </div>
-              <PlaylistAvailabilityWarningIcon
-                playable={availabilityCounts.playable}
-                total={availabilityCounts.total}
-                className="mb-0.5"
-              />
             </div>
 
             {isHost && pendingSuggestionCount > 0 ? (

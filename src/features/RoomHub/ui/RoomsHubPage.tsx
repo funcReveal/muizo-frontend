@@ -24,6 +24,7 @@ import {
   useSitePresence,
 } from "@features/RoomSession";
 import {
+  CollectionFilterBar,
   useCollectionContent,
   useFilterAggregationsQuery,
   type CollectionEntry,
@@ -55,7 +56,6 @@ import JoinRoomPanel from "./components/join/JoinRoomPanel";
 import LibrarySourcePanel from "./components/source/LibrarySourcePanel";
 import LibrarySourceToolbar from "./components/source/LibrarySourceToolbar";
 import CollectionsSourceContent from "./components/source/CollectionsSourceContent";
-import CollectionFilterBar from "./components/source/CollectionFilterBar";
 import CollectionCard from "./components/source/CollectionCard";
 import CollectionDetailDrawer from "./components/source/CollectionDetailDrawer";
 import SourceSetupDrawer from "./components/source/SourceSetupDrawer";

@@ -1099,6 +1099,7 @@ const RoomLobbyPage: React.FC = () => {
     collectionsLoading,
     collectionsLoadingMore,
     collectionsHasMore,
+    collectionsTotalCount,
     collectionsError,
     collectionItemsLoading,
     collectionItemsError,
@@ -3721,6 +3722,7 @@ const RoomLobbyPage: React.FC = () => {
             collectionsLoading={collectionsLoading}
             collectionsLoadingMore={collectionsLoadingMore}
             collectionsHasMore={collectionsHasMore}
+            collectionsTotalCount={collectionsTotalCount}
             collectionsError={collectionsError}
             collectionItemsLoading={collectionItemsLoading}
             collectionItemsError={collectionItemsError}

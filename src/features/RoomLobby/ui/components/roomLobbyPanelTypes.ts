@@ -10,4 +10,13 @@ export type CollectionOption = {
   item_count?: number;
   playable_item_count?: number | null;
   readToken?: string | null;
+  cover_title?: string | null;
+  cover_channel_title?: string | null;
+  category?: {
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[] | null;
 };

@@ -25,9 +25,17 @@ export function useCategoryAutoDetect({
   items,
   token,
 }: UseCategoryAutoDetectOptions): UseCategoryAutoDetectReturn {
-  const [suggestion, setSuggestion] = useState<CategoryDetectResult | null>(null);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [hasRun, setHasRun] = useState(false);
+  const [detectionState, setDetectionState] = useState<{
+    collectionId: string | null | undefined;
+    suggestion: CategoryDetectResult | null;
+    isDetecting: boolean;
+    hasRun: boolean;
+  }>({
+    collectionId,
+    suggestion: null,
+    isDetecting: false,
+    hasRun: false,
+  });
 
   // Use ref to avoid stale closure on isDetecting check
   const isDetectingRef = useRef(false);
@@ -42,14 +50,6 @@ export function useCategoryAutoDetect({
       abortControllerRef.current = null;
       isDetectingRef.current = false;
     };
-  }, [collectionId]);
-
-  useEffect(() => {
-    if (collectionId !== undefined) {
-      setSuggestion(null);
-      setHasRun(false);
-      setIsDetecting(false);
-    }
   }, [collectionId]);
 
   // Cancel in-flight request on unmount
@@ -68,7 +68,12 @@ export function useCategoryAutoDetect({
     abortControllerRef.current = controller;
 
     isDetectingRef.current = true;
-    setIsDetecting(true);
+    setDetectionState({
+      collectionId,
+      suggestion: null,
+      isDetecting: true,
+      hasRun: false,
+    });
 
     const detectPromise = collectionId
       ? categoriesApi.detectCategory(token, collectionId)
@@ -77,19 +82,39 @@ export function useCategoryAutoDetect({
     detectPromise
       .then((result) => {
         if (controller.signal.aborted) return;
-        setSuggestion(result);
-        setHasRun(true);
+        setDetectionState({
+          collectionId,
+          suggestion: result,
+          isDetecting: true,
+          hasRun: true,
+        });
       })
       .catch(() => {
         if (controller.signal.aborted) return;
-        setHasRun(true);
+        setDetectionState({
+          collectionId,
+          suggestion: null,
+          isDetecting: true,
+          hasRun: true,
+        });
       })
       .finally(() => {
         if (controller.signal.aborted) return;
         isDetectingRef.current = false;
-        setIsDetecting(false);
+        setDetectionState((current) => ({
+          ...current,
+          isDetecting: false,
+        }));
       });
   }, [collectionId, items, token]);
 
-  return { suggestion, isDetecting, hasRun, runDetect };
+  const isStaleCollection =
+    collectionId !== undefined && detectionState.collectionId !== collectionId;
+
+  return {
+    suggestion: isStaleCollection ? null : detectionState.suggestion,
+    isDetecting: isStaleCollection ? false : detectionState.isDetecting,
+    hasRun: isStaleCollection ? false : detectionState.hasRun,
+    runDetect,
+  };
 }

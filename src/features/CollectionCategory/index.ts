@@ -13,3 +13,9 @@ export { useCategoryAutoDetect } from "./hooks/useCategoryAutoDetect";
 export { CategoryQuickPicker } from "./components/CategoryQuickPicker";
 export { SubTagQuickPicker } from "./components/SubTagQuickPicker";
 export { CategoryDrawerPanel } from "./components/CategoryDrawerPanel";
+export { CollectionMetaChips } from "./components/CollectionMetaChips";
+export {
+  formatCollectionCategoryLabel,
+  useCollectionMetaChips,
+} from "./components/collectionMetaChipsModel";
+export type { CollectionMetaChipSource } from "./components/collectionMetaChipsModel";

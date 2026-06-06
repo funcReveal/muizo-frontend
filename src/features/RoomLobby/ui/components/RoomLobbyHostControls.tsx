@@ -25,6 +25,7 @@ import {
   resolvePlaylistAvailabilityCounts,
 } from "@features/RoomSession/model/playlistAvailability";
 import PlaylistAvailabilityBadge from "@features/RoomSession/ui/PlaylistAvailabilityBadge";
+import { CollectionMetaChips } from "@features/CollectionCategory";
 import type { YoutubePlaylist } from "@features/PlaylistSource";
 import {
   MIN_COLLECTION_PLAYABLE_COUNT,
@@ -641,6 +642,12 @@ const RoomLobbyHostControls: React.FC<RoomLobbyHostControlsProps> = ({
                                   "未命名收藏庫",
                                 )}
                               </span>
+                              <CollectionMetaChips
+                                collection={collection}
+                                maxVisible={2}
+                                variant="menu"
+                                className="mt-1"
+                              />
                               <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
                                 <PlaylistAvailabilityBadge
                                   playable={requirement.playable}

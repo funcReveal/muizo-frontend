@@ -1,5 +1,5 @@
 import { useCategoriesQuery, useSubTagsQuery } from "@features/CollectionCategory";
-import type { FilterAggregations } from "@features/CollectionContent";
+import type { FilterAggregations } from "../model/collectionContentApi";
 
 const NO_CATEGORY_KEY = "__none__";
 
@@ -23,8 +23,8 @@ type Props = {
 
 /**
  * Single-select filter chip bar for category + language.
- * Counts come from a dedicated server aggregations endpoint —
- * never derived from currently-loaded items.
+ * Counts come from a dedicated server aggregations endpoint,
+ * never from currently-loaded paginated items.
  */
 const CollectionFilterBar = ({
   aggregations,
@@ -82,7 +82,6 @@ const CollectionFilterBar = ({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Category row */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
           分類
@@ -117,7 +116,6 @@ const CollectionFilterBar = ({
           )}
       </div>
 
-      {/* Sub-tag (language) row */}
       <div className="relative flex flex-wrap items-center gap-1.5 pr-14">
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
           語言

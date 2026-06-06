@@ -17,10 +17,8 @@ import {
 import { IconButton, Menu, MenuItem } from "@mui/material";
 import {
   formatCollectionAvailabilityMetricLabel,
-  resolveCollectionAvailabilityCounts,
 } from "@features/RoomSession/model/playlistAvailability";
-import { PlaylistAvailabilityWarningIcon } from "@features/RoomSession/ui/PlaylistAvailabilityBadge";
-import { useSubTagsQuery } from "@features/CollectionCategory";
+import { CollectionMetaChips } from "@features/CollectionCategory";
 
 type CollectionCardProps = {
   collection: {
@@ -84,10 +82,6 @@ const CollectionCard = ({
 }: CollectionCardProps) => {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [isActionHovered, setIsActionHovered] = useState(false);
-  const { data: subTags = [] } = useSubTagsQuery();
-  const subTagLabels = (collection.sub_tag_keys ?? [])
-    .map((k) => subTags.find((t) => t.key === k)?.label)
-    .filter((l): l is string => Boolean(l));
   const previewThumbnail =
     collection.cover_thumbnail_url ||
     (collection.cover_provider === "youtube" && collection.cover_source_id
@@ -111,8 +105,6 @@ const CollectionCard = ({
     typeof collection.item_count === "number"
       ? formatCollectionAvailabilityMetricLabel(collection)
       : null;
-  const availabilityCounts = resolveCollectionAvailabilityCounts(collection);
-
   const statsMeta = [
     itemCountLabel
       ? {
@@ -182,25 +174,27 @@ const CollectionCard = ({
   const renderActions = (placement: "grid" | "list") =>
     canShowActions ? (
       <>
-        <IconButton
-          aria-label="更多收藏庫功能"
-          aria-controls={
-            menuAnchor ? `collection-actions-${collection.id}` : undefined
-          }
-          aria-haspopup="menu"
-          aria-expanded={Boolean(menuAnchor)}
-          onClick={openMenu}
-          onMouseEnter={() => setIsActionHovered(true)}
-          onMouseLeave={() => setIsActionHovered(false)}
-          size="small"
-          className={
-            placement === "grid"
-              ? "!h-7 !w-7 !shrink-0 !bg-slate-950/45 !text-slate-100 hover:!bg-slate-900"
-              : "!shrink-0 !bg-slate-950/45 !text-slate-100 hover:!bg-slate-900"
-          }
-        >
-          <MoreHorizRounded fontSize="small" />
-        </IconButton>
+        <span className="hidden sm:inline-flex">
+          <IconButton
+            aria-label="更多收藏庫功能"
+            aria-controls={
+              menuAnchor ? `collection-actions-${collection.id}` : undefined
+            }
+            aria-haspopup="menu"
+            aria-expanded={Boolean(menuAnchor)}
+            onClick={openMenu}
+            onMouseEnter={() => setIsActionHovered(true)}
+            onMouseLeave={() => setIsActionHovered(false)}
+            size="small"
+            className={
+              placement === "grid"
+                ? "!h-7 !w-7 !shrink-0 !bg-slate-950/45 !text-slate-100 hover:!bg-slate-900"
+                : "!shrink-0 !bg-slate-950/45 !text-slate-100 hover:!bg-slate-900"
+            }
+          >
+            <MoreHorizRounded fontSize="small" />
+          </IconButton>
+        </span>
         <Menu
           id={`collection-actions-${collection.id}`}
           anchorEl={menuAnchor}
@@ -272,7 +266,7 @@ const CollectionCard = ({
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_46%,rgba(2,6,23,0.82)_100%)]" />
-          <div className="absolute inset-x-3 top-3 flex flex-wrap items-start gap-1.5">
+          <div className="absolute inset-x-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-start gap-1.5">
             {!isPublicLibraryTab ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-slate-100 backdrop-blur-sm">
                 {isPublic ? (
@@ -283,23 +277,11 @@ const CollectionCard = ({
                 {visibilityLabel}
               </span>
             ) : null}
-            {/* Language chips — solid dark base for legibility over busy thumbnails */}
-            {subTagLabels.map((label) => (
-              <span
-                key={`lang-${label}`}
-                className="rounded-full border border-cyan-300/40 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-cyan-200 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md"
-              >
-                {label}
-              </span>
-            ))}
-            {/* Category chip — after languages */}
-            {collection.category ? (
-              <span className="rounded-full border border-white/20 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md">
-                {collection.category.parentLabel
-                  ? `${collection.category.parentLabel} › ${collection.category.label}`
-                  : collection.category.label}
-              </span>
-            ) : null}
+            <CollectionMetaChips
+              collection={collection}
+              maxVisible={3}
+              variant="overlay"
+            />
           </div>
           {disabledReason ? (
             <div className="absolute inset-x-3 bottom-3 rounded-xl border border-amber-300/30 bg-slate-950/78 px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.55)]">
@@ -309,9 +291,11 @@ const CollectionCard = ({
         </div>
         <div className="space-y-2.5 px-4 py-3">
           <div className="space-y-1">
-            <p className="truncate text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
-              {collection.title}
-            </p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
+                {collection.title}
+              </p>
+            </div>
             <div className="flex min-w-0 items-center gap-2 text-[12px] leading-5 text-slate-300/88">
               <span className="inline-flex min-w-0 items-center gap-1.5">
                 <StarRounded
@@ -352,10 +336,6 @@ const CollectionCard = ({
                 </span>
               )}
             </div>
-            <PlaylistAvailabilityWarningIcon
-              playable={availabilityCounts.playable}
-              total={availabilityCounts.total}
-            />
             {renderActions("grid")}
           </div>
         </div>
@@ -401,9 +381,13 @@ const CollectionCard = ({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--mc-text)]">
-              {collection.title}
-            </p>
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <p className="min-w-[3rem] truncate text-[13px] font-semibold text-[var(--mc-text)] sm:text-sm">
+                {collection.title}
+              </p>
+              <CollectionMetaChips collection={collection} toneFilter="category" />
+              <CollectionMetaChips collection={collection} toneFilter="language" lowPriority />
+            </div>
             {!isPublicLibraryTab ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] leading-none text-slate-200/88">
                 {isPublic ? (
@@ -415,25 +399,6 @@ const CollectionCard = ({
               </span>
             ) : null}
           </div>
-          {(subTagLabels.length > 0 || collection.category) && (
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {subTagLabels.map((label) => (
-                <span
-                  key={`list-lang-${label}`}
-                  className="rounded-full border border-cyan-300/20 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] text-cyan-100/90"
-                >
-                  {label}
-                </span>
-              ))}
-              {collection.category && (
-                <span className="rounded-full border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-slate-300/80">
-                  {collection.category.parentLabel
-                    ? `${collection.category.parentLabel} › ${collection.category.label}`
-                    : collection.category.label}
-                </span>
-              )}
-            </div>
-          )}
           <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-[var(--mc-text-muted)]">
             <span className="inline-flex min-w-0 items-center gap-1.5">
               <StarRounded
@@ -472,10 +437,6 @@ const CollectionCard = ({
             ))}
           </div>
         </div>
-        <PlaylistAvailabilityWarningIcon
-          playable={availabilityCounts.playable}
-          total={availabilityCounts.total}
-        />
         {renderActions("list")}
       </div>
     </div>
