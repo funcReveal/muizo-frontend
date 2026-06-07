@@ -24,6 +24,7 @@ import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import DeleteSweepRoundedIcon from "@mui/icons-material/DeleteSweepRounded";
 import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import PlaylistAddCheckRoundedIcon from "@mui/icons-material/PlaylistAddCheckRounded";
@@ -39,12 +40,54 @@ import type {
   SongFavoriteSortOrder,
 } from "../model/types";
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
 const ITEM_HEIGHT = 98;
 const OVERSCAN_COUNT = 5;
 const BOTTOM_BAR_HEIGHT = 64;
 const LIST_BOTTOM_INSET = 18;
 const LONG_PRESS_MS = 500;
 const MAX_BATCH_DELETE_ITEMS = 100;
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type ViewMode = "songs" | "channels";
+
+type ChannelGroup = {
+  channelTitle: string;
+  items: SongFavoriteRecord[];
+  totalPlayCount: number;
+};
+
+type PendingDelete = { provider: "youtube"; sourceId: string }[];
+
+/** Props shared by FavoriteRowContent and ChannelGroupRow */
+type CommonRowProps = {
+  isSelectMode: boolean;
+  selectedKeys: ReadonlySet<string>;
+  deletingKeys: ReadonlySet<string>;
+  onToggleSelect: (key: string) => void;
+  onRequestDelete: (provider: "youtube", sourceId: string) => void;
+  onLongPress: (key: string) => void;
+};
+
+type FavoriteRowProps = CommonRowProps & {
+  items: SongFavoriteRecord[];
+};
+
+type LoadedStats = {
+  loadedCount: number;
+  totalPlayCount: number;
+  channelCount: number;
+};
+
+// ---------------------------------------------------------------------------
+// Formatters
+// ---------------------------------------------------------------------------
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("zh-TW", {
   month: "2-digit",
@@ -71,6 +114,10 @@ const formatDuration = (value: number | null) => {
 };
 
 const formatNumber = (value: number) => NUMBER_FORMATTER.format(value);
+
+// ---------------------------------------------------------------------------
+// Pure helpers
+// ---------------------------------------------------------------------------
 
 const SORT_OPTIONS: {
   key: SongFavoriteSortKey;
@@ -108,42 +155,20 @@ const getThumbnail = (item: SongFavoriteRecord) =>
 const getYoutubeUrl = (sourceId: string) =>
   `https://www.youtube.com/watch?v=${encodeURIComponent(sourceId)}`;
 
-type PendingDelete = { provider: "youtube"; sourceId: string }[];
-
-type FavoriteRowProps = {
-  items: SongFavoriteRecord[];
-  selectedKeys: ReadonlySet<string>;
-  isSelectMode: boolean;
-  deletingKeys: ReadonlySet<string>;
-  onToggleSelect: (key: string) => void;
-  onRequestDelete: (provider: "youtube", sourceId: string) => void;
-  onLongPress: (key: string) => void;
-};
-
-type LoadedStats = {
-  loadedCount: number;
-  totalPlayCount: number;
-  channelCount: number;
-};
-
 const getLoadedStats = (items: SongFavoriteRecord[]): LoadedStats => {
   let totalPlayCount = 0;
   const channels = new Set<string>();
-
   for (const item of items) {
     totalPlayCount += item.playCount;
     const channel = item.channelTitle?.trim();
-    if (channel) {
-      channels.add(channel);
-    }
+    if (channel) channels.add(channel);
   }
-
-  return {
-    loadedCount: items.length,
-    totalPlayCount,
-    channelCount: channels.size,
-  };
+  return { loadedCount: items.length, totalPlayCount, channelCount: channels.size };
 };
+
+// ---------------------------------------------------------------------------
+// SkeletonCard
+// ---------------------------------------------------------------------------
 
 const TITLE_WIDTHS = ["72%", "58%", "82%", "64%", "76%"] as const;
 const META_WIDTHS = ["46%", "34%", "52%", "40%", "58%"] as const;
@@ -153,7 +178,6 @@ const SkeletonCard: React.FC<{ style?: React.CSSProperties; index?: number }> = 
   index = 0,
 }) => {
   const slot = index % TITLE_WIDTHS.length;
-
   return (
     <div style={style} className="py-1.5">
       <div className="relative h-[86px] overflow-hidden rounded-[18px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.82),rgba(8,7,5,0.94))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -176,23 +200,68 @@ const SkeletonCard: React.FC<{ style?: React.CSSProperties; index?: number }> = 
   );
 };
 
-const StatTile: React.FC<{
+// ---------------------------------------------------------------------------
+// StatTile — display variant or clickable button variant
+// ---------------------------------------------------------------------------
+
+type StatTileProps = {
   icon: React.ReactNode;
   label: string;
   value: string;
-}> = ({ icon, label, value }) => (
-  <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[14px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.78),rgba(8,7,5,0.92))] px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:justify-start sm:gap-2 sm:px-2.5">
-    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-[10px] border border-amber-200/14 bg-amber-300/10 text-amber-200">
-      {icon}
-    </span>
-    <span className="sr-only truncate text-[11px] font-semibold tracking-[0.1em] text-[var(--mc-text-muted)] sm:not-sr-only">
-      {label}
-    </span>
-    <span className="shrink-0 text-base font-semibold leading-none tracking-tight text-[var(--mc-text)] sm:text-lg">
-      {value}
-    </span>
-  </div>
-);
+  onClick?: () => void;
+  isActive?: boolean;
+};
+
+const StatTile: React.FC<StatTileProps> = ({ icon, label, value, onClick, isActive }) => {
+  const baseClass = [
+    "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[14px] border px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:justify-start sm:gap-2 sm:px-2.5 transition duration-160",
+    isActive
+      ? "border-amber-200/40 bg-[linear-gradient(180deg,rgba(28,22,8,0.90),rgba(12,9,2,0.96))] shadow-[inset_0_0_0_1px_rgba(252,211,77,0.20),inset_0_1px_0_rgba(255,255,255,0.05)]"
+      : "border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.78),rgba(8,7,5,0.92))]",
+    onClick && !isActive
+      ? "cursor-pointer hover:border-amber-200/28 hover:bg-[linear-gradient(180deg,rgba(24,19,10,0.84),rgba(10,8,3,0.94))]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const content = (
+    <>
+      <span
+        className={[
+          "grid h-6 w-6 shrink-0 place-items-center rounded-[10px] border text-amber-200 transition duration-160",
+          isActive ? "border-amber-200/28 bg-amber-300/16" : "border-amber-200/14 bg-amber-300/10",
+        ].join(" ")}
+      >
+        {icon}
+      </span>
+      <span className="sr-only truncate text-[11px] font-semibold tracking-[0.1em] text-[var(--mc-text-muted)] sm:not-sr-only">
+        {label}
+      </span>
+      <span
+        className={[
+          "shrink-0 text-base font-semibold leading-none tracking-tight transition duration-160 sm:text-lg",
+          isActive ? "text-amber-100" : "text-[var(--mc-text)]",
+        ].join(" ")}
+      >
+        {value}
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={baseClass} aria-pressed={isActive}>
+        {content}
+      </button>
+    );
+  }
+  return <div className={baseClass}>{content}</div>;
+};
+
+// ---------------------------------------------------------------------------
+// SortControl
+// ---------------------------------------------------------------------------
 
 const SortControl: React.FC<{
   sortKey: SongFavoriteSortKey;
@@ -205,9 +274,7 @@ const SortControl: React.FC<{
       const directionLabel =
         sortOrder === "desc" ? option.descAriaLabel : option.ascAriaLabel;
       const DirectionIcon =
-        sortOrder === "desc"
-          ? ArrowDownwardRoundedIcon
-          : ArrowUpwardRoundedIcon;
+        sortOrder === "desc" ? ArrowDownwardRoundedIcon : ArrowUpwardRoundedIcon;
 
       return (
         <Tooltip
@@ -226,9 +293,7 @@ const SortControl: React.FC<{
                 : "text-[var(--mc-text-muted)] hover:bg-white/6 hover:text-[var(--mc-text)]",
             ].join(" ")}
             aria-pressed={isActive}
-            aria-label={`${option.ariaLabel}，${
-              isActive ? directionLabel : "點擊切換"
-            }`}
+            aria-label={`${option.ariaLabel}，${isActive ? directionLabel : "點擊切換"}`}
           >
             {option.icon}
             {isActive && <DirectionIcon sx={{ fontSize: 14 }} />}
@@ -239,34 +304,37 @@ const SortControl: React.FC<{
   </div>
 );
 
-function FavoriteRow({
-  ariaAttributes,
-  index,
-  style,
-  items,
-  selectedKeys,
+// ---------------------------------------------------------------------------
+// FavoriteRowContent — shared row article, used in both song list and channel view
+// ---------------------------------------------------------------------------
+
+function FavoriteRowContent({
+  item,
   isSelectMode,
-  deletingKeys,
+  isSelected,
+  isDeleting,
   onToggleSelect,
   onRequestDelete,
   onLongPress,
-}: RowComponentProps<FavoriteRowProps>): React.ReactElement {
+}: {
+  item: SongFavoriteRecord;
+  isSelectMode: boolean;
+  isSelected: boolean;
+  isDeleting: boolean;
+  onToggleSelect: (key: string) => void;
+  onRequestDelete: (provider: "youtube", sourceId: string) => void;
+  onLongPress: (key: string) => void;
+}): React.ReactElement {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
-  const item = items[index];
+  const key = getFavoriteKey(item);
+  const durationLabel = formatDuration(item.durationSec);
 
   useEffect(() => {
     return () => {
       if (longPressTimer.current !== null) clearTimeout(longPressTimer.current);
     };
   }, []);
-
-  if (!item) return <SkeletonCard style={style} index={index} />;
-
-  const key = getFavoriteKey(item);
-  const isSelected = selectedKeys.has(key);
-  const isDeleting = deletingKeys.has(key);
-  const durationLabel = formatDuration(item.durationSec);
 
   const handlePointerDown = (event: React.PointerEvent) => {
     if (isSelectMode) return;
@@ -299,112 +367,250 @@ function FavoriteRow({
   };
 
   return (
-    <div style={style} {...ariaAttributes} className="py-1.5">
-      <article
-        className={[
-          "group flex h-[86px] min-w-0 items-center gap-3 rounded-[18px] border px-2.5 py-2 transition duration-160",
-          "bg-[linear-gradient(180deg,rgba(20,17,13,0.72),rgba(8,7,5,0.94))] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
-          isSelected
-            ? "border-cyan-300/55 ring-1 ring-cyan-300/20"
-            : "border-[var(--mc-border)] hover:border-amber-200/32 hover:bg-[linear-gradient(180deg,rgba(29,22,13,0.86),rgba(10,8,5,0.96))]",
-          isDeleting ? "opacity-60" : "",
-          isSelectMode ? "cursor-pointer" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        style={{ touchAction: "manipulation" }}
-        onClick={isSelectMode ? () => onToggleSelect(key) : undefined}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={cancelLongPress}
-        onPointerLeave={cancelLongPress}
-        onPointerCancel={cancelLongPress}
-        onContextMenu={(event) => event.preventDefault()}
+    <article
+      className={[
+        "group flex h-[86px] min-w-0 items-center gap-3 rounded-[18px] border px-2.5 py-2 transition duration-160",
+        "bg-[linear-gradient(180deg,rgba(20,17,13,0.72),rgba(8,7,5,0.94))] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
+        isSelected
+          ? "border-cyan-300/55 ring-1 ring-cyan-300/20"
+          : "border-[var(--mc-border)] hover:border-amber-200/32 hover:bg-[linear-gradient(180deg,rgba(29,22,13,0.86),rgba(10,8,5,0.96))]",
+        isDeleting ? "opacity-60" : "",
+        isSelectMode ? "cursor-pointer" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{ touchAction: "manipulation" }}
+      onClick={isSelectMode ? () => onToggleSelect(key) : undefined}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onPointerCancel={cancelLongPress}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <a
+        href={getYoutubeUrl(item.sourceId)}
+        target="_blank"
+        rel="noreferrer"
+        className="relative block h-[62px] w-[110px] shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-black/40"
+        aria-label={`在 YouTube 開啟 ${item.title}`}
+        onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
       >
+        <img
+          src={getThumbnail(item)}
+          alt=""
+          className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.025]"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+        {durationLabel && (
+          <span className="absolute bottom-1 right-1 rounded bg-black/72 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            {durationLabel}
+          </span>
+        )}
+      </a>
+
+      <div className="min-w-0 flex-1">
         <a
           href={getYoutubeUrl(item.sourceId)}
           target="_blank"
           rel="noreferrer"
-          className="relative block h-[62px] w-[110px] shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-black/40"
-          aria-label={`在 YouTube 開啟 ${item.title}`}
+          className="inline-flex max-w-full items-center gap-1.5 text-[15px] font-semibold leading-tight text-[var(--mc-text)] transition hover:text-amber-100"
           onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
         >
-          <img
-            src={getThumbnail(item)}
-            alt=""
-            className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.025]"
-            loading="lazy"
-            referrerPolicy="no-referrer"
+          <span className="truncate">{item.title}</span>
+          <OpenInNewRoundedIcon
+            sx={{ fontSize: 14 }}
+            className="shrink-0 opacity-0 transition group-hover:opacity-55"
           />
-          {durationLabel && (
-            <span className="absolute bottom-1 right-1 rounded bg-black/72 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-              {durationLabel}
-            </span>
-          )}
         </a>
 
-        <div className="min-w-0 flex-1">
-          <a
-            href={getYoutubeUrl(item.sourceId)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex max-w-full items-center gap-1.5 text-[15px] font-semibold leading-tight text-[var(--mc-text)] transition hover:text-amber-100"
-            onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
-          >
-            <span className="truncate">{item.title}</span>
-            <OpenInNewRoundedIcon
-              sx={{ fontSize: 14 }}
-              className="shrink-0 opacity-0 transition group-hover:opacity-55"
-            />
-          </a>
-
-          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--mc-text-muted)]/74">
-            <span className="max-w-[48vw] truncate sm:max-w-[220px]">
-              {item.channelTitle || "未知頻道"}
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-amber-200/90">
-              <StarRoundedIcon sx={{ fontSize: 13 }} />
-              {formatNumber(item.playCount)}
-            </span>
-            <span className="shrink-0">更新 {formatDate(item.updatedAt)}</span>
-          </div>
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--mc-text-muted)]/74">
+          <span className="max-w-[48vw] truncate sm:max-w-[220px]">
+            {item.channelTitle || "未知頻道"}
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-amber-200/90">
+            <StarRoundedIcon sx={{ fontSize: 13 }} />
+            {formatNumber(item.playCount)}
+          </span>
+          <span className="shrink-0">更新 {formatDate(item.updatedAt)}</span>
         </div>
+      </div>
 
-        {isSelectMode ? (
-          <Checkbox
-            size="small"
-            checked={isSelected}
-            onChange={() => onToggleSelect(key)}
-            onClick={(event) => event.stopPropagation()}
-            className="!p-0"
-            inputProps={{ "aria-label": `選取 ${item.title}` }}
-            sx={{
-              color: "rgba(231,216,191,0.42)",
-              "&.Mui-checked": { color: "#67e8f9" },
-            }}
-          />
-        ) : (
-          <Tooltip title="移除收藏" arrow placement="left">
-            <span>
-              <IconButton
-                aria-label={`移除收藏：${item.title}`}
-                disabled={isDeleting}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onRequestDelete(item.provider, item.sourceId);
-                }}
-                size="small"
-                className="!text-[var(--mc-text-muted)]/58 hover:!text-rose-300"
-              >
-                <DeleteOutlineRoundedIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        )}
-      </article>
+      {isSelectMode ? (
+        <Checkbox
+          size="small"
+          checked={isSelected}
+          onChange={() => onToggleSelect(key)}
+          onClick={(event) => event.stopPropagation()}
+          className="!p-0"
+          inputProps={{ "aria-label": `選取 ${item.title}` }}
+          sx={{
+            color: "rgba(231,216,191,0.42)",
+            "&.Mui-checked": { color: "#67e8f9" },
+          }}
+        />
+      ) : (
+        <Tooltip title="移除收藏" arrow placement="left">
+          <span>
+            <IconButton
+              aria-label={`移除收藏：${item.title}`}
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRequestDelete(item.provider, item.sourceId);
+              }}
+              size="small"
+              className="!text-[var(--mc-text-muted)]/58 hover:!text-rose-300"
+            >
+              <DeleteOutlineRoundedIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FavoriteRow — react-window wrapper around FavoriteRowContent
+// ---------------------------------------------------------------------------
+
+function FavoriteRow({
+  ariaAttributes,
+  index,
+  style,
+  items,
+  selectedKeys,
+  isSelectMode,
+  deletingKeys,
+  onToggleSelect,
+  onRequestDelete,
+  onLongPress,
+}: RowComponentProps<FavoriteRowProps>): React.ReactElement {
+  const item = items[index];
+  if (!item) return <SkeletonCard style={style} index={index} />;
+
+  const key = getFavoriteKey(item);
+
+  return (
+    <div style={style} {...ariaAttributes} className="py-1.5">
+      <FavoriteRowContent
+        item={item}
+        isSelectMode={isSelectMode}
+        isSelected={selectedKeys.has(key)}
+        isDeleting={deletingKeys.has(key)}
+        onToggleSelect={onToggleSelect}
+        onRequestDelete={onRequestDelete}
+        onLongPress={onLongPress}
+      />
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// ChannelGroupRow — collapsible channel section for channel view
+// ---------------------------------------------------------------------------
+
+function ChannelGroupRow({
+  group,
+  isExpanded,
+  onToggle,
+  isSelectMode,
+  selectedKeys,
+  deletingKeys,
+  onToggleSelect,
+  onRequestDelete,
+  onLongPress,
+}: CommonRowProps & {
+  group: ChannelGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+}): React.ReactElement {
+  return (
+    <div className="mb-2">
+      {/* Channel header button */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isExpanded}
+        className={[
+          "group/ch w-full flex items-center gap-3 rounded-[16px] border px-3 py-2.5 text-left transition duration-160",
+          "bg-[linear-gradient(180deg,rgba(20,17,13,0.84),rgba(8,7,5,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+          isExpanded
+            ? "border-amber-200/38 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16),inset_0_1px_0_rgba(255,255,255,0.05)]"
+            : "border-[var(--mc-border)] hover:border-amber-200/28 hover:bg-[linear-gradient(180deg,rgba(24,19,10,0.88),rgba(10,8,3,0.97))]",
+        ].join(" ")}
+      >
+        {/* Channel icon badge */}
+        <span
+          className={[
+            "grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border transition duration-160",
+            isExpanded
+              ? "border-amber-200/30 bg-amber-300/16 text-amber-200"
+              : "border-amber-200/14 bg-amber-300/10 text-amber-200/75 group-hover/ch:border-amber-200/24 group-hover/ch:text-amber-200",
+          ].join(" ")}
+        >
+          <AlbumRoundedIcon sx={{ fontSize: 18 }} />
+        </span>
+
+        {/* Channel name + meta */}
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14px] font-semibold leading-tight text-[var(--mc-text)]">
+            {group.channelTitle}
+          </div>
+          <div className="mt-1 flex min-w-0 items-center gap-3 text-[11px] text-[var(--mc-text-muted)]">
+            <span className="flex shrink-0 items-center gap-1">
+              <QueueMusicRoundedIcon sx={{ fontSize: 12 }} />
+              {group.items.length} 首
+            </span>
+            <span className="flex shrink-0 items-center gap-1 font-semibold text-amber-200/75">
+              <StarRoundedIcon sx={{ fontSize: 12 }} />
+              {formatNumber(group.totalPlayCount)}
+            </span>
+          </div>
+        </div>
+
+        {/* Animated chevron */}
+        <span
+          className={[
+            "grid h-7 w-7 shrink-0 place-items-center rounded-[10px] transition duration-200",
+            isExpanded
+              ? "rotate-180 text-amber-200/80"
+              : "text-[var(--mc-text-muted)] group-hover/ch:text-[var(--mc-text)]",
+          ].join(" ")}
+        >
+          <ExpandMoreRoundedIcon sx={{ fontSize: 20 }} />
+        </span>
+      </button>
+
+      {/* Expanded song list */}
+      {isExpanded && (
+        <div className="ml-[21px] mt-1.5 space-y-1.5 border-l-2 border-amber-200/14 pl-3">
+          {group.items.map((item) => {
+            const key = getFavoriteKey(item);
+            return (
+              <FavoriteRowContent
+                key={key}
+                item={item}
+                isSelectMode={isSelectMode}
+                isSelected={selectedKeys.has(key)}
+                isDeleting={deletingKeys.has(key)}
+                onToggleSelect={onToggleSelect}
+                onRequestDelete={onRequestDelete}
+                onLongPress={onLongPress}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FavoriteSongsPage
+// ---------------------------------------------------------------------------
 
 const FavoriteSongsPage: React.FC = () => {
   const [sortKey, setSortKey] = useState<SongFavoriteSortKey>("updatedAt");
@@ -427,6 +633,10 @@ const FavoriteSongsPage: React.FC = () => {
     order: sortOrder,
   });
 
+  const [viewMode, setViewMode] = useState<ViewMode>("songs");
+  const [expandedChannels, setExpandedChannels] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -441,13 +651,45 @@ const FavoriteSongsPage: React.FC = () => {
   const suppressDeleteConfirmRef = useRef(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const channelViewBottomRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
 
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
+
   const stats = useMemo(() => getLoadedStats(flatItems), [flatItems]);
+
   const loadedKeys = useMemo(
     () => new Set(flatItems.map(getFavoriteKey)),
     [flatItems],
   );
+
+  // Groups are sorted by total play count desc; computed only when channel view is active.
+  const channelGroups = useMemo<ChannelGroup[]>(() => {
+    if (viewMode !== "channels") return [];
+    const map = new Map<string, SongFavoriteRecord[]>();
+    for (const item of flatItems) {
+      const title = item.channelTitle?.trim() || "未知頻道";
+      const existing = map.get(title);
+      if (existing) {
+        existing.push(item);
+      } else {
+        map.set(title, [item]);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([channelTitle, items]) => ({
+        channelTitle,
+        items,
+        totalPlayCount: items.reduce((sum, i) => sum + i.playCount, 0),
+      }))
+      .sort((a, b) => b.totalPlayCount - a.totalPlayCount);
+  }, [flatItems, viewMode]);
+
+  // ---------------------------------------------------------------------------
+  // Height management
+  // ---------------------------------------------------------------------------
 
   const updateHeight = useCallback(() => {
     const element = containerRef.current;
@@ -468,6 +710,28 @@ const FavoriteSongsPage: React.FC = () => {
     updateHeight();
   }, [flatItems.length, operationError, updateHeight]);
 
+  // ---------------------------------------------------------------------------
+  // Channel view infinite scroll via IntersectionObserver
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (viewMode !== "channels" || !hasNextPage || isFetchingNextPage) return;
+    const el = channelViewBottomRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) void fetchNextPage();
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewMode, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // ---------------------------------------------------------------------------
+  // Selection management
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
     setSelectedKeys((prev) => {
       if (prev.size === 0) return prev;
@@ -484,6 +748,37 @@ const FavoriteSongsPage: React.FC = () => {
     setSelectedKeys(new Set());
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // View mode
+  // ---------------------------------------------------------------------------
+
+  const handleViewModeChange = useCallback(
+    (mode: ViewMode) => {
+      if (mode === viewMode) return;
+      exitSelectMode();
+      setExpandedChannels(new Set());
+      setOperationError(null);
+      setViewMode(mode);
+    },
+    [viewMode, exitSelectMode],
+  );
+
+  const toggleChannel = useCallback((channelTitle: string) => {
+    setExpandedChannels((prev) => {
+      const next = new Set(prev);
+      if (next.has(channelTitle)) {
+        next.delete(channelTitle);
+      } else {
+        next.add(channelTitle);
+      }
+      return next;
+    });
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Sort
+  // ---------------------------------------------------------------------------
+
   const handleSortChange = useCallback(
     (nextKey: SongFavoriteSortKey) => {
       setOperationError(null);
@@ -497,6 +792,10 @@ const FavoriteSongsPage: React.FC = () => {
     },
     [exitSelectMode, sortKey],
   );
+
+  // ---------------------------------------------------------------------------
+  // Select / delete
+  // ---------------------------------------------------------------------------
 
   const toggleSelect = useCallback((key: string) => {
     setOperationError(null);
@@ -599,6 +898,18 @@ const FavoriteSongsPage: React.FC = () => {
     }
   }, [deleteAllFavorites, exitSelectMode]);
 
+  // Stable delete callback for channel/song views
+  const handleSingleDelete = useCallback(
+    (provider: "youtube", sourceId: string) => {
+      requestDelete([{ provider, sourceId }]);
+    },
+    [requestDelete],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Song view helpers
+  // ---------------------------------------------------------------------------
+
   const rowCount = flatItems.length + (hasNextPage ? 1 : 0);
 
   const handleRowsRendered = useCallback(
@@ -621,25 +932,30 @@ const FavoriteSongsPage: React.FC = () => {
       isSelectMode,
       deletingKeys,
       onToggleSelect: toggleSelect,
-      onRequestDelete: (provider, sourceId) =>
-        requestDelete([{ provider, sourceId }]),
+      onRequestDelete: handleSingleDelete,
       onLongPress: handleLongPress,
     }),
     [
       deletingKeys,
       flatItems,
       handleLongPress,
+      handleSingleDelete,
       isSelectMode,
-      requestDelete,
       selectedKeys,
       toggleSelect,
     ],
   );
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
     <main className="flex min-h-[calc(100dvh-150px)] w-full min-w-0 flex-col overflow-hidden px-1 pb-1 text-[var(--mc-text)] sm:px-0">
       <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.96),rgba(8,7,5,0.99))] p-2.5 shadow-[0_22px_54px_-38px_rgba(0,0,0,0.84),inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-3">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/45 to-transparent" />
+
+        {/* Header */}
         <div className="flex shrink-0 items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-semibold tracking-tight text-[var(--mc-text)] sm:text-3xl">
@@ -721,22 +1037,30 @@ const FavoriteSongsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Stats + sort row */}
         <div className="mt-2 flex shrink-0 items-stretch gap-1.5 sm:gap-2">
           <div className="grid min-w-0 flex-1 grid-cols-3 gap-1.5 sm:gap-2">
-            <StatTile
-              icon={<QueueMusicRoundedIcon sx={{ fontSize: 17 }} />}
-              label="已載入"
-              value={`${formatNumber(stats.loadedCount)}${hasNextPage ? "+" : ""}`}
-            />
+            {/* 1. 收藏次數 (moved to first) */}
             <StatTile
               icon={<StarRoundedIcon sx={{ fontSize: 17 }} />}
               label="收藏次數"
               value={formatNumber(stats.totalPlayCount)}
             />
+            {/* 2. 歌曲數 (was 已載入, clickable → song view) */}
+            <StatTile
+              icon={<QueueMusicRoundedIcon sx={{ fontSize: 17 }} />}
+              label="歌曲數"
+              value={`${formatNumber(stats.loadedCount)}${hasNextPage ? "+" : ""}`}
+              onClick={() => handleViewModeChange("songs")}
+              isActive={viewMode === "songs"}
+            />
+            {/* 3. 頻道數 (clickable → channel view) */}
             <StatTile
               icon={<AlbumRoundedIcon sx={{ fontSize: 17 }} />}
               label="頻道數"
               value={formatNumber(stats.channelCount)}
+              onClick={() => handleViewModeChange("channels")}
+              isActive={viewMode === "channels"}
             />
           </div>
           <SortControl
@@ -746,6 +1070,7 @@ const FavoriteSongsPage: React.FC = () => {
           />
         </div>
 
+        {/* Error banner */}
         {(operationError || error) && (
           <div className="mt-2 shrink-0 rounded-[14px] border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
             {operationError ||
@@ -753,42 +1078,79 @@ const FavoriteSongsPage: React.FC = () => {
           </div>
         )}
 
+        {/* List area */}
         <div ref={containerRef} className="mt-2 min-h-0 flex-1">
-            {isLoading ? (
-              <div>
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <SkeletonCard key={index} index={index} />
-                ))}
-              </div>
-            ) : flatItems.length === 0 ? (
-              <div
-                className="flex flex-col items-center justify-center rounded-[22px] border border-dashed border-[var(--mc-border)] bg-black/18 px-6 text-center"
-                style={{ height: containerHeight > 0 ? containerHeight : 360 }}
-              >
-                <span className="grid h-16 w-16 place-items-center rounded-[22px] border border-amber-200/16 bg-amber-300/10 text-amber-100">
-                  <MusicNoteRoundedIcon sx={{ fontSize: 32 }} />
-                </span>
-                <h2 className="mt-5 text-lg font-semibold text-[var(--mc-text)]">
-                  還沒有收藏歌曲
-                </h2>
-                <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--mc-text-muted)]">
-                  在遊戲中按下收藏後，歌曲會同步到這裡，方便你之後回聽或整理。
-                </p>
-              </div>
-            ) : containerHeight > 0 ? (
-              <List
-                style={{ height: containerHeight }}
-                rowComponent={FavoriteRow}
-                rowCount={rowCount}
-                rowHeight={ITEM_HEIGHT}
-                rowProps={rowProps}
-                overscanCount={OVERSCAN_COUNT}
-                onRowsRendered={handleRowsRendered}
-              />
-            ) : null}
-          </div>
+          {isLoading ? (
+            <div>
+              {Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} index={index} />
+              ))}
+            </div>
+          ) : flatItems.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center rounded-[22px] border border-dashed border-[var(--mc-border)] bg-black/18 px-6 text-center"
+              style={{ height: containerHeight > 0 ? containerHeight : 360 }}
+            >
+              <span className="grid h-16 w-16 place-items-center rounded-[22px] border border-amber-200/16 bg-amber-300/10 text-amber-100">
+                <MusicNoteRoundedIcon sx={{ fontSize: 32 }} />
+              </span>
+              <h2 className="mt-5 text-lg font-semibold text-[var(--mc-text)]">
+                還沒有收藏歌曲
+              </h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--mc-text-muted)]">
+                在遊戲中按下收藏後，歌曲會同步到這裡，方便你之後回聽或整理。
+              </p>
+            </div>
+          ) : viewMode === "songs" && containerHeight > 0 ? (
+            <List
+              style={{ height: containerHeight }}
+              rowComponent={FavoriteRow}
+              rowCount={rowCount}
+              rowHeight={ITEM_HEIGHT}
+              rowProps={rowProps}
+              overscanCount={OVERSCAN_COUNT}
+              onRowsRendered={handleRowsRendered}
+            />
+          ) : viewMode === "channels" && containerHeight > 0 ? (
+            <div
+              className="overflow-y-auto"
+              style={{ height: containerHeight }}
+            >
+              {channelGroups.map((group) => (
+                <ChannelGroupRow
+                  key={group.channelTitle}
+                  group={group}
+                  isExpanded={expandedChannels.has(group.channelTitle)}
+                  onToggle={() => toggleChannel(group.channelTitle)}
+                  isSelectMode={isSelectMode}
+                  selectedKeys={selectedKeys}
+                  deletingKeys={deletingKeys}
+                  onToggleSelect={toggleSelect}
+                  onRequestDelete={handleSingleDelete}
+                  onLongPress={handleLongPress}
+                />
+              ))}
+              {hasNextPage && (
+                <div
+                  ref={channelViewBottomRef}
+                  className="flex items-center justify-center gap-2 py-4 text-xs text-[var(--mc-text-muted)]"
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--mc-border)] border-t-amber-300/60" />
+                      載入更多...
+                    </>
+                  ) : (
+                    "向下捲動載入更多歌曲"
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </section>
 
+      {/* Batch select bottom bar */}
       {isSelectMode && (
         <div
           className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--mc-border)] bg-[rgba(8,7,5,0.96)] px-3 shadow-[0_-18px_40px_-28px_rgba(0,0,0,0.95)] backdrop-blur-xl"
@@ -829,6 +1191,7 @@ const FavoriteSongsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Single / batch delete confirm dialog */}
       <Dialog
         open={pendingDelete !== null}
         onClose={() => setPendingDelete(null)}
@@ -909,6 +1272,7 @@ const FavoriteSongsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Clear all confirm dialog */}
       <Dialog
         open={showClearAllConfirm}
         onClose={() => setShowClearAllConfirm(false)}
