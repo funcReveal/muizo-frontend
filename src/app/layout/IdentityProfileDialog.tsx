@@ -34,6 +34,7 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
   const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
   const open = needsNicknameConfirm || isProfileEditorOpen;
   const trackedOpenRef = React.useRef(false);
+  const [isSaving, setIsSaving] = React.useState(false);
   const isMobile = useMediaQuery((theme: Theme) =>
     theme.breakpoints.down("sm"),
   );
@@ -66,6 +67,7 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
   React.useEffect(() => {
     if (!open) {
       trackedOpenRef.current = false;
+      setIsSaving(false);
       return;
     }
     if (!isProfileEditorOpen || trackedOpenRef.current) return;
@@ -80,11 +82,20 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
   };
 
   const handleConfirmNickname = () => {
-    void Promise.resolve(confirmNickname()).then((saved) => {
-      if (isProfileEditorOpen && saved !== false) {
-        recordProfileRenameEvent("career.profile.rename.saved", "rename_save");
-      }
-    });
+    if (isSaving) return;
+    setIsSaving(true);
+    void Promise.resolve(confirmNickname())
+      .then((saved) => {
+        if (isProfileEditorOpen && saved !== false) {
+          recordProfileRenameEvent("career.profile.rename.saved", "rename_save");
+        }
+      })
+      .catch((error) => {
+        console.error("[profile] failed to save nickname", error);
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   const content = (
@@ -122,6 +133,7 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
           onClick={handleConfirmNickname}
           variant="contained"
           fullWidth
+          disabled={isSaving || nicknameDraft.trim().length === 0}
           sx={{
             minHeight: 42,
             borderRadius: "14px",
@@ -137,9 +149,14 @@ const IdentityProfileDialog: React.FC<IdentityProfileDialogProps> = ({
               boxShadow:
                 "0 20px 38px -24px rgba(245,158,11,0.95), inset 0 1px 0 rgba(255,255,255,0.42)",
             },
+            "&.Mui-disabled": {
+              background: "rgba(148, 163, 184, 0.18)",
+              color: "rgba(226, 232, 240, 0.5)",
+              boxShadow: "none",
+            },
           }}
         >
-          保存
+          {isSaving ? "保存中..." : "保存"}
         </Button>
       </DialogActions>
     </>

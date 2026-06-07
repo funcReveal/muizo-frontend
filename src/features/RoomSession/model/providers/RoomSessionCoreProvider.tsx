@@ -103,6 +103,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
 
   const {
     confirmNicknameRef,
+    confirmNicknameBaseRef,
     activeUsername,
     lockSessionClientId,
     resetSessionClientId,
@@ -357,7 +358,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   const confirmNicknameWithSocket = useCallback(async () => {
     const nextUsername = nicknameDraft.trim();
 
-    const confirmed = await confirmNicknameRef.current();
+    const confirmed = await confirmNicknameBaseRef.current();
     if (!confirmed || !nextUsername) return false;
 
     setParticipants((previous) =>
@@ -383,7 +384,7 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
     return true;
   }, [
     clientId,
-    confirmNicknameRef,
+    confirmNicknameBaseRef,
     currentRoom,
     getSocket,
     handleRoomGoneAck,
@@ -649,7 +650,10 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
 
   useLayoutEffect(() => {
     confirmNicknameRef.current = confirmNicknameWithSocket;
-  }, [confirmNicknameRef, confirmNicknameWithSocket]);
+    return () => {
+      confirmNicknameRef.current = () => confirmNicknameBaseRef.current();
+    };
+  }, [confirmNicknameBaseRef, confirmNicknameRef, confirmNicknameWithSocket]);
 
   useEffect(() => {
     if (gameState?.status === "ended") {
