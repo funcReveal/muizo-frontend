@@ -71,6 +71,8 @@ const normalizeCollectionEntry = (
   updated_at: Math.max(0, Number(item.updated_at ?? 0)),
   ai_edited_count: Math.max(0, Number(item.ai_edited_count ?? 0)),
   has_ai_edited: Boolean(item.has_ai_edited),
+  category: item.category ?? null,
+  sub_tag_keys: Array.isArray(item.sub_tag_keys) ? item.sub_tag_keys : null,
 });
 
 const toAvailabilityCount = (value: unknown): number | undefined =>
@@ -243,7 +245,11 @@ export type UseCollectionContentStateResult = {
   selectCollection: (collectionId: string | null) => void;
   fetchCollections: (
     scope?: "owner" | "public",
-    options?: { query?: string },
+    options?: {
+      query?: string;
+      categoryKeys?: string[] | null;
+      subTags?: string[] | null;
+    },
   ) => Promise<void>;
   fetchCollectionById: (
     collectionId: string,
@@ -304,7 +310,10 @@ export const useCollectionContentState = ({
   const collectionPageRef = useRef(1);
   const collectionRequestScopeRef = useRef<"owner" | "public" | null>(null);
   const publicCollectionsQueryRef = useRef("");
+  const publicCategoryKeysRef = useRef<string[]>([]);
+  const publicSubTagsRef = useRef<string[]>([]);
   const latestCollectionsRequestIdRef = useRef(0);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
   const collectionCacheRef = useRef<Record<string, PlaylistItem[]>>({});
   const inFlightCollectionIdRef = useRef<string | null>(null);
   const latestLoadRequestIdRef = useRef(0);
@@ -351,11 +360,22 @@ export const useCollectionContentState = ({
   );
 
   const fetchCollections = useCallback(
-    async (scope?: "owner" | "public", options?: { query?: string }) => {
+    async (
+      scope?: "owner" | "public",
+      options?: {
+        query?: string;
+        categoryKeys?: string[] | null;
+        subTags?: string[] | null;
+      },
+    ) => {
       if (!apiUrl) {
         setCollectionsError("尚未設定收藏庫 API 位置 (API_URL)");
         return;
       }
+      // Cancel any previous in-flight fetch to avoid stale responses consuming server resources
+      fetchAbortControllerRef.current?.abort();
+      fetchAbortControllerRef.current = new AbortController();
+
       const requestId = latestCollectionsRequestIdRef.current + 1;
       latestCollectionsRequestIdRef.current = requestId;
       const resolvedScope =
@@ -368,6 +388,16 @@ export const useCollectionContentState = ({
       collectionRequestScopeRef.current = resolvedScope;
       if (resolvedScope === "public") {
         publicCollectionsQueryRef.current = normalizedQuery;
+        // Update filter refs when options explicitly provide them; preserve
+        // previous value when undefined (allows caller to pass query-only).
+        if (
+          Object.prototype.hasOwnProperty.call(options ?? {}, "categoryKeys")
+        ) {
+          publicCategoryKeysRef.current = options?.categoryKeys ?? [];
+        }
+        if (Object.prototype.hasOwnProperty.call(options ?? {}, "subTags")) {
+          publicSubTagsRef.current = options?.subTags ?? [];
+        }
       }
       collectionPageRef.current = 1;
       setCollectionScope(resolvedScope);
@@ -483,8 +513,11 @@ export const useCollectionContentState = ({
             visibility: "public",
             sort: publicCollectionsSort,
             q: normalizedQuery || undefined,
+            categoryKeys: publicCategoryKeysRef.current,
+            subTags: publicSubTagsRef.current,
             page: 1,
             pageSize: DEFAULT_PAGE_SIZE,
+            signal: fetchAbortControllerRef.current?.signal,
           });
           if (!ok) {
             throw new Error(payload?.error ?? "載入公開收藏庫失敗");
@@ -757,6 +790,8 @@ export const useCollectionContentState = ({
           visibility: "public",
           sort: publicCollectionsSort,
           q: publicCollectionsQueryRef.current || undefined,
+          categoryKeys: publicCategoryKeysRef.current,
+          subTags: publicSubTagsRef.current,
           page: nextPage,
           pageSize: DEFAULT_PAGE_SIZE,
         });
@@ -1157,7 +1192,11 @@ export const useCollectionContentState = ({
     collectionPageRef.current = 1;
     collectionRequestScopeRef.current = null;
     publicCollectionsQueryRef.current = "";
+    publicCategoryKeysRef.current = [];
+    publicSubTagsRef.current = [];
     latestCollectionsRequestIdRef.current = 0;
+    fetchAbortControllerRef.current?.abort();
+    fetchAbortControllerRef.current = null;
     setSelectedCollectionId(null);
     setCollectionItemsLoading(false);
     setCollectionItemsError(null);

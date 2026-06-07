@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@shared/auth/AuthContext";
 
@@ -30,9 +30,30 @@ const sortItems = (
         const bValue = normalizeNumber(b.leaderboardRank, 999999);
         return aValue - bValue;
       }
+      case "previousLeaderboardRank": {
+        const aValue = normalizeNumber(a.previousLeaderboardRank, 999999);
+        const bValue = normalizeNumber(b.previousLeaderboardRank, 999999);
+        return aValue - bValue;
+      }
       case "delta": {
         const aValue = normalizeNumber(a.delta, -999999);
         const bValue = normalizeNumber(b.delta, -999999);
+        return aValue - bValue;
+      }
+      case "matchScore": {
+        const aValue = normalizeNumber(
+          a.matchScore ?? a.matchSummary?.selfPlayer?.finalScore,
+          -1,
+        );
+        const bValue = normalizeNumber(
+          b.matchScore ?? b.matchSummary?.selfPlayer?.finalScore,
+          -1,
+        );
+        return aValue - bValue;
+      }
+      case "recentRank": {
+        const aValue = normalizeNumber(a.recentRank, 999999);
+        const bValue = normalizeNumber(b.recentRank, 999999);
         return aValue - bValue;
       }
       case "playCount": {
@@ -60,12 +81,19 @@ export const useCareerCollectionRanksData =
   (): CareerCollectionRanksQueryResult => {
     const { clientId, authToken, refreshAuthToken } = useAuth();
     const [sortKey, setSortKey] =
-      useState<CareerCollectionRankSortKey>("leaderboardRank");
+      useState<CareerCollectionRankSortKey>("lastPlayedAt");
     const [sortOrder, setSortOrder] =
-      useState<CareerCollectionRankSortOrder>("asc");
+      useState<CareerCollectionRankSortOrder>("desc");
     const [rawItems, setRawItems] = useState<CareerCollectionRankRow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const authTokenRef = useRef(authToken);
+    const refreshAuthTokenRef = useRef(refreshAuthToken);
+
+    useEffect(() => {
+      authTokenRef.current = authToken;
+      refreshAuthTokenRef.current = refreshAuthToken;
+    }, [authToken, refreshAuthToken]);
 
     useEffect(() => {
       let cancelled = false;
@@ -76,8 +104,8 @@ export const useCareerCollectionRanksData =
           setError(null);
           return fetchCareerCollectionRanks({
             clientId,
-            authToken,
-            refreshAuthToken,
+            authToken: authTokenRef.current,
+            refreshAuthToken: refreshAuthTokenRef.current,
           });
         })
         .then((items) => {
@@ -100,7 +128,7 @@ export const useCareerCollectionRanksData =
       return () => {
         cancelled = true;
       };
-    }, [authToken, clientId, refreshAuthToken]);
+    }, [clientId]);
 
     const items = useMemo(
       () => sortItems(rawItems, sortKey, sortOrder),

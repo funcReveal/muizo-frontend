@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import CheckCircleOutlineRounded from "@mui/icons-material/CheckCircleOutlineRounded";
 import ErrorOutlineRounded from "@mui/icons-material/ErrorOutlineRounded";
@@ -6,6 +6,10 @@ import LockOutlined from "@mui/icons-material/LockOutlined";
 import PublicOutlined from "@mui/icons-material/PublicOutlined";
 import WarningAmberRounded from "@mui/icons-material/WarningAmberRounded";
 import { Switch, TextField } from "@mui/material";
+import {
+  CategoryDrawerPanel,
+  type CategoryDetectResult,
+} from "@features/CollectionCategory";
 
 type ChecklistTone = "success" | "warning" | "danger";
 
@@ -31,6 +35,15 @@ type Props = {
   isDraftOverflow: boolean;
   draftOverflowCount: number;
   isReadyToCreate: boolean;
+
+  // Category
+  detectSuggestion: CategoryDetectResult | null;
+  detectIsRunning: boolean;
+  detectHasRun: boolean;
+  categoryId: string | null;
+  onCategoryIdChange: (id: string | null) => void;
+  subTagKeys: string[];
+  onSubTagKeysChange: (keys: string[]) => void;
 };
 
 const ChecklistItem = ({
@@ -111,12 +124,22 @@ export default function CollectionCreatePublishPanel({
   isDraftOverflow,
   draftOverflowCount,
   isReadyToCreate,
+  detectSuggestion,
+  detectIsRunning,
+  detectHasRun,
+  categoryId,
+  onCategoryIdChange,
+  subTagKeys,
+  onSubTagKeysChange,
 }: Props) {
   const { t } = useTranslation("collectionCreate");
 
   const trimmedTitle = title.trim();
   const hasTitle = trimmedTitle.length > 0;
   const hasPlayableItems = readyItems > 0;
+
+  // Category is required for both private and public — backend enforces it
+  const needsCategory = !categoryId;
 
   return (
     <section className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/65 p-4">
@@ -300,6 +323,25 @@ export default function CollectionCreatePublishPanel({
           )}
         </div>
 
+        {/* Category & Language — unified polished panel (same as edit drawer) */}
+        <div className="overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30">
+          <div className="border-b border-white/[0.06] px-4 py-3 text-sm font-semibold text-[var(--mc-text)]">
+            分類設定
+          </div>
+          <CategoryDrawerPanel
+            layout="embedded"
+            categoryId={categoryId}
+            subTagKeys={subTagKeys}
+            visibility={visibility}
+            isSaving={false}
+            detectSuggestion={detectSuggestion}
+            detectIsRunning={detectIsRunning}
+            detectHasRun={detectHasRun}
+            onCategoryChange={onCategoryIdChange}
+            onSubTagsChange={onSubTagKeysChange}
+          />
+        </div>
+
         <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 p-4">
           <div className="text-sm font-semibold text-[var(--mc-text)]">
             {t("publish.checklist.title")}
@@ -331,6 +373,12 @@ export default function CollectionCreatePublishPanel({
                 ? t("publish.checklist.quotaReached")
                 : t("publish.checklist.quotaAvailable")}
             </ChecklistItem>
+
+            {needsCategory && (
+              <ChecklistItem tone="warning">
+                公開收藏庫建議選擇分類，讓更多人找到你的內容
+              </ChecklistItem>
+            )}
 
             {skippedItems > 0 && (
               <ChecklistItem tone="warning">

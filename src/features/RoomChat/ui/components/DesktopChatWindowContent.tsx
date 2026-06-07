@@ -1,6 +1,7 @@
 import React from "react";
 import { Badge } from "@mui/material";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
 import type { ChatMessage } from "@features/RoomSession";
 import ChatMessagesList from "./ChatMessagesList";
@@ -95,6 +96,19 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
                         }}
                     >
                         {headerTabs}
+                        <button
+                            type="button"
+                            className="floating-chat-topbar-close"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onToggle();
+                            }}
+                            aria-label={`收合${title}`}
+                            title="點擊收合聊天室"
+                        >
+                            <span>收合</span>
+                            <ExpandMoreRoundedIcon fontSize="small" />
+                        </button>
                     </div>
                     <div className="floating-chat-window" role="dialog" aria-label={title}>
                         {children ?? (

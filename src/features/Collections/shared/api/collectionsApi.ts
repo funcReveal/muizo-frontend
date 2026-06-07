@@ -115,6 +115,8 @@ export const collectionsApi = {
       title: string;
       description?: string | null;
       visibility?: string;
+      category_id?: string | null;
+      sub_tag_keys?: string[];
     },
   ) {
     if (!API_URL) {
@@ -143,6 +145,8 @@ export const collectionsApi = {
       description?: string | null;
       visibility?: "private" | "public";
       items: Array<Record<string, unknown>>;
+      category_id?: string | null;
+      sub_tag_keys?: string[];
     },
   ) {
     if (!API_URL) {
@@ -170,7 +174,10 @@ export const collectionsApi = {
       title?: string;
       description?: string | null;
       visibility?: "private" | "public";
+      category_id?: string | null;
+      sub_tag_keys?: string[];
     },
+    options?: { signal?: AbortSignal },
   ) {
     if (!API_URL) {
       throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
@@ -179,6 +186,7 @@ export const collectionsApi = {
       method: "PATCH",
       headers: buildJsonHeaders(token),
       body: JSON.stringify(payload),
+      signal: options?.signal,
     });
     if (!res.ok) {
       throw new Error(

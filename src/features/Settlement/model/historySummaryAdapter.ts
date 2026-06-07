@@ -105,6 +105,55 @@ export const getHistorySummaryPlaylistItemCount = (
   return null;
 };
 
+export const getHistorySummaryCollectionId = (
+  summary: RoomSettlementHistorySummary,
+) => {
+  const topLevelId = summary.collectionId?.trim();
+  if (topLevelId) return topLevelId;
+
+  const summaryCollectionId = readSummaryJsonField(summary, "collectionId");
+  if (
+    typeof summaryCollectionId === "string" &&
+    summaryCollectionId.trim().length > 0
+  ) {
+    return summaryCollectionId.trim();
+  }
+
+  return null;
+};
+
+export const getHistorySummaryPlayMode = (
+  summary: RoomSettlementHistorySummary,
+): "casual" | "leaderboard" => {
+  if (summary.playMode === "leaderboard") return "leaderboard";
+  if (
+    typeof summary.leaderboardProfileKey === "string" &&
+    summary.leaderboardProfileKey.trim().length > 0
+  ) {
+    return "leaderboard";
+  }
+
+  const summaryPlayMode = readSummaryJsonField(summary, "playMode");
+  if (summaryPlayMode === "leaderboard") return "leaderboard";
+
+  const summaryProfileKey = readSummaryJsonField(
+    summary,
+    "leaderboardProfileKey",
+  );
+  if (
+    typeof summaryProfileKey === "string" &&
+    summaryProfileKey.trim().length > 0
+  ) {
+    return "leaderboard";
+  }
+
+  return "casual";
+};
+
+export const isLeaderboardHistorySummary = (
+  summary: RoomSettlementHistorySummary,
+) => getHistorySummaryPlayMode(summary) === "leaderboard";
+
 export const getHistorySummaryPlaylistCoverThumbnailUrl = (
   summary: RoomSettlementHistorySummary,
 ) => {

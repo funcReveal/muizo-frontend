@@ -48,6 +48,7 @@ import {
   type CollectionItemPreviewRecord,
 } from "@features/CollectionContent/model/collectionContentApi";
 import { useAuth } from "@shared/auth/AuthContext";
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import { useTransientScrollbar } from "@shared/hooks/useTransientScrollbar";
 import PlayerAvatar from "@shared/ui/playerAvatar/PlayerAvatar";
@@ -68,6 +69,7 @@ import type {
   SourceSummary,
 } from "../../roomsHubViewModels";
 import CollectionPreviewLoadingRow from "./CollectionPreviewLoadingRow";
+import { CollectionMetaChips } from "@features/CollectionCategory";
 
 type CollectionDetail = {
   id: string;
@@ -87,6 +89,13 @@ type CollectionDetail = {
   is_favorited?: boolean | null;
   ai_edited_count?: number | null;
   has_ai_edited?: boolean | null;
+  category?: {
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[] | null;
 };
 
 type CollectionDrawerView = "detail" | "leaderboardSetup" | "casualSetup";
@@ -789,7 +798,7 @@ const CollectionDetailDrawer = ({
   isAuthLoading = false,
   onLoginRequired,
 }: CollectionDetailDrawerProps) => {
-  const { authToken, refreshAuthToken } = useAuth();
+  const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
   const isCompact = useMediaQuery("(max-width:767px)");
   const authTokenRef = useRef(authToken);
   const refreshAuthTokenRef = useRef(refreshAuthToken);
@@ -1276,6 +1285,26 @@ const CollectionDetailDrawer = ({
       onLeaderboardModeChange(modeKey);
     }
     onLeaderboardVariantChange(variantKey);
+    if (authToken && collection?.id) {
+      void recordDbActionEvent({
+        eventName: "collection.detail.leaderboard_profile.changed",
+        authToken,
+        clientId,
+        username: displayUsername,
+        refreshAuthToken,
+        collectionId: collection.id,
+        target: { type: "collection", id: collection.id },
+        metadata: {
+          source: "collection_detail",
+          leaderboardProfileKey: getLeaderboardProfileKey(modeKey, variantKey),
+        },
+      }).catch((error) => {
+        console.error(
+          "[collection/detail] failed to record leaderboard profile event",
+          error,
+        );
+      });
+    }
     setIsLeaderboardProfileMenuOpen(false);
   };
 
@@ -1675,6 +1704,7 @@ const CollectionDetailDrawer = ({
       anchor={isCompact ? "bottom" : "right"}
       open={open}
       onClose={onClose}
+      sx={{ zIndex: 1500 }}
       slotProps={{
         paper: {
           sx: {
@@ -1913,6 +1943,13 @@ const CollectionDetailDrawer = ({
                       </div>
                     )}
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
+                    <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-start gap-1.5 sm:left-4 sm:top-4">
+                      <CollectionMetaChips
+                        collection={collection}
+                        maxVisible={3}
+                        variant="overlay"
+                      />
+                    </div>
                     <div className="absolute bottom-2.5 left-3 right-3 sm:bottom-3 sm:left-4 sm:right-4">
                       <CollectionReviewPanel
                         collectionId={collection.id}

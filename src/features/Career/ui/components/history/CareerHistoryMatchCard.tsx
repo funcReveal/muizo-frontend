@@ -1,8 +1,8 @@
 import {
   AccessTime,
-  ChevronRightRounded,
+  EmojiEvents,
+  Groups2Rounded,
   LibraryMusic,
-  MeetingRoom,
   QueueMusic,
   YouTube,
 } from "@mui/icons-material";
@@ -13,13 +13,13 @@ import {
   getHistorySummaryPlaylistCoverThumbnailUrl,
   getHistorySummaryPlaylistDisplayTitle,
   getHistorySummaryPlaylistItemCount,
+  getHistorySummaryPlayMode,
   getHistorySummaryPlaylistSourceLabel,
   isCollectionHistorySummary,
   isYouTubeHistorySummary,
 } from "@features/Settlement/model/historySummaryAdapter";
 import {
   formatCareerHistoryDuration,
-  formatCareerHistoryRankFraction,
   formatCareerHistoryScore,
   getCareerHistoryMatchDurationMs,
 } from "../../../model/careerHistoryFormatters";
@@ -27,19 +27,93 @@ import {
 interface CareerHistoryMatchCardProps {
   item: RoomSettlementHistorySummary;
   onOpenReplay: (summary: RoomSettlementHistorySummary) => void;
-  getSelfRankForSummary: (
-    summary: RoomSettlementHistorySummary,
-  ) => number | null;
   animationDelayMs?: number;
 }
+
+const getCareerHistoryAccuracyRate = (
+  correctCount: number,
+  questionCount: number,
+) => {
+  if (!Number.isFinite(questionCount) || questionCount <= 0) return null;
+  return Math.max(0, Math.min(100, (correctCount / questionCount) * 100));
+};
+
+const formatCareerHistoryAccuracy = (
+  correctCount: number,
+  questionCount: number,
+  rate: number | null,
+) => {
+  if (rate === null) return "-/- (-)";
+  return `${correctCount}/${questionCount} (${Math.round(rate)}%)`;
+};
+
+const getAccuracyToneClassName = (rate: number | null) => {
+  if (rate === null) {
+    return "text-stone-100";
+  }
+
+  if (rate >= 85) {
+    return "text-emerald-100";
+  }
+
+  if (rate >= 65) {
+    return "text-sky-100";
+  }
+
+  if (rate >= 40) {
+    return "text-amber-100";
+  }
+
+  return "text-rose-100";
+};
+
+const formatPositiveDelta = (value: number | null | undefined) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return `+${Math.floor(value).toLocaleString("zh-TW")}`;
+};
+
+const buildRecordBreakthroughDetails = (
+  breakthrough: RoomSettlementHistorySummary["selfRecordBreakthrough"],
+) => {
+  if (!breakthrough?.isPersonalBest) return [];
+  if (!breakthrough.hasPreviousBest) return ["首次個人最佳"];
+
+  return [
+    formatPositiveDelta(breakthrough.scoreDelta)
+      ? `分數 ${formatPositiveDelta(breakthrough.scoreDelta)}`
+      : null,
+    formatPositiveDelta(breakthrough.correctCountDelta)
+      ? `答對 ${formatPositiveDelta(breakthrough.correctCountDelta)}`
+      : null,
+    formatPositiveDelta(breakthrough.maxComboDelta)
+      ? `Combo ${formatPositiveDelta(breakthrough.maxComboDelta)}`
+      : null,
+  ].filter((detail): detail is string => Boolean(detail));
+};
+
+const cardToneClassName = [
+  "border-stone-300/18",
+  "bg-[linear-gradient(180deg,rgba(18,18,17,0.92),rgba(8,8,7,0.98))]",
+  "shadow-[0_10px_24px_-22px_rgba(214,211,209,0.3)]",
+  "hover:border-stone-200/32",
+  "hover:bg-[linear-gradient(180deg,rgba(23,23,22,0.96),rgba(9,9,8,0.99))]",
+  "hover:shadow-[0_0_0_1px_rgba(214,211,209,0.08),0_16px_34px_-24px_rgba(214,211,209,0.38)]",
+].join(" ");
+
+const metricChipClassName =
+  "flex min-w-0 flex-col rounded-[12px] border border-stone-300/14 bg-white/[0.035] px-2 py-1.5 text-stone-100 sm:inline-flex sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:px-2.5";
+
+const metricLabelClassName =
+  "truncate text-[10px] font-medium text-stone-100/58 sm:mr-1.5 sm:text-[11px]";
 
 const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
   item,
   onOpenReplay,
-  getSelfRankForSummary,
   animationDelayMs,
 }) => {
-  const selfRank = getSelfRankForSummary(item);
   const matchDurationMs = getCareerHistoryMatchDurationMs(
     item.startedAt,
     item.endedAt,
@@ -53,11 +127,26 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
   const coverThumbnailUrl = getHistorySummaryPlaylistCoverThumbnailUrl(item);
   const isCollectionSource = isCollectionHistorySummary(item);
   const isYouTubeSource = isYouTubeHistorySummary(item);
-
+  const playMode = getHistorySummaryPlayMode(item);
+  const accuracyRate = getCareerHistoryAccuracyRate(
+    correctCount,
+    item.questionCount,
+  );
+  const accuracy = formatCareerHistoryAccuracy(
+    correctCount,
+    item.questionCount,
+    accuracyRate,
+  );
+  const accuracyValueClassName = getAccuracyToneClassName(accuracyRate);
+  const recordBreakthroughDetails = buildRecordBreakthroughDetails(
+    item.selfRecordBreakthrough,
+  );
+  const hasRecordBreakthrough =
+    item.selfRecordBreakthrough?.isPersonalBest === true;
   return (
     <button
       type="button"
-      className="group relative block w-full min-w-0 overflow-hidden rounded-[16px] border border-sky-300/22 bg-[linear-gradient(180deg,rgba(12,18,24,0.9),rgba(6,9,13,0.98))] px-4 py-3 text-left shadow-[0_10px_24px_-22px_rgba(56,189,248,0.34)] transition duration-200 hover:border-sky-300/42 hover:bg-[linear-gradient(180deg,rgba(14,22,30,0.94),rgba(7,11,16,0.99))] hover:shadow-[0_0_0_1px_rgba(125,211,252,0.12),0_16px_34px_-24px_rgba(56,189,248,0.5)]"
+      className={`group relative block w-full min-w-0 overflow-hidden rounded-[15px] border px-3 py-3 text-left transition duration-200 sm:rounded-[16px] sm:px-4 ${cardToneClassName}`}
       onClick={() => onOpenReplay(item)}
       style={
         animationDelayMs
@@ -65,10 +154,10 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
           : undefined
       }
     >
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-sky-300/40 opacity-70 transition group-hover:opacity-100" />
+      <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent opacity-70 transition group-hover:opacity-100" />
 
-      <div className="flex min-w-0 gap-3">
-        <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-slate-900/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+      <div className="flex min-w-0 gap-2.5 sm:gap-3">
+        <div className="relative h-[66px] w-[66px] shrink-0 overflow-hidden rounded-[13px] border border-white/10 bg-slate-900/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[74px] sm:w-[74px] sm:rounded-[14px]">
           {coverThumbnailUrl ? (
             <img
               src={coverThumbnailUrl}
@@ -83,19 +172,31 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
           )}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
           <div className="min-w-0 pr-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <div className="min-w-0 truncate text-base font-semibold tracking-tight text-[var(--mc-text)]">
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                  playMode === "leaderboard"
+                    ? "border-amber-300/34 bg-amber-300/12 text-amber-100"
+                    : "border-emerald-300/32 bg-emerald-300/10 text-emerald-100"
+                }`}
+              >
+                {playMode === "leaderboard" ? "排行挑戰" : "休閒對戰"}
+              </span>
+
+              <div className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-[var(--mc-text)] sm:text-base">
                 {playlistTitle}
               </div>
+            </div>
 
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
               <span
                 className={`inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold ${
                   isYouTubeSource
-                    ? "text-rose-300"
+                    ? "text-rose-200"
                     : isCollectionSource
-                      ? "text-sky-100"
+                      ? "text-emerald-100"
                       : "text-slate-200/88"
                 }`}
               >
@@ -115,39 +216,61 @@ const CareerHistoryMatchCard: React.FC<CareerHistoryMatchCardProps> = ({
               )}
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-[var(--mc-text)]">
-              <span className={selfRank !== null ? "text-amber-100" : undefined}>
-                名次 {formatCareerHistoryRankFraction(selfRank, item.playerCount)}
+            {hasRecordBreakthrough && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/38 bg-amber-300/14 px-2.5 py-1 text-[11px] font-semibold text-amber-100 shadow-[0_0_18px_-14px_rgba(251,191,36,0.95)]">
+                  <EmojiEvents sx={{ fontSize: 15 }} />
+                  新個人最佳
+                </span>
+
+                {recordBreakthroughDetails.map((detail) => (
+                  <span
+                    key={detail}
+                    className="rounded-full border border-amber-100/14 bg-amber-50/[0.055] px-2 py-1 text-[11px] font-medium text-amber-50/86"
+                  >
+                    {detail}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-2 grid grid-cols-3 gap-1.5 text-xs font-semibold text-[var(--mc-text)] sm:flex sm:flex-wrap sm:text-sm">
+              <span className={`w-full sm:w-[112px] ${metricChipClassName}`}>
+                <span className={metricLabelClassName}>
+                  分數
+                </span>
+                <span className="min-w-0 truncate">
+                  {formatCareerHistoryScore(finalScore)}
+                </span>
               </span>
-              <span className="text-[var(--mc-text-muted)]/45">•</span>
-              <span className="text-emerald-100">
-                分數 {formatCareerHistoryScore(finalScore)}
+
+              <span className={`w-full sm:w-[148px] ${metricChipClassName}`}>
+                <span className={metricLabelClassName}>
+                  答對率
+                </span>
+                <span className={`min-w-0 truncate ${accuracyValueClassName}`}>
+                  {accuracy}
+                </span>
+              </span>
+
+              <span className={`w-full sm:w-[112px] ${metricChipClassName}`}>
+                <span className={metricLabelClassName}>
+                  Combo
+                </span>
+                <span className="min-w-0 truncate">x{maxCombo}</span>
               </span>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--mc-text-muted)]">
-              <span>
-                答對 {correctCount}/{item.questionCount}
-              </span>
-              <span>Combo x{maxCombo}</span>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--mc-text-muted)] sm:text-[13px]">
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <AccessTime sx={{ fontSize: 16 }} />
                 <span>{formatCareerHistoryDuration(matchDurationMs)}</span>
               </span>
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                <MeetingRoom sx={{ fontSize: 16 }} />
+                <Groups2Rounded sx={{ fontSize: 16 }} />
                 <span>{item.playerCount} 人</span>
               </span>
             </div>
-          </div>
-
-          <div className="shrink-0 self-start xl:self-center">
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-sky-300/30 bg-sky-300/10 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-sky-100 transition group-hover:border-sky-300/50 group-hover:bg-sky-300/18">
-              查看回顧
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-sky-300/40 bg-sky-300/12">
-                <ChevronRightRounded sx={{ fontSize: 15 }} />
-              </span>
-            </span>
           </div>
         </div>
       </div>

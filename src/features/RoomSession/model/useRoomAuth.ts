@@ -28,6 +28,40 @@ import {
 import { trackEvent } from "../../../shared/analytics/track";
 
 const AUTH_SESSION_HINT_KEY = "hasAuthSession";
+const AUTH_REDIRECT_TARGET_KEY = "muizo_auth_redirect_target";
+
+const getCurrentAuthRedirectTarget = () => {
+  if (typeof window === "undefined") return "/rooms";
+  const { pathname, search, hash } = window.location;
+  const currentPath = `${pathname}${search}${hash}`;
+  if (pathname === "/" || pathname === "/auth/callback") return "/rooms";
+  return currentPath;
+};
+
+const storeAuthRedirectTarget = () => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(
+    AUTH_REDIRECT_TARGET_KEY,
+    getCurrentAuthRedirectTarget(),
+  );
+};
+
+const consumeAuthRedirectTarget = () => {
+  if (typeof window === "undefined") return "/rooms";
+  const stored = window.sessionStorage.getItem(AUTH_REDIRECT_TARGET_KEY);
+  window.sessionStorage.removeItem(AUTH_REDIRECT_TARGET_KEY);
+  if (!stored || !stored.startsWith("/") || stored.startsWith("//")) {
+    return "/rooms";
+  }
+  if (stored.startsWith("/auth/callback")) return "/rooms";
+  return stored;
+};
+
+const replaceAuthCallbackRoute = (target: string) => {
+  if (typeof window === "undefined") return;
+  window.history.replaceState({}, document.title, target);
+  window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+};
 
 type UseRoomAuthOptions = {
   apiUrl: string;
@@ -84,6 +118,45 @@ export const useRoomAuth = ({
     localStorage.removeItem("authToken");
     localStorage.removeItem("authUser");
   }, []);
+
+  const ensureGoogleScript = useCallback(() => {
+    if (typeof window === "undefined") return Promise.resolve();
+    if (window.google?.accounts?.oauth2) return Promise.resolve();
+    if (googleScriptPromiseRef.current) return googleScriptPromiseRef.current;
+
+    googleScriptPromiseRef.current = new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector(
+        "script[data-google-identity]",
+      ) as HTMLScriptElement | null;
+
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error("Failed to load Google script")),
+          { once: true },
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.dataset.googleIdentity = "true";
+      script.onload = () => resolve();
+      script.onerror = () =>
+        reject(new Error("Failed to load Google script"));
+      document.head.appendChild(script);
+    });
+
+    return googleScriptPromiseRef.current;
+  }, []);
+
+  useEffect(() => {
+    if (isNativeApp()) return;
+    void ensureGoogleScript().catch(() => null);
+  }, [ensureGoogleScript]);
 
   const hasStoredAuthSessionHint = useCallback(() => {
     if (typeof window === "undefined") return false;
@@ -328,6 +401,9 @@ export const useRoomAuth = ({
         });
 
         setStatusText("Google 登入成功");
+        if (window.location.pathname === "/auth/callback") {
+          replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+        }
       } catch (error) {
         trackEvent("login_google_failed", {
           reason: error instanceof Error ? error.message : "unknown_error",
@@ -336,6 +412,9 @@ export const useRoomAuth = ({
         setStatusText(
           error instanceof Error ? error.message : "Google 登入失敗",
         );
+        if (window.location.pathname === "/auth/callback") {
+          replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+        }
       } finally {
         setAuthLoading(false);
       }
@@ -410,40 +489,14 @@ export const useRoomAuth = ({
       return;
     }
 
-    const uxMode: "popup" | "redirect" = "popup";
+    const configuredUxMode = import.meta.env.VITE_GOOGLE_OAUTH_UX_MODE;
+    const uxMode: "popup" | "redirect" =
+      configuredUxMode === "redirect" ? "redirect" : "popup";
 
-    const ensureGoogleScript = () => {
-      if (window.google?.accounts?.oauth2) return Promise.resolve();
-      if (googleScriptPromiseRef.current) return googleScriptPromiseRef.current;
-
-      googleScriptPromiseRef.current = new Promise<void>((resolve, reject) => {
-        const existing = document.querySelector(
-          "script[data-google-identity]",
-        ) as HTMLScriptElement | null;
-
-        if (existing) {
-          existing.addEventListener("load", () => resolve(), { once: true });
-          existing.addEventListener(
-            "error",
-            () => reject(new Error("Failed to load Google script")),
-            { once: true },
-          );
-          return;
-        }
-
-        const script = document.createElement("script");
-        script.src = "https://accounts.google.com/gsi/client";
-        script.async = true;
-        script.defer = true;
-        script.dataset.googleIdentity = "true";
-        script.onload = () => resolve();
-        script.onerror = () =>
-          reject(new Error("Failed to load Google script"));
-        document.head.appendChild(script);
-      });
-
-      return googleScriptPromiseRef.current;
-    };
+    if (uxMode === "redirect") {
+      storeAuthRedirectTarget();
+      setAuthLoading(true);
+    }
 
     void ensureGoogleScript()
       .then(() => {
@@ -467,6 +520,10 @@ export const useRoomAuth = ({
             callback: (response: { code?: string; error?: string }) => {
               if (!response?.code) {
                 setStatusText(response?.error ?? "Google 登入失敗");
+                if (uxMode === "redirect") {
+                  replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+                }
+                setAuthLoading(false);
                 return;
               }
               void exchangeGoogleWebCode(response.code, webRedirectUri);
@@ -483,6 +540,7 @@ export const useRoomAuth = ({
       });
   }, [
     apiUrl,
+    ensureGoogleScript,
     exchangeGoogleWebCode,
     persistAuth,
     setStatusText,
@@ -544,10 +602,16 @@ export const useRoomAuth = ({
 
     if (error) {
       setStatusText(error);
+      setAuthLoading(false);
+      replaceAuthCallbackRoute(consumeAuthRedirectTarget());
       return;
     }
 
-    if (!code) return;
+    if (!code) {
+      setAuthLoading(false);
+      replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+      return;
+    }
 
     void exchangeGoogleWebCode(code, webRedirectUri);
   }, [exchangeGoogleWebCode, setStatusText, webRedirectUri]);

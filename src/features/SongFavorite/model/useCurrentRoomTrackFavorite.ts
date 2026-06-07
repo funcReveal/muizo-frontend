@@ -82,6 +82,7 @@ export const useCurrentRoomTrackFavorite = ({
               sourceId: previous.currentTrack.sourceId,
               title: previous.currentTrack.title,
               channelTitle: previous.currentTrack.channelTitle,
+              channelId: previous.currentTrack.channelId,
               thumbnailUrl: previous.currentTrack.thumbnailUrl,
               durationSec: previous.currentTrack.durationSec,
               playCount: 1,

@@ -21,6 +21,7 @@ export type CurrentRoomTrackFavoriteStatus = {
     sourceId: string;
     title: string;
     channelTitle: string | null;
+    channelId: string | null;
     thumbnailUrl: string | null;
     durationSec: number | null;
     roomId: string;

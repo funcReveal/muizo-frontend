@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  CollectionMetaChips,
+  type CollectionMetaChipSource,
+} from "@features/CollectionCategory";
+import {
   Button,
   CircularProgress,
   Drawer,
@@ -29,9 +33,14 @@ import TipsAndUpdatesRoundedIcon from "@mui/icons-material/TipsAndUpdatesRounded
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import ArrowDropDownRoundedIcon from "@mui/icons-material/ArrowDropDownRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import { List, type RowComponentProps } from "react-window";
 
-import type { CollectionEntry } from "@features/CollectionContent";
+import {
+  CollectionFilterBar,
+  useFilterAggregationsQuery,
+  type CollectionEntry,
+} from "@features/CollectionContent";
 import type {
   PlaylistItem,
   PlaylistSourceType,
@@ -52,6 +61,7 @@ import {
   getPlaylistIssueTotal,
 } from "@features/PlaylistSource";
 import {
+  API_URL,
   MIN_COLLECTION_PLAYABLE_COUNT,
   YOUTUBE_PLAYLIST_MIN_ITEM_COUNT,
 } from "@domain/room/constants";
@@ -93,6 +103,7 @@ type Props = {
   collectionsLoading: boolean;
   collectionsLoadingMore: boolean;
   collectionsHasMore: boolean;
+  collectionsTotalCount: number | null;
   collectionsError?: string | null;
   collectionItemsLoading: boolean;
   collectionItemsError: string | null;
@@ -116,7 +127,11 @@ type Props = {
   ) => Promise<boolean>;
   onFetchCollections: (
     scope?: "owner" | "public",
-    options?: { query?: string },
+    options?: {
+      query?: string;
+      categoryKeys?: string[] | null;
+      subTags?: string[] | null;
+    },
   ) => void;
   onLoadMoreCollections: () => void;
   onFetchYoutubePlaylists: (force?: boolean) => void;
@@ -593,6 +608,7 @@ const SourceCard = ({
   description,
   thumbnailUrl,
   badge,
+  metaCollection,
   rating,
   metrics,
   disabled,
@@ -606,6 +622,7 @@ const SourceCard = ({
   description?: string | null;
   thumbnailUrl?: string | null;
   badge?: React.ReactNode;
+  metaCollection?: CollectionMetaChipSource | null;
   rating?: React.ReactNode;
   metrics: React.ReactNode;
   disabled?: boolean;
@@ -665,8 +682,15 @@ const SourceCard = ({
 
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_46%,rgba(2,6,23,0.82)_100%)]" />
 
-        {!isList && badge ? (
-          <div className="absolute left-3 top-3">{badge}</div>
+        {!isList && (badge || metaCollection) ? (
+          <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-start gap-1.5">
+            {badge}
+            <CollectionMetaChips
+              collection={metaCollection}
+              maxVisible={3}
+              variant="overlay"
+            />
+          </div>
         ) : null}
 
         {!isList && isRunning ? (
@@ -695,37 +719,42 @@ const SourceCard = ({
         }
       >
         <div className="min-w-0">
-          <div
-            className={
-              isList ? "flex items-start justify-between gap-3" : "space-y-1.5"
-            }
-          >
-            <p
-              className={
-                isList
-                  ? "min-w-0 flex-1 truncate pr-20 text-sm font-semibold text-[var(--mc-text)]"
-                  : "line-clamp-1 text-[15px] font-semibold leading-6 text-[var(--mc-text)]"
-              }
-            >
-              {title}
-            </p>
-            {isList ? (
-              <div className="absolute right-3 top-3 flex shrink-0 items-center gap-2">
-                {isRunning ? (
-                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] leading-none text-slate-200">
-                    處理中...
-                  </span>
-                ) : null}
-                {isCurrent ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-cyan-100/20 bg-cyan-950/60 px-2 py-1 text-[10px] leading-none text-cyan-50">
-                    <CheckRoundedIcon sx={{ fontSize: 12 }} />
-                    目前使用
-                  </span>
-                ) : null}
-                {badge}
+          {isList ? (
+            /* List view priority: category (shrink-0) > title (min-w-[3rem]) > language (lowPriority)
+               Language wrapper uses flex-shrink:999 so it collapses before title shrinks.
+               Title guaranteed at least 3rem. No pr-20 / absolute positioning needed. */
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="min-w-[3rem] truncate text-[13px] font-semibold text-[var(--mc-text)] sm:text-sm">
+                {title}
+              </p>
+              <CollectionMetaChips collection={metaCollection} toneFilter="category" />
+              <CollectionMetaChips collection={metaCollection} toneFilter="language" lowPriority />
+              {(isRunning || isCurrent || badge) ? (
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {isRunning ? (
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] leading-none text-slate-200">
+                      處理中...
+                    </span>
+                  ) : null}
+                  {isCurrent ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-cyan-100/20 bg-cyan-950/60 px-2 py-1 text-[10px] leading-none text-cyan-50">
+                      <CheckRoundedIcon sx={{ fontSize: 12 }} />
+                      目前使用
+                    </span>
+                  ) : null}
+                  {badge}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <p className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
+                  {title}
+                </p>
               </div>
-            ) : null}
-          </div>
+            </div>
+          )}
 
           {rating ??
             (description ? (
@@ -777,6 +806,7 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
     collectionsLoading,
     collectionsLoadingMore,
     collectionsHasMore,
+    collectionsTotalCount,
     collectionsError,
     youtubePlaylists,
     youtubePlaylistsLoading,
@@ -827,6 +857,17 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownNow, setCooldownNow] = useState(() => Date.now());
+  const [browseCategoryKey, setBrowseCategoryKey] = useState<string | null>(null);
+  const [browseSubTagKey, setBrowseSubTagKey] = useState<string | null>(null);
+  const selectedBrowseCategoryKeys = useMemo(
+    () => (browseCategoryKey ? [browseCategoryKey] : []),
+    [browseCategoryKey],
+  );
+  const selectedBrowseSubTagKeys = useMemo(
+    () => (browseSubTagKey ? [browseSubTagKey] : []),
+    [browseSubTagKey],
+  );
+  const [browseFilterOpen, setBrowseFilterOpen] = useState(false);
   const [playlistUrlDraft, setPlaylistUrlDraft] = useState(playlistUrl);
   const [linkPreviewTab, setLinkPreviewTab] =
     useState<LinkPreviewTab>("available");
@@ -938,6 +979,7 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
     setActiveTab(tab);
     setActionError(null);
     setActionNotice(null);
+    setBrowseFilterOpen(false);
   }, []);
 
   const handleSourceTabClick = useCallback(
@@ -1142,35 +1184,35 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
   ]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || activeTab !== "suggestions") return;
+    onMarkSuggestionsSeen();
+  }, [activeTab, onMarkSuggestionsSeen, open]);
 
-    if (activeTab === "suggestions") {
-      onMarkSuggestionsSeen();
-    }
-
-    if (activeTab === "public") {
-      onFetchCollections("public", { query: debouncedSearch });
-      return;
-    }
-
-    if (activeTab === "mine" && isGoogleAuthed) {
-      onFetchCollections("owner");
-      return;
-    }
-
-    if (activeTab === "youtube" && isGoogleAuthed) {
-      onFetchYoutubePlaylists();
-    }
+  useEffect(() => {
+    if (!open || activeTab !== "public") return;
+    onFetchCollections("public", {
+      query: debouncedSearch,
+      categoryKeys: selectedBrowseCategoryKeys,
+      subTags: selectedBrowseSubTagKeys,
+    });
   }, [
     activeTab,
     debouncedSearch,
-    isGoogleAuthed,
-    isHost,
     onFetchCollections,
-    onFetchYoutubePlaylists,
-    onMarkSuggestionsSeen,
     open,
+    selectedBrowseCategoryKeys,
+    selectedBrowseSubTagKeys,
   ]);
+
+  useEffect(() => {
+    if (!open || activeTab !== "mine" || !isGoogleAuthed) return;
+    onFetchCollections("owner");
+  }, [activeTab, isGoogleAuthed, onFetchCollections, open]);
+
+  useEffect(() => {
+    if (!open || activeTab !== "youtube" || !isGoogleAuthed) return;
+    onFetchYoutubePlaylists();
+  }, [activeTab, isGoogleAuthed, onFetchYoutubePlaylists, open]);
 
   useEffect(() => {
     if (!actionNotice) return;
@@ -1218,19 +1260,23 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
     [activeTab, debouncedSearch],
   );
 
+  const activeBrowseFilterCount =
+    (browseCategoryKey ? 1 : 0) + (browseSubTagKey ? 1 : 0);
+  const browseFilterAggregationsQuery = useFilterAggregationsQuery({
+    apiUrl: API_URL,
+    visibility: "public",
+    q: debouncedSearch.trim() || undefined,
+    categoryKeys: selectedBrowseCategoryKeys,
+    subTags: selectedBrowseSubTagKeys,
+    enabled: open && activeTab === "public",
+  });
+
   const publicCollections = useMemo(
     () =>
       collections.filter(
-        (collection) =>
-          (collection.visibility ?? "public") !== "private" &&
-          matchText(
-            collection.title,
-            collection.description,
-            collection.cover_title,
-            collection.cover_channel_title,
-          ),
+        (collection) => (collection.visibility ?? "public") !== "private",
       ),
-    [collections, matchText],
+    [collections],
   );
 
   const ownerCollections = useMemo(
@@ -1272,6 +1318,23 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
       }),
     [matchText, playlistSuggestions, selectedSuggestionClientId],
   );
+
+  const sourceCountLabel = (() => {
+    if (activeTab === "public") {
+      if (collectionsLoading && publicCollections.length === 0) return "載入中";
+      return `共 ${collectionsTotalCount ?? publicCollections.length} 筆`;
+    }
+    if (activeTab === "mine") {
+      if (collectionsLoading && ownerCollections.length === 0) return "載入中";
+      return `共 ${ownerCollections.length} 筆`;
+    }
+    if (activeTab === "youtube") {
+      if (youtubePlaylistsLoading) return "載入中";
+      return `共 ${filteredYoutubePlaylists.length} 筆`;
+    }
+    if (activeTab === "link") return null;
+    return `共 ${filteredSuggestions.length} 筆`;
+  })();
 
   const actionLabel = isHost ? "套用" : "推薦";
   const shouldShowSourceToolbar =
@@ -1620,6 +1683,7 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
             ratingCount={collection.rating_count}
           />
         }
+        metaCollection={collection}
         metrics={
           <SourceMetrics
             itemCount={counts.total}
@@ -1746,6 +1810,7 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
             />
           ) : undefined
         }
+        metaCollection={matchedCollection}
         metrics={
           <SourceMetrics
             itemCount={collectionCounts?.total ?? suggestion.totalCount}
@@ -1852,29 +1917,33 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
           <EmptyState
             icon={<PublicRoundedIcon sx={{ fontSize: 26 }} />}
             title="找不到符合條件的公開收藏庫"
-            description="可以換個關鍵字搜尋，或先到 RoomsHub 建立公開收藏庫。"
+            description="可以換個關鍵字搜尋，或先建立公開收藏庫。"
           />
         );
       }
 
-      return renderVirtualSources(
-        publicCollections,
-        (item) => renderCollection(item as CollectionEntry),
-        {
-          hasMore: collectionsHasMore,
-          isLoadingMore: collectionsLoadingMore,
-          onLoadMore: onLoadMoreCollections,
-          renderLoader: () => (
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/14 bg-slate-950/42 px-4 py-2 text-xs font-semibold text-slate-300">
-              {collectionsLoadingMore ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : null}
-              <span>
-                {collectionsLoadingMore ? "載入中..." : "準備載入更多"}
-              </span>
-            </div>
-          ),
-        },
+      return (
+        <>
+          {renderVirtualSources(
+            publicCollections,
+            (item) => renderCollection(item as CollectionEntry),
+            {
+              hasMore: collectionsHasMore,
+              isLoadingMore: collectionsLoadingMore,
+              onLoadMore: onLoadMoreCollections,
+              renderLoader: () => (
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/14 bg-slate-950/42 px-4 py-2 text-xs font-semibold text-slate-300">
+                  {collectionsLoadingMore ? (
+                    <CircularProgress size={14} color="inherit" />
+                  ) : null}
+                  <span>
+                    {collectionsLoadingMore ? "載入中..." : "準備載入更多"}
+                  </span>
+                </div>
+              ),
+            },
+          )}
+        </>
       );
     }
 
@@ -2584,52 +2653,123 @@ const RoomPlaylistSelectorDrawer = (props: Props) => {
                   })}
                 </div>
               ) : (
-                <TextField
-                  value={searchDraft}
-                  onChange={(event) => setSearchDraft(event.target.value)}
-                  placeholder="搜尋收藏庫"
-                  size="small"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchRoundedIcon
-                          sx={{
-                            color: "rgba(148,163,184,0.82)",
-                            fontSize: 20,
-                          }}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    width: {
-                      xs: "min(100%, 210px)",
-                      sm: "100%",
-                      md: 360,
-                    },
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    "& .MuiOutlinedInput-root": {
-                      height: 42,
-                      borderRadius: "999px",
-                      color: "rgba(248,250,252,0.94)",
-                      backgroundColor: "rgba(15,23,42,0.64)",
-                      "& fieldset": {
-                        borderColor: "rgba(148,163,184,0.18)",
+                <div className="relative min-w-0 flex-1">
+                  <TextField
+                    value={searchDraft}
+                    onChange={(event) => setSearchDraft(event.target.value)}
+                    placeholder="搜尋收藏庫"
+                    size="small"
+                    fullWidth
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchRoundedIcon
+                            sx={{
+                              color: "rgba(148,163,184,0.82)",
+                              fontSize: 20,
+                            }}
+                          />
+                        </InputAdornment>
+                      ),
+                      endAdornment:
+                        activeTab === "public" ? (
+                          <InputAdornment position="end">
+                            <IconButton
+                              edge="end"
+                              size="small"
+                              aria-label="開啟收藏庫篩選"
+                              aria-expanded={browseFilterOpen}
+                              onClick={() =>
+                                setBrowseFilterOpen((current) => !current)
+                              }
+                              sx={{
+                                position: "relative",
+                                color: browseFilterOpen
+                                  ? "rgba(186,230,253,0.98)"
+                                  : "rgba(148,163,184,0.86)",
+                                backgroundColor: browseFilterOpen
+                                  ? "rgba(34,211,238,0.14)"
+                                  : "transparent",
+                                border: browseFilterOpen
+                                  ? "1px solid rgba(103,232,249,0.28)"
+                                  : "1px solid transparent",
+                                borderRadius: "10px",
+                                "&:hover": {
+                                  backgroundColor: browseFilterOpen
+                                    ? "rgba(34,211,238,0.18)"
+                                    : "rgba(148,163,184,0.08)",
+                                },
+                              }}
+                            >
+                              <TuneRoundedIcon sx={{ fontSize: 18 }} />
+                              {activeBrowseFilterCount > 0 ? (
+                                <span
+                                  aria-hidden
+                                  className="pointer-events-none absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-cyan-400 px-1 text-[9px] font-bold leading-none text-slate-950 shadow"
+                                >
+                                  {activeBrowseFilterCount}
+                                </span>
+                              ) : null}
+                            </IconButton>
+                          </InputAdornment>
+                        ) : undefined,
+                    }}
+                    sx={{
+                      minWidth: 0,
+                      "& .MuiOutlinedInput-root": {
+                        height: 42,
+                        borderRadius: "999px",
+                        color: "rgba(248,250,252,0.94)",
+                        backgroundColor: "rgba(15,23,42,0.64)",
+                        "& fieldset": {
+                          borderColor: "rgba(148,163,184,0.18)",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "rgba(103,232,249,0.26)",
+                        },
+                        "&.Mui-focused fieldset": {
+                          borderColor: "rgba(103,232,249,0.5)",
+                        },
                       },
-                      "&:hover fieldset": {
-                        borderColor: "rgba(103,232,249,0.26)",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "rgba(103,232,249,0.5)",
-                      },
-                    },
-                  }}
-                />
+                    }}
+                  />
+                  {activeTab === "public" && browseFilterOpen ? (
+                    <div className="absolute left-0 right-0 top-full z-40 mt-2 rounded-[0_0_22px_22px] border border-cyan-300/24 border-t-0 bg-slate-950 px-3 pb-3 pt-4 shadow-[0_24px_48px_rgba(2,6,23,0.48)] sm:px-4">
+                      <CollectionFilterBar
+                        aggregations={browseFilterAggregationsQuery.data}
+                        isLoading={
+                          browseFilterAggregationsQuery.isLoading ||
+                          browseFilterAggregationsQuery.isFetching
+                        }
+                        selectedCategoryKeys={selectedBrowseCategoryKeys}
+                        selectedSubTagKeys={selectedBrowseSubTagKeys}
+                        onSelectCategory={(key) =>
+                          setBrowseCategoryKey((current) =>
+                            current === key ? null : key,
+                          )
+                        }
+                        onSelectSubTag={(key) =>
+                          setBrowseSubTagKey((current) =>
+                            current === key ? null : key,
+                          )
+                        }
+                      />
+                    </div>
+                  ) : null}
+                </div>
               )}
 
               <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 md:gap-3">
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+                  {sourceCountLabel ? (
+                    <span
+                      className="inline-flex shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1.5 text-[11px] font-semibold text-cyan-100/90"
+                      aria-label={sourceCountLabel}
+                      title={sourceCountLabel}
+                    >
+                      {sourceCountLabel}
+                    </span>
+                  ) : null}
                   {toolbarMessage ? (
                     <div
                       className={`min-w-0 truncate rounded-full border px-3 py-1.5 text-xs font-semibold ${

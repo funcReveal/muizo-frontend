@@ -45,6 +45,10 @@ type LibrarySourceToolbarProps = {
   togglePublicLibrarySearch: () => void;
   publicCollectionsSort: PublicCollectionsSort;
   setPublicCollectionsSort: (value: PublicCollectionsSort) => void;
+  /** Optional filter content rendered inside the search panel (below sort options) */
+  filterContent?: React.ReactNode;
+  /** Number of active filters — shown as a small badge on the filter button */
+  activeFilterCount?: number;
   mobileEmbedded?: boolean;
   canUseGoogleLibraries?: boolean;
   setCreateLibraryTab?: (value: CreateLibraryTab) => void;
@@ -56,8 +60,8 @@ const publicSortOptions: Array<{
   key: Exclude<PublicCollectionsSort, "favorites_first">;
   label: string;
 }> = [
+  { key: "rating", label: "推薦排序" },
   { key: "popular", label: "最受歡迎" },
-  { key: "rating", label: "評分最高" },
   { key: "updated", label: "近期更新" },
 ];
 
@@ -125,6 +129,8 @@ const LibrarySourceToolbar = ({
   togglePublicLibrarySearch,
   publicCollectionsSort,
   setPublicCollectionsSort,
+  filterContent,
+  activeFilterCount = 0,
   mobileEmbedded = false,
   canUseGoogleLibraries = false,
   setCreateLibraryTab,
@@ -388,6 +394,7 @@ const LibrarySourceToolbar = ({
                           aria-label="開啟收藏庫篩選"
                           onClick={togglePublicLibrarySearch}
                           sx={{
+                            position: "relative",
                             color: publicLibrarySearchActive
                               ? "rgba(186, 230, 253, 0.98)"
                               : "rgba(148, 163, 184, 0.86)",
@@ -406,6 +413,14 @@ const LibrarySourceToolbar = ({
                           }}
                         >
                           <TuneRounded sx={{ fontSize: 18 }} />
+                          {activeFilterCount > 0 && (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-cyan-400 px-1 text-[9px] font-bold leading-none text-slate-950 shadow"
+                            >
+                              {activeFilterCount}
+                            </span>
+                          )}
                         </IconButton>
                       </InputAdornment>
                     ) : undefined,
@@ -416,7 +431,11 @@ const LibrarySourceToolbar = ({
             {createLibraryTab === "public" && publicLibrarySearchActive && (
               <div className="absolute left-0 right-0 top-full z-30 mt-2">
                 <div className="rounded-[0_0_22px_22px] border border-cyan-300/24 border-t-0 bg-slate-950 px-3 pb-3 pt-4 shadow-[0_24px_48px_rgba(2,6,23,0.48)] sm:px-4">
+                  {/* Sort options */}
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                      排序
+                    </span>
                     {publicSortOptions.map((option) => (
                       <button
                         key={option.key}
@@ -440,6 +459,15 @@ const LibrarySourceToolbar = ({
                       </button>
                     ))}
                   </div>
+                  {/* Filter content slot — appears below sort */}
+                  {filterContent && (
+                    <div
+                      className="mt-3 border-t border-white/[0.06] pt-3"
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      {filterContent}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

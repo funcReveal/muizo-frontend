@@ -151,11 +151,17 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
     previousUsernameRef.current = activeUsername;
   }, [activeUsername]);
 
-  const confirmNicknameRef = useRef<() => Promise<boolean>>(
+  const confirmNicknameBaseRef = useRef<() => Promise<boolean>>(
     confirmNicknameInternal,
   );
+  const confirmNicknameDefaultRef = useRef<() => Promise<boolean>>(
+    () => confirmNicknameBaseRef.current(),
+  );
+  const confirmNicknameRef = useRef<() => Promise<boolean>>(
+    confirmNicknameDefaultRef.current,
+  );
   useEffect(() => {
-    confirmNicknameRef.current = confirmNicknameInternal;
+    confirmNicknameBaseRef.current = confirmNicknameInternal;
   }, [confirmNicknameInternal]);
 
   const confirmNickname = useCallback(
@@ -213,6 +219,7 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
   const internalContextValue = useMemo<RoomAuthInternalContextValue>(
     () => ({
       confirmNicknameRef,
+      confirmNicknameBaseRef,
       activeUsername,
       getDefaultRoomName,
       lockSessionClientId,
@@ -222,6 +229,7 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
     }),
     [
       activeUsername,
+      confirmNicknameBaseRef,
       getDefaultRoomName,
       lockSessionClientId,
       persistUsername,

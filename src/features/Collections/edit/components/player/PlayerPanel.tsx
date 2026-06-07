@@ -417,7 +417,7 @@ const PlayerPanel = ({
 
   return (
     <div className="p-2.5">
-      <div className="relative w-full overflow-hidden rounded-xl bg-slate-900 aspect-16/6">
+      <div className="relative w-full overflow-hidden rounded-xl bg-slate-900 aspect-[64/23]">
         {selectedVideoId ? (
           <>
             <div ref={playerContainerRef} className="h-full w-full" />
@@ -434,7 +434,7 @@ const PlayerPanel = ({
           </div>
         )}
       </div>
-      <div className="mt-2 flex items-start justify-between gap-2">
+      <div className="mt-0.5 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[13px] font-semibold text-slate-100 line-clamp-1">
             {selectedTitle}

@@ -41,6 +41,10 @@ export function useCollectionCreateDraft({
       limitDialogOpen: false,
     });
 
+  // Category and sub-tag draft state
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [subTagKeys, setSubTagKeys] = useState<string[]>([]);
+
   const dedupeResult = useMemo(
     () => dedupePlaylistItems(playlistItems),
     [playlistItems],
@@ -228,5 +232,10 @@ export function useCollectionCreateDraft({
     handleReselectOverflowItems,
     handleSelectLongTracksOnly,
     handleClearRemovalSelection,
+    // Category
+    categoryId,
+    setCategoryId,
+    subTagKeys,
+    setSubTagKeys,
   };
 }

@@ -120,6 +120,7 @@ interface RoomLobbyPanelProps {
   collectionsLoading: boolean;
   collectionsLoadingMore?: boolean;
   collectionsHasMore?: boolean;
+  collectionsTotalCount?: number | null;
   collectionsError: string | null;
   collectionItemsLoading: boolean;
   collectionItemsError: string | null;
@@ -192,7 +193,11 @@ interface RoomLobbyPanelProps {
   onResetPlaylist: () => void;
   onFetchCollections: (
     scope?: "owner" | "public",
-    options?: { query?: string },
+    options?: {
+      query?: string;
+      categoryKeys?: string[] | null;
+      subTags?: string[] | null;
+    },
   ) => void;
   onFetchCollectionById?: (
     collectionId: string,
@@ -267,6 +272,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   collectionsLoading,
   collectionsLoadingMore = false,
   collectionsHasMore = false,
+  collectionsTotalCount = null,
   collectionsError,
   collectionItemsLoading,
   collectionItemsError,
@@ -1953,6 +1959,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
       collectionsLoading={collectionsLoading}
       collectionsLoadingMore={collectionsLoadingMore}
       collectionsHasMore={collectionsHasMore}
+      collectionsTotalCount={collectionsTotalCount}
       collectionsError={collectionsError}
       collectionItemsLoading={collectionItemsLoading}
       collectionItemsError={collectionItemsError}

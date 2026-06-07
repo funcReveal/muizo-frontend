@@ -15,6 +15,7 @@ import HubChatComposer from "./components/HubChatComposer";
 const LAST_READ_KEY_PREFIX = "room_chat_last_read_message:";
 const HUB_LAST_READ_KEY = "hub_chat_last_read_message";
 const HUB_CHAT_MAX_MESSAGES = 80;
+const HUB_CHAT_LOAD_RETRY_DELAYS_MS = [120, 360, 900, 1800] as const;
 const MOBILE_CHAT_MIN_HEIGHT_VH = 26;
 const MOBILE_CHAT_MAX_HEIGHT_VH = 72;
 const MOBILE_CHAT_DEFAULT_HEIGHT_VH = 48;
@@ -55,6 +56,28 @@ const isFromOther = (msg: ChatMessage, clientId: string) =>
 
 type ChatTab = "room" | "hub";
 
+const resolveChatRetryAfterMs = (ack: Ack<unknown>): number | null => {
+  if (ack.ok) return null;
+  if (typeof ack.retryAfterMs === "number" && ack.retryAfterMs > 0) {
+    return ack.retryAfterMs;
+  }
+
+  const matchedSeconds = ack.error.match(/請\s*(\d+)\s*秒後再試/);
+  if (matchedSeconds) {
+    return Number(matchedSeconds[1]) * 1000;
+  }
+
+  if (
+    ack.error === "RATE_LIMITED" ||
+    ack.error.includes("頻繁") ||
+    ack.error.includes("過快")
+  ) {
+    return 10_000;
+  }
+
+  return null;
+};
+
 export interface FloatingChatWindowRef {
   openChat: () => void;
 }
@@ -81,6 +104,9 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   const [hubMessageInput, setHubMessageInput] = useState("");
   const [hubStatusText, setHubStatusText] = useState<string | null>(null);
   const [hubSending, setHubSending] = useState(false);
+  const [hubCooldownUntil, setHubCooldownUntil] = useState<number | null>(null);
+  const [hubCooldownLeft, setHubCooldownLeft] = useState(0);
+  const [hubFocusRequestId, setHubFocusRequestId] = useState(0);
   const [hubLastReadId, setHubLastReadId] = useState<string | null>(() => readHubLastReadId());
   const [mobileBodyActive, setMobileBodyActive] = useState(false);
   const [roomReadState, setRoomReadState] = useState<Record<string, string | null>>({});
@@ -98,13 +124,16 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
   const hubInputRef = useRef<HTMLInputElement | null>(null);
   const focusTimerRef = useRef<number | null>(null);
   const mobileBodyRafRef = useRef<number | null>(null);
+  const hubListRequestSeqRef = useRef(0);
+  const hubListRetryTimersRef = useRef<number[]>([]);
 
   const roomId = currentRoom?.id ?? null;
   const showTabs = Boolean(currentRoom);
   const effectiveTab: ChatTab = currentRoom ? activeTab : "hub";
   const isHubTab = effectiveTab === "hub";
+  const isHubCooldownActive = hubCooldownLeft > 0;
   const windowTitle = currentRoom ? "聊天室" : "大廳聊天室";
-  const windowVariant = currentRoom ? "room" : "hub";
+  const windowVariant = isHubTab ? "hub" : "room";
 
   const scrollChatToBottom = useCallback(() => {
     const node = scrollRef.current;
@@ -120,11 +149,102 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     [scrollContainerRef],
   );
 
+  const clearHubListRetryTimers = useCallback(() => {
+    hubListRetryTimersRef.current.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    hubListRetryTimersRef.current = [];
+  }, []);
+
   useEffect(() => {
     if (!currentRoom) {
       setActiveTab("hub");
     }
   }, [currentRoom]);
+
+  useEffect(() => {
+    if (!hubCooldownUntil) return;
+
+    let timerId: number | null = null;
+
+    const tick = () => {
+      const diff = hubCooldownUntil - Date.now();
+      if (diff <= 0) {
+        setHubCooldownLeft(0);
+        setHubCooldownUntil(null);
+        timerId = null;
+        return;
+      }
+
+      const nextSec = Math.ceil(diff / 1000);
+      setHubCooldownLeft(nextSec);
+      const msToNextBoundary = diff - (nextSec - 1) * 1000;
+      timerId = window.setTimeout(tick, Math.max(50, msToNextBoundary));
+    };
+
+    tick();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [hubCooldownUntil]);
+
+  const loadHubMessages = useCallback((retryIndex = 0) => {
+    const socket = getSocket();
+    if (!socket || !isConnected || !socket.connected) {
+      if (retryIndex < HUB_CHAT_LOAD_RETRY_DELAYS_MS.length) {
+        const timerId = window.setTimeout(() => {
+          hubListRetryTimersRef.current = hubListRetryTimersRef.current.filter(
+            (id) => id !== timerId,
+          );
+          loadHubMessages(retryIndex + 1);
+        }, HUB_CHAT_LOAD_RETRY_DELAYS_MS[retryIndex]);
+        hubListRetryTimersRef.current.push(timerId);
+      }
+      return;
+    }
+
+    clearHubListRetryTimers();
+
+    const requestSeq = hubListRequestSeqRef.current + 1;
+    hubListRequestSeqRef.current = requestSeq;
+    let settled = false;
+    const fallbackDelay =
+      HUB_CHAT_LOAD_RETRY_DELAYS_MS[
+        Math.min(retryIndex, HUB_CHAT_LOAD_RETRY_DELAYS_MS.length - 1)
+      ];
+    const fallbackTimerId =
+      retryIndex < HUB_CHAT_LOAD_RETRY_DELAYS_MS.length
+        ? window.setTimeout(() => {
+            if (settled || hubListRequestSeqRef.current !== requestSeq) return;
+            hubListRetryTimersRef.current = hubListRetryTimersRef.current.filter(
+              (id) => id !== fallbackTimerId,
+            );
+            loadHubMessages(retryIndex + 1);
+          }, fallbackDelay)
+        : null;
+
+    if (fallbackTimerId !== null) {
+      hubListRetryTimersRef.current.push(fallbackTimerId);
+    }
+
+    socket.emit("listHubChatMessages", (ack: Ack<HubChatMessage[]>) => {
+      settled = true;
+      if (fallbackTimerId !== null) {
+        window.clearTimeout(fallbackTimerId);
+        hubListRetryTimersRef.current = hubListRetryTimersRef.current.filter(
+          (id) => id !== fallbackTimerId,
+        );
+      }
+      if (hubListRequestSeqRef.current !== requestSeq) return;
+      if (!ack) return;
+      if (ack.ok) {
+        setHubMessages(ack.data.slice(-HUB_CHAT_MAX_MESSAGES));
+        setHubStatusText(null);
+        return;
+      }
+      setHubStatusText("無法載入大廳聊天室");
+    });
+  }, [clearHubListRetryTimers, getSocket, isConnected]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -136,21 +256,23 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       );
     };
 
-    socket.emit("listHubChatMessages", (ack: Ack<HubChatMessage[]>) => {
-      if (!ack) return;
-      if (ack.ok) {
-        setHubMessages(ack.data.slice(-HUB_CHAT_MAX_MESSAGES));
-        setHubStatusText(null);
-        return;
-      }
-      setHubStatusText("無法載入大廳聊天室");
-    });
     socket.on("hubChatMessageAdded", handleHubChatMessageAdded);
+    socket.on("connect", loadHubMessages);
+    socket.io.on("reconnect", loadHubMessages);
 
     return () => {
       socket.off("hubChatMessageAdded", handleHubChatMessageAdded);
+      socket.off("connect", loadHubMessages);
+      socket.io.off("reconnect", loadHubMessages);
     };
-  }, [getSocket, isConnected]);
+  }, [getSocket, isConnected, loadHubMessages]);
+
+  useEffect(() => {
+    if (!isHubTab) return;
+    loadHubMessages();
+  }, [isHubTab, loadHubMessages, roomId]);
+
+  useEffect(() => clearHubListRetryTimers, [clearHubListRetryTimers]);
 
   useEffect(() => {
     if (!open) return;
@@ -279,15 +401,6 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     writeHubLastReadId(latestHubMessageId);
   }, [latestHubMessageId]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (isHubTab) {
-      markHubRead();
-    } else {
-      markRoomRead();
-    }
-  }, [isHubTab, markHubRead, markRoomRead, open]);
-
   const focusActiveInputWithoutScroll = useCallback(() => {
     const input = isHubTab ? hubInputRef.current : inputRef.current;
     if (!input) return;
@@ -297,6 +410,62 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       input.focus();
     }
   }, [isHubTab]);
+
+  const focusHubInputWithoutScroll = useCallback(() => {
+    setHubFocusRequestId((prev) => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    if (hubFocusRequestId <= 0) return;
+    if (!open || !isHubTab || !authUser?.id) return;
+    if (!isConnected || hubSending || isHubCooldownActive) return;
+
+    let cancelled = false;
+    let rafId: number | null = null;
+    let timerId: number | null = null;
+    let attempts = 0;
+
+    const tryFocus = () => {
+      if (cancelled) return;
+      attempts += 1;
+
+      const input = hubInputRef.current;
+      if (input && !input.disabled) {
+        try {
+          input.focus({ preventScroll: true });
+        } catch {
+          input.focus();
+        }
+
+        if (document.activeElement === input || attempts >= 8) {
+          return;
+        }
+      }
+
+      if (attempts >= 8) return;
+      timerId = window.setTimeout(tryFocus, 40);
+    };
+
+    rafId = window.requestAnimationFrame(tryFocus);
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, [
+    authUser?.id,
+    hubFocusRequestId,
+    hubSending,
+    isConnected,
+    isHubCooldownActive,
+    isHubTab,
+    open,
+  ]);
 
   const handleOpen = useCallback(() => {
     setOpen(true);
@@ -360,6 +529,82 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     handleOpen();
   }, [handleClose, handleOpen, open]);
 
+  const handleSend = useCallback(() => {
+    if (isChatCooldownActive) return;
+    if (!messageInput.trim()) return;
+    handleSendMessage();
+  }, [handleSendMessage, isChatCooldownActive, messageInput]);
+
+  const handleSendHubMessage = useCallback(() => {
+    if (hubSending || isHubCooldownActive) return;
+    const trimmed = hubMessageInput.trim();
+    if (!trimmed) return;
+    const socket = getSocket();
+    if (!socket) {
+      setHubStatusText("尚未連線到聊天室");
+      return;
+    }
+
+    setHubSending(true);
+    socket.emit("sendHubChatMessage", { content: trimmed }, (ack) => {
+      setHubSending(false);
+      if (!ack) {
+        focusHubInputWithoutScroll();
+        return;
+      }
+      if (ack.ok) {
+        setHubMessageInput("");
+        setHubStatusText(null);
+        focusHubInputWithoutScroll();
+        return;
+      }
+      const retryAfterMs = resolveChatRetryAfterMs(ack);
+      if (retryAfterMs) {
+        setHubCooldownLeft(Math.ceil(retryAfterMs / 1000));
+        setHubCooldownUntil(Date.now() + retryAfterMs);
+        setHubStatusText(null);
+        return;
+      }
+      setHubStatusText(
+        ack.error === "LOGIN_REQUIRED"
+          ? "登入會員後才能在大廳聊天室發言"
+          : ack.error,
+      );
+      focusHubInputWithoutScroll();
+    });
+  }, [
+    focusHubInputWithoutScroll,
+    getSocket,
+    hubMessageInput,
+    hubSending,
+    isHubCooldownActive,
+  ]);
+
+  const switchTab = useCallback(
+    (nextTab: ChatTab) => {
+      setActiveTab(nextTab);
+      if (nextTab === "hub") {
+        markHubRead();
+      } else {
+        markRoomRead();
+      }
+      window.requestAnimationFrame(scrollChatToBottom);
+    },
+    [markHubRead, markRoomRead, scrollChatToBottom],
+  );
+
+  const focusInputForTabWithoutScroll = useCallback((nextTab: ChatTab) => {
+    window.requestAnimationFrame(() => {
+      const input = nextTab === "hub" ? hubInputRef.current : inputRef.current;
+      if (!input) return;
+      try {
+        input.focus({ preventScroll: true });
+      } catch {
+        input.focus();
+      }
+    });
+  }, []);
+
   useEffect(() => {
     if (isMobileChatMode) return;
 
@@ -371,6 +616,15 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       const target = event.target;
       const targetElement =
         target instanceof HTMLElement ? target : document.activeElement;
+
+      if (open && showTabs && event.key === "Tab") {
+        event.preventDefault();
+        event.stopPropagation();
+        const nextTab = isHubTab ? "room" : "hub";
+        switchTab(nextTab);
+        focusInputForTabWithoutScroll(nextTab);
+        return;
+      }
 
       if (!open && event.key === "Enter") {
         if (
@@ -398,53 +652,29 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     return () => {
       window.removeEventListener("keydown", handleDesktopChatKeyDown);
     };
-  }, [handleClose, handleOpen, hubMessageInput, isHubTab, isMobileChatMode, messageInput, open]);
+  }, [
+    focusInputForTabWithoutScroll,
+    handleClose,
+    handleOpen,
+    hubMessageInput,
+    isHubTab,
+    isMobileChatMode,
+    messageInput,
+    open,
+    showTabs,
+    switchTab,
+  ]);
 
-  const handleSend = useCallback(() => {
-    if (isChatCooldownActive) return;
-    if (!messageInput.trim()) return;
-    handleSendMessage();
-  }, [handleSendMessage, isChatCooldownActive, messageInput]);
-
-  const handleSendHubMessage = useCallback(() => {
-    if (hubSending) return;
-    const trimmed = hubMessageInput.trim();
-    if (!trimmed) return;
-    const socket = getSocket();
-    if (!socket) {
-      setHubStatusText("尚未連線到聊天室");
-      return;
-    }
-
-    setHubSending(true);
-    socket.emit("sendHubChatMessage", { content: trimmed }, (ack) => {
-      setHubSending(false);
-      if (!ack) return;
-      if (ack.ok) {
-        setHubMessageInput("");
-        setHubStatusText(null);
-        return;
-      }
-      setHubStatusText(
-        ack.error === "LOGIN_REQUIRED"
-          ? "登入會員後才能在大廳聊天室發言"
-          : ack.error,
-      );
-    });
-  }, [getSocket, hubMessageInput, hubSending]);
-
-  const switchTab = useCallback(
-    (nextTab: ChatTab) => {
-      setActiveTab(nextTab);
-      if (nextTab === "hub") {
-        markHubRead();
-      } else {
-        markRoomRead();
-      }
-      window.requestAnimationFrame(scrollChatToBottom);
-    },
-    [markHubRead, markRoomRead, scrollChatToBottom],
-  );
+  useEffect(() => {
+    if (!open || !isHubTab || isHubCooldownActive || !authUser?.id) return;
+    focusHubInputWithoutScroll();
+  }, [
+    authUser?.id,
+    focusHubInputWithoutScroll,
+    isHubCooldownActive,
+    isHubTab,
+    open,
+  ]);
 
   React.useImperativeHandle(ref, () => ({ openChat: handleOpen }), [handleOpen]);
 
@@ -490,6 +720,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
         aria-selected={showTabs ? !isHubTab : undefined}
         className="floating-chat-tab"
         data-active={!isHubTab || !showTabs ? "true" : "false"}
+        tabIndex={showTabs ? -1 : undefined}
         onClick={
           showTabs
             ? (event) => {
@@ -509,6 +740,7 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
           aria-selected={isHubTab}
           className="floating-chat-tab"
           data-active={isHubTab ? "true" : "false"}
+          tabIndex={-1}
           onClick={(event) => {
             event.stopPropagation();
             switchTab("hub");
@@ -539,6 +771,8 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
       onLoginRequired={loginWithGoogle}
       isSending={hubSending}
       statusText={hubStatusText}
+      isChatCooldownActive={isHubCooldownActive}
+      chatCooldownLeft={hubCooldownLeft}
     />
   ) : undefined;
 

@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CategoryDrawerPanel,
+  useCategoryAutoDetect,
+  useCategoriesQuery,
+} from "@features/CollectionCategory";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@mui/material";
 import ConfirmDialog from "../../../../shared/ui/ConfirmDialog";
@@ -115,6 +120,20 @@ const CollectionEditPage = () => {
   const [collectionVisibility, setCollectionVisibility] = useState<
     "private" | "public"
   >("private");
+
+  // Category state — auto-saved when changed by user
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [subTagKeys, setSubTagKeys] = useState<string[]>([]);
+  const [categorySaving, setCategorySaving] = useState(false);
+  // Tracks the last values actually persisted to the server for this collection
+  const lastSavedCategoryRef = useRef<{
+    categoryId: string | null;
+    subTagKeys: string[];
+  } | null>(null);
+  const categoryAutoSaveTimerRef = useRef<number | null>(null);
+  // Cancels the previous in-flight category PATCH when a new one starts,
+  // preventing out-of-order lastSavedCategoryRef updates.
+  const categoryAutoAbortRef = useRef<AbortController | null>(null);
   const [confirmPublicOpen, setConfirmPublicOpen] = useState(false);
   const [pendingVisibility, setPendingVisibility] = useState<
     "private" | "public" | null
@@ -352,6 +371,76 @@ const CollectionEditPage = () => {
 
   const isReadOnly = !authToken || authExpired;
 
+  // Category auto-detect — runs once per collection open regardless of whether
+  // a category is already set. CategoryDrawerPanel hides the suggestion chip when
+  // the suggested target equals the current selection, so always running gives
+  // users a chance to switch if the system disagrees with their saved choice.
+  // useCategoryAutoDetect resets state when collectionId changes, so cost is at
+  // most one detect call per collection open; backend hint cache + 7d negative
+  // cache + 30s per-user cooldown keep YouTube quota safe.
+  const { suggestion: categoryDetectSuggestion, isDetecting: categoryDetecting, hasRun: categoryDetectRan, runDetect: runCategoryDetect } =
+    useCategoryAutoDetect({ collectionId: activeCollectionId, token: authToken });
+
+  useEffect(() => {
+    if (!activeCollectionId || !authToken) return;
+    if (categoryDetectRan) return;
+    runCategoryDetect();
+  }, [activeCollectionId, authToken, categoryDetectRan, runCategoryDetect]);
+
+  // Resolve the suggested category UUID for accurate "not yet applied" check
+  const { data: categoriesDataForDetect = [] } = useCategoriesQuery();
+  const suggestedCategoryId = useMemo(() => {
+    const key = categoryDetectSuggestion?.categoryKey;
+    if (!key) return null;
+    for (const parent of categoriesDataForDetect) {
+      if (parent.key === key) return parent.id;
+      for (const child of parent.children) {
+        if (child.key === key) return child.id;
+      }
+    }
+    return null;
+  }, [categoryDetectSuggestion?.categoryKey, categoriesDataForDetect]);
+
+  // Saves the given category/subtag values to the server.
+  // Cancels any previous in-flight save so responses always arrive in the order
+  // they were fired, preventing lastSavedCategoryRef from being set to a stale value.
+  const saveCategoryToServer = useCallback(
+    async (cid: string | null, tags: string[]) => {
+      if (!activeCollectionId || !authToken || isReadOnly) return;
+
+      categoryAutoAbortRef.current?.abort();
+      const controller = new AbortController();
+      categoryAutoAbortRef.current = controller;
+
+      setCategorySaving(true);
+      try {
+        const token = await ensureFreshAuthToken({
+          token: authToken,
+          refreshAuthToken,
+        });
+        if (!token || controller.signal.aborted) return;
+        await collectionsApi.updateCollection(
+          token,
+          activeCollectionId,
+          { category_id: cid, sub_tag_keys: tags },
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
+        lastSavedCategoryRef.current = { categoryId: cid, subTagKeys: tags };
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("[category] save failed:", err);
+      } finally {
+        // Only reset the saving indicator if this is still the latest request.
+        if (categoryAutoAbortRef.current === controller) {
+          categoryAutoAbortRef.current = null;
+          setCategorySaving(false);
+        }
+      }
+    },
+    [activeCollectionId, authToken, isReadOnly, refreshAuthToken],
+  );
+
   useEffect(() => {
     if (collectionId && skipRouteResetOnNextParamRef.current === collectionId) {
       skipRouteResetOnNextParamRef.current = null;
@@ -391,6 +480,55 @@ const CollectionEditPage = () => {
       resetBaseline();
     }
   }, [itemsLoading, itemsError, resetBaseline]);
+
+  // Sync category state when active collection changes.
+  // Also reset the "last saved" ref so the auto-save effect doesn't fire on load.
+  useEffect(() => {
+    if (!activeCollection) return;
+    const loadedCategoryId = activeCollection.category?.id ?? null;
+    const loadedSubTagKeys = activeCollection.sub_tag_keys ?? [];
+    setCategoryId(loadedCategoryId);
+    setSubTagKeys(loadedSubTagKeys);
+    // Record what the server already has so we only save on genuine user changes
+    lastSavedCategoryRef.current = {
+      categoryId: loadedCategoryId,
+      subTagKeys: loadedSubTagKeys,
+    };
+    // Cancel any pending auto-save timer from the previous collection
+    if (categoryAutoSaveTimerRef.current !== null) {
+      window.clearTimeout(categoryAutoSaveTimerRef.current);
+      categoryAutoSaveTimerRef.current = null;
+    }
+  }, [activeCollection?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save: fires 500ms after user changes category or sub-tags.
+  // Skips save if values match what's already on the server.
+  useEffect(() => {
+    if (!lastSavedCategoryRef.current) return; // collection not loaded yet
+
+    const saved = lastSavedCategoryRef.current;
+    const categoryChanged = categoryId !== saved.categoryId;
+    const tagsChanged =
+      JSON.stringify([...subTagKeys].sort()) !==
+      JSON.stringify([...saved.subTagKeys].sort());
+
+    if (!categoryChanged && !tagsChanged) return;
+    if (!activeCollectionId || !authToken || isReadOnly) return;
+
+    if (categoryAutoSaveTimerRef.current !== null) {
+      window.clearTimeout(categoryAutoSaveTimerRef.current);
+    }
+    categoryAutoSaveTimerRef.current = window.setTimeout(() => {
+      categoryAutoSaveTimerRef.current = null;
+      void saveCategoryToServer(categoryId, subTagKeys);
+    }, 500);
+
+    return () => {
+      if (categoryAutoSaveTimerRef.current !== null) {
+        window.clearTimeout(categoryAutoSaveTimerRef.current);
+      }
+    };
+  }, [categoryId, subTagKeys, activeCollectionId, authToken, isReadOnly, saveCategoryToServer]);
 
   useEffect(() => {
     if (!baselineReadyRef.current) return;
@@ -1105,6 +1243,8 @@ const CollectionEditPage = () => {
       if (autoSaveTimerRef.current) {
         window.clearTimeout(autoSaveTimerRef.current);
       }
+      // Cancel any in-flight category save on unmount.
+      categoryAutoAbortRef.current?.abort();
     };
   }, []);
 
@@ -1515,7 +1655,32 @@ const CollectionEditPage = () => {
           setCollectionMenuOpen((prev) => !prev);
         }}
         collectionMenuOpen={collectionMenuOpen}
+        hasCategorySet={!!categoryId}
+        collectionIsPublic={collectionVisibility === "public"}
+        categorySaving={categorySaving}
+        categoryHasSuggestion={
+          categoryDetectRan &&
+          !!suggestedCategoryId &&
+          suggestedCategoryId !== categoryId
+        }
+        categoryDrawerContent={
+          activeCollectionId && !isReadOnly ? (
+            <CategoryDrawerPanel
+              categoryId={categoryId}
+              subTagKeys={subTagKeys}
+              visibility={collectionVisibility}
+              isSaving={categorySaving}
+              detectSuggestion={categoryDetectSuggestion}
+              detectIsRunning={categoryDetecting}
+              detectHasRun={categoryDetectRan}
+              onCategoryChange={setCategoryId}
+              onSubTagsChange={setSubTagKeys}
+            />
+          ) : undefined
+        }
       />
+
+      {/* Category section is now in EditHeader's drawer (LabelOutlined button) */}
 
       <CollectionPopover
         open={collectionMenuOpen}
@@ -1539,6 +1704,8 @@ const CollectionEditPage = () => {
           setCollectionTitle(selected?.title ?? "");
           setCollectionDescription(selected?.description ?? "");
           setCollectionVisibility(selected?.visibility ?? "private");
+          setCategoryId((selected as Record<string, unknown> & { category?: { id?: string | null } | null })?.category?.id ?? null);
+          setSubTagKeys((selected as Record<string, unknown> & { sub_tag_keys?: string[] })?.sub_tag_keys ?? []);
           resetPendingItemSyncState();
           setPlaylistItems([]);
           setPlaylistAddError(null);

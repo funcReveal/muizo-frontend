@@ -1,11 +1,12 @@
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
+import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
-import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
-import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
+import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import { Drawer } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import React from "react";
@@ -67,12 +68,60 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
   );
   const canShiftPrev = selectedRelatedIndex > 0;
   const canShiftNext = selectedRelatedIndex < relatedSummaries.length - 1;
+  const performanceItems = selectedSummary
+    ? [
+        {
+          key: "score",
+          icon: <BarChartRoundedIcon sx={{ fontSize: isWide ? 17 : 15 }} />,
+          label: "分數",
+          value:
+            typeof selectedSummary.selfPlayer?.finalScore === "number"
+              ? String(selectedSummary.selfPlayer.finalScore)
+              : "--",
+          note: "本場分數",
+          accent: "text-emerald-100",
+        },
+        {
+          key: "accuracy",
+          icon: <CheckCircleRoundedIcon sx={{ fontSize: isWide ? 17 : 15 }} />,
+          label: "答對率",
+          value: (() => {
+            const correctCount = selectedSummary.selfPlayer?.correctCount ?? 0;
+            const totalCount = Math.max(0, selectedSummary.questionCount);
+            const percent =
+              totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+            return `${percent}%`;
+          })(),
+          note: `${selectedSummary.selfPlayer?.correctCount ?? 0}/${Math.max(
+            0,
+            selectedSummary.questionCount,
+          )} 題`,
+          accent: "text-cyan-100",
+        },
+        {
+          key: "combo",
+          icon: <BoltRoundedIcon sx={{ fontSize: isWide ? 17 : 15 }} />,
+          label: "Combo",
+          value:
+            typeof selectedSummary.selfPlayer?.maxCombo === "number"
+              ? `x${selectedSummary.selfPlayer.maxCombo}`
+              : "--",
+          note: "最大連擊",
+          accent: "text-fuchsia-100",
+        },
+      ]
+    : [];
   const metadataItems = selectedSummary
     ? [
         {
-          key: "round",
-          icon: <SportsEsportsRoundedIcon sx={{ fontSize: 16 }} />,
-          label: `第 ${selectedSummary.roundNo} 局`,
+          key: "rank",
+          icon: <EmojiEventsRoundedIcon sx={{ fontSize: 16 }} />,
+          label:
+            typeof selectedSummary.selfRank === "number" &&
+            Number.isFinite(selectedSummary.selfRank) &&
+            selectedSummary.selfRank > 0
+              ? `${selectedSummary.selfRank}/${Math.max(1, selectedSummary.playerCount)}`
+              : "--",
           accent: "text-amber-100",
         },
         {
@@ -89,12 +138,6 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
           label: formatDateTime(selectedSummary.endedAt),
           accent: "text-slate-200",
         },
-        {
-          key: "questionCount",
-          icon: <FormatListNumberedRoundedIcon sx={{ fontSize: 16 }} />,
-          label: `${selectedSummary.questionCount} 題`,
-          accent: "text-sky-100",
-        },
       ]
     : [];
 
@@ -103,10 +146,11 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
       anchor={isMobileDrawer ? "bottom" : "right"}
       open={open}
       onClose={onClose}
+      sx={{ zIndex: 1620 }}
       ModalProps={{ keepMounted: true }}
       PaperProps={{
         className:
-          "!overflow-hidden !bg-slate-950 !text-slate-100 !shadow-2xl !shadow-slate-950/80 max-sm:!h-[92dvh] max-sm:!w-full max-sm:!rounded-t-[24px] max-sm:!border-t max-sm:!border-white/10 sm:!h-dvh sm:!w-[min(1180px,calc(100vw-24px))] sm:!max-w-none sm:!rounded-l-[24px] sm:!border-l sm:!border-white/10",
+          "!overflow-hidden !bg-[linear-gradient(180deg,rgba(8,14,26,0.98),rgba(4,8,18,0.99))] !text-slate-100 !shadow-2xl !shadow-slate-950/80 max-sm:!h-dvh max-sm:!w-screen max-sm:!max-w-none max-sm:!rounded-none max-sm:!border-0 sm:!h-dvh sm:!w-[min(1180px,calc(100vw-24px))] sm:!max-w-none sm:!rounded-l-[24px] sm:!border-l sm:!border-slate-700/25",
       }}
     >
         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden p-2 sm:p-3">
@@ -139,13 +183,51 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
                   <button
                     type="button"
                     aria-label="關閉詳情"
-                    className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-500/70 bg-slate-900/74 text-slate-200 transition hover:border-slate-300 hover:bg-slate-900/92 hover:text-white hover:shadow-[0_10px_24px_-18px_rgba(148,163,184,0.65)] ${
+                    className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/[0.035] text-slate-200 transition hover:bg-white/8 hover:text-white hover:shadow-[0_10px_24px_-18px_rgba(148,163,184,0.65)] ${
                       isWide ? "h-10 w-10" : "h-9 w-9"
                     }`}
                     onClick={onClose}
                   >
                     <CloseRoundedIcon sx={{ fontSize: isWide ? 19 : 18 }} />
                   </button>
+                </div>
+
+                <div
+                  className={
+                    isWide
+                      ? "grid gap-2.5 sm:grid-cols-3"
+                      : "grid grid-cols-3 gap-2"
+                  }
+                >
+                  {performanceItems.map((item) => (
+                    <div
+                      key={item.key}
+                      className={`flex min-w-0 items-center gap-2 rounded-[12px] bg-slate-950/30 ${
+                        isWide ? "px-2.5 py-2" : "px-2 py-1.5"
+                      }`}
+                    >
+                      <div
+                        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center ${item.accent}`}
+                      >
+                        {item.icon}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-[9px] tracking-[0.12em] text-slate-400">
+                          {item.label}
+                        </div>
+                        <div
+                          className={`truncate font-black leading-none text-slate-50 ${
+                            isWide ? "text-sm" : "text-[13px]"
+                          }`}
+                        >
+                          {item.value}
+                        </div>
+                        <div className="mt-0.5 truncate text-[10px] leading-none text-slate-500">
+                          {item.note}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <div
@@ -158,8 +240,8 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
                   <div
                     className={
                       isWide
-                        ? "flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-300"
-                        : "grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] text-slate-300"
+                        ? "flex flex-nowrap items-center gap-x-4 overflow-x-auto whitespace-nowrap text-xs text-slate-300"
+                        : "flex flex-nowrap items-center gap-x-3 overflow-x-auto whitespace-nowrap text-[11px] text-slate-300"
                     }
                   >
                     {metadataItems.map((item) => (
@@ -171,10 +253,6 @@ const HistoryReplayDrawer: React.FC<HistoryReplayDrawerProps> = ({
                         <span>{item.label}</span>
                       </span>
                     ))}
-                    <span className="inline-flex items-center gap-1.5 text-slate-400">
-                      <Groups2RoundedIcon sx={{ fontSize: isWide ? 16 : 15 }} />
-                      <span>{selectedSummary.playerCount} 人</span>
-                    </span>
                   </div>
 
                   {relatedSummaries.length > 1 ? (

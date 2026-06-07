@@ -2,6 +2,7 @@ import { createContext, useContext, type RefObject } from "react";
 
 export interface RoomAuthInternalContextValue {
   confirmNicknameRef: RefObject<() => Promise<boolean>>;
+  confirmNicknameBaseRef: RefObject<() => Promise<boolean>>;
   activeUsername: string | null;
   getDefaultRoomName: (username: string | null) => string;
   lockSessionClientId: (nextClientId: string) => void;

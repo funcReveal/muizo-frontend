@@ -133,6 +133,7 @@ const SourceSetupDrawer = ({
       anchor={isCompact ? "bottom" : "right"}
       open={open}
       onClose={isCreatingRoom ? undefined : onClose}
+      sx={{ zIndex: 1500 }}
       slotProps={{
         paper: {
           sx: {
