@@ -177,6 +177,8 @@ export function AppRouter() {
         />
       </Route>
 
+      <Route path="/auth/callback" element={<PageLoader />} />
+
       <Route element={<LegalLayout />}>
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
