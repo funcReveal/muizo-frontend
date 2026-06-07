@@ -41,7 +41,9 @@ import ViewAgendaRoundedIcon from "@mui/icons-material/ViewAgendaRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { List, type RowComponentProps } from "react-window";
 
+import { recordDbActionEvent } from "@shared/analytics/actionEvents";
 import { trackEvent } from "@shared/analytics/track";
+import { useAuth } from "@shared/auth/AuthContext";
 import { useSongFavoriteList } from "../model/useSongFavoriteList";
 import type {
   SongFavoriteRecord,
@@ -88,6 +90,8 @@ type ChannelGroup = {
 
 type PendingDelete = { provider: "youtube"; sourceId: string }[];
 
+type SongClickOrigin = "title" | "thumbnail";
+
 type CommonRowProps = {
   isSelectMode: boolean;
   selectedKeys: ReadonlySet<string>;
@@ -96,6 +100,7 @@ type CommonRowProps = {
   onRequestDelete: (provider: "youtube", sourceId: string) => void;
   onLongPress: (key: string) => void;
   onChannelClick: (item: SongFavoriteRecord) => void;
+  onSongClick: (item: SongFavoriteRecord, origin: SongClickOrigin) => void;
 };
 
 type FavoriteRowProps = CommonRowProps & {
@@ -269,7 +274,10 @@ type StatChipProps = {
 
 const StatChip: React.FC<StatChipProps> = ({ icon, label, value, onClick, isActive }) => {
   const className = [
-    "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold leading-none transition duration-160",
+    // Compact on mobile (keeps stat chips + sort + layout on a single row at
+    // ~360px viewports), generously sized on desktop where horizontal space
+    // is abundant and the chips double as the primary view-mode switcher.
+    "inline-flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-full px-2.5 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-[15px] font-semibold leading-none transition duration-160",
     isActive
       ? "bg-amber-300/14 text-amber-100 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.24)]"
       : "border border-[var(--mc-border)] bg-black/22 text-[var(--mc-text-muted)]",
@@ -506,6 +514,7 @@ function FavoriteRowContent({
   onRequestDelete,
   onLongPress,
   onChannelClick,
+  onSongClick,
 }: {
   item: SongFavoriteRecord;
   isSelectMode: boolean;
@@ -515,12 +524,25 @@ function FavoriteRowContent({
   onRequestDelete: (provider: "youtube", sourceId: string) => void;
   onLongPress: (key: string) => void;
   onChannelClick: (item: SongFavoriteRecord) => void;
+  onSongClick: (item: SongFavoriteRecord, origin: SongClickOrigin) => void;
 }): React.ReactElement {
   const key = getFavoriteKey(item);
   const longPressHandlers = useFavoriteLongPress({
     onLongPress: () => onLongPress(key),
     enabled: !isSelectMode,
   });
+
+  // Shared click handler: in select mode we swallow the click; otherwise we
+  // fire-and-forget the outbound analytics event and let the <a> default
+  // (target=_blank) navigate normally.
+  const handleLinkClick =
+    (origin: SongClickOrigin) => (event: React.MouseEvent) => {
+      if (isSelectMode) {
+        event.preventDefault();
+        return;
+      }
+      onSongClick(item, origin);
+    };
 
   return (
     <article
@@ -546,7 +568,7 @@ function FavoriteRowContent({
         rel="noreferrer"
         className="relative block h-[62px] w-[110px] shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-black/40"
         aria-label={`在 YouTube 開啟 ${item.title}`}
-        onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
+        onClick={handleLinkClick("thumbnail")}
       >
         <img
           src={getThumbnail(item)}
@@ -563,7 +585,7 @@ function FavoriteRowContent({
           target="_blank"
           rel="noreferrer"
           className="inline-flex max-w-full items-center gap-1.5 text-[15px] font-semibold leading-tight text-[var(--mc-text)] transition hover:text-amber-100"
-          onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
+          onClick={handleLinkClick("title")}
         >
           <span className="truncate">{item.title}</span>
           <OpenInNewRoundedIcon
@@ -637,6 +659,7 @@ function FavoriteRow({
   onRequestDelete,
   onLongPress,
   onChannelClick,
+  onSongClick,
 }: RowComponentProps<FavoriteRowProps>): React.ReactElement {
   const item = items[index];
   if (!item) return <SkeletonCard style={style} index={index} />;
@@ -654,6 +677,7 @@ function FavoriteRow({
         onRequestDelete={onRequestDelete}
         onLongPress={onLongPress}
         onChannelClick={onChannelClick}
+        onSongClick={onSongClick}
       />
     </div>
   );
@@ -672,6 +696,7 @@ function FavoriteGridCard({
   onRequestDelete,
   onLongPress,
   onChannelClick,
+  onSongClick,
 }: {
   item: SongFavoriteRecord;
   isSelectMode: boolean;
@@ -681,12 +706,24 @@ function FavoriteGridCard({
   onRequestDelete: (provider: "youtube", sourceId: string) => void;
   onLongPress: (key: string) => void;
   onChannelClick: (item: SongFavoriteRecord) => void;
+  onSongClick: (item: SongFavoriteRecord, origin: SongClickOrigin) => void;
 }): React.ReactElement {
   const key = getFavoriteKey(item);
   const longPressHandlers = useFavoriteLongPress({
     onLongPress: () => onLongPress(key),
     enabled: !isSelectMode,
   });
+
+  // Same pattern as the list row: select-mode swallows the click; otherwise
+  // fire-and-forget analytics then let the link navigate.
+  const handleLinkClick =
+    (origin: SongClickOrigin) => (event: React.MouseEvent) => {
+      if (isSelectMode) {
+        event.preventDefault();
+        return;
+      }
+      onSongClick(item, origin);
+    };
 
   return (
     <article
@@ -712,7 +749,7 @@ function FavoriteGridCard({
         target="_blank"
         rel="noreferrer"
         aria-label={`在 YouTube 開啟 ${item.title}`}
-        onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
+        onClick={handleLinkClick("thumbnail")}
         className="relative block aspect-video w-full overflow-hidden bg-black/40"
       >
         <img
@@ -774,7 +811,7 @@ function FavoriteGridCard({
           href={getYoutubeUrl(item.sourceId)}
           target="_blank"
           rel="noreferrer"
-          onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
+          onClick={handleLinkClick("title")}
           className="line-clamp-2 text-[12.5px] font-semibold leading-snug tracking-tight text-[var(--mc-text)] transition group-hover/card:text-amber-50"
         >
           {item.title}
@@ -808,6 +845,7 @@ function FavoriteGridRow({
   onRequestDelete,
   onLongPress,
   onChannelClick,
+  onSongClick,
 }: RowComponentProps<FavoriteGridRowProps>): React.ReactElement {
   const totalDataRows = Math.ceil(items.length / itemsPerRow);
 
@@ -850,6 +888,7 @@ function FavoriteGridRow({
               onRequestDelete={onRequestDelete}
               onLongPress={onLongPress}
               onChannelClick={onChannelClick}
+              onSongClick={onSongClick}
             />
           );
         })}
@@ -879,6 +918,7 @@ function ChannelGroupRow({
   onRequestDelete,
   onLongPress,
   onChannelClick,
+  onSongClick,
   onChannelHeaderClick,
 }: CommonRowProps & {
   group: ChannelGroup;
@@ -985,6 +1025,7 @@ function ChannelGroupRow({
                     onRequestDelete={onRequestDelete}
                     onLongPress={onLongPress}
                     onChannelClick={onChannelClick}
+                    onSongClick={onSongClick}
                   />
                 );
               })}
@@ -1010,6 +1051,7 @@ function ChannelGroupRow({
                     onRequestDelete={onRequestDelete}
                     onLongPress={onLongPress}
                     onChannelClick={onChannelClick}
+                    onSongClick={onSongClick}
                   />
                 );
               })}
@@ -1026,6 +1068,10 @@ function ChannelGroupRow({
 // ---------------------------------------------------------------------------
 
 const FavoriteSongsPage: React.FC = () => {
+  // Auth context — needed to forward outbound-click events to the backend
+  // user_action_events table (anonymous visitors fall through to GA only).
+  const { authToken, clientId, displayUsername, refreshAuthToken } = useAuth();
+
   const [sortKey, setSortKey] = useState<SongFavoriteSortKey>("updatedAt");
   const [sortOrder, setSortOrder] = useState<SongFavoriteSortOrder>("desc");
   const {
@@ -1367,29 +1413,114 @@ const FavoriteSongsPage: React.FC = () => {
     [requestDelete],
   );
 
+  const recordFavoriteDbActionEvent = useCallback(
+    (params: {
+      eventName:
+        | "song_favorite.song.clicked"
+        | "song_favorite.channel.clicked";
+      target: { type: "youtube"; id: string };
+      metadata: Record<string, string | number | boolean | null | undefined>;
+    }) => {
+      if (!authToken) return;
+      void recordDbActionEvent({
+        eventName: params.eventName,
+        authToken,
+        clientId,
+        username: displayUsername,
+        refreshAuthToken,
+        target: params.target,
+        metadata: params.metadata,
+      }).catch((error) => {
+        console.error("Failed to record song favorite outbound click", error);
+      });
+    },
+    [authToken, clientId, displayUsername, refreshAuthToken],
+  );
+
   // ---------------------------------------------------------------------------
-  // Channel click tracking — fires for both row-level and channel-header clicks
+  // Click tracking — channel + song outbound link analytics.
+  // All handlers are fire-and-forget: trackEvent enqueues the beacon and the
+  // <a target="_blank"> default behaviour navigates synchronously, so there's
+  // no race condition with the page unload of the original tab.
   // ---------------------------------------------------------------------------
 
-  const handleChannelClick = useCallback((item: SongFavoriteRecord) => {
-    if (!item.channelId) return;
-    trackEvent("song_favorite_channel_click", {
-      channel_id: item.channelId,
-      channel_title: item.channelTitle ?? null,
-      source_id: item.sourceId,
-      origin: "song_card",
-    });
-  }, []);
+  const handleChannelClick = useCallback(
+    (item: SongFavoriteRecord) => {
+      if (!item.channelId) return;
+      // GA (always fires, including anonymous visitors).
+      trackEvent("song_favorite_channel_click", {
+        channel_id: item.channelId,
+        channel_title: item.channelTitle ?? null,
+        source_id: item.sourceId,
+        origin: "song_card",
+      });
+      recordFavoriteDbActionEvent({
+        eventName: "song_favorite.channel.clicked",
+        target: { type: "youtube", id: item.channelId },
+        metadata: {
+          songFavoriteOrigin: "song_card",
+          songFavoriteLayout: layout,
+          songFavoriteViewMode: viewMode,
+          youtubeChannelId: item.channelId,
+          videoId: item.sourceId,
+        },
+      });
+    },
+    [layout, recordFavoriteDbActionEvent, viewMode],
+  );
 
-  const handleChannelHeaderClick = useCallback((group: ChannelGroup) => {
-    if (!group.channelId) return;
-    trackEvent("song_favorite_channel_click", {
-      channel_id: group.channelId,
-      channel_title: group.channelTitle,
-      source_id: null,
-      origin: "channel_header",
-    });
-  }, []);
+  const handleChannelHeaderClick = useCallback(
+    (group: ChannelGroup) => {
+      if (!group.channelId) return;
+      trackEvent("song_favorite_channel_click", {
+        channel_id: group.channelId,
+        channel_title: group.channelTitle,
+        source_id: null,
+        origin: "channel_header",
+      });
+      recordFavoriteDbActionEvent({
+        eventName: "song_favorite.channel.clicked",
+        target: { type: "youtube", id: group.channelId },
+        metadata: {
+          songFavoriteOrigin: "channel_header",
+          songFavoriteLayout: layout,
+          songFavoriteViewMode: viewMode,
+          youtubeChannelId: group.channelId,
+        },
+      });
+    },
+    [layout, recordFavoriteDbActionEvent, viewMode],
+  );
+
+  // Fires when the user opens a favorited song's YouTube page via thumbnail
+  // or title link. Layout / view_mode are inferred from current state for
+  // funnel analysis (e.g. "do users click more from grid or list view?").
+  const handleSongClick = useCallback(
+    (item: SongFavoriteRecord, origin: SongClickOrigin) => {
+      trackEvent("song_favorite_song_click", {
+        source_id: item.sourceId,
+        channel_id: item.channelId,
+        channel_title: item.channelTitle ?? null,
+        play_count: item.playCount,
+        origin,
+        layout,
+        view_mode: viewMode,
+      });
+      recordFavoriteDbActionEvent({
+        eventName: "song_favorite.song.clicked",
+        target: { type: "youtube", id: item.sourceId },
+        metadata: {
+          songFavoriteOrigin: origin,
+          songFavoriteLayout: layout,
+          songFavoriteViewMode: viewMode,
+          videoId: item.sourceId,
+          youtubeChannelId: item.channelId ?? undefined,
+          playCount: item.playCount,
+        },
+      });
+    },
+    [layout, recordFavoriteDbActionEvent, viewMode],
+  );
 
   // ---------------------------------------------------------------------------
   // Songs view helpers
@@ -1426,6 +1557,7 @@ const FavoriteSongsPage: React.FC = () => {
       onRequestDelete: handleSingleDelete,
       onLongPress: handleLongPress,
       onChannelClick: handleChannelClick,
+      onSongClick: handleSongClick,
     }),
     [
       deletingKeys,
@@ -1433,6 +1565,7 @@ const FavoriteSongsPage: React.FC = () => {
       handleChannelClick,
       handleLongPress,
       handleSingleDelete,
+      handleSongClick,
       isSelectMode,
       selectedKeys,
       toggleSelect,
@@ -1452,6 +1585,7 @@ const FavoriteSongsPage: React.FC = () => {
       onRequestDelete: handleSingleDelete,
       onLongPress: handleLongPress,
       onChannelClick: handleChannelClick,
+      onSongClick: handleSongClick,
     }),
     [
       deletingKeys,
@@ -1459,6 +1593,7 @@ const FavoriteSongsPage: React.FC = () => {
       handleChannelClick,
       handleLongPress,
       handleSingleDelete,
+      handleSongClick,
       hasNextPage,
       isFetchingNextPage,
       isSelectMode,
@@ -1589,14 +1724,14 @@ const FavoriteSongsPage: React.FC = () => {
         <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <StatChip
-              icon={<QueueMusicRoundedIcon sx={{ fontSize: 15 }} />}
+              icon={<QueueMusicRoundedIcon sx={{ fontSize: { xs: 15, sm: 19 } }} />}
               label="歌曲數"
               value={`${formatNumber(stats.loadedCount)}${hasNextPage ? "+" : ""}`}
               onClick={() => handleViewModeChange("songs")}
               isActive={viewMode === "songs"}
             />
             <StatChip
-              icon={<AlbumRoundedIcon sx={{ fontSize: 15 }} />}
+              icon={<AlbumRoundedIcon sx={{ fontSize: { xs: 15, sm: 19 } }} />}
               label="頻道數"
               value={formatNumber(stats.channelCount)}
               onClick={() => handleViewModeChange("channels")}
@@ -1686,6 +1821,7 @@ const FavoriteSongsPage: React.FC = () => {
                   onRequestDelete={handleSingleDelete}
                   onLongPress={handleLongPress}
                   onChannelClick={handleChannelClick}
+                  onSongClick={handleSongClick}
                   onChannelHeaderClick={handleChannelHeaderClick}
                 />
               ))}

@@ -1,6 +1,6 @@
 ﻿import {
   AccountCircleRounded,
-  Bookmark,
+  Bookmarks,
   ExpandMore,
   LibraryMusic,
   LockOutlined,
@@ -552,7 +552,35 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               )
             )}
 
-            {authUser && (
+            {!authUser ? (
+              <MenuItem
+                onClick={() => {
+                  handleMenuClose();
+                  onLogin?.();
+                }}
+                sx={menuItemSx}
+              >
+                <ListItemIcon sx={{ minWidth: 30, color: "#67e8f9" }}>
+                  <Bookmarks fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Box
+                      component="span"
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.7,
+                      }}
+                    >
+                      <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
+                      收藏歌曲
+                    </Box>
+                  }
+                  secondary="登入後可查看遊戲中收藏的歌曲"
+                />
+              </MenuItem>
+            ) : (
               <MenuItem
                 onClick={() => {
                   handleMenuClose();
@@ -565,7 +593,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 sx={menuItemSx}
               >
                 <ListItemIcon sx={{ minWidth: 30, color: "#67e8f9" }}>
-                  <Bookmark fontSize="small" />
+                  <Bookmarks fontSize="small" />
                 </ListItemIcon>
                 <ListItemText
                   primary="收藏歌曲"
