@@ -14,8 +14,7 @@ const SearchDiscoverySection: React.FC = () => {
         </h3>
         <p className="landing-search-description">
           Muizo 專為朋友一起玩的線上猜歌體驗設計，支援即時房間、YouTube
-          播放清單題庫、即時排行榜與結算回顧。無論是想玩華語流行猜歌、動漫歌曲問答、遊戲
-          BGM 挑戰，或是 K-POP、J-POP 派對遊戲，都能快速開房邀請好友加入。
+          播放清單題庫、即時排行榜與結算回顧。無論是想玩華語流行猜歌、動畫主題問答、遊戲配樂挑戰，或是 K-POP、J-POP 派對遊戲，都能快速開房邀請好友加入。
         </p>
       </div>
 

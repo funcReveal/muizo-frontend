@@ -75,7 +75,7 @@ export const SEARCH_DISCOVERY_ITEMS: SearchDiscoveryItem[] = [
   {
     title: "YouTube 歌曲問答",
     description:
-      "登入後可匯入 YouTube 播放清單建立題庫，把華語流行、動漫歌、遊戲 BGM、J-POP、K-POP 變成猜歌挑戰。",
+      "登入後可匯入 YouTube 播放清單建立題庫，把華語流行、動畫主題、遊戲配樂、J-POP、K-POP 變成猜歌挑戰。",
   },
   {
     title: "多人即時對戰",

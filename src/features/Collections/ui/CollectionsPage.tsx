@@ -1,6 +1,13 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRef } from "react";
+import {
+  CategoryQuickPicker,
+  SubTagQuickPicker,
+  useSubTagsQuery,
+  useCategoriesQuery,
+} from "@features/CollectionCategory";
+import type { CategoryTreeItem } from "@features/CollectionCategory";
 
 import {
   Box,
@@ -52,6 +59,14 @@ type DbCollection = {
   playable_item_count?: number | null;
   use_count?: number | null;
   favorite_count?: number | null;
+  category?: {
+    id: string | null;
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[];
 };
 
 const TEXT = {
@@ -71,6 +86,23 @@ const TEXT = {
   publicConfirm: "公開後其他玩家可以瀏覽與使用這份收藏，確定要設為公開嗎？",
   privateConfirm:
     "設為私人後，其他玩家將無法再瀏覽或使用這份收藏。已分享出去的公開連結也可能失效，確定要設為私人嗎？",
+};
+
+const buildCategoryFromId = (
+  categoryId: string,
+  tree: CategoryTreeItem[],
+): DbCollection["category"] | null => {
+  for (const parent of tree) {
+    if (parent.id === categoryId) {
+      return { id: parent.id, key: parent.key, label: parent.label, parentKey: null, parentLabel: null };
+    }
+    for (const child of parent.children) {
+      if (child.id === categoryId) {
+        return { id: child.id, key: child.key, label: child.label, parentKey: parent.key, parentLabel: parent.label };
+      }
+    }
+  }
+  return null;
 };
 
 const SKELETON_COUNT = 6;
@@ -134,6 +166,13 @@ const CollectionsPage = () => {
   const shareFeedbackTimerRef = useRef<number | null>(null);
   const ownerId = authUser?.id ?? null;
   const isAdmin = isAdminRole(authUser?.role);
+  const { data: subTagsData = [] } = useSubTagsQuery();
+  const { data: categoriesData = [] } = useCategoriesQuery();
+  const subTagLabelByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const tag of subTagsData) map.set(tag.key, tag.label);
+    return map;
+  }, [subTagsData]);
   const privateCollectionsCount = collections.filter(
     (item) => item.visibility !== "public",
   ).length;
@@ -317,6 +356,103 @@ const CollectionsPage = () => {
     }
   };
 
+  // Quick-update a collection's category from the card (optimistic UI)
+  const handleUpdateCategory = useCallback(
+    async (collectionId: string, categoryId: string | null) => {
+      if (!authToken) return;
+      const target = collections.find((c) => c.id === collectionId);
+      if (!target) return;
+
+      // Block clearing category — required for both private and public (backend rejects null)
+      if (categoryId === null) {
+        appToast.warning("收藏庫必須選擇分類", {
+          id: "category-required",
+        });
+        return;
+      }
+
+      const previousCategory = target.category ?? null;
+      const optimisticCategory = buildCategoryFromId(categoryId, categoriesData);
+
+      // Optimistic update — UI reflects immediately using local tree data
+      setCollections((prev) =>
+        prev.map((item) =>
+          item.id === collectionId
+            ? { ...item, category: optimisticCategory }
+            : item,
+        ),
+      );
+
+      try {
+        const token = await ensureFreshAuthToken({
+          token: authToken,
+          refreshAuthToken,
+        });
+        if (!token) {
+          setCollections((prev) =>
+            prev.map((item) =>
+              item.id === collectionId ? { ...item, category: previousCategory } : item,
+            ),
+          );
+          return;
+        }
+        await collectionsApi.updateCollection(token, collectionId, {
+          category_id: categoryId,
+        });
+      } catch (err) {
+        // Revert on error
+        setCollections((prev) =>
+          prev.map((item) =>
+            item.id === collectionId
+              ? { ...item, category: previousCategory }
+              : item,
+          ),
+        );
+        setError(err instanceof Error ? err.message : "分類更新失敗");
+      }
+    },
+    [authToken, collections, refreshAuthToken, categoriesData],
+  );
+
+  // Quick-update a collection's sub-tag keys from the card (optimistic UI)
+  const handleUpdateSubTags = useCallback(
+    async (collectionId: string, nextKeys: string[]) => {
+      if (!authToken) return;
+      const target = collections.find((c) => c.id === collectionId);
+      if (!target) return;
+
+      const previousKeys = target.sub_tag_keys ?? [];
+      // Optimistic update — UI reflects immediately
+      setCollections((prev) =>
+        prev.map((item) =>
+          item.id === collectionId ? { ...item, sub_tag_keys: nextKeys } : item,
+        ),
+      );
+
+      try {
+        const token = await ensureFreshAuthToken({
+          token: authToken,
+          refreshAuthToken,
+        });
+        if (!token) return;
+        await collectionsApi.updateCollection(token, collectionId, {
+          sub_tag_keys: nextKeys,
+        });
+      } catch (err) {
+        // Revert on error
+        setCollections((prev) =>
+          prev.map((item) =>
+            item.id === collectionId
+              ? { ...item, sub_tag_keys: previousKeys }
+              : item,
+          ),
+        );
+        setError(err instanceof Error ? err.message : "語系更新失敗");
+      }
+    },
+    [authToken, collections, refreshAuthToken],
+  );
+
   const handleShareCollection = async (collection: DbCollection) => {
     if (collection.visibility !== "public") {
       setError("請先將收藏庫設為公開後再分享");
@@ -466,26 +602,38 @@ const CollectionsPage = () => {
                     />
                   )}
                   <Box className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
-                  <CardActionArea
-                    onClick={() =>
-                      navigate(`/collections/${collection.id}/edit`)
-                    }
-                    className="relative z-10 h-full"
+                  {/* Use div instead of CardActionArea to avoid nested <button> HTML error.
+                      CardActionArea renders as <button>, but Switch and IconButton inside
+                      also render as <button>, which is invalid HTML.
+                      role="button" + keyboard handler preserves accessibility. */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/collections/${collection.id}/edit`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/collections/${collection.id}/edit`);
+                      }
+                    }}
+                    className="relative z-10 h-full cursor-pointer"
                   >
                     <CardContent className="flex h-full flex-col justify-between">
-                      <Box className="flex items-center justify-between">
-                        <Typography
-                          variant="h6"
-                          className="min-w-0 truncate pr-3 font-semibold text-white"
-                          title={collection.title || collection.id}
-                        >
-                          {collection.title || collection.id}
-                        </Typography>
-                        <Box
-                          className="flex items-center gap-1"
-                          onClick={(event) => event.stopPropagation()}
-                          onMouseDown={(event) => event.stopPropagation()}
-                        >
+                      {/* Top section: title row + chip row (stacked, no layout impact when chip absent) */}
+                      <div className="flex flex-col gap-1">
+                        <Box className="flex items-center justify-between">
+                          <Typography
+                            variant="h6"
+                            className="min-w-0 flex-1 truncate pr-3 font-semibold text-white"
+                            title={collection.title || collection.id}
+                          >
+                            {collection.title || collection.id}
+                          </Typography>
+                          <Box
+                            className="flex items-center gap-1"
+                            onClick={(event) => event.stopPropagation()}
+                            onMouseDown={(event) => event.stopPropagation()}
+                          >
                           <div className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/30 px-2 py-0.5">
                             <Tooltip
                               title={
@@ -584,7 +732,90 @@ const CollectionsPage = () => {
                             <DeleteOutline fontSize="small" />
                           </IconButton>
                         </Box>
-                      </Box>
+                        </Box>
+                        {/* Row 2: quick language + category editors (language first, matches RoomHub) */}
+                        <div
+                          className="flex flex-wrap items-center gap-1.5"
+                          onClick={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          {/* Sub-tag (language) quick picker — rendered first */}
+                          <SubTagQuickPicker
+                            value={collection.sub_tag_keys ?? []}
+                            onChange={(keys) =>
+                              handleUpdateSubTags(collection.id, keys)
+                            }
+                          >
+                            {(open) => {
+                              const langs = (collection.sub_tag_keys ?? [])
+                                .map((k) => subTagLabelByKey.get(k))
+                                .filter((l): l is string => Boolean(l));
+                              if (langs.length > 0) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => open(e.currentTarget)}
+                                    className="group/lang inline-flex items-center gap-1 rounded-full border border-cyan-300/40 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-cyan-200 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-cyan-300/65 hover:bg-slate-900"
+                                  >
+                                    <span>{langs.join(" · ")}</span>
+                                    <span className="text-cyan-300/50 transition-colors group-hover/lang:text-cyan-200/80">
+                                      ›
+                                    </span>
+                                  </button>
+                                );
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={(e) => open(e.currentTarget)}
+                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-cyan-300/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-cyan-200/55 transition-colors hover:border-cyan-300/55 hover:bg-slate-950/85 hover:text-cyan-100"
+                                >
+                                  <span className="text-[12px] leading-none">+</span>
+                                  <span>加上語系</span>
+                                </button>
+                              );
+                            }}
+                          </SubTagQuickPicker>
+
+                          {/* Category quick picker — rendered after language */}
+                          <CategoryQuickPicker
+                            value={collection.category?.id ?? null}
+                            allowClear={false}
+                            onChange={(cid) =>
+                              handleUpdateCategory(collection.id, cid)
+                            }
+                          >
+                            {(open) =>
+                              collection.category ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => open(e.currentTarget)}
+                                  className="group/chip inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-cyan-300/55 hover:bg-slate-900 hover:text-cyan-100"
+                                >
+                                  <span>
+                                    {collection.category.parentLabel
+                                      ? `${collection.category.parentLabel} › ${collection.category.label}`
+                                      : collection.category.label}
+                                  </span>
+                                  <span className="text-white/35 transition-colors group-hover/chip:text-cyan-300/70">
+                                    ›
+                                  </span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => open(e.currentTarget)}
+                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-white/55 transition-colors hover:border-cyan-300/55 hover:bg-slate-950/85 hover:text-cyan-100"
+                                >
+                                  <span className="text-[12px] leading-none">+</span>
+                                  <span>加上分類</span>
+                                </button>
+                              )
+                            }
+                          </CategoryQuickPicker>
+                        </div>
+                      </div>
                       <Box>
                         <div className="flex flex-wrap gap-3 text-[14px] font-semibold leading-none text-slate-100/92">
                           <span className="inline-flex items-center gap-1.5">
@@ -625,7 +856,7 @@ const CollectionsPage = () => {
                         )}
                       </Box>
                     </CardContent>
-                  </CardActionArea>
+                  </div>
                 </Card>
               );
             })}

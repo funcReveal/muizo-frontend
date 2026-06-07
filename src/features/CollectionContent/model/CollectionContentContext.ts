@@ -23,6 +23,13 @@ export type CollectionEntry = {
   updated_at?: number;
   ai_edited_count?: number;
   has_ai_edited?: boolean;
+  category?: {
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[] | null;
 };
 
 export interface CollectionContentContextValue {
@@ -44,7 +51,11 @@ export interface CollectionContentContextValue {
   collectionItemsError: string | null;
   fetchCollections: (
     scope?: "owner" | "public",
-    options?: { query?: string },
+    options?: {
+      query?: string;
+      categoryKeys?: string[] | null;
+      subTags?: string[] | null;
+    },
   ) => Promise<void>;
   fetchCollectionById: (
     collectionId: string,

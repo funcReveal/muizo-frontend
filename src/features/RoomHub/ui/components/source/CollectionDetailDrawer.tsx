@@ -69,6 +69,7 @@ import type {
   SourceSummary,
 } from "../../roomsHubViewModels";
 import CollectionPreviewLoadingRow from "./CollectionPreviewLoadingRow";
+import { CollectionMetaChips } from "@features/CollectionCategory";
 
 type CollectionDetail = {
   id: string;
@@ -88,6 +89,13 @@ type CollectionDetail = {
   is_favorited?: boolean | null;
   ai_edited_count?: number | null;
   has_ai_edited?: boolean | null;
+  category?: {
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[] | null;
 };
 
 type CollectionDrawerView = "detail" | "leaderboardSetup" | "casualSetup";
@@ -1935,6 +1943,13 @@ const CollectionDetailDrawer = ({
                       </div>
                     )}
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
+                    <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-start gap-1.5 sm:left-4 sm:top-4">
+                      <CollectionMetaChips
+                        collection={collection}
+                        maxVisible={3}
+                        variant="overlay"
+                      />
+                    </div>
                     <div className="absolute bottom-2.5 left-3 right-3 sm:bottom-3 sm:left-4 sm:right-4">
                       <CollectionReviewPanel
                         collectionId={collection.id}

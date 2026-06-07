@@ -401,15 +401,6 @@ const FloatingChatWindow = React.forwardRef<FloatingChatWindowRef, { suppressMob
     writeHubLastReadId(latestHubMessageId);
   }, [latestHubMessageId]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (isHubTab) {
-      markHubRead();
-    } else {
-      markRoomRead();
-    }
-  }, [isHubTab, markHubRead, markRoomRead, open]);
-
   const focusActiveInputWithoutScroll = useCallback(() => {
     const input = isHubTab ? hubInputRef.current : inputRef.current;
     if (!input) return;

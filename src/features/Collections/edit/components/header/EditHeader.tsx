@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Drawer, IconButton, Switch, TextField, Tooltip } from "@mui/material";
 import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
 import CloseRounded from "@mui/icons-material/CloseRounded";
@@ -9,6 +9,7 @@ import CloudOffOutlined from "@mui/icons-material/CloudOffOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import FolderOpenOutlined from "@mui/icons-material/FolderOpenOutlined";
 import ShareRounded from "@mui/icons-material/ShareRounded";
+import LabelOutlined from "@mui/icons-material/LabelOutlined";
 
 const PUBLIC_SWITCH_ICON = encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0f172a"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm6.93 9h-3.1a15.9 15.9 0 0 0-1.38-5.02A8.02 8.02 0 0 1 18.93 11ZM12 4.04c.83 1.2 1.86 3.63 2.16 6.96H9.84C10.14 7.67 11.17 5.24 12 4.04ZM4.07 13h3.1a15.9 15.9 0 0 0 1.38 5.02A8.02 8.02 0 0 1 4.07 13Zm3.1-2h-3.1a8.02 8.02 0 0 1 4.48-5.02A15.9 15.9 0 0 0 7.17 11Zm4.83 8.96c-.83-1.2-1.86-3.63-2.16-6.96h4.32c-.3 3.33-1.33 5.76-2.16 6.96ZM14.45 18.02A15.9 15.9 0 0 0 15.83 13h3.1a8.02 8.02 0 0 1-4.48 5.02Z"/></svg>',
@@ -48,6 +49,16 @@ type EditHeaderProps = {
   shareDisabled: boolean;
   onCollectionButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   collectionMenuOpen: boolean;
+  /** Content to render inside the category drawer (passed from parent to keep state ownership there) */
+  categoryDrawerContent?: ReactNode;
+  /** Whether the category has been set */
+  hasCategorySet?: boolean;
+  /** Whether this is a public collection (red dot when public + no category) */
+  collectionIsPublic?: boolean;
+  /** Whether category auto-save is in progress */
+  categorySaving?: boolean;
+  /** Whether auto-detect has a pending suggestion the user hasn't applied yet */
+  categoryHasSuggestion?: boolean;
 };
 
 const EditHeader = ({
@@ -81,7 +92,13 @@ const EditHeader = ({
   shareDisabled,
   onCollectionButtonClick,
   collectionMenuOpen,
+  categoryDrawerContent,
+  hasCategorySet = false,
+  collectionIsPublic = false,
+  categorySaving = false,
+  categoryHasSuggestion = false,
 }: EditHeaderProps) => {
+  const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const trimmedTitleDraft = titleDraft.trim();
   const TITLE_MAX_LENGTH = 80;
@@ -173,6 +190,30 @@ const EditHeader = ({
             >
               <EditOutlined fontSize="inherit" />
             </button>
+
+            {/* Category button — opens the category drawer */}
+            {categoryDrawerContent && (
+              <Tooltip title="分類設定">
+                <button
+                  type="button"
+                  onClick={() => setCategoryDrawerOpen(true)}
+                  aria-label="分類設定"
+                  className="relative inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs text-[var(--mc-text-muted)] transition hover:text-[var(--mc-text)]"
+                >
+                  <LabelOutlined fontSize="inherit" />
+                  {/* Red dot: only when public collection has no category (urgent) */}
+                  {/* Amber dot: saving in progress */}
+                  {/* No dot: category set, or private without category (not urgent) */}
+                  {categorySaving ? (
+                    <span className="absolute right-0.5 top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                  ) : !hasCategorySet && collectionIsPublic ? (
+                    <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500" />
+                  ) : categoryHasSuggestion ? (
+                    <span className="absolute right-0.5 top-0.5 h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
+                  ) : null}
+                </button>
+              </Tooltip>
+            )}
           </div>
         </div>
         <div className="inline-flex shrink-0 items-center gap-1.5">
@@ -399,6 +440,53 @@ const EditHeader = ({
           </footer>
         </form>
       </Drawer>
+
+      {/* Category Drawer — slides from right, narrow refined panel */}
+      {categoryDrawerContent && (
+        <Drawer
+          anchor="right"
+          open={categoryDrawerOpen}
+          onClose={() => setCategoryDrawerOpen(false)}
+          PaperProps={{
+            sx: {
+              width: "min(400px, 92vw)",
+              maxWidth: "92vw",
+              backgroundColor: "rgba(2, 6, 23, 0.92)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderLeft: "1px solid rgba(34, 211, 238, 0.12)",
+              color: "var(--mc-text)",
+              boxShadow:
+                "-24px 0 60px -20px rgba(2, 6, 23, 0.8), inset 1px 0 0 rgba(255,255,255,0.04)",
+              backgroundImage:
+                "linear-gradient(180deg, rgba(8,47,73,0.12) 0%, transparent 30%)",
+            },
+          }}
+        >
+          <div className="flex h-full flex-col">
+            {/* Header — clean, no decoration */}
+            <header className="relative flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+              <span className="text-[15px] font-semibold text-white">
+                分類設定
+              </span>
+              <IconButton
+                aria-label="關閉分類設定"
+                onClick={() => setCategoryDrawerOpen(false)}
+                size="small"
+                sx={{
+                  color: "rgba(255,255,255,0.5)",
+                  "&:hover": { color: "rgba(255,255,255,0.9)" },
+                }}
+              >
+                <CloseRounded fontSize="small" />
+              </IconButton>
+            </header>
+            <div className="flex-1 overflow-y-auto">
+              {categoryDrawerContent}
+            </div>
+          </div>
+        </Drawer>
+      )}
     </div>
   );
 };

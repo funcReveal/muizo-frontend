@@ -4,6 +4,17 @@ export type CollectionContentApiResult<T> = {
   payload: T | null;
 };
 
+export const normalizeCollectionFilterKeys = (
+  keys: string[] | null | undefined,
+) =>
+  Array.from(
+    new Set(
+      (keys ?? [])
+        .map((key) => key.trim())
+        .filter((key) => key.length > 0),
+    ),
+  ).sort();
+
 export type CollectionSummary = {
   id: string;
   owner_id: string;
@@ -34,6 +45,13 @@ export type CollectionSummary = {
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
+  category?: {
+    key: string;
+    label: string;
+    parentKey?: string | null;
+    parentLabel?: string | null;
+  } | null;
+  sub_tag_keys?: string[] | null;
 };
 
 export type CollectionItemRecord = {
@@ -160,6 +178,12 @@ const fetchJson = async <T>(
     API_REQUEST_TIMEOUT_MS,
   );
 
+  // Forward external cancellation signal (e.g. from AbortController in state management)
+  // to the internal controller so the underlying fetch is actually cancelled.
+  const callerSignal = options?.signal;
+  const onCallerAbort = () => controller.abort();
+  callerSignal?.addEventListener("abort", onCallerAbort);
+
   try {
     const res = await fetch(url, {
       ...options,
@@ -178,6 +202,7 @@ const fetchJson = async <T>(
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
+    callerSignal?.removeEventListener("abort", onCallerAbort);
   }
 };
 
@@ -191,6 +216,9 @@ export const apiFetchCollections = (
     q?: string;
     page?: number;
     pageSize?: number;
+    categoryKeys?: string[] | null;
+    subTags?: string[] | null;
+    signal?: AbortSignal;
   },
 ) => {
   const url = new URL(`${apiUrl}/api/collections`);
@@ -212,12 +240,48 @@ export const apiFetchCollections = (
   if (options.pageSize !== undefined) {
     url.searchParams.set("pageSize", String(options.pageSize));
   }
+  normalizeCollectionFilterKeys(options.categoryKeys).forEach((key) =>
+    url.searchParams.append("category_key", key),
+  );
+  normalizeCollectionFilterKeys(options.subTags).forEach((key) =>
+    url.searchParams.append("sub_tag", key),
+  );
   const headers = options.token
     ? { Authorization: `Bearer ${options.token}` }
     : undefined;
   return fetchJson<WorkerListPayload<CollectionSummary>>(url.toString(), {
     headers,
+    signal: options.signal,
   });
+};
+
+export type FilterAggregations = {
+  totalByCategoryFilter: number;
+  totalBySubTagFilter: number;
+  byCategory: Record<string, number>;
+  bySubTag: Record<string, number>;
+  noCategoryCount: number;
+};
+
+export const apiFetchFilterAggregations = (
+  apiUrl: string,
+  options: {
+    visibility: "public";
+    q?: string;
+    categoryKeys?: string[] | null;
+    subTags?: string[] | null;
+  },
+) => {
+  const url = new URL(`${apiUrl}/api/collections/filter-aggregations`);
+  url.searchParams.set("visibility", options.visibility);
+  if (options.q) url.searchParams.set("q", options.q);
+  normalizeCollectionFilterKeys(options.categoryKeys).forEach((key) =>
+    url.searchParams.append("category_key", key),
+  );
+  normalizeCollectionFilterKeys(options.subTags).forEach((key) =>
+    url.searchParams.append("sub_tag", key),
+  );
+  return fetchJson<{ ok: boolean; data: FilterAggregations }>(url.toString(), {});
 };
 
 export const apiFetchCollectionById = (

@@ -6,6 +6,7 @@ import { YOUTUBE_PLAYLIST_MIN_ITEM_COUNT } from "@domain/room/constants";
 import {
   resolveCollectionPlayableRequirement,
 } from "@features/RoomSession/model/playlistAvailability";
+import { CollectionMetaChips } from "@features/CollectionCategory";
 import PlaylistAvailabilityBadge from "@features/RoomSession/ui/PlaylistAvailabilityBadge";
 import RoomLobbyLoadingState from "../RoomLobbyLoadingState";
 import type { CollectionOption } from "../roomLobbyPanelTypes";
@@ -105,6 +106,12 @@ const SuggestionSourceFields: React.FC<SuggestionSourceFieldsProps> = ({
                   <span className="truncate">
                     {normalizeDisplayText(collection.title, "未命名收藏庫")}
                   </span>
+                  <CollectionMetaChips
+                    collection={collection}
+                    maxVisible={2}
+                    variant="menu"
+                    className="mt-1"
+                  />
                   <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
                     <PlaylistAvailabilityBadge
                       playable={requirement.playable}
