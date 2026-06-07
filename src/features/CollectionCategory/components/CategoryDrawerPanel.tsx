@@ -152,7 +152,7 @@ export function CategoryDrawerPanel({
       ? selectedParent.child.label
       : null;
   const categoryGridClassName = isEmbedded
-    ? "grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+    ? "grid grid-cols-2 gap-2 lg:grid-cols-6"
     : "grid grid-cols-2 gap-2";
 
   // ───────────────────────────────────────────────────────────
@@ -327,7 +327,8 @@ export function CategoryDrawerPanel({
                       className={[
                         // Equal column widths via calc, with the last partial row centered by parent's justify-center
                         "w-full min-w-0",
-                        "group/cat relative overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-all duration-200",
+                        "group/cat relative overflow-hidden rounded-xl border text-left transition-all duration-200",
+                        isEmbedded ? "px-2.5 py-2.5" : "px-3 py-2.5",
                         "focus:outline-none focus:ring-2 focus:ring-cyan-400/40",
                         active || isPopoverOpenForThis
                           ? "border-cyan-400/50 bg-cyan-500/15 text-cyan-50"
@@ -340,7 +341,7 @@ export function CategoryDrawerPanel({
                       )}
                       <div className="flex items-center justify-between gap-1.5">
                         <div className="flex min-w-0 items-baseline gap-1">
-                          <span className="shrink-0 truncate text-[13px] font-semibold">
+                          <span className="min-w-0 truncate text-[13px] font-semibold">
                             {parent.label}
                           </span>
                           {active && selectedChildLabel && (
