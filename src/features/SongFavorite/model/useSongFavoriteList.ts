@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -166,9 +167,17 @@ export const useSongFavoriteList = ({
     },
   });
 
+  // Stable reference: flatMap only runs when listQuery.data changes, preventing
+  // consumers (FavoriteSongsPage, channelGroups useMemo) from re-rendering
+  // on unrelated state updates.
+  const items = useMemo(
+    () => listQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [listQuery.data],
+  );
+
   return {
     ...listQuery,
-    items: listQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    items,
     deleteFavorite: deleteMutation.mutateAsync,
     batchDeleteFavorites: batchDeleteMutation.mutateAsync,
     deleteAllFavorites: deleteAllMutation.mutateAsync,

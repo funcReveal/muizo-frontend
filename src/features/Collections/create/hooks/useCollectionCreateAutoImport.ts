@@ -29,7 +29,7 @@ type UseCollectionCreateAutoImportParams = {
   lastFetchedPlaylistTitle: string | null;
   playlistItems: PlaylistItem[];
   playlistPreviewMeta: PlaylistPreviewMeta | null;
-  playlistSource: "url" | "youtube";
+  playlistSource: "url" | "youtube" | "favorites";
   trimmedPlaylistUrl: string;
   youtubePlaylists: YoutubePlaylist[];
   untitledSourceLabel: string;
@@ -45,7 +45,7 @@ const buildImportIdentity = ({
   expectedCount,
   skippedCount,
 }: {
-  playlistSource: "url" | "youtube";
+  playlistSource: "url" | "youtube" | "favorites";
   playlistId: string;
   itemCount: number;
   expectedCount: number | null | undefined;

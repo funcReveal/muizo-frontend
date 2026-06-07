@@ -43,7 +43,7 @@ type Props = {
   isImportingYoutubePlaylist: boolean;
   importProgressPercent: number | null;
   importProgressLabel: string | null;
-  playlistSource: "url" | "youtube";
+  playlistSource: "url" | "youtube" | "favorites";
   playlistProgressTotal: number;
 
   collectionPreview: CollectionPreview | null;

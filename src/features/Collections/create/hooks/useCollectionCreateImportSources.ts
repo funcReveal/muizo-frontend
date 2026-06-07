@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 
 export type CollectionCreateImportSourceType =
   | "youtube_url"
-  | "youtube_account_playlist";
+  | "youtube_account_playlist"
+  | "song_favorites";
 
 export type CollectionCreateSourcePlaylistItem = {
   title?: string;
@@ -63,7 +64,7 @@ export type CollectionCreateImportSource = {
   skippedItems: CollectionCreateSkippedItem[];
 };
 
-type AddImportSourceInput = {
+export type AddImportSourceInput = {
   type: CollectionCreateImportSourceType;
   title: string;
   sourceId: string;

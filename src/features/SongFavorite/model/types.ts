@@ -4,6 +4,7 @@ export type SongFavoriteRecord = {
   sourceId: string;
   title: string;
   channelTitle: string | null;
+  channelId: string | null;
   thumbnailUrl: string | null;
   durationSec: number | null;
   playCount: number;

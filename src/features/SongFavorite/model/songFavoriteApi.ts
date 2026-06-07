@@ -4,6 +4,7 @@ import { ensureFreshAuthToken } from "@shared/auth/token";
 import type {
   CurrentRoomTrackFavoriteStatus,
   SongFavoriteListPage,
+  SongFavoriteRecord,
   SongFavoriteSortKey,
   SongFavoriteSortOrder,
 } from "./types";
@@ -164,5 +165,14 @@ export const songFavoriteApi = {
       "/api/me/song-favorites",
       params,
       { method: "DELETE" },
+    ),
+
+  // Returns all active favorites (no pagination) for the collection-import flow.
+  // Capped at 5000 server-side; intended for one-click "import all" actions.
+  getAllFavorites: (params: AuthParams & { signal?: AbortSignal }) =>
+    requestJson<{ items: SongFavoriteRecord[] }>(
+      "/api/me/song-favorites/all",
+      params,
+      { method: "GET", signal: params.signal },
     ),
 };
