@@ -5,8 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useAuth } from "@shared/auth/AuthContext";
-
-import { songFavoriteApi } from "./songFavoriteApi";
+import { SongFavoriteApiError, songFavoriteApi } from "./songFavoriteApi";
 import type {
   SongFavoriteListPage,
   SongFavoriteSortKey,
@@ -60,6 +59,13 @@ export const useSongFavoriteList = ({
     queryKey,
     enabled: Boolean(authToken && authUser?.id),
     staleTime: 30_000,
+    // Mirror the retry policy from useCurrentRoomTrackFavorite:
+    // never retry 4xx (including 429 rate-limit) — retrying a rate-limited
+    // request would amplify the load rather than recover from it.
+    retry: (failureCount, error) => {
+      if (error instanceof SongFavoriteApiError && error.status < 500) return false;
+      return failureCount < 1;
+    },
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       songFavoriteApi.listFavorites({

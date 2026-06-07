@@ -454,12 +454,8 @@ const FavoriteSongsPage: React.FC = () => {
     if (!element) return;
     const top = element.getBoundingClientRect().top;
     const bottomReduction = isSelectMode ? BOTTOM_BAR_HEIGHT : 0;
-    setContainerHeight(
-      Math.max(
-        260,
-        window.innerHeight - top - bottomReduction - LIST_BOTTOM_INSET,
-      ),
-    );
+    const next = Math.max(260, window.innerHeight - top - bottomReduction - LIST_BOTTOM_INSET);
+    setContainerHeight((prev) => (prev === next ? prev : next));
   }, [isSelectMode]);
 
   useEffect(() => {
