@@ -15,6 +15,10 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Tooltip,
 } from "@mui/material";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
@@ -27,11 +31,12 @@ import DeleteSweepRoundedIcon from "@mui/icons-material/DeleteSweepRounded";
 import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
+import MoreVertRoundedIcon from "@mui/icons-material/MoreVertRounded";
 import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import PlaylistAddCheckRoundedIcon from "@mui/icons-material/PlaylistAddCheckRounded";
 import QueueMusicRoundedIcon from "@mui/icons-material/QueueMusicRounded";
-import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 import ViewAgendaRoundedIcon from "@mui/icons-material/ViewAgendaRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { List, type RowComponentProps } from "react-window";
@@ -51,7 +56,12 @@ import type {
 const ITEM_HEIGHT = 98;
 const OVERSCAN_COUNT = 5;
 const BOTTOM_BAR_HEIGHT = 64;
-const LIST_BOTTOM_INSET = 18;
+// Bottom inset shrinks the virtualised list height so the page doesn't reach
+// all the way down to the viewport edge. Desktop gets an extra 16px so the
+// page feels less cramped against the footer / OS chrome.
+const LIST_BOTTOM_INSET_MOBILE = 18;
+const LIST_BOTTOM_INSET_DESKTOP = 34;
+const DESKTOP_BREAKPOINT_PX = 640;
 const LONG_PRESS_MS = 500;
 const MAX_BATCH_DELETE_ITEMS = 100;
 
@@ -151,7 +161,7 @@ const SORT_OPTIONS: {
     ariaLabel: "收藏次數排序",
     descAriaLabel: "高到低",
     ascAriaLabel: "低到高",
-    icon: <StarRoundedIcon sx={{ fontSize: 17 }} />,
+    icon: <BookmarkRoundedIcon sx={{ fontSize: 17 }} />,
   },
 ];
 
@@ -569,7 +579,7 @@ function FavoriteRowContent({
             className="max-w-[48vw] truncate sm:max-w-[220px]"
           />
           <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-amber-200/90">
-            <StarRoundedIcon sx={{ fontSize: 13 }} />
+            <BookmarkRoundedIcon sx={{ fontSize: 13 }} />
             {formatNumber(item.playCount)}
           </span>
           <span className="shrink-0">更新 {formatDate(item.updatedAt)}</span>
@@ -735,7 +745,7 @@ function FavoriteGridCard({
           </span>
         ) : (
           <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-amber-100 ring-1 ring-amber-200/15 backdrop-blur-md">
-            <StarRoundedIcon sx={{ fontSize: 11 }} />
+            <BookmarkRoundedIcon sx={{ fontSize: 11 }} />
             {formatNumber(item.playCount)}
           </span>
         )}
@@ -939,7 +949,7 @@ function ChannelGroupRow({
                 {group.items.length} 首
               </span>
               <span className="flex shrink-0 items-center gap-1 font-semibold text-amber-200/75">
-                <StarRoundedIcon sx={{ fontSize: 12 }} />
+                <BookmarkRoundedIcon sx={{ fontSize: 12 }} />
                 {formatNumber(group.totalPlayCount)}
               </span>
             </div>
@@ -1052,6 +1062,8 @@ const FavoriteSongsPage: React.FC = () => {
   const [confirmSuppressChecked, setConfirmSuppressChecked] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [actionsMenuAnchor, setActionsMenuAnchor] =
+    useState<HTMLElement | null>(null);
   const suppressDeleteConfirmRef = useRef(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1132,9 +1144,13 @@ const FavoriteSongsPage: React.FC = () => {
     const rect = element.getBoundingClientRect();
     const width = Math.max(0, rect.width);
     const bottomReduction = isSelectMode ? BOTTOM_BAR_HEIGHT : 0;
+    const bottomInset =
+      window.innerWidth >= DESKTOP_BREAKPOINT_PX
+        ? LIST_BOTTOM_INSET_DESKTOP
+        : LIST_BOTTOM_INSET_MOBILE;
     const height = Math.max(
       260,
-      window.innerHeight - rect.top - bottomReduction - LIST_BOTTOM_INSET,
+      window.innerHeight - rect.top - bottomReduction - bottomInset,
     );
     setContainerSize((prev) =>
       prev.width === width && prev.height === height ? prev : { width, height },
@@ -1470,9 +1486,10 @@ const FavoriteSongsPage: React.FC = () => {
             </h1>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {flatItems.length > 0 && (
-              <>
+          {flatItems.length > 0 && (
+            <>
+              {/* Desktop: inline action buttons */}
+              <div className="hidden shrink-0 items-center gap-2 sm:flex">
                 <Button
                   variant={isSelectMode ? "contained" : "outlined"}
                   size="small"
@@ -1490,7 +1507,7 @@ const FavoriteSongsPage: React.FC = () => {
                           borderRadius: "12px",
                           fontWeight: 700,
                           minWidth: 0,
-                          px: { xs: 1, sm: 1.25 },
+                          px: 1.25,
                         }
                       : {
                           borderRadius: "12px",
@@ -1498,9 +1515,9 @@ const FavoriteSongsPage: React.FC = () => {
                           color: "var(--mc-text)",
                           fontWeight: 700,
                           minWidth: 0,
-                          px: { xs: 1, sm: 1.25 },
+                          px: 1.25,
                           "& .MuiButton-startIcon": {
-                            mr: { xs: 0.5, sm: 0.75 },
+                            mr: 0.75,
                             ml: 0,
                           },
                           "&:hover": {
@@ -1526,9 +1543,9 @@ const FavoriteSongsPage: React.FC = () => {
                     color: "rgba(254,202,202,0.86)",
                     fontWeight: 700,
                     minWidth: 0,
-                    px: { xs: 1, sm: 1.25 },
+                    px: 1.25,
                     "& .MuiButton-startIcon": {
-                      mr: { xs: 0.5, sm: 0.75 },
+                      mr: 0.75,
                       ml: 0,
                     },
                     "&:hover": {
@@ -1539,9 +1556,33 @@ const FavoriteSongsPage: React.FC = () => {
                 >
                   清空收藏
                 </Button>
-              </>
-            )}
-          </div>
+              </div>
+
+              {/* Mobile: overflow menu (single icon → popover) */}
+              <div className="shrink-0 sm:hidden">
+                <IconButton
+                  size="small"
+                  onClick={(event) => setActionsMenuAnchor(event.currentTarget)}
+                  aria-label="更多操作"
+                  aria-haspopup="true"
+                  aria-expanded={Boolean(actionsMenuAnchor)}
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "12px",
+                    border: "1px solid rgba(245,158,11,0.24)",
+                    color: "var(--mc-text)",
+                    "&:hover": {
+                      borderColor: "rgba(245,158,11,0.46)",
+                      backgroundColor: "rgba(245,158,11,0.08)",
+                    },
+                  }}
+                >
+                  <MoreVertRoundedIcon fontSize="small" />
+                </IconButton>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Compact stats + sort + layout */}
@@ -1848,6 +1889,90 @@ const FavoriteSongsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Mobile overflow menu — collapses 批次管理 + 清空收藏 into a popover */}
+      <Menu
+        anchorEl={actionsMenuAnchor}
+        open={Boolean(actionsMenuAnchor)}
+        onClose={() => setActionsMenuAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        MenuListProps={{ dense: true, sx: { py: 0.5 } }}
+        PaperProps={{
+          sx: {
+            mt: 0.75,
+            minWidth: 180,
+            bgcolor: "rgba(8,7,5,0.98)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid var(--mc-border)",
+            borderRadius: "14px",
+            color: "var(--mc-text)",
+            boxShadow:
+              "0 22px 54px -28px rgba(0,0,0,0.92), inset 0 1px 0 rgba(255,255,255,0.04)",
+            overflow: "hidden",
+            "& .MuiListItemIcon-root": {
+              minWidth: "0 !important",
+            },
+          },
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            setActionsMenuAnchor(null);
+            if (isSelectMode) {
+              exitSelectMode();
+            } else {
+              setIsSelectMode(true);
+            }
+          }}
+          sx={{
+            color: isSelectMode ? "#fde68a" : "var(--mc-text)",
+            "& .MuiListItemIcon-root": {
+              color: isSelectMode ? "#fde68a" : "var(--mc-text-muted)",
+            },
+            "&:hover": {
+              backgroundColor: "rgba(245,158,11,0.10)",
+            },
+          }}
+        >
+          <ListItemIcon>
+            {isSelectMode ? (
+              <DoneAllRoundedIcon fontSize="small" />
+            ) : (
+              <PlaylistAddCheckRoundedIcon fontSize="small" />
+            )}
+          </ListItemIcon>
+          <ListItemText
+            primary={isSelectMode ? "完成選取" : "批次管理"}
+            primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            setActionsMenuAnchor(null);
+            setShowClearAllConfirm(true);
+          }}
+          disabled={isDeletingAll}
+          sx={{
+            color: "rgba(254,202,202,0.92)",
+            "& .MuiListItemIcon-root": {
+              color: "rgba(254,202,202,0.92)",
+            },
+            "&:hover": {
+              backgroundColor: "rgba(244,63,94,0.12)",
+            },
+          }}
+        >
+          <ListItemIcon>
+            <DeleteSweepRoundedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary="清空收藏"
+            primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
+          />
+        </MenuItem>
+      </Menu>
     </main>
   );
 };
