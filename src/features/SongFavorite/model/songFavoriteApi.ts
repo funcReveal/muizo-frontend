@@ -4,6 +4,8 @@ import { ensureFreshAuthToken } from "@shared/auth/token";
 import type {
   CurrentRoomTrackFavoriteStatus,
   SongFavoriteListPage,
+  SongFavoriteSortKey,
+  SongFavoriteSortOrder,
 } from "./types";
 
 type ApiResponse<T> = {
@@ -118,11 +120,15 @@ export const songFavoriteApi = {
   listFavorites: (params: AuthParams & {
     cursor?: string;
     limit?: number;
+    sort?: SongFavoriteSortKey;
+    order?: SongFavoriteSortOrder;
     signal?: AbortSignal;
   }) => {
     const search = new URLSearchParams();
     if (params.cursor) search.set("cursor", params.cursor);
     if (params.limit) search.set("limit", String(params.limit));
+    if (params.sort) search.set("sort", params.sort);
+    if (params.order) search.set("order", params.order);
     const suffix = search.toString() ? `?${search.toString()}` : "";
     return requestJson<SongFavoriteListPage>(
       `/api/me/song-favorites${suffix}`,

@@ -11,6 +11,9 @@ export type SongFavoriteRecord = {
   updatedAt: string;
 };
 
+export type SongFavoriteSortKey = "updatedAt" | "playCount";
+export type SongFavoriteSortOrder = "asc" | "desc";
+
 export type CurrentRoomTrackFavoriteStatus = {
   currentTrack: {
     provider: "youtube";

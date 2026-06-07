@@ -16,42 +16,45 @@ import {
   FormControlLabel,
   IconButton,
   Tooltip,
-  Typography,
 } from "@mui/material";
+import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
+import AlbumRoundedIcon from "@mui/icons-material/AlbumRounded";
+import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
+import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import DeleteSweepRoundedIcon from "@mui/icons-material/DeleteSweepRounded";
+import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded";
 import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import PlaylistAddCheckRoundedIcon from "@mui/icons-material/PlaylistAddCheckRounded";
+import QueueMusicRoundedIcon from "@mui/icons-material/QueueMusicRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { List, type RowComponentProps } from "react-window";
 
 import { useSongFavoriteList } from "../model/useSongFavoriteList";
-import type { SongFavoriteRecord } from "../model/types";
+import type {
+  SongFavoriteRecord,
+  SongFavoriteSortKey,
+  SongFavoriteSortOrder,
+} from "../model/types";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const ITEM_HEIGHT = 82;
-const OVERSCAN_COUNT = 4;
-/** Fixed bottom bar content height. CSS env() handles iOS safe-area separately. */
-const BOTTOM_BAR_HEIGHT = 44;
-/** Bottom breathing room below the virtual list (px). */
-const LIST_BOTTOM_INSET = 16;
+const ITEM_HEIGHT = 98;
+const OVERSCAN_COUNT = 5;
+const BOTTOM_BAR_HEIGHT = 64;
+const LIST_BOTTOM_INSET = 18;
 const LONG_PRESS_MS = 500;
+const MAX_BATCH_DELETE_ITEMS = 100;
 
-// ---------------------------------------------------------------------------
-// Pure helpers
-// ---------------------------------------------------------------------------
-
-/** Module-level singleton — Intl.DateTimeFormat construction is expensive. */
 const DATE_FORMATTER = new Intl.DateTimeFormat("zh-TW", {
   month: "2-digit",
   day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
+});
+
+const NUMBER_FORMATTER = new Intl.NumberFormat("zh-TW", {
+  maximumFractionDigits: 0,
 });
 
 const formatDate = (value: string) => {
@@ -60,46 +63,50 @@ const formatDate = (value: string) => {
   return DATE_FORMATTER.format(date);
 };
 
+const formatDuration = (value: number | null) => {
+  if (!value || value <= 0) return null;
+  const minutes = Math.floor(value / 60);
+  const seconds = Math.floor(value % 60);
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+};
+
+const formatNumber = (value: number) => NUMBER_FORMATTER.format(value);
+
+const SORT_OPTIONS: {
+  key: SongFavoriteSortKey;
+  ariaLabel: string;
+  descAriaLabel: string;
+  ascAriaLabel: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    key: "updatedAt",
+    ariaLabel: "時間排序",
+    descAriaLabel: "新到舊",
+    ascAriaLabel: "舊到新",
+    icon: <AccessTimeRoundedIcon sx={{ fontSize: 17 }} />,
+  },
+  {
+    key: "playCount",
+    ariaLabel: "收藏次數排序",
+    descAriaLabel: "高到低",
+    ascAriaLabel: "低到高",
+    icon: <StarRoundedIcon sx={{ fontSize: 17 }} />,
+  },
+];
+
+const getDefaultSortOrder = (key: SongFavoriteSortKey): SongFavoriteSortOrder =>
+  key === "updatedAt" ? "desc" : "desc";
+
+const getFavoriteKey = (item: SongFavoriteRecord) =>
+  `${item.provider}:${item.sourceId}`;
+
 const getThumbnail = (item: SongFavoriteRecord) =>
   item.thumbnailUrl ||
-  `https://i.ytimg.com/vi/${item.sourceId}/mqdefault.jpg`;
+  `https://i.ytimg.com/vi/${encodeURIComponent(item.sourceId)}/mqdefault.jpg`;
 
 const getYoutubeUrl = (sourceId: string) =>
   `https://www.youtube.com/watch?v=${encodeURIComponent(sourceId)}`;
-
-// ---------------------------------------------------------------------------
-// Skeleton card
-// ---------------------------------------------------------------------------
-
-const TITLE_WIDTHS = ["72%", "60%", "78%", "55%", "68%"] as const;
-const CHANNEL_WIDTHS = ["28%", "34%", "22%", "38%", "26%"] as const;
-
-const SkeletonCard: React.FC<{ style?: React.CSSProperties; index?: number }> = ({
-  style,
-  index = 0,
-}) => {
-  const slot = index % TITLE_WIDTHS.length;
-  return (
-    <div style={style} className="py-[5px]">
-      <div className="h-[72px] flex items-center gap-3 px-3 rounded-xl border border-slate-800/50 bg-slate-900/50 animate-pulse">
-        <div className="shrink-0 h-[50px] w-[88px] rounded-lg bg-slate-800/80" />
-        <div className="flex-1 min-w-0 space-y-2.5">
-          <div className="h-3 rounded-full bg-slate-800/80" style={{ width: TITLE_WIDTHS[slot] }} />
-          <div className="flex items-center gap-2">
-            <div className="h-2 rounded-full bg-slate-800/60" style={{ width: CHANNEL_WIDTHS[slot] }} />
-            <div className="h-2 w-[10%] rounded-full bg-slate-800/40" />
-            <div className="h-2 w-[14%] rounded-full bg-slate-800/40" />
-          </div>
-        </div>
-        <div className="shrink-0 h-7 w-7 rounded-full bg-slate-800/50" />
-      </div>
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Types shared between row and page
-// ---------------------------------------------------------------------------
 
 type PendingDelete = { provider: "youtube"; sourceId: string }[];
 
@@ -113,11 +120,126 @@ type FavoriteRowProps = {
   onLongPress: (key: string) => void;
 };
 
-// ---------------------------------------------------------------------------
-// Row component — module-level so react-window reuses the same reference
-// ---------------------------------------------------------------------------
+type LoadedStats = {
+  loadedCount: number;
+  totalPlayCount: number;
+  channelCount: number;
+};
 
-const FavoriteRow = React.memo(function FavoriteRow({
+const getLoadedStats = (items: SongFavoriteRecord[]): LoadedStats => {
+  let totalPlayCount = 0;
+  const channels = new Set<string>();
+
+  for (const item of items) {
+    totalPlayCount += item.playCount;
+    const channel = item.channelTitle?.trim();
+    if (channel) {
+      channels.add(channel);
+    }
+  }
+
+  return {
+    loadedCount: items.length,
+    totalPlayCount,
+    channelCount: channels.size,
+  };
+};
+
+const TITLE_WIDTHS = ["72%", "58%", "82%", "64%", "76%"] as const;
+const META_WIDTHS = ["46%", "34%", "52%", "40%", "58%"] as const;
+
+const SkeletonCard: React.FC<{ style?: React.CSSProperties; index?: number }> = ({
+  style,
+  index = 0,
+}) => {
+  const slot = index % TITLE_WIDTHS.length;
+
+  return (
+    <div style={style} className="py-1.5">
+      <div className="relative h-[86px] overflow-hidden rounded-[18px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.82),rgba(8,7,5,0.94))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="flex h-full items-center gap-3">
+          <div className="h-[58px] w-[104px] shrink-0 animate-pulse rounded-[14px] bg-white/8" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div
+              className="h-3.5 animate-pulse rounded-full bg-white/10"
+              style={{ width: TITLE_WIDTHS[slot] }}
+            />
+            <div
+              className="h-2.5 animate-pulse rounded-full bg-white/7"
+              style={{ width: META_WIDTHS[slot] }}
+            />
+          </div>
+          <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/8" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StatTile: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}> = ({ icon, label, value }) => (
+  <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[14px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.78),rgba(8,7,5,0.92))] px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:justify-start sm:gap-2 sm:px-2.5">
+    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-[10px] border border-amber-200/14 bg-amber-300/10 text-amber-200">
+      {icon}
+    </span>
+    <span className="sr-only truncate text-[11px] font-semibold tracking-[0.1em] text-[var(--mc-text-muted)] sm:not-sr-only">
+      {label}
+    </span>
+    <span className="shrink-0 text-base font-semibold leading-none tracking-tight text-[var(--mc-text)] sm:text-lg">
+      {value}
+    </span>
+  </div>
+);
+
+const SortControl: React.FC<{
+  sortKey: SongFavoriteSortKey;
+  sortOrder: SongFavoriteSortOrder;
+  onChange: (key: SongFavoriteSortKey) => void;
+}> = ({ sortKey, sortOrder, onChange }) => (
+  <div className="flex min-w-0 items-center gap-1 rounded-[14px] border border-[var(--mc-border)] bg-black/18 p-1">
+    {SORT_OPTIONS.map((option) => {
+      const isActive = sortKey === option.key;
+      const directionLabel =
+        sortOrder === "desc" ? option.descAriaLabel : option.ascAriaLabel;
+      const DirectionIcon =
+        sortOrder === "desc"
+          ? ArrowDownwardRoundedIcon
+          : ArrowUpwardRoundedIcon;
+
+      return (
+        <Tooltip
+          key={option.key}
+          title={`${option.ariaLabel}：${isActive ? directionLabel : "點擊切換"}`}
+          arrow
+        >
+          <button
+            type="button"
+            onClick={() => onChange(option.key)}
+            className={[
+              "inline-flex h-8 shrink-0 items-center justify-center rounded-[10px] text-xs font-bold transition",
+              isActive ? "w-12 gap-1.5" : "w-8",
+              isActive
+                ? "bg-amber-300/16 text-amber-100 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.24)]"
+                : "text-[var(--mc-text-muted)] hover:bg-white/6 hover:text-[var(--mc-text)]",
+            ].join(" ")}
+            aria-pressed={isActive}
+            aria-label={`${option.ariaLabel}，${
+              isActive ? directionLabel : "點擊切換"
+            }`}
+          >
+            {option.icon}
+            {isActive && <DirectionIcon sx={{ fontSize: 14 }} />}
+          </button>
+        </Tooltip>
+      );
+    })}
+  </div>
+);
+
+function FavoriteRow({
   ariaAttributes,
   index,
   style,
@@ -128,9 +250,10 @@ const FavoriteRow = React.memo(function FavoriteRow({
   onToggleSelect,
   onRequestDelete,
   onLongPress,
-}: RowComponentProps<FavoriteRowProps>) {
+}: RowComponentProps<FavoriteRowProps>): React.ReactElement {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const item = items[index];
 
   useEffect(() => {
     return () => {
@@ -138,18 +261,16 @@ const FavoriteRow = React.memo(function FavoriteRow({
     };
   }, []);
 
-  const item = items[index];
-
-  // Sentinel row while next page is loading
   if (!item) return <SkeletonCard style={style} index={index} />;
 
-  const key = `${item.provider}:${item.sourceId}`;
+  const key = getFavoriteKey(item);
   const isSelected = selectedKeys.has(key);
   const isDeleting = deletingKeys.has(key);
+  const durationLabel = formatDuration(item.durationSec);
 
-  const handlePointerDown = (e: React.PointerEvent) => {
+  const handlePointerDown = (event: React.PointerEvent) => {
     if (isSelectMode) return;
-    pointerStart.current = { x: e.clientX, y: e.clientY };
+    pointerStart.current = { x: event.clientX, y: event.clientY };
     longPressTimer.current = setTimeout(() => {
       onLongPress(key);
       longPressTimer.current = null;
@@ -157,11 +278,11 @@ const FavoriteRow = React.memo(function FavoriteRow({
     }, LONG_PRESS_MS);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
+  const handlePointerMove = (event: React.PointerEvent) => {
     if (longPressTimer.current === null || !pointerStart.current) return;
     if (
-      Math.abs(e.clientX - pointerStart.current.x) > 8 ||
-      Math.abs(e.clientY - pointerStart.current.y) > 8
+      Math.abs(event.clientX - pointerStart.current.x) > 8 ||
+      Math.abs(event.clientY - pointerStart.current.y) > 8
     ) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -178,13 +299,15 @@ const FavoriteRow = React.memo(function FavoriteRow({
   };
 
   return (
-    <div style={style} {...ariaAttributes} className="py-[5px]">
+    <div style={style} {...ariaAttributes} className="py-1.5">
       <article
         className={[
-          "h-[72px] flex items-center gap-3 px-3 rounded-xl border transition-all duration-150 select-none",
+          "group flex h-[86px] min-w-0 items-center gap-3 rounded-[18px] border px-2.5 py-2 transition duration-160",
+          "bg-[linear-gradient(180deg,rgba(20,17,13,0.72),rgba(8,7,5,0.94))] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
           isSelected
-            ? "border-cyan-500/50 bg-cyan-950/35 shadow-[inset_0_0_0_1px_rgba(6,182,212,0.15)]"
-            : "border-slate-800/70 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/80",
+            ? "border-cyan-300/55 ring-1 ring-cyan-300/20"
+            : "border-[var(--mc-border)] hover:border-amber-200/32 hover:bg-[linear-gradient(180deg,rgba(29,22,13,0.86),rgba(10,8,5,0.96))]",
+          isDeleting ? "opacity-60" : "",
           isSelectMode ? "cursor-pointer" : "",
         ]
           .filter(Boolean)
@@ -196,70 +319,68 @@ const FavoriteRow = React.memo(function FavoriteRow({
         onPointerUp={cancelLongPress}
         onPointerLeave={cancelLongPress}
         onPointerCancel={cancelLongPress}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={(event) => event.preventDefault()}
       >
-        {/* Thumbnail */}
         <a
           href={getYoutubeUrl(item.sourceId)}
           target="_blank"
           rel="noreferrer"
-          className="shrink-0 block overflow-hidden rounded-lg border border-slate-800/80 bg-slate-950"
-          aria-label={`開啟 ${item.title}`}
-          onClick={isSelectMode ? (e) => e.preventDefault() : undefined}
+          className="relative block h-[62px] w-[110px] shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-black/40"
+          aria-label={`在 YouTube 開啟 ${item.title}`}
+          onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
         >
           <img
             src={getThumbnail(item)}
             alt=""
-            className="h-[50px] w-[88px] object-cover transition-opacity hover:opacity-80"
+            className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.025]"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
+          {durationLabel && (
+            <span className="absolute bottom-1 right-1 rounded bg-black/72 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              {durationLabel}
+            </span>
+          )}
         </a>
 
-        {/* Text block */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <a
             href={getYoutubeUrl(item.sourceId)}
             target="_blank"
             rel="noreferrer"
-            className="group inline-flex max-w-full items-center gap-1 text-slate-100 hover:text-cyan-200 transition-colors"
-            onClick={isSelectMode ? (e) => e.preventDefault() : undefined}
+            className="inline-flex max-w-full items-center gap-1.5 text-[15px] font-semibold leading-tight text-[var(--mc-text)] transition hover:text-amber-100"
+            onClick={isSelectMode ? (event) => event.preventDefault() : undefined}
           >
-            <span className="truncate text-sm font-bold leading-tight">{item.title}</span>
+            <span className="truncate">{item.title}</span>
             <OpenInNewRoundedIcon
-              sx={{ fontSize: 12 }}
-              className="shrink-0 opacity-0 group-hover:opacity-50 transition-opacity"
+              sx={{ fontSize: 14 }}
+              className="shrink-0 opacity-0 transition group-hover:opacity-55"
             />
           </a>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            {item.channelTitle && (
-              <>
-                <span className="truncate text-[11px] text-slate-500 max-w-[130px] max-sm:max-w-[80px]">
-                  {item.channelTitle}
-                </span>
-                <span className="text-slate-700 text-xs shrink-0">·</span>
-              </>
-            )}
-            <span className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-400">
-              <StarRoundedIcon sx={{ fontSize: 10 }} />
-              {item.playCount}
+
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--mc-text-muted)]/74">
+            <span className="max-w-[48vw] truncate sm:max-w-[220px]">
+              {item.channelTitle || "未知頻道"}
             </span>
-            <span className="text-slate-700 text-xs shrink-0">·</span>
-            <span className="shrink-0 text-[11px] text-slate-600">{formatDate(item.updatedAt)}</span>
+            <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-amber-200/90">
+              <StarRoundedIcon sx={{ fontSize: 13 }} />
+              {formatNumber(item.playCount)}
+            </span>
+            <span className="shrink-0">更新 {formatDate(item.updatedAt)}</span>
           </div>
         </div>
 
-        {/* Right action: checkbox in select mode, delete button otherwise */}
         {isSelectMode ? (
           <Checkbox
             size="small"
             checked={isSelected}
             onChange={() => onToggleSelect(key)}
-            onClick={(e) => e.stopPropagation()}
-            className="!p-0 shrink-0"
+            onClick={(event) => event.stopPropagation()}
+            className="!p-0"
+            inputProps={{ "aria-label": `選取 ${item.title}` }}
             sx={{
-              color: "rgba(100,116,139,0.5)",
-              "&.Mui-checked": { color: "#22d3ee" },
+              color: "rgba(231,216,191,0.42)",
+              "&.Mui-checked": { color: "#67e8f9" },
             }}
           />
         ) : (
@@ -268,12 +389,12 @@ const FavoriteRow = React.memo(function FavoriteRow({
               <IconButton
                 aria-label={`移除收藏：${item.title}`}
                 disabled={isDeleting}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={(event) => {
+                  event.stopPropagation();
                   onRequestDelete(item.provider, item.sourceId);
                 }}
                 size="small"
-                className="!text-slate-600 hover:!text-rose-300 !transition-colors"
+                className="!text-[var(--mc-text-muted)]/58 hover:!text-rose-300"
               >
                 <DeleteOutlineRoundedIcon fontSize="small" />
               </IconButton>
@@ -283,134 +404,160 @@ const FavoriteRow = React.memo(function FavoriteRow({
       </article>
     </div>
   );
-});
-
-// ---------------------------------------------------------------------------
-// Page component
-// ---------------------------------------------------------------------------
+}
 
 const FavoriteSongsPage: React.FC = () => {
+  const [sortKey, setSortKey] = useState<SongFavoriteSortKey>("updatedAt");
+  const [sortOrder, setSortOrder] = useState<SongFavoriteSortOrder>("desc");
   const {
     items: flatItems,
     isLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
+    error,
     deleteFavorite,
     batchDeleteFavorites,
     deleteAllFavorites,
     isBatchDeleting,
     isDeletingAll,
-  } = useSongFavoriteList(50);
+  } = useSongFavoriteList({
+    limit: 50,
+    sort: sortKey,
+    order: sortOrder,
+  });
 
-  // --- Selection ---
   const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
-
-  // --- Per-item in-flight state (covers error rollback path) ---
-  const [deletingKeys, setDeletingKeys] = useState<ReadonlySet<string>>(() => new Set());
-
-  // --- Delete confirmation ---
+  const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [deletingKeys, setDeletingKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [operationError, setOperationError] = useState<string | null>(null);
   const [confirmSuppressChecked, setConfirmSuppressChecked] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
-  /**
-   * Session-scoped flag. Once the user checks "本次不再顯示" and confirms,
-   * future delete actions skip the dialog until page reload.
-   */
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const suppressDeleteConfirmRef = useRef(false);
 
-  // --- Clear-all confirmation ---
-  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
-
-  // --- Virtual list container height ---
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
 
-  /**
-   * Measures available list height from the container's top to the viewport bottom,
-   * subtracting the fixed bottom bar when in select mode.
-   * Extracted into a stable callback so multiple effects can share it.
-   */
+  const stats = useMemo(() => getLoadedStats(flatItems), [flatItems]);
+  const loadedKeys = useMemo(
+    () => new Set(flatItems.map(getFavoriteKey)),
+    [flatItems],
+  );
+
   const updateHeight = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const top = el.getBoundingClientRect().top;
+    const element = containerRef.current;
+    if (!element) return;
+    const top = element.getBoundingClientRect().top;
     const bottomReduction = isSelectMode ? BOTTOM_BAR_HEIGHT : 0;
-    setContainerHeight(Math.max(200, window.innerHeight - top - bottomReduction - LIST_BOTTOM_INSET));
+    setContainerHeight(
+      Math.max(
+        260,
+        window.innerHeight - top - bottomReduction - LIST_BOTTOM_INSET,
+      ),
+    );
   }, [isSelectMode]);
 
-  // Re-measure on window resize and whenever select mode (bottom bar) toggles.
   useEffect(() => {
     updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, [updateHeight]);
 
-  // Re-measure when data first arrives so the list isn't stuck at height 0.
   useEffect(() => {
     updateHeight();
-  }, [flatItems.length, updateHeight]);
+  }, [flatItems.length, operationError, updateHeight]);
 
-  // ---------------------------------------------------------------------------
-  // Selection handlers
-  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    setSelectedKeys((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<string>();
+      for (const key of prev) {
+        if (loadedKeys.has(key)) next.add(key);
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [loadedKeys]);
 
   const exitSelectMode = useCallback(() => {
     setIsSelectMode(false);
     setSelectedKeys(new Set());
   }, []);
 
+  const handleSortChange = useCallback(
+    (nextKey: SongFavoriteSortKey) => {
+      setOperationError(null);
+      exitSelectMode();
+      if (nextKey === sortKey) {
+        setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+        return;
+      }
+      setSortKey(nextKey);
+      setSortOrder(getDefaultSortOrder(nextKey));
+    },
+    [exitSelectMode, sortKey],
+  );
+
   const toggleSelect = useCallback((key: string) => {
+    setOperationError(null);
     setSelectedKeys((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+        return next;
+      }
+      if (next.size >= MAX_BATCH_DELETE_ITEMS) return prev;
+      next.add(key);
       return next;
     });
   }, []);
 
-  const handleSelectAll = useCallback(() => {
-    setSelectedKeys((prev) =>
-      prev.size === flatItems.length
-        ? new Set()
-        : new Set(flatItems.map((i) => `${i.provider}:${i.sourceId}`)),
-    );
-  }, [flatItems]);
-
   const handleLongPress = useCallback((key: string) => {
+    setOperationError(null);
     setIsSelectMode(true);
     setSelectedKeys(new Set([key]));
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Delete logic
-  // ---------------------------------------------------------------------------
-
   const executeDelete = useCallback(
     async (items: PendingDelete) => {
-      if (items.length === 1) {
-        const [item] = items;
-        const key = `${item!.provider}:${item!.sourceId}`;
-        setDeletingKeys((prev) => new Set([...prev, key]));
-        try {
-          await deleteFavorite({ provider: item!.provider, sourceId: item!.sourceId });
-        } finally {
-          setDeletingKeys((prev) => {
-            const next = new Set(prev);
-            next.delete(key);
-            return next;
-          });
+      setOperationError(null);
+      try {
+        if (items.length === 1) {
+          const [item] = items;
+          const key = `${item!.provider}:${item!.sourceId}`;
+          setDeletingKeys((prev) => new Set([...prev, key]));
+          try {
+            await deleteFavorite({
+              provider: item!.provider,
+              sourceId: item!.sourceId,
+            });
+          } finally {
+            setDeletingKeys((prev) => {
+              const next = new Set(prev);
+              next.delete(key);
+              return next;
+            });
+          }
+          return;
         }
-      } else {
-        try {
-          await batchDeleteFavorites(items);
-          exitSelectMode();
-        } catch {
-          // Optimistic rollback handled by mutation onError.
+
+        if (items.length > MAX_BATCH_DELETE_ITEMS) {
+          throw new Error(`一次最多可移除 ${MAX_BATCH_DELETE_ITEMS} 首已載入歌曲`);
         }
+
+        await batchDeleteFavorites(items);
+        exitSelectMode();
+      } catch (err) {
+        setOperationError(
+          err instanceof Error ? err.message : "操作失敗，請稍後再試。",
+        );
       }
     },
-    [deleteFavorite, batchDeleteFavorites, exitSelectMode],
+    [batchDeleteFavorites, deleteFavorite, exitSelectMode],
   );
 
   const requestDelete = useCallback(
@@ -434,37 +581,41 @@ const FavoriteSongsPage: React.FC = () => {
     const items = pendingDelete;
     setPendingDelete(null);
     await executeDelete(items);
-  }, [pendingDelete, confirmSuppressChecked, executeDelete]);
+  }, [confirmSuppressChecked, executeDelete, pendingDelete]);
 
   const handleBatchDeleteSelected = useCallback(() => {
     const items = flatItems
-      .filter((i) => selectedKeys.has(`${i.provider}:${i.sourceId}`))
-      .map((i) => ({ provider: i.provider, sourceId: i.sourceId }));
+      .filter((item) => selectedKeys.has(getFavoriteKey(item)))
+      .map((item) => ({ provider: item.provider, sourceId: item.sourceId }));
     requestDelete(items);
-  }, [selectedKeys, flatItems, requestDelete]);
+  }, [flatItems, requestDelete, selectedKeys]);
 
   const handleClearAll = useCallback(async () => {
+    setOperationError(null);
     try {
       await deleteAllFavorites();
-    } finally {
       setShowClearAllConfirm(false);
       exitSelectMode();
+    } catch (err) {
+      setOperationError(
+        err instanceof Error ? err.message : "清空收藏失敗，請稍後再試。",
+      );
     }
   }, [deleteAllFavorites, exitSelectMode]);
-
-  // ---------------------------------------------------------------------------
-  // Virtual list config
-  // ---------------------------------------------------------------------------
 
   const rowCount = flatItems.length + (hasNextPage ? 1 : 0);
 
   const handleRowsRendered = useCallback(
     (visibleRows: { startIndex: number; stopIndex: number }) => {
-      if (!isFetchingNextPage && hasNextPage && visibleRows.stopIndex >= flatItems.length - 8) {
+      if (
+        !isFetchingNextPage &&
+        hasNextPage &&
+        visibleRows.stopIndex >= flatItems.length - 8
+      ) {
         void fetchNextPage();
       }
     },
-    [isFetchingNextPage, hasNextPage, flatItems.length, fetchNextPage],
+    [fetchNextPage, flatItems.length, hasNextPage, isFetchingNextPage],
   );
 
   const rowProps = useMemo<FavoriteRowProps>(
@@ -474,169 +625,214 @@ const FavoriteSongsPage: React.FC = () => {
       isSelectMode,
       deletingKeys,
       onToggleSelect: toggleSelect,
-      onRequestDelete: (provider, sourceId) => requestDelete([{ provider, sourceId }]),
+      onRequestDelete: (provider, sourceId) =>
+        requestDelete([{ provider, sourceId }]),
       onLongPress: handleLongPress,
     }),
-    [flatItems, selectedKeys, isSelectMode, deletingKeys, toggleSelect, requestDelete, handleLongPress],
+    [
+      deletingKeys,
+      flatItems,
+      handleLongPress,
+      isSelectMode,
+      requestDelete,
+      selectedKeys,
+      toggleSelect,
+    ],
   );
 
-  const allSelected = flatItems.length > 0 && selectedKeys.size === flatItems.length;
-  const someSelected = selectedKeys.size > 0 && selectedKeys.size < flatItems.length;
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-
   return (
-    <main className="flex min-h-0 w-full flex-1 flex-col gap-3">
+    <main className="flex min-h-[calc(100dvh-150px)] w-full min-w-0 flex-col overflow-hidden px-1 pb-1 text-[var(--mc-text)] sm:px-0">
+      <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[var(--mc-border)] bg-[linear-gradient(180deg,rgba(20,17,13,0.96),rgba(8,7,5,0.99))] p-2.5 shadow-[0_22px_54px_-38px_rgba(0,0,0,0.84),inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-3">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/45 to-transparent" />
+        <div className="flex shrink-0 items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold tracking-tight text-[var(--mc-text)] sm:text-3xl">
+              收藏歌曲
+            </h1>
+          </div>
 
-      {/* ── Header — single row: title + count badge | action buttons ── */}
-      <section className="flex shrink-0 items-center justify-between gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {flatItems.length > 0 && (
+              <>
+                <Button
+                  variant={isSelectMode ? "contained" : "outlined"}
+                  size="small"
+                  startIcon={
+                    isSelectMode ? (
+                      <DoneAllRoundedIcon />
+                    ) : (
+                      <PlaylistAddCheckRoundedIcon />
+                    )
+                  }
+                  onClick={isSelectMode ? exitSelectMode : () => setIsSelectMode(true)}
+                  sx={
+                    isSelectMode
+                      ? {
+                          borderRadius: "12px",
+                          fontWeight: 700,
+                          minWidth: 0,
+                          px: { xs: 1, sm: 1.25 },
+                        }
+                      : {
+                          borderRadius: "12px",
+                          borderColor: "rgba(245,158,11,0.24)",
+                          color: "var(--mc-text)",
+                          fontWeight: 700,
+                          minWidth: 0,
+                          px: { xs: 1, sm: 1.25 },
+                          "& .MuiButton-startIcon": {
+                            mr: { xs: 0.5, sm: 0.75 },
+                            ml: 0,
+                          },
+                          "&:hover": {
+                            borderColor: "rgba(245,158,11,0.46)",
+                            backgroundColor: "rgba(245,158,11,0.08)",
+                          },
+                        }
+                  }
+                >
+                  {isSelectMode ? "完成選取" : "批次管理"}
+                </Button>
 
-        {/* Left: title + count badge inline */}
-        <div className="flex min-w-0 items-center gap-2">
-          <Typography variant="h4" className="!font-black text-slate-100 shrink-0">
-            收藏歌曲
-          </Typography>
-          {flatItems.length > 0 && (
-            <span className="inline-flex shrink-0 items-center rounded-full border border-cyan-800/50 bg-cyan-950/60 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
-              {flatItems.length}{hasNextPage ? "+" : ""}&nbsp;首
-            </span>
-          )}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="error"
+                  startIcon={<DeleteSweepRoundedIcon />}
+                  onClick={() => setShowClearAllConfirm(true)}
+                  disabled={isDeletingAll}
+                  sx={{
+                    borderRadius: "12px",
+                    borderColor: "rgba(248,113,113,0.28)",
+                    color: "rgba(254,202,202,0.86)",
+                    fontWeight: 700,
+                    minWidth: 0,
+                    px: { xs: 1, sm: 1.25 },
+                    "& .MuiButton-startIcon": {
+                      mr: { xs: 0.5, sm: 0.75 },
+                      ml: 0,
+                    },
+                    "&:hover": {
+                      borderColor: "rgba(248,113,113,0.52)",
+                      backgroundColor: "rgba(244,63,94,0.08)",
+                    },
+                  }}
+                >
+                  清空收藏
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Right: action buttons */}
-        {flatItems.length > 0 && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Button
-              variant={isSelectMode ? "contained" : "outlined"}
-              size="small"
-              startIcon={<PlaylistAddCheckRoundedIcon />}
-              onClick={isSelectMode ? exitSelectMode : () => setIsSelectMode(true)}
-              sx={
-                isSelectMode
-                  ? { minWidth: 0 }
-                  : {
-                      minWidth: 0,
-                      borderColor: "rgba(100,116,139,0.35)",
-                      color: "rgba(148,163,184,0.8)",
-                      "&:hover": { borderColor: "rgba(100,116,139,0.6)" },
-                    }
-              }
-            >
-              {/* Desktop: full text; Mobile: shorter label */}
-              <span className="hidden sm:inline">{isSelectMode ? "取消多選" : "多選"}</span>
-              <span className="sm:hidden">{isSelectMode ? "取消" : "多選"}</span>
-            </Button>
+        <div className="mt-2 flex shrink-0 items-stretch gap-1.5 sm:gap-2">
+          <div className="grid min-w-0 flex-1 grid-cols-3 gap-1.5 sm:gap-2">
+            <StatTile
+              icon={<QueueMusicRoundedIcon sx={{ fontSize: 17 }} />}
+              label="已載入"
+              value={`${formatNumber(stats.loadedCount)}${hasNextPage ? "+" : ""}`}
+            />
+            <StatTile
+              icon={<StarRoundedIcon sx={{ fontSize: 17 }} />}
+              label="收藏次數"
+              value={formatNumber(stats.totalPlayCount)}
+            />
+            <StatTile
+              icon={<AlbumRoundedIcon sx={{ fontSize: 17 }} />}
+              label="頻道數"
+              value={formatNumber(stats.channelCount)}
+            />
+          </div>
+          <SortControl
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            onChange={handleSortChange}
+          />
+        </div>
 
-            <Button
-              variant="outlined"
-              size="small"
-              color="error"
-              startIcon={<DeleteSweepRoundedIcon />}
-              onClick={() => setShowClearAllConfirm(true)}
-              disabled={isDeletingAll}
-              sx={{
-                minWidth: 0,
-                borderColor: "rgba(239,68,68,0.3)",
-                color: "rgba(252,165,165,0.75)",
-                "&:hover": { borderColor: "rgba(239,68,68,0.6)" },
-              }}
-            >
-              {/* Desktop: full text; Mobile: short label */}
-              <span className="hidden sm:inline">清除全部</span>
-              <span className="sm:hidden">清除</span>
-            </Button>
+        {(operationError || error) && (
+          <div className="mt-2 shrink-0 rounded-[14px] border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+            {operationError ||
+              (error instanceof Error ? error.message : "收藏歌曲載入失敗")}
           </div>
         )}
+
+        <div ref={containerRef} className="mt-2 min-h-0 flex-1">
+            {isLoading ? (
+              <div>
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <SkeletonCard key={index} index={index} />
+                ))}
+              </div>
+            ) : flatItems.length === 0 ? (
+              <div
+                className="flex flex-col items-center justify-center rounded-[22px] border border-dashed border-[var(--mc-border)] bg-black/18 px-6 text-center"
+                style={{ height: containerHeight > 0 ? containerHeight : 360 }}
+              >
+                <span className="grid h-16 w-16 place-items-center rounded-[22px] border border-amber-200/16 bg-amber-300/10 text-amber-100">
+                  <MusicNoteRoundedIcon sx={{ fontSize: 32 }} />
+                </span>
+                <h2 className="mt-5 text-lg font-semibold text-[var(--mc-text)]">
+                  還沒有收藏歌曲
+                </h2>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--mc-text-muted)]">
+                  在遊戲中按下收藏後，歌曲會同步到這裡，方便你之後回聽或整理。
+                </p>
+              </div>
+            ) : containerHeight > 0 ? (
+              <List
+                style={{ height: containerHeight }}
+                rowComponent={FavoriteRow}
+                rowCount={rowCount}
+                rowHeight={ITEM_HEIGHT}
+                rowProps={rowProps}
+                overscanCount={OVERSCAN_COUNT}
+                onRowsRendered={handleRowsRendered}
+              />
+            ) : null}
+          </div>
       </section>
 
-      {/* ── Content area — container is ALWAYS in DOM so the ref is always valid ── */}
-      <div ref={containerRef} className="flex-1 min-h-0">
-        {isLoading ? (
-          <>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonCard key={i} index={i} />
-            ))}
-          </>
-        ) : flatItems.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center gap-5 rounded-xl border border-slate-800/60 bg-slate-950/50 px-6 text-center"
-            style={{ height: containerHeight > 0 ? containerHeight : "100%" }}
-          >
-            <span className="grid h-16 w-16 place-items-center rounded-full border border-cyan-300/20 bg-gradient-to-b from-cyan-300/10 to-transparent text-cyan-300">
-              <MusicNoteRoundedIcon sx={{ fontSize: 30 }} />
-            </span>
-            <div>
-              <Typography variant="h6" className="!font-bold text-slate-100">
-                還沒有收藏歌曲
-              </Typography>
-              <Typography variant="body2" className="mt-1.5 max-w-xs text-slate-400">
-                遊戲進行中點擊書籤圖示，就能把歌曲記錄到這裡。
-              </Typography>
-            </div>
-          </div>
-        ) : containerHeight > 0 ? (
-          <List
-            style={{ height: containerHeight }}
-            rowComponent={FavoriteRow}
-            rowCount={rowCount}
-            rowHeight={ITEM_HEIGHT}
-            rowProps={rowProps}
-            overscanCount={OVERSCAN_COUNT}
-            onRowsRendered={handleRowsRendered}
-          />
-        ) : null}
-      </div>
-
-      {/* ── Bottom bar — fixed, compact, 全選 left of 刪除 ── */}
       {isSelectMode && (
         <div
-          className="fixed bottom-0 inset-x-0 z-[60] flex items-center gap-2 border-t border-slate-700/60 bg-slate-950/95 px-3 backdrop-blur-md"
+          className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--mc-border)] bg-[rgba(8,7,5,0.96)] px-3 shadow-[0_-18px_40px_-28px_rgba(0,0,0,0.95)] backdrop-blur-xl"
           style={{
-            height: `calc(${BOTTOM_BAR_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+            minHeight: `calc(${BOTTOM_BAR_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
             paddingBottom: "env(safe-area-inset-bottom, 0px)",
           }}
         >
-          {/* Selected count */}
-          <Typography variant="body2" className="flex-1 text-sm text-slate-300">
-            已選 <strong className="text-cyan-300">{selectedKeys.size}</strong> 首
-          </Typography>
-
-          {/* 全選 checkbox */}
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={allSelected}
-                indeterminate={someSelected}
-                onChange={handleSelectAll}
-                sx={{
-                  p: 0.25,
-                  color: "rgba(100,116,139,0.5)",
-                  "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#22d3ee" },
-                }}
-              />
-            }
-            label={<span className="select-none text-xs text-slate-400">全選</span>}
-            sx={{ m: 0, gap: 0.5 }}
-          />
-
-          {/* Delete selected */}
-          <Button
-            variant="contained"
-            color="error"
-            size="small"
-            disabled={selectedKeys.size === 0 || isBatchDeleting}
-            onClick={handleBatchDeleteSelected}
-            startIcon={<DeleteOutlineRoundedIcon />}
-          >
-            刪除 ({selectedKeys.size})
-          </Button>
+          <div className="mx-auto flex h-16 max-w-5xl items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-[var(--mc-text)]">
+                已選取 {selectedKeys.size} 首
+              </div>
+              <div className="truncate text-xs text-[var(--mc-text-muted)]">
+                單次批次上限 {MAX_BATCH_DELETE_ITEMS} 首
+              </div>
+            </div>
+            <Button
+              variant="text"
+              size="small"
+              onClick={exitSelectMode}
+              sx={{ color: "var(--mc-text-muted)", fontWeight: 700 }}
+            >
+              取消
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              size="small"
+              disabled={selectedKeys.size === 0 || isBatchDeleting}
+              onClick={handleBatchDeleteSelected}
+              startIcon={<DeleteOutlineRoundedIcon />}
+              sx={{ borderRadius: "12px", fontWeight: 800 }}
+            >
+              移除
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* ── Delete confirmation dialog ── */}
       <Dialog
         open={pendingDelete !== null}
         onClose={() => setPendingDelete(null)}
@@ -644,53 +840,57 @@ const FavoriteSongsPage: React.FC = () => {
         fullWidth
         PaperProps={{
           sx: {
-            bgcolor: "rgba(2,6,23,0.97)",
-            border: "1px solid rgba(239,68,68,0.18)",
-            borderRadius: "16px",
-            backdropFilter: "blur(16px)",
+            bgcolor: "rgba(8,7,5,0.98)",
+            border: "1px solid rgba(248,113,113,0.24)",
+            borderRadius: "20px",
+            color: "var(--mc-text)",
             overflow: "hidden",
           },
         }}
       >
-        {/* Accent bar */}
-        <div className="h-px w-full bg-gradient-to-r from-rose-700/0 via-rose-500/60 to-rose-700/0" />
-
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-rose-300/70 to-transparent" />
         <DialogTitle
           sx={{
             pt: 2.5,
             pb: 1,
-            color: "#f1f5f9",
+            color: "var(--mc-text)",
             fontWeight: 800,
             display: "flex",
             alignItems: "center",
             gap: 1.5,
           }}
         >
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-rose-500/15 text-rose-400">
-            <DeleteOutlineRoundedIcon sx={{ fontSize: 18 }} />
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[14px] bg-rose-500/14 text-rose-200">
+            <DeleteOutlineRoundedIcon sx={{ fontSize: 19 }} />
           </span>
-          確認刪除
+          確定移除收藏？
         </DialogTitle>
 
         <DialogContent sx={{ pt: 0.5, pb: 1 }}>
-          <DialogContentText sx={{ color: "#94a3b8" }}>
+          <DialogContentText sx={{ color: "var(--mc-text-muted)" }}>
             {pendingDelete?.length === 1
-              ? "確定要移除這首收藏歌曲嗎？"
-              : `確定要刪除選取的 ${pendingDelete?.length ?? 0} 首歌曲嗎？`}
+              ? "這首歌會從你的收藏歌曲中移除。"
+              : `將移除 ${pendingDelete?.length ?? 0} 首已選取歌曲。`}
           </DialogContentText>
           <FormControlLabel
             control={
               <Checkbox
                 size="small"
                 checked={confirmSuppressChecked}
-                onChange={(e) => setConfirmSuppressChecked(e.target.checked)}
+                onChange={(event) =>
+                  setConfirmSuppressChecked(event.target.checked)
+                }
                 sx={{
-                  color: "rgba(100,116,139,0.5)",
-                  "&.Mui-checked": { color: "#22d3ee" },
+                  color: "rgba(231,216,191,0.42)",
+                  "&.Mui-checked": { color: "#67e8f9" },
                 }}
               />
             }
-            label={<span className="select-none text-xs text-slate-400">本次不再顯示</span>}
+            label={
+              <span className="select-none text-xs text-[var(--mc-text-muted)]">
+                本次頁面工作階段不再提示
+              </span>
+            }
             sx={{ mt: 1.5, ml: 0 }}
           />
         </DialogContent>
@@ -698,22 +898,21 @@ const FavoriteSongsPage: React.FC = () => {
         <DialogActions sx={{ px: 2.5, pb: 2.5, gap: 1 }}>
           <Button
             onClick={() => setPendingDelete(null)}
-            sx={{ flex: 1, color: "#94a3b8" }}
+            sx={{ flex: 1, color: "var(--mc-text-muted)", fontWeight: 700 }}
           >
             取消
           </Button>
           <Button
             color="error"
             variant="contained"
-            sx={{ flex: 1 }}
+            sx={{ flex: 1, fontWeight: 800 }}
             onClick={() => void handleConfirmDelete()}
           >
-            確認刪除
+            確定移除
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ── Clear-all confirmation dialog ── */}
       <Dialog
         open={showClearAllConfirm}
         onClose={() => setShowClearAllConfirm(false)}
@@ -721,55 +920,53 @@ const FavoriteSongsPage: React.FC = () => {
         fullWidth
         PaperProps={{
           sx: {
-            bgcolor: "rgba(2,6,23,0.97)",
-            border: "1px solid rgba(234,179,8,0.18)",
-            borderRadius: "16px",
-            backdropFilter: "blur(16px)",
+            bgcolor: "rgba(8,7,5,0.98)",
+            border: "1px solid rgba(245,158,11,0.24)",
+            borderRadius: "20px",
+            color: "var(--mc-text)",
             overflow: "hidden",
           },
         }}
       >
-        {/* Accent bar */}
-        <div className="h-px w-full bg-gradient-to-r from-amber-700/0 via-amber-500/60 to-amber-700/0" />
-
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
         <DialogTitle
           sx={{
             pt: 2.5,
             pb: 1,
-            color: "#f1f5f9",
+            color: "var(--mc-text)",
             fontWeight: 800,
             display: "flex",
             alignItems: "center",
             gap: 1.5,
           }}
         >
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-400">
-            <WarningAmberRoundedIcon sx={{ fontSize: 18 }} />
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[14px] bg-amber-400/14 text-amber-100">
+            <WarningAmberRoundedIcon sx={{ fontSize: 19 }} />
           </span>
-          清除全部收藏？
+          清空所有收藏？
         </DialogTitle>
 
         <DialogContent sx={{ pt: 0.5, pb: 1 }}>
-          <DialogContentText sx={{ color: "#94a3b8" }}>
-            此操作將移除你所有的收藏歌曲記錄，操作無法復原。
+          <DialogContentText sx={{ color: "var(--mc-text-muted)" }}>
+            此操作會交由後端移除你所有收藏歌曲記錄，完成後無法復原。
           </DialogContentText>
         </DialogContent>
 
         <DialogActions sx={{ px: 2.5, pb: 2.5, gap: 1 }}>
           <Button
             onClick={() => setShowClearAllConfirm(false)}
-            sx={{ flex: 1, color: "#94a3b8" }}
+            sx={{ flex: 1, color: "var(--mc-text-muted)", fontWeight: 700 }}
           >
             取消
           </Button>
           <Button
             color="error"
             variant="contained"
-            sx={{ flex: 1 }}
+            sx={{ flex: 1, fontWeight: 800 }}
             onClick={() => void handleClearAll()}
             disabled={isDeletingAll}
           >
-            {isDeletingAll ? "清除中…" : "確認清除"}
+            {isDeletingAll ? "清空中..." : "確定清空"}
           </Button>
         </DialogActions>
       </Dialog>

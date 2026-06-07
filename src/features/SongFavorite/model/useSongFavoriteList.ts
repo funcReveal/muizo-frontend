@@ -7,7 +7,11 @@ import {
 import { useAuth } from "@shared/auth/AuthContext";
 
 import { songFavoriteApi } from "./songFavoriteApi";
-import type { SongFavoriteListPage } from "./types";
+import type {
+  SongFavoriteListPage,
+  SongFavoriteSortKey,
+  SongFavoriteSortOrder,
+} from "./types";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -34,10 +38,22 @@ const optimisticRemoveByKeys = (
 // Hook
 // ---------------------------------------------------------------------------
 
-export const useSongFavoriteList = (limit = 50) => {
+type UseSongFavoriteListOptions = {
+  limit?: number;
+  sort?: SongFavoriteSortKey;
+  order?: SongFavoriteSortOrder;
+};
+
+export const useSongFavoriteList = ({
+  limit = 50,
+  sort = "updatedAt",
+  order = "desc",
+}: UseSongFavoriteListOptions = {}) => {
   const queryClient = useQueryClient();
   const { authToken, authUser, refreshAuthToken } = useAuth();
-  const queryKey = ["song-favorite", "list", authUser?.id ?? "guest", limit];
+  const userKey = authUser?.id ?? "guest";
+  const listQueryKeyPrefix = ["song-favorite", "list", userKey] as const;
+  const queryKey = [...listQueryKeyPrefix, limit, sort, order] as const;
 
   // --- Infinite query ---
   const listQuery = useInfiniteQuery({
@@ -51,6 +67,8 @@ export const useSongFavoriteList = (limit = 50) => {
         refreshAuthToken,
         cursor: pageParam,
         limit,
+        sort,
+        order,
         signal,
       }),
     getNextPageParam: (lastPage) =>
@@ -79,7 +97,7 @@ export const useSongFavoriteList = (limit = 50) => {
     },
 
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: listQueryKeyPrefix });
     },
   });
 
@@ -106,7 +124,7 @@ export const useSongFavoriteList = (limit = 50) => {
     },
 
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: listQueryKeyPrefix });
     },
   });
 
@@ -138,7 +156,7 @@ export const useSongFavoriteList = (limit = 50) => {
     },
 
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: listQueryKeyPrefix });
     },
   });
 
