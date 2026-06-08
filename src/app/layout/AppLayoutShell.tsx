@@ -108,8 +108,11 @@ const AppLayoutShell: React.FC = () => {
     navigate("/privacy");
   }, [navigate]);
 
+  const shouldUseMobileScrollableOutlet =
+    isMobileViewport && (isRoomsHubPage || isCollectionEditPage);
+
   const fixedViewportOutletClassName =
-    isRoomsHubPage && isMobileViewport
+    shouldUseMobileScrollableOutlet
       ? [
           "min-h-0 flex-1",
           "overflow-y-auto overflow-x-hidden",
