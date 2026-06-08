@@ -115,6 +115,7 @@ const AppLayoutShell: React.FC = () => {
     shouldUseMobileScrollableOutlet
       ? [
           "min-h-0 flex-1",
+          "collection-edit-mobile-scroll",
           "overflow-y-auto overflow-x-hidden",
           "pb-[calc(16px+env(safe-area-inset-bottom))]",
           "[-webkit-overflow-scrolling:touch]",
