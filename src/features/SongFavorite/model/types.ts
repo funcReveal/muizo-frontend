@@ -16,19 +16,6 @@ export type SongFavoriteSortKey = "updatedAt" | "playCount";
 export type SongFavoriteSortOrder = "asc" | "desc";
 
 export type CurrentRoomTrackFavoriteStatus = {
-  currentTrack: {
-    provider: "youtube";
-    sourceId: string;
-    title: string;
-    channelTitle: string | null;
-    channelId: string | null;
-    thumbnailUrl: string | null;
-    durationSec: number | null;
-    roomId: string;
-    gameSessionId: number;
-    trackCursor: number;
-  };
-  favorite: SongFavoriteRecord | null;
   occurrenceRecorded: boolean;
 };
 

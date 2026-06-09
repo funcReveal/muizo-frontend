@@ -11,13 +11,16 @@ type SongBookmarkButtonProps = {
   gameSessionId?: number | null;
   trackCursor: number;
   enabled: boolean;
-  /** Where the "收藏成功" toast appears relative to the icon.
-   *  Mobile slot sits at the bottom-left corner → toast goes above.
-   *  Desktop slot sits at the top-left corner  → toast goes below. */
+  /** Where the success toast appears relative to the icon. */
   successToastPlacement?: "above" | "below";
 };
 
-type ToastCoords = { top: number; left: number; placement: "above" | "below" };
+type ToastCoords = {
+  top: number;
+  left: number;
+  placement: "above" | "below";
+  trackCursor: number;
+};
 
 const SongBookmarkButton: React.FC<SongBookmarkButtonProps> = ({
   roomId,
@@ -33,9 +36,7 @@ const SongBookmarkButton: React.FC<SongBookmarkButtonProps> = ({
   const [toastCoords, setToastCoords] = useState<ToastCoords | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
-  // Clear toast on track change so a stale "收藏成功" never lingers into the next song.
   useEffect(() => {
-    setToastCoords(null);
     if (toastTimerRef.current !== null) {
       window.clearTimeout(toastTimerRef.current);
       toastTimerRef.current = null;
@@ -53,17 +54,15 @@ const SongBookmarkButton: React.FC<SongBookmarkButtonProps> = ({
   const handleFavorite = useCallback(async () => {
     try {
       await favoriteCurrentTrack();
-      // Compute viewport-relative position from the wrap element so the portal
-      // toast renders at the correct location even inside overflow:hidden containers.
       if (wrapRef.current) {
         const rect = wrapRef.current.getBoundingClientRect();
         setToastCoords({
           top: successToastPlacement === "below" ? rect.bottom + 8 : rect.top - 8,
           left: rect.left + rect.width / 2,
           placement: successToastPlacement,
+          trackCursor,
         });
       }
-      // Show success toast for 2 s total (0.18 s in + ~1.6 s hold + 0.22 s out).
       if (toastTimerRef.current !== null) {
         window.clearTimeout(toastTimerRef.current);
       }
@@ -72,27 +71,25 @@ const SongBookmarkButton: React.FC<SongBookmarkButtonProps> = ({
         toastTimerRef.current = null;
       }, 2000);
     } catch {
-      // Errors are handled by the mutation's onError (optimistic rollback).
+      // Mutation error handling rolls the optimistic state back.
     }
-  }, [favoriteCurrentTrack, successToastPlacement]);
+  }, [favoriteCurrentTrack, successToastPlacement, trackCursor]);
 
   if (!enabled) return null;
 
   const occurrenceRecorded = Boolean(status?.occurrenceRecorded);
-  const isFavorited = Boolean(status?.favorite) || occurrenceRecorded;
-  const disabled = isLoading || isSubmitting || occurrenceRecorded;
-
+  const isFavorited = occurrenceRecorded;
+  const disabled = isSubmitting || occurrenceRecorded;
   const ariaLabel = occurrenceRecorded
-    ? "本局已收藏過此曲"
-    : isFavorited
-      ? "已收藏歌曲"
-      : "收藏歌曲";
-
+    ? "本局這首歌已收藏"
+    : isLoading
+      ? "確認本局收藏狀態"
+      : "收藏這首歌";
   const tooltipTitle = occurrenceRecorded
-    ? "本局這首歌已收藏過"
-    : isFavorited
-      ? "已收藏，下一局再次收藏會增加次數"
-      : "收藏這首歌曲";
+    ? "本局這首歌已收藏"
+    : "收藏這首歌";
+  const visibleToastCoords =
+    toastCoords?.trackCursor === trackCursor ? toastCoords : null;
 
   return (
     <>
@@ -118,15 +115,15 @@ const SongBookmarkButton: React.FC<SongBookmarkButtonProps> = ({
         </span>
       </Tooltip>
 
-      {toastCoords &&
+      {visibleToastCoords &&
         createPortal(
           <span
-            className={`song-bookmark-success-toast song-bookmark-success-toast--${toastCoords.placement}`}
-            style={{ top: toastCoords.top, left: toastCoords.left }}
+            className={`song-bookmark-success-toast song-bookmark-success-toast--${visibleToastCoords.placement}`}
+            style={{ top: visibleToastCoords.top, left: visibleToastCoords.left }}
             aria-live="polite"
             aria-atomic="true"
           >
-            收藏成功
+            已收藏
           </span>,
           document.body,
         )}

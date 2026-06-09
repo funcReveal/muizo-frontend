@@ -70,27 +70,9 @@ export const useCurrentRoomTrackFavorite = ({
       await queryClient.cancelQueries({ queryKey });
       const previous =
         queryClient.getQueryData<CurrentRoomTrackFavoriteStatus>(queryKey);
-      if (previous) {
-        queryClient.setQueryData<CurrentRoomTrackFavoriteStatus>(queryKey, {
-          ...previous,
-          occurrenceRecorded: true,
-          favorite:
-            previous.favorite ??
-            {
-              id: "optimistic",
-              provider: previous.currentTrack.provider,
-              sourceId: previous.currentTrack.sourceId,
-              title: previous.currentTrack.title,
-              channelTitle: previous.currentTrack.channelTitle,
-              channelId: previous.currentTrack.channelId,
-              thumbnailUrl: previous.currentTrack.thumbnailUrl,
-              durationSec: previous.currentTrack.durationSec,
-              playCount: 1,
-              firstAddedAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-        });
-      }
+      queryClient.setQueryData<CurrentRoomTrackFavoriteStatus>(queryKey, {
+        occurrenceRecorded: true,
+      });
       return { previous };
     },
     onError: (error, _variables, context) => {
@@ -103,13 +85,14 @@ export const useCurrentRoomTrackFavorite = ({
       }
       if (context?.previous) {
         queryClient.setQueryData(queryKey, context.previous);
+      } else {
+        queryClient.setQueryData<CurrentRoomTrackFavoriteStatus>(queryKey, {
+          occurrenceRecorded: false,
+        });
       }
     },
     onSuccess: (data) => {
       queryClient.setQueryData(queryKey, data);
-      void queryClient.invalidateQueries({
-        queryKey: ["song-favorite", "list", authUser?.id ?? "guest"],
-      });
     },
   });
 
