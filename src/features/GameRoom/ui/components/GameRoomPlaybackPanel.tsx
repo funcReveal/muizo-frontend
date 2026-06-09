@@ -14,6 +14,12 @@ import {
   DanmuItemsContext,
   type DanmuItem,
 } from "@features/RoomChat/model/DanmuContext";
+import {
+  GUESS_VIDEO_DISPLAY_SIZE_OPTIONS,
+  YOUTUBE_PREFERRED_QUALITY_OPTIONS,
+  type GuessVideoDisplaySize,
+  type YouTubePreferredQuality,
+} from "../../model/youtubeEmbedPreferences";
 
 interface MobileEmbeddedHudConfig {
   mode: "guess" | "reveal" | null;
@@ -59,7 +65,6 @@ interface GameRoomPlaybackPanelProps {
   headerActions?: React.ReactNode;
   iframeSrc: string | null;
   shouldHideVideoFrame: boolean;
-  shouldShowVideo: boolean;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   onIframeLoad: () => void;
   silentAudioRef: React.RefObject<HTMLAudioElement | null>;
@@ -68,7 +73,10 @@ interface GameRoomPlaybackPanelProps {
   showPreStartMask: boolean;
   showLoadingMask: boolean;
   showAudioOnlyMask: boolean;
-  reduceGuessVideoDisplayCost?: boolean;
+  guessVideoSize: GuessVideoDisplaySize;
+  onGuessVideoSizeChange: (size: GuessVideoDisplaySize) => void;
+  youtubePreferredQuality: YouTubePreferredQuality;
+  onYoutubePreferredQualityChange: (quality: YouTubePreferredQuality) => void;
   showVideo: boolean;
   onShowVideoChange: (show: boolean) => void;
   videoId?: string | null;
@@ -709,7 +717,6 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   headerActions,
   iframeSrc,
   shouldHideVideoFrame,
-  shouldShowVideo,
   iframeRef,
   onIframeLoad,
   silentAudioRef,
@@ -718,7 +725,10 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   showPreStartMask,
   showLoadingMask,
   showAudioOnlyMask,
-  reduceGuessVideoDisplayCost = false,
+  guessVideoSize,
+  onGuessVideoSizeChange,
+  youtubePreferredQuality,
+  onYoutubePreferredQualityChange,
   showVideo,
   onShowVideoChange,
   gameVolume,
@@ -799,18 +809,15 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
       : isMobileView
         ? "h-[182px]"
         : "h-[164px] sm:h-[210px] md:h-[236px] xl:h-[258px]";
-  const iframeWrapClassName = `game-room-media-iframe-wrap ${reduceGuessVideoDisplayCost
-    ? "game-room-media-iframe-wrap--guess-lite"
-    : "game-room-media-iframe-wrap--full"
-    }`;
+  const shouldShowGuessVideoPreview = showGuessMask;
+  const iframeWrapClassName = shouldShowGuessVideoPreview
+    ? `game-room-media-iframe-wrap game-room-media-iframe-wrap--guess-preview game-room-media-iframe-wrap--guess-size-${guessVideoSize}`
+    : "game-room-media-iframe-wrap game-room-media-iframe-wrap--full";
   const localVolumeRef = useRef(gameVolume);
   const isDraggingRef = useRef(false);
   const rafRef = useRef<number | null>(null);
   const sliderRef = useRef<HTMLInputElement | null>(null);
   const volumeTextRef = useRef<HTMLSpanElement | null>(null);
-  const shouldKeepDesktopGuessVideoVisible = !isMobileView && showGuessMask;
-  const effectiveShouldShowVideoFrame =
-    shouldKeepDesktopGuessVideoVisible || shouldShowVideo;
   const applySliderVisualState = useCallback((value: number) => {
     const normalized = Math.max(0, Math.min(100, value));
     if (sliderRef.current) {
@@ -861,9 +868,9 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   const iframeStyle = useMemo<React.CSSProperties>(
     () => ({
       pointerEvents: "none",
-      opacity: shouldHideVideoFrame || !effectiveShouldShowVideoFrame ? 0 : 1,
+      opacity: shouldHideVideoFrame ? 0 : 1,
     }),
-    [effectiveShouldShowVideoFrame, shouldHideVideoFrame],
+    [shouldHideVideoFrame],
   );
   const previewMode: "video" | "thumbnail" = showVideo ? "video" : "thumbnail";
   const volumeIcon =
@@ -892,6 +899,20 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
       onShowVideoChange(nextMode === "video");
     },
     [onShowVideoChange],
+  );
+  const handleGuessVideoSizeChange = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      onGuessVideoSizeChange(event.target.value as GuessVideoDisplaySize);
+    },
+    [onGuessVideoSizeChange],
+  );
+  const handleYoutubePreferredQualityChange = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      onYoutubePreferredQualityChange(
+        event.target.value as YouTubePreferredQuality,
+      );
+    },
+    [onYoutubePreferredQualityChange],
   );
   const trackCounterNode = (
     <div className="game-room-track-counter mt-1 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black tracking-[0.14em] text-amber-100">
@@ -1003,7 +1024,11 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
 
       <div
         ref={mediaFrameRef}
-        className={`game-room-media-frame relative w-full overflow-hidden ${mediaFrameHeightClass}`}
+        className={`game-room-media-frame relative w-full overflow-hidden ${mediaFrameHeightClass}${
+          shouldShowGuessVideoPreview
+            ? " game-room-media-frame--guess-preview"
+            : ""
+        }`}
       >
         {isMobileView && mobileScoreFeedbackOverlay ? (
           <div className="game-room-mobile-score-feedback-slot">
@@ -1063,10 +1088,43 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
           </>
         )}
 
+        {shouldShowGuessVideoPreview ? (
+          <div className="game-room-youtube-test-controls">
+            <label className="game-room-youtube-test-controls__field">
+              <span>Size</span>
+              <select
+                value={guessVideoSize}
+                onChange={handleGuessVideoSizeChange}
+                aria-label="Guess YouTube embed size"
+              >
+                {GUESS_VIDEO_DISPLAY_SIZE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="game-room-youtube-test-controls__field">
+              <span>Quality</span>
+              <select
+                value={youtubePreferredQuality}
+                onChange={handleYoutubePreferredQualityChange}
+                aria-label="YouTube preferred quality"
+              >
+                {YOUTUBE_PREFERRED_QUALITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
+
         {iframeSrc ? (
           <div
             className={iframeWrapClassName}
-            aria-hidden={shouldHideVideoFrame || !effectiveShouldShowVideoFrame}
+            aria-hidden={shouldHideVideoFrame}
           >
             <iframe
               src={iframeSrc}
@@ -1119,7 +1177,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         )}
 
         {showGuessMask && (
-          <div className="game-room-playback-mask game-room-playback-mask--guess pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950">
+          <div className="game-room-playback-mask game-room-playback-mask--guess pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center">
             {isDesktopGuessHudActive && desktopEmbeddedHud ? (
               <DesktopEmbeddedGuessHud
                 boundedCursor={boundedCursor}

@@ -2788,16 +2788,89 @@
   inset: 0;
 }
 
-.game-room-media-iframe-wrap--guess-lite {
-  inset: auto 8px 8px auto;
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
+.game-room-media-frame--guess-preview {
+  min-height: 224px;
+  overflow: visible !important;
+}
+
+.game-room-media-iframe-wrap--guess-preview {
+  inset: auto 12px 12px auto;
+  z-index: 21;
+  width: 200px;
+  height: 200px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+  border-radius: 8px;
   overflow: hidden;
   contain: layout paint style size;
-  transform: translateZ(0) scale(0.18);
-  transform-origin: right bottom;
-  opacity: 0.01;
+  transform: translateY(-150px);
+  background: #000;
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(226, 232, 240, 0.16);
+}
+
+.game-room-media-iframe-wrap--guess-size-200x200 {
+  width: 200px;
+  height: 200px;
+}
+
+.game-room-media-iframe-wrap--guess-size-320x180 {
+  width: 320px;
+  height: 180px;
+}
+
+.game-room-media-iframe-wrap--guess-size-480x270 {
+  width: 480px;
+  height: 270px;
+}
+
+.game-room-media-iframe-wrap--guess-size-480plus {
+  width: clamp(480px, 34vw, 640px);
+  height: clamp(270px, 19.125vw, 360px);
+}
+
+.game-room-youtube-test-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 32;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.game-room-youtube-test-controls__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 7px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.78);
+  color: rgba(226, 232, 240, 0.94);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(10px);
+}
+
+.game-room-youtube-test-controls__field select {
+  height: 24px;
+  min-width: 88px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.94);
+  color: rgb(248, 250, 252);
+  font: inherit;
+  outline: none;
+}
+
+.game-room-youtube-test-controls__field select:focus-visible {
+  border-color: rgba(125, 211, 252, 0.86);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.22);
 }
 
 .game-room-thumbnail-mask {
@@ -2953,6 +3026,10 @@
       transparent 72%
     ),
     rgba(2, 6, 23, 0.94);
+}
+
+.game-room-playback-mask--guess {
+  background: transparent;
 }
 
 .game-room-playback-mask--loading {
@@ -3159,14 +3236,6 @@
 
   .game-room-guess-spinner__core {
     animation-duration: 2.4s;
-  }
-
-  .game-room-media-iframe-wrap--guess-lite {
-    width: 10px;
-    height: 10px;
-    right: 6px;
-    bottom: 6px;
-    transform: translateZ(0) scale(0.14);
   }
 }
 
@@ -9404,7 +9473,6 @@
   background: transparent;
 }
 
-.game-room-playback-mask--guess,
 .game-room-playback-mask--loading {
   background: radial-gradient(
     ellipse 80% 80% at 50% 50%,
@@ -25862,22 +25930,6 @@
 }
 
 @media (min-width: 1280px) {
-  .game-room-media-iframe-wrap--guess-lite {
-    inset: 0;
-    width: auto;
-    height: auto;
-    border-radius: inherit;
-    transform: none;
-    transform-origin: center;
-    opacity: 1;
-    overflow: hidden;
-  }
-
-  .game-room-media-iframe-wrap--guess-lite .game-room-media-iframe {
-    transform: scale(1.04);
-    filter: saturate(0.9) blur(1.8px) brightness(0.5);
-  }
-
   .game-room-grid {
     gap: clamp(18px, 1.8vw, 28px);
     padding-inline: 0;
@@ -26224,16 +26276,6 @@
     overflow: visible;
   }
 
-  .game-room-playback-mask--guess {
-    background:
-      linear-gradient(180deg, rgba(3, 7, 18, 0.28), rgba(3, 7, 18, 0.5)),
-      radial-gradient(
-        ellipse 80% 80% at 50% 50%,
-        rgba(6, 7, 11, 0.4) 24%,
-        rgba(6, 7, 11, 0.54) 62%,
-        rgba(6, 7, 11, 0.74) 100%
-      );
-  }
 }
 
 .game-room-youtube-badge {

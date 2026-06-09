@@ -1,6 +1,10 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GameState } from "@features/RoomSession";
+import {
+  toSupportedYouTubePreferredQuality,
+  type YouTubePreferredQuality,
+} from "./youtubeEmbedPreferences";
 
 interface UseGameRoomPlayerSyncParams {
   serverOffsetMs: number;
@@ -26,6 +30,7 @@ interface UseGameRoomPlayerSyncParams {
   primeSfxAudio: () => void;
   clipReplayStartSec: number;
   clipReplayEndSec: number;
+  preferredQuality: YouTubePreferredQuality;
   onReportPlaybackError?: (payload: {
     provider: string;
     sourceId: string;
@@ -112,6 +117,7 @@ const useGameRoomPlayerSync = ({
   primeSfxAudio,
   clipReplayStartSec,
   clipReplayEndSec,
+  preferredQuality,
   onReportPlaybackError,
 }: UseGameRoomPlayerSyncParams) => {
   const [audioUnlockSessionKey, setAudioUnlockSessionKey] = useState<
@@ -513,6 +519,13 @@ const useGameRoomPlayerSync = ({
     [postPlayerMessage],
   );
 
+  const applyPreferredQuality = useCallback(() => {
+    const supportedQuality = toSupportedYouTubePreferredQuality(preferredQuality);
+    if (!supportedQuality) return;
+    if (!playerReadyRef.current) return;
+    postCommand("setPlaybackQuality", [supportedQuality]);
+  }, [postCommand, preferredQuality]);
+
   const requestPlayerTime = useCallback(
     (reason: string) => {
       if (!playerReadyRef.current) return false;
@@ -746,10 +759,11 @@ const useGameRoomPlayerSync = ({
         ...(typeof endSeconds === "number" ? { endSeconds } : {}),
       };
       postCommand(autoplay ? "loadVideoById" : "cueVideoById", [payload]);
+      applyPreferredQuality();
       lastLoadedVideoIdRef.current = id;
       lastSyncMsRef.current = getServerNowMs();
     },
-    [debugSync, getServerNowMs, postCommand],
+    [applyPreferredQuality, debugSync, getServerNowMs, postCommand],
   );
 
   const startPlayback = useCallback(
@@ -1872,6 +1886,7 @@ const useGameRoomPlayerSync = ({
         }
         playerReadyRef.current = true;
         setIsPlayerReady(true);
+        applyPreferredQuality();
         const currentId = videoId;
         if (!currentId) return;
         if (lastTrackLoadKeyRef.current === trackLoadKey) return;
@@ -2163,6 +2178,7 @@ const useGameRoomPlayerSync = ({
   }, [
     armInitialAudioSync,
     applyVolume,
+    applyPreferredQuality,
     clearBufferingRecoveryTimer,
     clearInitialAudioHoldReleaseTimer,
     clearClipEndGuardTimer,
@@ -2209,6 +2225,10 @@ const useGameRoomPlayerSync = ({
     replayClipFromStart,
     clipReplayStartSec,
   ]);
+
+  useEffect(() => {
+    applyPreferredQuality();
+  }, [applyPreferredQuality]);
 
   useEffect(() => {
     if (!videoId) return;

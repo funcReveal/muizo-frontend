@@ -78,6 +78,12 @@ import useGameRoomPlayerSync from "../model/useGameRoomPlayerSync";
 import useGameRoomAnswerFlow from "../model/useGameRoomAnswerFlow";
 import useGameRoomQuestionDerivedState from "../model/useGameRoomQuestionDerivedState";
 import useGameRoomRecaps from "../model/useGameRoomRecaps";
+import {
+  DEFAULT_GUESS_VIDEO_DISPLAY_SIZE,
+  DEFAULT_YOUTUBE_PREFERRED_QUALITY,
+  type GuessVideoDisplaySize,
+  type YouTubePreferredQuality,
+} from "../model/youtubeEmbedPreferences";
 import useGameRoomStats from "../model/useGameRoomStats";
 import {
   getAdaptiveProjectionInitialJitterMs,
@@ -1065,6 +1071,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     getServerNowMs,
     startedAt: gameState.startedAt,
   });
+  const [guessVideoSize, setGuessVideoSize] =
+    useState<GuessVideoDisplaySize>(DEFAULT_GUESS_VIDEO_DISPLAY_SIZE);
+  const [youtubePreferredQuality, setYoutubePreferredQuality] =
+    useState<YouTubePreferredQuality>(DEFAULT_YOUTUBE_PREFERRED_QUALITY);
 
   const waitingToStart = gameState.startedAt > uiNowMs;
   const remainingToStartMs = Math.max(0, gameState.startedAt - uiNowMs);
@@ -1104,6 +1114,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     primeSfxAudio,
     clipReplayStartSec,
     clipReplayEndSec,
+    preferredQuality: youtubePreferredQuality,
     onReportPlaybackError,
   });
   const shouldShowGestureOverlay =
@@ -1280,24 +1291,18 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
 
   const playbackVoteActionLabel = playbackVoteButtonLabel;
 
-  const shouldHideVideoInGuessPhase = gameState.phase === "guess" && !isEnded;
   const showGuessMask =
-    shouldHideVideoInGuessPhase &&
-    !allAnsweredReadyForReveal &&
+    gameState.phase === "guess" &&
     !isEnded &&
+    !allAnsweredReadyForReveal &&
     !waitingToStart;
   const showPreStartMask =
     waitingToStart && !isEnded && !shouldShowGestureOverlay;
   const showLoadingMask = false;
+
   const shouldHideVideoFrame =
-    shouldShowGestureOverlay ||
-    showPreStartMask ||
-    showLoadingMask ||
-    showGuessMask ||
-    shouldHideVideoInGuessPhase;
+    shouldShowGestureOverlay || showPreStartMask || showLoadingMask;
   const showAudioOnlyMask = !shouldHideVideoFrame && !showVideo;
-  const reduceGuessVideoDisplayCost =
-    isMobileGameViewport && showGuessMask && !showPreStartMask && !isReveal;
   const correctChoiceIndex = currentTrackIndex;
   const sortedParticipants = useMemo(
     () => sortParticipantsByScore(participants),
@@ -2744,7 +2749,6 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               headerActions={playbackHeaderActions}
               iframeSrc={iframeSrc}
               shouldHideVideoFrame={shouldHideVideoFrame}
-              shouldShowVideo={showVideo}
               iframeRef={iframeRef}
               onIframeLoad={handlePlaybackIframeLoad}
               silentAudioRef={silentAudioRef}
@@ -2753,7 +2757,10 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               showPreStartMask={showPreStartMask}
               showLoadingMask={showLoadingMask}
               showAudioOnlyMask={showAudioOnlyMask}
-              reduceGuessVideoDisplayCost={reduceGuessVideoDisplayCost}
+              guessVideoSize={guessVideoSize}
+              onGuessVideoSizeChange={setGuessVideoSize}
+              youtubePreferredQuality={youtubePreferredQuality}
+              onYoutubePreferredQualityChange={setYoutubePreferredQuality}
               showVideo={showVideo}
               onShowVideoChange={handleShowVideoChange}
               gameVolume={gameVolume}
