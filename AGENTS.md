@@ -39,6 +39,7 @@ Testing libraries (`vitest`, `@testing-library/react`) are installed, but no tes
 - This repository is the frontend app only. Backend/worker changes should be handled in their own repositories unless explicitly requested.
 - Confirm API target before changes (frontend direct-to-worker vs backend-proxied endpoint).
 - For socket-related changes, limit connection logic to routes that actually need realtime behavior.
+- Overlay layering: `CollectionDetailDrawer` uses z-index 1500; any dialog/sheet opened from inside it must use a higher z-index (e.g., `CollectionReportSheet` uses 1600).
 
 ## Commit & Pull Request Guidelines
 Recent history follows Conventional Commit-style prefixes:

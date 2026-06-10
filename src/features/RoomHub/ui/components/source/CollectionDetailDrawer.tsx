@@ -33,6 +33,7 @@ import {
   CollectionReviewPanel,
   useCollectionReview,
 } from "@features/CollectionReview";
+import { CollectionReportButton } from "@features/CollectionReport";
 import type { RoomCreateSourceMode } from "@domain/room/types";
 import type { PlaybackExtensionMode } from "@domain/room/types";
 import {
@@ -2016,6 +2017,14 @@ const CollectionDetailDrawer = ({
                             {shareCopied ? "已複製" : "分享"}
                           </span>
                         </Button>
+
+                        {isPublic ? (
+                          <CollectionReportButton
+                            collectionId={collection.id}
+                            isAuthenticated={isAuthenticated}
+                            onLoginRequired={onLoginRequired}
+                          />
+                        ) : null}
                       </div>
                     </div>
 
