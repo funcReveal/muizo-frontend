@@ -8,6 +8,7 @@ import {
   useCategoriesQuery,
 } from "@features/CollectionCategory";
 import type { CategoryTreeItem } from "@features/CollectionCategory";
+import { ModerationChip } from "@features/CollectionModeration";
 
 import {
   Box,
@@ -67,6 +68,10 @@ type DbCollection = {
     parentLabel?: string | null;
   } | null;
   sub_tag_keys?: string[];
+  // Owner-only moderation fields (absent on public reads).
+  moderation_status?: "normal" | "action_required" | "under_review";
+  moderation_reason?: string | null;
+  moderation_edited?: boolean;
 };
 
 const TEXT = {
@@ -634,7 +639,16 @@ const CollectionsPage = () => {
                             onClick={(event) => event.stopPropagation()}
                             onMouseDown={(event) => event.stopPropagation()}
                           >
-                          <div className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/30 px-2 py-0.5">
+                          {/* Flagged collections can't appear publicly anyway —
+                              hide the visibility pill on mobile to free space */}
+                          <div
+                            className={`items-center gap-1 rounded-full border border-white/30 bg-black/30 px-2 py-0.5 ${
+                              collection.moderation_status === "action_required" ||
+                              collection.moderation_status === "under_review"
+                                ? "hidden sm:inline-flex"
+                                : "inline-flex"
+                            }`}
+                          >
                             <Tooltip
                               title={
                                 collection.visibility === "public"
@@ -814,6 +828,30 @@ const CollectionsPage = () => {
                               )
                             }
                           </CategoryQuickPicker>
+
+                          {/* Moderation chip — same row as the language/category chips */}
+                          <ModerationChip
+                            size="sm"
+                            collectionId={collection.id}
+                            moderationStatus={collection.moderation_status}
+                            moderationReason={collection.moderation_reason}
+                            canRequestReview={Boolean(
+                              collection.moderation_edited,
+                            )}
+                            onResubmitted={() => {
+                              setCollections((prev) =>
+                                prev.map((item) =>
+                                  item.id === collection.id
+                                    ? {
+                                        ...item,
+                                        moderation_status: "under_review",
+                                        moderation_edited: false,
+                                      }
+                                    : item,
+                                ),
+                              );
+                            }}
+                          />
                         </div>
                       </div>
                       <Box>

@@ -30,6 +30,11 @@ export type DbCollection = {
   item_count?: number;
   item_limit_override?: number | null;
   effective_item_limit?: number | null;
+  /** Owner-only moderation state from the backend (absent on public reads). */
+  moderation_status?: "normal" | "action_required" | "under_review";
+  moderation_reason?: string | null;
+  /** Server-derived: edited after the flag/reject — gates resubmit. */
+  moderation_edited?: boolean;
   category?: {
     id: string | null;
     key: string;

@@ -4,6 +4,7 @@ import {
   useCategoryAutoDetect,
   useCategoriesQuery,
 } from "@features/CollectionCategory";
+import { ModerationChip } from "@features/CollectionModeration";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@mui/material";
 import ConfirmDialog from "../../../../shared/ui/ConfirmDialog";
@@ -1675,6 +1676,38 @@ const CollectionEditPage = () => {
               detectHasRun={categoryDetectRan}
               onCategoryChange={setCategoryId}
               onSubTagsChange={setSubTagKeys}
+            />
+          ) : undefined
+        }
+        moderationActive={
+          activeCollection?.moderation_status === "action_required" ||
+          activeCollection?.moderation_status === "under_review"
+        }
+        moderationSlot={
+          activeCollection ? (
+            <ModerationChip
+              collectionId={activeCollection.id}
+              moderationStatus={activeCollection.moderation_status}
+              moderationReason={activeCollection.moderation_reason}
+              canRequestReview={
+                // Server fact at load time, OR a successful save this session
+                // (any save bumps updated_at past moderation_updated_at).
+                Boolean(activeCollection.moderation_edited) ||
+                saveStatus === "saved"
+              }
+              onResubmitted={() => {
+                setCollections((previous) =>
+                  previous.map((item) =>
+                    item.id === activeCollection.id
+                      ? {
+                          ...item,
+                          moderation_status: "under_review",
+                          moderation_edited: false,
+                        }
+                      : item,
+                  ),
+                );
+              }}
             />
           ) : undefined
         }
