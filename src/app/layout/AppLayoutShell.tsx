@@ -36,6 +36,10 @@ const AppLayoutShell: React.FC = () => {
     authLoading,
     authUser,
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resendEmailVerification,
+    requestPasswordReset,
     logout,
     needsNicknameConfirm,
     nicknameDraft,
@@ -128,6 +132,10 @@ const AppLayoutShell: React.FC = () => {
           authUser={authUser}
           authLoading={authLoading}
           onLogin={handleLoginRequest}
+          onEmailLogin={loginWithEmail}
+          onEmailRegister={registerWithEmail}
+          onPasswordResetRequest={requestPasswordReset}
+          onResendVerification={resendEmailVerification}
           onLogout={handleLogoutRequest}
           onEditProfile={openProfileEditor}
           onNavigateRooms={handleNavigateRooms}

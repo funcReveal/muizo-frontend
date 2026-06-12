@@ -71,6 +71,11 @@ const LandingHero: React.FC = () => {
         <p className="landing-hero-vision">
           我們不只想讓猜歌更方便、互動更即時，也希望每一次出題都能把好歌重新帶回大家耳邊，讓被記憶收藏的旋律與創作者再次被看見。
         </p>
+        <div className="landing-hero-proof" aria-label="Muizo 特色">
+          <span>即時互動</span>
+          <span>題庫創建</span>
+          <span>多樣玩法</span>
+        </div>
       </div>
     </div>
   );

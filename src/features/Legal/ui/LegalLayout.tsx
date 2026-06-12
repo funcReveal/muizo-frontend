@@ -14,6 +14,10 @@ const LegalLayout: React.FC = () => {
     authUser,
     authLoading,
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resendEmailVerification,
+    requestPasswordReset,
     logout,
   } =
     useAuth();
@@ -27,6 +31,10 @@ const LegalLayout: React.FC = () => {
           authUser={authUser}
           authLoading={authLoading}
           onLogin={loginWithGoogle}
+          onEmailLogin={loginWithEmail}
+          onEmailRegister={registerWithEmail}
+          onPasswordResetRequest={requestPasswordReset}
+          onResendVerification={resendEmailVerification}
           onLogout={logout}
           onEditProfile={() => navigate("/rooms")}
           onNavigateRooms={() => navigate("/rooms")}

@@ -44,23 +44,40 @@ type HistoryListMeta = {
   totalCount?: number;
 };
 
+// Accepts both the legacy Node.js shape ({ ok, error: string }) and the migrated
+// Spring Boot shape ({ success, error: { code, message } }) so the frontend can ship
+// independently of the nginx cutover.
+type HistoryApiError = string | { code?: string; message?: string } | null;
+
 type HistoryListResponse = {
-  ok: boolean;
+  ok?: boolean;
+  success?: boolean;
   data?: {
     items: RoomSettlementHistorySummary[];
     nextCursor: number | null;
     nextCursorToken?: string | null;
     meta?: HistoryListMeta;
   };
-  error?: string;
+  error?: HistoryApiError;
 };
 
 type HistoryDetailResponse = {
-  ok: boolean;
+  ok?: boolean;
+  success?: boolean;
   data?: {
     snapshot: RoomSettlementSnapshot;
   };
-  error?: string;
+  error?: HistoryApiError;
+};
+
+const isHistoryResponseOk = (
+  payload: { ok?: boolean; success?: boolean } | null,
+): boolean => Boolean(payload?.success ?? payload?.ok);
+
+const readHistoryError = (error: HistoryApiError): string | null => {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") return error.message ?? null;
+  return null;
 };
 
 type HistoryListCachePayload = {
@@ -620,8 +637,8 @@ export const useCareerHistoryWorkspace = () => {
         .json()
         .catch(() => null)) as HistoryListResponse | null;
 
-      if (!res.ok || !payload?.ok || !payload.data) {
-        throw new Error(payload?.error ?? "讀取歷史列表失敗");
+      if (!res.ok || !isHistoryResponseOk(payload) || !payload?.data) {
+        throw new Error(readHistoryError(payload?.error ?? null) ?? "讀取歷史列表失敗");
       }
 
       return {
@@ -686,8 +703,8 @@ export const useCareerHistoryWorkspace = () => {
         .json()
         .catch(() => null)) as HistoryDetailResponse | null;
 
-      if (!res.ok || !payload?.ok || !payload.data?.snapshot) {
-        throw new Error(payload?.error ?? "讀取對戰回顧失敗");
+      if (!res.ok || !isHistoryResponseOk(payload) || !payload?.data?.snapshot) {
+        throw new Error(readHistoryError(payload?.error ?? null) ?? "讀取對戰回顧失敗");
       }
 
       return payload.data.snapshot;

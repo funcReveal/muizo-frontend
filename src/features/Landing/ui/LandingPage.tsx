@@ -2,7 +2,6 @@
 
 import LandingHero from "./components/LandingHero";
 import GoogleLoginCard from "./components/GoogleLoginCard";
-import GuestEntryCard from "./components/GuestEntryCard";
 import HowItWorksSection from "./components/HowItWorksSection";
 import AuthComparisonSection from "./components/AuthComparisonSection";
 import CommunityCallout from "./components/CommunityCallout";
@@ -11,14 +10,12 @@ import type { LandingPageProps } from "./types";
 import "./LandingPage.css";
 
 const LandingPage: React.FC<LandingPageProps> = ({
-  usernameInput,
-  onInputChange,
-  onConfirm,
   onGoogleLogin,
-  googleLoading = false,
-  nicknameMaxLength = 16,
-  suggestedGuestUsername,
-  onUseSuggestedUsername,
+  onEmailLogin,
+  onEmailRegister,
+  onPasswordResetRequest,
+  onResendVerification,
+  authLoading = false,
 }) => {
   const shellRef = useRef<HTMLElement | null>(null);
 
@@ -111,21 +108,17 @@ const LandingPage: React.FC<LandingPageProps> = ({
         data-landing-stage
       >
         <div className="landing-stage-content">
-          <div className="landing-top-grid relative grid gap-6 lg:grid-cols-[1.08fr,0.92fr] lg:gap-7">
+          <div className="landing-top-grid relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] lg:gap-9">
             <LandingHero />
 
-            <div className="landing-entry-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <div className="landing-entry-grid grid gap-4">
               <GoogleLoginCard
                 onGoogleLogin={onGoogleLogin}
-                googleLoading={googleLoading}
-              />
-              <GuestEntryCard
-                usernameInput={usernameInput}
-                onInputChange={onInputChange}
-                onConfirm={onConfirm}
-                nicknameMaxLength={nicknameMaxLength}
-                suggestedGuestUsername={suggestedGuestUsername}
-                onUseSuggestedUsername={onUseSuggestedUsername}
+                onEmailLogin={onEmailLogin}
+                onEmailRegister={onEmailRegister}
+                onPasswordResetRequest={onPasswordResetRequest}
+                onResendVerification={onResendVerification}
+                authLoading={authLoading}
               />
             </div>
           </div>

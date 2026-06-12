@@ -20,6 +20,17 @@ export interface AuthContextValue {
   authExpired: boolean;
   refreshAuthToken: () => Promise<string | null>;
   loginWithGoogle: () => void;
+  loginWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  registerWithEmail: (
+    email: string,
+    password: string,
+    displayName?: string | null,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  resendEmailVerification: (email: string) => Promise<boolean>;
+  requestPasswordReset: (email: string) => Promise<boolean>;
   logout: () => void;
   // 暱稱 / 個人資料
   needsNicknameConfirm: boolean;

@@ -14,6 +14,7 @@ import { isCareerFeatureEnabled } from "@shared/config/featureFlags";
 // ---------------------------------------------------------------------------
 
 const LandingHomePage = lazy(() => import("@features/Landing"));
+const AuthActionPage = lazy(() => import("@features/Auth/ui/AuthActionPage"));
 const RoomSessionLayoutShell = lazy(
   () => import("./layout/RoomSessionLayoutShell"),
 );
@@ -178,6 +179,22 @@ export function AppRouter() {
       </Route>
 
       <Route path="/auth/callback" element={<PageLoader />} />
+      <Route
+        path="/auth/verify-email"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <AuthActionPage mode="verify-email" />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/auth/reset-password"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <AuthActionPage mode="reset-password" />
+          </Suspense>
+        }
+      />
 
       <Route element={<LegalLayout />}>
         <Route path="/privacy" element={<PrivacyPage />} />

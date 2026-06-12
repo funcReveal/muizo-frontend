@@ -14,6 +14,10 @@ const RoomAwareLayoutShell: React.FC = () => {
   const {
     authLoading,
     authUser,
+    loginWithEmail,
+    registerWithEmail,
+    resendEmailVerification,
+    requestPasswordReset,
     needsNicknameConfirm,
     nicknameDraft,
     setNicknameDraft,
@@ -96,6 +100,10 @@ const RoomAwareLayoutShell: React.FC = () => {
           authUser={authUser}
           authLoading={authLoading}
           onLogin={navigationGuards.handleLoginRequest}
+          onEmailLogin={loginWithEmail}
+          onEmailRegister={registerWithEmail}
+          onPasswordResetRequest={requestPasswordReset}
+          onResendVerification={resendEmailVerification}
           onLogout={navigationGuards.handleLogoutRequest}
           onEditProfile={openProfileEditor}
           onNavigateRooms={navigationGuards.handleNavigateRooms}

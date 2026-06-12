@@ -1,10 +1,15 @@
 export interface LandingPageProps {
-  usernameInput: string;
-  onInputChange: (value: string) => void;
-  onConfirm: () => void;
   onGoogleLogin: () => void;
-  googleLoading?: boolean;
-  nicknameMaxLength?: number;
-  suggestedGuestUsername?: string;
-  onUseSuggestedUsername?: () => void;
+  onEmailLogin: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  onEmailRegister: (
+    email: string,
+    password: string,
+    displayName?: string | null,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  onPasswordResetRequest: (email: string) => Promise<boolean>;
+  onResendVerification: (email: string) => Promise<boolean>;
+  authLoading?: boolean;
 }

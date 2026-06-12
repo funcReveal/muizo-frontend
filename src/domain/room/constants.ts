@@ -6,6 +6,10 @@ export const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
+export const AUTH_API_URL =
+  import.meta.env.VITE_AUTH_API_URL ||
+  API_URL;
+
 export const DEFAULT_PAGE_SIZE = 50;
 export const CHUNK_SIZE = 200;
 export const DEFAULT_CLIP_SEC = 30;

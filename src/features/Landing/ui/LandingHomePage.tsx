@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { USERNAME_MAX } from "@domain/room/constants";
-import { generateGuestUsername } from "@domain/room/guestUsername";
 import { useAuth } from "../../../shared/auth/AuthContext";
 import LandingPage from "./LandingPage";
 
@@ -10,59 +8,32 @@ const LandingHomePage: React.FC = () => {
   const navigate = useNavigate();
   const {
     authUser,
-    username,
-    usernameInput,
-    setUsernameInput,
-    handleSetUsername,
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resendEmailVerification,
+    requestPasswordReset,
     authLoading,
   } = useAuth();
 
-  const [suggestedGuestUsername, setSuggestedGuestUsername] = useState(() =>
-    generateGuestUsername(),
-  );
-
   useEffect(() => {
-    if (authUser || username) {
+    if (authUser) {
       navigate("/rooms", { replace: true });
     }
-  }, [authUser, navigate, username]);
-
-  const handleGuestContinue = () => {
-    const fallbackName = suggestedGuestUsername;
-    const nextUsername = usernameInput.trim() || fallbackName;
-
-    if (!nextUsername) return;
-
-    if (!usernameInput.trim()) {
-      setUsernameInput(nextUsername);
-    }
-
-    handleSetUsername(nextUsername);
-    navigate("/rooms", { replace: true });
-  };
+  }, [authUser, navigate]);
 
   const handleGoogleLogin = () => {
     loginWithGoogle();
   };
 
-  const handleUseSuggestedUsername = () => {
-    const nextGuestUsername = generateGuestUsername();
-
-    setSuggestedGuestUsername(nextGuestUsername);
-    setUsernameInput(nextGuestUsername);
-  };
-
   return (
     <LandingPage
-      usernameInput={usernameInput}
-      onInputChange={setUsernameInput}
-      onConfirm={handleGuestContinue}
       onGoogleLogin={handleGoogleLogin}
-      googleLoading={authLoading}
-      nicknameMaxLength={USERNAME_MAX}
-      suggestedGuestUsername={suggestedGuestUsername}
-      onUseSuggestedUsername={handleUseSuggestedUsername}
+      onEmailLogin={loginWithEmail}
+      onEmailRegister={registerWithEmail}
+      onPasswordResetRequest={requestPasswordReset}
+      onResendVerification={resendEmailVerification}
+      authLoading={authLoading}
     />
   );
 };

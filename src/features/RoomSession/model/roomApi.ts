@@ -175,6 +175,113 @@ export const apiAuthGoogleNative = (
     }),
   });
 
+export const apiAuthEmailLogin = (
+  apiUrl: string,
+  params: {
+    email: string;
+    password: string;
+    clientType: AuthClientType;
+  },
+) =>
+  fetchJson<AuthPayload>(`${apiUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: params.clientType === "web" ? "include" : "omit",
+    body: JSON.stringify({
+      email: params.email,
+      password: params.password,
+      clientType: params.clientType,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
+    }),
+  });
+
+export const apiAuthRegister = (
+  apiUrl: string,
+  params: {
+    email: string;
+    password: string;
+    displayName?: string | null;
+    clientType: AuthClientType;
+  },
+) =>
+  fetchJson<AuthPayload>(`${apiUrl}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: params.clientType === "web" ? "include" : "omit",
+    body: JSON.stringify({
+      email: params.email,
+      password: params.password,
+      displayName: params.displayName ?? null,
+      clientType: params.clientType,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
+    }),
+  });
+
+export const apiResendEmailVerification = (
+  apiUrl: string,
+  params: {
+    email: string;
+  },
+) =>
+  fetchJson<{ ok?: boolean; error?: string }>(
+    `${apiUrl}/api/auth/email/verification/resend`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email: params.email }),
+    },
+  );
+
+export const apiVerifyEmail = (
+  apiUrl: string,
+  params: {
+    token: string;
+  },
+) =>
+  fetchJson<{ ok?: boolean; error?: string }>(
+    `${apiUrl}/api/auth/email/verify`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: params.token }),
+    },
+  );
+
+export const apiRequestPasswordReset = (
+  apiUrl: string,
+  params: {
+    email: string;
+  },
+) =>
+  fetchJson<{ ok?: boolean; error?: string }>(
+    `${apiUrl}/api/auth/password/forgot`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: params.email }),
+    },
+  );
+
+export const apiResetPassword = (
+  apiUrl: string,
+  params: {
+    token: string;
+    password: string;
+  },
+) =>
+  fetchJson<{ ok?: boolean; error?: string }>(
+    `${apiUrl}/api/auth/password/reset`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: params.token,
+        password: params.password,
+      }),
+    },
+  );
+
 export const apiLogout = (
   apiUrl: string,
   params: {

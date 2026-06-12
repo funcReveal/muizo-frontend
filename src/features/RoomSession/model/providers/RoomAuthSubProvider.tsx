@@ -28,7 +28,7 @@ import {
   setStoredSessionClientId,
   setStoredUsername,
 } from "../roomStorage";
-import { API_URL, USERNAME_MAX } from "../roomConstants";
+import { AUTH_API_URL, USERNAME_MAX } from "../roomConstants";
 import { useStatusWrite } from "./RoomStatusContexts";
 import {
   RoomAuthInternalContext,
@@ -84,9 +84,13 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
     openProfileEditor,
     closeProfileEditor,
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resendEmailVerification,
+    requestPasswordReset,
     logout,
   } = useRoomAuth({
-    apiUrl: API_URL,
+    apiUrl: AUTH_API_URL,
     username,
     persistUsername,
     setStatusText,
@@ -177,6 +181,10 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
       authExpired,
       refreshAuthToken,
       loginWithGoogle,
+      loginWithEmail,
+      registerWithEmail,
+      resendEmailVerification,
+      requestPasswordReset,
       logout,
       needsNicknameConfirm,
       nicknameDraft,
@@ -199,6 +207,10 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
       authExpired,
       refreshAuthToken,
       loginWithGoogle,
+      loginWithEmail,
+      registerWithEmail,
+      resendEmailVerification,
+      requestPasswordReset,
       logout,
       needsNicknameConfirm,
       nicknameDraft,

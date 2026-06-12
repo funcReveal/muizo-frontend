@@ -1,7 +1,6 @@
-﻿import React from "react";
+import React from "react";
 import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
 
 import { AUTH_COMPARISON_ROWS } from "../../model/landingContent";
 
@@ -9,59 +8,26 @@ const AuthComparisonSection: React.FC = () => {
   return (
     <section className="landing-info-block landing-info-block-compare">
       <header className="landing-info-header">
-        <p className="landing-info-kicker">Guest vs Google</p>
+        <p className="landing-info-kicker">Account Benefits</p>
         <h3 className="landing-info-title landing-title-with-icon">
           <FactCheckRoundedIcon fontSize="small" />
-          登入方式比較
+          登入後保留完整體驗
         </h3>
         <p className="landing-info-subtitle">
-          試玩可用訪客，建議使用 Google 免註冊，可直接登入。
+          Muizo 會逐步收斂到帳號制，建議先登入再開始建立題庫與遊玩。
         </p>
       </header>
 
-      <div
-        className="landing-compare-table"
-        role="table"
-        aria-label="登入方式比較"
-      >
-        <div
-          className="landing-compare-row landing-compare-row-head"
-          role="row"
-        >
-          <span role="columnheader">功能</span>
-          <span role="columnheader">訪客</span>
-          <span role="columnheader">Google</span>
-        </div>
+      <div className="landing-benefit-list" aria-label="帳號登入優勢">
         {AUTH_COMPARISON_ROWS.map((row) => (
-          <div key={row.label} className="landing-compare-row" role="row">
-            <span role="cell">{row.label}</span>
-            <span role="cell" className={row.guest ? "is-yes" : "is-no"}>
-              {row.guest ? (
-                <CheckCircleRoundedIcon
-                  className="landing-compare-icon"
-                  fontSize="inherit"
-                />
-              ) : (
-                <CancelRoundedIcon
-                  className="landing-compare-icon"
-                  fontSize="inherit"
-                />
-              )}
-              {row.guest ? "可用" : "不支援"}
-            </span>
-            <span role="cell" className={row.google ? "is-yes" : "is-no"}>
-              {row.google ? (
-                <CheckCircleRoundedIcon
-                  className="landing-compare-icon"
-                  fontSize="inherit"
-                />
-              ) : (
-                <CancelRoundedIcon
-                  className="landing-compare-icon"
-                  fontSize="inherit"
-                />
-              )}
-              {row.google ? "可用" : "不支援"}
+          <div key={row.label} className="landing-benefit-item">
+            <CheckCircleRoundedIcon
+              className="landing-compare-icon"
+              fontSize="inherit"
+            />
+            <span>
+              <strong>{row.label}</strong>
+              <small>{row.description}</small>
             </span>
           </div>
         ))}

@@ -13,10 +13,14 @@ import {
   setNativeRefreshToken,
 } from "../../../shared/auth/nativeTokenStorage";
 import {
+  apiAuthEmailLogin,
   apiAuthGoogleNative,
   apiAuthGoogleWeb,
+  apiAuthRegister,
   apiLogout,
   apiRefreshAuthToken,
+  apiRequestPasswordReset,
+  apiResendEmailVerification,
   apiUpsertCurrentUser,
 } from "./roomApi";
 import { USERNAME_MAX } from "./roomConstants";
@@ -85,6 +89,17 @@ export type UseRoomAuthResult = {
   openProfileEditor: () => void;
   closeProfileEditor: () => void;
   loginWithGoogle: () => void;
+  loginWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  registerWithEmail: (
+    email: string,
+    password: string,
+    displayName?: string | null,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  resendEmailVerification: (email: string) => Promise<boolean>;
+  requestPasswordReset: (email: string) => Promise<boolean>;
   logout: () => void;
 };
 
@@ -547,6 +562,155 @@ export const useRoomAuth = ({
     webRedirectUri,
   ]);
 
+  const loginWithEmail = useCallback(
+    async (email: string, password: string) => {
+      if (!apiUrl) {
+        setStatusText("尚未設定 API 位置 (API_URL)");
+        return { ok: false, error: "尚未設定 API 位置 (API_URL)" };
+      }
+
+      const clientType = isNativeApp() ? "native" : "web";
+      setAuthLoading(true);
+
+      try {
+        const { ok, payload } = await apiAuthEmailLogin(apiUrl, {
+          email,
+          password,
+          clientType,
+        });
+
+        if (!ok || !payload?.token || !payload.user) {
+          throw new Error(payload?.error ?? "登入失敗");
+        }
+
+        if (clientType === "native" && !payload.refreshToken) {
+          throw new Error("登入回應缺少 refresh token");
+        }
+
+        await persistAuth(payload.token, payload.user, {
+          clientType,
+          refreshToken: payload.refreshToken ?? null,
+        });
+
+        trackEvent("login_email_success", {
+          provider: "local",
+          platform: clientType,
+        });
+
+        setStatusText("登入成功");
+        return { ok: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "登入失敗";
+        trackEvent("login_email_failed", { reason: message });
+        setStatusText(message);
+        return { ok: false, error: message };
+      } finally {
+        setAuthLoading(false);
+      }
+    },
+    [apiUrl, persistAuth, setStatusText],
+  );
+
+  const registerWithEmail = useCallback(
+    async (email: string, password: string, displayName?: string | null) => {
+      if (!apiUrl) {
+        setStatusText("尚未設定 API 位置 (API_URL)");
+        return { ok: false, error: "尚未設定 API 位置 (API_URL)" };
+      }
+
+      const clientType = isNativeApp() ? "native" : "web";
+      setAuthLoading(true);
+
+      try {
+        const { ok, payload } = await apiAuthRegister(apiUrl, {
+          email,
+          password,
+          displayName,
+          clientType,
+        });
+
+        if (!ok || !payload?.token || !payload.user) {
+          throw new Error(payload?.error ?? "註冊失敗");
+        }
+
+        if (clientType === "native" && !payload.refreshToken) {
+          throw new Error("註冊回應缺少 refresh token");
+        }
+
+        await persistAuth(payload.token, payload.user, {
+          clientType,
+          refreshToken: payload.refreshToken ?? null,
+        });
+
+        trackEvent("register_email_success", {
+          provider: "local",
+          platform: clientType,
+        });
+
+        setStatusText("註冊成功");
+        return { ok: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "註冊失敗";
+        trackEvent("register_email_failed", { reason: message });
+        setStatusText(message);
+        return { ok: false, error: message };
+      } finally {
+        setAuthLoading(false);
+      }
+    },
+    [apiUrl, persistAuth, setStatusText],
+  );
+
+  const resendEmailVerification = useCallback(
+    async (email: string) => {
+      if (!apiUrl) {
+        setStatusText("尚未設定 API 位置 (API_URL)");
+        return false;
+      }
+
+      try {
+        const { ok, payload } = await apiResendEmailVerification(apiUrl, {
+          email,
+        });
+        if (!ok) {
+          throw new Error(payload?.error ?? "無法寄出驗證信");
+        }
+        setStatusText("驗證信已寄出");
+        return true;
+      } catch (error) {
+        setStatusText(error instanceof Error ? error.message : "無法寄出驗證信");
+        return false;
+      }
+    },
+    [apiUrl, setStatusText],
+  );
+
+  const requestPasswordReset = useCallback(
+    async (email: string) => {
+      if (!apiUrl) {
+        setStatusText("尚未設定 API 位置 (API_URL)");
+        return false;
+      }
+
+      try {
+        const { ok, payload } = await apiRequestPasswordReset(apiUrl, {
+          email,
+        });
+        if (!ok) {
+          throw new Error(payload?.error ?? "無法寄出重設密碼信");
+        }
+        setStatusText("如果帳號存在，重設密碼信已寄出");
+        return true;
+      } catch (error) {
+        setStatusText(
+          error instanceof Error ? error.message : "無法寄出重設密碼信",
+        );
+        return false;
+      }
+    },
+    [apiUrl, setStatusText],
+  );
+
   const logout = useCallback(() => {
     const run = async () => {
       if (apiUrl) {
@@ -630,6 +794,10 @@ export const useRoomAuth = ({
     openProfileEditor,
     closeProfileEditor,
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resendEmailVerification,
+    requestPasswordReset,
     logout,
   };
 };

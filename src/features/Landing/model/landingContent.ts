@@ -5,8 +5,7 @@ export interface HowItWorksStep {
 
 export interface AuthComparisonRow {
   label: string;
-  guest: boolean;
-  google: boolean;
+  description: string;
 }
 
 export interface LandingUpdateItem {
@@ -41,11 +40,11 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
 ];
 
 export const AUTH_COMPARISON_ROWS: AuthComparisonRow[] = [
-  { label: "遊玩功能", guest: true, google: true },
-  { label: "匯入 YouTube 清單", guest: false, google: true },
-  { label: "建立平台收藏庫", guest: false, google: true },
-  { label: "跨裝置保存資料", guest: false, google: true },
-  { label: "完整歷史資料", guest: false, google: true },
+  { label: "保存遊玩紀錄", description: "生涯戰績、排行榜表現與房間紀錄會綁定帳號。" },
+  { label: "匯入 YouTube 清單", description: "登入 Google 後可把播放清單直接變成猜歌題庫。" },
+  { label: "建立平台收藏庫", description: "整理自己的題庫，之後開房可快速套用。" },
+  { label: "跨裝置延續", description: "換電腦或手機也能接回同一份收藏與設定。" },
+  { label: "完整功能支援", description: "後續新功能會以登入帳號為主要使用路徑。" },
 ];
 
 export const LANDING_UPDATES: LandingUpdateItem[] = [

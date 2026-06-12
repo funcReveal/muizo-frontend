@@ -25,6 +25,7 @@ import { useNavigate } from "react-router-dom";
 import SiteAnnouncementNotice from "@/shared/announcement/SiteAnnouncementNotice";
 import { isCareerFeatureEnabled } from "@/shared/config/featureFlags";
 import BrandLogo from "@/shared/ui/BrandLogo";
+import AuthEntryDialog from "@/shared/ui/auth/AuthEntryDialog";
 
 interface AppHeaderProps {
   displayUsername: string;
@@ -38,6 +39,17 @@ interface AppHeaderProps {
   } | null;
   authLoading?: boolean;
   onLogin?: () => void;
+  onEmailLogin?: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  onEmailRegister?: (
+    email: string,
+    password: string,
+    displayName?: string | null,
+  ) => Promise<{ ok: boolean; error?: string | null }>;
+  onPasswordResetRequest?: (email: string) => Promise<boolean>;
+  onResendVerification?: (email: string) => Promise<boolean>;
   onLogout?: () => void;
   onEditProfile?: () => void;
   onNavigateRooms?: () => void;
@@ -49,10 +61,13 @@ interface AppHeaderProps {
 
 const AppHeader: React.FC<AppHeaderProps> = ({
   displayUsername,
-  hasGuestIdentity = false,
   authUser,
   authLoading = false,
   onLogin,
+  onEmailLogin,
+  onEmailRegister,
+  onPasswordResetRequest,
+  onResendVerification,
   onLogout,
   onNavigateRooms,
   onNavigateCollections,
@@ -64,10 +79,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
   const authLabel =
     authUser?.display_name || authUser?.id || displayUsername || "Guest";
-  const isAnonymousVisitor = !authUser && !hasGuestIdentity;
-  const isGuestVisitor = !authUser && hasGuestIdentity;
+  const isAnonymousVisitor = !authUser;
 
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
 
   const isMenuOpen = Boolean(menuAnchorEl);
   const menuId = isMenuOpen ? "header-menu-popover" : undefined;
@@ -80,10 +95,15 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     setMenuAnchorEl(null);
   };
 
+  const openAuthDialog = () => {
+    handleMenuClose();
+    setAuthDialogOpen(true);
+  };
+
   const handleBrandNavigate = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
-      if (authUser || hasGuestIdentity) {
+      if (authUser) {
         if (onNavigateRooms) {
           onNavigateRooms();
           return;
@@ -93,7 +113,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       }
       navigate("/");
     },
-    [authUser, hasGuestIdentity, navigate, onNavigateRooms],
+    [authUser, navigate, onNavigateRooms],
   );
 
   const menuItemSx = useMemo(
@@ -103,7 +123,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       gap: 1.5,
       "&:hover": {
         background:
-          "linear-gradient(90deg, rgba(56, 189, 248, 0.14), rgba(129, 140, 248, 0.08))",
+          "linear-gradient(90deg, rgba(45, 212, 191, 0.13), rgba(245, 158, 11, 0.06))",
       },
       "& .MuiListItemText-primary": {
         color: "#e2e8f0",
@@ -125,7 +145,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     handleMenuClose();
 
     if (isAnonymousVisitor) {
-      onLogin?.();
+      openAuthDialog();
       return;
     }
 
@@ -160,13 +180,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           />
         </MenuItem>,
       ]
-    : hasGuestIdentity
-      ? [
+    : [
           <MenuItem
             key="login"
             onClick={() => {
-              handleMenuClose();
-              onLogin?.();
+              openAuthDialog();
             }}
             disabled={authLoading}
             sx={menuItemSx}
@@ -175,63 +193,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               <Login fontSize="small" />
             </ListItemIcon>
             <ListItemText
-              primary={authLoading ? "登入中..." : "使用 Google 登入"}
-              secondary="啟用完整帳號同步功能"
-            />
-          </MenuItem>,
-          <MenuItem
-            key="guest-profile-career"
-            onClick={() => {
-              handleNavigateCareer();
-            }}
-            disabled={!isCareerFeatureEnabled}
-            sx={menuItemSx}
-          >
-            <ListItemIcon sx={{ minWidth: 30, color: "#7dd3fc" }}>
-              <AccountCircleRounded fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                isCareerFeatureEnabled ? (
-                  <Box
-                    component="span"
-                    sx={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 0.7,
-                    }}
-                  >
-                    <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                    個人資料
-                  </Box>
-                ) : (
-                  "個人資料"
-                )
-              }
-              secondary={
-                isCareerFeatureEnabled
-                  ? "登入後查看完整紀錄，並可編輯暱稱"
-                  : "個人資料功能暫時維護中"
-              }
-            />
-          </MenuItem>,
-        ]
-      : [
-          <MenuItem
-            key="login"
-            onClick={() => {
-              handleMenuClose();
-              onLogin?.();
-            }}
-            disabled={authLoading}
-            sx={menuItemSx}
-          >
-            <ListItemIcon sx={{ minWidth: 30, color: "#38bdf8" }}>
-              <Login fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary={authLoading ? "登入中..." : "登入 / 開始使用"}
-              secondary="登入後可解鎖完整功能"
+              primary={authLoading ? "登入中..." : "登入 Muizo"}
+              secondary="保存題庫、戰績與跨裝置紀錄"
             />
           </MenuItem>,
           <MenuItem
@@ -331,29 +294,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               <ExpandMore />
             </span>
           </button>
-        ) : isGuestVisitor ? (
-          <button
-            type="button"
-            onClick={handleMenuToggle}
-            className="app-header-profile-pill app-header-profile-pill-guest group max-w-full"
-            aria-haspopup="menu"
-            aria-expanded={isMenuOpen}
-            aria-controls={menuId}
-          >
-            <span className="app-header-profile-kicker">訪客</span>
-            <span className="app-header-profile-divider" />
-            <span className="app-header-profile-avatar-fallback">
-              {authLabel?.[0]?.toUpperCase() ?? "?"}
-            </span>
-            <span className="app-header-profile-label">{authLabel}</span>
-            <span
-              className={`app-header-profile-chevron ${
-                isMenuOpen ? "rotate-180" : ""
-              }`}
-            >
-              <ExpandMore />
-            </span>
-          </button>
         ) : (
           <button
             type="button"
@@ -363,9 +303,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             aria-expanded={isMenuOpen}
             aria-controls={menuId}
           >
-            <span className="inline-flex items-center gap-2">
+            <span className="app-header-login-copy">
               <span className="app-header-login-dot" />
-              登入 Login
+              <span className="app-header-login-text">登入</span>
+              <span className="app-header-login-hint">保存進度</span>
             </span>
             <span
               className={`app-header-profile-chevron ${
@@ -388,13 +329,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             className: "app-header-menu-popover",
             sx: {
               mt: 1.5,
-              minWidth: 260,
+              minWidth: 292,
               borderRadius: 2.5,
               border: "1px solid rgba(148, 163, 184, 0.25)",
               background:
-                "linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98))",
+                "linear-gradient(180deg, rgba(12, 17, 22, 0.98), rgba(4, 8, 13, 0.98))",
               boxShadow:
-                "0 18px 40px rgba(2, 6, 23, 0.45), 0 0 0 1px rgba(14, 165, 233, 0.08)",
+                "0 18px 40px rgba(2, 6, 23, 0.45), 0 0 0 1px rgba(45, 212, 191, 0.08)",
               backdropFilter: "blur(16px)",
               overflow: "hidden",
             },
@@ -409,7 +350,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               justifyContent: "space-between",
               gap: 2,
               background:
-                "linear-gradient(90deg, rgba(14, 165, 233, 0.12), rgba(129, 140, 248, 0.05))",
+                "linear-gradient(90deg, rgba(45, 212, 191, 0.12), rgba(245, 158, 11, 0.05))",
             }}
           >
             <Box sx={{ minWidth: 0 }}>
@@ -427,6 +368,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               >
                 {isAnonymousVisitor ? "尚未登入" : authLabel}
               </Typography>
+              {isAnonymousVisitor ? (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    mt: 0.35,
+                    display: "block",
+                    color: "rgba(148, 163, 184, 0.86)",
+                    fontSize: "0.74rem",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  登入後可保存收藏、戰績與房間紀錄
+                </Typography>
+              ) : null}
             </Box>
             {authUser && (
               <Box
@@ -500,10 +455,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             {!authUser ? (
               <MenuItem
                 onClick={() => {
-                  handleMenuClose();
-                  onLogin?.();
-                }}
-                sx={menuItemSx}
+                handleMenuClose();
+                openAuthDialog();
+              }}
+              sx={menuItemSx}
               >
                 <ListItemIcon sx={{ minWidth: 30, color: "#a7f3d0" }}>
                   <LibraryMusic fontSize="small" />
@@ -592,6 +547,23 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             />
           </MenuItem>
         </Popover>
+
+        {onLogin &&
+          onEmailLogin &&
+          onEmailRegister &&
+          onPasswordResetRequest &&
+          onResendVerification ? (
+            <AuthEntryDialog
+              open={authDialogOpen}
+              onClose={() => setAuthDialogOpen(false)}
+              onGoogleLogin={onLogin}
+              onEmailLogin={onEmailLogin}
+              onEmailRegister={onEmailRegister}
+              onPasswordResetRequest={onPasswordResetRequest}
+              onResendVerification={onResendVerification}
+              authLoading={authLoading}
+            />
+          ) : null}
       </div>
     </header>
   );
