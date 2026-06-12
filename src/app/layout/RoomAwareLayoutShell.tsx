@@ -26,7 +26,6 @@ const RoomAwareLayoutShell: React.FC = () => {
     openProfileEditor,
     closeProfileEditor,
     displayUsername,
-    username,
   } = useAuth();
 
   const { statusNotification, setStatusText, currentRoom } = useRoomSession();
@@ -96,7 +95,6 @@ const RoomAwareLayoutShell: React.FC = () => {
       >
         <AppHeader
           displayUsername={displayUsername}
-          hasGuestIdentity={Boolean(username)}
           authUser={authUser}
           authLoading={authLoading}
           onLogin={navigationGuards.handleLoginRequest}

@@ -19,7 +19,7 @@ const TermsPage: React.FC = () => (
       <section>
         <h3 className="text-base font-semibold text-[var(--mc-text)]">2. 帳號與登入</h3>
         <ul className="mt-2 space-y-2 text-[var(--mc-text-muted)]">
-          <li>你可使用 Google OAuth 或訪客方式登入。</li>
+          <li>你需使用 Google OAuth 或電子郵件帳號登入後才能遊玩。</li>
           <li>若使用 Google 登入，亦須遵守 Google 的相關條款與政策。</li>
           <li>你應自行維護裝置與帳號安全，避免未授權存取。</li>
         </ul>

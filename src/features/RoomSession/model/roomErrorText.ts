@@ -78,8 +78,12 @@ export const translateRoomErrorDetail = (
     return "排行挑戰需先登入";
   }
 
+  if (/^Login is required to play$/i.test(normalized)) {
+    return "請先登入後再遊玩";
+  }
+
   if (/^Leaderboard challenge cannot include guests$/i.test(normalized)) {
-    return "房內有訪客時，不能切換成排行挑戰";
+    return "房內有未登入玩家時，不能切換成排行挑戰";
   }
 
   return normalized;

@@ -10,7 +10,6 @@ const LegalLayout: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const {
     displayUsername,
-    username,
     authUser,
     authLoading,
     loginWithGoogle,
@@ -27,7 +26,6 @@ const LegalLayout: React.FC = () => {
       <div className="mx-auto w-full max-w-[1600px] space-y-6">
         <AppHeader
           displayUsername={displayUsername}
-          hasGuestIdentity={Boolean(username)}
           authUser={authUser}
           authLoading={authLoading}
           onLogin={loginWithGoogle}

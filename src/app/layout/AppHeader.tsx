@@ -30,7 +30,6 @@ import AuthEntryDialog from "@/shared/ui/auth/AuthEntryDialog";
 
 interface AppHeaderProps {
   displayUsername: string;
-  hasGuestIdentity?: boolean;
   authUser?: {
     id: string;
     email?: string | null;
@@ -81,7 +80,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const navigate = useNavigate();
 
   const authLabel =
-    authUser?.display_name || authUser?.id || displayUsername || "Guest";
+    authUser?.display_name || authUser?.id || displayUsername || "Muizo";
   const isAnonymousVisitor = !authUser;
 
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);

@@ -220,8 +220,14 @@ export const useRoomProviderCreateRoomAction = ({
 
   const handleCreateRoom = useCallback(async (options?: CreateRoomOptions) => {
     const socket = getSocket();
+    if (!authToken) {
+      setStatusText("請先登入後再建立房間。");
+      onLeaderboardAuthRequired?.();
+      return;
+    }
+
     if (!socket || !username) {
-      setStatusText("請先設定使用者名稱");
+      setStatusText("請先完成登入暱稱設定。");
       return;
     }
 
@@ -246,21 +252,19 @@ export const useRoomProviderCreateRoomAction = ({
       releaseCreateRoomLock();
     };
 
-    if (authToken) {
-      const token = await runWithTimeout(
-        ensureFreshAuthToken({
-          token: authToken,
-          refreshAuthToken,
-        }),
-        5_000,
-        null,
-      );
+    const token = await runWithTimeout(
+      ensureFreshAuthToken({
+        token: authToken,
+        refreshAuthToken,
+      }),
+      5_000,
+      null,
+    );
 
-      if (!token) {
-        setStatusText("登入狀態已失效，請重新登入。");
-        finalizeCreate();
-        return;
-      }
+    if (!token) {
+      setStatusText("登入狀態已失效，請重新登入。");
+      finalizeCreate();
+      return;
     }
 
     const trimmed = roomNameInput.trim();
@@ -493,13 +497,16 @@ export const useRoomProviderCreateRoomAction = ({
       const requiresLeaderboardAuth =
         finalizeAck.code === "AUTH_REQUIRED_FOR_LEADERBOARD" ||
         finalizeAck.error === "Leaderboard challenge requires login";
+      const requiresLogin =
+        requiresLeaderboardAuth ||
+        finalizeAck.error === "Login is required to play";
       setStatusText(
         formatAckError(
           "建立房間失敗",
           translateRoomErrorDetail(finalizeAck.error),
         ),
       );
-      if (requiresLeaderboardAuth) {
+      if (requiresLogin) {
         onLeaderboardAuthRequired?.();
       }
       finalizeCreate();

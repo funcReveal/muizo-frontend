@@ -56,7 +56,6 @@ const AppLayoutShell: React.FC = () => {
     openProfileEditor,
     closeProfileEditor,
     displayUsername,
-    username,
   } = useAuth();
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -143,7 +142,6 @@ const AppLayoutShell: React.FC = () => {
       >
         <AppHeader
           displayUsername={displayUsername}
-          hasGuestIdentity={Boolean(username)}
           authUser={authUser}
           authLoading={authLoading}
           onLogin={handleLoginRequest}

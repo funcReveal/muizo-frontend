@@ -164,7 +164,6 @@ type CollectionDetailDrawerProps = {
   onLeaderboardModeChange: (value: LeaderboardModeKey) => void;
   onLeaderboardVariantChange: (value: LeaderboardVariantKey) => void;
   isAuthenticated?: boolean;
-  hasGuestIdentity?: boolean;
   isAuthLoading?: boolean;
   onLoginRequired?: () => void;
 };
@@ -794,7 +793,6 @@ const CollectionDetailDrawer = ({
   onLeaderboardModeChange,
   onLeaderboardVariantChange,
   isAuthenticated = false,
-  hasGuestIdentity = false,
   isAuthLoading = false,
   onLoginRequired,
 }: CollectionDetailDrawerProps) => {
@@ -847,7 +845,6 @@ const CollectionDetailDrawer = ({
       : "");
   const isPublic = (collection?.visibility ?? "private") === "public";
   const canShareCollection = isPublic;
-  const hasPlayableIdentity = isAuthenticated || hasGuestIdentity;
   const canStartLeaderboardChallenge = isPublic && isAuthenticated;
   const baseFavoriteCount = Math.max(
     0,
@@ -1023,12 +1020,7 @@ const CollectionDetailDrawer = ({
     setupBaseCanCreateRoom &&
     (!isSetupLeaderboardMode || !isActiveLeaderboardQuestionCountInsufficient);
   const setupCanCreateRoom =
-    (isSetupView &&
-    collection &&
-    !isSetupLeaderboardMode &&
-    !hasPlayableIdentity
-      ? setupCanSubmitCustomRoom
-      : setupBaseCanCreateRoom) &&
+    setupBaseCanCreateRoom &&
     (!isSetupLeaderboardMode || !isActiveLeaderboardQuestionCountInsufficient);
   const setupCreateRequirementsHintText =
     isSetupView && collection
@@ -1209,9 +1201,9 @@ const CollectionDetailDrawer = ({
     ? "建立房間中..."
     : isApplying || isCustomRoomStartPending
       ? "載入題庫中..."
-      : !hasPlayableIdentity
-        ? "開始遊戲"
-      : "建立休閒房";
+      : !isAuthenticated
+        ? "登入後建立"
+        : "建立休閒房";
   const setupSourceSummary: SourceSummary = collection
     ? {
         label: isPublic ? "公開收藏庫" : "私人收藏庫",
@@ -1224,6 +1216,10 @@ const CollectionDetailDrawer = ({
 
   const handleStartCustomRoom = () => {
     if (!collection) return;
+    if (!isAuthenticated) {
+      onLoginRequired?.();
+      return;
+    }
     setRoomPlayMode("casual");
     void (onStartCustomRoom ?? onUseCollection)(collection.id);
     setDrawerView("casualSetup");
@@ -1260,6 +1256,10 @@ const CollectionDetailDrawer = ({
   const handleConfirmCustomRoom = () => {
     if (!collection) return;
     if (!setupCanSubmitCustomRoom) return;
+    if (!isAuthenticated) {
+      onLoginRequired?.();
+      return;
+    }
     void (onConfirmCustomRoom ?? onStartCustomRoom ?? onUseCollection)(
       collection.id,
     );

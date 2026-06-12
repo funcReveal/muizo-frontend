@@ -49,7 +49,6 @@ import {
   PLAYER_MIN,
   YOUTUBE_PLAYLIST_MIN_ITEM_COUNT,
 } from "@domain/room/constants";
-import { generateGuestUsername } from "@domain/room/guestUsername";
 import type { PlaybackExtensionMode } from "@domain/room/types";
 import { PlaylistPreviewRow } from "./components/source/PlaylistPreviewRows";
 import JoinRoomPanel from "./components/join/JoinRoomPanel";
@@ -298,8 +297,6 @@ const RoomsHubPage: React.FC = () => {
   const settingsModel = useContext(SettingsModelContext);
   const bgmVolume = settingsModel?.bgmVolume ?? DEFAULT_BGM_VOLUME;
   const {
-    username,
-    handleSetUsername,
     loginWithGoogle,
     authLoading,
     authUser,
@@ -309,7 +306,6 @@ const RoomsHubPage: React.FC = () => {
     useRoomSession();
   const { rooms, viewerAccessByRoomId } = useRoomDirectory();
   const displayedSiteOnlineCount = siteOnlineCount ?? (isConnected ? 1 : null);
-  const suggestedGuestUsername = useMemo(() => generateGuestUsername(), []);
   const {
     collections,
     collectionsLoading,
@@ -493,13 +489,6 @@ const RoomsHubPage: React.FC = () => {
   } | null>(null);
   const [pendingCustomRoomStart, setPendingCustomRoomStart] = useState<{
     collectionId: string;
-  } | null>(null);
-  const [pendingGuestRoomCreate, setPendingGuestRoomCreate] = useState(false);
-  const [pendingGuestJoinRoom, setPendingGuestJoinRoom] = useState<{
-    roomCode: string;
-    roomName: string;
-    hasPassword: boolean;
-    pin?: string;
   } | null>(null);
   const {
     passwordDialog,
@@ -1231,54 +1220,22 @@ const RoomsHubPage: React.FC = () => {
     }
     return true;
   };
-  const prepareGuestIdentity = useCallback(() => {
-    if (username) return false;
-
-    handleSetUsername(suggestedGuestUsername);
-    if (!roomNameInput.trim() || roomNameInput.trim() === "未命名房間") {
-      setRoomNameInput(`${suggestedGuestUsername}'s room`);
-    }
-    return true;
-  }, [
-    handleSetUsername,
-    roomNameInput,
-    setRoomNameInput,
-    suggestedGuestUsername,
-    username,
-  ]);
-  const ensureGuestIdentity = useCallback(() => {
-    if (username) return true;
-    prepareGuestIdentity();
+  const requireLoginForRoomPlay = useCallback(() => {
+    if (authUser) return true;
+    setStatusText("請先登入後再加入或建立房間。");
+    loginWithGoogle();
     return false;
-  }, [prepareGuestIdentity, username]);
+  }, [authUser, loginWithGoogle, setStatusText]);
   const handleCreateCasualRoomFromDrawer = () => {
     if (!canSubmitRoomCreate()) return;
-    if (!ensureGuestIdentity()) {
-      setPendingGuestRoomCreate(true);
-      return;
-    }
+    if (!requireLoginForRoomPlay()) return;
     if (!isConnected) {
-      setPendingGuestRoomCreate(true);
+      setStatusText("正在連線到房間伺服器，請稍候再試。");
       return;
     }
     setRoomPlayMode("casual");
     void handleCreateRoom(buildCreateRoomOptions());
   };
-  useEffect(() => {
-    if (!pendingGuestRoomCreate) return;
-    if (!username) return;
-    if (!isConnected) return;
-
-    setPendingGuestRoomCreate(false);
-    setRoomPlayMode("casual");
-    void handleCreateRoom(buildCreateRoomOptions());
-  }, [
-    buildCreateRoomOptions,
-    handleCreateRoom,
-    isConnected,
-    pendingGuestRoomCreate,
-    username,
-  ]);
   useEffect(() => {
     if (!pendingLeaderboardStart) return;
     if (collectionItemsLoading) return;
@@ -1322,7 +1279,7 @@ const RoomsHubPage: React.FC = () => {
       return;
     }
     if (playlistItems.length === 0) return;
-    if (!ensureGuestIdentity()) return;
+    if (!requireLoginForRoomPlay()) return;
     if (!isConnected) return;
 
     setPendingCustomRoomStart(null);
@@ -1332,7 +1289,7 @@ const RoomsHubPage: React.FC = () => {
     collectionItemsLoading,
     buildCreateRoomOptions,
     handleCreateRoom,
-    ensureGuestIdentity,
+    requireLoginForRoomPlay,
     isConnected,
     pendingCustomRoomStart,
     playlistItems.length,
@@ -1601,12 +1558,9 @@ const RoomsHubPage: React.FC = () => {
     hasPassword: boolean,
     pin?: string,
   ) => {
+    if (!requireLoginForRoomPlay()) return;
     if (hasPassword) {
       openPasswordDialog(roomCode, roomName);
-      return;
-    }
-    if (!ensureGuestIdentity()) {
-      setPendingGuestJoinRoom({ roomCode, roomName, hasPassword, pin });
       return;
     }
     setJoinPasswordInput("");
@@ -1649,41 +1603,11 @@ const RoomsHubPage: React.FC = () => {
     const trimmed = passwordDraft.trim();
     if (!trimmed) return;
     if (!/^\d{4}$/.test(trimmed)) return;
-    if (!ensureGuestIdentity()) {
-      setPendingGuestJoinRoom({
-        roomCode: passwordDialog.roomId,
-        roomName: passwordDialog.roomName,
-        hasPassword: true,
-        pin: trimmed,
-      });
-      closePasswordDialog();
-      return;
-    }
+    if (!requireLoginForRoomPlay()) return;
     setJoinPasswordInput(trimmed);
     handleJoinRoom(passwordDialog.roomId, true, trimmed);
     closePasswordDialog();
   };
-  useEffect(() => {
-    if (!pendingGuestJoinRoom) return;
-    if (!username) return;
-    if (!isConnected) return;
-
-    setPendingGuestJoinRoom(null);
-    setJoinPasswordInput(
-      pendingGuestJoinRoom.hasPassword ? (pendingGuestJoinRoom.pin ?? "") : "",
-    );
-    handleJoinRoom(
-      pendingGuestJoinRoom.roomCode,
-      pendingGuestJoinRoom.hasPassword,
-      pendingGuestJoinRoom.pin,
-    );
-  }, [
-    handleJoinRoom,
-    isConnected,
-    pendingGuestJoinRoom,
-    setJoinPasswordInput,
-    username,
-  ]);
   const handleJoinRoomEntry = (room: RoomSummary) => {
     const kickedUntil = viewerAccessByRoomId[room.id]?.kickedUntil;
     const now = Date.now() + serverOffsetMs;
@@ -1698,10 +1622,7 @@ const RoomsHubPage: React.FC = () => {
       );
       return;
     }
-    if (roomIsLeaderboardChallenge(room) && !authUser) {
-      loginWithGoogle();
-      return;
-    }
+    if (!requireLoginForRoomPlay()) return;
     if (isRoomCurrentlyPlaying(room)) {
       openInProgressJoinDialog(room);
       return;
@@ -1745,6 +1666,10 @@ const RoomsHubPage: React.FC = () => {
     if (roomIsLeaderboardChallenge(resolvedDirectJoinRoom) && !authUser) {
       setDirectJoinError("排行挑戰需先登入才能加入。");
       loginWithGoogle();
+      return;
+    }
+    if (!requireLoginForRoomPlay()) {
+      setDirectJoinError("請先登入後再加入房間。");
       return;
     }
     if (isRoomCurrentlyPlaying(resolvedDirectJoinRoom)) {
@@ -2215,7 +2140,7 @@ const RoomsHubPage: React.FC = () => {
           );
         }}
         onStartCustomRoom={() => {
-          prepareGuestIdentity();
+          if (!requireLoginForRoomPlay()) return;
           setRoomPlayMode("casual");
         }}
         onConfirmCustomRoom={(collectionId) => {
@@ -2306,7 +2231,6 @@ const RoomsHubPage: React.FC = () => {
         onLeaderboardModeChange={handleLeaderboardModeChange}
         onLeaderboardVariantChange={handleLeaderboardVariantChange}
         isAuthenticated={Boolean(authUser)}
-        hasGuestIdentity={Boolean(username)}
         isAuthLoading={authLoading}
         onLoginRequired={loginWithGoogle}
       />

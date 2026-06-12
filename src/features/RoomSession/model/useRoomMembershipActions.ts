@@ -196,6 +196,9 @@ export const useRoomMembershipActions = ({
             const requiresLeaderboardAuth =
               ack.code === "AUTH_REQUIRED_FOR_LEADERBOARD" ||
               ack.error === "Leaderboard challenge requires login";
+            const requiresLogin =
+              requiresLeaderboardAuth ||
+              ack.error === "Login is required to play";
             trackEvent("room_join_failed", {
               room_reference: roomReference,
               has_pin: hasPin,
@@ -208,7 +211,7 @@ export const useRoomMembershipActions = ({
                 translateRoomErrorDetail(ack.error),
               ),
             );
-            if (requiresLeaderboardAuth) {
+            if (requiresLogin) {
               onLeaderboardAuthRequired?.();
             }
           }

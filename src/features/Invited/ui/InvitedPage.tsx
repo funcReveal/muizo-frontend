@@ -13,8 +13,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../../shared/auth/AuthContext";
-import { USERNAME_MAX } from "@domain/room/constants";
-import { generateGuestUsername } from "@domain/room/guestUsername";
 import { roomIsLeaderboardChallenge } from "@domain/room/viewModels";
 import {
   useRoomCreate,
@@ -33,14 +31,9 @@ const TEXT = {
   roomReady: "房間已準備完成",
   players: "目前玩家",
   questions: "題目數",
-  identityTitle: "先設定你的顯示名稱",
+  identityTitle: "先登入後加入房間",
   identityDesc:
-    "你可以先用訪客名稱加入，也可以直接使用 Google 帳號登入。進房後其他玩家會看到這個名稱。",
-  guestLabel: "訪客名稱",
-  guestPlaceholder: "例如 Night DJ",
-  guestAction: "使用訪客加入",
-  guestRandomAction: "使用隨機暱稱加入",
-  or: "或",
+    "Muizo 目前需要登入後才能遊玩。登入後，房內其他玩家會看到你的帳號暱稱。",
   googleAction: "使用 Google 登入",
   joinNow: "加入房間",
   currentIdentity: "目前身分",
@@ -53,9 +46,9 @@ const TEXT = {
   collectionClipDesc:
     "若歌曲本身已有收藏庫片段設定，這個房間會優先沿用每首歌曲各自的起訖時間。",
   noCover: "這個題庫目前沒有封面曲資訊",
-  leaderboardLoginTitle: "排行挑戰需登入",
+  leaderboardLoginTitle: "請先登入",
   leaderboardLoginDesc:
-    "這個房間會記錄挑戰成績，請先使用 Google 登入後再加入。",
+    "使用者需要登入後才能加入房間與保存遊玩紀錄。",
 };
 
 const formatSeconds = (value?: number) =>
@@ -122,10 +115,6 @@ const InvitedPage: React.FC = () => {
     authLoading,
     authUser,
     loginWithGoogle,
-    username,
-    usernameInput,
-    setUsernameInput,
-    handleSetUsername,
   } = useAuth();
   const {
     currentRoom,
@@ -145,22 +134,6 @@ const InvitedPage: React.FC = () => {
     roomReference: string;
     result: RoomLookupResult;
   } | null>(null);
-  const [suggestedGuestUsername, setSuggestedGuestUsername] = useState(() =>
-    generateGuestUsername(),
-  );
-
-  const handleGuestJoin = () => {
-    const nextUsername = usernameInput.trim() || suggestedGuestUsername;
-    if (!nextUsername) return;
-
-    if (!usernameInput.trim()) {
-      setUsernameInput(nextUsername);
-      setSuggestedGuestUsername(generateGuestUsername());
-    }
-
-    handleSetUsername(nextUsername);
-  };
-
   useEffect(() => {
     setInviteRoomId(inviteReference ?? null);
     return () => setInviteRoomId(null);
@@ -213,13 +186,12 @@ const InvitedPage: React.FC = () => {
     hasDirectInviteLookup && inviteRoomApi && !inviteRoomApi.result.ok
       ? inviteRoomApi.result
       : null;
-  const hasIdentity = Boolean(username || authUser);
   const isRoomChecking = Boolean(inviteReference) && !hasDirectInviteLookup;
   const roomMissing = Boolean(inviteReference) &&
     !isRoomChecking &&
     (directInviteLookupFailure?.reason === "not_found" ||
       (!hasDirectInviteLookup && inviteNotFound && !inviteRoom));
-  const identityLabel = authUser?.display_name || username || "Guest";
+  const identityLabel = authUser?.display_name || authUser?.email || "已登入";
   const playlistAvailabilityLabel = formatPlaylistAvailabilityLabel(inviteRoom);
   const playlistTitle =
     inviteRoom?.playlistTitle?.trim() || `題庫 ${inviteRoom?.playlistCount ?? "-"} 首`;
@@ -235,7 +207,7 @@ const InvitedPage: React.FC = () => {
     .filter(Boolean)
     .join(" ・ ");
   const isLeaderboardInvite = roomIsLeaderboardChallenge(inviteRoom);
-  const needsLeaderboardLogin = isLeaderboardInvite && !authUser;
+  const needsLogin = !authUser;
 
   if (!inviteReference) {
     return (
@@ -419,14 +391,18 @@ const InvitedPage: React.FC = () => {
 
             <div className="lg:border-l lg:border-white/8 lg:pl-8">
               <div className="rounded-[1.5rem] bg-white/[0.04] p-4 ring-1 ring-white/8 sm:p-5">
-                {needsLeaderboardLogin ? (
+                {needsLogin ? (
                   <div className="grid gap-4">
                     <div>
                       <h3 className="text-xl font-semibold text-[var(--mc-text)]">
-                        {TEXT.leaderboardLoginTitle}
+                        {isLeaderboardInvite
+                          ? TEXT.leaderboardLoginTitle
+                          : TEXT.identityTitle}
                       </h3>
                       <p className="mt-2 text-sm leading-6 text-[var(--mc-text-muted)]">
-                        {TEXT.leaderboardLoginDesc}
+                        {isLeaderboardInvite
+                          ? TEXT.leaderboardLoginDesc
+                          : TEXT.identityDesc}
                       </p>
                     </div>
 
@@ -448,79 +424,6 @@ const InvitedPage: React.FC = () => {
                       }}
                     >
                       {authLoading ? "登入中..." : TEXT.googleAction}
-                    </Button>
-                  </div>
-                ) : !hasIdentity ? (
-                  <div className="grid gap-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-[var(--mc-text)]">
-                        {TEXT.identityTitle}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-[var(--mc-text-muted)]">
-                        {TEXT.identityDesc}
-                      </p>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                      <div>
-                        <div className="mb-2 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] text-[var(--mc-text-muted)]">
-                          <span>{TEXT.guestLabel}</span>
-                          <span>{`${usernameInput.length}/${USERNAME_MAX}`}</span>
-                        </div>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={usernameInput}
-                          onChange={(event) =>
-                            setUsernameInput(event.target.value.slice(0, USERNAME_MAX))
-                          }
-                          placeholder={suggestedGuestUsername || TEXT.guestPlaceholder}
-                          inputProps={{ maxLength: USERNAME_MAX }}
-                        />
-                      </div>
-                      <Button
-                        variant="outlined"
-                        onClick={handleGuestJoin}
-                        sx={{
-                          borderColor: "rgba(245, 158, 11, 0.4)",
-                          color: "var(--mc-text)",
-                          minHeight: 40,
-                          "&:hover": {
-                            borderColor: "rgba(245, 158, 11, 0.7)",
-                            backgroundColor: "rgba(245, 158, 11, 0.08)",
-                          },
-                        }}
-                      >
-                        {usernameInput.trim()
-                          ? TEXT.guestAction
-                          : TEXT.guestRandomAction}
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs text-[var(--mc-text-muted)]">
-                      <div className="h-px flex-1 bg-white/8" />
-                      <span>{TEXT.or}</span>
-                      <div className="h-px flex-1 bg-white/8" />
-                    </div>
-
-                    <Button
-                      variant="contained"
-                      onClick={loginWithGoogle}
-                      disabled={authLoading}
-                      sx={{
-                        background:
-                          "linear-gradient(90deg, rgba(56,189,248,0.9), rgba(245,158,11,0.9))",
-                        color: "#0b0a08",
-                        fontWeight: 700,
-                        minHeight: 46,
-                        boxShadow: "0 10px 24px rgba(56,189,248,0.25)",
-                        "&:hover": {
-                          background:
-                            "linear-gradient(90deg, rgba(56,189,248,1), rgba(245,158,11,1))",
-                        },
-                      }}
-                    >
-                      {TEXT.googleAction}
                     </Button>
                   </div>
                 ) : (
@@ -555,7 +458,7 @@ const InvitedPage: React.FC = () => {
                     <Button
                       variant="contained"
                       onClick={() => {
-                        if (needsLeaderboardLogin) {
+                        if (!authUser) {
                           loginWithGoogle();
                           return;
                         }

@@ -446,7 +446,7 @@ const JoinRoomPanel = ({
     view: "grid" | "list",
   ) => {
     const isLeaderboardRoom = roomIsLeaderboardChallenge(room);
-    const requiresLogin = isLeaderboardRoom && !isAuthenticated;
+    const requiresLogin = !isAuthenticated;
     const kickState = getRoomKickState(room);
     const isViewerBlocked = Boolean(kickState?.blocked);
     const maxPlayers =
@@ -1085,27 +1085,21 @@ const JoinRoomPanel = ({
                           "-"}
                       </p>
                     </div>
-                    {roomIsLeaderboardChallenge(resolvedDirectJoinRoom) ? (
+                    {!isAuthenticated ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300/18 bg-amber-300/8 px-3 py-2 text-xs">
                         <span className="inline-flex items-center gap-1.5 font-semibold text-amber-100">
                           <EmojiEventsRounded sx={{ fontSize: 15 }} />
-                          排行挑戰
+                          登入後加入
                         </span>
-                        {isAuthenticated ? (
-                          <span className="text-[var(--mc-text-muted)]">
-                            已登入，可加入挑戰
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={isAuthLoading}
-                            onClick={onLoginRequired}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/20 bg-cyan-300/10 px-2.5 py-1 font-semibold text-cyan-50 transition hover:border-cyan-200/34 hover:bg-cyan-300/14 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <LoginRounded sx={{ fontSize: 14 }} />
-                            {isAuthLoading ? "確認登入中..." : "登入後加入"}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          disabled={isAuthLoading}
+                          onClick={onLoginRequired}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/20 bg-cyan-300/10 px-2.5 py-1 font-semibold text-cyan-50 transition hover:border-cyan-200/34 hover:bg-cyan-300/14 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <LoginRounded sx={{ fontSize: 14 }} />
+                          {isAuthLoading ? "確認登入中..." : "登入後加入"}
+                        </button>
                       </div>
                     ) : null}
                   </div>
