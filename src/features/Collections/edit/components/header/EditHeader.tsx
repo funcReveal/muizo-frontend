@@ -59,6 +59,11 @@ type EditHeaderProps = {
   categorySaving?: boolean;
   /** Whether auto-detect has a pending suggestion the user hasn't applied yet */
   categoryHasSuggestion?: boolean;
+  /** Compact moderation indicator rendered inline in the title row */
+  moderationSlot?: ReactNode;
+  /** True when the collection is flagged (待處理/審核中) — on mobile the
+   *  visibility switch is hidden to give the moderation chip room. */
+  moderationActive?: boolean;
 };
 
 const EditHeader = ({
@@ -97,6 +102,8 @@ const EditHeader = ({
   collectionIsPublic = false,
   categorySaving = false,
   categoryHasSuggestion = false,
+  moderationSlot,
+  moderationActive = false,
 }: EditHeaderProps) => {
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -214,9 +221,18 @@ const EditHeader = ({
                 </button>
               </Tooltip>
             )}
+
+            {moderationSlot}
           </div>
         </div>
         <div className="inline-flex shrink-0 items-center gap-1.5">
+          {/* Flagged collections can't appear publicly anyway — hide the
+              visibility switch on mobile so the moderation chip has room. */}
+          <span
+            className={
+              moderationActive ? "hidden sm:inline-flex" : "inline-flex"
+            }
+          >
           <Tooltip title={visibility === "public" ? "公開中" : "私人"}>
             <Switch
               size="small"
@@ -267,6 +283,7 @@ const EditHeader = ({
               }}
             />
           </Tooltip>
+          </span>
           <span className="ml-1 text-sm font-semibold tabular-nums text-[var(--mc-text-muted)]">
             {collectionCount}
           </span>
