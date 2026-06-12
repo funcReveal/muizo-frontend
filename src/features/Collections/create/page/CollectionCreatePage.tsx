@@ -58,6 +58,7 @@ import {
   useCollectionCreateReadiness,
   type CollectionCreateStep,
 } from "../hooks/useCollectionCreateReadiness";
+import { useSongFavoritesImport } from "../hooks/useSongFavoritesImport";
 import {
   dedupePlaylistItems,
   type DraftPlaylistItem,
@@ -119,7 +120,7 @@ const CollectionCreatePage = () => {
   const [createStep, setCreateStep] = useState<CollectionCreateStep>("source");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("public");
-  const [playlistSource, setPlaylistSource] = useState<"url" | "youtube">(
+  const [playlistSource, setPlaylistSource] = useState<"url" | "youtube" | "favorites">(
     "url",
   );
 
@@ -210,6 +211,25 @@ const CollectionCreatePage = () => {
     removeImportItem,
     restoreImportItem,
   } = useCollectionCreateImportSources();
+
+  const hasFavoritesSource = useMemo(
+    () => importSources.some((s) => s.type === "song_favorites"),
+    [importSources],
+  );
+
+  const {
+    isImporting: isImportingFavorites,
+    importError: favoritesImportError,
+    importAllFavorites,
+  } = useSongFavoritesImport({
+    authToken,
+    refreshAuthToken,
+    addImportSource,
+    initializeCollectionTitleIfEmpty,
+    favoritesSourceLabel: t("source.favoritesSourceLabel"),
+    emptyFavoritesError: t("source.favoritesEmpty"),
+    importFailedError: t("source.favoritesImportFailed"),
+  });
 
   const removedDraftPlaylistItems = useMemo(
     () => dedupePlaylistItems(removedImportItems).items,
@@ -543,6 +563,7 @@ const CollectionCreatePage = () => {
     hasImportedItems,
     playlistLoading,
     isImportingYoutubePlaylist,
+    isImportingFavorites,
     isDraftOverflow,
     effectiveCollectionTitle,
   });
@@ -936,7 +957,7 @@ const CollectionCreatePage = () => {
                     playlistSource={playlistSource}
                     onPlaylistSourceChange={setPlaylistSource}
                     sourceSwitchDisabled={
-                      playlistLoading || isImportingYoutubePlaylist
+                      playlistLoading || isImportingYoutubePlaylist || isImportingFavorites
                     }
                     playlistUrl={playlistUrl}
                     trimmedPlaylistUrl={trimmedPlaylistUrl}
@@ -966,9 +987,16 @@ const CollectionCreatePage = () => {
                     onImportSelectedYoutubePlaylist={
                       handleImportSelectedYoutubePlaylist
                     }
+                    isImportingFavorites={isImportingFavorites}
+                    favoritesImportError={favoritesImportError}
+                    hasFavoritesSource={hasFavoritesSource}
+                    onImportAllFavorites={importAllFavorites}
                     importSources={importSources}
                     totalImportedItemCount={totalImportedItemCount}
-                    onRemoveImportSource={removeImportSource}
+                    onRemoveImportSource={(sourceId) => {
+                      removeImportSource(sourceId);
+                      // If user removes the favorites source, clear its import error.
+                    }}
                     onClearImportSources={resetImportSources}
                   />
                 )}

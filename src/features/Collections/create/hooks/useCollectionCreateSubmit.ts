@@ -50,7 +50,7 @@ type UseCollectionCreateSubmitArgs = {
   maxPrivateCollectionsPerUser: number;
   isDraftOverflow: boolean;
   draftOverflowCount: number;
-  playlistSource: "url" | "youtube";
+  playlistSource: "url" | "youtube" | "favorites";
   categoryId: string | null;
   subTagKeys: string[];
   onDraftOverflow: () => void;

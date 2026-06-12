@@ -18,6 +18,7 @@ type UseCollectionCreateReadinessParams = {
   hasImportedItems: boolean;
   playlistLoading: boolean;
   isImportingYoutubePlaylist: boolean;
+  isImportingFavorites: boolean;
 
   isDraftOverflow: boolean;
   effectiveCollectionTitle: string;
@@ -30,6 +31,7 @@ export function useCollectionCreateReadiness({
   hasImportedItems,
   playlistLoading,
   isImportingYoutubePlaylist,
+  isImportingFavorites,
   isDraftOverflow,
   effectiveCollectionTitle,
 }: UseCollectionCreateReadinessParams) {
@@ -55,7 +57,10 @@ export function useCollectionCreateReadiness({
       !isAdmin && privateCollectionsCount >= MAX_PRIVATE_COLLECTIONS_PER_USER;
 
     const canGoReview =
-      hasImportedItems && !playlistLoading && !isImportingYoutubePlaylist;
+      hasImportedItems &&
+      !playlistLoading &&
+      !isImportingYoutubePlaylist &&
+      !isImportingFavorites;
 
     const canGoPublish =
       canGoReview &&
@@ -82,6 +87,7 @@ export function useCollectionCreateReadiness({
     hasImportedItems,
     isAdmin,
     isDraftOverflow,
+    isImportingFavorites,
     isImportingYoutubePlaylist,
     playlistLoading,
   ]);

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
+import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 import {
   Button,
   CircularProgress,
@@ -26,8 +27,8 @@ type Props = {
   needsGoogleReauth: boolean;
   onLoginWithGoogle: () => void;
 
-  playlistSource: "url" | "youtube";
-  onPlaylistSourceChange: (value: "url" | "youtube") => void;
+  playlistSource: "url" | "youtube" | "favorites";
+  onPlaylistSourceChange: (value: "url" | "youtube" | "favorites") => void;
   sourceSwitchDisabled: boolean;
 
   playlistUrl: string;
@@ -54,6 +55,12 @@ type Props = {
   onEnsureYoutubePlaylists: () => void;
   onImportSelectedYoutubePlaylist: (playlistId: string) => Promise<void>;
 
+  // Song favorites tab
+  isImportingFavorites: boolean;
+  favoritesImportError: string | null;
+  hasFavoritesSource: boolean;
+  onImportAllFavorites: () => Promise<void>;
+
   importSources: CollectionCreateImportSource[];
   totalImportedItemCount: number;
   onRemoveImportSource: (sourceId: string) => void;
@@ -61,10 +68,8 @@ type Props = {
 };
 
 const getSourceTypeLabelKey = (type: CollectionCreateImportSource["type"]) => {
-  if (type === "youtube_account_playlist") {
-    return "source.sourceTypeYoutubeAccount";
-  }
-
+  if (type === "youtube_account_playlist") return "source.sourceTypeYoutubeAccount";
+  if (type === "song_favorites") return "source.sourceTypeSongFavorites";
   return "source.sourceTypeYoutubeUrl";
 };
 
@@ -103,6 +108,11 @@ export default function CollectionCreateSourcePanel({
   isImportingYoutubePlaylist,
   onEnsureYoutubePlaylists,
   onImportSelectedYoutubePlaylist,
+
+  isImportingFavorites,
+  favoritesImportError,
+  hasFavoritesSource,
+  onImportAllFavorites,
 
   importSources,
   totalImportedItemCount,
@@ -164,6 +174,7 @@ export default function CollectionCreateSourcePanel({
         </div>
       </div>
 
+      {/* Source tab selector */}
       <div className="mt-4 inline-flex rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1 text-[11px]">
         <button
           type="button"
@@ -190,6 +201,19 @@ export default function CollectionCreateSourcePanel({
         >
           {t("source.youtubeTab")}
         </button>
+
+        <button
+          type="button"
+          disabled={sourceSwitchDisabled}
+          onClick={() => onPlaylistSourceChange("favorites")}
+          className={`${sourceTabBaseClass} ${
+            playlistSource === "favorites"
+              ? "bg-amber-400/15 text-amber-100"
+              : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
+          }`}
+        >
+          {t("source.favoritesTab")}
+        </button>
       </div>
 
       {sourceSwitchDisabled && (
@@ -199,6 +223,7 @@ export default function CollectionCreateSourcePanel({
       )}
 
       <div className="relative mt-4 min-h-[170px]">
+        {/* URL tab panel */}
         <div
           className={`space-y-3 transition-all duration-200 ${
             playlistSource === "url"
@@ -344,6 +369,7 @@ export default function CollectionCreateSourcePanel({
           </div>
         </div>
 
+        {/* YouTube account tab panel */}
         <div
           className={`space-y-3 transition-all duration-200 ${
             playlistSource === "youtube"
@@ -404,8 +430,94 @@ export default function CollectionCreateSourcePanel({
             )}
           </div>
         </div>
+
+        {/* Song favorites tab panel */}
+        <div
+          className={`space-y-4 transition-all duration-200 ${
+            playlistSource === "favorites"
+              ? "translate-x-0 opacity-100"
+              : "pointer-events-none translate-x-2 opacity-0"
+          }`}
+          hidden={playlistSource !== "favorites"}
+        >
+          <div className="rounded-2xl border border-amber-200/18 bg-amber-300/5 p-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[12px] border border-amber-200/24 bg-amber-300/12 text-amber-200">
+                <BookmarkRoundedIcon sx={{ fontSize: 18 }} />
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-[var(--mc-text)]">
+                  {t("source.favoritesTitle")}
+                </div>
+                <div className="mt-1 text-xs leading-5 text-[var(--mc-text-muted)]">
+                  {t("source.favoritesDescription")}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              {hasFavoritesSource ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-full border border-amber-200/28 bg-amber-300/12 px-3 py-1 text-xs font-semibold text-amber-100">
+                    {t("source.favoritesAlreadyImported")}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isImportingFavorites}
+                    onClick={() => void onImportAllFavorites()}
+                    className="text-xs text-[var(--mc-text-muted)] underline-offset-2 hover:text-[var(--mc-text)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t("source.favoritesReimport")}
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  variant="contained"
+                  size="small"
+                  disabled={isImportingFavorites}
+                  onClick={() => void onImportAllFavorites()}
+                  startIcon={
+                    isImportingFavorites ? (
+                      <CircularProgress size={14} thickness={5} sx={{ color: "rgba(255,255,255,0.7)" }} />
+                    ) : (
+                      <BookmarkRoundedIcon />
+                    )
+                  }
+                  sx={{
+                    borderRadius: "12px",
+                    fontWeight: 700,
+                    backgroundColor: "rgba(245, 158, 11, 0.22)",
+                    color: "rgba(254, 243, 199, 0.92)",
+                    border: "1px solid rgba(245, 158, 11, 0.32)",
+                    boxShadow: "none",
+                    "&:hover": {
+                      backgroundColor: "rgba(245, 158, 11, 0.32)",
+                      boxShadow: "none",
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: "rgba(245, 158, 11, 0.10)",
+                      color: "rgba(254, 243, 199, 0.45)",
+                      border: "1px solid rgba(245, 158, 11, 0.15)",
+                    },
+                  }}
+                >
+                  {isImportingFavorites
+                    ? t("source.favoritesImporting")
+                    : t("source.favoritesImportAll")}
+                </Button>
+              )}
+
+              {favoritesImportError && (
+                <div className="mt-3 rounded-2xl border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
+                  {favoritesImportError}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Imported sources summary */}
       <div className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-[rgba(2,6,23,0.22)] p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -440,7 +552,11 @@ export default function CollectionCreateSourcePanel({
                 key={source.id}
                 className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/45 px-2.5 py-2.5"
               >
-                {getImportSourceThumbnail(source) ? (
+                {source.type === "song_favorites" ? (
+                  <div className="flex h-12 w-[84px] shrink-0 items-center justify-center rounded-lg border border-amber-200/20 bg-amber-300/8 text-amber-200">
+                    <BookmarkRoundedIcon sx={{ fontSize: 22 }} />
+                  </div>
+                ) : getImportSourceThumbnail(source) ? (
                   <img
                     src={getImportSourceThumbnail(source) ?? ""}
                     alt={source.title}
@@ -455,7 +571,14 @@ export default function CollectionCreateSourcePanel({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
+                    <span
+                      className={[
+                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                        source.type === "song_favorites"
+                          ? "border-amber-300/28 bg-amber-300/12 text-amber-100"
+                          : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
+                      ].join(" ")}
+                    >
                       {t(getSourceTypeLabelKey(source.type))}
                     </span>
 

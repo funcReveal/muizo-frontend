@@ -24,6 +24,7 @@ const CollectionContentLayoutShell = lazy(
 const RoomsHubPage = lazy(() => import("@features/RoomHub"));
 const RoomLobbyPage = lazy(() => import("@features/RoomLobby"));
 const CareerPage = lazy(() => import("@features/Career"));
+const FavoriteSongsPage = lazy(() => import("@features/SongFavorite"));
 const InvitedPage = lazy(() => import("@features/Invited"));
 const CollectionsPage = lazy(() => import("@features/Collections"));
 const CollectionsCreatePage = lazy(() =>
@@ -147,6 +148,26 @@ export function AppRouter() {
             ) : (
               <Navigate to="/rooms" replace />
             )
+          }
+        />
+
+        <Route
+          path="/me/favorites"
+          element={
+            <RequireAuthRoute
+              badge="Song Favorites"
+              title="登入後查看收藏歌曲"
+              description="收藏歌曲會依你的帳號同步，登入後可查看遊戲中記錄的歌曲與影片。"
+              highlights={[
+                "遊戲中快速收藏",
+                "依最後收藏排序",
+                "集中開啟 YouTube 影片",
+              ]}
+            >
+              <Suspense fallback={<PageLoader />}>
+                <FavoriteSongsPage />
+              </Suspense>
+            </RequireAuthRoute>
           }
         />
 

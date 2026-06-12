@@ -77,7 +77,19 @@ const collectionCreate = {
     clearAllSources: "清除全部來源",
     sourceTypeYoutubeUrl: "連結",
     sourceTypeYoutubeAccount: "YouTube",
+    sourceTypeSongFavorites: "收藏歌曲",
     untitledSource: "未命名來源",
+    favoritesTab: "收藏歌曲",
+    favoritesTitle: "從收藏歌曲匯入",
+    favoritesDescription:
+      "將你在遊戲中收藏的歌曲一次全部匯入，歌曲名稱會作為遊戲答案預設值（可在檢查步驟修改）。",
+    favoritesImportAll: "匯入全部收藏歌曲",
+    favoritesImporting: "正在載入收藏歌曲...",
+    favoritesEmpty: "你還沒有收藏任何歌曲，先在遊戲中收藏後再回來建立。",
+    favoritesImportFailed: "載入收藏歌曲失敗，請稍後再試。",
+    favoritesSourceLabel: "我的收藏歌曲",
+    favoritesAlreadyImported: "已載入收藏歌曲",
+    favoritesReimport: "重新載入",
   },
 
   review: {

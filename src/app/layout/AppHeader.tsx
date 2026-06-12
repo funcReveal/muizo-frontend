@@ -1,5 +1,6 @@
 ﻿import {
   AccountCircleRounded,
+  Bookmarks,
   ExpandMore,
   LibraryMusic,
   LockOutlined,
@@ -54,6 +55,7 @@ interface AppHeaderProps {
   onEditProfile?: () => void;
   onNavigateRooms?: () => void;
   onNavigateCollections?: () => void;
+  onNavigateFavorites?: () => void;
   onNavigateCareer?: () => void;
   onNavigateSettings?: () => void;
   onNavigatePrivacy?: () => void;
@@ -71,6 +73,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onLogout,
   onNavigateRooms,
   onNavigateCollections,
+  onNavigateFavorites,
   onNavigateCareer,
   onNavigateSettings,
   onNavigatePrivacy,
@@ -502,6 +505,56 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   />
                 </MenuItem>
               )
+            )}
+
+            {!authUser ? (
+              <MenuItem
+                onClick={() => {
+                  handleMenuClose();
+                  onLogin?.();
+                }}
+                sx={menuItemSx}
+              >
+                <ListItemIcon sx={{ minWidth: 30, color: "#67e8f9" }}>
+                  <Bookmarks fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Box
+                      component="span"
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.7,
+                      }}
+                    >
+                      <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
+                      收藏歌曲
+                    </Box>
+                  }
+                  secondary="登入後可查看遊戲中收藏的歌曲"
+                />
+              </MenuItem>
+            ) : (
+              <MenuItem
+                onClick={() => {
+                  handleMenuClose();
+                  if (onNavigateFavorites) {
+                    onNavigateFavorites();
+                    return;
+                  }
+                  navigate("/me/favorites");
+                }}
+                sx={menuItemSx}
+              >
+                <ListItemIcon sx={{ minWidth: 30, color: "#67e8f9" }}>
+                  <Bookmarks fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="收藏歌曲"
+                  secondary="查看遊戲中記錄的歌曲與影片"
+                />
+              </MenuItem>
             )}
           </MenuList>
 

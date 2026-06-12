@@ -108,6 +108,7 @@ import FloatingChatWindow, {
 import GameRoomDanmuProviderBridge from "./components/GameRoomDanmuProviderBridge";
 import GameRoomRestartVoteDock from "./components/GameRoomRestartVoteDock";
 import GameRoomPlaybackVoteDock from "./components/GameRoomPlaybackVoteDock";
+import { SongBookmarkButton } from "@features/SongFavorite";
 interface GameRoomPageProps {
   room: RoomState["room"];
   gameState: GameState;
@@ -2458,6 +2459,30 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
     isMobileGameViewport &&
     gameState.status === "playing" &&
     showPlaybackVoteRedDot;
+  const songBookmarkButton = useMemo(() => {
+    if (isRecoveringConnection || isEnded) return null;
+    if (!item?.sourceId && !item?.videoId && !videoId) return null;
+
+    return (
+      <SongBookmarkButton
+        roomId={room.id}
+        gameSessionId={gameSessionId}
+        trackCursor={trackCursor}
+        enabled
+        // Both mobile and desktop: toast appears below the icon.
+        successToastPlacement="below"
+      />
+    );
+  }, [
+    gameSessionId,
+    isEnded,
+    isRecoveringConnection,
+    item?.sourceId,
+    item?.videoId,
+    room.id,
+    trackCursor,
+    videoId,
+  ]);
   const mobileChatPreviewNotice = useMemo<MobileChatPreviewNotice | null>(() => {
     if (!isMobileGameViewport || gameState.status !== "playing") return null;
 
@@ -2739,6 +2764,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
               recoveryStatusText={recoveryStatusText}
               mobileScoreFeedbackOverlay={mobileScoreFeedbackOverlay}
               desktopScoreFeedbackOverlay={desktopScoreFeedbackOverlay}
+              songBookmarkButton={songBookmarkButton}
               voteOverlay={
                 restartVoteOverlay || playbackVoteOverlay ? (
                   <>

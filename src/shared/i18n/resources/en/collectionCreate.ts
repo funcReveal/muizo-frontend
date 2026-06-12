@@ -79,7 +79,19 @@ const collectionCreate = {
     clearAllSources: "Clear all sources",
     sourceTypeYoutubeUrl: "URL",
     sourceTypeYoutubeAccount: "YouTube",
+    sourceTypeSongFavorites: "Song Favorites",
     untitledSource: "Untitled source",
+    favoritesTab: "Song Favorites",
+    favoritesTitle: "Import from Song Favorites",
+    favoritesDescription:
+      "Import all songs you favorited during gameplay at once. Song titles will be used as default answers (editable in the review step).",
+    favoritesImportAll: "Import all song favorites",
+    favoritesImporting: "Loading song favorites...",
+    favoritesEmpty: "You have no favorited songs yet. Favorite some during gameplay first.",
+    favoritesImportFailed: "Failed to load song favorites. Please try again later.",
+    favoritesSourceLabel: "My Song Favorites",
+    favoritesAlreadyImported: "Song favorites loaded",
+    favoritesReimport: "Reload",
   },
 
   review: {

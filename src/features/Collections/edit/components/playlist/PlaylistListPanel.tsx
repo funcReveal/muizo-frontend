@@ -857,11 +857,11 @@ const PlaylistListPanel = ({
           items={visibleItemIds}
           strategy={verticalListSortingStrategy}
         >
-          <div className="h-[calc(100svh-450px)] lg:h-[calc(100vh-276px)]">
+          <div className="h-[clamp(300px,calc(100svh-360px),520px)] lg:h-[calc(100vh-276px)] lg:min-h-[360px]">
             {visibleItems.length > 0 ? (
               <List<VirtualRowProps>
                 listRef={setListApi}
-                className="collection-edit-scrollbar h-full overflow-y-auto"
+                className="collection-edit-scrollbar h-full overflow-y-auto pr-1"
                 defaultHeight={420}
                 rowCount={visibleItems.length}
                 rowHeight={ROW_HEIGHT}

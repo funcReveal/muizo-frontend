@@ -1,8 +1,5 @@
 import { ensureFreshAuthToken } from "@shared/auth/token";
-
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  (typeof window !== "undefined" ? window.location.origin : "");
+import { API_URL } from "@domain/room/constants";
 
 export type DbActionEventName =
   | "career.collection_rank.share.opened"
@@ -15,7 +12,9 @@ export type DbActionEventName =
   | "career.profile.rename.opened"
   | "career.profile.rename.saved"
   | "collection.detail.leaderboard_profile.changed"
-  | "share.image.generate.failed";
+  | "share.image.generate.failed"
+  | "song_favorite.song.clicked"
+  | "song_favorite.channel.clicked";
 
 export type DbActionEventTarget = {
   type: "room" | "game" | "vote" | "playback" | "youtube" | "collection";
@@ -58,6 +57,7 @@ export const recordDbActionEvent = async ({
 
   const response = await fetch(`${API_URL}/api/analytics/action-events`, {
     method: "POST",
+    keepalive: true,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,

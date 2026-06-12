@@ -79,6 +79,7 @@ interface GameRoomPlaybackPanelProps {
   recoveryStatusText?: string | null;
   mobileScoreFeedbackOverlay?: React.ReactNode;
   desktopScoreFeedbackOverlay?: React.ReactNode;
+  songBookmarkButton?: React.ReactNode;
   voteOverlay?: React.ReactNode;
   mobileFrameActions?: React.ReactNode;
   mobileFrameActionsHasAlert?: boolean;
@@ -728,6 +729,7 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
   recoveryStatusText = null,
   mobileScoreFeedbackOverlay,
   desktopScoreFeedbackOverlay,
+  songBookmarkButton,
   voteOverlay,
   mobileFrameActions,
   mobileFrameActionsHasAlert,
@@ -1006,6 +1008,18 @@ const GameRoomPlaybackPanel: React.FC<GameRoomPlaybackPanelProps> = ({
         {isMobileView && mobileScoreFeedbackOverlay ? (
           <div className="game-room-mobile-score-feedback-slot">
             {mobileScoreFeedbackOverlay}
+          </div>
+        ) : null}
+
+        {songBookmarkButton ? (
+          <div
+            className={`game-room-song-bookmark-slot ${
+              isMobileView
+                ? "game-room-song-bookmark-slot--mobile"
+                : "game-room-song-bookmark-slot--desktop"
+            }`}
+          >
+            {songBookmarkButton}
           </div>
         ) : null}
 
