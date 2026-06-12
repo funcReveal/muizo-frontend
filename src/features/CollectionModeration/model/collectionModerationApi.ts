@@ -63,17 +63,25 @@ export const collectionModerationApi = {
       },
     );
 
-    const payload = (await response.json().catch(() => null)) as {
+    const raw = (await response.json().catch(() => null)) as {
       ok?: boolean;
-      error?: string;
+      success?: boolean;
+      error?: string | { code?: string; message?: string };
       code?: string;
     } | null;
 
-    if (!response.ok || !payload?.ok) {
+    // Tolerate both the legacy { ok, error: string } and the migrated
+    // { success, error: { code, message } } shapes.
+    const ok = raw?.ok ?? raw?.success;
+    const errorObject =
+      raw?.error && typeof raw.error === "object" ? raw.error : null;
+
+    if (!response.ok || !ok) {
       throw new CollectionModerationApiError(
-        payload?.error ?? "送出審核失敗",
+        (errorObject ? errorObject.message : (raw?.error as string | undefined)) ??
+          "送出審核失敗",
         response.status,
-        payload?.code,
+        errorObject ? errorObject.code : raw?.code,
       );
     }
   },

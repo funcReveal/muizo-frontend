@@ -40,8 +40,13 @@ const readErrorMessage = async (res: Response, fallback: string) => {
   if (!text) return `${fallback} (${res.status})`;
   try {
     const json = JSON.parse(text) as { error?: unknown };
-    return typeof json.error === "string"
-      ? `${json.error} (${res.status})`
+    // Tolerate both the legacy string error and the migrated { code, message } object.
+    const message =
+      typeof json.error === "string"
+        ? json.error
+        : (json.error as { message?: string } | null | undefined)?.message;
+    return typeof message === "string"
+      ? `${message} (${res.status})`
       : `${fallback} (${res.status})`;
   } catch {
     return `${fallback} (${res.status}): ${text.slice(0, 160)}`;
@@ -129,9 +134,11 @@ export const collectionsApi = {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
+      const message =
+        typeof json?.error === "string" ? json.error : json?.error?.message;
       throw new Error(
-        typeof json?.error === "string"
-          ? `${json.error} (${res.status})`
+        typeof message === "string"
+          ? `${message} (${res.status})`
           : `Failed to create collection (${res.status})`,
       );
     }
@@ -238,9 +245,11 @@ export const collectionsApi = {
     );
     const json = await res.json().catch(() => null);
     if (!res.ok) {
+      const message =
+        typeof json?.error === "string" ? json.error : json?.error?.message;
       throw new Error(
-        typeof json?.error === "string"
-          ? `${json.error} (${res.status})`
+        typeof message === "string"
+          ? `${message} (${res.status})`
           : `Failed to sync collection items (${res.status})`,
       );
     }

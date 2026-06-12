@@ -633,7 +633,12 @@ export const useCollectionContentState = ({
             }
           }
 
-          throw new Error(payload?.error ?? "載入收藏庫資料失敗");
+          // Tolerate both the legacy string error and the migrated { code, message } shape.
+          const errorMessage =
+            typeof payload?.error === "string"
+              ? payload.error
+              : (payload?.error as { message?: string } | null | undefined)?.message;
+          throw new Error(errorMessage ?? "載入收藏庫資料失敗");
         };
 
         const collection = patchCollectionAvailabilityWithMap(

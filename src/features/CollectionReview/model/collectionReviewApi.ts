@@ -164,7 +164,24 @@ const normalizeSummary = (value: unknown): CollectionReviewSummary => {
 const parseApiPayload = async <T>(
   response: Response,
 ): Promise<ApiResponse<T> | null> => {
-  return (await response.json().catch(() => null)) as ApiResponse<T> | null;
+  const raw = (await response.json().catch(() => null)) as
+    | (ApiResponse<T> & {
+        success?: boolean;
+        error?: string | { code?: string; message?: string };
+      })
+    | null;
+  if (!raw) return null;
+  // Normalize both the legacy { ok, error: string, code } shape and the migrated
+  // Spring Boot { success, error: { code, message } } shape into ApiResponse.
+  const ok = raw.ok ?? raw.success;
+  const errorObject =
+    raw.error && typeof raw.error === "object" ? raw.error : null;
+  return {
+    ok,
+    data: raw.data,
+    error: errorObject ? errorObject.message : (raw.error as string | undefined),
+    code: errorObject ? errorObject.code : raw.code,
+  };
 };
 
 const buildHeaders = async (

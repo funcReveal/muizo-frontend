@@ -15,6 +15,28 @@ type ApiResponse<T> = {
   code?: string;
 };
 
+// Normalizes both the legacy { ok, error: string, code } shape and the migrated
+// Spring Boot { success, error: { code, message } } shape into ApiResponse.
+const parseReportPayload = async <T>(
+  response: Response,
+): Promise<ApiResponse<T> | null> => {
+  const raw = (await response.json().catch(() => null)) as
+    | (ApiResponse<T> & {
+        success?: boolean;
+        error?: string | { code?: string; message?: string };
+      })
+    | null;
+  if (!raw) return null;
+  const errorObject =
+    raw.error && typeof raw.error === "object" ? raw.error : null;
+  return {
+    ok: raw.ok ?? raw.success,
+    data: raw.data,
+    error: errorObject ? errorObject.message : (raw.error as string | undefined),
+    code: errorObject ? errorObject.code : raw.code,
+  };
+};
+
 type FetchMyCollectionReportParams = {
   collectionId: string;
   authToken: string | null;
@@ -153,9 +175,7 @@ export const collectionReportApi = {
       },
     );
 
-    const payload = (await response
-      .json()
-      .catch(() => null)) as ApiResponse<unknown> | null;
+    const payload = await parseReportPayload<unknown>(response);
 
     if (!response.ok || !payload?.ok) {
       throw new CollectionReportApiError(
@@ -198,9 +218,7 @@ export const collectionReportApi = {
       },
     );
 
-    const payload = (await response
-      .json()
-      .catch(() => null)) as ApiResponse<unknown> | null;
+    const payload = await parseReportPayload<unknown>(response);
 
     if (!response.ok || !payload?.ok) {
       throw new CollectionReportApiError(
