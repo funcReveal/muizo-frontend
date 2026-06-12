@@ -50,15 +50,21 @@ const storeAuthRedirectTarget = () => {
   );
 };
 
-const consumeAuthRedirectTarget = () => {
-  if (typeof window === "undefined") return "/rooms";
+const getStoredAuthRedirectTarget = () => {
+  if (typeof window === "undefined") return null;
   const stored = window.sessionStorage.getItem(AUTH_REDIRECT_TARGET_KEY);
-  window.sessionStorage.removeItem(AUTH_REDIRECT_TARGET_KEY);
   if (!stored || !stored.startsWith("/") || stored.startsWith("//")) {
-    return "/rooms";
+    return null;
   }
   if (stored.startsWith("/auth/callback")) return "/rooms";
   return stored;
+};
+
+const consumeAuthRedirectTarget = () => {
+  if (typeof window === "undefined") return "/rooms";
+  const stored = getStoredAuthRedirectTarget();
+  window.sessionStorage.removeItem(AUTH_REDIRECT_TARGET_KEY);
+  return stored ?? "/rooms";
 };
 
 const replaceAuthCallbackRoute = (target: string) => {
@@ -418,6 +424,11 @@ export const useRoomAuth = ({
         setStatusText("Google 登入成功");
         if (window.location.pathname === "/auth/callback") {
           replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+        } else {
+          const redirectTarget = getStoredAuthRedirectTarget();
+          if (redirectTarget) {
+            replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+          }
         }
       } catch (error) {
         trackEvent("login_google_failed", {

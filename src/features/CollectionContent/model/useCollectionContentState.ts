@@ -22,6 +22,7 @@ import {
 import { formatSeconds } from "../../../shared/utils/format";
 import { DEFAULT_CLIP_SEC, DEFAULT_PAGE_SIZE } from "@domain/room/constants";
 import { ensureFreshAuthToken } from "../../../shared/auth/token";
+import { getApiEnvelopeErrorMessage } from "@shared/api/apiEnvelope";
 
 const EMPTY_COLLECTION_RETRY_LIMIT = 2;
 export const COLLECTION_AVAILABILITY_PATCH_TTL_MS = 15 * 60 * 1000;
@@ -520,7 +521,9 @@ export const useCollectionContentState = ({
             signal: fetchAbortControllerRef.current?.signal,
           });
           if (!ok) {
-            throw new Error(payload?.error ?? "載入公開收藏庫失敗");
+            throw new Error(
+              getApiEnvelopeErrorMessage(payload, "載入公開收藏庫失敗"),
+            );
           }
           const items = payload?.data?.items ?? [];
           applyCollectionsResult(
@@ -561,7 +564,7 @@ export const useCollectionContentState = ({
               return;
             }
           }
-          throw new Error(payload?.error ?? "載入收藏庫失敗");
+          throw new Error(getApiEnvelopeErrorMessage(payload, "載入收藏庫失敗"));
         };
 
         await run(token, true);
@@ -633,12 +636,9 @@ export const useCollectionContentState = ({
             }
           }
 
-          // Tolerate both the legacy string error and the migrated { code, message } shape.
-          const errorMessage =
-            typeof payload?.error === "string"
-              ? payload.error
-              : (payload?.error as { message?: string } | null | undefined)?.message;
-          throw new Error(errorMessage ?? "載入收藏庫資料失敗");
+          throw new Error(
+            getApiEnvelopeErrorMessage(payload, "載入收藏庫資料失敗"),
+          );
         };
 
         const collection = patchCollectionAvailabilityWithMap(
@@ -801,7 +801,9 @@ export const useCollectionContentState = ({
           pageSize: DEFAULT_PAGE_SIZE,
         });
         if (!ok) {
-          throw new Error(payload?.error ?? "載入公開收藏庫失敗");
+          throw new Error(
+            getApiEnvelopeErrorMessage(payload, "載入公開收藏庫失敗"),
+          );
         }
         appendCollections(
           payload?.data?.items ?? [],
@@ -841,7 +843,7 @@ export const useCollectionContentState = ({
             return;
           }
         }
-        throw new Error(payload?.error ?? "載入收藏庫失敗");
+        throw new Error(getApiEnvelopeErrorMessage(payload, "載入收藏庫失敗"));
       };
 
       await run(token, true);
@@ -950,7 +952,9 @@ export const useCollectionContentState = ({
               return;
             }
           }
-          throw new Error(result.payload?.error ?? "更新收藏狀態失敗");
+          throw new Error(
+            getApiEnvelopeErrorMessage(result.payload, "更新收藏狀態失敗"),
+          );
         };
 
         await run(freshToken, true);
@@ -1121,7 +1125,9 @@ export const useCollectionContentState = ({
             options?.readToken ?? null,
           );
           if (!ok || !payload?.data?.items) {
-            throw new Error(payload?.error ?? "載入收藏庫失敗");
+            throw new Error(
+              getApiEnvelopeErrorMessage(payload, "載入收藏庫失敗"),
+            );
           }
           handleSuccess(payload.data.items);
         } else {
@@ -1150,7 +1156,9 @@ export const useCollectionContentState = ({
                 return;
               }
             }
-            throw new Error(payload?.error ?? "載入收藏庫失敗");
+            throw new Error(
+              getApiEnvelopeErrorMessage(payload, "載入收藏庫失敗"),
+            );
           };
 
           await run(token, true);

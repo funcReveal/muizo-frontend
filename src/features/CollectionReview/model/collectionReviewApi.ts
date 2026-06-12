@@ -165,9 +165,9 @@ const parseApiPayload = async <T>(
   response: Response,
 ): Promise<ApiResponse<T> | null> => {
   const raw = (await response.json().catch(() => null)) as
-    | (ApiResponse<T> & {
+    | (Omit<ApiResponse<T>, "error"> & {
         success?: boolean;
-        error?: string | { code?: string; message?: string };
+        error?: unknown;
       })
     | null;
   if (!raw) return null;
@@ -176,11 +176,12 @@ const parseApiPayload = async <T>(
   const ok = raw.ok ?? raw.success;
   const errorObject =
     raw.error && typeof raw.error === "object" ? raw.error : null;
+  const errorRecord = errorObject as { code?: string; message?: string } | null;
   return {
     ok,
     data: raw.data,
-    error: errorObject ? errorObject.message : (raw.error as string | undefined),
-    code: errorObject ? errorObject.code : raw.code,
+    error: errorRecord ? errorRecord.message : (raw.error as string | undefined),
+    code: errorRecord ? errorRecord.code : raw.code,
   };
 };
 

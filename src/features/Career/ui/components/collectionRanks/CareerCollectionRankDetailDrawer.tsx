@@ -233,13 +233,13 @@ const CareerCollectionRankDetailDrawer: React.FC<
         const nextCollection =
           collectionResult.status === "fulfilled" &&
           collectionResult.value.ok &&
-          collectionResult.value.payload?.ok
+          collectionResult.value.payload?.success
             ? (collectionResult.value.payload.data?.collection ?? null)
             : null;
         const nextPreviewItems =
           previewResult.status === "fulfilled" &&
           previewResult.value.ok &&
-          previewResult.value.payload?.ok
+          previewResult.value.payload?.success
             ? (previewResult.value.payload.data?.items ?? [])
             : [];
         const nextReviewSummary =

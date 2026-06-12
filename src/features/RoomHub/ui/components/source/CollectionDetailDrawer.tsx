@@ -33,6 +33,7 @@ import {
   CollectionReviewPanel,
   useCollectionReview,
 } from "@features/CollectionReview";
+import { getApiEnvelopeErrorMessage } from "@shared/api/apiEnvelope";
 import { CollectionReportButton } from "@features/CollectionReport";
 import type { RoomCreateSourceMode } from "@domain/room/types";
 import type { PlaybackExtensionMode } from "@domain/room/types";
@@ -1362,11 +1363,9 @@ const CollectionDetailDrawer = ({
         );
         if (requestId !== previewRequestIdRef.current) return;
         if (!result.ok) {
-          const message =
-            typeof result.payload?.error === "string"
-              ? result.payload.error
-              : "題庫內容預覽載入失敗";
-          setPreviewError(message);
+          setPreviewError(
+            getApiEnvelopeErrorMessage(result.payload, "題庫內容預覽載入失敗"),
+          );
           if (mode === "replace") {
             setPreviewItems([]);
           }
@@ -1467,7 +1466,9 @@ const CollectionDetailDrawer = ({
       );
       if (requestId !== leaderboardRequestIdRef.current) return;
       if (!result.ok || !result.payload?.data) {
-        setLeaderboardError(result.payload?.error ?? "排行榜資料載入失敗");
+        setLeaderboardError(
+          getApiEnvelopeErrorMessage(result.payload, "排行榜資料載入失敗"),
+        );
         return;
       }
 
@@ -1522,7 +1523,9 @@ const CollectionDetailDrawer = ({
       );
       if (requestId !== leaderboardRequestIdRef.current) return;
       if (!result.ok || !result.payload?.data) {
-        setLeaderboardError(result.payload?.error ?? "排行榜資料載入失敗");
+        setLeaderboardError(
+          getApiEnvelopeErrorMessage(result.payload, "排行榜資料載入失敗"),
+        );
         return;
       }
 

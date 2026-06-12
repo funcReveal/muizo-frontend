@@ -1,5 +1,9 @@
 import { ensureFreshAuthToken } from "@shared/auth/token";
 import { API_URL } from "@domain/room/constants";
+import {
+  getApiEnvelopeErrorMessage,
+  type ApiEnvelope,
+} from "@shared/api/apiEnvelope";
 
 export type DbActionEventName =
   | "career.collection_rank.share.opened"
@@ -73,7 +77,11 @@ export const recordDbActionEvent = async ({
     }),
   });
 
-  if (!response.ok) {
-    throw new Error("記錄使用事件失敗");
+  const payload = (await response.json().catch(() => null)) as
+    | ApiEnvelope<null>
+    | null;
+
+  if (!response.ok || payload?.success !== true) {
+    throw new Error(getApiEnvelopeErrorMessage(payload, "記錄使用事件失敗"));
   }
 };

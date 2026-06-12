@@ -4,7 +4,6 @@
   ExpandMore,
   LibraryMusic,
   LockOutlined,
-  Login,
   Logout,
   MeetingRoom,
   Policy,
@@ -13,10 +12,6 @@
 import {
   Box,
   Divider,
-  ListItemIcon,
-  ListItemText,
-  MenuItem,
-  MenuList,
   Popover,
   Typography,
 } from "@mui/material";
@@ -26,7 +21,19 @@ import { useNavigate } from "react-router-dom";
 import SiteAnnouncementNotice from "@/shared/announcement/SiteAnnouncementNotice";
 import { isCareerFeatureEnabled } from "@/shared/config/featureFlags";
 import BrandLogo from "@/shared/ui/BrandLogo";
-import AuthEntryDialog from "@/shared/ui/auth/AuthEntryDialog";
+import AuthEntryDialog, {
+  type AuthFeaturePreview,
+} from "@/shared/ui/auth/AuthEntryDialog";
+
+const AUTH_REDIRECT_TARGET_KEY = "muizo_auth_redirect_target";
+
+type FeatureKey =
+  | "rooms"
+  | "career"
+  | "collections"
+  | "favorites"
+  | "settings"
+  | "legal";
 
 interface AppHeaderProps {
   displayUsername: string;
@@ -85,6 +92,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [pendingAuthTarget, setPendingAuthTarget] = useState<string | null>(
+    null,
+  );
+  const [pendingAuthFeatureKey, setPendingAuthFeatureKey] =
+    useState<FeatureKey | null>(null);
 
   const isMenuOpen = Boolean(menuAnchorEl);
   const menuId = isMenuOpen ? "header-menu-popover" : undefined;
@@ -97,9 +109,28 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     setMenuAnchorEl(null);
   };
 
-  const openAuthDialog = () => {
+  const storeRedirectTarget = (targetPath: string) => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(AUTH_REDIRECT_TARGET_KEY, targetPath);
+  };
+
+  const openAuthDialog = (
+    targetPath?: string | null,
+    featureKey?: FeatureKey | null,
+  ) => {
+    if (targetPath) {
+      setPendingAuthTarget(targetPath);
+      storeRedirectTarget(targetPath);
+    }
+    setPendingAuthFeatureKey(featureKey ?? null);
     handleMenuClose();
     setAuthDialogOpen(true);
+  };
+
+  const handlePostLoginSuccess = () => {
+    if (!pendingAuthTarget) return;
+    navigate(pendingAuthTarget);
+    setPendingAuthTarget(null);
   };
 
   const handleBrandNavigate = useCallback(
@@ -118,36 +149,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     [authUser, navigate, onNavigateRooms],
   );
 
-  const menuItemSx = useMemo(
-    () => ({
-      px: 2,
-      py: 1.1,
-      gap: 1.5,
-      "&:hover": {
-        background:
-          "linear-gradient(90deg, rgba(45, 212, 191, 0.13), rgba(245, 158, 11, 0.06))",
-      },
-      "& .MuiListItemText-primary": {
-        color: "#e2e8f0",
-        fontWeight: 600,
-        fontSize: "0.92rem",
-      },
-      "& .MuiListItemText-secondary": {
-        color: "rgba(148, 163, 184, 0.85)",
-        fontSize: "0.72rem",
-        marginTop: "2px",
-      },
-    }),
-    [],
-  );
-
   const handleNavigateCareer = () => {
     if (!isCareerFeatureEnabled) return;
 
     handleMenuClose();
 
     if (isAnonymousVisitor) {
-      openAuthDialog();
+      openAuthDialog("/career", "career");
       return;
     }
 
@@ -159,90 +167,155 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     navigate("/career");
   };
 
-  const authMenuItems = authUser
-    ? [
-        <MenuItem
-          key="profile-career"
-          onClick={() => {
-            handleNavigateCareer();
-          }}
-          disabled={!isCareerFeatureEnabled}
-          sx={menuItemSx}
-        >
-          <ListItemIcon sx={{ minWidth: 30, color: "#7dd3fc" }}>
-            <AccountCircleRounded fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary="個人資料"
-            secondary={
-              isCareerFeatureEnabled
-                ? "查看生涯紀錄、題庫戰績與編輯暱稱"
-                : "個人資料功能暫時維護中"
+  const features = useMemo(
+    () =>
+      [
+        {
+          key: "rooms" as const,
+          label: "房間大廳",
+          eyebrow: "Play",
+          title: "建立或加入遊戲房間",
+          description: isAnonymousVisitor
+            ? "登入後即可建立房間、加入對戰並保存遊玩紀錄。"
+            : "快速回到房間大廳，建立新房或加入朋友的對戰。",
+          icon: <MeetingRoom fontSize="small" />,
+          iconColor: "#fde68a",
+          path: "/rooms",
+          requiresAuth: true,
+          actionLabel: isAnonymousVisitor ? "登入後前往" : "前往房間大廳",
+          action: () => {
+            if (onNavigateRooms) {
+              onNavigateRooms();
+              return;
             }
-          />
-        </MenuItem>,
-      ]
-    : [
-          <MenuItem
-            key="login"
-            onClick={() => {
-              openAuthDialog();
-            }}
-            disabled={authLoading}
-            sx={menuItemSx}
-          >
-            <ListItemIcon sx={{ minWidth: 30, color: "#38bdf8" }}>
-              <Login fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary={authLoading ? "登入中..." : "登入 Muizo"}
-              secondary="保存題庫、戰績與跨裝置紀錄"
-            />
-          </MenuItem>,
-          <MenuItem
-            key="anonymous-profile-career"
-            onClick={() => {
-              handleNavigateCareer();
-            }}
-            disabled={!isCareerFeatureEnabled}
-            sx={menuItemSx}
-          >
-            <ListItemIcon
-              sx={{
-                minWidth: 30,
-                color: !isCareerFeatureEnabled
-                  ? "rgba(148, 163, 184, 0.55)"
-                  : "#7dd3fc",
-              }}
-            >
-              <AccountCircleRounded fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                !isCareerFeatureEnabled ? (
-                  "個人資料"
-                ) : (
-                  <Box
-                    component="span"
-                    sx={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 0.7,
-                    }}
-                  >
-                    <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                    個人資料
-                  </Box>
-                )
-              }
-              secondary={
-                isCareerFeatureEnabled
-                  ? "登入後可查看生涯紀錄與題庫戰績"
-                  : "個人資料功能暫時維護中"
-              }
-            />
-          </MenuItem>,
-        ];
+            navigate("/rooms");
+          },
+        },
+        {
+          key: "career" as const,
+          label: "個人資料",
+          eyebrow: "Career",
+          title: "查看生涯紀錄與題庫戰績",
+          description: isCareerFeatureEnabled
+            ? "追蹤你的對戰歷史、排行表現與收藏庫挑戰紀錄。"
+            : "個人資料功能暫時維護中。",
+          icon: <AccountCircleRounded fontSize="small" />,
+          iconColor: "#7dd3fc",
+          path: "/career",
+          requiresAuth: true,
+          disabled: !isCareerFeatureEnabled,
+          actionLabel: isAnonymousVisitor ? "登入後查看" : "查看個人資料",
+          action: handleNavigateCareer,
+        },
+        {
+          key: "collections" as const,
+          label: "收藏庫",
+          eyebrow: "Library",
+          title: "管理你的音樂題庫",
+          description: "建立公開收藏庫、整理私人題庫，並快速套用到遊戲房間。",
+          icon: <LibraryMusic fontSize="small" />,
+          iconColor: "#a7f3d0",
+          path: "/collections",
+          requiresAuth: true,
+          actionLabel: isAnonymousVisitor ? "登入後管理" : "前往收藏庫",
+          action: () => {
+            if (onNavigateCollections) {
+              onNavigateCollections();
+              return;
+            }
+            navigate("/collections");
+          },
+        },
+        {
+          key: "favorites" as const,
+          label: "收藏歌曲",
+          eyebrow: "Saved",
+          title: "回顧遊戲中標記的歌曲",
+          description: "查看你在遊玩過程收藏的歌曲與影片，方便之後回聽。",
+          icon: <Bookmarks fontSize="small" />,
+          iconColor: "#67e8f9",
+          path: "/me/favorites",
+          requiresAuth: true,
+          actionLabel: isAnonymousVisitor ? "登入後查看" : "查看收藏歌曲",
+          action: () => {
+            if (onNavigateFavorites) {
+              onNavigateFavorites();
+              return;
+            }
+            navigate("/me/favorites");
+          },
+        },
+        {
+          key: "settings" as const,
+          label: "設定",
+          eyebrow: "Settings",
+          title: "調整遊玩偏好",
+          description: "調整快捷鍵、遊玩音量與房間大廳背景音。",
+          icon: <Settings fontSize="small" />,
+          iconColor: "#c4b5fd",
+          requiresAuth: true,
+          actionLabel: "開啟設定",
+          action: () => {
+            onNavigateSettings?.();
+          },
+        },
+        {
+          key: "legal" as const,
+          label: "法律與政策",
+          eyebrow: "Policy",
+          title: "查看服務條款與隱私權政策",
+          description: "了解 Muizo 如何處理資料、帳號與第三方服務授權。",
+          icon: <Policy fontSize="small" />,
+          iconColor: "#93c5fd",
+          path: "/privacy",
+          requiresAuth: false,
+          actionLabel: "查看法律與政策",
+          action: () => {
+            if (onNavigatePrivacy) {
+              onNavigatePrivacy();
+              return;
+            }
+            navigate("/privacy");
+          },
+        },
+      ].filter((feature) => authUser || feature.key !== "settings"),
+    [
+      authUser,
+      handleNavigateCareer,
+      isAnonymousVisitor,
+      navigate,
+      onNavigateCollections,
+      onNavigateFavorites,
+      onNavigatePrivacy,
+      onNavigateRooms,
+      onNavigateSettings,
+    ],
+  );
+
+  const pendingAuthFeature = pendingAuthFeatureKey
+    ? features.find((feature) => feature.key === pendingAuthFeatureKey)
+    : null;
+
+  const authFeaturePreview: AuthFeaturePreview | null = pendingAuthFeature
+    ? {
+        eyebrow: pendingAuthFeature.eyebrow,
+        title: pendingAuthFeature.title,
+        description: pendingAuthFeature.description,
+        icon: pendingAuthFeature.icon,
+        accentColor: pendingAuthFeature.iconColor,
+        actionLabel: pendingAuthFeature.actionLabel,
+      }
+    : null;
+
+  const handleFeatureSelect = (feature: (typeof features)[number]) => {
+    if (feature.disabled) return;
+    if (feature.requiresAuth && !authUser && feature.path) {
+      openAuthDialog(feature.path, feature.key);
+      return;
+    }
+    handleMenuClose();
+    feature.action();
+  };
 
   return (
     <header className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-2 text-(--mc-text) sm:gap-x-4 md:flex-nowrap">
@@ -425,179 +498,119 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
           <Divider sx={{ borderColor: "rgba(148, 163, 184, 0.14)" }} />
 
-          <MenuList sx={{ py: 0 }}>
-            {authMenuItems}
-
-            <Divider sx={{ borderColor: "rgba(148, 163, 184, 0.12)" }} />
-
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                if (onNavigateRooms) {
-                  onNavigateRooms();
-                  return;
-                }
-                navigate("/rooms");
-              }}
-              sx={menuItemSx}
-            >
-              <ListItemIcon sx={{ minWidth: 30, color: "#fde68a" }}>
-                <MeetingRoom fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="房間大廳"
-                secondary={
-                  isAnonymousVisitor
-                    ? "先登入即可開始完整對戰體驗"
-                    : "建立與加入遊戲房間"
-                }
-              />
-            </MenuItem>
-
-            {!authUser ? (
-              <MenuItem
-                onClick={() => {
-                handleMenuClose();
-                openAuthDialog();
-              }}
-              sx={menuItemSx}
-              >
-                <ListItemIcon sx={{ minWidth: 30, color: "#a7f3d0" }}>
-                  <LibraryMusic fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box
-                      component="span"
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.7,
-                      }}
-                    >
-                      <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                      收藏庫
-                    </Box>
-                  }
-                  secondary="登入後可建立與編輯題庫"
-                />
-              </MenuItem>
-            ) : (
-              authUser && (
-                <MenuItem
-                  onClick={() => {
-                    handleMenuClose();
-                    if (onNavigateCollections) {
-                      onNavigateCollections();
-                      return;
-                    }
-                    navigate("/collections");
-                  }}
-                  sx={menuItemSx}
-                >
-                  <ListItemIcon sx={{ minWidth: 30, color: "#a7f3d0" }}>
-                    <LibraryMusic fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="收藏庫"
-                    secondary="創建公開收藏庫 & 管理你的收藏庫"
-                  />
-                </MenuItem>
-              )
-            )}
-
-            {!authUser ? (
-              <MenuItem
-                onClick={() => {
-                  handleMenuClose();
-                  onLogin?.();
-                }}
-                sx={menuItemSx}
-              >
-                <ListItemIcon sx={{ minWidth: 30, color: "#67e8f9" }}>
-                  <Bookmarks fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box
-                      component="span"
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.7,
-                      }}
-                    >
-                      <LockOutlined sx={{ fontSize: 14, color: "#fbbf24" }} />
-                      收藏歌曲
-                    </Box>
-                  }
-                  secondary="登入後可查看遊戲中收藏的歌曲"
-                />
-              </MenuItem>
-            ) : (
-              <MenuItem
-                onClick={() => {
-                  handleMenuClose();
-                  if (onNavigateFavorites) {
-                    onNavigateFavorites();
-                    return;
-                  }
-                  navigate("/me/favorites");
-                }}
-                sx={menuItemSx}
-              >
-                <ListItemIcon sx={{ minWidth: 30, color: "#67e8f9" }}>
-                  <Bookmarks fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="收藏歌曲"
-                  secondary="查看遊戲中記錄的歌曲與影片"
-                />
-              </MenuItem>
-            )}
-          </MenuList>
-
-          {!isAnonymousVisitor && (
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                if (onNavigateSettings) {
-                  onNavigateSettings();
-                }
-              }}
-              sx={menuItemSx}
-            >
-              <ListItemIcon sx={{ minWidth: 30, color: "#c4b5fd" }}>
-                <Settings fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="設定"
-                secondary="調整快捷鍵、遊玩音量與房間大廳背景音"
-              />
-            </MenuItem>
-          )}
-
-          <Divider sx={{ borderColor: "rgba(148, 163, 184, 0.12)" }} />
-
-          <MenuItem
-            onClick={() => {
-              handleMenuClose();
-              if (onNavigatePrivacy) {
-                onNavigatePrivacy();
-                return;
-              }
-              navigate("/privacy");
+          <Box
+            sx={{
+              display: "grid",
+              gap: 0.5,
+              p: 1,
+              minWidth: { xs: 292, sm: 340 },
+              maxWidth: "calc(100vw - 24px)",
             }}
-            sx={menuItemSx}
+            role="menu"
+            aria-label="功能選單"
           >
-            <ListItemIcon sx={{ minWidth: 30, color: "#93c5fd" }}>
-              <Policy fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary="法律與政策"
-              secondary="隱私權政策與服務條款"
-            />
-          </MenuItem>
+            {features.map((feature) => {
+              const locked = Boolean(feature.requiresAuth && !authUser);
+              return (
+                <Box
+                  key={feature.key}
+                  component="button"
+                  type="button"
+                  role="menuitem"
+                  disabled={feature.disabled}
+                  onClick={() => handleFeatureSelect(feature)}
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "32px minmax(0,1fr) auto",
+                    alignItems: "center",
+                    gap: 1.15,
+                    minHeight: 52,
+                    width: "100%",
+                    border: "1px solid transparent",
+                    borderRadius: 1.75,
+                    background: "transparent",
+                    color: feature.disabled
+                      ? "rgba(148,163,184,0.45)"
+                      : "#e2e8f0",
+                    cursor: feature.disabled ? "not-allowed" : "pointer",
+                    px: 1.2,
+                    py: 0.85,
+                    textAlign: "left",
+                    transition:
+                      "border-color 160ms ease, background 160ms ease",
+                    "&:hover": {
+                      borderColor: feature.disabled
+                        ? "transparent"
+                        : "rgba(103,232,249,0.22)",
+                      background: feature.disabled
+                        ? "transparent"
+                        : "linear-gradient(90deg, rgba(34,211,238,0.1), rgba(251,191,36,0.045))",
+                    },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 32,
+                      height: 32,
+                      borderRadius: 1.35,
+                      color: feature.iconColor,
+                      background: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    {feature.icon}
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "inherit",
+                        fontWeight: 800,
+                        fontSize: "0.9rem",
+                        lineHeight: 1.25,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {feature.label}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: "block",
+                        mt: 0.25,
+                        color: "rgba(148,163,184,0.82)",
+                        fontSize: "0.72rem",
+                        lineHeight: 1.25,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {feature.requiresAuth && !authUser
+                        ? "登入後可使用"
+                        : feature.title}
+                    </Typography>
+                  </Box>
+                  {locked ? (
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "rgba(251,191,36,0.9)",
+                      }}
+                    >
+                      <LockOutlined sx={{ fontSize: 15 }} />
+                    </Box>
+                  ) : null}
+                </Box>
+              );
+            })}
+          </Box>
         </Popover>
 
         {onLogin &&
@@ -614,6 +627,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               onPasswordResetRequest={onPasswordResetRequest}
               onResendVerification={onResendVerification}
               authLoading={authLoading}
+              onLoginSuccess={handlePostLoginSuccess}
+              featurePreview={authFeaturePreview}
             />
           ) : null}
       </div>

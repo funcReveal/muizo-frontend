@@ -48,7 +48,7 @@ export function useFilterAggregationsQuery(
         categoryKeys,
         subTags,
       });
-      if (!result.ok || !result.payload?.ok || !result.payload?.data) {
+      if (!result.ok || !result.payload?.success || !result.payload?.data) {
         throw new Error("Failed to fetch filter aggregations");
       }
       return result.payload.data;

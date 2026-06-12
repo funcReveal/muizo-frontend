@@ -10,6 +10,7 @@ import {
   normalizePlaylistItems,
   type PlaylistItem,
 } from "@features/PlaylistSource";
+import { getApiEnvelopeErrorMessage } from "@shared/api/apiEnvelope";
 
 type UseCollectionContentAccessArgs = {
   apiUrl: string;
@@ -62,7 +63,7 @@ export const useCollectionContentAccess = ({
             return await run(refreshed, false);
           }
         }
-        throw new Error(payload?.error ?? "讀取收藏庫失敗");
+        throw new Error(getApiEnvelopeErrorMessage(payload, "讀取收藏庫失敗"));
       };
       return await run(tokenToUse, Boolean(tokenToUse));
     },
@@ -97,7 +98,9 @@ export const useCollectionContentAccess = ({
             return await run(refreshed, false);
           }
         }
-        throw new Error(payload?.error ?? "建立收藏庫讀取權杖失敗");
+        throw new Error(
+          getApiEnvelopeErrorMessage(payload, "建立收藏庫讀取權杖失敗"),
+        );
       };
       return await run(tokenToUse, true);
     },

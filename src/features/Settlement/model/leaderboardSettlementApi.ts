@@ -1,5 +1,10 @@
 import { API_URL } from "@domain/room/constants";
 import type { LeaderboardSettlementResponse } from "@features/RoomSession";
+import {
+  getApiEnvelopeErrorMessage,
+  isApiEnvelopeSuccess,
+  type ApiEnvelope,
+} from "@shared/api/apiEnvelope";
 
 type FetchLeaderboardSettlementParams = {
   matchId: string;
@@ -8,12 +13,6 @@ type FetchLeaderboardSettlementParams = {
   limit?: number;
   offset?: number;
   signal?: AbortSignal;
-};
-
-type LeaderboardSettlementApiPayload = {
-  ok?: boolean;
-  data?: LeaderboardSettlementResponse;
-  error?: string;
 };
 
 export const fetchLeaderboardSettlement = async ({
@@ -54,11 +53,13 @@ export const fetchLeaderboardSettlement = async ({
   );
 
   const payload = (await response.json().catch(() => null)) as
-    | LeaderboardSettlementApiPayload
+    | ApiEnvelope<LeaderboardSettlementResponse>
     | null;
 
-  if (!response.ok || !payload?.ok || !payload.data) {
-    throw new Error(payload?.error || "載入排行榜結算失敗");
+  if (!response.ok || !isApiEnvelopeSuccess(payload)) {
+    throw new Error(
+      getApiEnvelopeErrorMessage(payload, "載入排行榜結算失敗"),
+    );
   }
 
   return payload.data;

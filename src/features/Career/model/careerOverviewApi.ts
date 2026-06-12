@@ -17,18 +17,35 @@ const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
 
+// Tolerates both the legacy Node shape ({ ok, error: string }) and the Spring Boot
+// ApiEnvelope ({ success, error: { code, message } }) so the frontend can ship
+// independently of the nginx cutover.
+type ApiEnvelopeError = string | { code?: string; message?: string } | null;
+
 type CareerOverviewApiResponse = {
-  ok: boolean;
+  ok?: boolean;
+  success?: boolean;
   data?: PartialCareerOverviewData;
-  error?: string;
+  error?: ApiEnvelopeError;
 };
 
 type CareerCollectionRanksApiResponse = {
-  ok: boolean;
+  ok?: boolean;
+  success?: boolean;
   data?: {
     items?: CareerCollectionRankRow[];
   };
-  error?: string;
+  error?: ApiEnvelopeError;
+};
+
+const isPayloadOk = (
+  payload: { ok?: boolean; success?: boolean } | null,
+): boolean => Boolean(payload?.success ?? payload?.ok);
+
+const readErrorMessage = (error: ApiEnvelopeError | undefined): string | null => {
+  if (!error) return null;
+  if (typeof error === "string") return error;
+  return error.message ?? null;
 };
 
 type PartialCareerOverviewData = {
@@ -217,11 +234,11 @@ export const fetchCareerOverview = async ({
     .json()
     .catch(() => null)) as CareerOverviewApiResponse | null;
 
-  if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error ?? "讀取生涯總覽失敗");
+  if (!response.ok || !isPayloadOk(payload)) {
+    throw new Error(readErrorMessage(payload?.error) ?? "讀取生涯總覽失敗");
   }
 
-  return normalizeCareerOverviewData(payload.data);
+  return normalizeCareerOverviewData(payload?.data);
 };
 
 export const fetchCareerCollectionRanks = async ({
@@ -251,11 +268,11 @@ export const fetchCareerCollectionRanks = async ({
     .json()
     .catch(() => null)) as CareerCollectionRanksApiResponse | null;
 
-  if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error ?? "讀取題庫戰績失敗");
+  if (!response.ok || !isPayloadOk(payload)) {
+    throw new Error(readErrorMessage(payload?.error) ?? "讀取題庫戰績失敗");
   }
 
-  return (payload.data?.items ?? []).map((item) => ({
+  return (payload?.data?.items ?? []).map((item) => ({
     ...item,
     coverThumbnailUrl: item.coverThumbnailUrl ?? null,
     sourceLabel: item.sourceLabel ?? null,

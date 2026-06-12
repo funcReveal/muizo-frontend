@@ -1,3 +1,5 @@
+import type { ApiEnvelope } from "@shared/api/apiEnvelope";
+
 export type CollectionContentApiResult<T> = {
   ok: boolean;
   status: number;
@@ -152,8 +154,23 @@ export type CollectionLeaderboardOverview = {
   };
 };
 
+type CollectionDetailPayload = {
+  collection: CollectionSummary;
+};
+
+type FavoriteMutationPayload = {
+  collection_id: string;
+  is_favorited: boolean;
+  favorite_count: number;
+};
+
+type FavoriteStatusPayload = {
+  collection_id: string;
+  is_favorited: boolean;
+};
+
 export type WorkerListPayload<TItem> = {
-  ok?: boolean;
+  success?: boolean;
   data?: {
     items: TItem[];
     page: number;
@@ -162,8 +179,7 @@ export type WorkerListPayload<TItem> = {
     hasMore?: boolean;
     nextPage?: number | null;
   };
-  error?: string;
-  error_code?: string;
+  error?: { code?: string; message?: string } | null;
 };
 
 const API_REQUEST_TIMEOUT_MS = 15_000;
@@ -281,7 +297,7 @@ export const apiFetchFilterAggregations = (
   normalizeCollectionFilterKeys(options.subTags).forEach((key) =>
     url.searchParams.append("sub_tag", key),
   );
-  return fetchJson<{ ok: boolean; data: FilterAggregations }>(url.toString(), {});
+  return fetchJson<ApiEnvelope<FilterAggregations>>(url.toString(), {});
 };
 
 export const apiFetchCollectionById = (
@@ -304,13 +320,7 @@ export const apiFetchCollectionById = (
     headers["X-Collection-Read-Token"] = readToken;
   }
 
-  return fetchJson<{
-    ok?: boolean;
-    data?: {
-      collection: CollectionSummary;
-    };
-    error?: string;
-  }>(url.toString(), {
+  return fetchJson<ApiEnvelope<CollectionDetailPayload>>(url.toString(), {
     headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
 };
@@ -320,15 +330,7 @@ export const apiFavoriteCollection = (
   token: string,
   collectionId: string,
 ) =>
-  fetchJson<{
-    ok?: boolean;
-    data?: {
-      collection_id: string;
-      is_favorited: boolean;
-      favorite_count: number;
-    };
-    error?: string;
-  }>(`${apiUrl}/api/collections/${encodeURIComponent(collectionId)}/favorite`, {
+  fetchJson<ApiEnvelope<FavoriteMutationPayload>>(`${apiUrl}/api/collections/${encodeURIComponent(collectionId)}/favorite`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -340,15 +342,7 @@ export const apiUnfavoriteCollection = (
   token: string,
   collectionId: string,
 ) =>
-  fetchJson<{
-    ok?: boolean;
-    data?: {
-      collection_id: string;
-      is_favorited: boolean;
-      favorite_count: number;
-    };
-    error?: string;
-  }>(`${apiUrl}/api/collections/${encodeURIComponent(collectionId)}/favorite`, {
+  fetchJson<ApiEnvelope<FavoriteMutationPayload>>(`${apiUrl}/api/collections/${encodeURIComponent(collectionId)}/favorite`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -360,14 +354,7 @@ export const apiFetchCollectionFavoriteStatus = (
   token: string,
   collectionId: string,
 ) =>
-  fetchJson<{
-    ok?: boolean;
-    data?: {
-      collection_id: string;
-      is_favorited: boolean;
-    };
-    error?: string;
-  }>(
+  fetchJson<ApiEnvelope<FavoriteStatusPayload>>(
     `${apiUrl}/api/collections/${encodeURIComponent(collectionId)}/favorite-status`,
     {
       headers: {
@@ -453,11 +440,7 @@ export const apiFetchCollectionLeaderboardOverview = (
   if (options.readToken) {
     headers["X-Collection-Read-Token"] = options.readToken;
   }
-  return fetchJson<{
-    ok?: boolean;
-    data?: CollectionLeaderboardOverview;
-    error?: string;
-  }>(url.toString(), {
+  return fetchJson<ApiEnvelope<CollectionLeaderboardOverview>>(url.toString(), {
     headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
 };
@@ -490,11 +473,7 @@ export const apiFetchCollectionLeaderboardRankings = (
   if (options.readToken) {
     headers["X-Collection-Read-Token"] = options.readToken;
   }
-  return fetchJson<{
-    ok?: boolean;
-    data?: CollectionLeaderboardEntriesPage;
-    error?: string;
-  }>(url.toString(), {
+  return fetchJson<ApiEnvelope<CollectionLeaderboardEntriesPage>>(url.toString(), {
     headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
 };
@@ -504,11 +483,7 @@ export const apiCreateCollectionReadToken = (
   token: string,
   collectionId: string,
 ) =>
-  fetchJson<{
-    ok?: boolean;
-    data?: { token: string; expiresAt: number };
-    error?: string;
-  }>(`${apiUrl}/api/collections/${collectionId}/read-token`, {
+  fetchJson<ApiEnvelope<{ token: string; expiresAt: number }>>(`${apiUrl}/api/collections/${collectionId}/read-token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
