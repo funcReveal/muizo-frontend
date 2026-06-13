@@ -3,6 +3,7 @@
   Bookmarks,
   ExpandMore,
   LibraryMusic,
+  LoginRounded,
   LockOutlined,
   Logout,
   MeetingRoom,
@@ -105,27 +106,27 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     setMenuAnchorEl((prev) => (prev ? null : event.currentTarget));
   };
 
-  const handleMenuClose = () => {
+  const handleMenuClose = useCallback(() => {
     setMenuAnchorEl(null);
-  };
+  }, []);
 
   const storeRedirectTarget = (targetPath: string) => {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(AUTH_REDIRECT_TARGET_KEY, targetPath);
   };
 
-  const openAuthDialog = (
-    targetPath?: string | null,
-    featureKey?: FeatureKey | null,
-  ) => {
-    if (targetPath) {
-      setPendingAuthTarget(targetPath);
-      storeRedirectTarget(targetPath);
-    }
-    setPendingAuthFeatureKey(featureKey ?? null);
-    handleMenuClose();
-    setAuthDialogOpen(true);
-  };
+  const openAuthDialog = useCallback(
+    (targetPath?: string | null, featureKey?: FeatureKey | null) => {
+      if (targetPath) {
+        setPendingAuthTarget(targetPath);
+        storeRedirectTarget(targetPath);
+      }
+      setPendingAuthFeatureKey(featureKey ?? null);
+      handleMenuClose();
+      setAuthDialogOpen(true);
+    },
+    [handleMenuClose],
+  );
 
   const handlePostLoginSuccess = () => {
     if (!pendingAuthTarget) return;
@@ -149,7 +150,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     [authUser, navigate, onNavigateRooms],
   );
 
-  const handleNavigateCareer = () => {
+  const handleNavigateCareer = useCallback(() => {
     if (!isCareerFeatureEnabled) return;
 
     handleMenuClose();
@@ -165,7 +166,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     }
 
     navigate("/career");
-  };
+  }, [
+    handleMenuClose,
+    isAnonymousVisitor,
+    navigate,
+    onNavigateCareer,
+    openAuthDialog,
+  ]);
 
   const features = useMemo(
     () =>
@@ -176,13 +183,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           eyebrow: "Play",
           title: "建立或加入遊戲房間",
           description: isAnonymousVisitor
-            ? "登入後即可建立房間、加入對戰並保存遊玩紀錄。"
+            ? "先瀏覽房間大廳，登入後即可建立房間、加入對戰並保存遊玩紀錄。"
             : "快速回到房間大廳，建立新房或加入朋友的對戰。",
           icon: <MeetingRoom fontSize="small" />,
           iconColor: "#fde68a",
           path: "/rooms",
-          requiresAuth: true,
-          actionLabel: isAnonymousVisitor ? "登入後前往" : "前往房間大廳",
+          requiresAuth: false,
+          actionLabel: "前往房間大廳",
           action: () => {
             if (onNavigateRooms) {
               onNavigateRooms();
@@ -378,8 +385,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             aria-expanded={isMenuOpen}
             aria-controls={menuId}
           >
+            <span className="app-header-login-icon" aria-hidden="true">
+              <LoginRounded sx={{ fontSize: 18 }} />
+            </span>
             <span className="app-header-login-copy">
-              <span className="app-header-login-dot" />
               <span className="app-header-login-text">登入</span>
               <span className="app-header-login-hint">保存進度</span>
             </span>
@@ -428,36 +437,58 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 "linear-gradient(90deg, rgba(45, 212, 191, 0.12), rgba(245, 158, 11, 0.05))",
             }}
           >
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                variant="subtitle2"
+            {isAnonymousVisitor ? (
+              <Box
+                component="button"
+                type="button"
+                onClick={() => openAuthDialog(null, null)}
                 sx={{
-                  color: "#e2e8f0",
-                  fontSize: "1rem",
-                  fontWeight: 800,
-                  lineHeight: 1.25,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 0.9,
+                  width: "100%",
+                  minHeight: 44,
+                  border: "1px solid rgba(94, 234, 212, 0.34)",
+                  borderRadius: 999,
+                  background:
+                    "linear-gradient(180deg, rgba(45, 212, 191, 0.18), rgba(45, 212, 191, 0.08)), rgba(2, 6, 23, 0.28)",
+                  color: "rgba(240, 253, 250, 0.96)",
+                  cursor: "pointer",
+                  fontSize: "0.92rem",
+                  fontWeight: 900,
+                  boxShadow:
+                    "inset 0 1px 0 rgba(255,255,255,0.12), 0 16px 32px -28px rgba(45,212,191,0.88)",
+                  transition:
+                    "border-color 160ms ease, transform 160ms ease, filter 160ms ease",
+                  "&:hover": {
+                    borderColor: "rgba(94, 234, 212, 0.56)",
+                    filter: "brightness(1.05)",
+                    transform: "translateY(-1px)",
+                  },
                 }}
               >
-                {isAnonymousVisitor ? "尚未登入" : authLabel}
-              </Typography>
-              {isAnonymousVisitor ? (
+                <LoginRounded sx={{ fontSize: 18 }} />
+                登入
+              </Box>
+            ) : (
+              <Box sx={{ minWidth: 0 }}>
                 <Typography
-                  variant="caption"
+                  variant="subtitle2"
                   sx={{
-                    mt: 0.35,
-                    display: "block",
-                    color: "rgba(148, 163, 184, 0.86)",
-                    fontSize: "0.74rem",
-                    lineHeight: 1.35,
+                    color: "#e2e8f0",
+                    fontSize: "1rem",
+                    fontWeight: 800,
+                    lineHeight: 1.25,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  登入後可保存收藏、戰績與房間紀錄
+                  {authLabel}
                 </Typography>
-              ) : null}
-            </Box>
+              </Box>
+            )}
             {authUser && (
               <Box
                 component="button"
@@ -590,9 +621,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {feature.requiresAuth && !authUser
-                        ? "登入後可使用"
-                        : feature.title}
+                      {feature.title}
                     </Typography>
                   </Box>
                   {locked ? (
@@ -601,9 +630,19 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        gap: 0.55,
                         color: "rgba(251,191,36,0.9)",
+                        fontSize: "0.7rem",
+                        fontWeight: 900,
+                        whiteSpace: "nowrap",
                       }}
                     >
+                      <Box
+                        component="span"
+                        sx={{ display: { xs: "none", sm: "inline" } }}
+                      >
+                        登入解鎖
+                      </Box>
                       <LockOutlined sx={{ fontSize: 15 }} />
                     </Box>
                   ) : null}

@@ -3,7 +3,7 @@ const collectionCreate = {
     title: "建立收藏庫",
     description:
       "匯入 YouTube 播放清單、檢查可用題目，最後發布成可開房使用的收藏庫。",
-    loginRequired: "請先使用 Google 登入後再建立收藏庫。",
+    loginRequired: "請先登入或建立帳號後再建立收藏庫。",
     backToCollections: "返回收藏列表",
   },
 
@@ -48,7 +48,7 @@ const collectionCreate = {
     invalidPlaylistUrl:
       "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。",
     loading: "載入中...",
-    googleLoginHint: "登入 Google 後可直接載入你的 YouTube 播放清單。",
+    googleLoginHint: "使用 Google 登入後可直接載入你的 YouTube 播放清單。",
     googleLogin: "登入 Google",
     playlistSelectPlaceholder: "選擇 YouTube 播放清單",
     playlistSelectLoading: "載入播放清單中...",

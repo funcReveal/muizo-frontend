@@ -1,5 +1,12 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import {
+  AccountCircleRounded,
+  AddCircleOutlineRounded,
+  BookmarksRounded,
+  EditNoteRounded,
+  LibraryMusicRounded,
+} from "@mui/icons-material";
 
 import RequireAuthRoute from "./guards/RequireAuthRoute";
 import AppLayoutShell from "./layout/AppLayoutShell";
@@ -61,10 +68,10 @@ export function AppRouter() {
           path="/collections"
           element={
             <RequireAuthRoute
-              badge="Collections Access"
+              featureIcon={<LibraryMusicRounded sx={{ fontSize: 23 }} />}
+              currentBreadcrumbLabel="收藏庫"
               title="收藏庫需登入後使用"
               description="登入後可查看、管理你的收藏題庫與公開狀態。"
-              highlights={["私人收藏管理", "公開分享設定", "快速開房套用"]}
             >
               <Suspense fallback={<PageLoader />}>
                 <CollectionsPage />
@@ -84,10 +91,10 @@ export function AppRouter() {
             path="/collections/new"
             element={
               <RequireAuthRoute
-                badge="Create Collection"
+                featureIcon={<AddCircleOutlineRounded sx={{ fontSize: 23 }} />}
+                currentBreadcrumbLabel="建立收藏"
                 title="建立收藏需先登入"
                 description="登入後即可建立新收藏，並同步到你的帳號。"
-                highlights={["建立個人題庫", "同步播放清單", "後續可再編輯"]}
               >
                 <Suspense fallback={<PageLoader />}>
                   <CollectionsCreatePage />
@@ -100,10 +107,10 @@ export function AppRouter() {
             path="/collections/:collectionId/edit"
             element={
               <RequireAuthRoute
-                badge="Edit Collection"
+                featureIcon={<EditNoteRounded sx={{ fontSize: 23 }} />}
+                currentBreadcrumbLabel="編輯收藏"
                 title="編輯收藏需先登入"
                 description="請先登入帳號，再進行收藏內容編修與管理。"
-                highlights={["編修題目內容", "管理可見權限", "保留編輯紀錄"]}
               >
                 <Suspense fallback={<PageLoader />}>
                   <CollectionsEditPage />
@@ -136,10 +143,10 @@ export function AppRouter() {
           element={
             isCareerFeatureEnabled ? (
               <RequireAuthRoute
-                badge="Career Access"
+                featureIcon={<AccountCircleRounded sx={{ fontSize: 23 }} />}
+                currentBreadcrumbLabel="生涯總覽"
                 title="登入後即可查看生涯總覽"
                 description="生涯紀錄會綁定帳號保存，登入後可跨裝置查看完整對戰歷史。"
-                highlights={["完整對戰回顧", "個人戰績總覽", "題庫排行表現"]}
               >
                 <Suspense fallback={<PageLoader />}>
                   <CareerPage />
@@ -155,14 +162,10 @@ export function AppRouter() {
           path="/me/favorites"
           element={
             <RequireAuthRoute
-              badge="Song Favorites"
+              featureIcon={<BookmarksRounded sx={{ fontSize: 23 }} />}
+              currentBreadcrumbLabel="收藏歌曲"
               title="登入後查看收藏歌曲"
               description="收藏歌曲會依你的帳號同步，登入後可查看遊戲中記錄的歌曲與影片。"
-              highlights={[
-                "遊戲中快速收藏",
-                "依最後收藏排序",
-                "集中開啟 YouTube 影片",
-              ]}
             >
               <Suspense fallback={<PageLoader />}>
                 <FavoriteSongsPage />

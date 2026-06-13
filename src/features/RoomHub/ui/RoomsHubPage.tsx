@@ -30,6 +30,7 @@ import {
   type CollectionEntry,
 } from "@features/CollectionContent";
 import FloatingChatWindow from "@features/RoomChat";
+import AuthEntryDialog from "@shared/ui/auth/AuthEntryDialog";
 import {
   buildPlaylistIssueSummary,
   getPlaylistIssueTotal,
@@ -298,6 +299,10 @@ const RoomsHubPage: React.FC = () => {
   const bgmVolume = settingsModel?.bgmVolume ?? DEFAULT_BGM_VOLUME;
   const {
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resendEmailVerification,
+    requestPasswordReset,
     authLoading,
     authUser,
   } = useAuth();
@@ -377,6 +382,7 @@ const RoomsHubPage: React.FC = () => {
     return stored === "join" ? "join" : "create";
   });
   const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] = useState(false);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [detailDrawerState, setDetailDrawerState] =
     useState<CollectionDetailDrawerState>(null);
 
@@ -1220,12 +1226,17 @@ const RoomsHubPage: React.FC = () => {
     }
     return true;
   };
+  const handleAuthRequired = useCallback(() => {
+    if (authLoading) return;
+    setAuthDialogOpen(true);
+  }, [authLoading]);
+
   const requireLoginForRoomPlay = useCallback(() => {
     if (authUser) return true;
     setStatusText("請先登入後再加入或建立房間。");
-    loginWithGoogle();
+    handleAuthRequired();
     return false;
-  }, [authUser, loginWithGoogle, setStatusText]);
+  }, [authUser, handleAuthRequired, setStatusText]);
   const handleCreateCasualRoomFromDrawer = () => {
     if (!canSubmitRoomCreate()) return;
     if (!requireLoginForRoomPlay()) return;
@@ -1665,7 +1676,7 @@ const RoomsHubPage: React.FC = () => {
     }
     if (roomIsLeaderboardChallenge(resolvedDirectJoinRoom) && !authUser) {
       setDirectJoinError("排行挑戰需先登入才能加入。");
-      loginWithGoogle();
+      handleAuthRequired();
       return;
     }
     if (!requireLoginForRoomPlay()) {
@@ -1779,7 +1790,7 @@ const RoomsHubPage: React.FC = () => {
                     setPublicCollectionsSort={setPublicCollectionsSort}
                     canUseGoogleLibraries={canUseGoogleLibraries}
                     setCreateLibraryTab={setCreateLibraryTab}
-                    onLockedSourceClick={loginWithGoogle}
+                    onLockedSourceClick={handleAuthRequired}
                     mobileSourceMeta={mobileSourceCountLabel ?? undefined}
                     mobileEmbedded
                     filterContent={
@@ -1817,7 +1828,7 @@ const RoomsHubPage: React.FC = () => {
                     canUseGoogleLibraries={canUseGoogleLibraries}
                     setCreateLibraryTab={setCreateLibraryTab}
                     handleBackToCreateLibrary={handleBackToCreateLibrary}
-                    onLockedSourceClick={loginWithGoogle}
+                    onLockedSourceClick={handleAuthRequired}
                     showCreatePublicCollectionAction
                     onCreatePublicCollection={handleCreatePublicCollection}
                   >
@@ -1857,7 +1868,7 @@ const RoomsHubPage: React.FC = () => {
                               }
                               canUseGoogleLibraries={canUseGoogleLibraries}
                               setCreateLibraryTab={setCreateLibraryTab}
-                              onLockedSourceClick={loginWithGoogle}
+                              onLockedSourceClick={handleAuthRequired}
                               mobileSourceMeta={
                                 mobileSourceCountLabel ?? undefined
                               }
@@ -1897,10 +1908,10 @@ const RoomsHubPage: React.FC = () => {
                             <div className="mt-1">
                               <Button
                                 variant="contained"
-                                onClick={loginWithGoogle}
+                                onClick={handleAuthRequired}
                                 disabled={authLoading}
                               >
-                                {authLoading ? "登入中..." : "使用 Google 登入"}
+                                {authLoading ? "登入中..." : "登入或註冊"}
                               </Button>
                             </div>
                           </div>
@@ -2062,7 +2073,7 @@ const RoomsHubPage: React.FC = () => {
                   formatRoomCodeDisplay={formatRoomCodeDisplay}
                   isAuthenticated={Boolean(authUser)}
                   isAuthLoading={authLoading}
-                  onLoginRequired={loginWithGoogle}
+                  onLoginRequired={handleAuthRequired}
                   joinConfirmDialog={joinConfirmDialog}
                   closeJoinConfirmDialog={closeJoinConfirmDialog}
                   handleConfirmJoinInProgress={handleConfirmJoinInProgress}
@@ -2156,7 +2167,7 @@ const RoomsHubPage: React.FC = () => {
         onStartLeaderboardChallenge={(collectionId) => {
           if (detailCollection?.visibility !== "public") return;
           if (!authUser) {
-            loginWithGoogle();
+            handleAuthRequired();
             return;
           }
           setRoomPlayMode("leaderboard");
@@ -2168,7 +2179,7 @@ const RoomsHubPage: React.FC = () => {
         onConfirmLeaderboardChallenge={(collectionId) => {
           if (detailCollection?.visibility !== "public") return;
           if (!authUser) {
-            loginWithGoogle();
+            handleAuthRequired();
             return;
           }
           if (!canSubmitRoomCreate()) return;
@@ -2232,7 +2243,7 @@ const RoomsHubPage: React.FC = () => {
         onLeaderboardVariantChange={handleLeaderboardVariantChange}
         isAuthenticated={Boolean(authUser)}
         isAuthLoading={authLoading}
-        onLoginRequired={loginWithGoogle}
+        onLoginRequired={handleAuthRequired}
       />
       <SourceSetupDrawer
         open={Boolean(sourceSetupDrawer)}
@@ -2286,6 +2297,23 @@ const RoomsHubPage: React.FC = () => {
         summary={linkPlaylistIssueSummary}
         total={linkPlaylistIssueTotal}
         description={`共 ${linkPlaylistIssueTotal} 首未能匯入房間清單`}
+      />
+      <AuthEntryDialog
+        open={authDialogOpen}
+        onClose={() => setAuthDialogOpen(false)}
+        onGoogleLogin={loginWithGoogle}
+        onEmailLogin={loginWithEmail}
+        onEmailRegister={registerWithEmail}
+        onPasswordResetRequest={requestPasswordReset}
+        onResendVerification={resendEmailVerification}
+        authLoading={authLoading}
+        featurePreview={{
+          eyebrow: "Rooms",
+          title: "登入後建立房間與套用題庫",
+          description:
+            "登入或註冊後可以使用私人收藏庫、YouTube 播放清單與排行挑戰，房間紀錄也會綁定帳號保存。",
+          actionLabel: "回到房間大廳",
+        }}
       />
     </div>
   );

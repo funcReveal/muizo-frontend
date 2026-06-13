@@ -77,7 +77,9 @@ const LibrarySourcePanel = ({
                   <button
                     key={item.key}
                     type="button"
-                    aria-disabled={disabled}
+                    aria-label={
+                      disabled ? `${item.label}，登入後使用` : item.label
+                    }
                     onClick={() => {
                       if (disabled) {
                         onLockedSourceClick();

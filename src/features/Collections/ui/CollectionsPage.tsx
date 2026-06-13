@@ -85,7 +85,7 @@ const TEXT = {
   deleteConfirm: "刪除後無法復原，確定要刪除此收藏嗎？",
   deleteError: "刪除失敗",
   unknownError: "發生未知錯誤",
-  loginHint: "請先使用 Google 登入，才能查看與管理收藏。",
+  loginHint: "請先登入或建立帳號，才能查看與管理收藏。",
   public: "公開",
   private: "私人",
   publicConfirm: "公開後其他玩家可以瀏覽與使用這份收藏，確定要設為公開嗎？",

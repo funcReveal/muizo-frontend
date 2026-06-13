@@ -6,10 +6,12 @@ import {
 } from "@features/CollectionCategory";
 import { ModerationChip } from "@features/CollectionModeration";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button } from "@mui/material";
+import EditNoteRounded from "@mui/icons-material/EditNoteRounded";
+import LibraryMusicRounded from "@mui/icons-material/LibraryMusicRounded";
 import ConfirmDialog from "../../../../shared/ui/ConfirmDialog";
 import LoadingPage from "../../../../shared/ui/LoadingPage";
 import { useAuth } from "../../../../shared/auth/AuthContext";
+import AuthRequiredPanel from "../../../../shared/ui/auth/AuthRequiredPanel";
 import { usePlaylistSource } from "@features/PlaylistSource";
 import { isAdminRole } from "../../../../shared/auth/roles";
 import type { DbCollection, EditableItem } from "../utils/editTypes";
@@ -1537,22 +1539,19 @@ const CollectionEditPage = () => {
 
   if (!authToken) {
     return (
-      <div className="mx-auto w-full max-w-5xl space-y-4">
-        <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 p-5 text-sm text-[var(--mc-text)]">
-          請先使用 Google 登入後再編輯收藏庫。
-        </div>
-        <div className="text-sm text-[var(--mc-text-muted)]">
-          目前為訪客模式，無法使用收藏庫功能。
-        </div>
-        <div>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => navigate("/collections", { replace: true })}
-          >
-            {TEXT.backRooms}
-          </Button>
-        </div>
+      <div className="flex min-h-[calc(100dvh-132px)] w-full items-start px-1 pb-6 pt-3 sm:px-2 sm:pt-4">
+        <AuthRequiredPanel
+          featureIcon={<EditNoteRounded sx={{ fontSize: 23 }} />}
+          currentBreadcrumbLabel="編輯收藏"
+          title="編輯收藏需先登入"
+          description="登入或建立帳號後，即可繼續編修題目內容、可見權限與收藏設定。"
+          secondaryAction={{
+            label: TEXT.backRooms,
+            to: "/collections",
+            icon: <LibraryMusicRounded sx={{ fontSize: 16 }} />,
+          }}
+          onLoginSuccess={() => navigate(".", { replace: true })}
+        />
       </div>
     );
   }

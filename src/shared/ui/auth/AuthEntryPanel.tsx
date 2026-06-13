@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 export type AuthEntryMode = "login" | "register";
 
@@ -30,6 +31,7 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
   initialMode = "login",
   onLoginSuccess,
 }) => {
+  const prefersReducedMotion = useReducedMotion();
   const [mode, setMode] = useState<AuthEntryMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,6 +44,19 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
 
   const isRegister = mode === "register";
   const busy = authLoading || submitting;
+  const contentMotion = prefersReducedMotion
+    ? {
+        initial: { opacity: 1, y: 0 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 1, y: 0 },
+        transition: { duration: 0 },
+      }
+    : {
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -6 },
+        transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+      };
 
   const switchMode = (nextMode: AuthEntryMode) => {
     setMode(nextMode);
@@ -164,103 +179,117 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
         </button>
       </div>
 
-      <form className="auth-entry-form" onSubmit={handleSubmit}>
-        {isRegister ? (
-          <label>
-            <span>顯示名稱</span>
-            <input
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              maxLength={80}
-              placeholder="可留空，之後也能修改"
-              disabled={busy}
-            />
-          </label>
-        ) : null}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={`auth-entry-switch-${mode}-${registerSucceeded ? "verified" : "editing"}`}
+          className="auth-entry-switch-region"
+          {...contentMotion}
+        >
+          <form className="auth-entry-form" onSubmit={handleSubmit}>
+            {isRegister ? (
+              <label>
+                <span>顯示名稱</span>
+                <input
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  maxLength={80}
+                  placeholder="可留空，之後也能修改"
+                  disabled={busy}
+                />
+              </label>
+            ) : null}
 
-        <label>
-          <span>Email</span>
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            disabled={busy}
-            required
-          />
-        </label>
+            <label>
+              <span>Email</span>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                disabled={busy}
+                required
+              />
+            </label>
 
-        {!registerSucceeded ? (
-          <label>
-            <span>密碼</span>
-            <input
-              type="password"
-              autoComplete={isRegister ? "new-password" : "current-password"}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder={isRegister ? "至少 8 個字元" : "輸入密碼"}
-              disabled={busy}
-              minLength={isRegister ? 8 : undefined}
-              maxLength={128}
-              required
-            />
-          </label>
-        ) : null}
+            {!registerSucceeded ? (
+              <label>
+                <span>密碼</span>
+                <input
+                  type="password"
+                  autoComplete={
+                    isRegister ? "new-password" : "current-password"
+                  }
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={isRegister ? "至少 8 個字元" : "輸入密碼"}
+                  disabled={busy}
+                  minLength={isRegister ? 8 : undefined}
+                  maxLength={128}
+                  required
+                />
+              </label>
+            ) : null}
 
-        {formMessage ? (
-          <p
-            className={`auth-entry-message ${formMessageOk ? "is-ok" : ""}`}
-            role="alert"
-          >
-            {formMessage}
-          </p>
-        ) : null}
+            {formMessage ? (
+              <p
+                className={`auth-entry-message ${formMessageOk ? "is-ok" : ""}`}
+                role="alert"
+              >
+                {formMessage}
+              </p>
+            ) : null}
 
-        {!registerSucceeded ? (
-          <button type="submit" disabled={busy} className="auth-entry-submit">
-            {submitting ? "處理中..." : isRegister ? "建立帳號" : "登入"}
-          </button>
-        ) : null}
+            {!registerSucceeded ? (
+              <button
+                type="submit"
+                disabled={busy}
+                className="auth-entry-submit"
+              >
+                {submitting ? "處理中..." : isRegister ? "建立帳號" : "登入"}
+              </button>
+            ) : null}
 
-        {registerSucceeded ? (
+            {registerSucceeded ? (
+              <button
+                type="button"
+                className="auth-entry-link"
+                onClick={handleResendVerification}
+                disabled={busy}
+              >
+                {submitting ? "寄送中..." : "重新寄送驗證信"}
+              </button>
+            ) : null}
+
+            {!isRegister && !registerSucceeded ? (
+              <button
+                type="button"
+                className="auth-entry-link"
+                onClick={handlePasswordReset}
+                disabled={busy || resetSent}
+              >
+                {submitting
+                  ? "寄送中..."
+                  : resetSent
+                    ? "重設信已送出"
+                    : "忘記密碼？"}
+              </button>
+            ) : null}
+          </form>
+
+          <div className="auth-entry-divider">或</div>
+
           <button
             type="button"
-            className="auth-entry-link"
-            onClick={handleResendVerification}
-            disabled={busy}
+            onClick={onGoogleLogin}
+            disabled={authLoading}
+            className="auth-entry-google"
           >
-            {submitting ? "寄送中..." : "重新寄送驗證信"}
+            <span>G</span>
+            {authLoading ? "登入中..." : "使用 Google 登入"}
           </button>
-        ) : null}
-
-        {!isRegister && !registerSucceeded ? (
-          <button
-            type="button"
-            className="auth-entry-link"
-            onClick={handlePasswordReset}
-            disabled={busy || resetSent}
-          >
-            {submitting
-              ? "寄送中..."
-              : resetSent
-                ? "重設信已送出"
-                : "忘記密碼？"}
-          </button>
-        ) : null}
-      </form>
-
-      <div className="auth-entry-divider">或</div>
-
-      <button
-        type="button"
-        onClick={onGoogleLogin}
-        disabled={authLoading}
-        className="auth-entry-google"
-      >
-        <span>G</span>
-        {authLoading ? "登入中..." : "使用 Google 登入"}
-      </button>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

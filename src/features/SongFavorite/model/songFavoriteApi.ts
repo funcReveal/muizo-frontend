@@ -9,12 +9,33 @@ import type {
   SongFavoriteSortOrder,
 } from "./types";
 
+// Tolerates both the legacy Node shape ({ ok, error: string, code }) and the Spring Boot
+// ApiEnvelope ({ success, error: { code, message } }) so the frontend can ship independently
+// of the nginx cutover.
 type ApiResponse<T> = {
   ok?: boolean;
+  success?: boolean;
   data?: T;
-  error?: string;
+  error?: string | { code?: string; message?: string } | null;
   code?: string;
   retryAfterMs?: number;
+};
+
+const isPayloadOk = (body: { ok?: boolean; success?: boolean } | null): boolean =>
+  Boolean(body?.success ?? body?.ok);
+
+const readErrorMessage = (
+  error: string | { code?: string; message?: string } | null | undefined,
+): string | null => {
+  if (!error) return null;
+  if (typeof error === "string") return error;
+  return error.message ?? null;
+};
+
+const readErrorCode = (body: ApiResponse<unknown> | null): string | null => {
+  if (body?.code) return body.code;
+  if (body?.error && typeof body.error === "object") return body.error.code ?? null;
+  return null;
 };
 
 type AuthParams = {
@@ -79,11 +100,11 @@ const requestJson = async <T,>(
 
   const body = (await response.json().catch(() => null)) as ApiResponse<T> | null;
 
-  if (!response.ok || !body?.ok) {
+  if (!response.ok || !isPayloadOk(body)) {
     throw new SongFavoriteApiError(
-      body?.error ?? `HTTP ${response.status}`,
+      readErrorMessage(body?.error) ?? `HTTP ${response.status}`,
       response.status,
-      body?.code ?? null,
+      readErrorCode(body),
       parseRetryAfterMs(response, body),
     );
   }

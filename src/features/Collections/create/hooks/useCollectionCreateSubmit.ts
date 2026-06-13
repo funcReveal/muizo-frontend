@@ -93,7 +93,7 @@ export function useCollectionCreateSubmit({
     }
 
     if (!authToken || !ownerId) {
-      setCreateError("請先使用 Google 登入後再建立收藏");
+      setCreateError("請先登入或建立帳號後再建立收藏");
       return;
     }
 

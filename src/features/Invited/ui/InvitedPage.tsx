@@ -5,6 +5,7 @@ import {
   ContentCutRounded,
   Groups2Rounded,
   LibraryMusicRounded,
+  MeetingRoomRounded,
   MusicNoteRounded,
   ScheduleRounded,
   YouTube,
@@ -13,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../../shared/auth/AuthContext";
+import AuthRequiredPanel from "../../../shared/ui/auth/AuthRequiredPanel";
 import { roomIsLeaderboardChallenge } from "@domain/room/viewModels";
 import {
   useRoomCreate,
@@ -34,7 +36,6 @@ const TEXT = {
   identityTitle: "先登入後加入房間",
   identityDesc:
     "Muizo 目前需要登入後才能遊玩。登入後，房內其他玩家會看到你的帳號暱稱。",
-  googleAction: "使用 Google 登入",
   joinNow: "加入房間",
   currentIdentity: "目前身分",
   passwordLabel: "房間密碼",
@@ -112,9 +113,7 @@ const InvitedPage: React.FC = () => {
   const { roomId: inviteReference } = useParams<{ roomId?: string }>();
   const navigate = useNavigate();
   const {
-    authLoading,
     authUser,
-    loginWithGoogle,
   } = useAuth();
   const {
     currentRoom,
@@ -390,42 +389,29 @@ const InvitedPage: React.FC = () => {
             </div>
 
             <div className="lg:border-l lg:border-white/8 lg:pl-8">
-              <div className="rounded-[1.5rem] bg-white/[0.04] p-4 ring-1 ring-white/8 sm:p-5">
+              <div
+                className={
+                  needsLogin
+                    ? "min-w-0"
+                    : "rounded-[1.5rem] bg-white/[0.04] p-4 ring-1 ring-white/8 sm:p-5"
+                }
+              >
                 {needsLogin ? (
-                  <div className="grid gap-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-[var(--mc-text)]">
-                        {isLeaderboardInvite
-                          ? TEXT.leaderboardLoginTitle
-                          : TEXT.identityTitle}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-[var(--mc-text-muted)]">
-                        {isLeaderboardInvite
-                          ? TEXT.leaderboardLoginDesc
-                          : TEXT.identityDesc}
-                      </p>
-                    </div>
-
-                    <Button
-                      variant="contained"
-                      onClick={loginWithGoogle}
-                      disabled={authLoading}
-                      sx={{
-                        background:
-                          "linear-gradient(90deg, rgba(56,189,248,0.9), rgba(245,158,11,0.9))",
-                        color: "#0b0a08",
-                        fontWeight: 700,
-                        minHeight: 46,
-                        boxShadow: "0 10px 24px rgba(56,189,248,0.25)",
-                        "&:hover": {
-                          background:
-                            "linear-gradient(90deg, rgba(56,189,248,1), rgba(245,158,11,1))",
-                        },
-                      }}
-                    >
-                      {authLoading ? "登入中..." : TEXT.googleAction}
-                    </Button>
-                  </div>
+                  <AuthRequiredPanel
+                    compact
+                    featureIcon={<MeetingRoomRounded sx={{ fontSize: 22 }} />}
+                    title={
+                      isLeaderboardInvite
+                        ? TEXT.leaderboardLoginTitle
+                        : TEXT.identityTitle
+                    }
+                    description={
+                      isLeaderboardInvite
+                        ? TEXT.leaderboardLoginDesc
+                        : TEXT.identityDesc
+                    }
+                    secondaryAction={null}
+                  />
                 ) : (
                   <div className="grid gap-4">
                     <div>
@@ -458,10 +444,7 @@ const InvitedPage: React.FC = () => {
                     <Button
                       variant="contained"
                       onClick={() => {
-                        if (!authUser) {
-                          loginWithGoogle();
-                          return;
-                        }
+                        if (!authUser) return;
                         handleJoinRoom(
                           inviteRoom.roomCode || inviteRoom.id,
                           inviteRoom.hasPassword,
