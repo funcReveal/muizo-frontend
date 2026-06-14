@@ -48,6 +48,28 @@ const sessionStorageSet = (key: string, value: string) => {
   }
 };
 
+const sessionStorageRemove = (key: string) => {
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures; the cache-busted navigation can still recover.
+  }
+};
+
+export const reloadWithCacheBust = () => {
+  if (typeof window === "undefined") return false;
+
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("__muizo_reload", String(Date.now()));
+  window.location.replace(nextUrl.toString());
+  return true;
+};
+
+export const resetChunkReloadAttempts = () => {
+  if (typeof window === "undefined") return;
+  sessionStorageRemove(CHUNK_RELOAD_STORAGE_KEY);
+};
+
 export const reloadOnceForChunkError = () => {
   if (typeof window === "undefined") return false;
 
@@ -65,10 +87,7 @@ export const reloadOnceForChunkError = () => {
     return true;
   }
 
-  const nextUrl = new URL(window.location.href);
-  nextUrl.searchParams.set("__muizo_reload", String(Date.now()));
-  window.location.replace(nextUrl.toString());
-  return true;
+  return reloadWithCacheBust();
 };
 
 export const installChunkLoadRecovery = () => {
@@ -76,9 +95,17 @@ export const installChunkLoadRecovery = () => {
 
   window.addEventListener("error", (event) => {
     const target = event.target;
-    const isScriptOrLinkFailure =
-      target instanceof HTMLScriptElement || target instanceof HTMLLinkElement;
-    if (!isScriptOrLinkFailure && !isChunkLoadError(event.error ?? event.message)) {
+    const isScriptFailure = target instanceof HTMLScriptElement;
+    const isChunkLinkFailure =
+      target instanceof HTMLLinkElement &&
+      (target.relList.contains("stylesheet") ||
+        target.relList.contains("modulepreload")) &&
+      target.href.includes("/assets/");
+    if (
+      !isScriptFailure &&
+      !isChunkLinkFailure &&
+      !isChunkLoadError(event.error ?? event.message)
+    ) {
       return;
     }
     reloadOnceForChunkError();
