@@ -1,13 +1,10 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
 
 import { useAuth } from "../../../shared/auth/AuthContext";
 import LandingPage from "./LandingPage";
 
 const LandingHomePage: React.FC = () => {
-  const navigate = useNavigate();
   const {
-    authUser,
     loginWithGoogle,
     loginWithEmail,
     registerWithEmail,
@@ -15,12 +12,6 @@ const LandingHomePage: React.FC = () => {
     requestPasswordReset,
     authLoading,
   } = useAuth();
-
-  useEffect(() => {
-    if (authUser) {
-      navigate("/rooms", { replace: true });
-    }
-  }, [authUser, navigate]);
 
   const handleGoogleLogin = () => {
     loginWithGoogle();

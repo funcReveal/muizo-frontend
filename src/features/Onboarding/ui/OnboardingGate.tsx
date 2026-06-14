@@ -21,7 +21,14 @@ const OnboardingGate: React.FC = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (!authUser || dismissed || !data || data.onboardingCompleted) {
+  const hasRequiredProfile = Boolean(data?.gender && data.birthDate);
+
+  if (
+    !authUser ||
+    dismissed ||
+    !data ||
+    (data.onboardingCompleted && hasRequiredProfile)
+  ) {
     return null;
   }
 

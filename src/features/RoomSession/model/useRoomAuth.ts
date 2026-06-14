@@ -24,7 +24,7 @@ import {
   apiUpsertCurrentUser,
 } from "./roomApi";
 import { USERNAME_MAX } from "./roomConstants";
-import { isProfileConfirmed, setProfileConfirmed } from "./roomStorage";
+import { setProfileConfirmed } from "./roomStorage";
 import {
   clearTokenExpiry,
   persistTokenExpiry,
@@ -220,13 +220,9 @@ export const useRoomAuth = ({
         window.localStorage.setItem(AUTH_SESSION_HINT_KEY, "1");
       }
 
-      const confirmed = isProfileConfirmed(user.id);
-      if (!confirmed) {
-        setNicknameDraft((user.display_name ?? "").slice(0, USERNAME_MAX));
-        setNeedsNicknameConfirm(true);
-      }
-
       if (user.display_name) {
+        setNicknameDraft(user.display_name.slice(0, USERNAME_MAX));
+        setNeedsNicknameConfirm(false);
         persistUsername(user.display_name.slice(0, USERNAME_MAX));
       }
     },
