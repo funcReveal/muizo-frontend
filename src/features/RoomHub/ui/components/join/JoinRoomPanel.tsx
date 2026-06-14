@@ -927,7 +927,7 @@ const JoinRoomPanel = ({
                     <div
                       onClick={() => directRoomCodeInputRef.current?.focus()}
                       lang="en"
-                      className={`relative mx-auto w-full max-w-[38rem] cursor-text overflow-hidden rounded-[28px] border bg-slate-950/35 px-3 py-4 outline-none transition sm:px-5 sm:py-5 ${
+                      className={`relative mx-auto w-full max-w-[38rem] cursor-text overflow-hidden rounded-[24px] border bg-slate-950/35 px-2 py-3 outline-none transition min-[390px]:rounded-[28px] min-[390px]:px-3 min-[390px]:py-4 sm:px-5 sm:py-5 ${
                         directJoinError
                           ? "border-rose-300/70 shadow-[0_0_0_4px_rgba(251,113,133,0.16)]"
                           : isDirectRoomCodeFocused
@@ -967,11 +967,11 @@ const JoinRoomPanel = ({
                         // style={{ imeMode: "disabled" }}
                         className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0"
                       />
-                      <div className="pointer-events-none flex min-w-0 items-center justify-center gap-2 min-[360px]:gap-2.5 sm:gap-3.5">
+                      <div className="pointer-events-none flex min-w-0 items-center justify-center gap-1.5 min-[360px]:gap-2 min-[390px]:gap-2.5 sm:gap-3.5">
                         {directRoomCodeSlots.slice(0, 3).map((char, index) => (
                           <span
                             key={`room-code-left-${index}`}
-                            className={`relative flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border text-lg font-semibold tracking-[0.08em] min-[360px]:h-14 min-[360px]:w-10 min-[390px]:h-16 min-[390px]:w-12 min-[390px]:rounded-2xl min-[390px]:tracking-[0.14em] sm:h-[4.5rem] sm:w-14 sm:text-2xl ${
+                            className={`relative flex h-11 w-8 shrink-0 items-center justify-center rounded-xl border text-base font-semibold tracking-[0.06em] min-[360px]:h-12 min-[360px]:w-9 min-[390px]:h-14 min-[390px]:w-10 min-[390px]:tracking-[0.1em] sm:h-[4.5rem] sm:w-14 sm:rounded-2xl sm:text-2xl sm:tracking-[0.14em] ${
                               directJoinError
                                 ? "border-rose-300/35 bg-rose-400/8 text-rose-50"
                                 : isDirectRoomCodeFocused &&
@@ -986,7 +986,7 @@ const JoinRoomPanel = ({
                           </span>
                         ))}
                         <span
-                          className={`shrink-0 px-0.5 text-xl font-semibold min-[390px]:px-1 min-[390px]:text-2xl sm:text-3xl ${
+                          className={`shrink-0 px-0 text-lg font-semibold min-[390px]:px-0.5 min-[390px]:text-xl sm:px-1 sm:text-3xl ${
                             directJoinError
                               ? "text-rose-200/90"
                               : "text-amber-200/80"
@@ -997,7 +997,7 @@ const JoinRoomPanel = ({
                         {directRoomCodeSlots.slice(3).map((char, index) => (
                           <span
                             key={`room-code-right-${index}`}
-                            className={`relative flex h-12 w-9 shrink-0 items-center justify-center rounded-xl border text-lg font-semibold tracking-[0.08em] min-[360px]:h-14 min-[360px]:w-10 min-[390px]:h-16 min-[390px]:w-12 min-[390px]:rounded-2xl min-[390px]:tracking-[0.14em] sm:h-[4.5rem] sm:w-14 sm:text-2xl ${
+                            className={`relative flex h-11 w-8 shrink-0 items-center justify-center rounded-xl border text-base font-semibold tracking-[0.06em] min-[360px]:h-12 min-[360px]:w-9 min-[390px]:h-14 min-[390px]:w-10 min-[390px]:tracking-[0.1em] sm:h-[4.5rem] sm:w-14 sm:rounded-2xl sm:text-2xl sm:tracking-[0.14em] ${
                               directJoinError
                                 ? "border-rose-300/35 bg-rose-400/8 text-rose-50"
                                 : isDirectRoomCodeFocused &&

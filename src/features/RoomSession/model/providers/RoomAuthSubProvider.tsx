@@ -81,6 +81,7 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
     setNicknameDraft,
     refreshAuthToken,
     confirmNickname: confirmNicknameInternal,
+    updateDisplayName,
     openProfileEditor,
     closeProfileEditor,
     loginWithGoogle,
@@ -158,11 +159,8 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
   const confirmNicknameBaseRef = useRef<() => Promise<boolean>>(
     confirmNicknameInternal,
   );
-  const confirmNicknameDefaultRef = useRef<() => Promise<boolean>>(
-    () => confirmNicknameBaseRef.current(),
-  );
   const confirmNicknameRef = useRef<() => Promise<boolean>>(
-    confirmNicknameDefaultRef.current,
+    () => confirmNicknameBaseRef.current(),
   );
   useEffect(() => {
     confirmNicknameBaseRef.current = confirmNicknameInternal;
@@ -190,6 +188,7 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
       nicknameDraft,
       setNicknameDraft,
       confirmNickname,
+      updateDisplayName,
       isProfileEditorOpen,
       openProfileEditor,
       closeProfileEditor,
@@ -216,6 +215,7 @@ export const RoomAuthSubProvider: React.FC<{ children: ReactNode }> = ({
       nicknameDraft,
       setNicknameDraft,
       confirmNickname,
+      updateDisplayName,
       isProfileEditorOpen,
       openProfileEditor,
       closeProfileEditor,

@@ -100,8 +100,62 @@ const sanitizeFilename = (value: string) =>
     .replace(/\s+/g, "-")
     .slice(0, 48) || "collection-rank";
 
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("封面圖片格式錯誤"));
+    };
+    reader.onerror = () => {
+      reject(reader.error ?? new Error("封面圖片讀取失敗"));
+    };
+    reader.readAsDataURL(blob);
+  });
+
+const resolveShareCoverImageUrl = async (coverThumbnailUrl: string | null) => {
+  if (!coverThumbnailUrl) return null;
+  if (coverThumbnailUrl.startsWith("data:")) return coverThumbnailUrl;
+
+  try {
+    const response = await fetch(coverThumbnailUrl, {
+      cache: "force-cache",
+      mode: "cors",
+    });
+    if (!response.ok) return null;
+
+    return await blobToDataUrl(await response.blob());
+  } catch (error) {
+    console.warn("[career/share] failed to inline cover image", error);
+    return null;
+  }
+};
+
+const waitForImages = async (node: HTMLElement) => {
+  const imageNodes = Array.from(node.querySelectorAll("img"));
+  await Promise.all(
+    imageNodes.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete && image.naturalWidth > 0) {
+            resolve();
+            return;
+          }
+
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        }),
+    ),
+  );
+};
+
 const createShareImageBlob = async (node: HTMLElement) => {
   await document.fonts?.ready;
+  await waitForImages(node);
   const blob = await toBlob(node, {
     cacheBust: true,
     pixelRatio: 2,
@@ -214,50 +268,55 @@ const SharePreviewCard: React.FC<{
   metrics: ReturnType<typeof getCollectionShareMetrics>;
   showReplayCount: boolean;
   showPlayCount: boolean;
-}> = ({ item, metrics, showReplayCount, showPlayCount }) => (
-  <div className="w-[520px] max-w-full rounded-[28px] border border-amber-200/16 bg-[radial-gradient(circle_at_12%_0%,rgba(245,158,11,0.24),transparent_32%),radial-gradient(circle_at_95%_100%,rgba(56,189,248,0.16),transparent_35%),linear-gradient(135deg,rgba(28,19,12,0.98),rgba(6,11,22,0.98))] p-5 shadow-[0_24px_60px_-34px_rgba(245,158,11,0.58)]">
-    <div className="overflow-hidden rounded-[22px] border border-white/10 bg-slate-950/50">
-      <div className="relative aspect-[16/9] bg-slate-900/80">
-        {item.coverThumbnailUrl ? (
-          <img
-            src={item.coverThumbnailUrl}
-            alt=""
-            crossOrigin="anonymous"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
-            無封面
-          </div>
-        )}
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.22)_46%,rgba(2,6,23,0.9)_100%)]" />
-        <div className="absolute bottom-4 left-4 right-4">
-          <div className="line-clamp-2 text-2xl font-semibold leading-tight text-slate-50">
-            {item.title}
+  coverImageUrl?: string | null;
+}> = ({ item, metrics, showReplayCount, showPlayCount, coverImageUrl }) => {
+  const previewCoverUrl = coverImageUrl ?? item.coverThumbnailUrl;
+
+  return (
+    <div className="w-[520px] max-w-full rounded-[28px] border border-amber-200/16 bg-[radial-gradient(circle_at_12%_0%,rgba(245,158,11,0.24),transparent_32%),radial-gradient(circle_at_95%_100%,rgba(56,189,248,0.16),transparent_35%),linear-gradient(135deg,rgba(28,19,12,0.98),rgba(6,11,22,0.98))] p-5 shadow-[0_24px_60px_-34px_rgba(245,158,11,0.58)]">
+      <div className="overflow-hidden rounded-[22px] border border-white/10 bg-slate-950/50">
+        <div className="relative aspect-[16/9] bg-slate-900/80">
+          {previewCoverUrl ? (
+            <img
+              src={previewCoverUrl}
+              alt=""
+              crossOrigin="anonymous"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+              無封面
+            </div>
+          )}
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.22)_46%,rgba(2,6,23,0.9)_100%)]" />
+          <div className="absolute bottom-4 left-4 right-4">
+            <div className="line-clamp-2 text-2xl font-semibold leading-tight text-slate-50">
+              {item.title}
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <CollectionSettlementSummary
-      currentRank={metrics.currentRank}
-      score={metrics.score}
-      accuracy={metrics.accuracy}
-      combo={metrics.combo}
-    />
+      <CollectionSettlementSummary
+        currentRank={metrics.currentRank}
+        score={metrics.score}
+        accuracy={metrics.accuracy}
+        combo={metrics.combo}
+      />
 
-    {showReplayCount ? (
-      <div className="mt-4 rounded-[18px] border border-white/10 bg-slate-950/44 p-4 text-sm font-semibold text-slate-200/82">
-        {metrics.replayCount}
+      {showReplayCount ? (
+        <div className="mt-4 rounded-[18px] border border-white/10 bg-slate-950/44 p-4 text-sm font-semibold text-slate-200/82">
+          {metrics.replayCount}
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-300/72">
+        {showPlayCount ? <span>遊玩場數 {metrics.playCount}</span> : <span />}
+        <span className="font-semibold text-amber-200">muizo.org</span>
       </div>
-    ) : null}
-
-    <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-300/72">
-      {showPlayCount ? <span>遊玩場數 {metrics.playCount}</span> : <span />}
-      <span className="font-semibold text-amber-200">muizo.org</span>
     </div>
-  </div>
-);
+  );
+};
 
 const createShareImageBlobFromData = async ({
   item,
@@ -282,6 +341,9 @@ const createShareImageBlobFromData = async ({
   const root = createRoot(host);
   try {
     const metrics = getCollectionShareMetrics(item);
+    const coverImageUrl = await resolveShareCoverImageUrl(
+      item.coverThumbnailUrl,
+    );
     flushSync(() => {
       root.render(
         <SharePreviewCard
@@ -289,6 +351,7 @@ const createShareImageBlobFromData = async ({
           metrics={metrics}
           showReplayCount={showReplayCount}
           showPlayCount={showPlayCount}
+          coverImageUrl={coverImageUrl}
         />,
       );
     });

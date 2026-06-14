@@ -27,7 +27,6 @@ export interface AuthContextValue {
   registerWithEmail: (
     email: string,
     password: string,
-    displayName?: string | null,
   ) => Promise<{ ok: boolean; error?: string | null }>;
   resendEmailVerification: (email: string) => Promise<boolean>;
   requestPasswordReset: (email: string) => Promise<boolean>;
@@ -37,6 +36,7 @@ export interface AuthContextValue {
   nicknameDraft: string;
   setNicknameDraft: (value: string) => void;
   confirmNickname: () => Promise<boolean>;
+  updateDisplayName: (displayName: string) => Promise<boolean>;
   isProfileEditorOpen: boolean;
   openProfileEditor: () => void;
   closeProfileEditor: () => void;

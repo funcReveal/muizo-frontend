@@ -75,7 +75,7 @@ const CollectionsSourceContent = ({
     return (
       <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
         {createLibraryView === "grid" ? (
-          <div className="h-full min-h-0 overflow-y-auto sm:pr-1">
+          <div className="h-auto lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1">
             <div
               className="grid gap-3"
               style={{
@@ -88,7 +88,7 @@ const CollectionsSourceContent = ({
             </div>
           </div>
         ) : (
-          <div className="h-full min-h-0 space-y-2 overflow-hidden">
+          <div className="h-auto space-y-2 lg:h-full lg:min-h-0 lg:overflow-hidden">
             {Array.from({ length: 4 }).map((_, idx) =>
               renderCollectionSkeletonCard(idx, "list"),
             )}

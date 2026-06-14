@@ -1698,7 +1698,7 @@ const RoomsHubPage: React.FC = () => {
       {!currentRoom?.id && (
         <section className="flex min-h-0 w-full flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col sm:p-5">
-            <div className="sticky top-0 z-50 bg-[var(--mc-bg)] pb-2 lg:static lg:bg-transparent lg:pb-0">
+            <div className="z-50 bg-[var(--mc-bg)] pb-0 lg:bg-transparent lg:pb-0">
               <div className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-bg)] p-1 shadow-[0_14px_30px_-28px_rgba(2,6,23,0.95)] lg:bg-[var(--mc-surface-strong)]/40 lg:shadow-none">
                 <button
                   type="button"
@@ -1963,7 +1963,7 @@ const RoomsHubPage: React.FC = () => {
                             PlaylistPreviewRow={PlaylistPreviewRow}
                           />
                         ) : createLibraryTab === "youtube" ? (
-                          <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
+                          <div className="mt-0 flex h-[calc(100dvh-276px)] min-h-[320px] flex-col overflow-hidden sm:mt-3 lg:h-auto lg:min-h-0 lg:flex-1">
                             <YoutubeSourceContent
                               youtubePlaylistsLoading={youtubePlaylistsLoading}
                               createLibraryView={createLibraryView}
@@ -1987,7 +1987,7 @@ const RoomsHubPage: React.FC = () => {
                             />
                           </div>
                         ) : (
-                          <div className="mt-2 flex min-h-0 flex-1 flex-col sm:mt-3">
+                          <div className="mt-0 flex h-[calc(100dvh-276px)] min-h-[320px] flex-col overflow-hidden sm:mt-3 lg:h-auto lg:min-h-0 lg:flex-1">
                             <CollectionsSourceContent
                               createLibraryTab={createLibraryTab}
                               createLibraryView={createLibraryView}

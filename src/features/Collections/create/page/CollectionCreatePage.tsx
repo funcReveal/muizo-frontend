@@ -939,7 +939,7 @@ const CollectionCreatePage = () => {
             </div>
           )}
 
-          <div className="mt-5 space-y-4">
+          <div className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
             <CollectionCreateStepNav
               currentStep={createStep}
               onStepChange={setCreateStep}
@@ -947,8 +947,8 @@ const CollectionCreatePage = () => {
               canOpenPublish={canGoPublish}
             />
 
-            <div className="grid gap-4">
-              <div className="min-w-0 space-y-3">
+            <div className="grid gap-3 sm:gap-4">
+              <div className="min-w-0 space-y-2.5 sm:space-y-3">
                 {createStep === "source" && (
                   <CollectionCreateSourcePanel
                     authUserExists={Boolean(authUser)}

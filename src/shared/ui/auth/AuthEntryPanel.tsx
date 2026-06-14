@@ -12,7 +12,6 @@ export interface AuthEntryPanelProps {
   onEmailRegister: (
     email: string,
     password: string,
-    displayName?: string | null,
   ) => Promise<{ ok: boolean; error?: string | null }>;
   onPasswordResetRequest: (email: string) => Promise<boolean>;
   onResendVerification: (email: string) => Promise<boolean>;
@@ -35,7 +34,6 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
   const [mode, setMode] = useState<AuthEntryMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [formMessageOk, setFormMessageOk] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -87,11 +85,7 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
 
     try {
       const result = isRegister
-        ? await onEmailRegister(
-            normalizedEmail,
-            password,
-            displayName.trim() || null,
-          )
+        ? await onEmailRegister(normalizedEmail, password)
         : await onEmailLogin(normalizedEmail, password);
 
       if (!result.ok) {
@@ -156,8 +150,8 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
           <h2>{isRegister ? "建立帳號" : "登入 Muizo"}</h2>
           <p>
             {isRegister
-              ? "建立帳號後即可保存題庫、戰績與跨裝置紀錄。"
-              : "使用 Email 或 Google 登入，延續你的收藏與遊玩進度。"}
+              ? "建立帳號即可啟用題庫、戰績與跨裝置遊玩。"
+              : "登入後即可進入題庫、戰績與跨裝置遊玩。"}
           </p>
         </div>
       </header>
@@ -186,19 +180,6 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
           {...contentMotion}
         >
           <form className="auth-entry-form" onSubmit={handleSubmit}>
-            {isRegister ? (
-              <label>
-                <span>顯示名稱</span>
-                <input
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  maxLength={80}
-                  placeholder="可留空，之後也能修改"
-                  disabled={busy}
-                />
-              </label>
-            ) : null}
-
             <label>
               <span>Email</span>
               <input

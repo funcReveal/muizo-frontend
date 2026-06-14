@@ -125,45 +125,47 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      <section
-        className="landing-stage landing-stage-guide landing-stage-scroll-fade"
-        data-landing-stage
-      >
-        <div className="landing-stage-head">
-          <p className="landing-stage-kicker">快速導覽</p>
-          <h2 className="landing-stage-title">開始前，先看這 2 件重點</h2>
-        </div>
-        <div className="landing-stage-content landing-info-grid landing-info-grid-mobile-scroll mt-8 grid gap-4 lg:grid-cols-2">
-          <HowItWorksSection />
-          <AuthComparisonSection />
-        </div>
-      </section>
+      <div className="landing-lower-stack" aria-label="Muizo 產品導覽">
+        <section
+          className="landing-stage landing-stage-guide landing-stage-scroll-fade"
+          data-landing-stage
+        >
+          <div className="landing-stage-head">
+            <p className="landing-stage-kicker">快速導覽</p>
+            <h2 className="landing-stage-title">開始前，先看這 2 件重點</h2>
+          </div>
+          <div className="landing-stage-content landing-info-grid landing-info-grid-mobile-scroll mt-8 grid gap-4 lg:grid-cols-2">
+            <HowItWorksSection />
+            <AuthComparisonSection />
+          </div>
+        </section>
 
-      <section
-        className="landing-stage landing-stage-search landing-stage-scroll-fade"
-        data-landing-stage
-      >
-        <div className="landing-stage-head">
-          <p className="landing-stage-kicker">搜尋與玩法</p>
-          <h2 className="landing-stage-title">線上猜歌遊戲與歌曲問答平台</h2>
-        </div>
-        <div className="landing-stage-content mt-4">
-          <SearchDiscoverySection />
-        </div>
-      </section>
+        <section
+          className="landing-stage landing-stage-search landing-stage-scroll-fade"
+          data-landing-stage
+        >
+          <div className="landing-stage-head">
+            <p className="landing-stage-kicker">搜尋與玩法</p>
+            <h2 className="landing-stage-title">線上猜歌遊戲與歌曲問答平台</h2>
+          </div>
+          <div className="landing-stage-content mt-4">
+            <SearchDiscoverySection />
+          </div>
+        </section>
 
-      <section
-        className="landing-stage landing-stage-community landing-stage-scroll-fade"
-        data-landing-stage
-      >
-        <div className="landing-stage-head">
-          <p className="landing-stage-kicker">參與開發</p>
-          <h2 className="landing-stage-title">一起定義下一版 Muizo</h2>
-        </div>
-        <div className="landing-stage-content mt-4">
-          <CommunityCallout />
-        </div>
-      </section>
+        <section
+          className="landing-stage landing-stage-community landing-stage-scroll-fade"
+          data-landing-stage
+        >
+          <div className="landing-stage-head">
+            <p className="landing-stage-kicker">參與開發</p>
+            <h2 className="landing-stage-title">一起定義下一版 Muizo</h2>
+          </div>
+          <div className="landing-stage-content mt-4">
+            <CommunityCallout />
+          </div>
+        </section>
+      </div>
     </section>
   );
 };

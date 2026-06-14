@@ -2,7 +2,8 @@ export type SettingsCategoryId =
   | "controls"
   | "audio"
   | "display"
-  | "accessibility";
+  | "accessibility"
+  | "account";
 
 export type SettingsSectionId =
   | "keybindings"
@@ -11,7 +12,8 @@ export type SettingsSectionId =
   | "avatar-effects"
   | "scoreboard-effects"
   | "display-presets"
-  | "accessibility-presets";
+  | "accessibility-presets"
+  | "data-privacy";
 
 export type SettingsSectionStatus = "ready" | "planned";
 

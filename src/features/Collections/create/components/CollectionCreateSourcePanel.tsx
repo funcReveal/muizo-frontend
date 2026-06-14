@@ -164,7 +164,7 @@ export default function CollectionCreateSourcePanel({
     "rounded-full px-3 py-1 transition disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
-    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-4">
+    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3 sm:p-4">
       <div>
         <div className="text-lg font-semibold text-[var(--mc-text)]">
           {t("source.title")}
@@ -175,7 +175,7 @@ export default function CollectionCreateSourcePanel({
       </div>
 
       {/* Source tab selector */}
-      <div className="mt-4 inline-flex rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1 text-[11px]">
+      <div className="mt-3 inline-flex rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1 text-[11px] sm:mt-4">
         <button
           type="button"
           disabled={sourceSwitchDisabled}
@@ -222,7 +222,7 @@ export default function CollectionCreateSourcePanel({
         </div>
       )}
 
-      <div className="relative mt-4 min-h-[170px]">
+      <div className="relative mt-3 min-h-[142px] sm:mt-4 sm:min-h-[170px]">
         {/* URL tab panel */}
         <div
           className={`space-y-3 transition-all duration-200 ${
@@ -232,7 +232,7 @@ export default function CollectionCreateSourcePanel({
           }`}
           hidden={playlistSource !== "url"}
         >
-          <div className="p-2 sm:p-3">
+          <div className="p-0 sm:p-3">
             <Tooltip
               title={playlistUrlTooltipMessage}
               placement="top"
@@ -518,7 +518,7 @@ export default function CollectionCreateSourcePanel({
       </div>
 
       {/* Imported sources summary */}
-      <div className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-[rgba(2,6,23,0.22)] p-3">
+      <div className="mt-3 rounded-2xl border border-[var(--mc-border)] bg-[rgba(2,6,23,0.22)] p-3 sm:mt-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-[var(--mc-text)]">

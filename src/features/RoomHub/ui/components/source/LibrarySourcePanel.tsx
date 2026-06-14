@@ -42,8 +42,8 @@ const LibrarySourcePanel = ({
     Boolean(onCreatePublicCollection);
 
   return (
-    <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-2 lg:grid-cols-[220px_minmax(0,1fr)] lg:grid-rows-none lg:gap-3">
-      <aside className="min-w-0 self-start px-0 lg:py-1 lg:flex lg:min-h-0 lg:self-stretch lg:flex-col lg:pr-2 lg:pb-2 lg:pl-0 lg:pt-2">
+    <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] gap-0 lg:grid-cols-[220px_minmax(0,1fr)] lg:grid-rows-none lg:gap-3">
+      <aside className="hidden min-w-0 self-start px-0 lg:flex lg:min-h-0 lg:self-stretch lg:flex-col lg:pb-2 lg:pl-0 lg:pr-2 lg:pt-2">
         <div className="mb-2 hidden items-center gap-1 lg:mb-0 lg:flex">
           {createLeftTab === "settings" ? (
             <button

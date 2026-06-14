@@ -7,7 +7,6 @@ export interface LandingPageProps {
   onEmailRegister: (
     email: string,
     password: string,
-    displayName?: string | null,
   ) => Promise<{ ok: boolean; error?: string | null }>;
   onPasswordResetRequest: (email: string) => Promise<boolean>;
   onResendVerification: (email: string) => Promise<boolean>;

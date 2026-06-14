@@ -6,6 +6,7 @@ import {
   BookmarksRounded,
   EditNoteRounded,
   LibraryMusicRounded,
+  WorkspacePremiumRounded,
 } from "@mui/icons-material";
 
 import RequireAuthRoute from "./guards/RequireAuthRoute";
@@ -32,6 +33,7 @@ const RoomsHubPage = lazy(() => import("@features/RoomHub"));
 const RoomLobbyPage = lazy(() => import("@features/RoomLobby"));
 const CareerPage = lazy(() => import("@features/Career"));
 const FavoriteSongsPage = lazy(() => import("@features/SongFavorite"));
+const MembershipPage = lazy(() => import("@features/Membership"));
 const InvitedPage = lazy(() => import("@features/Invited"));
 const CollectionsPage = lazy(() => import("@features/Collections"));
 const CollectionsCreatePage = lazy(() =>
@@ -75,6 +77,22 @@ export function AppRouter() {
             >
               <Suspense fallback={<PageLoader />}>
                 <CollectionsPage />
+              </Suspense>
+            </RequireAuthRoute>
+          }
+        />
+
+        <Route
+          path="/membership"
+          element={
+            <RequireAuthRoute
+              featureIcon={<WorkspacePremiumRounded sx={{ fontSize: 23 }} />}
+              currentBreadcrumbLabel="會員升級"
+              title="登入後查看會員方案"
+              description="會員方案會依帳號身分套用，登入後即可查看目前方案與可升級項目。"
+            >
+              <Suspense fallback={<PageLoader />}>
+                <MembershipPage />
               </Suspense>
             </RequireAuthRoute>
           }

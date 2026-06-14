@@ -21,6 +21,11 @@ export const SETTINGS_CATEGORIES: SettingsCategoryMeta[] = [
     title: "操作",
     subtitle: "調整按鍵與作答手感",
   },
+  {
+    id: "account",
+    title: "帳號與隱私",
+    subtitle: "資料使用與同意",
+  },
 ];
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
@@ -72,5 +77,12 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
     title: "無障礙預設（規劃中）",
     description: "將提供色弱友善、低動態與高對比等輔助配置。",
     status: "planned",
+  },
+  {
+    id: "data-privacy",
+    categoryId: "account",
+    title: "資料與隱私",
+    description: "管理我們如何使用你的資料，包含商業分析的同意設定。",
+    status: "ready",
   },
 ];

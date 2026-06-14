@@ -2,7 +2,7 @@ const TermsPage: React.FC = () => (
   <div className="mx-auto w-full max-w-5xl rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/80 p-6 text-[var(--mc-text)] shadow-[0_20px_60px_-40px_rgba(2,6,23,0.8)]">
     <h2 className="text-2xl font-semibold text-[var(--mc-text)]">服務條款</h2>
     <p className="mt-2 text-xs uppercase tracking-[0.3em] text-[var(--mc-text-muted)]">
-      最後更新：2026/02/28
+      最後更新：2026/06/14
     </p>
     <p className="mt-4 text-sm text-[var(--mc-text-muted)]">
       使用本服務（Muizo）即表示你已閱讀、理解並同意本條款與隱私權政策。若你不同意，請停止使用本服務。
@@ -72,7 +72,16 @@ const TermsPage: React.FC = () => (
       </section>
 
       <section>
-        <h3 className="text-base font-semibold text-[var(--mc-text)]">9. 條款更新與聯絡</h3>
+        <h3 className="text-base font-semibold text-[var(--mc-text)]">9. 資料蒐集與使用</h3>
+        <p className="mt-2 text-[var(--mc-text-muted)]">
+          本服務依
+          <a href="/privacy" className="underline">隱私權政策</a>
+          蒐集與使用你的資料，包含為提供個人化推薦而蒐集的性別、年齡與興趣。你亦可<b>選擇性同意</b>我們以彙總或去識別形式將資料用於內容分析與商業合作，該同意為選擇性、可隨時於「設定 → 帳號與隱私」撤回，且不影響你正常使用本服務。詳細範圍與你的權利請見隱私權政策。
+        </p>
+      </section>
+
+      <section>
+        <h3 className="text-base font-semibold text-[var(--mc-text)]">10. 條款更新與聯絡</h3>
         <p className="mt-2 text-[var(--mc-text-muted)]">
           我們可能不定期更新本條款，更新後版本將公布於本頁。若你持續使用本服務，視為同意更新後條款。聯絡信箱：funcreveal@gmail.com。
         </p>

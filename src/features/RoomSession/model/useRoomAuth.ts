@@ -92,6 +92,7 @@ export type UseRoomAuthResult = {
   setNicknameDraft: (value: string) => void;
   refreshAuthToken: () => Promise<string | null>;
   confirmNickname: () => Promise<boolean>;
+  updateDisplayName: (displayName: string) => Promise<boolean>;
   openProfileEditor: () => void;
   closeProfileEditor: () => void;
   loginWithGoogle: () => void;
@@ -102,7 +103,6 @@ export type UseRoomAuthResult = {
   registerWithEmail: (
     email: string,
     password: string,
-    displayName?: string | null,
   ) => Promise<{ ok: boolean; error?: string | null }>;
   resendEmailVerification: (email: string) => Promise<boolean>;
   requestPasswordReset: (email: string) => Promise<boolean>;
@@ -304,8 +304,8 @@ export const useRoomAuth = ({
     return refreshInFlightRef.current;
   }, [apiUrl, persistAuth]);
 
-  const confirmNickname = useCallback(async () => {
-    const trimmed = nicknameDraft.trim();
+  const updateDisplayName = useCallback(async (displayName: string) => {
+    const trimmed = displayName.trim();
 
     if (!trimmed) {
       setStatusText("請先輸入暱稱");
@@ -376,11 +376,15 @@ export const useRoomAuth = ({
     apiUrl,
     authToken,
     authUser,
-    nicknameDraft,
     persistUsername,
     refreshAuthToken,
     setStatusText,
   ]);
+
+  const confirmNickname = useCallback(
+    () => updateDisplayName(nicknameDraft),
+    [nicknameDraft, updateDisplayName],
+  );
 
   const openProfileEditor = useCallback(() => {
     const fallbackName = authUser?.display_name ?? username ?? "";
@@ -623,7 +627,7 @@ export const useRoomAuth = ({
   );
 
   const registerWithEmail = useCallback(
-    async (email: string, password: string, displayName?: string | null) => {
+    async (email: string, password: string) => {
       if (!apiUrl) {
         setStatusText("尚未設定 API 位置 (API_URL)");
         return { ok: false, error: "尚未設定 API 位置 (API_URL)" };
@@ -636,7 +640,7 @@ export const useRoomAuth = ({
         const { ok, payload } = await apiAuthRegister(apiUrl, {
           email,
           password,
-          displayName,
+          displayName: null,
           clientType,
         });
 
@@ -802,6 +806,7 @@ export const useRoomAuth = ({
     setNicknameDraft,
     refreshAuthToken,
     confirmNickname,
+    updateDisplayName,
     openProfileEditor,
     closeProfileEditor,
     loginWithGoogle,

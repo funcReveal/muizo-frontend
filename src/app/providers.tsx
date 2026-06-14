@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 
 import { AuthSessionProvider } from "@features/RoomSession";
+import { OnboardingGate } from "@features/Onboarding";
 import { SettingsProvider } from "@features/Setting/model/settingsModel";
 import { AppToaster } from "@shared/ui/toast";
 import { I18nProvider } from "@shared/i18n/I18nProvider";
@@ -73,6 +74,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <SettingsProvider>
             <AuthSessionProvider>
               {children}
+              <OnboardingGate />
               <VersionUpdateNotifier />
               <AppToaster />
             </AuthSessionProvider>
