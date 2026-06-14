@@ -11,19 +11,21 @@ import OnboardingWizard from "./OnboardingWizard";
  * steps already persists completion server-side, so dismissing for the session is safe.
  */
 const OnboardingGate: React.FC = () => {
+  const onboardingWizardEnabled = false;
   const { authUser, authToken, refreshAuthToken } = useAuth();
   const [dismissed, setDismissed] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["onboarding", authUser?.id],
     queryFn: () => onboardingApi.get({ authToken, refreshAuthToken }),
-    enabled: Boolean(authUser),
+    enabled: Boolean(onboardingWizardEnabled && authUser),
     staleTime: 5 * 60 * 1000,
   });
 
   const hasRequiredProfile = Boolean(data?.gender && data.birthDate);
 
   if (
+    !onboardingWizardEnabled ||
     !authUser ||
     dismissed ||
     !data ||
