@@ -75,7 +75,9 @@ const OnboardingWizard: React.FC<Props> = ({ state, onClose }) => {
   const [consent, setConsent] = useState(state.marketingConsent);
 
   const [categories, setCategories] = useState<Array<{ key: string; label: string }>>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set(state.interestedCategories));
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(Array.isArray(state.interestedCategories) ? state.interestedCategories : []),
+  );
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,7 @@ const OnboardingWizard: React.FC<Props> = ({ state, onClose }) => {
   useEffect(() => {
     let active = true;
     categoriesApi
-      .fetchCategories()
+      .getCategories()
       .then((tree) => {
         if (active) {
           setCategories(tree.map((c) => ({ key: c.key, label: c.label })));
