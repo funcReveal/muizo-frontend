@@ -79,6 +79,13 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
     status: "planned",
   },
   {
+    id: "youtube-connection",
+    categoryId: "account",
+    title: "YouTube 授權",
+    description: "管理 Google / YouTube 連結，用於讀取你的播放清單。",
+    status: "ready",
+  },
+  {
     id: "data-privacy",
     categoryId: "account",
     title: "資料與隱私",

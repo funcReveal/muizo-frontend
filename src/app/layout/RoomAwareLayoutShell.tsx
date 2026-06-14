@@ -12,6 +12,8 @@ import { useRoomGameStatus, useRoomSession } from "@features/RoomSession";
 const RoomAwareLayoutShell: React.FC = () => {
   const location = useLocation();
   const {
+    authToken,
+    refreshAuthToken,
     authLoading,
     authUser,
     loginWithEmail,
@@ -97,6 +99,8 @@ const RoomAwareLayoutShell: React.FC = () => {
           displayUsername={displayUsername}
           authUser={authUser}
           authLoading={authLoading}
+          authToken={authToken}
+          refreshAuthToken={refreshAuthToken}
           onLogin={navigationGuards.handleLoginRequest}
           onEmailLogin={loginWithEmail}
           onEmailRegister={registerWithEmail}

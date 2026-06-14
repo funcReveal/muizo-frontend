@@ -24,8 +24,9 @@ type YoutubePlaylistOption = {
 
 type Props = {
   authUserExists: boolean;
+  hasGoogleYouTubeConnection: boolean;
   needsGoogleReauth: boolean;
-  onLoginWithGoogle: () => void;
+  onLinkGoogleYouTube: () => void;
 
   playlistSource: "url" | "youtube" | "favorites";
   onPlaylistSourceChange: (value: "url" | "youtube" | "favorites") => void;
@@ -78,8 +79,9 @@ const getImportSourceThumbnail = (source: CollectionCreateImportSource) =>
 
 export default function CollectionCreateSourcePanel({
   authUserExists,
+  hasGoogleYouTubeConnection,
   needsGoogleReauth,
-  onLoginWithGoogle,
+  onLinkGoogleYouTube,
 
   playlistSource,
   onPlaylistSourceChange,
@@ -379,13 +381,13 @@ export default function CollectionCreateSourcePanel({
           hidden={playlistSource !== "youtube"}
         >
           <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-            {(!authUserExists || needsGoogleReauth) && (
+            {(!authUserExists || !hasGoogleYouTubeConnection || needsGoogleReauth) && (
               <div className="flex flex-wrap items-center gap-2">
                 <span>{t("source.googleLoginHint")}</span>
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={onLoginWithGoogle}
+                  onClick={onLinkGoogleYouTube}
                 >
                   {t("source.googleLogin")}
                 </Button>
@@ -405,7 +407,7 @@ export default function CollectionCreateSourcePanel({
               options={youtubePlaylistOptions}
               placeholder={youtubeSelectPlaceholder}
               loading={youtubeSelectLoading}
-              disabled={!authUserExists || needsGoogleReauth}
+              disabled={!authUserExists || !hasGoogleYouTubeConnection || needsGoogleReauth}
               emptyText={t("source.playlistSelectPlaceholder")}
               onOpen={onEnsureYoutubePlaylists}
               onChange={(nextId) => {

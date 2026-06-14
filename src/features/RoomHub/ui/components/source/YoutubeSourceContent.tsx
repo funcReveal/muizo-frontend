@@ -1,5 +1,9 @@
 import { Button } from "@mui/material";
-import { PlayCircleOutlineRounded, SearchRounded } from "@mui/icons-material";
+import {
+  PlayCircleOutlineRounded,
+  SearchRounded,
+  YouTube,
+} from "@mui/icons-material";
 import { List } from "react-window";
 import type { ReactNode } from "react";
 
@@ -17,6 +21,8 @@ type YoutubeSourceContentProps = {
   createLibraryView: "grid" | "list";
   filteredCreateYoutubePlaylists: unknown[];
   normalizedCreateLibrarySearch: string;
+  hasYoutubeAuthorization: boolean;
+  onLinkGoogleYouTube: () => void;
   handleActivateLinkSource: () => void;
   setCreateLibraryTab: (value: "public") => void;
   createLibraryColumns: number;
@@ -30,11 +36,46 @@ type YoutubeSourceContentProps = {
   VirtualLibraryListRow: VirtualLibraryListRowComponent;
 };
 
+const primaryActionSx = {
+  borderRadius: "999px",
+  px: 2,
+  py: 0.8,
+  fontWeight: 700,
+  color: "rgb(8, 15, 28)",
+  background:
+    "linear-gradient(135deg, rgba(103,232,249,0.96), rgba(45,212,191,0.9))",
+  boxShadow:
+    "inset 0 1px 0 rgba(255,255,255,0.36), 0 16px 30px -22px rgba(34,211,238,0.9)",
+  "&:hover": {
+    background:
+      "linear-gradient(135deg, rgba(125,245,255,0.98), rgba(94,234,212,0.94))",
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.4), 0 18px 34px -22px rgba(34,211,238,0.95)",
+  },
+} as const;
+
+const secondaryActionSx = {
+  borderRadius: "999px",
+  px: 2,
+  py: 0.8,
+  fontWeight: 700,
+  color: "rgb(186, 230, 253)",
+  borderColor: "rgba(125, 211, 252, 0.28)",
+  backgroundColor: "rgba(15, 23, 42, 0.46)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
+  "&:hover": {
+    borderColor: "rgba(125, 211, 252, 0.46)",
+    backgroundColor: "rgba(14, 165, 233, 0.12)",
+  },
+} as const;
+
 const YoutubeSourceContent = ({
   youtubePlaylistsLoading,
   createLibraryView,
   filteredCreateYoutubePlaylists,
   normalizedCreateLibrarySearch,
+  hasYoutubeAuthorization,
+  onLinkGoogleYouTube,
   handleActivateLinkSource,
   setCreateLibraryTab,
   createLibraryColumns,
@@ -76,6 +117,36 @@ const YoutubeSourceContent = ({
     );
   }
 
+  if (!hasYoutubeAuthorization) {
+    return (
+      <LibraryEmptyState
+        icon={<YouTube sx={{ fontSize: 30 }} />}
+        title="連結 YouTube 後即可匯入清單"
+        description="授權後可直接選取帳號播放清單建立房間；公開播放清單可改用貼上連結。"
+        actions={
+          <>
+            <Button
+              size="small"
+              variant="contained"
+              sx={primaryActionSx}
+              onClick={onLinkGoogleYouTube}
+            >
+              連結 Google / YouTube
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              sx={secondaryActionSx}
+              onClick={handleActivateLinkSource}
+            >
+              改用貼上連結
+            </Button>
+          </>
+        }
+      />
+    );
+  }
+
   if (filteredCreateYoutubePlaylists.length === 0) {
     return (
       <LibraryEmptyState
@@ -102,6 +173,7 @@ const YoutubeSourceContent = ({
               <Button
                 size="small"
                 variant="outlined"
+                sx={secondaryActionSx}
                 onClick={handleActivateLinkSource}
               >
                 改用貼上連結
@@ -109,6 +181,15 @@ const YoutubeSourceContent = ({
               <Button
                 size="small"
                 variant="text"
+                sx={{
+                  borderRadius: "999px",
+                  px: 1.5,
+                  fontWeight: 700,
+                  color: "rgba(186, 230, 253, 0.88)",
+                  "&:hover": {
+                    backgroundColor: "rgba(14, 165, 233, 0.1)",
+                  },
+                }}
                 onClick={() => setCreateLibraryTab("public")}
               >
                 瀏覽公開題庫

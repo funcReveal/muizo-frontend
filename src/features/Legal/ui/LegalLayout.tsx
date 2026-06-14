@@ -9,6 +9,8 @@ const LegalLayout: React.FC = () => {
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const {
+    authToken,
+    refreshAuthToken,
     displayUsername,
     authUser,
     authLoading,
@@ -28,6 +30,8 @@ const LegalLayout: React.FC = () => {
           displayUsername={displayUsername}
           authUser={authUser}
           authLoading={authLoading}
+          authToken={authToken}
+          refreshAuthToken={refreshAuthToken}
           onLogin={loginWithGoogle}
           onEmailLogin={loginWithEmail}
           onEmailRegister={registerWithEmail}

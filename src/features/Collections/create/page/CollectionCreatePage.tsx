@@ -82,6 +82,14 @@ const API_URL =
 
 const LONG_DURATION_THRESHOLD_SEC = 600;
 
+const hasGoogleYouTubeConnection = (authUser: ReturnType<typeof useAuth>["authUser"]) => {
+  if (!authUser) return false;
+  if (authUser.youtube_connected) return true;
+  if (authUser.google_linked_at) return true;
+  if (authUser.connected_providers?.includes("google")) return true;
+  return authUser.provider === "google" && Boolean(authUser.provider_user_id);
+};
+
 const CollectionCreatePage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation("collectionCreate");
@@ -91,7 +99,7 @@ const CollectionCreatePage = () => {
     authUser,
     authLoading,
     refreshAuthToken,
-    loginWithGoogle,
+    linkGoogleYouTube,
   } = useAuth();
 
   const {
@@ -177,6 +185,7 @@ const CollectionCreatePage = () => {
   });
 
   const ownerId = authUser?.id ?? null;
+  const googleYouTubeConnected = hasGoogleYouTubeConnection(authUser);
   const isAdmin = isAdminRole(authUser?.role);
 
   const collectionItemLimit = resolveCollectionItemLimit({
@@ -791,12 +800,12 @@ const CollectionCreatePage = () => {
 
   useEffect(() => {
     if (playlistSource !== "youtube") return;
-    if (!authUser) return;
+    if (!authUser || !googleYouTubeConnected) return;
     if (youtubeFetchedRef.current) return;
 
     youtubeFetchedRef.current = true;
     void fetchYoutubePlaylists();
-  }, [playlistSource, authUser, fetchYoutubePlaylists]);
+  }, [playlistSource, authUser, googleYouTubeConnected, fetchYoutubePlaylists]);
 
   const handleGoNextStep = () => {
     if (createStep === "source") {
@@ -823,7 +832,7 @@ const CollectionCreatePage = () => {
   };
 
   const ensureYoutubePlaylists = () => {
-    if (!authUser) return;
+    if (!authUser || !googleYouTubeConnected) return;
     if (youtubeFetchedRef.current) return;
 
     youtubeFetchedRef.current = true;
@@ -952,8 +961,9 @@ const CollectionCreatePage = () => {
                 {createStep === "source" && (
                   <CollectionCreateSourcePanel
                     authUserExists={Boolean(authUser)}
+                    hasGoogleYouTubeConnection={googleYouTubeConnected}
                     needsGoogleReauth={needsGoogleReauth}
-                    onLoginWithGoogle={loginWithGoogle}
+                    onLinkGoogleYouTube={linkGoogleYouTube}
                     playlistSource={playlistSource}
                     onPlaylistSourceChange={setPlaylistSource}
                     sourceSwitchDisabled={

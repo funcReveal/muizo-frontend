@@ -10,6 +10,7 @@ import type { LandingPageProps } from "./types";
 import "./LandingPage.css";
 
 const LandingPage: React.FC<LandingPageProps> = ({
+  authUser,
   onGoogleLogin,
   onEmailLogin,
   onEmailRegister,
@@ -113,6 +114,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
             <div className="landing-entry-grid grid gap-4">
               <GoogleLoginCard
+                authUser={authUser}
                 onGoogleLogin={onGoogleLogin}
                 onEmailLogin={onEmailLogin}
                 onEmailRegister={onEmailRegister}

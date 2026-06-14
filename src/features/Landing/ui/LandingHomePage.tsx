@@ -11,6 +11,7 @@ const LandingHomePage: React.FC = () => {
     resendEmailVerification,
     requestPasswordReset,
     authLoading,
+    authUser,
   } = useAuth();
 
   const handleGoogleLogin = () => {
@@ -19,6 +20,7 @@ const LandingHomePage: React.FC = () => {
 
   return (
     <LandingPage
+      authUser={authUser}
       onGoogleLogin={handleGoogleLogin}
       onEmailLogin={loginWithEmail}
       onEmailRegister={registerWithEmail}

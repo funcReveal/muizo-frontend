@@ -1,18 +1,12 @@
 import React, { useCallback, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  useMediaQuery,
-} from "@mui/material";
+import { useMediaQuery } from "@mui/material";
 
 import AppHeader from "./AppHeader";
 import SettingsDrawer from "./SettingsDrawer";
 import IdentityProfileDialog from "./IdentityProfileDialog";
 import { useAuth } from "@shared/auth/AuthContext";
+import ConfirmDialog from "@shared/ui/ConfirmDialog";
 
 type NavigationTarget =
   | "rooms"
@@ -40,6 +34,8 @@ const AppLayoutShell: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const {
+    authToken,
+    refreshAuthToken,
     authLoading,
     authUser,
     loginWithGoogle,
@@ -144,6 +140,8 @@ const AppLayoutShell: React.FC = () => {
           displayUsername={displayUsername}
           authUser={authUser}
           authLoading={authLoading}
+          authToken={authToken}
+          refreshAuthToken={refreshAuthToken}
           onLogin={handleLoginRequest}
           onEmailLogin={loginWithEmail}
           onEmailRegister={registerWithEmail}
@@ -167,37 +165,18 @@ const AppLayoutShell: React.FC = () => {
           <Outlet />
         )}
 
-        <Dialog
+        <ConfirmDialog
           open={logoutConfirmOpen}
-          onClose={() => setLogoutConfirmOpen(false)}
-        >
-          <DialogTitle>確定要登出？</DialogTitle>
-
-          <DialogContent>
-            <p className="text-sm text-[var(--mc-text-muted)]">
-              你將登出目前帳號。
-            </p>
-          </DialogContent>
-
-          <DialogActions>
-            <Button
-              onClick={() => setLogoutConfirmOpen(false)}
-              variant="outlined"
-            >
-              取消
-            </Button>
-
-            <Button
-              onClick={() => {
-                setLogoutConfirmOpen(false);
-                logout();
-              }}
-              variant="contained"
-            >
-              確認登出
-            </Button>
-          </DialogActions>
-        </Dialog>
+          title="確定要登出？"
+          description="你將登出目前帳號。"
+          confirmLabel="確認登出"
+          cancelLabel="取消"
+          onCancel={() => setLogoutConfirmOpen(false)}
+          onConfirm={() => {
+            setLogoutConfirmOpen(false);
+            logout();
+          }}
+        />
 
         <SettingsDrawer
           open={settingsOpen}

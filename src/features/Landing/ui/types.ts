@@ -1,4 +1,7 @@
+import type { AuthUser } from "@shared/auth/AuthContext";
+
 export interface LandingPageProps {
+  authUser?: AuthUser | null;
   onGoogleLogin: () => void;
   onEmailLogin: (
     email: string,

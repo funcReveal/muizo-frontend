@@ -16,11 +16,14 @@ import {
   apiAuthEmailLogin,
   apiAuthGoogleNative,
   apiAuthGoogleWeb,
+  apiLinkGoogleNative,
+  apiLinkGoogleWeb,
   apiAuthRegister,
   apiLogout,
   apiRefreshAuthToken,
   apiRequestPasswordReset,
   apiResendEmailVerification,
+  apiUnlinkGoogle,
   apiUpsertCurrentUser,
 } from "./roomApi";
 import { USERNAME_MAX } from "./roomConstants";
@@ -33,6 +36,8 @@ import { trackEvent } from "../../../shared/analytics/track";
 
 const AUTH_SESSION_HINT_KEY = "hasAuthSession";
 const AUTH_REDIRECT_TARGET_KEY = "muizo_auth_redirect_target";
+const GOOGLE_OAUTH_PURPOSE_KEY = "muizo_google_oauth_purpose";
+type GoogleOAuthPurpose = "login" | "youtube_link";
 
 const getCurrentAuthRedirectTarget = () => {
   if (typeof window === "undefined") return "/rooms";
@@ -67,6 +72,18 @@ const consumeAuthRedirectTarget = () => {
   return stored ?? "/rooms";
 };
 
+const storeGoogleOAuthPurpose = (purpose: GoogleOAuthPurpose) => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(GOOGLE_OAUTH_PURPOSE_KEY, purpose);
+};
+
+const consumeGoogleOAuthPurpose = (): GoogleOAuthPurpose => {
+  if (typeof window === "undefined") return "login";
+  const stored = window.sessionStorage.getItem(GOOGLE_OAUTH_PURPOSE_KEY);
+  window.sessionStorage.removeItem(GOOGLE_OAUTH_PURPOSE_KEY);
+  return stored === "youtube_link" ? "youtube_link" : "login";
+};
+
 const replaceAuthCallbackRoute = (target: string) => {
   if (typeof window === "undefined") return;
   window.history.replaceState({}, document.title, target);
@@ -96,6 +113,8 @@ export type UseRoomAuthResult = {
   openProfileEditor: () => void;
   closeProfileEditor: () => void;
   loginWithGoogle: () => void;
+  linkGoogleYouTube: () => void;
+  unlinkGoogleYouTube: () => Promise<boolean>;
   loginWithEmail: (
     email: string,
     password: string,
@@ -393,7 +412,11 @@ export const useRoomAuth = ({
   }, []);
 
   const exchangeGoogleWebCode = useCallback(
-    async (code: string, redirectUri: string) => {
+    async (
+      code: string,
+      redirectUri: string,
+      purpose: GoogleOAuthPurpose = "login",
+    ) => {
       if (!apiUrl) {
         setStatusText("尚未設定 API 位置 (API_URL)");
         return;
@@ -402,6 +425,42 @@ export const useRoomAuth = ({
       setAuthLoading(true);
 
       try {
+        if (purpose === "youtube_link") {
+          const token =
+            authToken ??
+            (hasStoredAuthSessionHint() ? await refreshAuthToken() : null);
+
+          if (!token) {
+            throw new Error("請先登入 Muizo 帳號後再連結 YouTube。");
+          }
+
+          const { ok, payload } = await apiLinkGoogleWeb(apiUrl, token, {
+            code,
+            redirectUri,
+          });
+
+          if (!ok || !payload?.data) {
+            throw new Error(payload?.error ?? "連結 YouTube 授權失敗");
+          }
+
+          setAuthUser(payload.data);
+          trackEvent("link_google_youtube_success", {
+            provider: "google",
+            platform: "web",
+          });
+          setStatusText("已連結 YouTube 授權");
+
+          if (window.location.pathname === "/auth/callback") {
+            replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+          } else {
+            const redirectTarget = getStoredAuthRedirectTarget();
+            if (redirectTarget) {
+              replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+            }
+          }
+          return;
+        }
+
         const { ok, payload } = await apiAuthGoogleWeb(apiUrl, {
           code,
           redirectUri,
@@ -431,12 +490,21 @@ export const useRoomAuth = ({
           }
         }
       } catch (error) {
-        trackEvent("login_google_failed", {
+        trackEvent(
+          purpose === "youtube_link"
+            ? "link_google_youtube_failed"
+            : "login_google_failed",
+          {
           reason: error instanceof Error ? error.message : "unknown_error",
-        });
+          },
+        );
 
         setStatusText(
-          error instanceof Error ? error.message : "Google 登入失敗",
+          error instanceof Error
+            ? error.message
+            : purpose === "youtube_link"
+              ? "連結 YouTube 授權失敗"
+              : "Google 登入失敗",
         );
         if (window.location.pathname === "/auth/callback") {
           replaceAuthCallbackRoute(consumeAuthRedirectTarget());
@@ -445,7 +513,14 @@ export const useRoomAuth = ({
         setAuthLoading(false);
       }
     },
-    [apiUrl, persistAuth, setStatusText],
+    [
+      apiUrl,
+      authToken,
+      hasStoredAuthSessionHint,
+      persistAuth,
+      refreshAuthToken,
+      setStatusText,
+    ],
   );
 
   const loginWithGoogle = useCallback(() => {
@@ -521,6 +596,7 @@ export const useRoomAuth = ({
 
     if (uxMode === "redirect") {
       storeAuthRedirectTarget();
+      storeGoogleOAuthPurpose("login");
       setAuthLoading(true);
     }
 
@@ -533,7 +609,6 @@ export const useRoomAuth = ({
         }
 
         const codeClient =
-          googleCodeClientRef.current ??
           oauth2.initCodeClient({
             client_id: clientId,
             scope:
@@ -572,6 +647,169 @@ export const useRoomAuth = ({
     setStatusText,
     webRedirectUri,
   ]);
+
+  const linkGoogleYouTube = useCallback(() => {
+    trackEvent("link_google_youtube_click", {
+      entry: "youtube_import",
+    });
+
+    if (!apiUrl) {
+      setStatusText("尚未設定 API 位置 (API_URL)");
+      return;
+    }
+
+    if (!authUser) {
+      setStatusText("請先登入 Muizo 帳號後再連結 YouTube。");
+      return;
+    }
+
+    if (isNativeApp()) {
+      const run = async () => {
+        setAuthLoading(true);
+
+        try {
+          const token = authToken ?? (await refreshAuthToken());
+          if (!token) {
+            throw new Error("登入已過期，請重新登入後再連結 YouTube。");
+          }
+
+          const nativeAuth = await startNativeGoogleLogin();
+
+          const { ok, payload } = await apiLinkGoogleNative(apiUrl, token, {
+            serverAuthCode: nativeAuth.serverAuthCode!,
+            idToken: nativeAuth.idToken,
+          });
+
+          if (!ok || !payload?.data) {
+            throw new Error(payload?.error ?? "連結 YouTube 授權失敗");
+          }
+
+          setAuthUser(payload.data);
+          trackEvent("link_google_youtube_success", {
+            provider: "google",
+            platform: "native",
+          });
+          setStatusText("已連結 YouTube 授權");
+        } catch (error) {
+          trackEvent("link_google_youtube_failed", {
+            reason: error instanceof Error ? error.message : "unknown_error",
+          });
+          setStatusText(
+            error instanceof Error ? error.message : "連結 YouTube 授權失敗",
+          );
+        } finally {
+          setAuthLoading(false);
+        }
+      };
+
+      void run();
+      return;
+    }
+
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+    if (!clientId) {
+      setStatusText("尚未設定 Google Client ID");
+      return;
+    }
+
+    const configuredUxMode = import.meta.env.VITE_GOOGLE_OAUTH_UX_MODE;
+    const uxMode: "popup" | "redirect" =
+      configuredUxMode === "redirect" ? "redirect" : "popup";
+
+    if (uxMode === "redirect") {
+      storeAuthRedirectTarget();
+      storeGoogleOAuthPurpose("youtube_link");
+      setAuthLoading(true);
+    }
+
+    void ensureGoogleScript()
+      .then(() => {
+        const oauth2 = window.google?.accounts?.oauth2;
+        if (!oauth2) {
+          setStatusText("Google 授權尚未準備完成");
+          return;
+        }
+
+        const codeClient = oauth2.initCodeClient({
+          client_id: clientId,
+          scope:
+            "openid email profile https://www.googleapis.com/auth/youtube.readonly",
+          ux_mode: uxMode,
+          redirect_uri: webRedirectUri,
+          access_type: "offline",
+          prompt: "consent",
+          include_granted_scopes: true,
+          callback: (response: { code?: string; error?: string }) => {
+            if (!response?.code) {
+              setStatusText(response?.error ?? "連結 YouTube 授權失敗");
+              if (uxMode === "redirect") {
+                replaceAuthCallbackRoute(consumeAuthRedirectTarget());
+              }
+              setAuthLoading(false);
+              return;
+            }
+            void exchangeGoogleWebCode(
+              response.code,
+              webRedirectUri,
+              "youtube_link",
+            );
+          },
+        });
+
+        codeClient.requestCode();
+      })
+      .catch((error) => {
+        setStatusText(
+          error instanceof Error ? error.message : "連結 YouTube 授權失敗",
+        );
+      });
+  }, [
+    apiUrl,
+    authToken,
+    authUser,
+    ensureGoogleScript,
+    exchangeGoogleWebCode,
+    refreshAuthToken,
+    setStatusText,
+    webRedirectUri,
+  ]);
+
+  const unlinkGoogleYouTube = useCallback(async () => {
+    if (!apiUrl) {
+      setStatusText("尚未設定 API 位置 (API_URL)");
+      return false;
+    }
+
+    const token = authToken ?? (await refreshAuthToken());
+    if (!token) {
+      setStatusText("登入已過期，請重新登入後再解除 YouTube 授權。");
+      return false;
+    }
+
+    try {
+      const { ok, payload } = await apiUnlinkGoogle(apiUrl, token);
+      if (!ok || !payload?.data) {
+        throw new Error(payload?.error ?? "解除 YouTube 授權失敗");
+      }
+
+      setAuthUser(payload.data);
+      await signOutNativeGoogle();
+      trackEvent("unlink_google_youtube_success", {
+        provider: "google",
+      });
+      setStatusText("已解除 YouTube 授權");
+      return true;
+    } catch (error) {
+      trackEvent("unlink_google_youtube_failed", {
+        reason: error instanceof Error ? error.message : "unknown_error",
+      });
+      setStatusText(
+        error instanceof Error ? error.message : "解除 YouTube 授權失敗",
+      );
+      return false;
+    }
+  }, [apiUrl, authToken, refreshAuthToken, setStatusText]);
 
   const loginWithEmail = useCallback(
     async (email: string, password: string) => {
@@ -788,7 +1026,11 @@ export const useRoomAuth = ({
       return;
     }
 
-    void exchangeGoogleWebCode(code, webRedirectUri);
+    void exchangeGoogleWebCode(
+      code,
+      webRedirectUri,
+      consumeGoogleOAuthPurpose(),
+    );
   }, [exchangeGoogleWebCode, setStatusText, webRedirectUri]);
 
   return {
@@ -806,6 +1048,8 @@ export const useRoomAuth = ({
     openProfileEditor,
     closeProfileEditor,
     loginWithGoogle,
+    linkGoogleYouTube,
+    unlinkGoogleYouTube,
     loginWithEmail,
     registerWithEmail,
     resendEmailVerification,

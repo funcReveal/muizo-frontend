@@ -5,6 +5,9 @@ export type AuthUser = {
   email?: string | null;
   provider?: string;
   provider_user_id?: string;
+  connected_providers?: string[] | null;
+  youtube_connected?: boolean | null;
+  google_linked_at?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
   role?: string | null;
@@ -20,6 +23,8 @@ export interface AuthContextValue {
   authExpired: boolean;
   refreshAuthToken: () => Promise<string | null>;
   loginWithGoogle: () => void;
+  linkGoogleYouTube: () => void;
+  unlinkGoogleYouTube: () => Promise<boolean>;
   loginWithEmail: (
     email: string,
     password: string,

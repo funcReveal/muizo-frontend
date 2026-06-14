@@ -27,6 +27,7 @@ type UsePlaylistImportUiArgs = {
   setSelectedCreateCollectionId: (value: string | null) => void;
   setSelectedCreateYoutubeId: (value: string | null) => void;
   setSharedCollectionMeta: (value: null) => void;
+  setCreateLibraryTab: (value: "link") => void;
   setCreateLeftTab: (value: "library" | "settings") => void;
 };
 
@@ -60,6 +61,7 @@ export const usePlaylistImportUi = ({
   setSelectedCreateCollectionId,
   setSelectedCreateYoutubeId,
   setSharedCollectionMeta,
+  setCreateLibraryTab,
   setCreateLeftTab,
 }: UsePlaylistImportUiArgs) => {
   const lastAutoPreviewUrlRef = useRef("");
@@ -153,6 +155,7 @@ export const usePlaylistImportUi = ({
   const linkPlaylistCount = linkPlaylistPreviewItems.length;
 
   const handleActivateLinkSource = () => {
+    setCreateLibraryTab("link");
     setRoomCreateSourceMode("link");
     setSelectedCreateCollectionId(null);
     setSelectedCreateYoutubeId(null);
@@ -163,6 +166,7 @@ export const usePlaylistImportUi = ({
   };
 
   const handlePickLinkSource = () => {
+    setCreateLibraryTab("link");
     setRoomCreateSourceMode("link");
     setSelectedCreateCollectionId(null);
     setSelectedCreateYoutubeId(null);

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useNavigate } from "react-router-dom";
 
 export type AuthEntryMode = "login" | "register";
 
@@ -30,6 +31,7 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
   initialMode = "login",
   onLoginSuccess,
 }) => {
+  const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
   const [mode, setMode] = useState<AuthEntryMode>(initialMode);
   const [email, setEmail] = useState("");
@@ -99,6 +101,9 @@ const AuthEntryPanel: React.FC<AuthEntryPanelProps> = ({
         setRegisterSucceeded(true);
         setFormMessage("帳號已建立，請到信箱完成 email 驗證。");
         setFormMessageOk(true);
+        navigate(
+          `/auth/verify-pending?email=${encodeURIComponent(normalizedEmail)}`,
+        );
         return;
       }
 

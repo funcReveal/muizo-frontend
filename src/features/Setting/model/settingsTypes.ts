@@ -13,6 +13,7 @@ export type SettingsSectionId =
   | "scoreboard-effects"
   | "display-presets"
   | "accessibility-presets"
+  | "youtube-connection"
   | "data-privacy";
 
 export type SettingsSectionStatus = "ready" | "planned";

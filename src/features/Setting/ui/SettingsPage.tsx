@@ -22,6 +22,7 @@ import SfxSettingsPanel from "./components/SfxSettingsPanel";
 import AvatarEffectSettingsPanel from "./components/AvatarEffectSettingsPanel";
 import ScoreboardEffectSettingsPanel from "./components/ScoreboardEffectSettingsPanel";
 import MarketingConsentSettingsPanel from "./components/MarketingConsentSettingsPanel";
+import YoutubeConnectionSettingsPanel from "./components/YoutubeConnectionSettingsPanel";
 import {
   DEFAULT_KEY_BINDINGS,
   useKeyBindings,
@@ -197,6 +198,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRequestClose }) => {
 
       case "data-privacy":
         return <MarketingConsentSettingsPanel key={sectionId} sectionId={sectionId} />;
+
+      case "youtube-connection":
+        return (
+          <YoutubeConnectionSettingsPanel key={sectionId} sectionId={sectionId} />
+        );
 
       case "avatar-effects":
         return (

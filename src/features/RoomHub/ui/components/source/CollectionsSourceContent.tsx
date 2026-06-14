@@ -28,6 +28,7 @@ type CollectionsSourceContentProps = {
   normalizedCreateLibrarySearch: string;
   setCreateLibraryTab: (value: "public") => void;
   handleActivateLinkSource: () => void;
+  onCreateCollection: () => void;
   createLibraryColumns: number;
   renderCollectionCard: (
     item: unknown,
@@ -43,6 +44,49 @@ type CollectionsSourceContentProps = {
   VirtualLibraryListRow: VirtualLibraryListRowComponent;
 };
 
+const primaryActionSx = {
+  borderRadius: "999px",
+  px: 2,
+  py: 0.8,
+  fontWeight: 700,
+  color: "rgb(8, 15, 28)",
+  background:
+    "linear-gradient(135deg, rgba(103,232,249,0.96), rgba(45,212,191,0.9))",
+  boxShadow:
+    "inset 0 1px 0 rgba(255,255,255,0.36), 0 16px 30px -22px rgba(34,211,238,0.9)",
+  "&:hover": {
+    background:
+      "linear-gradient(135deg, rgba(125,245,255,0.98), rgba(94,234,212,0.94))",
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.4), 0 18px 34px -22px rgba(34,211,238,0.95)",
+  },
+} as const;
+
+const secondaryActionSx = {
+  borderRadius: "999px",
+  px: 2,
+  py: 0.8,
+  fontWeight: 700,
+  color: "rgb(186, 230, 253)",
+  borderColor: "rgba(125, 211, 252, 0.28)",
+  backgroundColor: "rgba(15, 23, 42, 0.46)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
+  "&:hover": {
+    borderColor: "rgba(125, 211, 252, 0.46)",
+    backgroundColor: "rgba(14, 165, 233, 0.12)",
+  },
+} as const;
+
+const quietActionSx = {
+  borderRadius: "999px",
+  px: 1.5,
+  fontWeight: 700,
+  color: "rgba(186, 230, 253, 0.88)",
+  "&:hover": {
+    backgroundColor: "rgba(14, 165, 233, 0.1)",
+  },
+} as const;
+
 const CollectionsSourceContent = ({
   createLibraryTab,
   createLibraryView,
@@ -53,6 +97,7 @@ const CollectionsSourceContent = ({
   normalizedCreateLibrarySearch,
   setCreateLibraryTab,
   handleActivateLinkSource,
+  onCreateCollection,
   createLibraryColumns,
   renderCollectionCard,
   collectionsLoadingMore,
@@ -127,13 +172,14 @@ const CollectionsSourceContent = ({
             ? "試試不同關鍵字，或清除搜尋後重新瀏覽題庫列表。"
             : isPublicTab
               ? "你可以稍後再回來看看，或直接貼上 YouTube 播放清單連結。"
-              : "你可以先切換到公開題庫，或直接貼上 YouTube 播放清單連結。"
+              : "建立自己的收藏庫後，可直接開房並持續整理成個人題庫。"
         }
         actions={
           isSearchEmpty ? undefined : isPublicTab ? (
             <Button
               size="small"
               variant="text"
+              sx={quietActionSx}
               onClick={handleActivateLinkSource}
             >
               改用貼上連結
@@ -142,7 +188,16 @@ const CollectionsSourceContent = ({
             <>
               <Button
                 size="small"
+                variant="contained"
+                sx={primaryActionSx}
+                onClick={onCreateCollection}
+              >
+                建立收藏庫
+              </Button>
+              <Button
+                size="small"
                 variant="outlined"
+                sx={secondaryActionSx}
                 onClick={() => setCreateLibraryTab("public")}
               >
                 瀏覽公開題庫
@@ -150,6 +205,7 @@ const CollectionsSourceContent = ({
               <Button
                 size="small"
                 variant="text"
+                sx={quietActionSx}
                 onClick={handleActivateLinkSource}
               >
                 改用貼上連結

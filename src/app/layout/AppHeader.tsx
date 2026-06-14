@@ -6,15 +6,19 @@
   LibraryMusic,
   LockOutlined,
   Logout,
+  MarkEmailUnreadRounded,
   MeetingRoom,
   Policy,
+  RefreshRounded,
   Settings,
-  WorkspacePremiumRounded,
+  // WorkspacePremiumRounded,
 } from "@mui/icons-material";
 import { Box, Divider, Popover, Typography } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { onboardingApi } from "@features/Onboarding";
 import SiteAnnouncementNotice from "@/shared/announcement/SiteAnnouncementNotice";
 import { isCareerFeatureEnabled } from "@/shared/config/featureFlags";
 import BrandLogo from "@/shared/ui/BrandLogo";
@@ -72,17 +76,17 @@ const getMembershipLabel = ({
   }
 };
 
-const isUpgradeableMembership = ({
-  role,
-  plan,
-}: {
-  role?: string | null;
-  plan?: string | null;
-}) => {
-  if (role === "admin") return false;
-  const normalizedPlan = plan?.trim().toLowerCase();
-  return !["premium", "business", "unlimited"].includes(normalizedPlan ?? "");
-};
+// const isUpgradeableMembership = ({
+//   role,
+//   plan,
+// }: {
+//   role?: string | null;
+//   plan?: string | null;
+// }) => {
+//   if (role === "admin") return false;
+//   const normalizedPlan = plan?.trim().toLowerCase();
+//   return !["premium", "business", "unlimited"].includes(normalizedPlan ?? "");
+// };
 
 interface AppHeaderProps {
   displayUsername: string;
@@ -95,6 +99,8 @@ interface AppHeaderProps {
     plan?: string | null;
   } | null;
   authLoading?: boolean;
+  authToken?: string | null;
+  refreshAuthToken?: () => Promise<string | null>;
   onLogin?: () => void;
   onEmailLogin?: (
     email: string,
@@ -120,6 +126,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   displayUsername,
   authUser,
   authLoading = false,
+  authToken = null,
+  refreshAuthToken,
   onLogin,
   onEmailLogin,
   onEmailRegister,
@@ -144,15 +152,36 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         plan: authUser.plan,
       })
     : null;
-  const canUpgradeMembership = authUser
-    ? isUpgradeableMembership({
-        role: authUser.role,
-        plan: authUser.plan,
-      })
-    : false;
+  // const canUpgradeMembership = authUser
+  //   ? isUpgradeableMembership({
+  //       role: authUser.role,
+  //       plan: authUser.plan,
+  //     })
+  //   : false;
+  const authParams = useMemo(
+    () => ({
+      authToken,
+      refreshAuthToken: refreshAuthToken ?? (async () => null),
+    }),
+    [authToken, refreshAuthToken],
+  );
+  const onboardingQuery = useQuery({
+    queryKey: ["onboarding", "header", authUser?.id],
+    queryFn: () => onboardingApi.get(authParams),
+    enabled: Boolean(authUser && refreshAuthToken),
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+  const emailVerificationPending = Boolean(
+    authUser && onboardingQuery.data && !onboardingQuery.data.emailVerified,
+  );
 
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [verificationResending, setVerificationResending] = useState(false);
+  const [verificationNotice, setVerificationNotice] = useState<string | null>(
+    null,
+  );
   const [pendingAuthTarget, setPendingAuthTarget] = useState<string | null>(
     null,
   );
@@ -391,9 +420,34 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     feature.action();
   };
 
-  const handleUpgradeMembership = () => {
+  // const handleUpgradeMembership = () => {
+  //   handleMenuClose();
+  //   navigate("/membership");
+  // };
+
+  const handleOpenVerifyPending = () => {
     handleMenuClose();
-    navigate("/membership");
+    navigate(
+      authUser?.email
+        ? `/auth/verify-pending?email=${encodeURIComponent(authUser.email)}`
+        : "/auth/verify-pending",
+    );
+  };
+
+  const handleResendVerification = async () => {
+    if (!authUser?.email || !onResendVerification || verificationResending) {
+      return;
+    }
+    setVerificationResending(true);
+    setVerificationNotice(null);
+    try {
+      const ok = await onResendVerification(authUser.email);
+      setVerificationNotice(
+        ok ? "驗證信已重新寄出。" : "無法寄出驗證信，請稍後再試。",
+      );
+    } finally {
+      setVerificationResending(false);
+    }
   };
 
   return (
@@ -440,6 +494,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </span>
             )}
             <span className="app-header-profile-label">{authLabel}</span>
+            {emailVerificationPending ? (
+              <span className="whitespace-nowrap hidden rounded-full border border-amber-200/24 bg-amber-300/12 px-2 py-0.5 text-[11px] font-black leading-none text-amber-100 sm:inline-flex">
+                待驗證
+              </span>
+            ) : null}
             <span
               className={`app-header-profile-chevron ${
                 isMenuOpen ? "rotate-180" : ""
@@ -601,25 +660,64 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     }}
                   >
                     {membershipLabel}
-                  </Typography>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{
-                      color: "#e2e8f0",
-                      fontSize: "0.95rem",
-                      fontWeight: 800,
-                      lineHeight: 1.25,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {authLabel}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                        minWidth: 0,
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          color: "#e2e8f0",
+                          fontSize: "0.95rem",
+                          fontWeight: 800,
+                          lineHeight: 1.25,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          minWidth: 0,
+                        }}
+                      >
+                        {authLabel}
+                      </Typography>
+                      {emailVerificationPending ? (
+                        <Box
+                          component="button"
+                          type="button"
+                          onClick={handleOpenVerifyPending}
+                          sx={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 0.45,
+                            flex: "0 0 auto",
+                            border: "1px solid rgba(251, 191, 36, 0.28)",
+                            borderRadius: 999,
+                            background: "rgba(251, 191, 36, 0.1)",
+                            color: "rgba(254, 243, 199, 0.96)",
+                            cursor: "pointer",
+                            fontSize: "0.7rem",
+                            fontWeight: 900,
+                            px: 0.9,
+                            py: 0.35,
+                            "&:hover": {
+                              borderColor: "rgba(251, 191, 36, 0.48)",
+                              background: "rgba(251, 191, 36, 0.15)",
+                            },
+                          }}
+                        >
+                          <MarkEmailUnreadRounded sx={{ fontSize: 14 }} />
+                          待驗證
+                        </Box>
+                      ) : null}
+                    </Box>
                   </Typography>
                 </Box>
               </Box>
             )}
-            {authUser && (
+            {/* {authUser && (
               <Box
                 component="button"
                 type="button"
@@ -659,7 +757,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 <WorkspacePremiumRounded sx={{ fontSize: 15 }} />
                 {canUpgradeMembership ? "升級" : "已升級"}
               </Box>
-            )}
+            )} */}
             {authUser && (
               <Box
                 component="button"
@@ -698,6 +796,142 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           </Box>
 
           <Divider sx={{ borderColor: "rgba(245, 158, 11, 0.1)" }} />
+
+          {emailVerificationPending ? (
+            <>
+              <Box
+                sx={{
+                  mx: 1,
+                  mt: 1,
+                  mb: 0.5,
+                  border: "1px solid rgba(251, 191, 36, 0.18)",
+                  borderRadius: 2,
+                  background:
+                    "linear-gradient(180deg, rgba(251, 191, 36, 0.1), rgba(15, 23, 42, 0.26))",
+                  p: 1.25,
+                }}
+              >
+                <Box sx={{ display: "flex", gap: 1.1 }}>
+                  <Box
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 30,
+                      height: 30,
+                      flex: "0 0 auto",
+                      borderRadius: 999,
+                      background: "rgba(251, 191, 36, 0.12)",
+                      color: "rgba(254, 243, 199, 0.96)",
+                    }}
+                  >
+                    <MarkEmailUnreadRounded sx={{ fontSize: 18 }} />
+                  </Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography
+                      sx={{
+                        color: "rgba(254, 243, 199, 0.96)",
+                        fontSize: "0.83rem",
+                        fontWeight: 900,
+                        lineHeight: 1.25,
+                      }}
+                    >
+                      Email 待驗證
+                    </Typography>
+                    <Typography
+                      sx={{
+                        mt: 0.35,
+                        color: "rgba(203, 213, 225, 0.78)",
+                        fontSize: "0.74rem",
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      驗證信 24 小時內有效。完成驗證後即可使用完整帳號功能。
+                    </Typography>
+                    {verificationNotice ? (
+                      <Typography
+                        sx={{
+                          mt: 0.75,
+                          color: verificationNotice.includes("已")
+                            ? "rgba(167, 243, 208, 0.92)"
+                            : "rgba(254, 202, 202, 0.92)",
+                          fontSize: "0.74rem",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {verificationNotice}
+                      </Typography>
+                    ) : null}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 0.75,
+                        mt: 1,
+                      }}
+                    >
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={verificationResending || !authUser?.email}
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          minHeight: 30,
+                          border: "1px solid rgba(251, 191, 36, 0.28)",
+                          borderRadius: 999,
+                          background: "rgba(251, 191, 36, 0.12)",
+                          color: "rgba(255, 251, 235, 0.96)",
+                          cursor:
+                            verificationResending || !authUser?.email
+                              ? "not-allowed"
+                              : "pointer",
+                          fontSize: "0.74rem",
+                          fontWeight: 900,
+                          px: 1,
+                          opacity:
+                            verificationResending || !authUser?.email
+                              ? 0.62
+                              : 1,
+                          "&:hover": {
+                            borderColor: "rgba(251, 191, 36, 0.44)",
+                            background: "rgba(251, 191, 36, 0.16)",
+                          },
+                        }}
+                      >
+                        <RefreshRounded sx={{ fontSize: 14 }} />
+                        {verificationResending ? "寄送中" : "重寄驗證信"}
+                      </Box>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={handleOpenVerifyPending}
+                        sx={{
+                          minHeight: 30,
+                          border: 0,
+                          borderRadius: 999,
+                          background: "transparent",
+                          color: "rgba(186, 230, 253, 0.88)",
+                          cursor: "pointer",
+                          fontSize: "0.74rem",
+                          fontWeight: 900,
+                          px: 0.5,
+                          "&:hover": {
+                            color: "rgba(224, 242, 254, 0.98)",
+                          },
+                        }}
+                      >
+                        查看驗證說明
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+              <Divider sx={{ borderColor: "rgba(245, 158, 11, 0.1)" }} />
+            </>
+          ) : null}
 
           <Box
             sx={{

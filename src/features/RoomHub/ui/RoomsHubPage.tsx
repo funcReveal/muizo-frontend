@@ -15,7 +15,7 @@ import {
 } from "@mui/icons-material";
 
 import type { RoomSummary } from "@domain/room/types";
-import { useAuth } from "@shared/auth/AuthContext";
+import { useAuth, type AuthUser } from "@shared/auth/AuthContext";
 import {
   useRoomSession,
   useRoomCreate,
@@ -216,6 +216,14 @@ const ROOMS_HUB_BGM_PATH = "/rooms-hub-bgm.mp3";
 const ROOMS_HUB_BGM_FADE_IN_MS = 1200;
 const ROOM_HUB_SETUP_PREFERENCES_KEY = "roomHub:setupPreferences:v1";
 
+const hasGoogleYouTubeConnection = (user: AuthUser | null) => {
+  if (!user) return false;
+  if (user.youtube_connected) return true;
+  if (user.google_linked_at) return true;
+  if (user.connected_providers?.includes("google")) return true;
+  return user.provider === "google" && Boolean(user.provider_user_id);
+};
+
 type RoomHubSetupPreferences = {
   roomPlayMode?: RoomPlayMode;
   maxPlayers?: number;
@@ -299,6 +307,7 @@ const RoomsHubPage: React.FC = () => {
   const bgmVolume = settingsModel?.bgmVolume ?? DEFAULT_BGM_VOLUME;
   const {
     loginWithGoogle,
+    linkGoogleYouTube,
     loginWithEmail,
     registerWithEmail,
     resendEmailVerification,
@@ -774,6 +783,7 @@ const RoomsHubPage: React.FC = () => {
   ]);
 
   const canUseGoogleLibraries = Boolean(authUser);
+  const hasYoutubeAuthorization = hasGoogleYouTubeConnection(authUser);
   const filteredJoinRooms = useMemo(() => {
     const next = (Array.isArray(rooms) ? [...rooms] : []).filter((room) => {
       if (room.maxPlayers === 1) return false;
@@ -878,6 +888,7 @@ const RoomsHubPage: React.FC = () => {
     setSelectedCreateCollectionId,
     setSelectedCreateYoutubeId,
     setSharedCollectionMeta,
+    setCreateLibraryTab,
     setCreateLeftTab,
   });
   const linkPlaylistIssueTotal = useMemo(
@@ -1453,6 +1464,7 @@ const RoomsHubPage: React.FC = () => {
       void fetchCollections("owner");
       return;
     }
+    if (!hasYoutubeAuthorization) return;
     if (
       createLibraryTab === "youtube" &&
       youtubePlaylists.length === 0 &&
@@ -1470,6 +1482,7 @@ const RoomsHubPage: React.FC = () => {
     debouncedSubTagKeys,
     fetchCollections,
     fetchYoutubePlaylists,
+    hasYoutubeAuthorization,
     previousCreateLibraryTabRef,
     publicCollectionsSort,
     youtubePlaylists.length,
@@ -1477,9 +1490,9 @@ const RoomsHubPage: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (authUser) return;
+    if (hasYoutubeAuthorization) return;
     hasRequestedYoutubePlaylistsRef.current = false;
-  }, [authUser]);
+  }, [hasYoutubeAuthorization]);
 
   useEffect(() => {
     setDetailDrawerState(null);
@@ -1973,6 +1986,10 @@ const RoomsHubPage: React.FC = () => {
                               normalizedCreateLibrarySearch={
                                 normalizedCreateLibrarySearch
                               }
+                              hasYoutubeAuthorization={
+                                hasYoutubeAuthorization
+                              }
+                              onLinkGoogleYouTube={linkGoogleYouTube}
                               handleActivateLinkSource={
                                 handleActivateLinkSource
                               }
@@ -2007,6 +2024,9 @@ const RoomsHubPage: React.FC = () => {
                               setCreateLibraryTab={setCreateLibraryTab}
                               handleActivateLinkSource={
                                 handleActivateLinkSource
+                              }
+                              onCreateCollection={
+                                handleCreatePublicCollection
                               }
                               createLibraryColumns={createLibraryColumns}
                               renderCollectionCard={renderCollectionCard}

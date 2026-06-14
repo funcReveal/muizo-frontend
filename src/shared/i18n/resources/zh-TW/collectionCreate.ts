@@ -48,8 +48,9 @@ const collectionCreate = {
     invalidPlaylistUrl:
       "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。",
     loading: "載入中...",
-    googleLoginHint: "使用 Google 登入後可直接載入你的 YouTube 播放清單。",
-    googleLogin: "登入 Google",
+    googleLoginHint:
+      "連結 Google / YouTube 後，可以直接選取你帳號中的播放清單；貼上公開播放清單連結不需要 Google 授權。",
+    googleLogin: "連結 Google / YouTube",
     playlistSelectPlaceholder: "選擇 YouTube 播放清單",
     playlistSelectLoading: "載入播放清單中...",
     playlistOption: "{{title}}（{{count}} 首）",

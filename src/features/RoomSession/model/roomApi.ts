@@ -175,6 +175,60 @@ export const apiAuthGoogleNative = (
     }),
   });
 
+export const apiLinkGoogleWeb = (
+  apiUrl: string,
+  token: string,
+  params: {
+    code: string;
+    redirectUri: string;
+  },
+) =>
+  fetchJson<UserProfilePayload>(`${apiUrl}/api/auth/google/link`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      code: params.code,
+      redirectUri: params.redirectUri,
+      clientType: "web",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
+    }),
+  });
+
+export const apiLinkGoogleNative = (
+  apiUrl: string,
+  token: string,
+  params: {
+    serverAuthCode: string;
+    idToken?: string | null;
+  },
+) =>
+  fetchJson<UserProfilePayload>(`${apiUrl}/api/auth/google/native/link`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "omit",
+    body: JSON.stringify({
+      serverAuthCode: params.serverAuthCode,
+      idToken: params.idToken ?? null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
+    }),
+  });
+
+export const apiUnlinkGoogle = (apiUrl: string, token: string) =>
+  fetchJson<UserProfilePayload>(`${apiUrl}/api/auth/google/link`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  });
+
 export const apiAuthEmailLogin = (
   apiUrl: string,
   params: {

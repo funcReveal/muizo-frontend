@@ -5,6 +5,7 @@ import {
   AddCircleOutlineRounded,
   BookmarksRounded,
   EditNoteRounded,
+  ManageAccountsRounded,
   LibraryMusicRounded,
   WorkspacePremiumRounded,
 } from "@mui/icons-material";
@@ -23,6 +24,9 @@ import { isCareerFeatureEnabled } from "@shared/config/featureFlags";
 
 const LandingHomePage = lazy(() => import("@features/Landing"));
 const AuthActionPage = lazy(() => import("@features/Auth/ui/AuthActionPage"));
+const AuthVerifyPendingPage = lazy(
+  () => import("@features/Auth/ui/AuthVerifyPendingPage"),
+);
 const RoomSessionLayoutShell = lazy(
   () => import("./layout/RoomSessionLayoutShell"),
 );
@@ -34,6 +38,11 @@ const RoomLobbyPage = lazy(() => import("@features/RoomLobby"));
 const CareerPage = lazy(() => import("@features/Career"));
 const FavoriteSongsPage = lazy(() => import("@features/SongFavorite"));
 const MembershipPage = lazy(() => import("@features/Membership"));
+const OnboardingPage = lazy(() =>
+  import("@features/Onboarding").then(({ OnboardingPage }) => ({
+    default: OnboardingPage,
+  })),
+);
 const InvitedPage = lazy(() => import("@features/Invited"));
 const CollectionsPage = lazy(() => import("@features/Collections"));
 const CollectionsCreatePage = lazy(() =>
@@ -93,6 +102,22 @@ export function AppRouter() {
             >
               <Suspense fallback={<PageLoader />}>
                 <MembershipPage />
+              </Suspense>
+            </RequireAuthRoute>
+          }
+        />
+
+        <Route
+          path="/onboarding"
+          element={
+            <RequireAuthRoute
+              featureIcon={<ManageAccountsRounded sx={{ fontSize: 23 }} />}
+              currentBreadcrumbLabel="帳號設定"
+              title="完成帳號設定"
+              description="登入後即可補上名稱、性別與生日，讓 Muizo 提供更合適的題庫與帳號體驗。"
+            >
+              <Suspense fallback={<PageLoader />}>
+                <OnboardingPage />
               </Suspense>
             </RequireAuthRoute>
           }
@@ -226,6 +251,14 @@ export function AppRouter() {
         element={
           <Suspense fallback={<PageLoader />}>
             <AuthActionPage mode="verify-email" />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/auth/verify-pending"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <AuthVerifyPendingPage />
           </Suspense>
         }
       />
