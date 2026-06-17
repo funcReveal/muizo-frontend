@@ -7,7 +7,7 @@
  * Layout modes
  * top-window: projectedRank <= 11, official Top 11 + live self inserted.
  * top-eleven: projectedRank = 12, official Top 11 + live self at #12.
- * nearby: projectedRank >= 13 or null, Top 6 + ellipsis + nearby rows.
+ * nearby: projectedRank >= 13 or null, Top 7 + ellipsis + nearby rows.
  *
  * Important UI model rule
  * The viewer's official best record and the viewer's current live run are NOT
@@ -383,9 +383,9 @@ function buildNearbyRows(
   meUserId: string | null,
   sessionPassCount: number,
 ): ChallengeLeaderboardDisplayRow[] {
-  const TARGET_TOP = 6;
+  const TARGET_TOP = 7;
 
-  // Nearby mode always keeps the official top section capped at six rows.
+  // Nearby mode always keeps the official top section capped at seven rows.
   const topDisplay = data.topEntries.slice(0, TARGET_TOP);
   const topUserIds = new Set(topDisplay.map((entry) => entry.userId));
   const nearbyOpponents = data.nearbyOpponents.filter(

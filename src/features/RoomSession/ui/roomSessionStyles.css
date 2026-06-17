@@ -28590,8 +28590,12 @@
 }
 
 .game-room-leaderboard-sidebar .game-room-scoreboard-list {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  /* Vertical padding so the top/bottom rows' rounded self highlight + border
+     are never clipped flush against the scroll boundary (both the challenge and
+     room tabs use this list). useFitScoreboardRowHeight reads this padding back
+     when sizing rows, so the extra space never causes overflow. */
+  padding-top: 4px !important;
+  padding-bottom: 12px !important;
   scrollbar-gutter: auto;
   flex: 1 1 auto;
   min-height: 0;
@@ -29115,4 +29119,42 @@
   font-size: 13px;
   font-weight: 850;
   letter-spacing: 0.06em;
+}
+
+/* =========================================================
+   Desktop leaderboard scrollbar (challenge + room tabs)
+
+   The list already carries the .mq-autohide-scrollbar class, but the
+   scrollbar-hiding rules above were scoped exclusively to the mobile drawer
+   wrappers (.game-room-mobile-drawer-root--scoreboard-side / --side). On the
+   desktop sidebar (rendered at >=1480px) the class was present but unstyled,
+   so Chrome painted a native scrollbar for the marginal sub-pixel overflow
+   produced by the fixed-height rows inside a fractional-height panel, while
+   Edge's overlay scrollbars stayed invisible.
+
+   Extending the same autohide treatment to the desktop sidebar removes the
+   inconsistent scrollbar without clipping content — wheel scrolling still
+   works via useScoreboardWheelScroll. This is the root-cause fix: the
+   autohide intent simply never reached the desktop context.
+   ========================================================= */
+.game-room-leaderboard-sidebar .game-room-scoreboard-list.mq-autohide-scrollbar {
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  -ms-overflow-style: none;
+}
+
+.game-room-leaderboard-sidebar
+  .game-room-scoreboard-list.mq-autohide-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.game-room-leaderboard-sidebar
+  .game-room-scoreboard-list.mq-autohide-scrollbar::-webkit-scrollbar-track,
+.game-room-leaderboard-sidebar
+  .game-room-scoreboard-list.mq-autohide-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }

@@ -1947,13 +1947,23 @@ const CollectionDetailDrawer = ({
                       </div>
                     )}
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
-                    <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-start gap-1.5 sm:left-4 sm:top-4">
+                    <div className="absolute left-3 top-3 flex max-w-[calc(100%-5.5rem)] items-start gap-1.5 sm:left-4 sm:top-4">
                       <CollectionMetaChips
                         collection={collection}
                         maxVisible={3}
                         variant="overlay"
                       />
                     </div>
+                    {isPublic ? (
+                      <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
+                        <CollectionReportButton
+                          collectionId={collection.id}
+                          isAuthenticated={isAuthenticated}
+                          onLoginRequired={onLoginRequired}
+                          variant="overlay"
+                        />
+                      </div>
+                    ) : null}
                     <div className="absolute bottom-2.5 left-3 right-3 sm:bottom-3 sm:left-4 sm:right-4">
                       <CollectionReviewPanel
                         collectionId={collection.id}
@@ -2020,14 +2030,6 @@ const CollectionDetailDrawer = ({
                             {shareCopied ? "已複製" : "分享"}
                           </span>
                         </Button>
-
-                        {isPublic ? (
-                          <CollectionReportButton
-                            collectionId={collection.id}
-                            isAuthenticated={isAuthenticated}
-                            onLoginRequired={onLoginRequired}
-                          />
-                        ) : null}
                       </div>
                     </div>
 

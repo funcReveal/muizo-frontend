@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import type {
   ChallengeProjectedMyStanding,
@@ -11,13 +11,13 @@ import type {
 } from "../../../Setting/model/scoreboardBorderEffects";
 import { buildChallengeLeaderboardDisplayRows } from "../../model/buildChallengeLeaderboardDisplayRows";
 import {
-  ChallengeSeparatorRow,
   ChallengeSelfRow,
   ChallengeEllipsisRow,
 } from "./ChallengeLeaderboardRow";
 import { ChallengeAnimatedRows } from "./ChallengeAnimatedRows";
 import type { SelfRowBaseProps } from "./ChallengeAnimatedRows";
 import { useScoreboardWheelScroll } from "./useScoreboardWheelScroll";
+import { useFitScoreboardRowHeight } from "./useFitScoreboardRowHeight";
 
 // ---------------------------------------------------------------------------
 // Skeleton row (loading state)
@@ -178,19 +178,19 @@ export const ChallengeLeaderboardPanel = React.memo(
       [data, viewerScore, meUserId, sessionPassCount],
     );
 
-    const stickySelfRowBaseProps = useMemo<SelfRowBaseProps>(() => {
-      const listSelfRank =
-        listRows.find((row) => row.kind === "self")?.displayRank ?? null;
-      if (!data || listSelfRank === null) return selfRowBaseProps;
-
-      return {
-        ...selfRowBaseProps,
-        standing: {
-          ...selfRowBaseProps.standing,
-          projectedRank: listSelfRank,
-        },
-      };
-    }, [data, listRows, selfRowBaseProps]);
+    // Adaptively shrink row height so the fixed set of rows always fits the
+    // panel (no overflow, no scrollbar, no clipped bottom row). Merged with the
+    // wheel-scroll ref so both observe the same list node.
+    const setFitRowHeightRef = useFitScoreboardRowHeight<HTMLDivElement>(
+      listRows.length,
+    );
+    const setListNodeRef = useCallback(
+      (node: HTMLDivElement | null) => {
+        setScrollNodeRef(node);
+        setFitRowHeightRef(node);
+      },
+      [setScrollNodeRef, setFitRowHeightRef],
+    );
 
     // -----------------------------------------------------------------------
     // Loading state
@@ -220,14 +220,6 @@ export const ChallengeLeaderboardPanel = React.memo(
                 <SkeletonRow opacity={0.4} />
               )}
             </div>
-          </div>
-          <div className="game-room-scoreboard-self-sticky-bar px-1">
-            <ChallengeSeparatorRow />
-            {hasSelfInfo ? (
-              <ChallengeSelfRow {...selfRowBaseProps} variant="sticky" />
-            ) : (
-              <SkeletonRow opacity={0.7} />
-            )}
           </div>
         </div>
       );
@@ -263,11 +255,10 @@ export const ChallengeLeaderboardPanel = React.memo(
     // Layout is fully determined by buildChallengeLeaderboardDisplayRows:
     //   top-window  (projectedRank ≤ 11) — self injected into Top-11 list
     //   top-eleven  (projectedRank = 12) — Top-11 + self at #12, no ellipsis
-    //   nearby      (projectedRank ≥ 13 or null) — Top-6 + ellipsis + nearby
+    //   nearby      (projectedRank ≥ 13 or null) — Top-7 + ellipsis + nearby
     //
     // ChallengeAnimatedRows handles move / enter / exit animations.
-    // The sticky self bar is rendered separately and never participates in
-    // the list's layout animations.
+    // Self always appears within the list itself (no separate sticky bar).
     // -----------------------------------------------------------------------
 
     return (
@@ -276,7 +267,7 @@ export const ChallengeLeaderboardPanel = React.memo(
         onWheel={onWheel}
       >
         <div
-          ref={setScrollNodeRef}
+          ref={setListNodeRef}
           className="game-room-scoreboard-list mq-autohide-scrollbar relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-1 py-1"
         >
           <div className="game-room-scoreboard-stack challenge-lb-animated-stack">
@@ -285,12 +276,6 @@ export const ChallengeLeaderboardPanel = React.memo(
               selfRowBaseProps={selfRowBaseProps}
             />
           </div>
-        </div>
-
-        {/* Sticky self bar — always visible, separate from animated list */}
-        <div className="game-room-scoreboard-self-sticky-bar px-1">
-          <ChallengeSeparatorRow />
-          <ChallengeSelfRow {...stickySelfRowBaseProps} variant="sticky" />
         </div>
       </div>
     );

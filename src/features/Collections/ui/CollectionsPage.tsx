@@ -747,14 +747,53 @@ const CollectionsPage = () => {
                           </IconButton>
                         </Box>
                         </Box>
-                        {/* Row 2: quick language + category editors (language first, matches RoomHub) */}
+                        {/* Row 2: quick category + language editors. Category first
+                            (blue) then language (black/white) — unified with the
+                            public library's CollectionMetaChips overlay styling. */}
                         <div
                           className="flex flex-wrap items-center gap-1.5"
                           onClick={(event) => event.stopPropagation()}
                           onMouseDown={(event) => event.stopPropagation()}
                           onKeyDown={(event) => event.stopPropagation()}
                         >
-                          {/* Sub-tag (language) quick picker — rendered first */}
+                          {/* Category quick picker — rendered first (blue) */}
+                          <CategoryQuickPicker
+                            value={collection.category?.id ?? null}
+                            allowClear={false}
+                            onChange={(cid) =>
+                              handleUpdateCategory(collection.id, cid)
+                            }
+                          >
+                            {(open) =>
+                              collection.category ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => open(e.currentTarget)}
+                                  className="group/chip inline-flex items-center gap-1 rounded-full border border-cyan-300/40 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-cyan-100 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-cyan-300/65 hover:bg-slate-900"
+                                >
+                                  <span>
+                                    {collection.category.parentLabel
+                                      ? `${collection.category.parentLabel} › ${collection.category.label}`
+                                      : collection.category.label}
+                                  </span>
+                                  <span className="text-cyan-300/50 transition-colors group-hover/chip:text-cyan-200/80">
+                                    ›
+                                  </span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => open(e.currentTarget)}
+                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-cyan-300/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-cyan-200/55 transition-colors hover:border-cyan-300/55 hover:bg-slate-950/85 hover:text-cyan-100"
+                                >
+                                  <span className="text-[12px] leading-none">+</span>
+                                  <span>加上分類</span>
+                                </button>
+                              )
+                            }
+                          </CategoryQuickPicker>
+
+                          {/* Sub-tag (language) quick picker — rendered after category (black/white) */}
                           <SubTagQuickPicker
                             value={collection.sub_tag_keys ?? []}
                             onChange={(keys) =>
@@ -770,10 +809,10 @@ const CollectionsPage = () => {
                                   <button
                                     type="button"
                                     onClick={(e) => open(e.currentTarget)}
-                                    className="group/lang inline-flex items-center gap-1 rounded-full border border-cyan-300/40 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-cyan-200 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-cyan-300/65 hover:bg-slate-900"
+                                    className="group/lang inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-white/35 hover:bg-slate-900"
                                   >
                                     <span>{langs.join(" · ")}</span>
-                                    <span className="text-cyan-300/50 transition-colors group-hover/lang:text-cyan-200/80">
+                                    <span className="text-white/35 transition-colors group-hover/lang:text-white/70">
                                       ›
                                     </span>
                                   </button>
@@ -783,7 +822,7 @@ const CollectionsPage = () => {
                                 <button
                                   type="button"
                                   onClick={(e) => open(e.currentTarget)}
-                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-cyan-300/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-cyan-200/55 transition-colors hover:border-cyan-300/55 hover:bg-slate-950/85 hover:text-cyan-100"
+                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-white/55 transition-colors hover:border-white/55 hover:bg-slate-950/85 hover:text-slate-100"
                                 >
                                   <span className="text-[12px] leading-none">+</span>
                                   <span>加上語系</span>
@@ -791,43 +830,6 @@ const CollectionsPage = () => {
                               );
                             }}
                           </SubTagQuickPicker>
-
-                          {/* Category quick picker — rendered after language */}
-                          <CategoryQuickPicker
-                            value={collection.category?.id ?? null}
-                            allowClear={false}
-                            onChange={(cid) =>
-                              handleUpdateCategory(collection.id, cid)
-                            }
-                          >
-                            {(open) =>
-                              collection.category ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => open(e.currentTarget)}
-                                  className="group/chip inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-cyan-300/55 hover:bg-slate-900 hover:text-cyan-100"
-                                >
-                                  <span>
-                                    {collection.category.parentLabel
-                                      ? `${collection.category.parentLabel} › ${collection.category.label}`
-                                      : collection.category.label}
-                                  </span>
-                                  <span className="text-white/35 transition-colors group-hover/chip:text-cyan-300/70">
-                                    ›
-                                  </span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={(e) => open(e.currentTarget)}
-                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-white/55 transition-colors hover:border-cyan-300/55 hover:bg-slate-950/85 hover:text-cyan-100"
-                                >
-                                  <span className="text-[12px] leading-none">+</span>
-                                  <span>加上分類</span>
-                                </button>
-                              )
-                            }
-                          </CategoryQuickPicker>
 
                           {/* Moderation chip — same row as the language/category chips */}
                           <ModerationChip
