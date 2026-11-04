@@ -109,7 +109,7 @@ const requestJson = async <T,>(
     );
   }
 
-  if (body.data === undefined) {
+  if (!body || body.data === undefined) {
     throw new SongFavoriteApiError("Invalid response shape", response.status);
   }
 

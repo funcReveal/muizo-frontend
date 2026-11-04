@@ -19,15 +19,15 @@ import SettingsLayoutShell from "./components/SettingsLayoutShell";
 import SettingsSectionCard from "./components/SettingsSectionCard";
 import SettingsSidebarNav from "./components/SettingsSidebarNav";
 import SfxSettingsPanel from "./components/SfxSettingsPanel";
-import AvatarEffectSettingsPanel from "./components/AvatarEffectSettingsPanel";
-import ScoreboardEffectSettingsPanel from "./components/ScoreboardEffectSettingsPanel";
 import MarketingConsentSettingsPanel from "./components/MarketingConsentSettingsPanel";
 import YoutubeConnectionSettingsPanel from "./components/YoutubeConnectionSettingsPanel";
 import {
   DEFAULT_KEY_BINDINGS,
   useKeyBindings,
-} from "./components/useKeyBindings";
-import "@features/RoomSession/ui/roomSessionStyles.css";
+} from "../model/useKeyBindings";
+
+const AvatarEffectSettingsPanel = React.lazy(() => import("./components/AvatarEffectSettingsPanel"));
+const ScoreboardEffectSettingsPanel = React.lazy(() => import("./components/ScoreboardEffectSettingsPanel"));
 
 const SLOT_TITLES = ["左上", "右上", "左下", "右下"] as const;
 
@@ -206,15 +206,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRequestClose }) => {
 
       case "avatar-effects":
         return (
-          <AvatarEffectSettingsPanel key={sectionId} sectionId={sectionId} />
+          <React.Suspense key={sectionId} fallback={<div role="status">載入預覽中…</div>}>
+            <AvatarEffectSettingsPanel sectionId={sectionId} />
+          </React.Suspense>
         );
 
       case "scoreboard-effects":
         return (
-          <ScoreboardEffectSettingsPanel
-            key={sectionId}
-            sectionId={sectionId}
-          />
+          <React.Suspense key={sectionId} fallback={<div role="status">載入預覽中…</div>}>
+            <ScoreboardEffectSettingsPanel sectionId={sectionId} />
+          </React.Suspense>
         );
 
       case "display-presets":

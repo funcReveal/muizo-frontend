@@ -2,7 +2,7 @@ import {
   DEFAULT_KEY_BINDINGS,
   type KeyBindings,
   useSettingsModel,
-} from "../../model/settingsContext";
+} from "./settingsContext";
 
 const useKeyBindings = () => {
   const { keyBindings, setKeyBindings } = useSettingsModel();

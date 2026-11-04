@@ -19,6 +19,8 @@ import {
 import { useSettingsModel } from "../../model/settingsContext";
 import AnimatedScoreboardBorder from "../../../../shared/ui/AnimatedScoreboardBorder";
 import SettingsSectionCard from "./SettingsSectionCard";
+// The preview still shares legacy scoreboard selectors with the game screen.
+import "@features/RoomSession/ui/roomSessionStyles.css";
 
 interface ScoreboardEffectSettingsPanelProps {
   sectionId: string;

@@ -431,6 +431,7 @@ const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
       <Button
         fullWidth
         size="large"
+        data-choice-state={isReveal ? (isCorrect ? "correct" : isSelected ? "wrong" : "neutral") : isSelected ? "selected" : "idle"}
         disableRipple
         title={choiceDisplayTitle}
         aria-disabled={isLocked || waitingToStart || shouldShowGestureOverlay || isRecoveringConnection}
@@ -452,10 +453,10 @@ const GameRoomChoiceRow = React.memo(function GameRoomChoiceRow({
               ? "success"
               : isSelected
                 ? "error"
-                : "info"
+                : "inherit"
             : isSelected
-              ? "info"
-              : "info"
+              ? "warning"
+              : "inherit"
         }
         className={`game-room-choice-button justify-start ${!isReveal && isSelected
           ? "game-room-choice-button--selected-live"

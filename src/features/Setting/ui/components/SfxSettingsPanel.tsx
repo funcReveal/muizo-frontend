@@ -18,7 +18,7 @@ import {
   DEFAULT_SFX_VOLUME,
   SFX_PRESET_OPTIONS,
   useSfxSettings,
-} from "./useSfxSettings";
+} from "../../model/useSfxSettings";
 
 type SfxSettingsPanelProps = {
   sectionId?: string;

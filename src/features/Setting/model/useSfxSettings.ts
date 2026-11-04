@@ -1,4 +1,4 @@
-﻿import type { SfxPresetId } from "../../../../shared/sfx/gameSfxEngine";
+﻿import type { SfxPresetId } from "@shared/sfx/gameSfxEngine";
 import {
   DEFAULT_SETTLEMENT_PREVIEW_SYNC,
   DEFAULT_SETTLEMENT_PREVIEW_VOLUME,
@@ -8,7 +8,7 @@ import {
   SETTLEMENT_PREVIEW_STORAGE_KEYS,
   SFX_STORAGE_KEYS,
   useSettingsModel,
-} from "../../model/settingsContext";
+} from "./settingsContext";
 
 export {
   DEFAULT_SFX_ENABLED,

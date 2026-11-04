@@ -519,17 +519,6 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
   const handleSelectParticipant = useCallback((clientId: string) => {
     setSelectedParticipantId(clientId);
   }, []);
-  useEffect(() => {
-    if (selectedParticipantId && participantMap[selectedParticipantId]) return;
-    setSelectedParticipantId(
-      meClientId && participantMap[meClientId]
-        ? meClientId
-        : rankedParticipants[0]?.clientId ?? null,
-    );
-  }, [meClientId, participantMap, rankedParticipants, selectedParticipantId]);
-  useEffect(() => {
-    if (isWide) setQuestionListDrawerOpen(false);
-  }, [isWide]);
   const recaps = useMemo<ExtendedRecap[]>(() => {
     if (questionRecaps.length > 0) {
       return questionRecaps.map((recap) => {
@@ -1543,7 +1532,7 @@ const HistoryReplayCompactView: React.FC<HistoryReplayCompactViewProps> = ({
 
       <Drawer
         anchor="bottom"
-        open={questionListDrawerOpen}
+        open={questionListDrawerOpen && !isWide}
         onClose={() => setQuestionListDrawerOpen(false)}
         sx={{ zIndex: 1720 }}
         PaperProps={{

@@ -48,8 +48,8 @@ import { normalizeRoomDisplayText } from "../../../shared/utils/text";
 import { blurActiveInteractiveElement } from "../../../shared/utils/dom";
 import { useGameRoomSfxEffects } from "../model/useGameRoomSfxEffects";
 import { useGameRoomVoteDialogEffects } from "../model/useGameRoomVoteDialogEffects";
-import { useKeyBindings } from "../../Setting/ui/components/useKeyBindings";
-import { useSfxSettings } from "../../Setting/ui/components/useSfxSettings";
+import { useKeyBindings } from "@features/Setting/model/useKeyBindings";
+import { useSfxSettings } from "@features/Setting/model/useSfxSettings";
 import {
   DEFAULT_AVATAR_EFFECT_LEVEL_VALUE,
   useSettingsModel,
@@ -109,6 +109,12 @@ import GameRoomDanmuProviderBridge from "./components/GameRoomDanmuProviderBridg
 import GameRoomRestartVoteDock from "./components/GameRoomRestartVoteDock";
 import GameRoomPlaybackVoteDock from "./components/GameRoomPlaybackVoteDock";
 import { SongBookmarkButton } from "@features/SongFavorite";
+
+const YOUTUBE_EMBED_HOST =
+  (import.meta.env.VITE_YOUTUBE_EMBED_HOST as string | undefined)
+    ?.replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "") || "www.youtube.com";
+
 interface GameRoomPageProps {
   room: RoomState["room"];
   gameState: GameState;
@@ -1591,7 +1597,7 @@ const GameRoomPage: React.FC<GameRoomPageProps> = ({
       params.set("widget_referrer", window.location.origin);
     }
 
-    return `https://www.youtube-nocookie.com/embed/${effectivePlayerVideoId}?${params.toString()}`;
+    return `https://${YOUTUBE_EMBED_HOST}/embed/${effectivePlayerVideoId}?${params.toString()}`;
   }, [effectivePlayerVideoId]);
 
   const phaseLabel = isEnded

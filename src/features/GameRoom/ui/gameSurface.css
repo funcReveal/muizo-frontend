@@ -1,0 +1,104 @@
+/* Solid surfaces and semantic states; gameplay timing, rank FLIP and combo effects stay in the game layer. */
+.game-room-shell {
+  --gr-bg: var(--mc-bg);
+  --gr-panel: var(--mc-surface);
+  --gr-border: var(--mc-border);
+  --gr-border-strong: var(--mc-accent-border);
+  --gr-border-warm: var(--mc-accent-border);
+  --gr-text: var(--mc-text);
+  --gr-shadow: none;
+  color: var(--mc-text);
+  font-family: "OpenHuninn", "Noto Sans TC", sans-serif;
+}
+.game-room-shell .game-room-panel { border-radius: var(--mc-radius-panel); box-shadow: none; color: var(--mc-text); }
+.game-room-shell .game-room-panel--left { background: var(--mc-surface); border: 0; padding: 18px; }
+.game-room-shell .game-room-main-section { background: var(--mc-surface); border: 0; border-radius: var(--mc-radius-panel); }
+.game-room-shell .game-room-panel--accent, .game-room-shell .game-room-panel--warm { background: transparent; border: 0; }
+.game-room-shell .game-room-media-frame { border-radius: var(--mc-radius-card); background: var(--mc-bg); border: 0; box-shadow: none; }
+.game-room-shell :is(.game-room-playback-mask--guess,.game-room-playback-mask--loading) { background: var(--mc-bg); }
+/* One owner for answer materials; legacy MUI-info fills and effect layers are excluded. */
+.game-room-shell .game-room-choice-shell {
+  --choice-radius: var(--mc-radius-card);
+  border-radius: var(--choice-radius);
+  overflow: visible;
+  box-sizing: border-box;
+}
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state] {
+  --choice-fill: var(--mc-surface-strong);
+  --choice-edge: var(--mc-border);
+  --choice-ink: var(--mc-text);
+  min-height: 72px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--choice-edge) !important;
+  border-radius: var(--choice-radius) !important;
+  background: var(--choice-fill) !important;
+  background-image: none !important;
+  color: var(--choice-ink) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none;
+  transition: background-color var(--mc-motion-fast), border-color var(--mc-motion-fast);
+}
+.game-room-shell .game-room-choice-button[data-choice-state]::before,
+.game-room-shell .game-room-choice-button[data-choice-state]::after { content: none !important; }
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state="idle"]:not(.pointer-events-none):hover { --choice-fill: var(--mc-surface); --choice-edge: var(--mc-text-muted); }
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state="selected"] { --choice-fill: color-mix(in oklab, var(--mc-surface) 84%, var(--mc-accent)); --choice-edge: var(--mc-accent); }
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state="correct"] { --choice-fill: var(--mc-success-surface); --choice-edge: var(--mc-success-border); }
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state="wrong"] { --choice-fill: var(--mc-danger-surface); --choice-edge: var(--mc-danger-border); }
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state="neutral"] { --choice-fill: var(--mc-surface); --choice-edge: var(--mc-border); --choice-ink: var(--mc-text-muted); }
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state]:focus-visible { outline: 2px solid var(--mc-accent) !important; outline-offset: -4px !important; }
+.game-room-shell .game-room-choice-key,
+.game-room-shell .game-room-choice-button.MuiButton-root:hover .game-room-choice-key { border: 1px solid var(--mc-border); border-radius: var(--mc-radius-chip); background: var(--mc-bg); color: var(--mc-text-muted); box-shadow: none; }
+.game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state="selected"] .game-room-choice-key { color: var(--mc-accent); border-color: var(--mc-accent-border); }
+.game-room-shell .game-room-choice-text { font-size: 17px; line-height: 1.55; font-weight: 500; }
+.game-room-shell .game-room-score-row { border-radius: var(--mc-radius-control); background: var(--mc-bg); border: 1px solid transparent; box-shadow: none; color: var(--mc-text); }
+.game-room-shell .game-room-score-row--me { border-color: var(--mc-accent-border); background: var(--mc-accent-soft); }
+.game-room-shell .game-room-score-row--answered { border-color: var(--mc-accent-border); }
+.game-room-shell .game-room-score-row--correct { background: var(--mc-success-surface); border-color: var(--mc-success-border); box-shadow: none; }
+.game-room-shell .game-room-score-row--wrong { background: var(--mc-danger-surface); border-color: var(--mc-danger-border); box-shadow: none; }
+.game-room-shell :is(.leaderboard-compact-row__name,.challenge-lb-row__name) { color: var(--mc-text); font-weight: 500; }
+.game-room-shell :is(.leaderboard-compact-row__rank,.leaderboard-compact-row__score) { font-variant-numeric: tabular-nums; }
+.game-room-shell .leaderboard-compact-row__score { font-family: inherit; }
+.game-room-shell .game-room-score-row--me .leaderboard-compact-row__rank { color: var(--mc-accent); }
+.game-room-shell .game-room-reveal-card { border-radius: var(--mc-radius-control); background: var(--mc-bg); border: 1px solid var(--mc-border); box-shadow: none; }
+.game-room-shell .game-room-reveal-card--correct { background: var(--mc-success-surface); border-color: var(--mc-success-border); }
+.game-room-shell .game-room-reveal-card--wrong { background: var(--mc-danger-surface); border-color: var(--mc-danger-border); }
+.game-room-shell .game-room-reveal-card--correct .game-room-feedback-title { color: var(--mc-success); }
+.game-room-shell .game-room-reveal-card--wrong .game-room-feedback-title { color: var(--mc-danger); }
+.game-room-shell :is(.game-room-mobile-info-bar,.game-room-mobile-frame-action) { background: var(--mc-surface); border-color: var(--mc-border); border-radius: var(--mc-radius-control); box-shadow: none; }
+.game-room-shell :is(.game-room-mobile-rank-card,.game-room-mobile-chat-preview) { background: var(--mc-bg); border: 1px solid var(--mc-border); border-radius: var(--mc-radius-card); box-shadow: none; }
+.game-room-shell .game-room-mobile-rank-card::before, .game-room-shell .game-room-mobile-chat-preview::before { background: none; }
+.game-room-shell :is(.game-room-mobile-player-switch,.game-room-mobile-frame-actions__trigger) { background: var(--mc-surface-strong); color: var(--mc-text-muted); border: 1px solid var(--mc-border); box-shadow: none; }
+.game-room-shell .game-room-mobile-player-switch--video { background: var(--mc-accent-soft); color: var(--mc-accent); border-color: var(--mc-accent-border); }
+.game-room-shell :is(.game-room-mobile-chat-preview__empty-title,.game-room-mobile-chat-preview__empty-icon,.game-room-mobile-rank-card__score) { color: var(--mc-text); }
+.game-room-shell .game-room-mobile-chat-preview__empty-subtitle { color: var(--mc-text-muted); }
+.game-room-shell .game-room-choice-selected-glow { display: none; }
+.game-room-shell :is(.game-room-desktop-embedded-hud__ring-track,.game-room-mobile-guess-hud__ring-track) { stroke: var(--mc-surface-strong); }
+.game-room-shell :is(.game-room-desktop-embedded-hud__ring-progress,.game-room-mobile-guess-hud__ring-progress) { stroke: var(--mc-accent) !important; filter: none; }
+.game-room-shell :is(.game-room-desktop-embedded-hud--urgent,.game-room-mobile-guess-hud--urgent) :is(.game-room-desktop-embedded-hud__ring-progress,.game-room-mobile-guess-hud__ring-progress) { stroke: var(--mc-danger) !important; }
+.game-room-shell :is(.game-room-desktop-embedded-hud__timer,.game-room-mobile-guess-hud__timer) { color: var(--mc-text); font-weight: 600; }
+.game-room-shell :is(.game-room-return-to-lobby-btn,.game-room-restart-now-btn,.game-room-host-manage-btn,.game-room-extend-vote-btn) { border: 1px solid var(--mc-border); border-radius: var(--mc-radius-control); background: var(--mc-surface-strong) !important; color: var(--mc-text) !important; box-shadow: none; }
+.room-lobby-card.MuiPaper-root { border: 0; border-radius: var(--mc-radius-panel); background: var(--mc-surface); box-shadow: none; }
+.room-lobby-card :is(.room-lobby-header-info-band,.room-lobby-column-section) { background: transparent; box-shadow: none; }
+.room-lobby-card .room-lobby-player-row { border-radius: var(--mc-radius-control); background: var(--mc-bg); border-color: var(--mc-border); box-shadow: none; }
+.room-lobby-card .room-lobby-player-row.is-self { background: var(--mc-accent-soft); border-color: var(--mc-accent-border); }
+.game-settlement-mobile-shell { color: var(--mc-text); }
+.game-settlement-mobile-stage { border-radius: var(--mc-radius-panel); background: var(--mc-surface); }
+.game-settlement-desktop-action.MuiButton-root { border-radius: var(--mc-radius-control); box-shadow: none; }
+.game-settlement-desktop-action--next.MuiButton-root { background: var(--mc-accent); color: var(--mc-accent-ink); }
+.game-room-mobile-drawer-root .MuiPaper-root { background: var(--mc-surface); color: var(--mc-text); border-radius: var(--mc-radius-panel); }
+@media (max-width: 760px) {
+  .game-room-shell .game-room-main-section { padding: 10px; border-radius: var(--mc-radius-card); }
+  .game-room-shell .game-room-choice-shell { --choice-radius: var(--mc-radius-control); }
+  .game-room-shell .game-room-choice-button.MuiButton-root[data-choice-state] { min-height: 64px; }
+  .game-room-shell .game-room-choice-text { font-size: 16px; }
+  .game-room-shell .game-room-choice-key { min-width: 24px; min-height: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .game-room-shell .game-room-choice-button.MuiButton-root { transition: none; } }
+
+.game-room-shell .game-room-mobile-player-switch,
+.game-room-shell .game-room-mobile-player-switch--video { background: var(--mc-bg); color: var(--mc-text-muted); border-color: var(--mc-border); }
+.game-room-shell .game-room-mobile-player-switch__option { background: transparent; color: var(--mc-text-muted); box-shadow: none; }
+.game-room-shell .game-room-mobile-player-switch__option--active { background: var(--mc-surface-strong); color: var(--mc-accent); box-shadow: none; }

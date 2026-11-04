@@ -1,6 +1,6 @@
 ﻿import React from "react";
 
-import type { KeyBindings } from "./useKeyBindings";
+import type { KeyBindings } from "../../model/useKeyBindings";
 
 interface KeyBindingSettingsProps {
   keyBindings: KeyBindings;
