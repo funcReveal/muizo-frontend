@@ -2,7 +2,7 @@
 
 ## Visual Thesis
 
-Muizo should feel like a polished music-control surface in a dim room: dark, focused, tactile, and lightly illuminated by album-light colors. The interface can use liquid glass details on entry and modal surfaces, but routine product UI should remain readable and restrained.
+Muizo should feel like a polished music-control surface in a dim room: dark, focused, tactile, and lightly illuminated by album-light colors. Solid warm surfaces, controlled amber accents and precise state changes carry the interface. Layering comes from surface contrast and spacing rather than glass or gradients.
 
 ## Theme
 
@@ -12,16 +12,21 @@ Dark theme is the default. The assumed scene is a player or host using Muizo dur
 
 Use the existing app variables as the product base:
 
-- Background: `--mc-bg`, near-black.
-- Surface: `--mc-surface`, `--mc-surface-strong`, warm dark neutrals.
-- Text: `--mc-text`, warm off-white.
-- Muted text: `--mc-text-muted`, warm desaturated beige-gray.
-- Primary accent: `--mc-accent`, amber.
-- Secondary accent: `--mc-accent-2`, gold.
+- Background: `--mc-bg` (`#141512`), warm graphite.
+- Surface: `--mc-surface` (`#20221d`), raised surface: `--mc-surface-strong` (`#2c2f28`).
+- Text: `--mc-text` (`#f3f4ee`), secondary text: `--mc-text-muted` (`#b9beb1`).
+- Primary accent: `--mc-accent` (`#ffb000`), hover: `--mc-accent-hover` (`#ffc233`), pressed: `--mc-accent-pressed` (`#e69700`).
+- Text on primary fills: `--mc-accent-ink` (`#251900`).
+- Selected backgrounds: `--mc-accent-soft`, selected edges: `--mc-accent-border`.
+- Gold highlight: `--mc-accent-2` (`#f5c542`).
+
+Primary actions use a solid, saturated amber fill with dark text. Dropdown selection uses background and text color without a checkmark. Header account controls use solid neutral surfaces without gradients.
+
+Navigation and tabs use the soft amber background with amber foreground. Inactive states remain neutral. Do not substitute pale amber or gray-brown for interactive primary states. Keep the MUI palette in `src/app/providers.tsx` aligned with these shared CSS tokens. MUI secondary teal is for secondary roles; status colors retain their semantic meanings.
 
 For newer landing/auth surfaces, OKLCH colors are preferred:
 
-- Cyan/teal accent for account and focus states: `oklch(77% 0.145 162)` or nearby.
+- Teal may support account-specific secondary roles; general focus and primary actions use the shared amber tokens.
 - Gold accent for music highlights: `oklch(80% 0.145 82)`.
 - Dark blue-green tinted neutrals for liquid glass surfaces.
 
@@ -37,24 +42,9 @@ Use for rooms, tables, settings, collection management, and dense controls.
 - Thin borders using existing `--mc-border` or low-alpha slate.
 - Minimal shadow; shadow should separate layers, not decorate them.
 
-### Liquid Glass Surfaces
+### Overlays and entry surfaces
 
-Use sparingly for:
-
-- Landing auth panel.
-- Auth modal.
-- Important entry or onboarding panels.
-- Small proof chips or control pills when they sit over atmospheric backgrounds.
-
-Expected properties:
-
-- Semi-transparent dark background.
-- Fine translucent border.
-- Subtle `backdrop-filter: blur(...) saturate(...)`.
-- Inner top highlight.
-- One soft refracted highlight or liquid blob, not several decorative blobs.
-
-Avoid applying glass material to large routine dashboards, tables, long lists, and gameplay-critical panels.
+Use the same opaque warm surfaces for login, sheets and dialogs. Reserve shadow for overlays. Do not add glass, corner spotlights or gradients to routine cards. Preview artwork must use the same semantic colors as the real interface.
 
 ## Typography
 
@@ -68,7 +58,7 @@ Avoid applying glass material to large routine dashboards, tables, long lists, a
 
 - First screen should present the usable product entry, not a generic marketing hero.
 - Landing layout can use a hero/auth split, but auth is the real conversion surface.
-- Forms should be complete in place: Email, password, mode switch, submit, reset, and Google alternative should be visible without extra pre-choice cards.
+- Desktop forms stay complete in place. Mobile landing starts with two login choices; Email expands in place and preserves input when collapsed. Signed-in mobile entry prioritizes Start Play, with collection creation as a secondary action.
 - Cards are allowed when the card is the interaction, such as the auth panel. Avoid repeated identical card grids.
 - Mobile layouts must avoid horizontal overflow and keep tap targets at least 44px high.
 
@@ -114,3 +104,23 @@ Avoid applying glass material to large routine dashboards, tables, long lists, a
   `rg -n --pcre2 "[\x{E000}-\x{F8FF}]" src index.html AGENTS.md`
 - For landing/auth changes, verify desktop and 390px mobile width in browser.
 - Confirm no horizontal overflow on mobile.
+
+## Shared language, implemented
+
+`src/shared/styles/designTokens.css` owns reusable role tokens; `index.css` owns the base palette. MUI theme defaults in `src/app/providers.tsx` follow the same vocabulary.
+
+| Role | Rule |
+| --- | --- |
+| Page / panel / raised | `--mc-bg` / `--mc-surface` / `--mc-surface-strong` |
+| Main action / selection | Solid amber / amber tint and a single thin edge |
+| Correct / incorrect | `--mc-success-*` / `--mc-danger-*`, plus text or icons |
+| Panel / card / control / chip radius | 20 / 16 / 12 / 8 px |
+| Controls | At least 44 px tap height; primary controls normally 48 px |
+| Type | OpenHuninn, 12 px metadata, 14 px body, 16–18 px options, 20–24 px headings |
+| Numeric data | Tabular figures, stable alignment |
+| Focus | One thin accent border on fields; keyboard outline on buttons |
+| Motion | 160 ms interaction, 220 ms reveal, ease-out; no card Y translation |
+
+Game answer states use a neutral raised surface, amber selection, green correct answer and red incorrect selection. Preserve realtime rules, keyboard controls, rank movement, combo events and customization; the material layer does not change these behaviors. `gameSurface.css` is imported after legacy game styles so material rules have a single migration boundary.
+
+Homepage previews use the same CSS variables for their SVG fills and strokes. On mobile, only the visible current card loops; offscreen cards stop. Reduced motion always takes precedence. Desktop preview motion remains hover-triggered.

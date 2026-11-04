@@ -8,6 +8,7 @@
     />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="preload" href="/fonts/jf-openhuninn-2.1.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="dns-prefetch" href="https://www.youtube.com" />
     <link rel="dns-prefetch" href="https://www.youtube-nocookie.com" />
     <link rel="dns-prefetch" href="https://i.ytimg.com" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -53,59 +54,63 @@
     <title>Muizo - 線上多人即時猜歌</title>
 
     <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@graph": [
-          {
-            "@type": "WebApplication",
-            "@id": "https://muizo.org/#app",
-            "name": "Muizo",
-            "alternateName": ["線上猜歌遊戲", "多人猜歌平台", "歌曲問答平台"],
-            "url": "https://muizo.org/",
-            "applicationCategory": "GameApplication",
-            "operatingSystem": "Web",
-            "inLanguage": "zh-Hant",
-            "description": "Muizo 線上猜歌遊戲與多人歌曲問答平台，支援 YouTube 播放清單題庫、即時開房、朋友派對對戰、排行榜與結算回顧。",
-            "keywords": "猜歌, 猜歌遊戲, 線上猜歌, 猜歌網站, 多人猜歌, 歌曲問答, YouTube 猜歌, 音樂遊戲, 派對遊戲",
-            "image": "https://muizo.org/muizo.png",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "TWD"
-            }
-          },
-          {
-            "@type": "FAQPage",
-            "@id": "https://muizo.org/#faq",
-            "mainEntity": [
-              {
-                "@type": "Question",
-                "name": "Muizo 可以用來玩線上猜歌嗎？",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "可以。Muizo 是多人即時猜歌平台，玩家可以建立房間、邀請朋友加入，透過歌曲片段進行猜歌遊戲。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Muizo 支援 YouTube 播放清單嗎？",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "支援。登入 Google 後可以匯入 YouTube 播放清單，也可以建立平台收藏題庫，快速套用到猜歌房間。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Muizo 適合哪些場合？",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "適合朋友聚會、線上派對、社群語音、直播互動與音樂主題活動，讓多人一起進行歌曲問答與排行榜競賽。"
-                }
-              }
-            ]
-          }
-        ]
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://muizo.org/#app",
+      "name": "Muizo",
+      "alternateName": [
+        "線上猜歌遊戲",
+        "多人猜歌平台",
+        "歌曲問答平台"
+      ],
+      "url": "https://muizo.org/",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "zh-Hant",
+      "description": "Muizo 線上猜歌遊戲與多人歌曲問答平台，支援 YouTube 播放清單題庫、即時開房、朋友派對對戰、排行榜與結算回顧。",
+      "keywords": "猜歌, 猜歌遊戲, 線上猜歌, 猜歌網站, 多人猜歌, 歌曲問答, YouTube 猜歌, 音樂遊戲, 派對遊戲",
+      "image": "https://muizo.org/muizo.png",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "TWD"
       }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://muizo.org/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "一定要先準備歌單嗎？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不用。到大廳選一份公開題庫，就能建立猜歌房間。想自己出題時，再建立專屬題庫。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "朋友已經開好房間，要怎麼加入？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "直接開啟朋友分享的房間連結，或到大廳的「加入房間」輸入六碼房號，不需要輸入連字號。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "可以用自己的 YouTube 播放清單嗎？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "可以。建立題庫時貼上公開或不公開的播放清單連結，再調整答案與播放片段。私人播放清單則需先連結 Google 帳號。"
+          }
+        }
+      ]
+    }
+  ]
+}
     </script>
 
     <script

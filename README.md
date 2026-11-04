@@ -2,10 +2,22 @@
 
 ## YouTube 播放清單解析
 
-房間建立頁面改用 YouTube Data API v3 解析播放清單，需在 `.env` 設定金鑰：
+播放清單預覽由後端的 `POST /api/playlists/preview` 處理。前端透過 `VITE_API_URL` 連線；本機 Docker 開發環境指向 `http://localhost:8080` 的 Spring API。
 
-```
-VITE_YOUTUBE_API_KEY=your_api_key
+請在 `muizo-api/.env` 與 `muizo-realtime/.env` 設定後端金鑰：
+
+```dotenv
+YOUTUBE_API_KEY=your_api_key
 ```
 
-金鑰可在 [Google Cloud Console](https://console.cloud.google.com/) 建立專案後啟用 YouTube Data API v3 取得。前端會直接呼叫 `playlistItems` 及 `videos` API，無需額外後端代理，但請確保來源網域已在 API 金鑰的限制名單中。
+若 realtime 已設定金鑰，可將相同設定同步到 API。金鑰不要放進 `VITE_*`，也不要提交實際的 `.env`。
+
+修改後，在專案根目錄重新建立受影響的容器，讓新環境變數生效。例如只修改 API 時：
+
+```powershell
+docker compose -f compose.dev.yml up -d --no-deps --force-recreate api
+```
+
+`docker compose restart` 不會重新載入 `.env`。正式環境請在 API 與 realtime 的服務環境變數設定相同名稱，再重新部署。
+
+新金鑰可在 [Google Cloud Console](https://console.cloud.google.com/) 建立，需啟用 YouTube Data API v3，並將 API 限制設為 YouTube Data API v3。後端金鑰使用伺服器的限制方式，不使用瀏覽器來源網域限制。參考 [Google 官方設定文件](https://developers.google.com/youtube/registering_an_application)。

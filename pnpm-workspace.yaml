@@ -1,3 +1,9 @@
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
+
+# pnpm 11+ records the explicit decision as an allow-list. Keep this alongside
+# the existing setting so host and Docker development installs agree.
+allowBuilds:
+  '@swc/core': true
+  esbuild: true

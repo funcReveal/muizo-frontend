@@ -28,12 +28,13 @@ Use `pnpm` as the package manager.
 - File naming: `PascalCase` for React components (e.g., `HeaderSection.tsx`), `camelCase` for utility modules.
 - Linting: ESLint with TypeScript + React Hooks rules (`eslint.config.js`).
 - Styling: Tailwind CSS for utility classes and MUI for component primitives. Prefer consistent tokens/variants within a feature.
+- See `ARCHITECTURE.md` for feature boundaries, CSS ownership, and the incremental legacy stylesheet migration.
 
 ## Testing Guidelines
-Testing libraries (`vitest`, `@testing-library/react`) are installed, but no test scripts or suites are currently defined. If adding tests, use:
+Testing libraries (`vitest`, `@testing-library/react`) and feature test suites are installed. If adding tests, use:
 - Naming: `*.test.ts(x)` or `*.spec.ts(x)`.
 - Suggested command: `pnpm vitest`.
-- Keep tests close to features under `src/features/<Feature>/__tests__`.
+- Keep tests close to the feature or component they cover.
 
 ## App Architecture Notes
 - This repository is the frontend app only. Backend/worker changes should be handled in their own repositories unless explicitly requested.
