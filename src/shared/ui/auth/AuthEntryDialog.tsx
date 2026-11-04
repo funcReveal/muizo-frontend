@@ -1,9 +1,11 @@
 import React from "react";
-import { createPortal } from "react-dom";
+import { Dialog } from "@mui/material";
+import CloseRounded from "@mui/icons-material/CloseRounded";
 
 import AuthEntryPanel, { type AuthEntryPanelProps } from "./AuthEntryPanel";
 
 export interface AuthFeaturePreview {
+  kind: "rooms" | "collections" | "career" | "favorites" | "youtube" | "personal";
   eyebrow: string;
   title: string;
   description: string;
@@ -27,29 +29,25 @@ const AuthEntryDialog: React.FC<AuthEntryDialogProps> = ({
 }) => {
   if (!open || typeof document === "undefined") return null;
 
-  return createPortal(
-    <div
-      className="auth-entry-dialog-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={false}
+      className="auth-entry-modal"
+      aria-label="登入或註冊 Muizo"
+      slotProps={{
+        paper: { className: `auth-entry-dialog ${featurePreview ? "auth-entry-dialog-with-feature" : ""}` },
+        backdrop: { className: "auth-entry-modal-backdrop" },
       }}
     >
-      <section
-        className={`auth-entry-dialog ${
-          featurePreview ? "auth-entry-dialog-with-feature" : ""
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="登入或註冊 Muizo"
-      >
         <button
           type="button"
           className="auth-entry-dialog-close"
           aria-label="關閉"
           onClick={onClose}
         >
-          ✕
+          <CloseRounded fontSize="small" />
         </button>
         {featurePreview ? (
           <aside
@@ -61,7 +59,6 @@ const AuthEntryDialog: React.FC<AuthEntryDialogProps> = ({
               } as React.CSSProperties
             }
           >
-            <div className="auth-entry-feature-orbit" aria-hidden="true" />
             <div className="auth-entry-feature-kicker">
               {featurePreview.icon ? (
                 <span className="auth-entry-feature-icon">
@@ -70,12 +67,15 @@ const AuthEntryDialog: React.FC<AuthEntryDialogProps> = ({
               ) : null}
               <span>{featurePreview.eyebrow}</span>
             </div>
-            <div>
+            <div className="auth-entry-feature-media" aria-hidden="true">
+              <img src={`/feature-previews/${featurePreview.kind}.png`} alt="" />
+            </div>
+            <div className="auth-entry-feature-copy">
               <h3>{featurePreview.title}</h3>
               <p>{featurePreview.description}</p>
             </div>
             <div className="auth-entry-feature-footer">
-              <span>登入後會自動前往</span>
+              <span>登入後繼續</span>
               <strong>{featurePreview.actionLabel ?? "繼續"}</strong>
             </div>
           </aside>
@@ -89,9 +89,7 @@ const AuthEntryDialog: React.FC<AuthEntryDialogProps> = ({
             }}
           />
         </div>
-      </section>
-    </div>,
-    document.body,
+    </Dialog>
   );
 };
 

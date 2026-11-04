@@ -15,20 +15,19 @@ const AuthActionPage: React.FC<{ mode: PageMode }> = ({ mode }) => {
     const params = new URLSearchParams(location.search);
     return params.get("token") ?? "";
   }, [location.search]);
+  const missingVerificationToken = mode === "verify-email" && !token;
 
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
-  >(mode === "verify-email" ? "loading" : "idle");
-  const [message, setMessage] = useState("");
+  >(missingVerificationToken ? "error" : mode === "verify-email" ? "loading" : "idle");
+  const [message, setMessage] = useState(
+    missingVerificationToken ? "驗證連結缺少 token" : "",
+  );
   const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (mode !== "verify-email") return;
-    if (!token) {
-      setStatus("error");
-      setMessage("驗證連結缺少 token");
-      return;
-    }
+    if (!token) return;
 
     let cancelled = false;
     const run = async () => {

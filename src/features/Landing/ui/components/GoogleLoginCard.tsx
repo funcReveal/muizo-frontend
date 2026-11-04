@@ -1,21 +1,16 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import {
-  AccountCircleRounded,
-  AddCircleOutlineRounded,
-  ArrowForwardRounded,
-  BookmarksRounded,
-  LibraryMusicRounded,
-  MeetingRoomRounded,
-  PersonRounded,
-  WorkspacePremiumRounded,
-} from "@mui/icons-material";
+import ArrowForwardRounded from "@mui/icons-material/ArrowForwardRounded";
+import PersonRounded from "@mui/icons-material/PersonRounded";
+import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
+import LibraryMusicRounded from "@mui/icons-material/LibraryMusicRounded";
 
 import type { AuthUser } from "@shared/auth/AuthContext";
-import { isCareerFeatureEnabled } from "@shared/config/featureFlags";
 import AuthEntryPanel from "@shared/ui/auth/AuthEntryPanel";
+import { useMediaQuery } from "@mui/material";
+import LandingMobileEntry from "./LandingMobileEntry";
 
-interface GoogleLoginCardProps {
+export interface GoogleLoginCardProps {
   authUser?: AuthUser | null;
   onGoogleLogin: () => void;
   onEmailLogin: (
@@ -31,74 +26,11 @@ interface GoogleLoginCardProps {
   authLoading: boolean;
 }
 
-const entryActions = [
-  {
-    to: "/rooms",
-    icon: <MeetingRoomRounded fontSize="small" />,
-    title: "進入房間大廳",
-    description: "建立房間、輸入代碼或接續最近的遊戲流程。",
-    primary: true,
-  },
-  {
-    to: "/collections/new",
-    icon: <AddCircleOutlineRounded fontSize="small" />,
-    title: "建立題庫",
-    description: "貼上 YouTube 清單，或從帳號清單匯入歌曲。",
-  },
-  {
-    to: "/collections",
-    icon: <LibraryMusicRounded fontSize="small" />,
-    title: "管理收藏庫",
-    description: "整理自建題庫、公開狀態與可遊玩內容。",
-  },
-  {
-    to: "/me/favorites",
-    icon: <BookmarksRounded fontSize="small" />,
-    title: "查看收藏歌曲",
-    description: "回到遊戲中標記過的歌曲與 YouTube 影片。",
-  },
-  ...(isCareerFeatureEnabled
-    ? [
-        {
-          to: "/career",
-          icon: <AccountCircleRounded fontSize="small" />,
-          title: "生涯總覽",
-          description: "查看戰績、歷史紀錄與常玩的題庫表現。",
-        },
-      ]
-    : []),
-  {
-    to: "/membership",
-    icon: <WorkspacePremiumRounded fontSize="small" />,
-    title: "會員升級",
-    description: "查看目前身分與可升級項目。",
-  },
-] as const;
-
-const formatMemberIdentity = (value?: string | null) => {
-  const normalized = value?.trim().toLowerCase();
-
-  if (!normalized || normalized === "member" || normalized === "user") {
-    return "一般會員";
-  }
-
-  if (normalized === "premium" || normalized === "pro") {
-    return "進階會員";
-  }
-
-  if (normalized === "admin") {
-    return "管理員";
-  }
-
-  return value?.trim() || "一般會員";
-};
-
 const AuthenticatedEntryCard: React.FC<{ authUser: AuthUser }> = ({
   authUser,
 }) => {
   const displayName =
     authUser.display_name?.trim() || authUser.email?.trim() || "Muizo 會員";
-  const memberIdentity = formatMemberIdentity(authUser.plan ?? authUser.role);
 
   return (
     <div className="landing-member-entry">
@@ -111,30 +43,28 @@ const AuthenticatedEntryCard: React.FC<{ authUser: AuthUser }> = ({
           )}
         </div>
         <div className="min-w-0">
-          <p className="landing-member-kicker">{memberIdentity}</p>
           <h2>{displayName}</h2>
         </div>
       </div>
 
-      <Link className="landing-member-primary" to="/rooms">
-        <span>
-          <strong>前往房間大廳</strong>
-          <small>開始建立房間、加入遊戲或選擇題庫。</small>
+      <Link className="landing-member-path landing-member-path--play" to="/rooms">
+        <span className="landing-member-path-icon" aria-hidden="true"><PlayArrowRounded /></span>
+        <span className="landing-member-path-copy">
+          <strong>開始玩</strong>
+          <span>選題庫開房，或輸入房號加入朋友，一起搶答猜歌。</span>
         </span>
-        <ArrowForwardRounded fontSize="small" />
+        <span className="landing-member-path-cta">進入房間 <ArrowForwardRounded fontSize="small" aria-hidden="true" /></span>
+        <span className="landing-member-path-overlay" aria-hidden="true"><PlayArrowRounded /><strong>開始遊戲</strong><ArrowForwardRounded /></span>
       </Link>
-
-      <div className="landing-member-actions" aria-label="常用功能">
-        {entryActions.slice(1).map((action) => (
-          <Link key={action.to} className="landing-member-action" to={action.to}>
-            <span className="landing-member-action-icon">{action.icon}</span>
-            <span className="landing-member-action-copy">
-              <strong>{action.title}</strong>
-              <small>{action.description}</small>
-            </span>
-          </Link>
-        ))}
-      </div>
+      <Link className="landing-member-path landing-member-path--create" to="/collections/new">
+        <span className="landing-member-path-icon" aria-hidden="true"><LibraryMusicRounded /></span>
+        <span className="landing-member-path-copy">
+          <strong>建立題庫</strong>
+          <span>匯入播放清單、設定答案，把喜歡的歌變成題目。</span>
+        </span>
+        <span className="landing-member-path-cta">開始製作 <ArrowForwardRounded fontSize="small" aria-hidden="true" /></span>
+        <span className="landing-member-path-overlay" aria-hidden="true"><LibraryMusicRounded /><strong>進入製作</strong><ArrowForwardRounded /></span>
+      </Link>
     </div>
   );
 };
@@ -143,12 +73,14 @@ const GoogleLoginCard: React.FC<GoogleLoginCardProps> = ({
   authUser,
   ...authEntryProps
 }) => {
+  const mobile = useMediaQuery("(max-width: 760px)", {noSsr: true});
   return (
     <article
       className="landing-auth-card"
+      data-authenticated={Boolean(authUser)}
       aria-label={authUser ? "Muizo 功能入口" : "登入 Muizo"}
     >
-      {authUser ? (
+      {mobile ? <LandingMobileEntry authUser={authUser} {...authEntryProps} /> : authUser ? (
         <AuthenticatedEntryCard authUser={authUser} />
       ) : (
         <AuthEntryPanel {...authEntryProps} />
