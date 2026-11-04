@@ -1,0 +1,92 @@
+.collection-feedback {
+  --feedback-color: #f2a29a;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--feedback-color) 23%, transparent);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--feedback-color) 6%, #20221d);
+  color: #f3f4ee;
+  min-width: 0;
+  text-align: left;
+}
+.collection-feedback[data-tone="warning"] {
+  --feedback-color: #efbd62;
+}
+.collection-feedback-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  color: var(--feedback-color);
+  background: color-mix(in srgb, var(--feedback-color) 12%, transparent);
+}
+.collection-feedback-icon svg {
+  font-size: 20px;
+}
+.collection-feedback-body {
+  flex: 1;
+  min-width: 0;
+}
+.collection-feedback-body strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 600;
+}
+.collection-feedback-body p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #c8c6bb;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.collection-feedback-body button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--feedback-color) 25%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--feedback-color);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s;
+}
+.collection-feedback-body button:hover {
+  background: color-mix(in srgb, var(--feedback-color) 10%, transparent);
+  border-color: var(--feedback-color);
+}
+.collection-feedback-body button:focus-visible {
+  outline: 2px solid var(--feedback-color);
+  outline-offset: 3px;
+}
+.collection-feedback-body button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.collection-feedback-body button svg {
+  font-size: 16px;
+}
+@media (max-width: 359px) {
+  .collection-feedback {
+    padding: 12px;
+    gap: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .collection-feedback-body button {
+    transition: none;
+  }
+}

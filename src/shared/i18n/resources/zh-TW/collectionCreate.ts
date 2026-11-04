@@ -46,7 +46,7 @@ const collectionCreate = {
     playlistUrlLabel: "YouTube 播放清單連結",
     playlistUrlPlaceholder: "https://www.youtube.com/playlist?list=...",
     invalidPlaylistUrl:
-      "請貼上有效的 YouTube 播放清單連結，例如含有 list 參數的網址。",
+      "請改貼 YouTube 播放清單的分享連結，單首影片連結無法匯入。",
     loading: "載入中...",
     googleLoginHint:
       "連結 Google / YouTube 後，可以直接選取你帳號中的播放清單；貼上公開播放清單連結不需要 Google 授權。",
@@ -63,11 +63,10 @@ const collectionCreate = {
     selectPlaylistFirst: "請先選擇 YouTube 播放清單。",
     clearPlaylistUrl: "清除播放清單連結",
     reselectPlaylist: "重新選擇播放清單",
-    clearPlaylistDialogTitle: "重新選擇播放清單？",
-    clearPlaylistDialogDescription:
-      "目前已解析的播放清單與匯入結果會被清除，你可以重新貼上或選擇另一份清單。",
+    clearPlaylistDialogTitle: "清空本次歌單？",
+    clearPlaylistDialogDescription: "已匯入的歌曲與來源會一起清空。",
     clearPlaylistDialogCancel: "取消",
-    clearPlaylistDialogConfirm: "清除並重選",
+    clearPlaylistDialogConfirm: "清空歌單",
     importedSourcesTitle: "已匯入來源",
     importedSourcesDescription: "{{sourceCount}} 個來源 · {{itemCount}} 首歌曲",
     importedSourcesEmpty:

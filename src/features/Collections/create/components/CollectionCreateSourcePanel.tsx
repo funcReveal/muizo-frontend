@@ -1,16 +1,23 @@
-import { useMemo } from "react";
+import type { ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import ComposerCount from "./ComposerCount";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import ContentPasteRounded from "@mui/icons-material/ContentPasteRounded";
+import { extractYoutubePlaylistUrl } from "../../shared/model/youtubePlaylistLink";
 import { useTranslation } from "react-i18next";
 import CloseRounded from "@mui/icons-material/CloseRounded";
-import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
-import {
-  Button,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  TextField,
-  Tooltip,
-} from "@mui/material";
+import LinkRounded from "@mui/icons-material/LinkRounded";
+import YouTube from "@mui/icons-material/YouTube";
+import DownloadRounded from "@mui/icons-material/DownloadRounded";
+import ArrowForwardRounded from "@mui/icons-material/ArrowForwardRounded";
+import QueueMusicRounded from "@mui/icons-material/QueueMusicRounded";
+import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
+import { CircularProgress } from "@mui/material";
+import { List as VirtualList, type RowComponentProps } from "react-window";
+import SiteTooltip from "@shared/ui/SiteTooltip";
+import CreateHelp from "./CreateHelp";
+import { importFailureReason } from "../utils/importFailureReason";
 
 import { MuizoSelect, type MuizoSelectOption } from "@shared/ui/select";
 import type { CollectionCreateImportSource } from "../hooks/useCollectionCreateImportSources";
@@ -22,7 +29,33 @@ type YoutubePlaylistOption = {
   thumbnail?: string;
 };
 
+function TrackTooltipRow({ title, detail, thumbnail, videoId, url }: { title: string; detail?: string | null; thumbnail?: string; videoId?: string | null; url?: string }) {
+  const image = thumbnail || (videoId && /^[\w-]{11}$/.test(videoId) ? `https://i.ytimg.com/vi/${videoId}/default.jpg` : null);
+  let link: string | undefined;
+  try {
+    const parsed = new URL(url || (videoId && /^[\w-]{11}$/.test(videoId) ? `https://www.youtube.com/watch?v=${videoId}` : ""));
+    if (parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(parsed.hostname)) link = parsed.href;
+  } catch { /* Some unavailable videos have no link. */ }
+  const content = <>
+    {image ? <img src={image} alt="" loading="lazy" /> : <span className="create-track-tooltip-placeholder"><QueueMusicRounded aria-hidden="true" /></span>}
+    <span className="create-track-tooltip-copy"><b title={title}>{title}</b>{detail && <small title={detail}>{detail}</small>}</span>
+  </>;
+  return link ? <a className="create-track-tooltip-row" href={link} target="_blank" rel="noopener noreferrer" aria-label={`在 YouTube 開啟 ${title}`}>{content}</a> : <span className="create-track-tooltip-row">{content}</span>;
+}
+
+type TrackDetails = { title: string; detail?: string | null; thumbnail?: string; videoId?: string | null; url?: string };
+function VirtualTrackRow({ index, style, items }: RowComponentProps<{ items: TrackDetails[] }>) {
+  return <div style={style}><TrackTooltipRow {...items[index]} /></div>;
+}
+function TrackTooltipList({ title, items, missing = 0 }: { title: string; items: TrackDetails[]; missing?: number }) {
+  return <div className="create-track-tooltip"><strong>{title}</strong>
+    {items.length > 0 && <VirtualList className="create-track-tooltip-list" style={{ height: Math.min(items.length * 48, 240), width: "100%" }} rowCount={items.length} rowHeight={48} rowComponent={VirtualTrackRow} rowProps={{ items }} overscanCount={2} />}
+    {missing > 0 && <span className="create-track-tooltip-missing">另有 {missing} 首沒有可用的曲目資料</span>}
+  </div>;
+}
+
 type Props = {
+  actions?: ReactNode;
   authUserExists: boolean;
   hasGoogleYouTubeConnection: boolean;
   needsGoogleReauth: boolean;
@@ -45,6 +78,8 @@ type Props = {
   hasResolvedPlaylist: boolean;
   playlistLoading: boolean;
   playlistError: string | null;
+  importProgressPercent?: number | null;
+  importProgressLabel?: string | null;
 
   youtubePlaylistsLoading: boolean;
   youtubePlaylistsError: string | null;
@@ -68,16 +103,8 @@ type Props = {
   onClearImportSources: () => void;
 };
 
-const getSourceTypeLabelKey = (type: CollectionCreateImportSource["type"]) => {
-  if (type === "youtube_account_playlist") return "source.sourceTypeYoutubeAccount";
-  if (type === "song_favorites") return "source.sourceTypeSongFavorites";
-  return "source.sourceTypeYoutubeUrl";
-};
-
-const getImportSourceThumbnail = (source: CollectionCreateImportSource) =>
-  source.items.find((item) => item.thumbnail)?.thumbnail ?? null;
-
 export default function CollectionCreateSourcePanel({
+  actions,
   authUserExists,
   hasGoogleYouTubeConnection,
   needsGoogleReauth,
@@ -100,6 +127,7 @@ export default function CollectionCreateSourcePanel({
   hasResolvedPlaylist,
   playlistLoading,
   playlistError,
+  importProgressPercent = null,
 
   youtubePlaylistsLoading,
   youtubePlaylistsError,
@@ -122,6 +150,117 @@ export default function CollectionCreateSourcePanel({
   onClearImportSources,
 }: Props) {
   const { t } = useTranslation("collectionCreate");
+  const tabId = useId();
+  const urlInputRef = useRef<HTMLInputElement>(null);
+  const reduceMotion = useReducedMotion();
+  const [pasteState, setPasteState] = useState<
+    "idle" | "reading" | "filled" | "invalid" | "blocked"
+  >("idle");
+  const [clipboardStatus, setClipboardStatus] = useState<"unknown" | "valid" | "invalid" | "blocked">("unknown");
+  const [dismissedSourceId, setDismissedSourceId] = useState<string | null>(null);
+  const [showImportError, setShowImportError] = useState(false);
+  useEffect(() => {
+    if (!playlistError || playlistSource !== "url") return;
+    const showTimer = window.setTimeout(() => setShowImportError(true), 0);
+    const hideTimer = window.setTimeout(() => setShowImportError(false), 4000);
+    return () => { window.clearTimeout(showTimer); window.clearTimeout(hideTimer); };
+  }, [playlistError, playlistSource]);
+  const pasteReadingRef = useRef(false);
+  useEffect(() => {
+    if (playlistSource !== "url" || playlistUrlReadOnly) return;
+    let active = true;
+    let permission: PermissionStatus | undefined;
+    const check = async () => {
+      if (document.visibilityState === "hidden" || !document.hasFocus()) return;
+      try {
+        // Read in the background only after permission has already been granted.
+        if (!permission || permission.state !== "granted") {
+          if (active && permission?.state === "denied") setClipboardStatus("blocked");
+          return;
+        }
+        const text = await navigator.clipboard.readText();
+        if (active) setClipboardStatus(extractYoutubePlaylistUrl(text) ? "valid" : "invalid");
+      } catch {
+        if (active) setClipboardStatus("blocked");
+      }
+    };
+    const initialize = async () => {
+      try {
+        permission = await navigator.permissions.query({name: "clipboard-read" as PermissionName});
+        if (!active) return;
+        if (permission.state !== "granted") setClipboardStatus("blocked");
+        permission.onchange = () => void check();
+        await check();
+      } catch {
+        if (active) setClipboardStatus("blocked");
+      }
+    };
+    void initialize();
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    const timer = window.setInterval(check, 1500);
+    return () => {
+      active = false;
+      if (permission) permission.onchange = null;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [playlistSource, playlistUrlReadOnly]);
+  const pasteContextRef = useRef({
+    value: playlistUrl,
+    locked: playlistUrlReadOnly,
+    source: playlistSource,
+  });
+  const pasteRequestRef = useRef(0);
+  useEffect(() => {
+    pasteContextRef.current = {
+      value: playlistUrl,
+      locked: playlistUrlReadOnly,
+      source: playlistSource,
+    };
+  }, [playlistUrl, playlistUrlReadOnly, playlistSource]);
+  useEffect(
+    () => () => {
+      pasteRequestRef.current += 1;
+    },
+    [],
+  );
+  const fillClipboardLink = async () => {
+    if (pasteReadingRef.current || playlistUrlReadOnly) return;
+    pasteReadingRef.current = true;
+    const previousValue = playlistUrl;
+    const request = ++pasteRequestRef.current;
+    setPasteState("reading");
+    try {
+      const text = await navigator.clipboard.readText();
+      // A permission prompt must not overwrite edits made while it was open.
+      if (request !== pasteRequestRef.current) return;
+      const context = pasteContextRef.current;
+      if (
+        context.value !== previousValue ||
+        context.locked ||
+        context.source !== "url"
+      ) {
+        setPasteState("idle");
+        return;
+      }
+      const link = extractYoutubePlaylistUrl(text);
+      if (!link) {
+        setPasteState("invalid");
+        setClipboardStatus("invalid");
+        return;
+      }
+      setClipboardStatus("valid");
+      onPlaylistUrlChange(link);
+      setPasteState("filled");
+      urlInputRef.current?.focus();
+    } catch {
+      if (request === pasteRequestRef.current) { setPasteState("blocked"); setClipboardStatus("blocked"); }
+    } finally {
+      pasteReadingRef.current = false;
+    }
+  };
 
   const importedYoutubePlaylistIds = useMemo(
     () =>
@@ -162,472 +301,488 @@ export default function CollectionCreateSourcePanel({
       ? t("source.importingYoutube")
       : t("source.playlistSelectPlaceholder");
 
-  const sourceTabBaseClass =
-    "rounded-full px-3 py-1 transition disabled:cursor-not-allowed disabled:opacity-50";
+  const busy =
+    playlistLoading || isImportingYoutubePlaylist || isImportingFavorites;
+  const tabs = [
+    { key: "url", label: "貼上連結", icon: <LinkRounded /> },
+    { key: "youtube", label: "YouTube", icon: <YouTube /> },
+    { key: "favorites", label: "收藏歌曲", icon: <BookmarkRoundedIcon /> },
+  ] as const;
+  const activeError =
+    playlistSource === "url"
+      ? playlistError
+      : playlistSource === "youtube"
+        ? youtubeActionError || youtubePlaylistsError
+        : favoritesImportError;
+  const showUrlWarning = showPlaylistUrlError && !isPlaylistUrlFocused;
+  const lastImportedSource = importSources[importSources.length - 1];
+  const lastImportedSourceId = lastImportedSource?.id;
+  useEffect(() => {
+    if (!lastImportedSourceId) return;
+    const timer = window.setTimeout(() => setDismissedSourceId(lastImportedSourceId), 4000);
+    return () => window.clearTimeout(timer);
+  }, [lastImportedSourceId]);
 
   return (
-    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/70 p-3 sm:p-4">
-      <div>
-        <div className="text-lg font-semibold text-[var(--mc-text)]">
-          {t("source.title")}
+    <section className="create-source-workspace" aria-label="匯入歌曲">
+      <div className="create-source-main">
+        <div className="create-section-heading">
+          <h2>加入歌曲</h2>
+          <CreateHelp label="匯入方式說明">
+            可混合匯入多份播放清單與收藏歌曲。匯入完成後，再一起調整答案與播放片段。
+          </CreateHelp>
         </div>
-        <div className="mt-1 text-sm text-[var(--mc-text-muted)]">
-          {t("source.description")}
-        </div>
-      </div>
-
-      {/* Source tab selector */}
-      <div className="mt-3 inline-flex rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1 text-[11px] sm:mt-4">
-        <button
-          type="button"
-          disabled={sourceSwitchDisabled}
-          onClick={() => onPlaylistSourceChange("url")}
-          className={`${sourceTabBaseClass} ${
-            playlistSource === "url"
-              ? "bg-[var(--mc-accent)]/15 text-[var(--mc-text)]"
-              : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-          }`}
-        >
-          {t("source.urlTab")}
-        </button>
-
-        <button
-          type="button"
-          disabled={sourceSwitchDisabled}
-          onClick={() => onPlaylistSourceChange("youtube")}
-          className={`${sourceTabBaseClass} ${
-            playlistSource === "youtube"
-              ? "bg-[var(--mc-accent-2)]/15 text-[var(--mc-text)]"
-              : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-          }`}
-        >
-          {t("source.youtubeTab")}
-        </button>
-
-        <button
-          type="button"
-          disabled={sourceSwitchDisabled}
-          onClick={() => onPlaylistSourceChange("favorites")}
-          className={`${sourceTabBaseClass} ${
-            playlistSource === "favorites"
-              ? "bg-amber-400/15 text-amber-100"
-              : "text-[var(--mc-text-muted)] hover:text-[var(--mc-text)]"
-          }`}
-        >
-          {t("source.favoritesTab")}
-        </button>
-      </div>
-
-      {sourceSwitchDisabled && (
-        <div className="mt-2 text-[11px] text-[var(--mc-text-muted)]">
-          {t("source.sourceSwitchDisabledHint")}
-        </div>
-      )}
-
-      <div className="relative mt-3 min-h-[142px] sm:mt-4 sm:min-h-[170px]">
-        {/* URL tab panel */}
         <div
-          className={`space-y-3 transition-all duration-200 ${
-            playlistSource === "url"
-              ? "translate-x-0 opacity-100"
-              : "pointer-events-none -translate-x-2 opacity-0"
-          }`}
-          hidden={playlistSource !== "url"}
+          className="create-source-tabs"
+          role="tablist"
+          aria-label="歌曲來源"
         >
-          <div className="p-0 sm:p-3">
-            <Tooltip
-              title={playlistUrlTooltipMessage}
-              placement="top"
-              arrow
-              open={Boolean(isPlaylistUrlFocused && trimmedPlaylistUrl)}
-              disableFocusListener
-              disableHoverListener
-              disableTouchListener
-            >
-              <TextField
-                fullWidth
-                size="small"
-                label={t("source.playlistUrlLabel")}
-                placeholder={t("source.playlistUrlPlaceholder")}
-                value={playlistUrl}
-                autoComplete="off"
-                error={showPlaylistUrlError}
-                onFocus={() => onPlaylistUrlFocusChange(true)}
-                onBlur={() => onPlaylistUrlFocusChange(false)}
-                onChange={(e) => {
-                  if (playlistUrlReadOnly) return;
-                  onPlaylistUrlChange(e.target.value);
-                }}
-                onKeyDown={(event) => {
-                  if (
-                    event.key !== "Enter" ||
-                    playlistLoading ||
-                    playlistUrlReadOnly
-                  ) {
-                    return;
-                  }
-
-                  event.preventDefault();
-                  onFetchPlaylist();
-                }}
-                slotProps={{
-                  inputLabel: { shrink: true },
-                  input: {
-                    endAdornment: trimmedPlaylistUrl ? (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={onClearPlaylistUrl}
-                          edge="end"
-                          aria-label={
-                            hasResolvedPlaylist
-                              ? t("source.reselectPlaylist")
-                              : t("source.clearPlaylistUrl")
-                          }
-                          sx={{ color: "rgba(148,163,184,0.92)" }}
-                        >
-                          <CloseRounded fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ) : undefined,
-                  },
-                  htmlInput: {
-                    readOnly: playlistUrlReadOnly,
-                    lang: "en",
-                    autoComplete: "off",
-                    autoCorrect: "off",
-                    autoCapitalize: "off",
-                    inputMode: "url",
-                    spellCheck: "false",
-                    style: { imeMode: "disabled" },
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    color: "rgba(248, 250, 252, 0.72)",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: showPlaylistUrlError
-                      ? "rgba(251, 113, 133, 0.96)"
-                      : "rgba(251, 191, 36, 0.96)",
-                  },
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "20px",
-                    backgroundColor: "rgba(2, 6, 23, 0.32)",
-                    boxShadow:
-                      "0 0 0 1px rgba(148, 163, 184, 0.12), 0 10px 28px rgba(2, 6, 23, 0.18)",
-                    transition:
-                      "background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
-                    "& fieldset": {
-                      borderColor: showPlaylistUrlError
-                        ? "rgba(248, 113, 113, 0.5)"
-                        : "rgba(148, 163, 184, 0.2)",
-                    },
-                    "&:hover": {
-                      backgroundColor: "rgba(15, 23, 42, 0.52)",
-                      boxShadow: showPlaylistUrlError
-                        ? "0 0 0 1px rgba(248, 113, 113, 0.26), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                        : "0 0 0 1px rgba(34, 211, 238, 0.16), 0 16px 34px rgba(8, 47, 73, 0.2)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: showPlaylistUrlError
-                        ? "rgba(248, 113, 113, 0.66)"
-                        : "rgba(34, 211, 238, 0.34)",
-                    },
-                    "&.Mui-focused": {
-                      backgroundColor: "rgba(15, 23, 42, 0.62)",
-                      boxShadow: showPlaylistUrlError
-                        ? "0 0 0 1px rgba(248, 113, 113, 0.28), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                        : "0 0 0 1px rgba(251, 191, 36, 0.28), 0 18px 38px rgba(120, 53, 15, 0.18)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: showPlaylistUrlError
-                        ? "rgba(248, 113, 113, 0.72)"
-                        : "rgba(251, 191, 36, 0.72)",
-                    },
-                  },
-                }}
-              />
-            </Tooltip>
-
-            {playlistLoading ? (
-              <div className="mt-4 flex justify-end">
-                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/8 px-3 py-1.5 text-xs text-cyan-100/90">
-                  <CircularProgress
-                    size={14}
-                    thickness={5}
-                    sx={{ color: "#38bdf8" }}
-                  />
-                  {t("source.loading")}
-                </div>
-              </div>
-            ) : null}
-
-            {playlistError && (
-              <div className="mt-3 rounded-2xl border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
-                {playlistError}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* YouTube account tab panel */}
-        <div
-          className={`space-y-3 transition-all duration-200 ${
-            playlistSource === "youtube"
-              ? "translate-x-0 opacity-100"
-              : "pointer-events-none translate-x-2 opacity-0"
-          }`}
-          hidden={playlistSource !== "youtube"}
-        >
-          <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-            {(!authUserExists || !hasGoogleYouTubeConnection || needsGoogleReauth) && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span>{t("source.googleLoginHint")}</span>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={onLinkGoogleYouTube}
-                >
-                  {t("source.googleLogin")}
-                </Button>
-              </div>
-            )}
-
-            {youtubePlaylistsError && (
-              <span className="text-[11px] text-rose-300">
-                {youtubePlaylistsError}
-              </span>
-            )}
-          </div>
-
-          <div className="mt-4 space-y-2">
-            <MuizoSelect
-              value={selectedYoutubePlaylistId}
-              options={youtubePlaylistOptions}
-              placeholder={youtubeSelectPlaceholder}
-              loading={youtubeSelectLoading}
-              disabled={!authUserExists || !hasGoogleYouTubeConnection || needsGoogleReauth}
-              emptyText={t("source.playlistSelectPlaceholder")}
-              onOpen={onEnsureYoutubePlaylists}
-              onChange={(nextId) => {
-                onSelectedYoutubePlaylistIdChange(nextId);
-
-                if (!nextId) return;
-
-                void onImportSelectedYoutubePlaylist(nextId);
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              id={`create-source-${tab.key}`}
+              role="tab"
+              tabIndex={playlistSource === tab.key ? 0 : -1}
+              onKeyDown={(event) => {
+                const index = tabs.findIndex((item) => item.key === tab.key);
+                const next =
+                  event.key === "ArrowRight"
+                    ? (index + 1) % tabs.length
+                    : event.key === "ArrowLeft"
+                      ? (index + tabs.length - 1) % tabs.length
+                      : event.key === "Home"
+                        ? 0
+                        : event.key === "End"
+                          ? tabs.length - 1
+                          : null;
+                if (next === null) return;
+                event.preventDefault();
+                onPlaylistSourceChange(tabs[next].key);
+                document
+                  .getElementById(`create-source-${tabs[next].key}`)
+                  ?.focus();
               }}
-            />
-
-            {youtubePlaylistsLoading && (
-              <div className="animate-pulse rounded-lg border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 px-3 py-2 text-xs text-[var(--mc-text-muted)]">
-                {t("source.playlistLoadingHint")}
-              </div>
-            )}
-
-            {youtubeActionError && (
-              <div className="rounded-lg border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
-                {youtubeActionError}
-              </div>
-            )}
-          </div>
+              aria-selected={playlistSource === tab.key}
+              aria-controls={`create-panel-${tab.key}`}
+              type="button"
+              disabled={sourceSwitchDisabled}
+              onClick={() => onPlaylistSourceChange(tab.key)}
+            >
+              {playlistSource === tab.key && (
+                <motion.span
+                  className="create-source-tab-selection"
+                  layoutId={`${tabId}-source`}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : {
+                          type: "spring",
+                          stiffness: 460,
+                          damping: 38,
+                          mass: 0.7,
+                        }
+                  }
+                />
+              )}
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
-
-        {/* Song favorites tab panel */}
-        <div
-          className={`space-y-4 transition-all duration-200 ${
-            playlistSource === "favorites"
-              ? "translate-x-0 opacity-100"
-              : "pointer-events-none translate-x-2 opacity-0"
-          }`}
-          hidden={playlistSource !== "favorites"}
+        <motion.div
+          key={playlistSource}
+          initial={reduceMotion ? false : { opacity: 0.45, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.22,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+          id={`create-panel-${playlistSource}`}
+          role="tabpanel"
+          aria-labelledby={`create-source-${playlistSource}`}
+          className="create-source-input"
+          aria-busy={busy}
         >
-          <div className="rounded-2xl border border-amber-200/18 bg-amber-300/5 p-4">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[12px] border border-amber-200/24 bg-amber-300/12 text-amber-200">
-                <BookmarkRoundedIcon sx={{ fontSize: 18 }} />
-              </span>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-[var(--mc-text)]">
-                  {t("source.favoritesTitle")}
-                </div>
-                <div className="mt-1 text-xs leading-5 text-[var(--mc-text-muted)]">
-                  {t("source.favoritesDescription")}
-                </div>
+          {playlistSource === "url" && (
+            <>
+              <div className="create-input-heading">
+                <label htmlFor="create-playlist-url">播放清單連結</label>
+                <CreateHelp label="支援的連結">
+                  <ul style={{ margin: 0, paddingLeft: "1.25em", listStyleType: "disc" }}>
+                    <li>播放清單網址需包含 list=。</li>
+                    <li>不支援私人播放清單。</li>
+                  </ul>
+                </CreateHelp>
               </div>
-            </div>
-
-            <div className="mt-4">
-              {hasFavoritesSource ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="rounded-full border border-amber-200/28 bg-amber-300/12 px-3 py-1 text-xs font-semibold text-amber-100">
-                    {t("source.favoritesAlreadyImported")}
-                  </span>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (
+                    trimmedPlaylistUrl &&
+                    !busy &&
+                    !playlistUrlReadOnly &&
+                    !showPlaylistUrlError
+                  )
+                    onFetchPlaylist();
+                }}
+              >
+                <div
+                  className="create-url-field"
+                  data-invalid={showUrlWarning || Boolean(playlistError)}
+                  data-busy={playlistLoading}
+                >
+                  <LinkRounded aria-hidden="true" />
+                  <SiteTooltip title={showUrlWarning ? playlistUrlTooltipMessage : playlistError || undefined} open={showUrlWarning || (Boolean(playlistError) && showImportError) ? true : undefined}>
+                  <input
+                    ref={urlInputRef}
+                    id="create-playlist-url"
+                    type="text"
+                    inputMode="url"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder="https://youtube.com/playlist?list=…"
+                    value={playlistUrl}
+                    readOnly={playlistUrlReadOnly}
+                    aria-invalid={showUrlWarning || Boolean(playlistError)}
+                    aria-describedby={
+                      showUrlWarning
+                        ? "create-url-error"
+                        : activeError
+                          ? "create-import-error"
+                          : undefined
+                    }
+                    onFocus={() => onPlaylistUrlFocusChange(true)}
+                    onBlur={() => onPlaylistUrlFocusChange(false)}
+                    onChange={(event) => {
+                      setPasteState("idle");
+                      onPlaylistUrlChange(event.target.value);
+                    }}
+                    onPaste={(event) => {
+                      if (playlistUrlReadOnly || busy) return;
+                      const link = extractYoutubePlaylistUrl(
+                        event.clipboardData.getData("text"),
+                      );
+                      if (!link) return;
+                      event.preventDefault();
+                      setPasteState("filled");
+                      onPlaylistUrlChange(link);
+                    }}
+                  />
+                  </SiteTooltip>
+                  {!playlistUrlReadOnly && (
+                    <SiteTooltip title={clipboardStatus === "valid" ? "從剪貼簿貼上播放清單連結" : clipboardStatus === "invalid" ? "剪貼簿中沒有 YouTube 播放清單連結" : "無法讀取剪貼簿，請使用 Ctrl / Cmd + V 或長按輸入框貼上"}>
+                      <span className="create-paste-wrap" tabIndex={clipboardStatus !== "valid" ? 0 : undefined}>
+                        <button
+                          type="button"
+                          className="create-paste-button"
+                          aria-label="貼上播放清單連結"
+                          onClick={() => void fillClipboardLink()}
+                          disabled={busy || pasteState === "reading" || clipboardStatus !== "valid"}
+                        >
+                          {pasteState === "reading" ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <ContentPasteRounded fontSize="small" />
+                          )}
+                          {!trimmedPlaylistUrl && <span>貼上</span>}
+                        </button>
+                      </span>
+                    </SiteTooltip>
+                  )}
+                  {trimmedPlaylistUrl && (
+                    <button
+                      className="create-icon-button"
+                      type="button"
+                      onClick={() => {
+                        setPasteState("idle");
+                        onClearPlaylistUrl();
+                      }}
+                      aria-label={
+                        hasResolvedPlaylist
+                          ? t("source.reselectPlaylist")
+                          : t("source.clearPlaylistUrl")
+                      }
+                      disabled={busy}
+                    >
+                      <CloseRounded fontSize="small" />
+                    </button>
+                  )}
+                </div>
+                <div className="create-url-assist" aria-live="polite">
+                  {pasteState === "blocked" ? <span>無法讀取剪貼簿，請在輸入框使用 Ctrl / Cmd + V，或長按貼上。</span>
+                    : pasteState === "invalid" ? <span>剪貼簿中沒有播放清單連結，請複製 YouTube 分享連結。</span>
+                    : <span />}
+                  {clipboardStatus === "blocked" && !playlistUrlReadOnly && !trimmedPlaylistUrl && (
+                    <button type="button" className="create-clipboard-permission" onClick={() => void fillClipboardLink()} disabled={busy || pasteState === "reading"}>允許並貼上</button>
+                  )}
+                </div>
+                {showUrlWarning && <span id="create-url-error" className="sr-only" role="alert">{playlistUrlTooltipMessage}</span>}
+                {activeError && <span id="create-import-error" className="sr-only" role="alert">{activeError}</span>}
+                <div className="create-import-action-row">
+                <div className="create-import-result">
+                  <AnimatePresence initial={false}>
+                  {!busy && pasteState === "filled" && trimmedPlaylistUrl && !showPlaylistUrlError && (
+                    <motion.div key="link-ready" className="create-import-complete" role="status"
+                      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
+                      transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }}>
+                      <CheckCircleRounded aria-hidden="true" />
+                      <span><strong>連結已準備好</strong><small>按下匯入歌曲繼續</small></span>
+                    </motion.div>
+                  )}
+                  {!busy && !trimmedPlaylistUrl && lastImportedSource && lastImportedSource.id !== dismissedSourceId && (
+                    <motion.div key={lastImportedSource.id} className="create-import-complete" role="status"
+                      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
+                      transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }}>
+                      <CheckCircleRounded aria-hidden="true" />
+                      <span><strong>已加入歌單</strong><small title={lastImportedSource.title}>{lastImportedSource.title}</small></span>
+                    </motion.div>
+                  )}
+                  </AnimatePresence>
+                </div>
+                <span>
+                <button
+                  type="submit"
+                  className="create-primary create-import-button"
+                  disabled={
+                    !trimmedPlaylistUrl ||
+                    busy ||
+                    playlistUrlReadOnly ||
+                    showPlaylistUrlError
+                  }
+                >
+                  {playlistLoading ? (
+                    <CircularProgress size={17} color="inherit" />
+                  ) : (
+                    <DownloadRounded fontSize="small" />
+                  )}
+                  {playlistLoading ? `正在匯入${importProgressPercent === null ? "" : ` ${Math.round(importProgressPercent)}%`}` : playlistError ? "重新匯入" : "匯入歌曲"}
+                </button>
+                </span>
+                </div>
+              </form>
+            </>
+          )}
+          {playlistSource === "youtube" && (
+            <>
+              {!authUserExists ||
+              !hasGoogleYouTubeConnection ||
+              needsGoogleReauth ? (
+                <div className="create-connect-state">
+                  <YouTube className="create-source-symbol" />
+                  <h3>
+                    {needsGoogleReauth
+                      ? "重新連結 YouTube"
+                      : "選取你的播放清單"}
+                  </h3>
+                  <CreateHelp label="為什麼需要連結帳號">
+                    授權後只會讀取你選擇的播放清單，不會修改 YouTube 上的內容。
+                  </CreateHelp>
                   <button
                     type="button"
-                    disabled={isImportingFavorites}
-                    onClick={() => void onImportAllFavorites()}
-                    className="text-xs text-[var(--mc-text-muted)] underline-offset-2 hover:text-[var(--mc-text)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    className="create-primary"
+                    onClick={onLinkGoogleYouTube}
                   >
-                    {t("source.favoritesReimport")}
+                    連結 YouTube <ArrowForwardRounded fontSize="small" />
                   </button>
                 </div>
               ) : (
-                <Button
-                  variant="contained"
-                  size="small"
-                  disabled={isImportingFavorites}
-                  onClick={() => void onImportAllFavorites()}
-                  startIcon={
-                    isImportingFavorites ? (
-                      <CircularProgress size={14} thickness={5} sx={{ color: "rgba(255,255,255,0.7)" }} />
-                    ) : (
-                      <BookmarkRoundedIcon />
-                    )
-                  }
-                  sx={{
-                    borderRadius: "12px",
-                    fontWeight: 700,
-                    backgroundColor: "rgba(245, 158, 11, 0.22)",
-                    color: "rgba(254, 243, 199, 0.92)",
-                    border: "1px solid rgba(245, 158, 11, 0.32)",
-                    boxShadow: "none",
-                    "&:hover": {
-                      backgroundColor: "rgba(245, 158, 11, 0.32)",
-                      boxShadow: "none",
-                    },
-                    "&.Mui-disabled": {
-                      backgroundColor: "rgba(245, 158, 11, 0.10)",
-                      color: "rgba(254, 243, 199, 0.45)",
-                      border: "1px solid rgba(245, 158, 11, 0.15)",
-                    },
-                  }}
-                >
-                  {isImportingFavorites
-                    ? t("source.favoritesImporting")
-                    : t("source.favoritesImportAll")}
-                </Button>
-              )}
-
-              {favoritesImportError && (
-                <div className="mt-3 rounded-2xl border border-rose-500/35 bg-rose-900/20 px-3 py-2 text-xs text-rose-200">
-                  {favoritesImportError}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Imported sources summary */}
-      <div className="mt-3 rounded-2xl border border-[var(--mc-border)] bg-[rgba(2,6,23,0.22)] p-3 sm:mt-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-[var(--mc-text)]">
-              {t("source.importedSourcesTitle")}
-            </div>
-            <div className="mt-1 text-xs text-[var(--mc-text-muted)]">
-              {importSources.length > 0
-                ? t("source.importedSourcesDescription", {
-                    sourceCount: importSources.length,
-                    itemCount: totalImportedItemCount,
-                  })
-                : t("source.importedSourcesEmpty")}
-            </div>
-          </div>
-
-          {importSources.length > 1 && (
-            <button
-              type="button"
-              onClick={onClearImportSources}
-              className="rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/15"
-            >
-              {t("source.clearAllSources")}
-            </button>
-          )}
-        </div>
-
-        {importSources.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {importSources.map((source) => (
-              <div
-                key={source.id}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/45 px-2.5 py-2.5"
-              >
-                {source.type === "song_favorites" ? (
-                  <div className="flex h-12 w-[84px] shrink-0 items-center justify-center rounded-lg border border-amber-200/20 bg-amber-300/8 text-amber-200">
-                    <BookmarkRoundedIcon sx={{ fontSize: 22 }} />
+                <>
+                  <div className="create-input-heading">
+                    <span>選擇播放清單</span>
+                    <CreateHelp label="播放清單匯入說明">
+                      選擇後直接匯入。已加入的播放清單會標記為已匯入。
+                    </CreateHelp>
                   </div>
-                ) : getImportSourceThumbnail(source) ? (
-                  <img
-                    src={getImportSourceThumbnail(source) ?? ""}
-                    alt={source.title}
-                    loading="lazy"
-                    className="h-12 w-[84px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover"
+                  <SiteTooltip title={activeError || undefined} open={activeError ? true : undefined}><div>
+                  <MuizoSelect
+                    value={selectedYoutubePlaylistId}
+                    options={youtubePlaylistOptions}
+                    placeholder={youtubeSelectPlaceholder}
+                    loading={youtubeSelectLoading}
+                    disabled={youtubeSelectLoading}
+                    emptyText={t("source.playlistSelectPlaceholder")}
+                    onOpen={onEnsureYoutubePlaylists}
+                    onChange={(id) => {
+                      onSelectedYoutubePlaylistIdChange(id);
+                      if (id) void onImportSelectedYoutubePlaylist(id);
+                    }}
                   />
+                  </div></SiteTooltip>
+                  {activeError && <span className="sr-only" role="alert">{activeError}</span>}
+                </>
+              )}
+            </>
+          )}
+          {playlistSource === "favorites" && (
+            <div className="create-connect-state">
+              <BookmarkRoundedIcon className="create-source-symbol" />
+              <h3>
+                {hasFavoritesSource ? "收藏歌曲已加入" : "匯入你的收藏歌曲"}
+              </h3>
+              <CreateHelp label="收藏歌曲匯入說明">
+                匯入遊戲中收藏的所有歌曲。在下一步可移除曲目或修改答案，不會影響原本的收藏。
+              </CreateHelp>
+              <SiteTooltip title={favoritesImportError || undefined} open={favoritesImportError ? true : undefined}><span>
+              <button
+                type="button"
+                className="create-primary"
+                disabled={isImportingFavorites}
+                onClick={() => void onImportAllFavorites()}
+              >
+                {isImportingFavorites ? (
+                  <CircularProgress size={17} color="inherit" />
                 ) : (
-                  <div className="flex h-12 w-[84px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.16),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)]">
-                    No Cover
-                  </div>
+                  <DownloadRounded fontSize="small" />
                 )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span
-                      className={[
-                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-                        source.type === "song_favorites"
-                          ? "border-amber-300/28 bg-amber-300/12 text-amber-100"
-                          : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
-                      ].join(" ")}
-                    >
-                      {t(getSourceTypeLabelKey(source.type))}
-                    </span>
-
-                    <span className="truncate text-sm font-semibold text-[var(--mc-text)]">
-                      {source.title}
-                    </span>
-                  </div>
-
-                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-[var(--mc-text-muted)]">
-                    <span>
-                      {t("source.importedSourceCount", {
-                        count: source.itemCount,
-                      })}
-                    </span>
-
-                    {source.skippedCount > 0 && (
-                      <span className="text-amber-200">
-                        {t("source.importedSourceSkipped", {
-                          count: source.skippedCount,
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <IconButton
-                  size="small"
-                  onClick={() => onRemoveImportSource(source.id)}
-                  aria-label={t("source.removeImportSource", {
-                    title: source.title,
-                  })}
-                  sx={{
-                    color: "rgba(248, 113, 113, 0.92)",
-                    border: "1px solid rgba(248, 113, 113, 0.22)",
-                    backgroundColor: "rgba(248, 113, 113, 0.08)",
-                    "&:hover": {
-                      backgroundColor: "rgba(248, 113, 113, 0.16)",
-                    },
-                  }}
-                >
-                  <DeleteOutlineRounded fontSize="small" />
-                </IconButton>
-              </div>
-            ))}
-          </div>
-        )}
+                {isImportingFavorites
+                  ? "正在匯入"
+                  : hasFavoritesSource
+                    ? "重新匯入"
+                    : "匯入收藏歌曲"}
+              </button>
+              </span></SiteTooltip>
+              {favoritesImportError && <span className="sr-only" role="alert">{favoritesImportError}</span>}
+            </div>
+          )}
+        </motion.div>
+        {busy && <span className="sr-only" role="status">正在匯入歌曲</span>}
       </div>
-    </div>
+      <aside
+        className="create-import-tray"
+        aria-label="已匯入歌曲"
+        aria-live="polite"
+      >
+        <div className="create-section-heading">
+          <h2>本次歌單</h2>
+          <span
+            className="create-count"
+            data-ready={totalImportedItemCount > 0}
+          >
+            <ComposerCount value={totalImportedItemCount} />
+            <small> 首</small>
+          </span>
+        </div>
+        {importSources.length === 0 ? (
+          <div className="create-tray-empty">
+            <div className="create-empty-art" aria-hidden="true">
+              <span className="create-empty-disc">
+                <QueueMusicRounded />
+              </span>
+              <span className="create-empty-note">♪</span>
+            </div>
+            <strong>先加入一份歌單</strong>
+            <span>歌曲會整理在這裡</span>
+            <div className="create-empty-slots">
+              <i>
+                <b />
+                <span />
+                <em />
+              </i>
+              <i>
+                <b />
+                <span />
+                <em />
+              </i>
+              <i>
+                <b />
+                <span />
+                <em />
+              </i>
+            </div>
+          </div>
+        ) : (
+          <>
+            <ul className="create-import-list">
+              <AnimatePresence>
+                {importSources.map((source) => {
+                  const thumbnail = source.items.find(
+                    (item) => item.thumbnail,
+                  )?.thumbnail;
+                  return (
+                    <motion.li
+                      key={source.id}
+                      layout={reduceMotion ? false : "position"}
+                      initial={
+                        reduceMotion ? false : { opacity: 0, x: 24 }
+                      }
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={
+                        reduceMotion
+                          ? { opacity: 1 }
+                          : { opacity: 0, x: 12 }
+                      }
+                      transition={
+                        reduceMotion
+                          ? { duration: 0 }
+                          : {
+                              type: "spring",
+                              stiffness: 380,
+                              damping: 32,
+                            }
+                      }
+                    >
+                      {thumbnail ? (
+                        <img src={thumbnail} alt="" />
+                      ) : (
+                        <span className="create-import-icon">
+                          <QueueMusicRounded />
+                        </span>
+                      )}
+                      <div>
+                        <strong>{source.title}</strong>
+                        <span className="create-import-counts">
+                          <SiteTooltip interactiveContent leaveDelay={400} title={<TrackTooltipList title="已匯入曲目" items={source.items.map((item) => ({title: item.title || item.answerText || "未命名曲目", detail: [item.uploader, item.duration].filter(Boolean).join(" · "), thumbnail: item.thumbnail, videoId: item.videoId, url: item.url}))} />}>
+                            <button type="button" className="create-import-count-button" aria-label={`查看 ${source.itemCount} 首已匯入曲目`}>{source.itemCount} 首</button>
+                          </SiteTooltip>
+                          {source.skippedCount > 0 && <>
+                            <span aria-hidden="true"> · </span>
+                            <SiteTooltip interactiveContent leaveDelay={400} title={<TrackTooltipList title="匯入失敗曲目" items={source.skippedItems.map((item) => ({title: item.title || "無法取得曲目名稱", detail: importFailureReason(item), videoId: item.videoId}))} missing={Math.max(0, source.skippedCount - source.skippedItems.length)} />}>
+                              <button type="button" className="create-import-count-button" aria-label={`查看 ${source.skippedCount} 首匯入失敗曲目`}>{source.skippedCount} 首匯入失敗</button>
+                            </SiteTooltip>
+                          </>}
+                        </span>
+                      </div>
+                      <SiteTooltip title="移除此來源">
+                        <button
+                          type="button"
+                          className="create-icon-button"
+                          onClick={() => onRemoveImportSource(source.id)}
+                          aria-label={`移除 ${source.title}`}
+                          disabled={busy}
+                        >
+                          <CloseRounded fontSize="small" />
+                        </button>
+                      </SiteTooltip>
+                    </motion.li>
+                  );
+                })}
+              </AnimatePresence>
+            </ul>
+            {!actions && (
+              <div className="create-import-ready">
+                <CheckCircleRounded fontSize="small" />
+                <span>歌單已就緒，繼續整理題目</span>
+              </div>
+            )}
+            {importSources.length > 1 && (
+              <button
+                type="button"
+                className="create-text-button"
+                disabled={busy}
+                onClick={onClearImportSources}
+              >
+                清空來源
+              </button>
+            )}
+          </>
+        )}
+        {actions}
+      </aside>
+    </section>
   );
 }

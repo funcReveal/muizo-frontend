@@ -5,7 +5,7 @@
  * It exposes public collection content state plus the access bridge used by
  * room flows that need collection snapshots/read tokens.
  */
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 
 import { useAuth } from "../../../shared/auth/AuthContext";
 import {
@@ -30,6 +30,7 @@ export const CollectionContentProvider: React.FC<
   CollectionContentProviderProps
 > = ({ children, setStatusText = () => {} }) => {
   const { authToken, authUser, refreshAuthToken } = useAuth();
+  const wasAuthenticatedRef = useRef(Boolean(authToken));
   const {
     applyPlaylistSource,
     clearPlaylistError,
@@ -78,10 +79,15 @@ export const CollectionContentProvider: React.FC<
     },
   });
 
-  useEffect(() => {
-    if (authToken) return;
-    resetCollectionsState();
-    resetPlaylistState();
+  useLayoutEffect(() => {
+    const loggedOut = wasAuthenticatedRef.current && !authToken;
+    wasAuthenticatedRef.current = Boolean(authToken);
+    // Purge private data before painting logout or starting child requests.
+    // Initial guest mounting must not cancel the first public-library load.
+    if (loggedOut) {
+      resetCollectionsState();
+      resetPlaylistState();
+    }
   }, [authToken, resetCollectionsState, resetPlaylistState]);
 
   useEffect(() => {

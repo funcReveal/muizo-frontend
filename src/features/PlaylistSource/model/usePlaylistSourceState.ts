@@ -495,9 +495,9 @@ export const usePlaylistSourceState = ({
     }
   };
 
-  const clearPlaylistError = () => {
+  const clearPlaylistError = useCallback(() => {
     setPlaylistError(null);
-  };
+  }, []);
 
   const resetPlaylistState = useCallback(() => {
     setPlaylistUrl("");

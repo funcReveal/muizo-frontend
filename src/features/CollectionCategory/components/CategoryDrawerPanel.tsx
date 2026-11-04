@@ -307,6 +307,8 @@ export function CategoryDrawerPanel({
                     <button
                       key={parent.key}
                       type="button"
+                      aria-pressed={active}
+                      aria-expanded={hasChildren ? isPopoverOpenForThis : undefined}
                       disabled={isSaving}
                       onClick={(e) => {
                         if (hasChildren) {
@@ -420,6 +422,7 @@ export function CategoryDrawerPanel({
                     <button
                       key={tag.key}
                       type="button"
+                      aria-pressed={active}
                       disabled={isSaving || maxReached}
                       onClick={() => toggleSubTag(tag.key)}
                       className={[

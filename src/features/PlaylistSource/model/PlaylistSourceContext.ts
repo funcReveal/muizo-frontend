@@ -13,6 +13,7 @@ export interface PlaylistSourceContextValue {
   setPlaylistUrl: (value: string) => void;
   playlistItems: PlaylistItem[];
   playlistError: string | null;
+  clearPlaylistError: () => void;
   playlistLoading: boolean;
   playlistStage: "input" | "preview";
   playlistLocked: boolean;

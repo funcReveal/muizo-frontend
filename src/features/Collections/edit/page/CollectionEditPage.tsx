@@ -372,6 +372,33 @@ const CollectionEditPage = () => {
     onSaved: handleSavedBaseline,
   });
 
+  const [isPublishingDraft, setIsPublishingDraft] = useState(false);
+  const isDraft = activeCollection?.lifecycle_status === "draft";
+  const handlePublishDraft = useCallback(async () => {
+    if (!activeCollectionId || !authToken || authExpired) return;
+    const saved = await handleSaveCollection("manual");
+    if (!saved) return;
+    setIsPublishingDraft(true);
+    setSaveError(null);
+    try {
+      const token = await ensureFreshAuthToken({ token: authToken, refreshAuthToken });
+      if (!token) throw new Error("登入已過期，請重新登入");
+      await collectionsApi.publishDraft(token, activeCollectionId, collectionVisibility);
+      setCollections((previous) => previous.map((item) =>
+        item.id === activeCollectionId ? { ...item, lifecycle_status: "published", visibility: collectionVisibility } : item,
+      ));
+      setSaveStatus("saved");
+      showAutoSaveNotice("success", "草稿已完成，可開始使用題庫。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "完成草稿失敗";
+      setSaveStatus("error");
+      setSaveError(message);
+      showAutoSaveNotice("error", message);
+    } finally {
+      setIsPublishingDraft(false);
+    }
+  }, [activeCollectionId, authExpired, authToken, collectionVisibility, handleSaveCollection, refreshAuthToken]);
+
   const isReadOnly = !authToken || authExpired;
 
   // Category auto-detect — runs once per collection open regardless of whether
@@ -1682,6 +1709,9 @@ const CollectionEditPage = () => {
           activeCollection?.moderation_status === "action_required" ||
           activeCollection?.moderation_status === "under_review"
         }
+        isDraft={isDraft}
+        onPublishDraft={handlePublishDraft}
+        isPublishingDraft={isPublishingDraft}
         moderationSlot={
           activeCollection ? (
             <ModerationChip
@@ -1815,7 +1845,7 @@ const CollectionEditPage = () => {
         )}
 
         <div className="mt-2 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="order-2 lg:order-2 min-w-0">
+          <section className="order-2 min-w-0 lg:order-1" aria-label="題目清單">
             <PlaylistListPanel
               items={playlistItems}
               maxItems={activeCollectionItemLimit}
@@ -1833,12 +1863,11 @@ const CollectionEditPage = () => {
               autoPlayOnSwitch={autoPlayOnSwitch}
               onAutoPlayChange={handleAutoPlayToggle}
             />
-          </div>
+          </section>
 
-          <div className="order-1 lg:order-1 min-w-0 space-y-2">
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]">
+          <aside className="order-1 min-w-0 space-y-3 lg:order-2" aria-label="選取題目的編輯工具">
               {bulkPlaybackOpen ? (
-                <div className="hidden p-2.5 md:block">
+                <div className="p-2.5">
                   <div className="flex aspect-16/6 w-full items-center justify-center rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 text-sm text-[var(--mc-text-muted)]">
                     播放器已移到批量預覽面板。
                   </div>
@@ -1854,21 +1883,6 @@ const CollectionEditPage = () => {
               ) : (
                 playerPanelNode
               )}
-
-              <AnswerPanel
-                title={TEXT.answer}
-                value={answerText}
-                placeholder={TEXT.answerPlaceholder}
-                disabled={!selectedItem}
-                maxLength={ANSWER_MAX_LENGTH}
-                onChange={(value) => {
-                  updateSelectedAnswerText(value);
-                }}
-                actionLabel="AI 修改答案"
-                actionDisabled={playlistItems.length === 0}
-                onActionClick={openAiBatchModal}
-              />
-            </div>
 
             <ClipEditorPanel
               title={TEXT.editTime}
@@ -1928,7 +1942,20 @@ const CollectionEditPage = () => {
               }
               onActionClick={() => setBulkPlaybackOpen(true)}
             />
-          </div>
+            <AnswerPanel
+              title={TEXT.answer}
+              value={answerText}
+              placeholder={TEXT.answerPlaceholder}
+              disabled={!selectedItem}
+              maxLength={ANSWER_MAX_LENGTH}
+              onChange={(value) => {
+                updateSelectedAnswerText(value);
+              }}
+              actionLabel="AI 修改答案"
+              actionDisabled={playlistItems.length === 0}
+              onActionClick={openAiBatchModal}
+            />
+          </aside>
         </div>
       </div>
 

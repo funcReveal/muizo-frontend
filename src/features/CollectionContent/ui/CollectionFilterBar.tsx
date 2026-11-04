@@ -19,6 +19,8 @@ type Props = {
   onSelectSubTag: (key: string | null) => void;
   /** Optional loading indicator for refetches */
   isLoading?: boolean;
+  /** Keep option positions stable in the mobile drawer as counts change. */
+  showEmptyOptions?: boolean;
 };
 
 /**
@@ -33,6 +35,7 @@ const CollectionFilterBar = ({
   onSelectCategory,
   onSelectSubTag,
   isLoading = false,
+  showEmptyOptions = false,
 }: Props) => {
   const { data: categories = [] } = useCategoriesQuery();
   const { data: subTags = [] } = useSubTagsQuery();
@@ -62,8 +65,9 @@ const CollectionFilterBar = ({
         key={key}
         type="button"
         onClick={onClick}
+        aria-pressed={active}
         className={[
-          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium leading-none transition-colors",
+          "collection-filter-chip inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium leading-none transition-colors",
           active ? activeBase : inactive,
         ].join(" ")}
       >
@@ -81,9 +85,9 @@ const CollectionFilterBar = ({
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+    <div className="collection-filter-bar flex flex-col gap-2">
+      <div className="collection-filter-group flex flex-wrap items-center gap-1.5" role="group" aria-label="分類">
+        <span className="collection-filter-group__label mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
           分類
         </span>
         {renderChip(
@@ -96,7 +100,7 @@ const CollectionFilterBar = ({
         {categories.map((cat) => {
           const cnt = byCategory[cat.key] ?? 0;
           const active = selectedCategoryKeys.includes(cat.key);
-          if (cnt === 0 && !active) return null;
+          if (cnt === 0 && !active && !showEmptyOptions) return null;
           return renderChip(
             cat.key,
             cat.label,
@@ -105,7 +109,7 @@ const CollectionFilterBar = ({
             () => onSelectCategory(cat.key),
           );
         })}
-        {(noCategoryCount > 0 ||
+        {(showEmptyOptions || noCategoryCount > 0 ||
           selectedCategoryKeys.includes(NO_CATEGORY_KEY)) &&
           renderChip(
             NO_CATEGORY_KEY,
@@ -116,8 +120,8 @@ const CollectionFilterBar = ({
           )}
       </div>
 
-      <div className="relative flex flex-wrap items-center gap-1.5 pr-14">
-        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+      <div className="collection-filter-group relative flex flex-wrap items-center gap-1.5 pr-14" role="group" aria-label="語言">
+        <span className="collection-filter-group__label mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
           語言
         </span>
         {renderChip(
@@ -131,7 +135,7 @@ const CollectionFilterBar = ({
         {subTags.map((tag) => {
           const cnt = bySubTag[tag.key] ?? 0;
           const active = selectedSubTagKeys.includes(tag.key);
-          if (cnt === 0 && !active) return null;
+          if (cnt === 0 && !active && !showEmptyOptions) return null;
           return renderChip(
             tag.key,
             tag.label,
@@ -142,7 +146,7 @@ const CollectionFilterBar = ({
           );
         })}
         {isLoading && aggregations !== undefined && (
-          <span className="pointer-events-none absolute right-0 top-1/2 inline-flex w-12 -translate-y-1/2 items-center justify-end gap-1 text-[10px] text-cyan-300/45">
+          <span className="collection-filter-loading pointer-events-none absolute right-0 top-1/2 inline-flex w-12 -translate-y-1/2 items-center justify-end gap-1 text-[10px] text-cyan-300/45">
             <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-cyan-400/60" />
             更新中
           </span>

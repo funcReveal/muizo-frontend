@@ -47,7 +47,7 @@ const collectionCreate = {
     playlistUrlLabel: "YouTube playlist URL",
     playlistUrlPlaceholder: "https://www.youtube.com/playlist?list=...",
     invalidPlaylistUrl:
-      "Please paste a valid YouTube playlist URL that contains a list parameter.",
+      "Use a YouTube playlist share link. Individual video links cannot be imported.",
     loading: "Loading...",
     googleLoginHint:
       "Sign in with Google to load your YouTube playlists directly.",
@@ -64,11 +64,11 @@ const collectionCreate = {
     selectPlaylistFirst: "Please select a YouTube playlist first.",
     clearPlaylistUrl: "Clear playlist URL",
     reselectPlaylist: "Reselect playlist",
-    clearPlaylistDialogTitle: "Reselect playlist?",
+    clearPlaylistDialogTitle: "Clear this song list?",
     clearPlaylistDialogDescription:
-      "The current parsed playlist and import result will be cleared. You can paste or select another playlist afterward.",
+      "All imported songs and sources will be cleared.",
     clearPlaylistDialogCancel: "Cancel",
-    clearPlaylistDialogConfirm: "Clear and reselect",
+    clearPlaylistDialogConfirm: "Clear song list",
     importedSourcesTitle: "Imported sources",
     importedSourcesDescription: "{{sourceCount}} sources · {{itemCount}} songs",
     importedSourcesEmpty:
@@ -87,8 +87,10 @@ const collectionCreate = {
       "Import all songs you favorited during gameplay at once. Song titles will be used as default answers (editable in the review step).",
     favoritesImportAll: "Import all song favorites",
     favoritesImporting: "Loading song favorites...",
-    favoritesEmpty: "You have no favorited songs yet. Favorite some during gameplay first.",
-    favoritesImportFailed: "Failed to load song favorites. Please try again later.",
+    favoritesEmpty:
+      "You have no favorited songs yet. Favorite some during gameplay first.",
+    favoritesImportFailed:
+      "Failed to load song favorites. Please try again later.",
     favoritesSourceLabel: "My Song Favorites",
     favoritesAlreadyImported: "Song favorites loaded",
     favoritesReimport: "Reload",

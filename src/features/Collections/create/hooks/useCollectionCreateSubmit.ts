@@ -29,6 +29,31 @@ const createServerId = () =>
   crypto.randomUUID?.() ??
   `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
 
+const CREATE_DRAFT_SESSION_KEY = "muizo:collection-create:draft";
+
+type PersistedDraft = { collectionId: string; itemFingerprint: string; batchKey: string };
+
+const readPersistedDraft = (): PersistedDraft | null => {
+  try {
+    const raw = sessionStorage.getItem(CREATE_DRAFT_SESSION_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<PersistedDraft>;
+    return typeof value.collectionId === "string" && typeof value.itemFingerprint === "string" && typeof value.batchKey === "string"
+      ? (value as PersistedDraft)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const persistDraft = (value: PersistedDraft) => {
+  try { sessionStorage.setItem(CREATE_DRAFT_SESSION_KEY, JSON.stringify(value)); } catch { /* private browsing storage is optional */ }
+};
+
+const clearPersistedDraft = () => {
+  try { sessionStorage.removeItem(CREATE_DRAFT_SESSION_KEY); } catch { /* no-op */ }
+};
+
 type RefreshAuthToken = Parameters<
   typeof ensureFreshAuthToken
 >[0]["refreshAuthToken"];
@@ -79,6 +104,7 @@ export function useCollectionCreateSubmit({
   onCreated,
 }: UseCollectionCreateSubmitArgs) {
   const [createError, setCreateError] = useState<string | null>(null);
+  const [recoverableDraftId, setRecoverableDraftId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createStageLabel, setCreateStageLabel] = useState<string | null>(null);
   const [createProgress, setCreateProgress] = useState<{
@@ -130,6 +156,7 @@ export function useCollectionCreateSubmit({
     }
 
     setCreateError(null);
+    setRecoverableDraftId(null);
     setIsCreating(true);
     setCreateStageLabel("正在建立收藏庫");
     setCreateProgress({ completed: 0, total: 3 });
@@ -163,7 +190,9 @@ export function useCollectionCreateSubmit({
         const id = createServerId();
         const videoId = extractVideoId(item.url ?? "");
         const provider = videoId ? "youtube" : "manual";
-        const sourceId = videoId ?? id;
+        // A draft key survives a reload; do not use the random database id as the source identity.
+        // The server uses provider + source_id to make a retried batch deduplicate correctly.
+        const sourceId = videoId ?? item.draftKey ?? id;
 
         return {
           id,
@@ -188,39 +217,56 @@ export function useCollectionCreateSubmit({
         };
       });
 
-      setCreateStageLabel("正在建立收藏庫並寫入歌曲資料");
+      setCreateStageLabel("正在建立可恢復的草稿");
       setCreateProgress({ completed: 2, total: 3 });
 
       const normalizedDescription = collectionDescription.trim();
+      const itemFingerprint = JSON.stringify(insertItems);
+      const persisted = readPersistedDraft();
+      const draft = persisted
+        ? { id: persisted.collectionId }
+        : await collectionsApi.createDraft(token, collectionTitle.trim());
+      if (!draft?.id) {
+        throw new Error("Missing collection id");
+      }
+      const batchKey = persisted?.itemFingerprint === itemFingerprint
+        ? persisted.batchKey
+        : createServerId();
+      persistDraft({ collectionId: draft.id, itemFingerprint, batchKey });
+      setRecoverableDraftId(draft.id);
 
-      const created = await collectionsApi.createCollectionWithItems(token, {
-        owner_id: ownerId,
+      await collectionsApi.updateCollection(token, draft.id, {
         title: collectionTitle.trim(),
-        description:
-          normalizedDescription.length > 0 ? normalizedDescription : null,
+        description: normalizedDescription.length > 0 ? normalizedDescription : null,
         visibility,
-        items: insertItems,
         category_id: categoryId ?? null,
         sub_tag_keys: subTagKeys ?? [],
       });
 
-      if (!created?.id) {
-        throw new Error("Missing collection id");
-      }
+      setCreateStageLabel("正在安全儲存歌曲資料");
+      await collectionsApi.saveDraftItems(token, draft.id, batchKey, insertItems);
+
+      setCreateStageLabel(visibility === "public" ? "正在檢查並公開題庫" : "正在完成私人題庫");
+      await collectionsApi.publishDraft(token, draft.id, visibility);
+      clearPersistedDraft();
+      setRecoverableDraftId(null);
 
       setCreateStageLabel("正在開啟收藏編輯頁");
       setCreateProgress({ completed: 3, total: 3 });
 
       trackEvent("collection_create_success", {
-        collection_id: created.id,
+        collection_id: draft.id,
         collection_visibility: visibility,
         item_count: insertItems.length,
         import_source: playlistSource,
       });
 
-      onCreated(created.id);
+      onCreated(draft.id);
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "建立收藏失敗");
+      const detail = error instanceof Error ? error.message : "建立收藏失敗";
+      setCreateError(readPersistedDraft()
+        ? `${detail}。草稿已安全保留，可重新嘗試或前往編輯。`
+        : detail);
     } finally {
       setIsCreating(false);
       setCreateStageLabel(null);
@@ -250,6 +296,7 @@ export function useCollectionCreateSubmit({
 
   return {
     createError,
+    recoverableDraftId,
     isCreating,
     createStageLabel,
     createProgress,

@@ -1,6 +1,8 @@
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import CheckRounded from "@mui/icons-material/CheckRounded";
+import { useId } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import type { CollectionCreateStep } from "../hooks/useCollectionCreateReadiness";
+import SiteTooltip from "@shared/ui/SiteTooltip";
 
 type Props = {
   currentStep: CollectionCreateStep;
@@ -8,132 +10,90 @@ type Props = {
   canOpenReview: boolean;
   canOpenPublish: boolean;
 };
-
-type StepItem = {
-  key: CollectionCreateStep;
-  index: number;
-  title: string;
-  mobileTitle: string;
-  description: string;
-  disabled: boolean;
-};
-
+const steps = [
+  { key: "source", title: "匯入歌曲" },
+  { key: "review", title: "整理題目" },
+  { key: "publish", title: "完成設定" },
+] as const;
 export default function CollectionCreateStepNav({
   currentStep,
   onStepChange,
   canOpenReview,
   canOpenPublish,
 }: Props) {
-  const { t } = useTranslation("collectionCreate");
-
-  const steps = useMemo<StepItem[]>(
-    () => [
-      {
-        key: "source",
-        index: 1,
-        title: t("steps.source.title", { defaultValue: "匯入來源" }),
-        mobileTitle: t("steps.source.mobileTitle", {
-          defaultValue: "匯入",
-        }),
-        description: t("steps.source.description", {
-          defaultValue: "貼上 YouTube 播放清單，或從帳號清單匯入。",
-        }),
-        disabled: false,
-      },
-      {
-        key: "review",
-        index: 2,
-        title: t("steps.review.title", { defaultValue: "檢查內容" }),
-        mobileTitle: t("steps.review.mobileTitle", {
-          defaultValue: "檢查",
-        }),
-        description: t("steps.review.description", {
-          defaultValue: "確認曲目、重複項目、超長曲目與匯入狀態。",
-        }),
-        disabled: !canOpenReview,
-      },
-      {
-        key: "publish",
-        index: 3,
-        title: t("steps.publish.title", { defaultValue: "發布設定" }),
-        mobileTitle: t("steps.publish.mobileTitle", {
-          defaultValue: "發布",
-        }),
-        description: t("steps.publish.description", {
-          defaultValue: "設定標題、描述與公開狀態後建立收藏庫。",
-        }),
-        disabled: !canOpenPublish,
-      },
-    ],
-    [canOpenPublish, canOpenReview, t],
-  );
-
-  const currentIndex =
-    steps.find((step) => step.key === currentStep)?.index ?? 1;
-
+  const index = steps.findIndex((step) => step.key === currentStep);
+  const motionId = useId();
+  const reduce = useReducedMotion();
   return (
-    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/55 p-2 sm:p-3">
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-        {steps.map((step) => {
-          const isActive = step.key === currentStep;
-          const isDone = step.index < currentIndex;
-
-          return (
-            <button
-              key={step.key}
-              type="button"
-              onClick={() => {
-                if (step.disabled) return;
-                onStepChange(step.key);
-              }}
-              disabled={step.disabled}
-              aria-current={isActive ? "step" : undefined}
-              className={[
-                "group min-w-0 rounded-xl border px-1.5 py-2 text-center transition sm:px-3 sm:py-3 sm:text-left",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                isActive
-                  ? "border-cyan-300/35 bg-cyan-300/12 shadow-[0_14px_40px_rgba(34,211,238,0.12)]"
-                  : isDone
-                    ? "border-emerald-300/25 bg-emerald-300/8 hover:border-emerald-300/35"
-                    : "border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 hover:border-cyan-300/25 hover:bg-[var(--mc-surface-strong)]/50",
-              ].join(" ")}
-            >
-              <div className="flex min-w-0 flex-col items-center gap-1.5 sm:flex-row sm:gap-2">
-                <div
-                  className={[
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold sm:h-7 sm:w-7 sm:text-xs",
-                    isActive
-                      ? "border-cyan-200/50 bg-cyan-200/20 text-cyan-100"
-                      : isDone
-                        ? "border-emerald-200/40 bg-emerald-200/15 text-emerald-100"
-                        : "border-[var(--mc-border)] bg-black/15 text-[var(--mc-text-muted)]",
-                  ].join(" ")}
-                >
-                  {isDone ? "✓" : step.index}
-                </div>
-
-                <div className="min-w-0">
-                  <div
-                    className={[
-                      "truncate text-[11px] font-semibold leading-4 sm:text-sm",
-                      isActive
-                        ? "text-[var(--mc-text)]"
-                        : "text-[var(--mc-text-muted)] group-hover:text-[var(--mc-text)]",
-                    ].join(" ")}
-                  >
-                    <span className="sm:hidden">{step.mobileTitle}</span>
-                    <span className="hidden sm:inline">{step.title}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-2 hidden overflow-hidden text-[11px] leading-4 text-[var(--mc-text-muted)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:block">
-                {step.description}
-              </div>
-            </button>
-          );
-        })}
+    <nav className="create-step-nav" aria-label="建立題庫步驟">
+      <div
+        className="create-step-track"
+        role="progressbar"
+        aria-label="建立題庫進度"
+        aria-valuemin={1}
+        aria-valuemax={3}
+        aria-valuenow={index + 1}
+        aria-valuetext={`第 ${index + 1} 步，共 3 步`}
+      >
+        <motion.span
+          initial={false}
+          animate={{ scaleX: index / 2 }}
+          transition={
+            reduce
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 150, damping: 28 }
+          }
+        />
       </div>
-    </div>
+      {steps.map((step, i) => {
+        const locked =
+          step.key === "review"
+            ? !canOpenReview
+            : step.key === "publish"
+              ? !canOpenPublish
+              : false;
+        return (
+          <SiteTooltip
+            key={step.key}
+            title={
+              locked
+                ? step.key === "review"
+                  ? "先匯入至少一首歌曲"
+                  : "先完成曲目與題庫標題檢查"
+                : undefined
+            }
+          >
+            <motion.button
+              whileTap={reduce || locked ? undefined : { scale: 0.98 }}
+              type="button"
+              className="create-step"
+              data-active={i === index}
+              data-done={i < index}
+              aria-disabled={locked}
+              aria-current={i === index ? "step" : undefined}
+              onClick={() => {
+                if (!locked) onStepChange(step.key);
+              }}
+            >
+              {i === index && (
+                <motion.span
+                  className="create-step-selection"
+                  layoutId={`${motionId}-step`}
+                  transition={
+                    reduce
+                      ? { duration: 0 }
+                      : { type: "spring", stiffness: 420, damping: 36 }
+                  }
+                />
+              )}
+              <span className="create-step-number">
+                {i < index ? <CheckRounded fontSize="small" /> : `0${i + 1}`}
+              </span>
+              <span>{step.title}</span>
+            </motion.button>
+          </SiteTooltip>
+        );
+      })}
+    </nav>
   );
 }

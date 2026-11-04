@@ -1,7 +1,10 @@
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import ArrowForwardRounded from "@mui/icons-material/ArrowForwardRounded";
+import ArrowBackRounded from "@mui/icons-material/ArrowBackRounded";
+import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
+import { CircularProgress } from "@mui/material";
 import type { CollectionCreateStep } from "../hooks/useCollectionCreateReadiness";
-
+import SiteTooltip from "@shared/ui/SiteTooltip";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 type Props = {
   currentStep: CollectionCreateStep;
   canGoNext: boolean;
@@ -10,8 +13,8 @@ type Props = {
   onBack: () => void;
   onNext: () => void;
   onCreate: () => void;
+  error?: string | null;
 };
-
 export default function CollectionCreateActionBar({
   currentStep,
   canGoNext,
@@ -20,91 +23,85 @@ export default function CollectionCreateActionBar({
   onBack,
   onNext,
   onCreate,
+  error,
 }: Props) {
-  const { t } = useTranslation("collectionCreate");
-
-  const canGoBack = currentStep !== "source" && !isCreating;
-  const isPublishStep = currentStep === "publish";
-
-  const primaryDisabled = isPublishStep
-    ? !canCreate || isCreating
-    : !canGoNext || isCreating;
-
-  const primaryLabel = useMemo(() => {
-    if (isPublishStep) {
-      return isCreating
-        ? t("action.creating", { defaultValue: "建立中..." })
-        : t("action.create", { defaultValue: "建立收藏庫" });
-    }
-
-    if (currentStep === "source") {
-      return t("action.reviewNext", { defaultValue: "下一步" });
-    }
-
-    return t("action.publishNext", { defaultValue: "下一步" });
-  }, [currentStep, isCreating, isPublishStep, t]);
-
-  const helperText = useMemo(() => {
-    if (isPublishStep) {
-      return canCreate
-        ? t("action.readyToCreate", {
-            defaultValue: "確認無誤後即可建立收藏庫。",
-          })
-        : t("action.createDisabledHint", {
-            defaultValue: "請確認標題、曲目數量與收藏庫限制。",
-          });
-    }
-
-    if (currentStep === "source") {
-      return canGoNext
-        ? t("action.sourceReadyHint", {
-            defaultValue: "已可進入內容檢查。",
-          })
-        : t("action.sourceDisabledHint", {
-            defaultValue: "請先匯入至少一個播放清單。",
-          });
-    }
-
-    return canGoNext
-      ? t("action.reviewReadyHint", {
-          defaultValue: "內容檢查完成後可進入發布設定。",
-        })
-      : t("action.reviewDisabledHint", {
-          defaultValue: "請確認收藏標題與曲目限制。",
-        });
-  }, [canCreate, canGoNext, currentStep, isPublishStep, t]);
-
+  const publish = currentStep === "publish";
+  const reduce = useReducedMotion();
+  const ready = publish ? canCreate : canGoNext;
+  const hint =
+    currentStep === "source"
+      ? "先匯入至少一首歌曲"
+      : publish
+        ? "請完成標題、分類及曲目檢查"
+        : "確認題庫標題與曲目數量未超過限制";
   return (
-    <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/60 p-3 sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="hidden min-w-0 text-xs leading-5 text-[var(--mc-text-muted)] sm:block">
-          {helperText}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={!canGoBack}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/45 px-4 py-2 text-sm font-semibold text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/65 disabled:cursor-not-allowed disabled:opacity-40"
+    <footer className="create-action-bar">
+      <div className="create-action-status" data-ready={ready} role="status">
+        {ready ? (
+          <CheckCircleRounded fontSize="small" />
+        ) : (
+          <span className="create-status-dot" />
+        )}
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={`${currentStep}-${ready}-${isCreating}`}
+            initial={reduce ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -3 }}
+            transition={{ duration: reduce ? 0 : 0.16 }}
           >
-            {t("action.back", { defaultValue: "返回" })}
-          </button>
-
-          <button
-            type="button"
-            onClick={isPublishStep ? onCreate : onNext}
-            disabled={primaryDisabled}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-[var(--mc-accent)] px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_14px_34px_rgba(34,211,238,0.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
-          >
-            {primaryLabel}
-          </button>
-        </div>
-
-        <div className="text-center text-[11px] leading-4 text-[var(--mc-text-muted)] sm:hidden">
-          {helperText}
-        </div>
+            {isCreating
+              ? "正在儲存"
+              : ready
+                ? publish
+                  ? "可以建立題庫"
+                  : currentStep === "source"
+                    ? "歌單已就緒"
+                    : "曲目已確認"
+                : currentStep === "source"
+                  ? "先加入歌曲"
+                  : "尚有項目待確認"}
+          </motion.span>
+        </AnimatePresence>
       </div>
-    </div>
+      {error && <span className="sr-only" role="alert">{error}</span>}
+      <div className="create-action-buttons">
+        {currentStep !== "source" && (
+          <button
+            type="button"
+            className="create-secondary"
+            onClick={onBack}
+            disabled={isCreating}
+          >
+            <ArrowBackRounded fontSize="small" />
+            上一步
+          </button>
+        )}
+        <SiteTooltip title={error || (!ready ? hint : undefined)} open={error ? true : undefined}>
+          <span tabIndex={!ready ? 0 : undefined}>
+            <motion.button
+              whileTap={reduce ? undefined : { scale: 0.98 }}
+              type="button"
+              className="create-primary"
+              data-ready={ready}
+              disabled={!ready || isCreating}
+              onClick={publish ? onCreate : onNext}
+            >
+              {isCreating ? (
+                <CircularProgress size={17} color="inherit" />
+              ) : null}
+              {isCreating
+                ? "正在建立"
+                : publish
+                  ? "建立題庫"
+                  : currentStep === "source"
+                    ? "整理題目"
+                    : "完成設定"}
+              {!isCreating && <ArrowForwardRounded fontSize="small" />}
+            </motion.button>
+          </span>
+        </SiteTooltip>
+      </div>
+    </footer>
   );
 }

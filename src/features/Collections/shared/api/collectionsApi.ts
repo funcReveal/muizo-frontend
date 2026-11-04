@@ -144,6 +144,51 @@ export const collectionsApi = {
     }
     return json?.data ?? null;
   },
+  async createDraft(token: string, title?: string) {
+    if (!API_URL) throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
+    const res = await fetch(`${API_URL}/api/collections/drafts`, {
+      method: "POST",
+      headers: buildJsonHeaders(token),
+      body: JSON.stringify({ title }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message = typeof json?.error === "string" ? json.error : json?.error?.message;
+      throw new Error(typeof message === "string" ? `${message} (${res.status})` : `Failed to create draft (${res.status})`);
+    }
+    return json?.data ?? null;
+  },
+  async saveDraftItems(
+    token: string,
+    collectionId: string,
+    batchKey: string,
+    items: Array<Record<string, unknown>>,
+  ) {
+    if (!API_URL) throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
+    const res = await fetch(`${API_URL}/api/collections/${collectionId}/draft-items`, {
+      method: "POST",
+      headers: buildJsonHeaders(token),
+      body: JSON.stringify({ batch_key: batchKey, items }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(await readErrorMessage(res, "Failed to save draft items"));
+    return json?.data ?? null;
+  },
+  async publishDraft(
+    token: string,
+    collectionId: string,
+    visibility: "private" | "public",
+  ) {
+    if (!API_URL) throw new Error("尚未設定收藏庫 API 位置 (API_URL)");
+    const res = await fetch(`${API_URL}/api/collections/${collectionId}/publish`, {
+      method: "POST",
+      headers: buildJsonHeaders(token),
+      body: JSON.stringify({ visibility }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(await readErrorMessage(res, "Failed to publish draft"));
+    return json?.data ?? null;
+  },
   async createCollectionWithItems(
     token: string,
     payload: {

@@ -152,6 +152,13 @@ export type CollectionLeaderboardOverview = {
   activeProfile: CollectionLeaderboardEntriesPage & {
     myBestEntry: CollectionLeaderboardEntry | null;
   };
+  engagement?: {
+    uniquePlayers: number;
+    totalPlays: number;
+    totalPlayerSessions: number;
+    casualPlays: number;
+    leaderboardPlays: number;
+  };
 };
 
 type CollectionDetailPayload = {

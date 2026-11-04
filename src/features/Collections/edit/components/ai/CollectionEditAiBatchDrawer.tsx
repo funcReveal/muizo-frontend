@@ -1,3 +1,5 @@
+import CollectionToolDrawer from "../../../shared/components/CollectionToolDrawer";
+import CreateHelp from "../../../create/components/CreateHelp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import {
@@ -33,7 +35,6 @@ import ContentPasteRounded from "@mui/icons-material/ContentPasteRounded";
 import {
   Button,
   CircularProgress,
-  Drawer,
   FormControlLabel,
   IconButton,
   Switch,
@@ -261,7 +262,7 @@ function SplitFieldDragPreview({
   value: string;
 }) {
   return (
-    <div className="flex w-full items-center gap-2 rounded-xl border border-[var(--mc-accent)] bg-[#07111d] px-2 py-2 shadow-[0_18px_34px_-24px_rgba(34,211,238,0.95)]">
+    <div className="flex w-full items-center gap-2 rounded-xl border border-[var(--mc-accent)] bg-[#191b16] px-2 py-2 shadow-[0_8px_24px_-16px_rgba(255,176,0,0.35)]">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--mc-accent)]/30 bg-[var(--mc-accent)]/10 text-[var(--mc-accent)]">
         <DragIndicatorRounded sx={{ fontSize: 18 }} />
       </span>
@@ -306,7 +307,7 @@ function SortableSplitField({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex w-full items-center gap-2 rounded-xl border bg-[#050b14]/70 px-2 py-2 ${
+      className={`flex w-full items-center gap-2 rounded-xl border bg-[#141512]/70 px-2 py-2 ${
         isDragging ? "border-[var(--mc-accent)]" : "border-[var(--mc-border)]"
       }`}
     >
@@ -401,9 +402,9 @@ function AiBatchDrawerHeader({
   onClose: () => void;
 }) {
   return (
-    <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-700/70 bg-[#111821] px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
+    <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--mc-border)] bg-[#20221d] px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-600/80 bg-slate-800 text-slate-200 sm:inline-flex">
+        <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)] text-slate-200 sm:inline-flex">
           <AutoAwesomeRounded sx={{ fontSize: 22 }} />
         </span>
 
@@ -462,7 +463,7 @@ function AiBatchProgressSidebar({
   onSelectPage: (pageIndex: number, step: AiDrawerStep) => void;
 }) {
   return (
-    <aside className="min-w-0 max-w-full overflow-hidden border-b border-slate-700/70 bg-[#0d131b] px-3 py-2.5 lg:border-b-0 lg:border-r lg:px-5 lg:py-5">
+    <aside className="min-w-0 max-w-full overflow-hidden border-b border-[var(--mc-border)] bg-[#191b16] px-3 py-2.5 lg:border-b-0 lg:border-r lg:px-5 lg:py-5">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold text-[var(--mc-text)] sm:text-base">
           批次進度
@@ -1026,34 +1027,12 @@ export default function CollectionEditAiBatchDrawer({
   };
 
   return (
-    <Drawer
-      anchor="right"
+    <CollectionToolDrawer
       open={open}
-      onClose={(_, reason) => {
-        if (!canCloseAiBatchModal) return;
-        if (reason === "backdropClick" || reason === "escapeKeyDown") {
-          handleRequestClose();
-          return;
-        }
-        handleRequestClose();
-      }}
-      slotProps={{
-        paper: {
-          sx: {
-            width: isCompact ? "100%" : "min(1180px, 94vw)",
-            height: isCompact ? "100dvh" : "100%",
-            maxHeight: "100dvh",
-            borderTopLeftRadius: isCompact ? 0 : 24,
-            borderBottomLeftRadius: isCompact ? 0 : 24,
-            background:
-              "linear-gradient(180deg, #10151d 0%, #0b1017 42%, #080b10 100%)",
-            borderLeft: isCompact ? 0 : "1px solid rgba(148,163,184,0.22)",
-            color: "var(--mc-text)",
-            boxShadow: "0 24px 70px rgba(2,6,23,0.7)",
-            overflow: "hidden",
-          },
-        },
-      }}
+      onClose={handleRequestClose}
+      label="AI 整理答案"
+      width={1180}
+      busy={!canCloseAiBatchModal}
     >
       <div className="flex h-full min-h-0 flex-col">
         <AiBatchDrawerHeader
@@ -1116,7 +1095,7 @@ export default function CollectionEditAiBatchDrawer({
                     <section>
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="text font-semibold text-[var(--mc-text)]">
-                          產生 Prompt
+                          設定整理規則
                         </div>
                       </div>
 
@@ -1164,13 +1143,13 @@ export default function CollectionEditAiBatchDrawer({
                             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
                               修正目標
                             </div>
-                            <div className="mt-1 text-sm text-[var(--mc-text)]">
+                            <CreateHelp label="整理規則說明">
                               {activePromptMode.hint}
-                            </div>
+                            </CreateHelp>
                           </div>
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
+                        <div className="grid gap-2 sm:grid-cols-3">
                           {promptModeOptions.map((option) => {
                             const active =
                               aiPromptSettings.mode === option.value;
@@ -1179,6 +1158,7 @@ export default function CollectionEditAiBatchDrawer({
                               <button
                                 key={option.value}
                                 type="button"
+                                aria-pressed={active}
                                 disabled={controlsDisabled}
                                 onClick={() =>
                                   onAiPromptSettingsChange({
@@ -1205,9 +1185,6 @@ export default function CollectionEditAiBatchDrawer({
                                     {option.description}
                                   </span>
                                 </div>
-                                <div className="mt-1.5 text-xs leading-5 text-[var(--mc-text-muted)]">
-                                  {option.hint}
-                                </div>
                               </button>
                             );
                           })}
@@ -1216,6 +1193,20 @@ export default function CollectionEditAiBatchDrawer({
                         <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
                           <div>
                             <MuizoSelectField
+                              SelectProps={{
+                                MenuProps: {
+                                  sx: { zIndex: 1700 },
+                                  slotProps: {
+                                    paper: {
+                                      sx: {
+                                        background: "#2c2f28",
+                                        color: "#f3f4ee",
+                                        borderRadius: "14px",
+                                      },
+                                    },
+                                  },
+                                },
+                              }}
                               size="small"
                               label="答案語言"
                               value={aiPromptSettings.languageMode}
@@ -1384,6 +1375,20 @@ export default function CollectionEditAiBatchDrawer({
                         <div className="mt-3 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
                           <div>
                             <MuizoSelectField
+                              SelectProps={{
+                                MenuProps: {
+                                  sx: { zIndex: 1700 },
+                                  slotProps: {
+                                    paper: {
+                                      sx: {
+                                        background: "#2c2f28",
+                                        color: "#f3f4ee",
+                                        borderRadius: "14px",
+                                      },
+                                    },
+                                  },
+                                },
+                              }}
                               size="small"
                               label="AI 不確定時"
                               value={aiPromptSettings.uncertainPolicy}
@@ -1419,7 +1424,7 @@ export default function CollectionEditAiBatchDrawer({
                         </div>
                       </div>
 
-                      <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[#050b14] sm:mt-4">
+                      <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--mc-border)] bg-[#141512] sm:mt-4">
                         <div className="flex items-center justify-between gap-3 border-b border-[var(--mc-border)] px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-[var(--mc-text-muted)]">
                           <span>Prompt 預覽</span>
                           <IconButton
@@ -1604,7 +1609,7 @@ export default function CollectionEditAiBatchDrawer({
           )}
         </div>
 
-        <footer className="shrink-0 border-t border-slate-700/70 bg-[#0b1017] px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] shadow-[0_-18px_44px_-38px_rgba(15,23,42,0.9)] sm:px-6 sm:py-3">
+        <footer className="shrink-0 border-t border-[var(--mc-border)] bg-[#191b16] px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] shadow-[0_-18px_44px_-38px_rgba(15,23,42,0.9)] sm:px-6 sm:py-3">
           {aiBatchWriteState.status === "idle" ? (
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
               {aiDrawerStep !== "prompt" && (
@@ -1682,6 +1687,6 @@ export default function CollectionEditAiBatchDrawer({
           )}
         </footer>
       </div>
-    </Drawer>
+    </CollectionToolDrawer>
   );
 }

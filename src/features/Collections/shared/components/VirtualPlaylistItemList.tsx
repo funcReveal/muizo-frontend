@@ -1,3 +1,4 @@
+import SiteTooltip from "@shared/ui/SiteTooltip";
 import { useCallback } from "react";
 import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 import RestoreRounded from "@mui/icons-material/RestoreRounded";
@@ -108,10 +109,10 @@ const PlaylistItemRow = ({
             src={item.thumbnail}
             alt={item.title}
             loading="lazy"
-            className="h-12 w-[78px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover sm:h-14 sm:w-[96px]"
+            className="playlist-row-cover h-12 w-[78px] shrink-0 rounded-lg border border-[var(--mc-border)] object-cover sm:h-14 sm:w-[96px]"
           />
         ) : (
-          <div className="flex h-12 w-[78px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.16),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)] sm:h-14 sm:w-[96px]">
+          <div className="playlist-row-cover flex h-12 w-[78px] shrink-0 items-center justify-center rounded-lg border border-[var(--mc-border)] bg-[linear-gradient(145deg,rgba(56,189,248,0.16),rgba(15,23,42,0.25))] text-[10px] text-[var(--mc-text-muted)] sm:h-14 sm:w-[96px]">
             {labels.noCover}
           </div>
         )}
@@ -140,40 +141,42 @@ const PlaylistItemRow = ({
           </div>
 
           <div className="mt-1 grid min-w-0 grid-cols-1 gap-1 text-[11px] leading-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="min-w-0 truncate rounded-full border border-[var(--mc-border)]/70 bg-[var(--mc-surface-strong)]/35 px-2 py-0.5 text-[var(--mc-text)]">
+            <div className="playlist-row-answer min-w-0 truncate rounded-full border border-[var(--mc-border)]/70 bg-[var(--mc-surface-strong)]/35 px-2 py-0.5 text-[var(--mc-text)]">
               <span className="text-[var(--mc-text-muted)]">
                 {labels.answer}
               </span>{" "}
               {answer}
             </div>
-            <div className="min-w-0 truncate rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-cyan-100">
+            <div className="playlist-row-range min-w-0 truncate rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-cyan-100">
               {getRangeLabel(item, labels)}
             </div>
           </div>
         </div>
 
         {!isRemoved && onRemove && (
-          <button
-            type="button"
-            onClick={() => onRemove(item)}
-            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-rose-400/10 hover:text-rose-200"
-            aria-label={labels.remove}
-            title={labels.remove}
-          >
-            <DeleteOutlineRounded sx={{ fontSize: 18 }} />
-          </button>
+          <SiteTooltip title={labels.remove}>
+            <button
+              type="button"
+              onClick={() => onRemove(item)}
+              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-rose-400/10 hover:text-rose-200"
+              aria-label={labels.remove}
+            >
+              <DeleteOutlineRounded sx={{ fontSize: 18 }} />
+            </button>
+          </SiteTooltip>
         )}
 
         {isRemoved && onRestore && (
-          <button
-            type="button"
-            onClick={() => onRestore(item)}
-            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-emerald-400/10 hover:text-emerald-200"
-            aria-label={labels.restore}
-            title={labels.restore}
-          >
-            <RestoreRounded sx={{ fontSize: 18 }} />
-          </button>
+          <SiteTooltip title={labels.restore}>
+            <button
+              type="button"
+              onClick={() => onRestore(item)}
+              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-emerald-400/10 hover:text-emerald-200"
+              aria-label={labels.restore}
+            >
+              <RestoreRounded sx={{ fontSize: 18 }} />
+            </button>
+          </SiteTooltip>
         )}
       </div>
     </div>

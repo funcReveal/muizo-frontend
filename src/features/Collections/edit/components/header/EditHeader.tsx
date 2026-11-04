@@ -10,6 +10,7 @@ import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import FolderOpenOutlined from "@mui/icons-material/FolderOpenOutlined";
 import ShareRounded from "@mui/icons-material/ShareRounded";
 import LabelOutlined from "@mui/icons-material/LabelOutlined";
+import PublishRounded from "@mui/icons-material/PublishRounded";
 
 const PUBLIC_SWITCH_ICON = encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0f172a"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm6.93 9h-3.1a15.9 15.9 0 0 0-1.38-5.02A8.02 8.02 0 0 1 18.93 11ZM12 4.04c.83 1.2 1.86 3.63 2.16 6.96H9.84C10.14 7.67 11.17 5.24 12 4.04ZM4.07 13h3.1a15.9 15.9 0 0 0 1.38 5.02A8.02 8.02 0 0 1 4.07 13Zm3.1-2h-3.1a8.02 8.02 0 0 1 4.48-5.02A15.9 15.9 0 0 0 7.17 11Zm4.83 8.96c-.83-1.2-1.86-3.63-2.16-6.96h4.32c-.3 3.33-1.33 5.76-2.16 6.96ZM14.45 18.02A15.9 15.9 0 0 0 15.83 13h3.1a8.02 8.02 0 0 1-4.48 5.02Z"/></svg>',
@@ -64,6 +65,9 @@ type EditHeaderProps = {
   /** True when the collection is flagged (待處理/審核中) — on mobile the
    *  visibility switch is hidden to give the moderation chip room. */
   moderationActive?: boolean;
+  isDraft?: boolean;
+  onPublishDraft?: () => void;
+  isPublishingDraft?: boolean;
 };
 
 const EditHeader = ({
@@ -104,6 +108,9 @@ const EditHeader = ({
   categoryHasSuggestion = false,
   moderationSlot,
   moderationActive = false,
+  isDraft = false,
+  onPublishDraft,
+  isPublishingDraft = false,
 }: EditHeaderProps) => {
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -310,6 +317,20 @@ const EditHeader = ({
               <ShareRounded fontSize="small" />
             </button>
           </Tooltip>
+          {isDraft && onPublishDraft ? (
+            <Tooltip title="完成草稿">
+              <button
+                type="button"
+                onClick={onPublishDraft}
+                disabled={isPublishingDraft || isReadOnly}
+                aria-label="完成草稿"
+                className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[var(--mc-accent)] px-3 text-xs font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                <PublishRounded fontSize="small" />
+                <span className="hidden sm:inline">{isPublishingDraft ? "檢查中" : "完成"}</span>
+              </button>
+            </Tooltip>
+          ) : null}
           <Tooltip
             title={saveError ? `${buttonLabel}：${saveError}` : buttonLabel}
           >

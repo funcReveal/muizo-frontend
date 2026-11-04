@@ -1,6 +1,7 @@
+import CollectionToolDrawer from "../../shared/components/CollectionToolDrawer";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 import LibraryMusicRounded from "@mui/icons-material/LibraryMusicRounded";
-import { Drawer, IconButton } from "@mui/material";
+import { IconButton } from "@mui/material";
 import { useTranslation } from "react-i18next";
 
 import type { RemovedDuplicateGroup } from "../utils/createCollectionImport";
@@ -21,22 +22,12 @@ export default function CollectionDuplicateDrawer({
   const { t } = useTranslation("collectionCreate");
 
   return (
-    <Drawer
-      anchor="right"
+    <CollectionToolDrawer
       open={open}
       onClose={onClose}
-      PaperProps={{
-        sx: {
-          width: {
-            xs: "100%",
-            sm: 520,
-          },
-          borderLeft: "1px solid rgba(148, 163, 184, 0.22)",
-          background:
-            "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
-          color: "var(--mc-text)",
-        },
-      }}
+      label="重複歌曲"
+      width={560}
+      busy={false}
     >
       <div className="flex h-full flex-col">
         <div className="border-b border-[var(--mc-border)] px-4 py-4">
@@ -71,7 +62,7 @@ export default function CollectionDuplicateDrawer({
               {removedDuplicateGroups.map((group) => (
                 <div
                   key={group.key}
-                  className="rounded-2xl border border-emerald-300/25 bg-emerald-300/10 px-3 py-3"
+                  className="rounded-2xl bg-[var(--mc-bg)] px-4 py-4"
                 >
                   <div className="text-sm font-semibold text-[var(--mc-text)]">
                     {group.title}
@@ -102,9 +93,9 @@ export default function CollectionDuplicateDrawer({
                       href={group.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-2 block break-all text-[11px] text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 transition hover:text-cyan-100"
+                      className="mt-2 inline-flex min-h-11 items-center text-sm text-[var(--mc-accent)] transition hover:brightness-125"
                     >
-                      {group.url}
+                      查看原始歌曲 ↗
                     </a>
                   )}
                 </div>
@@ -117,6 +108,6 @@ export default function CollectionDuplicateDrawer({
           )}
         </div>
       </div>
-    </Drawer>
+    </CollectionToolDrawer>
   );
 }

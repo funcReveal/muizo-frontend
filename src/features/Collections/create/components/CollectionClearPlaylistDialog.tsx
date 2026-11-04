@@ -1,3 +1,4 @@
+import "../../shared/components/collectionTools.css";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 import {
   Button,
@@ -24,21 +25,14 @@ export default function CollectionClearPlaylistDialog({
 
   return (
     <Dialog
+      className="collection-studio-dialog"
+      aria-labelledby="clear-playlist-title"
       open={open}
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          border: "1px solid rgba(148, 163, 184, 0.22)",
-          background:
-            "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
-          color: "var(--mc-text)",
-        },
-      }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
+      <DialogTitle id="clear-playlist-title" sx={{ pb: 1 }}>
         <div className="flex items-center justify-between gap-3">
           <div className="text-base font-semibold">
             {t("source.clearPlaylistDialogTitle")}
@@ -56,7 +50,7 @@ export default function CollectionClearPlaylistDialog({
       </DialogTitle>
 
       <DialogContent sx={{ pt: 1 }}>
-        <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-100">
+        <div className="text-sm leading-6 text-[var(--mc-text-muted)]">
           {t("source.clearPlaylistDialogDescription")}
         </div>
       </DialogContent>
@@ -70,18 +64,7 @@ export default function CollectionClearPlaylistDialog({
           {t("source.clearPlaylistDialogCancel")}
         </Button>
 
-        <Button
-          variant="contained"
-          onClick={onConfirm}
-          sx={{
-            borderRadius: 999,
-            background:
-              "linear-gradient(135deg, rgba(251,191,36,0.96), rgba(34,211,238,0.9))",
-            color: "#0f172a",
-            fontWeight: 800,
-            boxShadow: "0 14px 32px rgba(251,191,36,0.18)",
-          }}
-        >
+        <Button variant="contained" onClick={onConfirm}>
           {t("source.clearPlaylistDialogConfirm")}
         </Button>
       </DialogActions>

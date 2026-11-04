@@ -1,3 +1,6 @@
+import SiteTooltip from "@shared/ui/SiteTooltip";
+import { motion, useReducedMotion } from "motion/react";
+import CollectionToolDrawer from "./CollectionToolDrawer";
 import {
   useCallback,
   useEffect,
@@ -13,12 +16,10 @@ import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
 import WarningAmberRounded from "@mui/icons-material/WarningAmberRounded";
 import {
   CircularProgress,
-  Drawer,
   IconButton,
   Popover,
   Slider,
   TextField,
-  Tooltip,
   useMediaQuery,
 } from "@mui/material";
 import { List, type RowComponentProps } from "react-window";
@@ -350,7 +351,8 @@ function MinuteSecondInput({
         }}
         className="flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-xl bg-[var(--mc-surface-strong)] px-3 text-left transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
         aria-label={`${label} 分秒選擇器`}
-        title={`${label} 分秒選擇器`}
+        aria-expanded={pickerOpen}
+        aria-haspopup="dialog"
       >
         <span className="font-mono text-sm font-semibold tabular-nums text-[var(--mc-text)]">
           {committedLabel}
@@ -365,6 +367,7 @@ function MinuteSecondInput({
         </span>
       </button>
       <Popover
+        sx={{ zIndex: 1800 }}
         open={pickerOpen}
         anchorEl={pickerAnchorEl}
         onClose={closePicker}
@@ -377,7 +380,7 @@ function MinuteSecondInput({
               width: 256,
               borderRadius: "1rem",
               border: "1px solid var(--mc-border)",
-              backgroundColor: "#111821",
+              backgroundColor: "#20221d",
               color: "var(--mc-text)",
               boxShadow: "0 25px 50px -20px rgba(0,0,0,0.85)",
               overflow: "hidden",
@@ -385,7 +388,12 @@ function MinuteSecondInput({
           },
         }}
       >
-        <div className="p-3" onPointerDown={(event) => event.stopPropagation()}>
+        <div
+          className="p-3"
+          role="dialog"
+          aria-label={`${label}分秒設定`}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
           <div className="grid grid-cols-2 gap-2">
             <TimeWheelColumn
               label="分鐘"
@@ -494,7 +502,7 @@ const PreviewVirtualRow = ({
           </div>
         </div>
         {onPreviewItem ? (
-          <Tooltip title="預覽此曲目">
+          <SiteTooltip title="預覽此曲目">
             <button
               type="button"
               disabled={isApplying}
@@ -504,7 +512,7 @@ const PreviewVirtualRow = ({
             >
               <PlayArrowRounded fontSize="small" />
             </button>
-          </Tooltip>
+          </SiteTooltip>
         ) : null}
       </div>
     </div>
@@ -528,6 +536,8 @@ export default function BulkPlaybackRangeDrawer({
   onApply,
 }: BulkPlaybackRangeDrawerProps) {
   const isCompact = useMediaQuery("(max-width: 767px)");
+  const reduce = useReducedMotion();
+  const sample = previewItems[0];
   const [previewTab, setPreviewTab] = useState<PreviewTab>("applies");
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const appliesItems = useMemo(
@@ -596,28 +606,12 @@ export default function BulkPlaybackRangeDrawer({
 
   return (
     <>
-      <Drawer
-        anchor="right"
+      <CollectionToolDrawer
         open={open}
-        onClose={() => {
-          if (!isApplying) onClose();
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              width: isCompact ? "100%" : "min(1120px, 96vw)",
-              height: isCompact ? "100dvh" : "100%",
-              borderTopLeftRadius: isCompact ? 0 : 24,
-              borderBottomLeftRadius: isCompact ? 0 : 24,
-              background:
-                "linear-gradient(180deg, #10151d 0%, #0b1017 46%, #080b10 100%)",
-              borderLeft: isCompact ? 0 : "1px solid rgba(148,163,184,0.22)",
-              color: "var(--mc-text)",
-              boxShadow: "0 24px 70px rgba(2,6,23,0.7)",
-              overflow: "hidden",
-            },
-          },
-        }}
+        onClose={onClose}
+        label="播放片段"
+        width={940}
+        busy={isApplying}
       >
         <div className="flex h-full min-h-0 flex-col">
           <header className="border-b border-[var(--mc-border)]/80 px-5 py-4">
@@ -657,12 +651,54 @@ export default function BulkPlaybackRangeDrawer({
                 {previewContent}
               </aside>
             ) : null}
-            <div className="flex min-h-0 flex-col overflow-hidden px-5 py-4">
+            <div
+              className="tool-playback-body flex min-h-0 flex-col px-5 py-4"
+              data-has-player={Boolean(previewContent)}
+            >
               <section className="shrink-0 space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
+                {sample && (
+                  <div className="tool-timeline-preview">
+                    <div>
+                      <span>片段位置</span>
+                      <strong>
+                        {formatSeconds(sample.startSec)} —{" "}
+                        {formatSeconds(sample.endSec)}
+                      </strong>
+                    </div>
+                    <div
+                      className="tool-timeline"
+                      aria-label={`第一首歌曲播放片段 ${formatSeconds(sample.startSec)} 至 ${formatSeconds(sample.endSec)}`}
+                    >
+                      <div className="tool-waveform" aria-hidden="true">
+                        {Array.from({ length: 48 }, (_, index) => (
+                          <i
+                            key={index}
+                            style={{ height: `${24 + ((index * 37) % 73)}%` }}
+                          />
+                        ))}
+                      </div>
+                      <motion.div
+                        className="tool-timeline-range"
+                        initial={false}
+                        animate={{
+                          left: `${(sample.startSec / sample.durationSec) * 100}%`,
+                          width: `${(sample.clipLengthSec / sample.durationSec) * 100}%`,
+                        }}
+                        transition={
+                          reduce
+                            ? { duration: 0 }
+                            : { type: "spring", stiffness: 270, damping: 30 }
+                        }
+                      />
+                    </div>
+                    <p>{sample.title}</p>
+                  </div>
+                )}
+                <div className="tool-mode-switch">
                   <button
                     type="button"
                     disabled={isApplying}
+                    aria-pressed={draft.mode === "percent"}
                     onClick={() => onDraftChange({ ...draft, mode: "percent" })}
                     className={modeButtonClass(draft.mode === "percent")}
                   >
@@ -671,6 +707,7 @@ export default function BulkPlaybackRangeDrawer({
                   <button
                     type="button"
                     disabled={isApplying}
+                    aria-pressed={draft.mode === "fixed"}
                     onClick={() => onDraftChange({ ...draft, mode: "fixed" })}
                     className={modeButtonClass(draft.mode === "fixed")}
                   >
@@ -709,9 +746,10 @@ export default function BulkPlaybackRangeDrawer({
                       />
                     </div>
                     <Slider
+                      aria-label="歌曲起點百分比"
                       value={draft.percent}
                       min={0}
-                      max={95}
+                      max={99}
                       step={1}
                       disabled={isApplying}
                       onChange={(_, value) => {
@@ -854,24 +892,13 @@ export default function BulkPlaybackRangeDrawer({
             </button>
           </footer>
         </div>
-      </Drawer>
+      </CollectionToolDrawer>
 
       {previewContent ? (
-        <Drawer
-          anchor="right"
+        <CollectionToolDrawer
           open={isCompact && mobilePreviewOpen}
           onClose={() => setMobilePreviewOpen(false)}
-          slotProps={{
-            paper: {
-              sx: {
-                width: "100%",
-                height: "100dvh",
-                maxHeight: "100dvh",
-                background: "#0b1017",
-                color: "var(--mc-text)",
-              },
-            },
-          }}
+          label="預覽播放器"
         >
           <div className="h-full overflow-y-auto p-3">
             <div className="mb-2 flex justify-end">
@@ -886,7 +913,7 @@ export default function BulkPlaybackRangeDrawer({
             </div>
             {previewContent}
           </div>
-        </Drawer>
+        </CollectionToolDrawer>
       ) : null}
     </>
   );

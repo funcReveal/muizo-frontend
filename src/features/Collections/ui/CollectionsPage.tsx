@@ -1,36 +1,39 @@
 ﻿import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
+import { useTransition } from "react";
 import {
-  CategoryQuickPicker,
-  SubTagQuickPicker,
+  CollectionMetaChips,
   useSubTagsQuery,
   useCategoriesQuery,
 } from "@features/CollectionCategory";
 import type { CategoryTreeItem } from "@features/CollectionCategory";
-import { ModerationChip } from "@features/CollectionModeration";
 
 import {
   Box,
-  Card,
-  CardActionArea,
-  CardContent,
+  Drawer,
   IconButton,
-  Switch,
-  Tooltip,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
-import DeleteOutline from "@mui/icons-material/DeleteOutline";
-import CheckRounded from "@mui/icons-material/CheckRounded";
-import BarChartRounded from "@mui/icons-material/BarChartRounded";
-import LockOutlined from "@mui/icons-material/LockOutlined";
-import PublicOutlined from "@mui/icons-material/PublicOutlined";
-import QuizRounded from "@mui/icons-material/QuizRounded";
 import ShareRounded from "@mui/icons-material/ShareRounded";
-import FavoriteBorderRounded from "@mui/icons-material/FavoriteBorderRounded";
+import EditRounded from "@mui/icons-material/EditRounded";
+import CloseRounded from "@mui/icons-material/CloseRounded";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { isAdminRole } from "@/shared/auth/roles";
 import { ensureFreshAuthToken } from "@/shared/auth/token";
+import { CollectionReviewList } from "@features/CollectionReview";
+import { getApiEnvelopeErrorMessage } from "@shared/api/apiEnvelope";
+import PlayerAvatar from "@shared/ui/playerAvatar/PlayerAvatar";
+import {
+  apiFetchCollectionItemPreview,
+  apiFetchCollectionLeaderboardOverview,
+  apiFetchCollectionLeaderboardRankings,
+  type CollectionItemPreviewRecord,
+  type CollectionLeaderboardEntry,
+  type CollectionLeaderboardOverview,
+} from "@features/CollectionContent/model/collectionContentApi";
 import { collectionsApi } from "../shared/api/collectionsApi";
 import {
   MAX_COLLECTIONS_PER_USER,
@@ -39,58 +42,42 @@ import {
 import ConfirmDialog from "@/shared/ui/ConfirmDialog";
 import { appToast } from "@/shared/ui/toastApi";
 import { formatCollectionAvailabilityLabel } from "@features/RoomSession/model/playlistAvailability";
+import {
+  CreatorRangePicker,
+  CreatorTrendChart,
+  RatingChart,
+  type CreatorDashboard,
+  type CreatorInsights,
+  type CreatorRange,
+} from "./CreatorAnalytics";
+import { fetchCreatorAnalytics, formatChange } from "./creatorAnalyticsApi";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" ? window.location.origin : "");
+const DEFAULT_LEADERBOARD_PROFILE_KEY = "classic_30";
+const LEADERBOARD_INITIAL_LIMIT = 10;
+const LEADERBOARD_PAGE_SIZE = 20;
 
-type DbCollection = {
-  id: string;
-  owner_id: string;
-  title: string;
-  description?: string | null;
-  visibility?: "private" | "public";
-  cover_title?: string | null;
-  cover_channel_title?: string | null;
-  cover_thumbnail_url?: string | null;
-  cover_duration_sec?: number | null;
-  cover_source_id?: string | null;
-  cover_provider?: string | null;
-  item_count?: number | null;
-  playable_item_count?: number | null;
-  use_count?: number | null;
-  favorite_count?: number | null;
-  category?: {
-    id: string | null;
-    key: string;
-    label: string;
-    parentKey?: string | null;
-    parentLabel?: string | null;
-  } | null;
-  sub_tag_keys?: string[];
-  // Owner-only moderation fields (absent on public reads).
-  moderation_status?: "normal" | "action_required" | "under_review";
-  moderation_reason?: string | null;
-  moderation_edited?: boolean;
-};
+import {
+  type DbCollection,
+  type CollectionWorkspaceSection,
+  getCollectionIssues,
+  canShareCollection,
+} from "./collectionWorkspaceModel";
+import CollectionWorkspace from "./CollectionWorkspace";
+
+type CollectionDrawerTab = "overview" | "content" | "reviews" | "leaderboard";
 
 const TEXT = {
-  title: "我的收藏",
-  create: "建立新收藏",
-  emptyTitle: "目前沒有收藏",
-  emptyBody: "先建立一個收藏，之後就可以快速開房使用。",
-  loading: "載入中...",
+  title: "我的題庫",
   error: "載入失敗",
-  open: "開啟",
-  deleteConfirm: "刪除後無法復原，確定要刪除此收藏嗎？",
+  deleteConfirm: "刪除後無法復原，確定要刪除這份題庫嗎？",
   deleteError: "刪除失敗",
   unknownError: "發生未知錯誤",
-  loginHint: "請先登入或建立帳號，才能查看與管理收藏。",
-  public: "公開",
-  private: "私人",
-  publicConfirm: "公開後其他玩家可以瀏覽與使用這份收藏，確定要設為公開嗎？",
-  privateConfirm:
-    "設為私人後，其他玩家將無法再瀏覽或使用這份收藏。已分享出去的公開連結也可能失效，確定要設為私人嗎？",
+  loginHint: "登入後即可查看與管理你的題庫。",
+  publicConfirm: "其他玩家將能找到、遊玩並分享這份題庫。",
+  privateConfirm: "其他玩家將無法瀏覽與使用這份題庫，原本的分享連結也會失效。",
 };
 
 const buildCategoryFromId = (
@@ -99,15 +86,67 @@ const buildCategoryFromId = (
 ): DbCollection["category"] | null => {
   for (const parent of tree) {
     if (parent.id === categoryId) {
-      return { id: parent.id, key: parent.key, label: parent.label, parentKey: null, parentLabel: null };
+      return {
+        id: parent.id,
+        key: parent.key,
+        label: parent.label,
+        parentKey: null,
+        parentLabel: null,
+      };
     }
     for (const child of parent.children) {
       if (child.id === categoryId) {
-        return { id: child.id, key: child.key, label: child.label, parentKey: parent.key, parentLabel: parent.label };
+        return {
+          id: child.id,
+          key: child.key,
+          label: child.label,
+          parentKey: parent.key,
+          parentLabel: parent.label,
+        };
       }
     }
   }
   return null;
+};
+
+const formatRank = (rank: number | null | undefined) =>
+  typeof rank === "number" && Number.isFinite(rank) && rank > 0
+    ? `#${rank.toLocaleString("zh-TW")}`
+    : "-";
+
+const formatScore = (score: number | null | undefined) =>
+  typeof score === "number" && Number.isFinite(score) && score >= 0
+    ? score.toLocaleString("zh-TW")
+    : "-";
+
+const formatLeaderboardEntryMeta = (entry: CollectionLeaderboardEntry) => {
+  const correct =
+    entry.correctCount !== null && entry.questionCount !== null
+      ? `${entry.correctCount}/${entry.questionCount}`
+      : entry.correctCount !== null
+        ? `${entry.correctCount} 題`
+        : null;
+  const accuracy =
+    entry.correctCount !== null &&
+    entry.questionCount !== null &&
+    entry.questionCount > 0
+      ? `正確率 ${Math.round((entry.correctCount / entry.questionCount) * 100)}%`
+      : null;
+
+  return [correct, accuracy, `Combo x${entry.maxCombo}`]
+    .filter(Boolean)
+    .join(" · ");
+};
+
+const formatDurationSec = (value: number | null | undefined) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  const minutes = Math.floor(value / 60);
+  const seconds = value % 60;
+  return minutes > 0
+    ? `${minutes}:${String(seconds).padStart(2, "0")}`
+    : `${seconds}s`;
 };
 
 const SKELETON_COUNT = 6;
@@ -162,13 +201,51 @@ const CollectionsPage = () => {
     visibility: "private" | "public";
   } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedShareCollectionId, setCopiedShareCollectionId] = useState<
     string | null
   >(null);
   const [authResolved, setAuthResolved] = useState(() => !authLoading);
+  const [searchQuery, setSearchQuery] = useState("");
+  const isMobileWorkspace = useMediaQuery("(max-width: 1023.95px)", {
+    noSsr: true,
+  });
+  const [selectedWorkspaceSection, setWorkspaceSection] =
+    useState<CollectionWorkspaceSection | null>(null);
+  const workspaceSection =
+    selectedWorkspaceSection ?? (isMobileWorkspace ? "list" : "overview");
+  const [collectionReloadTick, setCollectionReloadTick] = useState(0);
+  const [previewCollectionId, setPreviewCollectionId] = useState<string | null>(
+    null,
+  );
+  const [drawerTab, setDrawerTab] = useState<CollectionDrawerTab>("overview");
+  const [creatorRange, setCreatorRange] = useState<CreatorRange>("30d");
+  const [isRangeTransitionPending, startRangeTransition] = useTransition();
+  const [previewItems, setPreviewItems] = useState<
+    CollectionItemPreviewRecord[]
+  >([]);
+  const [previewItemsLoading, setPreviewItemsLoading] = useState(false);
+  const [previewItemsError, setPreviewItemsError] = useState<string | null>(
+    null,
+  );
+  const [activeLeaderboardProfileKey, setActiveLeaderboardProfileKey] =
+    useState(DEFAULT_LEADERBOARD_PROFILE_KEY);
+  const [leaderboardOverview, setLeaderboardOverview] =
+    useState<CollectionLeaderboardOverview | null>(null);
+  const [leaderboardEntries, setLeaderboardEntries] = useState<
+    CollectionLeaderboardEntry[]
+  >([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardLoadingMore, setLeaderboardLoadingMore] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  const [leaderboardHasMore, setLeaderboardHasMore] = useState(false);
+  const [leaderboardNextOffset, setLeaderboardNextOffset] = useState<
+    number | null
+  >(null);
   const shareFeedbackTimerRef = useRef<number | null>(null);
+  const leaderboardRequestIdRef = useRef(0);
+  const previewItemsRequestIdRef = useRef(0);
   const ownerId = authUser?.id ?? null;
   const isAdmin = isAdminRole(authUser?.role);
   const { data: subTagsData = [] } = useSubTagsQuery();
@@ -178,12 +255,61 @@ const CollectionsPage = () => {
     for (const tag of subTagsData) map.set(tag.key, tag.label);
     return map;
   }, [subTagsData]);
+  const filteredCollections = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return collections.filter((collection) => {
+      if (
+        workspaceSection === "curation" &&
+        !getCollectionIssues(collection).length
+      )
+        return false;
+      if (!query) return true;
+      const categoryText = collection.category
+        ? `${collection.category.parentLabel ?? ""} ${collection.category.label}`
+        : "";
+      const languageText = (collection.sub_tag_keys ?? [])
+        .map((key) => subTagLabelByKey.get(key) ?? key)
+        .join(" ");
+      return [
+        collection.title,
+        collection.description,
+        collection.cover_title,
+        collection.cover_channel_title,
+        categoryText,
+        languageText,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [collections, searchQuery, subTagLabelByKey, workspaceSection]);
   const privateCollectionsCount = collections.filter(
     (item) => item.visibility !== "public",
   ).length;
   const hasReachedCollectionLimit =
     !isAdmin && collections.length >= MAX_COLLECTIONS_PER_USER;
-  const showSkeleton = loading && collections.length === 0;
+  const previewCollection =
+    collections.find((item) => item.id === previewCollectionId) ?? null;
+  const activeLeaderboardProfile = leaderboardOverview?.activeProfile ?? null;
+  const totalLeaderboardPlayers = activeLeaderboardProfile?.totalPlayers ?? 0;
+  const engagementStats = leaderboardOverview?.engagement ?? {
+    uniquePlayers: totalLeaderboardPlayers,
+    totalPlays: Math.max(0, Number(previewCollection?.use_count ?? 0)),
+    totalPlayerSessions: 0,
+    casualPlays: 0,
+    leaderboardPlays: 0,
+  };
+  const totalSplitPlays =
+    engagementStats.casualPlays + engagementStats.leaderboardPlays;
+  const casualPlayRatio =
+    totalSplitPlays > 0
+      ? (engagementStats.casualPlays / totalSplitPlays) * 100
+      : 0;
+  const leaderboardPlayRatio =
+    totalSplitPlays > 0
+      ? (engagementStats.leaderboardPlays / totalSplitPlays) * 100
+      : 0;
 
   const visibilityConfirmContent =
     pendingVisibility?.visibility === "private"
@@ -211,6 +337,271 @@ const CollectionsPage = () => {
       }
     };
   }, []);
+
+  const loadLeaderboardOverview = useCallback(
+    async (collectionId: string, profileKey: string) => {
+      if (!API_URL || !authToken) return;
+      const requestId = leaderboardRequestIdRef.current + 1;
+      leaderboardRequestIdRef.current = requestId;
+      setLeaderboardLoading(true);
+      setLeaderboardLoadingMore(false);
+      setLeaderboardError(null);
+      setLeaderboardOverview(null);
+      setLeaderboardEntries([]);
+      setLeaderboardHasMore(false);
+      setLeaderboardNextOffset(null);
+
+      try {
+        const token = await ensureFreshAuthToken({
+          token: authToken,
+          refreshAuthToken,
+          leewayMs: 60_000,
+        });
+        if (!token) throw new Error("Unauthorized");
+        const result = await apiFetchCollectionLeaderboardOverview(
+          API_URL,
+          token,
+          collectionId,
+          {
+            profileKey,
+            limit: LEADERBOARD_INITIAL_LIMIT,
+          },
+        );
+        if (requestId !== leaderboardRequestIdRef.current) return;
+        if (!result.ok || !result.payload?.data) {
+          throw new Error(
+            getApiEnvelopeErrorMessage(result.payload, "排行榜資料載入失敗"),
+          );
+        }
+        const data = result.payload.data;
+        setLeaderboardOverview(data);
+        setLeaderboardEntries(data.activeProfile.items);
+        setLeaderboardHasMore(data.activeProfile.hasMore);
+        setLeaderboardNextOffset(data.activeProfile.nextOffset);
+      } catch (err) {
+        if (requestId !== leaderboardRequestIdRef.current) return;
+        setLeaderboardError(
+          err instanceof Error ? err.message : "排行榜資料載入失敗",
+        );
+      } finally {
+        if (requestId === leaderboardRequestIdRef.current) {
+          setLeaderboardLoading(false);
+        }
+      }
+    },
+    [authToken, refreshAuthToken],
+  );
+
+  const loadMoreLeaderboardEntries = useCallback(async () => {
+    if (
+      !API_URL ||
+      !authToken ||
+      !previewCollection?.id ||
+      !leaderboardHasMore ||
+      leaderboardLoadingMore ||
+      leaderboardNextOffset === null
+    ) {
+      return;
+    }
+
+    const requestId = leaderboardRequestIdRef.current + 1;
+    leaderboardRequestIdRef.current = requestId;
+    setLeaderboardLoadingMore(true);
+    setLeaderboardError(null);
+
+    try {
+      const token = await ensureFreshAuthToken({
+        token: authToken,
+        refreshAuthToken,
+        leewayMs: 60_000,
+      });
+      if (!token) throw new Error("Unauthorized");
+      const result = await apiFetchCollectionLeaderboardRankings(
+        API_URL,
+        token,
+        previewCollection.id,
+        {
+          profileKey: activeLeaderboardProfileKey,
+          limit: LEADERBOARD_PAGE_SIZE,
+          offset: leaderboardNextOffset,
+        },
+      );
+      if (requestId !== leaderboardRequestIdRef.current) return;
+      if (!result.ok || !result.payload?.data) {
+        throw new Error(
+          getApiEnvelopeErrorMessage(result.payload, "排行榜資料載入失敗"),
+        );
+      }
+      const data = result.payload.data;
+      setLeaderboardEntries((current) => {
+        const seen = new Set(
+          current.map((item) => `${item.rank}:${item.userId ?? ""}`),
+        );
+        return [
+          ...current,
+          ...data.items.filter(
+            (item) => !seen.has(`${item.rank}:${item.userId ?? ""}`),
+          ),
+        ];
+      });
+      setLeaderboardHasMore(data.hasMore);
+      setLeaderboardNextOffset(data.nextOffset);
+    } catch (err) {
+      if (requestId !== leaderboardRequestIdRef.current) return;
+      setLeaderboardError(
+        err instanceof Error ? err.message : "排行榜資料載入失敗",
+      );
+    } finally {
+      if (requestId === leaderboardRequestIdRef.current) {
+        setLeaderboardLoadingMore(false);
+      }
+    }
+  }, [
+    activeLeaderboardProfileKey,
+    authToken,
+    leaderboardHasMore,
+    leaderboardLoadingMore,
+    leaderboardNextOffset,
+    previewCollection?.id,
+    refreshAuthToken,
+  ]);
+
+  const loadPreviewItems = useCallback(
+    async (collectionId: string) => {
+      if (!API_URL || !authToken) return;
+      const requestId = previewItemsRequestIdRef.current + 1;
+      previewItemsRequestIdRef.current = requestId;
+      setPreviewItemsLoading(true);
+      setPreviewItemsError(null);
+      setPreviewItems([]);
+
+      try {
+        const token = await ensureFreshAuthToken({
+          token: authToken,
+          refreshAuthToken,
+          leewayMs: 60_000,
+        });
+        if (!token) throw new Error("Unauthorized");
+        const result = await apiFetchCollectionItemPreview(
+          API_URL,
+          token,
+          collectionId,
+          { page: 1, pageSize: 10 },
+        );
+        if (requestId !== previewItemsRequestIdRef.current) return;
+        if (!result.ok || !result.payload?.data) {
+          throw new Error(result.payload?.error?.message ?? "題庫內容載入失敗");
+        }
+        setPreviewItems(result.payload.data.items ?? []);
+      } catch (err) {
+        if (requestId !== previewItemsRequestIdRef.current) return;
+        setPreviewItemsError(
+          err instanceof Error ? err.message : "題庫內容載入失敗",
+        );
+      } finally {
+        if (requestId === previewItemsRequestIdRef.current) {
+          setPreviewItemsLoading(false);
+        }
+      }
+    },
+    [authToken, refreshAuthToken],
+  );
+
+  useEffect(() => {
+    if (!previewCollection?.id) {
+      leaderboardRequestIdRef.current += 1;
+      previewItemsRequestIdRef.current += 1;
+      setLeaderboardOverview(null);
+      setLeaderboardEntries([]);
+      setLeaderboardError(null);
+      setLeaderboardHasMore(false);
+      setLeaderboardNextOffset(null);
+      setPreviewItems([]);
+      setPreviewItemsError(null);
+      setPreviewItemsLoading(false);
+      setDrawerTab("overview");
+      return;
+    }
+    void loadLeaderboardOverview(
+      previewCollection.id,
+      activeLeaderboardProfileKey,
+    );
+    void loadPreviewItems(previewCollection.id);
+  }, [
+    activeLeaderboardProfileKey,
+    loadLeaderboardOverview,
+    loadPreviewItems,
+    previewCollection?.id,
+  ]);
+
+  const dashboardQuery = useQuery({
+    queryKey: ["creator-dashboard", ownerId, creatorRange],
+    queryFn: async ({ signal }) => {
+      const token = await ensureFreshAuthToken({
+        token: authToken,
+        refreshAuthToken,
+        leewayMs: 60_000,
+      });
+      if (!token) throw new Error("Unauthorized");
+      return fetchCreatorAnalytics<CreatorDashboard>(
+        API_URL,
+        token,
+        `/api/collections/creator-dashboard?range=${creatorRange}`,
+        signal,
+      );
+    },
+    enabled: Boolean(API_URL && authToken && ownerId),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    placeholderData: keepPreviousData,
+    retry: 1,
+  });
+  const dashboardData = dashboardQuery.data ?? null;
+  const dashboardError =
+    dashboardQuery.error instanceof Error ? dashboardQuery.error.message : null;
+
+  const insightsQuery = useQuery({
+    queryKey: [
+      "creator-insights",
+      ownerId,
+      previewCollection?.id ?? null,
+      creatorRange,
+    ],
+    queryFn: async ({ signal }) => {
+      const token = await ensureFreshAuthToken({
+        token: authToken,
+        refreshAuthToken,
+        leewayMs: 60_000,
+      });
+      if (!token) throw new Error("Unauthorized");
+      return fetchCreatorAnalytics<CreatorInsights>(
+        API_URL,
+        token,
+        `/api/collections/${previewCollection?.id}/creator-insights?range=${creatorRange}`,
+        signal,
+      );
+    },
+    enabled: Boolean(API_URL && authToken && ownerId && previewCollection?.id),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    placeholderData: keepPreviousData,
+    retry: 1,
+  });
+  const insightsData = insightsQuery.data ?? null;
+  const insightsError =
+    insightsQuery.error instanceof Error ? insightsQuery.error.message : null;
+  const insightsLoading = insightsQuery.isLoading;
+  const isCreatorAnalyticsRefreshing =
+    dashboardQuery.isFetching ||
+    insightsQuery.isFetching ||
+    isRangeTransitionPending;
+  const handleCreatorRangeChange = useCallback(
+    (range: CreatorRange) => {
+      if (range === creatorRange) return;
+      startRangeTransition(() => setCreatorRange(range));
+    },
+    [creatorRange, startRangeTransition],
+  );
 
   useEffect(() => {
     if (!API_URL || !ownerId || !authToken) return;
@@ -298,6 +689,7 @@ const CollectionsPage = () => {
     authUser?.provider_user_id,
     displayUsername,
     ownerId,
+    collectionReloadTick,
   ]);
 
   const handleDeleteCollection = async (id: string) => {
@@ -377,7 +769,10 @@ const CollectionsPage = () => {
       }
 
       const previousCategory = target.category ?? null;
-      const optimisticCategory = buildCategoryFromId(categoryId, categoriesData);
+      const optimisticCategory = buildCategoryFromId(
+        categoryId,
+        categoriesData,
+      );
 
       // Optimistic update — UI reflects immediately using local tree data
       setCollections((prev) =>
@@ -396,7 +791,9 @@ const CollectionsPage = () => {
         if (!token) {
           setCollections((prev) =>
             prev.map((item) =>
-              item.id === collectionId ? { ...item, category: previousCategory } : item,
+              item.id === collectionId
+                ? { ...item, category: previousCategory }
+                : item,
             ),
           );
           return;
@@ -459,8 +856,8 @@ const CollectionsPage = () => {
   );
 
   const handleShareCollection = async (collection: DbCollection) => {
-    if (collection.visibility !== "public") {
-      setError("請先將收藏庫設為公開後再分享");
+    if (!canShareCollection(collection)) {
+      setError("這份題庫尚未公開發布，暫時無法分享。");
       return;
     }
     try {
@@ -485,7 +882,7 @@ const CollectionsPage = () => {
 
   if (!authResolved) {
     return (
-      <Box className="w-full md:w-full lg:w-3/5 mx-auto space-y-4">
+      <Box className="w-full space-y-4">
         <Box className="flex items-center justify-between gap-3">
           <Typography
             variant="h6"
@@ -501,7 +898,7 @@ const CollectionsPage = () => {
 
   if (!authToken) {
     return (
-      <Box className="w-full md:w-full lg:w-3/5 mx-auto space-y-4">
+      <Box className="w-full">
         <Box className="rounded-lg border border-amber-400/40 bg-amber-950/40 p-4 text-sm text-amber-200">
           {TEXT.loginHint}
         </Box>
@@ -510,437 +907,749 @@ const CollectionsPage = () => {
   }
 
   return (
-    <Box className="w-full md:w-full lg:w-3/5 mx-auto space-y-4">
-      <Box className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          {/* <Typography
-            variant="h6"
-            className="text-[var(--mc-text)] font-semibold"
-          >
-            {TEXT.title}
-          </Typography> */}
-          {!isAdmin && (
-            <div className="flex items-center gap-1 text-sm text-[var(--mc-text-muted)]">
-              <span>{collections.length}</span>
-              <span className="opacity-50">/</span>
-              <span>{MAX_COLLECTIONS_PER_USER}</span>
-              <span className="px-1 opacity-35">·</span>
-              <span>私人</span>
-              <span>{privateCollectionsCount}</span>
-              <span className="opacity-50">/</span>
-              <span>{MAX_PRIVATE_COLLECTIONS_PER_USER}</span>
-            </div>
-          )}
-        </div>
-      </Box>
-
-      {showSkeleton ? (
-        <CollectionsSkeleton />
-      ) : (
-        <>
-          {error && (
-            <Typography variant="body2" className="text-rose-300">
-              {error}
-            </Typography>
-          )}
-          <Box className="grid auto-rows-[1fr] gap-3 sm:grid-cols-2">
-            <Card
-              sx={{
-                backgroundColor: "var(--mc-bg)",
-                borderColor: "var(--mc-border)",
-              }}
-              className="h-full min-h-[180px] border-2 border-dashed"
-            >
-              <CardActionArea
-                onClick={() => {
-                  if (!hasReachedCollectionLimit) {
-                    navigate("/collections/new");
+    <Box className="h-full min-h-0 w-full min-w-0 text-[var(--mc-text)]">
+      <CollectionWorkspace
+        mobile={isMobileWorkspace}
+        section={workspaceSection}
+        onSectionChange={setWorkspaceSection}
+        collections={collections}
+        filteredCollections={filteredCollections}
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        loading={loading}
+        error={error}
+        onRetryCollections={() => setCollectionReloadTick((value) => value + 1)}
+        dashboard={dashboardData}
+        dashboardError={dashboardError}
+        dashboardRefreshing={isCreatorAnalyticsRefreshing}
+        onRetryDashboard={() => void dashboardQuery.refetch()}
+        range={creatorRange}
+        onRangeChange={handleCreatorRangeChange}
+        isAdmin={isAdmin}
+        canCreate={!hasReachedCollectionLimit}
+        onCreate={() => {
+          if (!hasReachedCollectionLimit) navigate("/collections/new");
+        }}
+        onBrowse={() => navigate("/rooms")}
+        onOpen={(id) => {
+          if (
+            collections.find((item) => item.id === id)?.lifecycle_status ===
+            "draft"
+          )
+            navigate(`/collections/${id}/edit`);
+          else setPreviewCollectionId(id);
+        }}
+        onEdit={(id) => navigate(`/collections/${id}/edit`)}
+        onShare={(collection) => void handleShareCollection(collection)}
+        onDelete={(id) => {
+          setPendingDeleteId(id);
+          setConfirmDeleteOpen(true);
+        }}
+        onVisibilityChange={(id, visibility) => {
+          setPendingVisibility({ id, visibility });
+          setConfirmVisibilityOpen(true);
+        }}
+        onUpdateCategory={(id, value) => void handleUpdateCategory(id, value)}
+        onUpdateSubTags={(id, keys) => void handleUpdateSubTags(id, keys)}
+        onResubmitted={(id) =>
+          setCollections((previous) =>
+            previous.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    moderation_status: "under_review",
+                    moderation_edited: false,
                   }
-                }}
-                className="h-full"
-                disabled={hasReachedCollectionLimit}
-              >
-                <CardContent className="flex h-full flex-col items-center justify-center text-center">
-                  <Typography variant="h4" className="text-[var(--mc-text)]">
-                    +
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    className="text-[var(--mc-text-muted)]"
-                  >
-                    {hasReachedCollectionLimit
-                      ? `已達 ${MAX_COLLECTIONS_PER_USER} 個上限`
-                      : TEXT.create}
-                  </Typography>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-
-            {collections.map((collection) => {
-              const thumb =
-                collection.cover_thumbnail_url ||
-                (collection.cover_provider === "youtube" &&
-                collection.cover_source_id
-                  ? `https://i.ytimg.com/vi/${collection.cover_source_id}/hqdefault.jpg`
-                  : "");
-              const countLabel = formatCollectionAvailabilityLabel(collection);
-              const useCount = Math.max(0, Number(collection.use_count ?? 0));
-              const favoriteCount = Math.max(
-                0,
-                Number(collection.favorite_count ?? 0),
-              );
-              return (
-                <Card
-                  key={collection.id}
-                  variant="outlined"
-                  sx={{
-                    backgroundColor:
-                      "color-mix(in srgb, var(--mc-surface-strong) 88%, black)",
-                    borderColor: "var(--mc-border)",
-                  }}
-                  className="group relative h-full min-h-[180px] overflow-hidden"
-                >
-                  {thumb && (
-                    <Box
-                      className="absolute inset-0 bg-cover bg-center opacity-70 transition-opacity duration-300 group-hover:opacity-85"
-                      style={{ backgroundImage: `url(${thumb})` }}
-                    />
-                  )}
-                  <Box className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
-                  {/* Use div instead of CardActionArea to avoid nested <button> HTML error.
-                      CardActionArea renders as <button>, but Switch and IconButton inside
-                      also render as <button>, which is invalid HTML.
-                      role="button" + keyboard handler preserves accessibility. */}
+                : item,
+            ),
+          )
+        }
+        deletingId={deletingId}
+        visibilityUpdatingId={visibilityUpdatingId}
+        copiedId={copiedShareCollectionId}
+      />
+      <Drawer
+        anchor={isMobileWorkspace ? "bottom" : "right"}
+        sx={{ zIndex: 1500 }}
+        open={Boolean(previewCollection)}
+        onClose={() => setPreviewCollectionId(null)}
+        PaperProps={{
+          sx: {
+            width: { xs: "100%", lg: "min(1180px, 94vw)" },
+            maxWidth: "100vw",
+            borderLeft: "1px solid var(--mc-border)",
+            background: "var(--mc-surface)",
+            height: { xs: "calc(100dvh - 12px)", lg: "100%" },
+            borderRadius: { xs: "22px 22px 0 0", lg: "22px 0 0 22px" },
+            color: "var(--mc-text)",
+          },
+        }}
+      >
+        {previewCollection ? (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="relative shrink-0 overflow-hidden border-b border-[var(--mc-border)]">
+              {(() => {
+                const thumb =
+                  previewCollection.cover_thumbnail_url ||
+                  (previewCollection.cover_provider === "youtube" &&
+                  previewCollection.cover_source_id
+                    ? `https://i.ytimg.com/vi/${previewCollection.cover_source_id}/hqdefault.jpg`
+                    : "");
+                return thumb ? (
                   <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/collections/${collection.id}/edit`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        navigate(`/collections/${collection.id}/edit`);
-                      }
+                    className="absolute inset-0 scale-105 bg-cover bg-center opacity-28"
+                    style={{ backgroundImage: `url(${thumb})` }}
+                  />
+                ) : null;
+              })()}
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,6,0.42),rgba(7,7,6,0.94)_72%,rgba(7,7,6,1))]" />
+              <div className="relative p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold tracking-[0.18em] text-[var(--mc-accent)]">
+                      CREATOR INSIGHT
+                    </div>
+                    <h2 className="mt-2 line-clamp-2 text-2xl font-semibold leading-8 text-[var(--mc-text)]">
+                      {previewCollection.title || previewCollection.id}
+                    </h2>
+                  </div>
+                  <IconButton
+                    size="small"
+                    onClick={() => setPreviewCollectionId(null)}
+                    aria-label="關閉題庫概覽"
+                    sx={{
+                      color: "var(--mc-text)",
+                      backgroundColor: "rgba(0,0,0,0.28)",
+                      border: "1px solid var(--mc-border)",
                     }}
-                    className="relative z-10 h-full cursor-pointer"
                   >
-                    <CardContent className="flex h-full flex-col justify-between">
-                      {/* Top section: title row + chip row (stacked, no layout impact when chip absent) */}
-                      <div className="flex flex-col gap-1">
-                        <Box className="flex items-center justify-between">
-                          <Typography
-                            variant="h6"
-                            className="min-w-0 flex-1 truncate pr-3 font-semibold text-white"
-                            title={collection.title || collection.id}
-                          >
-                            {collection.title || collection.id}
-                          </Typography>
-                          <Box
-                            className="flex items-center gap-1"
-                            onClick={(event) => event.stopPropagation()}
-                            onMouseDown={(event) => event.stopPropagation()}
-                          >
-                          {/* Flagged collections can't appear publicly anyway —
-                              hide the visibility pill on mobile to free space */}
-                          <div
-                            className={`items-center gap-1 rounded-full border border-white/30 bg-black/30 px-2 py-0.5 ${
-                              collection.moderation_status === "action_required" ||
-                              collection.moderation_status === "under_review"
-                                ? "hidden sm:inline-flex"
-                                : "inline-flex"
-                            }`}
-                          >
-                            <Tooltip
-                              title={
-                                collection.visibility === "public"
-                                  ? "公開"
-                                  : "私人"
-                              }
-                            >
-                              <span className="inline-flex whitespace-nowrap items-center gap-1 text-[11px] text-white/80">
-                                {collection.visibility === "public" ? (
-                                  <PublicOutlined fontSize="inherit" />
-                                ) : (
-                                  <LockOutlined fontSize="inherit" />
-                                )}
-                                {collection.visibility === "public"
-                                  ? "公開"
-                                  : "私人"}
-                              </span>
-                            </Tooltip>
-                            <Switch
-                              size="small"
-                              checked={collection.visibility === "public"}
-                              disabled={visibilityUpdatingId === collection.id}
-                              onChange={(_, checked) => {
-                                setPendingVisibility({
-                                  id: collection.id,
-                                  visibility: checked ? "public" : "private",
-                                });
-                                setConfirmVisibilityOpen(true);
-                              }}
-                              sx={{
-                                "& .MuiSwitch-thumb": {
-                                  backgroundColor: "white",
-                                },
-                                "& .MuiSwitch-track": {
-                                  backgroundColor: "rgba(255,255,255,0.2)",
-                                  opacity: 1,
-                                },
-                                "& .Mui-checked + .MuiSwitch-track": {
-                                  backgroundColor: "rgba(56,189,248,0.6)",
-                                  opacity: 1,
-                                },
-                              }}
-                            />
-                          </div>
-                          <Tooltip
-                            title={
-                              collection.visibility === "public"
-                                ? "分享公開收藏庫"
-                                : "請先設為公開才能分享"
-                            }
-                          >
-                            <span>
-                              <IconButton
-                                size="small"
-                                disabled={collection.visibility !== "public"}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleShareCollection(collection);
-                                }}
-                                className="text-white/70 hover:text-white"
-                                aria-label="share"
-                              >
-                                <span className="relative inline-flex h-[18px] w-[18px] items-center justify-center overflow-hidden">
-                                  <ShareRounded
-                                    fontSize="small"
-                                    className={`absolute transition-all duration-200 ${
-                                      copiedShareCollectionId === collection.id
-                                        ? "scale-75 opacity-0"
-                                        : "scale-100 opacity-100"
-                                    }`}
-                                  />
-                                  <CheckRounded
-                                    fontSize="small"
-                                    className={`absolute text-cyan-300 transition-all duration-200 ${
-                                      copiedShareCollectionId === collection.id
-                                        ? "scale-100 opacity-100"
-                                        : "scale-75 opacity-0"
-                                    }`}
-                                  />
-                                </span>
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <IconButton
-                            size="small"
-                            disabled={deletingId === collection.id}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setPendingDeleteId(collection.id);
-                              setConfirmDeleteOpen(true);
-                            }}
-                            className="text-white/70 hover:text-white"
-                            aria-label="delete"
-                          >
-                            <DeleteOutline fontSize="small" />
-                          </IconButton>
-                        </Box>
-                        </Box>
-                        {/* Row 2: quick language + category editors (language first, matches RoomHub) */}
+                    <CloseRounded fontSize="small" />
+                  </IconButton>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <CollectionMetaChips collection={previewCollection} />
+                  <span className="rounded-full border border-white/16 bg-black/28 px-2 py-1 text-[11px] font-semibold text-slate-200">
+                    {previewCollection.visibility === "public"
+                      ? "公開"
+                      : "私人"}
+                  </span>
+                  <span className="rounded-full border border-white/16 bg-black/28 px-2 py-1 text-[11px] font-semibold text-slate-200">
+                    {formatCollectionAvailabilityLabel(previewCollection)}
+                  </span>
+                </div>
+
+                {previewCollection.description ? (
+                  <p className="mt-3 line-clamp-2 max-w-[62ch] text-sm leading-6 text-slate-300">
+                    {previewCollection.description}
+                  </p>
+                ) : null}
+
+                <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    {
+                      label: "不重複玩家",
+                      value: leaderboardLoading
+                        ? "..."
+                        : engagementStats.uniquePlayers.toLocaleString("zh-TW"),
+                    },
+                    {
+                      label: "開房次數",
+                      value: Math.max(
+                        0,
+                        Number(previewCollection.use_count ?? 0),
+                      ).toLocaleString("zh-TW"),
+                    },
+                    {
+                      label: "平均評分",
+                      value:
+                        Math.max(
+                          0,
+                          Number(previewCollection.rating_count ?? 0),
+                        ) > 0
+                          ? Number(previewCollection.rating_avg ?? 0).toFixed(1)
+                          : "-",
+                    },
+                    {
+                      label: "評分人數",
+                      value: Math.max(
+                        0,
+                        Number(previewCollection.rating_count ?? 0),
+                      ).toLocaleString("zh-TW"),
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5"
+                    >
+                      <div className="text-[11px] text-slate-400">
+                        {item.label}
+                      </div>
+                      <div className="mt-1 text-lg font-semibold leading-none text-slate-50">
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(`/collections/${previewCollection.id}/edit`)
+                    }
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--mc-accent)]/55 bg-[var(--mc-accent)] px-3 text-sm font-semibold text-black transition hover:bg-amber-300"
+                  >
+                    <EditRounded sx={{ fontSize: 16 }} />
+                    編輯題庫
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void handleShareCollection(previewCollection)
+                    }
+                    disabled={!canShareCollection(previewCollection)}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/12 bg-black/28 px-3 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:text-slate-500"
+                  >
+                    <ShareRounded sx={{ fontSize: 16 }} />
+                    分享
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="grid grid-cols-4 gap-1 border-b border-[var(--mc-border)] bg-black/24 p-2"
+              role="tablist"
+              aria-label="題庫分析區段"
+            >
+              {[
+                { key: "overview", label: "成效" },
+                { key: "content", label: "健康" },
+                { key: "reviews", label: "回饋" },
+                { key: "leaderboard", label: "排行" },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={drawerTab === item.key}
+                  aria-controls={`collection-analysis-${item.key}`}
+                  onClick={() => setDrawerTab(item.key as CollectionDrawerTab)}
+                  className={`h-9 rounded-lg text-xs font-semibold transition ${
+                    drawerTab === item.key
+                      ? "bg-[var(--mc-accent)] text-black"
+                      : "text-[var(--mc-text-muted)] hover:bg-white/[0.06] hover:text-[var(--mc-text)]"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <div
+                className={`min-h-0 h-full overflow-y-auto p-4 sm:p-5 ${drawerTab === "leaderboard" ? "hidden" : ""}`}
+              >
+                {drawerTab === "overview" && (
+                  <section
+                    id="collection-analysis-overview"
+                    role="tabpanel"
+                    className="rounded-2xl border border-[var(--mc-border)] bg-black/18 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-[var(--mc-text)]">
+                          遊玩數據
+                        </h3>
+                        <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                          不重複玩家、總場次與模式分布
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-200">
+                        {engagementStats.totalPlayerSessions.toLocaleString(
+                          "zh-TW",
+                        )}{" "}
+                        次參與
+                      </span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+                      {[
+                        {
+                          label: "不重複玩家",
+                          value:
+                            engagementStats.uniquePlayers.toLocaleString(
+                              "zh-TW",
+                            ),
+                        },
+                        {
+                          label: "遊玩場次",
+                          value:
+                            engagementStats.totalPlays.toLocaleString("zh-TW"),
+                        },
+                        {
+                          label: "開房次數",
+                          value: Math.max(
+                            0,
+                            Number(previewCollection.use_count ?? 0),
+                          ).toLocaleString("zh-TW"),
+                        },
+                        {
+                          label: "收藏數",
+                          value: Math.max(
+                            0,
+                            Number(previewCollection.favorite_count ?? 0),
+                          ).toLocaleString("zh-TW"),
+                        },
+                      ].map((item) => (
                         <div
-                          className="flex flex-wrap items-center gap-1.5"
-                          onClick={(event) => event.stopPropagation()}
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
+                          key={item.label}
+                          className="rounded-xl border border-white/10 bg-black/22 px-3 py-3"
                         >
-                          {/* Sub-tag (language) quick picker — rendered first */}
-                          <SubTagQuickPicker
-                            value={collection.sub_tag_keys ?? []}
-                            onChange={(keys) =>
-                              handleUpdateSubTags(collection.id, keys)
-                            }
-                          >
-                            {(open) => {
-                              const langs = (collection.sub_tag_keys ?? [])
-                                .map((k) => subTagLabelByKey.get(k))
-                                .filter((l): l is string => Boolean(l));
-                              if (langs.length > 0) {
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => open(e.currentTarget)}
-                                    className="group/lang inline-flex items-center gap-1 rounded-full border border-cyan-300/40 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-cyan-200 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-cyan-300/65 hover:bg-slate-900"
-                                  >
-                                    <span>{langs.join(" · ")}</span>
-                                    <span className="text-cyan-300/50 transition-colors group-hover/lang:text-cyan-200/80">
-                                      ›
-                                    </span>
-                                  </button>
-                                );
-                              }
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={(e) => open(e.currentTarget)}
-                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-cyan-300/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-cyan-200/55 transition-colors hover:border-cyan-300/55 hover:bg-slate-950/85 hover:text-cyan-100"
-                                >
-                                  <span className="text-[12px] leading-none">+</span>
-                                  <span>加上語系</span>
-                                </button>
-                              );
-                            }}
-                          </SubTagQuickPicker>
-
-                          {/* Category quick picker — rendered after language */}
-                          <CategoryQuickPicker
-                            value={collection.category?.id ?? null}
-                            allowClear={false}
-                            onChange={(cid) =>
-                              handleUpdateCategory(collection.id, cid)
-                            }
-                          >
-                            {(open) =>
-                              collection.category ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => open(e.currentTarget)}
-                                  className="group/chip inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 px-2 py-0.5 text-[10px] font-medium text-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.4)] backdrop-blur-md transition-colors hover:border-cyan-300/55 hover:bg-slate-900 hover:text-cyan-100"
-                                >
-                                  <span>
-                                    {collection.category.parentLabel
-                                      ? `${collection.category.parentLabel} › ${collection.category.label}`
-                                      : collection.category.label}
-                                  </span>
-                                  <span className="text-white/35 transition-colors group-hover/chip:text-cyan-300/70">
-                                    ›
-                                  </span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={(e) => open(e.currentTarget)}
-                                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/25 bg-slate-950/60 px-2 py-0.5 text-[10px] text-white/55 transition-colors hover:border-cyan-300/55 hover:bg-slate-950/85 hover:text-cyan-100"
-                                >
-                                  <span className="text-[12px] leading-none">+</span>
-                                  <span>加上分類</span>
-                                </button>
-                              )
-                            }
-                          </CategoryQuickPicker>
-
-                          {/* Moderation chip — same row as the language/category chips */}
-                          <ModerationChip
-                            size="sm"
-                            collectionId={collection.id}
-                            moderationStatus={collection.moderation_status}
-                            moderationReason={collection.moderation_reason}
-                            canRequestReview={Boolean(
-                              collection.moderation_edited,
-                            )}
-                            onResubmitted={() => {
-                              setCollections((prev) =>
-                                prev.map((item) =>
-                                  item.id === collection.id
-                                    ? {
-                                        ...item,
-                                        moderation_status: "under_review",
-                                        moderation_edited: false,
-                                      }
-                                    : item,
-                                ),
-                              );
-                            }}
+                          <div className="text-[11px] text-slate-400">
+                            {item.label}
+                          </div>
+                          <div className="mt-1 text-2xl font-semibold leading-none text-slate-50">
+                            {item.value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 rounded-xl border border-white/10 bg-black/18 p-3">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span>
+                          休閒{" "}
+                          {engagementStats.casualPlays.toLocaleString("zh-TW")}{" "}
+                          場
+                        </span>
+                        <span>
+                          排行{" "}
+                          {engagementStats.leaderboardPlays.toLocaleString(
+                            "zh-TW",
+                          )}{" "}
+                          場
+                        </span>
+                      </div>
+                      <div className="mt-2 flex h-3 overflow-hidden rounded-full bg-black/40">
+                        <div
+                          className="bg-[var(--mc-accent)]"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, casualPlayRatio))}%`,
+                          }}
+                        />
+                        <div
+                          className="bg-cyan-300"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, leaderboardPlayRatio))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    {insightsLoading && !insightsData ? (
+                      <div className="mt-4 h-44 animate-pulse rounded-xl bg-white/[0.04]" />
+                    ) : insightsError ? (
+                      <div className="mt-4 rounded-xl border border-rose-300/18 bg-rose-500/8 p-3 text-sm text-rose-100">
+                        {insightsError}
+                      </div>
+                    ) : insightsData ? (
+                      <>
+                        <div className="mt-4 flex items-center justify-between">
+                          <span className="text-xs text-slate-400">
+                            近 {insightsData.range.replace("d", " 天")}{" "}
+                            與前一期比較
+                          </span>
+                          <CreatorRangePicker
+                            value={creatorRange}
+                            onChange={handleCreatorRangeChange}
+                            isLoading={isCreatorAnalyticsRefreshing}
                           />
                         </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+                          {[
+                            { label: "開房", metric: insightsData.uses },
+                            {
+                              label: "玩家",
+                              metric: insightsData.uniquePlayers,
+                            },
+                            { label: "收藏", metric: insightsData.favorites },
+                            { label: "回饋", metric: insightsData.reviews },
+                          ].map(({ label, metric }) => (
+                            <div
+                              key={label}
+                              className="rounded-xl border border-white/10 bg-black/22 p-3"
+                            >
+                              <p className="text-[11px] text-slate-400">
+                                {label}
+                              </p>
+                              <p className="mt-1 text-xl font-semibold text-white">
+                                {metric.value.toLocaleString("zh-TW")}
+                              </p>
+                              <p className="mt-1 text-[11px] text-cyan-200/80">
+                                {formatChange(metric)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 rounded-xl border border-white/10 bg-black/18 p-3">
+                          <CreatorTrendChart
+                            data={insightsData.trend}
+                            compact
+                          />
+                        </div>
+                      </>
+                    ) : null}
+                  </section>
+                )}
+
+                {drawerTab === "content" && (
+                  <section
+                    id="collection-analysis-content"
+                    role="tabpanel"
+                    className="mt-4 rounded-2xl border border-[var(--mc-border)] bg-black/18"
+                  >
+                    <div className="flex items-center justify-between gap-3 border-b border-[var(--mc-border)] px-4 py-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-[var(--mc-text)]">
+                          題庫內容
+                        </h3>
+                        <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                          前 10 題預覽
+                        </p>
                       </div>
-                      <Box>
-                        <div className="flex flex-wrap gap-3 text-[14px] font-semibold leading-none text-slate-100/92">
-                          <span className="inline-flex items-center gap-1.5">
-                            <QuizRounded
-                              sx={{
-                                fontSize: 17,
-                                color: "rgba(103, 232, 249, 0.94)",
-                              }}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/collections/${previewCollection.id}/edit`)
+                        }
+                        className="rounded-lg border border-amber-200/25 bg-amber-300/10 px-2.5 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/20"
+                      >
+                        前往編輯
+                      </button>
+                    </div>
+                    {insightsData ? (
+                      <div className="mx-3 mt-3 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/18 p-3 sm:grid-cols-4">
+                        <div>
+                          <p className="text-[11px] text-slate-400">題目</p>
+                          <p className="mt-1 font-semibold text-white">
+                            {insightsData.contentHealth.itemCount}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-slate-400">可播放</p>
+                          <p className="mt-1 font-semibold text-cyan-200">
+                            {insightsData.contentHealth.playableItemCount}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-slate-400">不可用</p>
+                          <p className="mt-1 font-semibold text-amber-200">
+                            {insightsData.contentHealth.unavailableItemCount}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-slate-400">Metadata</p>
+                          <p className="mt-1 font-semibold text-white">
+                            {insightsData.contentHealth.hasCategory &&
+                            insightsData.contentHealth.hasSubTags
+                              ? "完整"
+                              : "待補"}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="p-3">
+                      {previewItemsLoading ? (
+                        <div className="space-y-2">
+                          {Array.from({ length: 4 }).map((_, index) => (
+                            <div
+                              key={index}
+                              className="h-14 rounded-xl bg-white/[0.035]"
                             />
-                            <span>{countLabel}</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <BarChartRounded
-                              sx={{
-                                fontSize: 18,
-                                color: "rgba(125, 211, 252, 0.92)",
-                              }}
-                            />
-                            <span>{useCount}</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <FavoriteBorderRounded
-                              sx={{
-                                fontSize: 17,
-                                color: "rgba(251, 113, 133, 0.9)",
-                              }}
-                            />
-                            <span>{favoriteCount}</span>
+                          ))}
+                        </div>
+                      ) : previewItemsError ? (
+                        <div className="rounded-xl border border-rose-300/18 bg-rose-500/8 px-3 py-3 text-sm text-rose-100">
+                          {previewItemsError}
+                        </div>
+                      ) : previewItems.length > 0 ? (
+                        <div className="space-y-2">
+                          {previewItems.map((item, index) => {
+                            const thumb =
+                              item.thumbnail_url ||
+                              (item.provider === "youtube" && item.source_id
+                                ? `https://i.ytimg.com/vi/${item.source_id}/mqdefault.jpg`
+                                : "");
+                            return (
+                              <div
+                                key={item.id}
+                                className="grid grid-cols-[4.5rem_minmax(0,1fr)_2rem] items-center gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-2"
+                              >
+                                <div className="h-11 overflow-hidden rounded-lg bg-black/28">
+                                  {thumb ? (
+                                    <img
+                                      src={thumb}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : null}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-slate-100">
+                                    {item.title || `題目 ${index + 1}`}
+                                  </p>
+                                  <p className="mt-1 truncate text-xs text-slate-500">
+                                    {item.channel_title || "未知頻道"}
+                                  </p>
+                                </div>
+                                <span className="text-right text-xs font-semibold text-slate-500">
+                                  #{index + 1}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-white/12 bg-white/[0.025] px-3 py-6 text-center text-sm text-[var(--mc-text-muted)]">
+                          尚無題庫內容可預覽。
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {drawerTab === "reviews" && (
+                  <section
+                    id="collection-analysis-reviews"
+                    role="tabpanel"
+                    className="mt-4 flex min-h-[420px] flex-col rounded-2xl border border-[var(--mc-border)] bg-black/18"
+                  >
+                    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--mc-border)] px-4 py-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-[var(--mc-text)]">
+                          評分與評論者
+                        </h3>
+                        <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                          查看玩家留下的評分與文字回饋
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-200">
+                        {Math.max(
+                          0,
+                          Number(previewCollection.rating_count ?? 0),
+                        ).toLocaleString("zh-TW")}{" "}
+                        人評分
+                      </span>
+                    </div>
+                    {insightsData ? (
+                      <div className="shrink-0 border-b border-[var(--mc-border)] p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-slate-200">
+                            平均{" "}
+                            {insightsData.ratingCount
+                              ? insightsData.ratingAvg.toFixed(1)
+                              : "-"}{" "}
+                            / 5
+                          </p>
+                          <span className="text-xs text-slate-400">
+                            {insightsData.ratingCount} 人評分
                           </span>
                         </div>
-                        {collection.description && (
-                          <Typography
-                            variant="body2"
-                            className="mt-3 line-clamp-2 text-white/70"
+                        <RatingChart data={insightsData.ratingDistribution} />
+                      </div>
+                    ) : null}
+                    <div className="min-h-0 flex-1">
+                      <CollectionReviewList
+                        collectionId={previewCollection.id}
+                        enabled={Boolean(previewCollection.id)}
+                        limit={12}
+                      />
+                    </div>
+                  </section>
+                )}
+              </div>
+
+              <section
+                id="collection-analysis-leaderboard"
+                role="tabpanel"
+                className={`min-h-0 h-full overflow-y-auto border-[var(--mc-border)] bg-black/18 p-4 sm:p-5 ${drawerTab !== "leaderboard" ? "hidden" : ""}`}
+              >
+                <div className="rounded-2xl border border-[var(--mc-border)] bg-black/18">
+                  <div className="border-b border-[var(--mc-border)] px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-[var(--mc-text)]">
+                          全球排行榜
+                        </h3>
+                        <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
+                          完整玩家排名，依最佳成績排序
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-200">
+                        {totalLeaderboardPlayers.toLocaleString("zh-TW")} 人
+                      </span>
+                    </div>
+
+                    {leaderboardOverview?.profiles?.length ? (
+                      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                        {leaderboardOverview.profiles.map((profile) => (
+                          <button
+                            key={profile.profileKey}
+                            type="button"
+                            onClick={() =>
+                              setActiveLeaderboardProfileKey(profile.profileKey)
+                            }
+                            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                              activeLeaderboardProfileKey === profile.profileKey
+                                ? "border-[var(--mc-accent)] bg-[var(--mc-accent)] text-black"
+                                : "border-white/12 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]"
+                            }`}
                           >
-                            {collection.description}
-                          </Typography>
-                        )}
-                      </Box>
-                    </CardContent>
+                            {profile.title}
+                            <span className="ml-1 opacity-70">
+                              {profile.totalPlayers}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                </Card>
-              );
-            })}
-          </Box>
-          <ConfirmDialog
-            open={confirmVisibilityOpen}
-            title={visibilityConfirmContent.title}
-            description={visibilityConfirmContent.description}
-            confirmLabel={visibilityConfirmContent.confirmLabel}
-            onConfirm={() => {
-              const target = pendingVisibility;
-              setConfirmVisibilityOpen(false);
 
-              if (target) {
-                void applyVisibilityChange(target.id, target.visibility);
-              }
-            }}
-            onCancel={() => {
-              setConfirmVisibilityOpen(false);
-            }}
-            onExited={() => {
-              setPendingVisibility(null);
-            }}
-          />
-          <ConfirmDialog
-            open={confirmDeleteOpen}
-            title="刪除收藏"
-            description={TEXT.deleteConfirm}
-            confirmLabel="確認"
-            onConfirm={() => {
-              const targetId = pendingDeleteId;
-              setConfirmDeleteOpen(false);
+                  <div className="p-3">
+                    {leaderboardLoading ? (
+                      <div className="space-y-2">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <div
+                            key={index}
+                            className="h-14 rounded-xl border border-white/8 bg-white/[0.035]"
+                          />
+                        ))}
+                      </div>
+                    ) : leaderboardError ? (
+                      <div className="rounded-xl border border-rose-300/18 bg-rose-500/8 px-3 py-3 text-sm text-rose-100">
+                        {leaderboardError}
+                      </div>
+                    ) : leaderboardEntries.length > 0 ? (
+                      <div className="space-y-2">
+                        {leaderboardEntries.map((entry) => {
+                          const duration = formatDurationSec(entry.durationSec);
+                          return (
+                            <div
+                              key={`${entry.rank}:${entry.userId ?? entry.displayName}`}
+                              className={`grid grid-cols-[2.4rem_2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                                entry.isMe
+                                  ? "border-[var(--mc-accent)]/45 bg-[var(--mc-accent)]/10"
+                                  : "border-white/8 bg-white/[0.025]"
+                              }`}
+                            >
+                              <div className="text-sm font-semibold text-slate-300">
+                                {formatRank(entry.rank)}
+                              </div>
+                              <PlayerAvatar
+                                username={entry.displayName}
+                                clientId={entry.userId ?? `rank-${entry.rank}`}
+                                avatarUrl={entry.avatarUrl}
+                                size={32}
+                                effectLevel="simple"
+                                hideRankMark
+                              />
+                              <div className="min-w-0">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <p className="truncate text-sm font-semibold text-slate-100">
+                                    {entry.displayName}
+                                  </p>
+                                  {entry.isMe ? (
+                                    <span className="shrink-0 rounded-full bg-[var(--mc-accent)] px-1.5 py-0.5 text-[10px] font-semibold text-black">
+                                      你
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-1 truncate text-xs text-slate-500">
+                                  {formatLeaderboardEntryMeta(entry)}
+                                  {duration ? ` · ${duration}` : ""}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-slate-50">
+                                  {formatScore(entry.score)}
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  score
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {leaderboardHasMore ? (
+                          <button
+                            type="button"
+                            onClick={() => void loadMoreLeaderboardEntries()}
+                            disabled={leaderboardLoadingMore}
+                            className="mt-2 h-10 w-full rounded-xl border border-white/12 bg-white/[0.035] text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07] disabled:cursor-wait disabled:text-slate-500"
+                          >
+                            {leaderboardLoadingMore
+                              ? "載入中..."
+                              : "載入更多排名"}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-white/12 bg-white/[0.025] px-3 py-6 text-center text-sm leading-6 text-[var(--mc-text-muted)]">
+                        目前還沒有玩家進入這份題庫的全球排行榜。
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        ) : null}
+      </Drawer>
+      <ConfirmDialog
+        open={confirmVisibilityOpen}
+        title={visibilityConfirmContent.title}
+        description={visibilityConfirmContent.description}
+        confirmLabel={visibilityConfirmContent.confirmLabel}
+        onConfirm={() => {
+          const target = pendingVisibility;
+          setConfirmVisibilityOpen(false);
 
-              if (targetId) {
-                void handleDeleteCollection(targetId);
-              }
-            }}
-            onCancel={() => {
-              setConfirmDeleteOpen(false);
-            }}
-            onExited={() => {
-              setPendingDeleteId(null);
-            }}
-          />
-        </>
-      )}
+          if (target) {
+            void applyVisibilityChange(target.id, target.visibility);
+          }
+        }}
+        onCancel={() => {
+          setConfirmVisibilityOpen(false);
+        }}
+        onExited={() => {
+          setPendingVisibility(null);
+        }}
+      />
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="刪除題庫？"
+        description={
+          pendingDeleteId
+            ? `「${collections.find((item) => item.id === pendingDeleteId)?.title ?? "未命名題庫"}」刪除後無法復原。`
+            : TEXT.deleteConfirm
+        }
+        confirmLabel="刪除題庫"
+        destructive
+        onConfirm={() => {
+          const targetId = pendingDeleteId;
+          setConfirmDeleteOpen(false);
+
+          if (targetId) {
+            void handleDeleteCollection(targetId);
+          }
+        }}
+        onCancel={() => {
+          setConfirmDeleteOpen(false);
+        }}
+        onExited={() => {
+          setPendingDeleteId(null);
+        }}
+      />
     </Box>
   );
 };

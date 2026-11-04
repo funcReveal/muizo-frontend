@@ -1,3 +1,7 @@
+import ComposerStage from "../components/ComposerStage";
+import ComposerCount from "../components/ComposerCount";
+import { extractYoutubePlaylistUrl } from "../../shared/model/youtubePlaylistLink";
+import "./collectionCreate.css";
 import {
   useCallback,
   useEffect,
@@ -7,10 +11,9 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
 import {
   Box,
   Button,
@@ -82,7 +85,9 @@ const API_URL =
 
 const LONG_DURATION_THRESHOLD_SEC = 600;
 
-const hasGoogleYouTubeConnection = (authUser: ReturnType<typeof useAuth>["authUser"]) => {
+const hasGoogleYouTubeConnection = (
+  authUser: ReturnType<typeof useAuth>["authUser"],
+) => {
   if (!authUser) return false;
   if (authUser.youtube_connected) return true;
   if (authUser.google_linked_at) return true;
@@ -115,6 +120,7 @@ const CollectionCreatePage = () => {
     handleFetchPlaylist,
     handleResetPlaylist,
     setPlaylistUrl,
+    clearPlaylistError,
     youtubePlaylists,
     youtubePlaylistsLoading,
     youtubePlaylistsError,
@@ -128,13 +134,12 @@ const CollectionCreatePage = () => {
   const [createStep, setCreateStep] = useState<CollectionCreateStep>("source");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("public");
-  const [playlistSource, setPlaylistSource] = useState<"url" | "youtube" | "favorites">(
-    "url",
-  );
+  const [playlistSource, setPlaylistSource] = useState<
+    "url" | "youtube" | "favorites"
+  >("url");
 
   const youtubeFetchedRef = useRef(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const lastAutoImportUrlRef = useRef("");
   const pageRootRef = useRef<HTMLDivElement | null>(null);
   const previousCreateStepRef = useRef<CollectionCreateStep>("source");
 
@@ -291,7 +296,9 @@ const CollectionCreatePage = () => {
     const total = importedPlaylistItems.length;
     if (total === 0) return [];
 
-    const toDetectItem = (item: typeof importedPlaylistItems[number]): DetectItemInput => ({
+    const toDetectItem = (
+      item: (typeof importedPlaylistItems)[number],
+    ): DetectItemInput => ({
       channelId: item.channelId ?? null,
       channelTitle: item.uploader ?? null,
       title: item.title ?? null,
@@ -369,7 +376,8 @@ const CollectionCreatePage = () => {
       const preview = previewById.get(item.draftKey);
       return Boolean(
         preview &&
-        (item.startSec !== preview.startSec || item.endSec !== preview.endSec),
+          (item.startSec !== preview.startSec ||
+            item.endSec !== preview.endSec),
       );
     });
 
@@ -523,16 +531,7 @@ const CollectionCreatePage = () => {
 
   const trimmedPlaylistUrl = playlistUrl.trim();
 
-  const playlistUrlLooksValid = useMemo(() => {
-    if (!trimmedPlaylistUrl) return false;
-
-    try {
-      const parsed = new URL(trimmedPlaylistUrl);
-      return Boolean(parsed.searchParams.get("list"));
-    } catch {
-      return false;
-    }
-  }, [trimmedPlaylistUrl]);
+  const playlistUrlLooksValid = Boolean(extractYoutubePlaylistUrl(trimmedPlaylistUrl));
 
   const showPlaylistUrlError = Boolean(
     trimmedPlaylistUrl && !playlistUrlLooksValid,
@@ -584,6 +583,7 @@ const CollectionCreatePage = () => {
 
   const {
     createError,
+    recoverableDraftId,
     isCreating,
     createStageLabel,
     createProgress,
@@ -671,7 +671,6 @@ const CollectionCreatePage = () => {
 
   const resetPlaylistSelection = useCallback(() => {
     handleResetPlaylist();
-    lastAutoImportUrlRef.current = "";
     setSelectedYoutubePlaylistId("");
     setYoutubeActionError(null);
   }, [handleResetPlaylist]);
@@ -776,29 +775,6 @@ const CollectionCreatePage = () => {
   ]);
 
   useEffect(() => {
-    if (playlistSource !== "url") return;
-    if (!playlistUrlLooksValid) return;
-    if (playlistLoading) return;
-    if (trimmedPlaylistUrl === lastAutoImportUrlRef.current) return;
-
-    const timer = window.setTimeout(() => {
-      lastAutoImportUrlRef.current = trimmedPlaylistUrl;
-
-      void handleFetchPlaylist({ url: trimmedPlaylistUrl }).catch(() => {
-        // Errors are surfaced through playlistError in room state.
-      });
-    }, 450);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    handleFetchPlaylist,
-    playlistLoading,
-    playlistSource,
-    playlistUrlLooksValid,
-    trimmedPlaylistUrl,
-  ]);
-
-  useEffect(() => {
     if (playlistSource !== "youtube") return;
     if (!authUser || !googleYouTubeConnected) return;
     if (youtubeFetchedRef.current) return;
@@ -833,7 +809,11 @@ const CollectionCreatePage = () => {
 
   const ensureYoutubePlaylists = () => {
     if (!authUser || !googleYouTubeConnected) return;
-    if (youtubeFetchedRef.current) return;
+    if (
+      youtubePlaylistsLoading ||
+      (youtubeFetchedRef.current && !youtubePlaylistsError)
+    )
+      return;
 
     youtubeFetchedRef.current = true;
     void fetchYoutubePlaylists();
@@ -919,12 +899,30 @@ const CollectionCreatePage = () => {
     setVisibility(nextVisibility);
   };
 
+  const stageActions = (
+    <>
+      {createError && recoverableDraftId && (
+        <button type="button" className="create-secondary" onClick={() => navigate(`/collections/${recoverableDraftId}/edit`)}>繼續編輯草稿</button>
+      )}
+      <CollectionCreateActionBar
+        currentStep={createStep}
+        error={createError}
+        canGoNext={canGoNext}
+        canCreate={canCreateCollection}
+        isCreating={isCreating}
+        onBack={handleGoPreviousStep}
+        onNext={handleGoNextStep}
+        onCreate={() => void handleCreateCollection()}
+      />
+    </>
+  );
+
   return (
     <Box
       ref={pageRootRef}
-      className="mx-auto w-full max-w-6xl px-3 pb-5 pt-3 sm:px-4 sm:pb-6 sm:pt-4"
+      className="collection-create-page w-full min-w-0 pb-5 pt-3 sm:pb-6 sm:pt-4"
     >
-      <Box className="relative overflow-visible p-0 text-[var(--mc-text)] sm:p-5">
+      <Box className="relative overflow-visible text-[var(--mc-text)]">
         {isCreating && (
           <CollectionCreateProgressOverlay
             createStageLabel={createStageLabel}
@@ -933,22 +931,43 @@ const CollectionCreatePage = () => {
         )}
 
         <div className="relative">
-          <button
-            type="button"
-            onClick={() => navigate("/collections")}
-            aria-label={t("page.backToCollections")}
-            className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--mc-surface-strong)]/40 text-[var(--mc-text)] transition hover:bg-[var(--mc-surface-strong)]/60"
-          >
-            <ArrowBackIosNew fontSize="small" />
-          </button>
-
           {!authToken && !authLoading && (
             <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
               {t("page.loginRequired")}
             </div>
           )}
 
-          <div className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
+          <div className="create-composer-body space-y-5 sm:space-y-6">
+            <header className="create-page-header">
+              <div>
+                <nav className="create-breadcrumb" aria-label="目前位置">
+                  <Link
+                    to="/collections"
+                    aria-label="返回收藏庫工作室"
+                  >
+                    收藏庫工作室
+                  </Link>
+                  <span aria-hidden="true">/</span>
+                  <span aria-current="page">建立題庫</span>
+                </nav>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--mc-text)] sm:text-3xl">
+                  建立題庫
+                </h1>
+              </div>
+              <div
+                className="create-header-count"
+                aria-label={`已加入 ${batchEditedDraftPlaylistItems.length} 首歌曲`}
+              >
+                <span className="create-mini-wave" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <ComposerCount value={batchEditedDraftPlaylistItems.length} />
+                <span>首歌曲</span>
+              </div>
+            </header>
             <CollectionCreateStepNav
               currentStep={createStep}
               onStepChange={setCreateStep}
@@ -958,151 +977,148 @@ const CollectionCreatePage = () => {
 
             <div className="grid gap-3 sm:gap-4">
               <div className="min-w-0 space-y-2.5 sm:space-y-3">
-                {createStep === "source" && (
-                  <CollectionCreateSourcePanel
-                    authUserExists={Boolean(authUser)}
-                    hasGoogleYouTubeConnection={googleYouTubeConnected}
-                    needsGoogleReauth={needsGoogleReauth}
-                    onLinkGoogleYouTube={linkGoogleYouTube}
-                    playlistSource={playlistSource}
-                    onPlaylistSourceChange={setPlaylistSource}
-                    sourceSwitchDisabled={
-                      playlistLoading || isImportingYoutubePlaylist || isImportingFavorites
-                    }
-                    playlistUrl={playlistUrl}
-                    trimmedPlaylistUrl={trimmedPlaylistUrl}
-                    showPlaylistUrlError={showPlaylistUrlError}
-                    playlistUrlTooltipMessage={playlistUrlTooltipMessage}
-                    isPlaylistUrlFocused={isPlaylistUrlFocused}
-                    onPlaylistUrlFocusChange={setIsPlaylistUrlFocused}
-                    onPlaylistUrlChange={setPlaylistUrl}
-                    onFetchPlaylist={() => {
-                      void handleFetchPlaylist();
-                    }}
-                    onClearPlaylistUrl={handleRequestClearPlaylistUrl}
-                    playlistUrlReadOnly={playlistUrlReadOnly}
-                    hasResolvedPlaylist={hasResolvedPlaylist}
-                    playlistLoading={playlistLoading}
-                    playlistError={playlistError}
-                    youtubePlaylistsLoading={youtubePlaylistsLoading}
-                    youtubePlaylistsError={youtubePlaylistsError}
-                    youtubePlaylists={youtubePlaylists}
-                    selectedYoutubePlaylistId={selectedYoutubePlaylistId}
-                    onSelectedYoutubePlaylistIdChange={
-                      setSelectedYoutubePlaylistId
-                    }
-                    youtubeActionError={youtubeActionError}
-                    isImportingYoutubePlaylist={isImportingYoutubePlaylist}
-                    onEnsureYoutubePlaylists={ensureYoutubePlaylists}
-                    onImportSelectedYoutubePlaylist={
-                      handleImportSelectedYoutubePlaylist
-                    }
-                    isImportingFavorites={isImportingFavorites}
-                    favoritesImportError={favoritesImportError}
-                    hasFavoritesSource={hasFavoritesSource}
-                    onImportAllFavorites={importAllFavorites}
-                    importSources={importSources}
-                    totalImportedItemCount={totalImportedItemCount}
-                    onRemoveImportSource={(sourceId) => {
-                      removeImportSource(sourceId);
-                      // If user removes the favorites source, clear its import error.
-                    }}
-                    onClearImportSources={resetImportSources}
-                  />
-                )}
+                <ComposerStage step={createStep}>
+                  {createStep === "source" && (
+                    <CollectionCreateSourcePanel
+                      actions={stageActions}
+                      authUserExists={Boolean(authUser)}
+                      hasGoogleYouTubeConnection={googleYouTubeConnected}
+                      needsGoogleReauth={needsGoogleReauth}
+                      onLinkGoogleYouTube={linkGoogleYouTube}
+                      playlistSource={playlistSource}
+                      onPlaylistSourceChange={setPlaylistSource}
+                      sourceSwitchDisabled={
+                        playlistLoading ||
+                        isImportingYoutubePlaylist ||
+                        isImportingFavorites
+                      }
+                      playlistUrl={playlistUrl}
+                      trimmedPlaylistUrl={trimmedPlaylistUrl}
+                      showPlaylistUrlError={showPlaylistUrlError}
+                      playlistUrlTooltipMessage={playlistUrlTooltipMessage}
+                      isPlaylistUrlFocused={isPlaylistUrlFocused}
+                      onPlaylistUrlFocusChange={setIsPlaylistUrlFocused}
+                      onPlaylistUrlChange={(value) => {
+                        clearPlaylistError();
+                        setPlaylistUrl(value);
+                      }}
+                      onFetchPlaylist={() => {
+                        void handleFetchPlaylist();
+                      }}
+                      onClearPlaylistUrl={handleRequestClearPlaylistUrl}
+                      playlistUrlReadOnly={playlistUrlReadOnly}
+                      hasResolvedPlaylist={hasResolvedPlaylist}
+                      playlistLoading={playlistLoading}
+                      playlistError={playlistError}
+                      importProgressPercent={importProgressPercent}
+                      importProgressLabel={importProgressLabel}
+                      youtubePlaylistsLoading={youtubePlaylistsLoading}
+                      youtubePlaylistsError={youtubePlaylistsError}
+                      youtubePlaylists={youtubePlaylists}
+                      selectedYoutubePlaylistId={selectedYoutubePlaylistId}
+                      onSelectedYoutubePlaylistIdChange={
+                        setSelectedYoutubePlaylistId
+                      }
+                      youtubeActionError={youtubeActionError}
+                      isImportingYoutubePlaylist={isImportingYoutubePlaylist}
+                      onEnsureYoutubePlaylists={ensureYoutubePlaylists}
+                      onImportSelectedYoutubePlaylist={
+                        handleImportSelectedYoutubePlaylist
+                      }
+                      isImportingFavorites={isImportingFavorites}
+                      favoritesImportError={favoritesImportError}
+                      hasFavoritesSource={hasFavoritesSource}
+                      onImportAllFavorites={importAllFavorites}
+                      importSources={importSources}
+                      totalImportedItemCount={totalImportedItemCount}
+                      onRemoveImportSource={(sourceId) => {
+                        removeImportSource(sourceId);
+                        // If user removes the favorites source, clear its import error.
+                      }}
+                      onClearImportSources={resetImportSources}
+                    />
+                  )}
 
-                {createStep === "review" && (
-                  <CollectionCreateReviewPanel
-                    playlistLoading={playlistLoading}
-                    isImportingYoutubePlaylist={isImportingYoutubePlaylist}
-                    importProgressPercent={importProgressPercent}
-                    importProgressLabel={importProgressLabel}
-                    playlistSource={playlistSource}
-                    playlistProgressTotal={playlistProgress.total}
-                    collectionPreview={collectionPreview}
-                    isTitleEditing={isTitleEditing}
-                    titleDraft={titleDraft}
-                    titleInputRef={titleInputRef}
-                    onTitleDraftChange={setTitleDraft}
-                    onStartEditTitle={handleStartEditTitle}
-                    onSaveTitle={handleTitleSave}
-                    onCancelTitle={handleTitleCancel}
-                    isAdmin={isAdmin}
-                    collectionItemLimit={collectionItemLimit}
-                    importSources={importSources}
-                    normalDraftPlaylistItems={
-                      batchEditedNormalDraftPlaylistItems
-                    }
-                    longDraftPlaylistItems={batchEditedLongDraftPlaylistItems}
-                    removedImportItems={removedDraftPlaylistItems}
-                    removedImportItemCount={removedImportItemCount}
-                    onRemoveImportSource={removeImportSource}
-                    onRequestRemoveImportItem={handleRequestRemoveImportItem}
-                    onRestoreImportItem={restoreImportItem}
-                    removedDuplicateCount={removedDuplicateCount}
-                    onOpenDuplicateDialog={() => setDuplicateDrawerOpen(true)}
-                    isDraftOverflow={isDraftOverflow}
-                    draftOverflowCount={draftOverflowCount}
-                    onOpenLimitDialog={() => setLimitDialogOpen(true)}
-                    playlistIssueTotal={playlistIssueTotal}
-                    onOpenPlaylistIssueDialog={() => {
-                      setPlaylistIssueDrawerOpen(true);
-                    }}
-                    onOpenBulkPlayback={() => setBulkPlaybackOpen(true)}
-                    onOpenAiBatch={openAiBatchModal}
-                  />
-                )}
+                  {createStep === "review" && (
+                    <CollectionCreateReviewPanel
+                      actions={stageActions}
+                      playlistLoading={playlistLoading}
+                      isImportingYoutubePlaylist={isImportingYoutubePlaylist}
+                      importProgressPercent={importProgressPercent}
+                      importProgressLabel={importProgressLabel}
+                      playlistSource={playlistSource}
+                      playlistProgressTotal={playlistProgress.total}
+                      collectionPreview={collectionPreview}
+                      isTitleEditing={isTitleEditing}
+                      titleDraft={titleDraft}
+                      titleInputRef={titleInputRef}
+                      onTitleDraftChange={setTitleDraft}
+                      onStartEditTitle={handleStartEditTitle}
+                      onSaveTitle={handleTitleSave}
+                      onCancelTitle={handleTitleCancel}
+                      isAdmin={isAdmin}
+                      collectionItemLimit={collectionItemLimit}
+                      importSources={importSources}
+                      normalDraftPlaylistItems={
+                        batchEditedNormalDraftPlaylistItems
+                      }
+                      longDraftPlaylistItems={batchEditedLongDraftPlaylistItems}
+                      removedImportItems={removedDraftPlaylistItems}
+                      removedImportItemCount={removedImportItemCount}
+                      onRemoveImportSource={removeImportSource}
+                      onRequestRemoveImportItem={handleRequestRemoveImportItem}
+                      onRestoreImportItem={restoreImportItem}
+                      removedDuplicateCount={removedDuplicateCount}
+                      onOpenDuplicateDialog={() => setDuplicateDrawerOpen(true)}
+                      isDraftOverflow={isDraftOverflow}
+                      draftOverflowCount={draftOverflowCount}
+                      onOpenLimitDialog={() => setLimitDialogOpen(true)}
+                      playlistIssueTotal={playlistIssueTotal}
+                      onOpenPlaylistIssueDialog={() => {
+                        setPlaylistIssueDrawerOpen(true);
+                      }}
+                      onOpenBulkPlayback={() => setBulkPlaybackOpen(true)}
+                      onOpenAiBatch={openAiBatchModal}
+                    />
+                  )}
 
-                {createStep === "publish" && (
-                  <CollectionCreatePublishPanel
-                    title={collectionTitle}
-                    onTitleChange={(value) => {
-                      setCollectionTitle(value);
-                      setTitleDraft(value);
-                    }}
-                    description={collectionDescription}
-                    onDescriptionChange={setCollectionDescription}
-                    visibility={effectiveVisibility}
-                    onVisibilityChange={handleVisibilityChange}
-                    reachedPrivateCollectionLimit={
-                      reachedPrivateCollectionLimit
-                    }
-                    reachedCollectionLimit={reachedCollectionLimit}
-                    maxPrivateCollectionsPerUser={
-                      MAX_PRIVATE_COLLECTIONS_PER_USER
-                    }
-                    readyItems={batchEditedDraftPlaylistItems.length}
-                    longItems={batchEditedLongDraftPlaylistItems.length}
-                    skippedItems={playlistIssueTotal}
-                    removedDuplicateCount={removedDuplicateCount}
-                    isDraftOverflow={isDraftOverflow}
-                    draftOverflowCount={draftOverflowCount}
-                    isReadyToCreate={canCreateCollection}
-                    detectSuggestion={detectSuggestion}
-                    detectIsRunning={detectIsRunning}
-                    detectHasRun={detectHasRun}
-                    categoryId={categoryId}
-                    onCategoryIdChange={setCategoryId}
-                    subTagKeys={subTagKeys}
-                    onSubTagKeysChange={setSubTagKeys}
-                  />
-                )}
-
-                <CollectionCreateActionBar
-                  currentStep={createStep}
-                  canGoNext={canGoNext}
-                  canCreate={canCreateCollection}
-                  isCreating={isCreating}
-                  onBack={handleGoPreviousStep}
-                  onNext={handleGoNextStep}
-                  onCreate={() => void handleCreateCollection()}
-                />
-
-                {createError && (
-                  <div className="rounded-xl border border-rose-400/35 bg-rose-950/30 px-3 py-2 text-xs leading-5 text-rose-100">
-                    {createError}
-                  </div>
-                )}
+                  {createStep === "publish" && (
+                    <CollectionCreatePublishPanel
+                      onReviewItems={() => setCreateStep("review")}
+                      actions={stageActions}
+                      title={collectionTitle}
+                      onTitleChange={(value) => {
+                        setCollectionTitle(value);
+                        setTitleDraft(value);
+                      }}
+                      description={collectionDescription}
+                      onDescriptionChange={setCollectionDescription}
+                      visibility={effectiveVisibility}
+                      onVisibilityChange={handleVisibilityChange}
+                      reachedPrivateCollectionLimit={
+                        reachedPrivateCollectionLimit
+                      }
+                      reachedCollectionLimit={reachedCollectionLimit}
+                      maxPrivateCollectionsPerUser={
+                        MAX_PRIVATE_COLLECTIONS_PER_USER
+                      }
+                      readyItems={batchEditedDraftPlaylistItems.length}
+                      longItems={batchEditedLongDraftPlaylistItems.length}
+                      skippedItems={playlistIssueTotal}
+                      removedDuplicateCount={removedDuplicateCount}
+                      isDraftOverflow={isDraftOverflow}
+                      draftOverflowCount={draftOverflowCount}
+                      isReadyToCreate={canCreateCollection}
+                      detectSuggestion={detectSuggestion}
+                      detectIsRunning={detectIsRunning}
+                      detectHasRun={detectHasRun}
+                      categoryId={categoryId}
+                      onCategoryIdChange={setCategoryId}
+                      subTagKeys={subTagKeys}
+                      onSubTagKeysChange={setSubTagKeys}
+                    />
+                  )}
+                </ComposerStage>
               </div>
             </div>
           </div>
@@ -1133,18 +1149,10 @@ const CollectionCreatePage = () => {
           onClose={handleCancelRemoveImportItem}
           fullWidth
           maxWidth="xs"
-          PaperProps={{
-            sx: {
-              m: { xs: 1.5, sm: 3 },
-              borderRadius: 3,
-              border: "1px solid rgba(148, 163, 184, 0.22)",
-              background:
-                "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
-              color: "var(--mc-text)",
-            },
-          }}
+          className="collection-studio-dialog"
+          aria-labelledby="remove-song-title"
         >
-          <DialogTitle sx={{ pb: 1 }}>
+          <DialogTitle id="remove-song-title" sx={{ pb: 1 }}>
             <div className="text-base font-semibold">移除這首歌曲？</div>
           </DialogTitle>
 
@@ -1191,7 +1199,7 @@ const CollectionCreatePage = () => {
                     mt: -0.25,
                     color: "rgba(148, 163, 184, 0.8)",
                     "&.Mui-checked": {
-                      color: "#67e8f9",
+                      color: "var(--mc-accent)",
                     },
                   }}
                 />

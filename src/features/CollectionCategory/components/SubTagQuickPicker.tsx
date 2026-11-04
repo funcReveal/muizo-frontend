@@ -11,6 +11,7 @@ type SubTagQuickPickerProps = {
   onChange: (keys: string[]) => void | Promise<void>;
   /** Max selectable sub-tags */
   max?: number;
+  onOpenChange?: (open: boolean) => void;
 };
 
 const MULTI_LANG_KEY = "multi";
@@ -25,13 +26,21 @@ export function SubTagQuickPicker({
   value,
   onChange,
   max = 5,
+  onOpenChange,
 }: SubTagQuickPickerProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const { data: subTags = [], isLoading } = useSubTagsQuery();
 
   const safe = Array.isArray(value) ? value : [];
 
-  const close = () => setAnchorEl(null);
+  const close = () => {
+    setAnchorEl(null);
+    onOpenChange?.(false);
+  };
+  const open = (target: HTMLElement) => {
+    setAnchorEl(target);
+    onOpenChange?.(true);
+  };
 
   const toggle = (key: string) => {
     if (safe.includes(key)) {
@@ -50,8 +59,9 @@ export function SubTagQuickPicker({
 
   return (
     <>
-      {children((target) => setAnchorEl(target))}
+      {children(open)}
       <Popover
+        sx={{ zIndex: 1700 }}
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={close}
@@ -63,10 +73,10 @@ export function SubTagQuickPicker({
               mt: 0.5,
               minWidth: 240,
               maxWidth: 320,
-              border: "1px solid rgba(34, 211, 238, 0.22)",
-              backgroundColor: "rgba(2, 8, 23, 0.96)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
+              maxHeight: "min(420px, calc(100dvh - 48px))",
+              overflowY: "auto",
+              border: "1px solid var(--mc-border)",
+              backgroundColor: "var(--mc-surface-strong)",
               borderRadius: "12px",
               boxShadow:
                 "0 20px 40px -16px rgba(2,6,23,0.7), 0 0 0 1px rgba(34,211,238,0.05) inset",
@@ -77,7 +87,7 @@ export function SubTagQuickPicker({
       >
         <div className="p-2">
           <div className="mb-1 flex items-center justify-between px-2 pb-1 pt-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300/70">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--mc-text-muted)]">
               語系
             </span>
             <span className="text-[10px] text-white/35">
@@ -97,15 +107,18 @@ export function SubTagQuickPicker({
                     type="button"
                     disabled={maxReached}
                     onClick={() => toggle(tag.key)}
+                    aria-pressed={active}
                     className={[
-                      "flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
-                      "focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-35",
+                      "flex w-full items-center min-h-11 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                      "focus:outline-none focus:ring-2 focus:ring-[var(--mc-accent)]/30 disabled:cursor-not-allowed disabled:opacity-35",
                       active
-                        ? "bg-cyan-500/15 text-cyan-100"
+                        ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent)]"
                         : "text-white/80 hover:bg-white/5 hover:text-white",
                     ].join(" ")}
                   >
-                    <span className={`mr-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-cyan-400" : "bg-white/15"}`} />
+                    <span
+                      className={`mr-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-[var(--mc-accent)]" : "bg-white/15"}`}
+                    />
                     {tag.label}
                   </button>
                 );

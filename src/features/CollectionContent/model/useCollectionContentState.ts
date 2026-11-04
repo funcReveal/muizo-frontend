@@ -415,7 +415,7 @@ export const useCollectionContentState = ({
       setCollectionsLoading(true);
       setCollectionsLoadingMore(false);
       setCollectionsHasMore(false);
-      setCollectionsTotalCount(null);
+      if (previousScope !== resolvedScope) setCollectionsTotalCount(null);
       setCollectionsError(null);
       if (previousScope !== resolvedScope) {
         setCollections([]);

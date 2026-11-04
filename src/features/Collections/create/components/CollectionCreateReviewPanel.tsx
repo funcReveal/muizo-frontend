@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+import CreateHelp from "./CreateHelp";
+import SiteTooltip from "@shared/ui/SiteTooltip";
 import { useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -39,6 +42,7 @@ type ImportSourceSummary = {
 };
 
 type Props = {
+  actions?: ReactNode;
   playlistLoading: boolean;
   isImportingYoutubePlaylist: boolean;
   importProgressPercent: number | null;
@@ -107,7 +111,10 @@ function getSourceCount(source: ImportSourceSummary) {
 }
 
 function getSourceTypeLabel(source: ImportSourceSummary) {
-  if (source.type === "youtube_account_playlist" || source.source === "youtube") {
+  if (
+    source.type === "youtube_account_playlist" ||
+    source.source === "youtube"
+  ) {
     return "YouTube 清單";
   }
 
@@ -211,7 +218,7 @@ function CompactStatCard({
   }[tone];
 
   return (
-    <div className={`min-w-0 rounded-xl border px-3 py-2 ${toneClassName}`}>
+    <div className={`create-review-stat min-w-0 px-3 py-2 ${toneClassName}`}>
       <div className="truncate text-[11px] leading-4 opacity-75">{label}</div>
       <div className="mt-0.5 truncate text-base font-semibold leading-6">
         {value}
@@ -233,6 +240,9 @@ function ReviewActionCard({
   actionLabel: string;
   onClick: () => void;
 }) {
+  if (tone !== "emerald") {
+    return <SiteTooltip title={description}><button type="button" className="create-secondary" onClick={onClick} aria-label={`${title}：${description}`}><span>{title}</span><span>{actionLabel}</span></button></SiteTooltip>;
+  }
   const toneClassName = {
     emerald:
       "border-emerald-300/25 bg-emerald-300/10 text-emerald-100 hover:border-emerald-300/45 hover:bg-emerald-300/15",
@@ -274,11 +284,9 @@ function ImportSourceList({
           <div className="text-sm font-semibold text-[var(--mc-text)]">
             {t("review.importSources", { defaultValue: "已匯入來源" })}
           </div>
-          <div className="mt-0.5 hidden text-xs text-[var(--mc-text-muted)] sm:block">
-            {t("review.importSourcesHint", {
-              defaultValue: "可移除不需要的來源，內容會同步更新。",
-            })}
-          </div>
+          <CreateHelp label="管理匯入來源">
+            移除來源會同步移除這次匯入的歌曲，不會更動 YouTube 的原始歌單。
+          </CreateHelp>
         </div>
 
         <div className="shrink-0 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/35 px-2 py-1 text-[11px] text-[var(--mc-text-muted)]">
@@ -394,7 +402,7 @@ function SongSection({
           items={listItems}
           emptyText={emptyText}
           labels={{
-            noCover: "No Cover",
+            noCover: "♪",
             unknownUploader: t("review.unknownUploader", {
               defaultValue: "未知上傳者",
             }),
@@ -427,7 +435,9 @@ function SongSection({
             onRestoreImportItem
               ? (viewItem) => {
                   const rawItem = viewItem.raw as DraftPlaylistItem;
-                  onRestoreImportItem(rawItem.importItemKey ?? rawItem.draftKey);
+                  onRestoreImportItem(
+                    rawItem.importItemKey ?? rawItem.draftKey,
+                  );
                 }
               : undefined
           }
@@ -442,6 +452,7 @@ function SongSection({
 }
 
 export default function CollectionCreateReviewPanel({
+  actions,
   playlistLoading,
   isImportingYoutubePlaylist,
   importProgressPercent,
@@ -529,7 +540,7 @@ export default function CollectionCreateReviewPanel({
   );
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="create-review-workspace min-w-0 space-y-3">
       <ImportProgressCard
         playlistLoading={playlistLoading}
         isImportingYoutubePlaylist={isImportingYoutubePlaylist}
@@ -562,7 +573,7 @@ export default function CollectionCreateReviewPanel({
                     }
                   }}
                   placeholder={t("review.titlePlaceholder", {
-                    defaultValue: "請輸入收藏標題",
+                    defaultValue: "輸入題庫名稱",
                   })}
                   className="w-full min-w-0 rounded-none border-0 border-b border-[var(--mc-border)] bg-transparent px-0 py-1 text-base font-semibold text-[var(--mc-text)] outline-none"
                 />
@@ -573,7 +584,7 @@ export default function CollectionCreateReviewPanel({
                     onClick={onStartEditTitle}
                     className="min-w-0 cursor-pointer text-left"
                     aria-label={t("review.editTitle", {
-                      defaultValue: "編輯收藏標題",
+                      defaultValue: "編輯題庫名稱",
                     })}
                   >
                     <div className="overflow-hidden text-base font-semibold leading-6 text-[var(--mc-text)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-lg">
@@ -586,23 +597,18 @@ export default function CollectionCreateReviewPanel({
                     onClick={onStartEditTitle}
                     className="mt-0.5 inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--mc-text-muted)] transition hover:bg-[var(--mc-surface)]/60 hover:text-[var(--mc-text)]"
                     aria-label={t("review.editTitle", {
-                      defaultValue: "編輯收藏標題",
+                      defaultValue: "編輯題庫名稱",
                     })}
                   >
                     <EditOutlined sx={{ fontSize: 16 }} />
                   </button>
-                </div>
-              )}
-
-              {!isAdmin && (
-                <div className="mt-2 text-[11px] leading-5 text-[var(--mc-text-muted)]">
-                  {t("review.itemLimitHint", {
-                    limit:
-                      collectionItemLimit === null ? "∞" : collectionItemLimit,
-                    defaultValue: `一般使用者每個收藏庫最多可收錄 ${
-                      collectionItemLimit === null ? "∞" : collectionItemLimit
-                    } 題。`,
-                  })}
+                  {!isAdmin && (
+                    <CreateHelp label="題庫曲目上限">
+                      每份題庫最多{" "}
+                      {collectionItemLimit === null ? "∞" : collectionItemLimit}{" "}
+                      首歌曲。
+                    </CreateHelp>
+                  )}
                 </div>
               )}
             </div>
@@ -611,28 +617,24 @@ export default function CollectionCreateReviewPanel({
               <button
                 type="button"
                 onClick={onOpenBulkPlayback}
-                className="relative inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--mc-accent)]/65 bg-[var(--mc-accent)]/16 px-3.5 pr-4 text-xs font-semibold text-[var(--mc-text)] transition hover:border-[var(--mc-accent)] hover:bg-[var(--mc-accent)]/24"
+                className="create-review-tool"
                 aria-label="批量修改播放區間"
-                title="批量修改播放區間"
               >
-                <span className="absolute -right-2 -top-2.5 rounded-full bg-[var(--mc-accent)] px-2 py-0.5 text-[10px] font-bold leading-none text-slate-950">
-                  推薦
-                </span>
                 <GraphicEqRounded sx={{ fontSize: 17 }} />
-                一鍵套用播放區間
+                <span>
+                  播放片段<small>設定起點與長度</small>
+                </span>
               </button>
               <button
                 type="button"
                 onClick={onOpenAiBatch}
-                className="relative ml-1 inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--mc-accent)]/65 bg-[var(--mc-accent)]/16 px-3.5 pr-4 text-xs font-semibold text-[var(--mc-text)] transition hover:border-[var(--mc-accent)] hover:bg-[var(--mc-accent)]/24"
+                className="create-review-tool"
                 aria-label="AI 批次編輯答案"
-                title="AI 批次編輯答案"
               >
-                <span className="absolute -right-2 -top-2.5 rounded-full bg-[var(--mc-accent)] px-2 py-0.5 text-[10px] font-bold leading-none text-slate-950">
-                  推薦
-                </span>
                 <AutoFixHighOutlined sx={{ fontSize: 17 }} />
-                AI 修改答案
+                <span>
+                  AI 整理答案<small>批次修正歌曲名稱</small>
+                </span>
               </button>
               <div className="rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 px-3 py-1 text-xs font-semibold text-[var(--mc-text)]">
                 {t("review.songCount", {
@@ -643,16 +645,22 @@ export default function CollectionCreateReviewPanel({
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-4 sm:gap-2">
-            {statItems.map((item) => (
-              <CompactStatCard
-                key={item.label}
-                label={item.label}
-                value={item.value}
-                tone={item.tone}
-              />
-            ))}
-          </div>
+          {(longDraftPlaylistItems.length > 0 ||
+            removedImportItemCount > 0 ||
+            playlistIssueTotal > 0) && (
+            <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-4 sm:gap-2">
+              {statItems
+                .filter((item) => item.value > 0)
+                .map((item) => (
+                  <CompactStatCard
+                    key={item.label}
+                    label={item.label}
+                    value={item.value}
+                    tone={item.tone}
+                  />
+                ))}
+            </div>
+          )}
         </div>
       ) : !(playlistLoading || isImportingYoutubePlaylist) ? (
         <div className="rounded-2xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/40 p-4 text-xs leading-5 text-[var(--mc-text-muted)]">
@@ -662,10 +670,15 @@ export default function CollectionCreateReviewPanel({
         </div>
       ) : null}
 
-      <ImportSourceList
-        importSources={importSources}
-        onRemoveImportSource={onRemoveImportSource}
-      />
+      <details className="create-disclosure">
+        <summary>
+          匯入來源 <span>{importSources.length} 份</span>
+        </summary>
+        <ImportSourceList
+          importSources={importSources}
+          onRemoveImportSource={onRemoveImportSource}
+        />
+      </details>
 
       {collectionPreview && (
         <>
@@ -723,7 +736,7 @@ export default function CollectionCreateReviewPanel({
           </div>
 
           <SongSection
-            title={t("review.normalTracks", { defaultValue: "一般曲目" })}
+            title={t("review.normalTracks", { defaultValue: "歌曲與答案" })}
             count={normalDraftPlaylistItems.length}
             items={normalDraftPlaylistItems}
             emptyText={t("review.noNormalTracks", {
@@ -734,19 +747,21 @@ export default function CollectionCreateReviewPanel({
             onRequestRemoveImportItem={onRequestRemoveImportItem}
           />
 
-          <SongSection
-            title={t("review.longTracks", {
-              defaultValue: "超長曲目（> 10:00）",
-            })}
-            count={longDraftPlaylistItems.length}
-            items={longDraftPlaylistItems}
-            emptyText={t("review.noLongTracks", {
-              defaultValue: "沒有超長曲目",
-            })}
-            variant="long"
-            maxHeightClassName="max-h-[320px]"
-            onRequestRemoveImportItem={onRequestRemoveImportItem}
-          />
+          {longDraftPlaylistItems.length > 0 && (
+            <SongSection
+              title={t("review.longTracks", {
+                defaultValue: "超長歌曲 · 超過 10 分鐘",
+              })}
+              count={longDraftPlaylistItems.length}
+              items={longDraftPlaylistItems}
+              emptyText={t("review.noLongTracks", {
+                defaultValue: "沒有超長曲目",
+              })}
+              variant="long"
+              maxHeightClassName="max-h-[320px]"
+              onRequestRemoveImportItem={onRequestRemoveImportItem}
+            />
+          )}
 
           {removedImportItems.length > 0 && (
             <SongSection
@@ -774,6 +789,7 @@ export default function CollectionCreateReviewPanel({
           )}
         </>
       )}
+      {actions}
     </div>
   );
 }

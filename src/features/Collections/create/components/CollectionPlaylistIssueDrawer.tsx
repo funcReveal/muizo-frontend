@@ -1,8 +1,10 @@
+import CollectionToolDrawer from "../../shared/components/CollectionToolDrawer";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 import ErrorOutlineRounded from "@mui/icons-material/ErrorOutlineRounded";
-import { Box, Drawer, IconButton, Tab, Tabs } from "@mui/material";
+import { Box, IconButton, Tab, Tabs } from "@mui/material";
+import CreateHelp from "./CreateHelp";
 import type {
   CollectionCreateSkippedItem,
   CollectionCreateSkippedItemStatus,
@@ -167,22 +169,12 @@ export default function CollectionPlaylistIssueDrawer({
   };
 
   return (
-    <Drawer
-      anchor="right"
+    <CollectionToolDrawer
       open={open}
       onClose={handleClose}
-      PaperProps={{
-        sx: {
-          width: {
-            xs: "100%",
-            sm: 520,
-          },
-          borderLeft: "1px solid rgba(148, 163, 184, 0.22)",
-          background:
-            "linear-gradient(180deg, rgba(8,13,24,0.98), rgba(2,6,23,0.98))",
-          color: "var(--mc-text)",
-        },
-      }}
+      label="未匯入的歌曲"
+      width={560}
+      busy={false}
     >
       <div className="flex h-full flex-col">
         <div className="border-b border-[var(--mc-border)] px-4 py-4">
@@ -220,60 +212,67 @@ export default function CollectionPlaylistIssueDrawer({
 
           {unresolvedDetailCount > 0 && (
             <div className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
-              {t("issueDrawer.missingDetails", {
-                count: unresolvedDetailCount,
-              })}
+              {unresolvedDetailCount} 首歌曲未提供明細，請確認原始播放清單。
             </div>
           )}
         </div>
 
-        <Box
-          sx={{
-            borderBottom: "1px solid var(--mc-border)",
-            px: 2,
-          }}
-        >
-          <Tabs
-            value={activeTab}
-            onChange={(_, nextValue: PlaylistIssueTab) => {
-              setSelectedTabOverride(nextValue);
-            }}
-            variant="scrollable"
-            scrollButtons="auto"
-            allowScrollButtonsMobile
+        {visibleSkippedItemCount > 0 && (
+          <Box
             sx={{
-              minHeight: 44,
-              "& .MuiTab-root": {
-                minHeight: 44,
-                color: "var(--mc-text-muted)",
-                fontSize: 12,
-                fontWeight: 700,
-                textTransform: "none",
-              },
-              "& .Mui-selected": {
-                color: "#67e8f9",
-              },
-              "& .MuiTabs-indicator": {
-                height: 2,
-                borderRadius: 999,
-                backgroundColor: "#67e8f9",
-              },
+              borderBottom: "1px solid var(--mc-border)",
+              px: 2,
             }}
           >
-            {groups.map((group) => (
-              <Tab
-                key={group.key}
-                value={group.key}
-                label={`${group.label} (${group.items.length})`}
-              />
-            ))}
-          </Tabs>
-        </Box>
+            <Tabs
+              value={activeTab}
+              onChange={(_, nextValue: PlaylistIssueTab) => {
+                setSelectedTabOverride(nextValue);
+              }}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+              sx={{
+                minHeight: 44,
+                "& .MuiTab-root": {
+                  minHeight: 44,
+                  color: "var(--mc-text-muted)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: "none",
+                },
+                "& .Mui-selected": {
+                  color: "var(--mc-accent)",
+                },
+                "& .MuiTabs-indicator": {
+                  height: 2,
+                  borderRadius: 999,
+                  backgroundColor: "var(--mc-accent)",
+                },
+              }}
+            >
+              {groups.map((group) => (
+                <Tab
+                  key={group.key}
+                  value={group.key}
+                  label={`${group.label} (${group.items.length})`}
+                />
+              ))}
+            </Tabs>
+          </Box>
+        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/30 px-3 py-2 text-xs leading-5 text-[var(--mc-text-muted)]">
-            {activeGroup.description}
-          </div>
+          {visibleSkippedItemCount > 0 && (
+            <div className="flex items-center justify-between text-sm text-[var(--mc-text-muted)]">
+              <span>
+                {activeGroup.label} · {activeGroup.items.length} 首
+              </span>
+              <CreateHelp label="為什麼無法匯入？">
+                {activeGroup.description}
+              </CreateHelp>
+            </div>
+          )}
 
           {activeGroup.items.length > 0 ? (
             <div className="mt-3 space-y-2">
@@ -314,11 +313,13 @@ export default function CollectionPlaylistIssueDrawer({
             </div>
           ) : (
             <div className="mt-3 rounded-2xl border border-dashed border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/25 px-4 py-8 text-sm text-[var(--mc-text-muted)]">
-              {t("issueDrawer.emptyTab")}
+              {visibleSkippedItemCount > 0
+                ? t("issueDrawer.emptyTab")
+                : "沒有可顯示的歌曲明細"}
             </div>
           )}
         </div>
       </div>
-    </Drawer>
+    </CollectionToolDrawer>
   );
 }

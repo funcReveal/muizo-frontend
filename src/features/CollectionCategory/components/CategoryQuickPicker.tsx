@@ -11,6 +11,7 @@ type CategoryQuickPickerProps = {
   onChange: (categoryId: string | null) => void | Promise<void>;
   /** Whether visibility is public — affects "clear" allowed */
   allowClear?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 /**
@@ -22,11 +23,19 @@ export function CategoryQuickPicker({
   value,
   onChange,
   allowClear = true,
+  onOpenChange,
 }: CategoryQuickPickerProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const { data: categories = [], isLoading } = useCategoriesQuery();
 
-  const close = () => setAnchorEl(null);
+  const close = () => {
+    setAnchorEl(null);
+    onOpenChange?.(false);
+  };
+  const open = (target: HTMLElement) => {
+    setAnchorEl(target);
+    onOpenChange?.(true);
+  };
   const handlePick = async (id: string | null) => {
     close();
     await onChange(id);
@@ -34,8 +43,9 @@ export function CategoryQuickPicker({
 
   return (
     <>
-      {children((target) => setAnchorEl(target))}
+      {children(open)}
       <Popover
+        sx={{ zIndex: 1700 }}
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={close}
@@ -47,8 +57,10 @@ export function CategoryQuickPicker({
               mt: 0.5,
               minWidth: 240,
               maxWidth: 320,
+              maxHeight: "min(420px, calc(100dvh - 48px))",
+              overflowY: "auto",
               border: "1px solid var(--mc-border)",
-              backgroundColor: "#0b1426",
+              backgroundColor: "var(--mc-surface-strong)",
               color: "var(--mc-text)",
               borderRadius: "12px",
               boxShadow: "0 20px 40px rgba(2,6,23,0.5)",
@@ -69,9 +81,9 @@ export function CategoryQuickPicker({
                   type="button"
                   onClick={() => void handlePick(null)}
                   className={[
-                    "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+                    "flex items-center gap-2 min-h-11 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                     value === null
-                      ? "bg-cyan-500/15 text-cyan-100"
+                      ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent)]"
                       : "text-white/70 hover:bg-white/5",
                   ].join(" ")}
                 >
@@ -90,10 +102,11 @@ export function CategoryQuickPicker({
                         key={child.key}
                         type="button"
                         onClick={() => void handlePick(child.id)}
+                        aria-pressed={value === child.id}
                         className={[
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+                          "flex w-full items-center gap-2 min-h-11 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                           value === child.id
-                            ? "bg-cyan-500/15 text-cyan-100"
+                            ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent)]"
                             : "text-white/80 hover:bg-white/5",
                         ].join(" ")}
                       >
@@ -107,16 +120,17 @@ export function CategoryQuickPicker({
                     key={parent.key}
                     type="button"
                     onClick={() => void handlePick(parent.id)}
+                    aria-pressed={value === parent.id}
                     className={[
-                      "mt-0.5 flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+                      "mt-0.5 flex w-full items-center gap-2 min-h-11 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                       value === parent.id
-                        ? "bg-cyan-500/15 text-cyan-100"
+                        ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent)]"
                         : "text-white/80 hover:bg-white/5",
                     ].join(" ")}
                   >
                     <span>{parent.label}</span>
                   </button>
-                )
+                ),
               )}
             </div>
           )}
