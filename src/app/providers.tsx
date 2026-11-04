@@ -23,18 +23,37 @@ const queryClient = new QueryClient({
 const theme = createTheme({
   palette: {
     mode: "dark",
-    primary: { main: "#38bdf8" }, // sky-400
-    secondary: { main: "#a855f7" }, // violet-500
+    primary: { main: "#ffb000", light: "#ffc233", dark: "#e69700", contrastText: "#251900" },
+    secondary: { main: "#2dd4bf", contrastText: "#102b27" },
     background: {
-      default: "#0f172a",
-      paper: "#0b1224",
+      default: "#141512",
+      paper: "#20221d",
     },
+    text: { primary: "#f3f4ee", secondary: "#b9beb1" },
+    divider: "rgba(188, 197, 177, 0.18)",
+    action: { selected: "rgba(255,176,0,0.16)", hover: "rgba(255,176,0,0.08)" },
   },
-  shape: { borderRadius: 10 },
+  shape: { borderRadius: 12 },
   typography: {
-    fontFamily: '"Inter","Segoe UI","Noto Sans TC",sans-serif',
+    fontFamily: '"OpenHuninn","Noto Sans TC",sans-serif',
   },
   components: {
+    MuiButton: {
+      styleOverrides: {
+        root: { minHeight: 44, textTransform: "none", fontWeight: 500, borderRadius: "var(--mc-radius-control)", "&:focus-visible": { outline: "2px solid var(--mc-accent)", outlineOffset: 3 } },
+        containedPrimary: {
+          backgroundColor: "#ffb000",
+          color: "#251900",
+          boxShadow: "none",
+          "&:hover": { backgroundColor: "#ffc233", boxShadow: "none" },
+          "&:active": { backgroundColor: "#e69700" },
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: { root: { borderRadius: "var(--mc-radius-control)", "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderWidth: 1, borderColor: "var(--mc-accent)" } } },
+    },
+    MuiChip: { styleOverrides: { root: { borderRadius: "var(--mc-radius-chip)" } } },
     MuiModal: {
       defaultProps: {
         disableScrollLock: true,

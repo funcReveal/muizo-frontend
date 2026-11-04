@@ -401,12 +401,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
   const authFeaturePreview: AuthFeaturePreview | null = pendingAuthFeature
     ? {
-        eyebrow: pendingAuthFeature.eyebrow,
+        kind: pendingAuthFeature.key === "career" || pendingAuthFeature.key === "collections" || pendingAuthFeature.key === "favorites"
+          ? pendingAuthFeature.key : "rooms",
+        eyebrow: `登入後解鎖 · ${pendingAuthFeature.label}`,
         title: pendingAuthFeature.title,
         description: pendingAuthFeature.description,
         icon: pendingAuthFeature.icon,
         accentColor: pendingAuthFeature.iconColor,
-        actionLabel: pendingAuthFeature.actionLabel,
+        actionLabel: pendingAuthFeature.label,
       }
     : null;
 
@@ -517,7 +519,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             aria-controls={menuId}
           >
             <span className="app-header-login-icon" aria-hidden="true">
-              <AccountCircleOutlined sx={{ fontSize: 24 }} />
+              <AccountCircleOutlined sx={{ fontSize: 20 }} />
             </span>
             <span className="app-header-login-copy">
               <span className="app-header-login-text">登入</span>
@@ -545,12 +547,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               mt: 1.5,
               minWidth: 292,
               borderRadius: 2.5,
-              border: "1px solid rgba(245, 158, 11, 0.18)",
+              border: "1px solid var(--mc-border)",
               background:
-                "radial-gradient(220px 140px at 16% 0%, rgba(245, 158, 11, 0.12), transparent 68%), linear-gradient(180deg, rgba(18, 17, 16, 0.98), rgba(7, 8, 11, 0.98))",
+                "var(--mc-surface)",
               boxShadow:
-                "0 22px 54px rgba(2, 6, 23, 0.56), 0 0 0 1px rgba(245, 158, 11, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
-              backdropFilter: "blur(18px) saturate(1.08)",
+                "0 16px 48px rgba(5, 8, 5, 0.4)",
               overflow: "hidden",
             },
           }}
@@ -564,7 +565,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               justifyContent: "space-between",
               gap: 2,
               background:
-                "linear-gradient(90deg, rgba(245, 158, 11, 0.11), rgba(255, 255, 255, 0.025))",
+                "var(--mc-surface)",
             }}
           >
             {isAnonymousVisitor ? (
@@ -580,21 +581,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   width: "100%",
                   minHeight: 44,
                   border: "1px solid rgba(245, 158, 11, 0.3)",
-                  borderRadius: 999,
+                  borderRadius: "10px",
                   background:
-                    "linear-gradient(180deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.07)), rgba(12, 10, 8, 0.44)",
-                  color: "rgba(255, 251, 235, 0.96)",
+                    "var(--mc-accent)",
+                  color: "var(--mc-accent-ink)",
                   cursor: "pointer",
                   fontSize: "0.92rem",
-                  fontWeight: 900,
+                  fontWeight: 600,
                   boxShadow:
-                    "inset 0 1px 0 rgba(255,255,255,0.12), 0 16px 32px -28px rgba(245,158,11,0.72)",
+                    "none",
                   transition:
-                    "border-color 160ms ease, transform 160ms ease, filter 160ms ease",
+                    "background-color 160ms ease",
                   "&:hover": {
                     borderColor: "rgba(245, 158, 11, 0.5)",
-                    filter: "brightness(1.06)",
-                    transform: "translateY(-1px)",
+                    background: "var(--mc-accent-hover)",
                   },
                 }}
               >
@@ -638,7 +638,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       borderRadius: 999,
                       border: "1px solid rgba(245, 158, 11, 0.24)",
                       background:
-                        "linear-gradient(180deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.06)), rgba(15, 23, 42, 0.5)",
+                        "var(--mc-surface-strong)",
                       color: "rgba(255, 251, 235, 0.96)",
                       fontSize: "0.78rem",
                       fontWeight: 900,
@@ -807,7 +807,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   border: "1px solid rgba(251, 191, 36, 0.18)",
                   borderRadius: 2,
                   background:
-                    "linear-gradient(180deg, rgba(251, 191, 36, 0.1), rgba(15, 23, 42, 0.26))",
+                    "var(--mc-accent-soft)",
                   p: 1.25,
                 }}
               >
@@ -975,7 +975,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     "&:hover": {
                       background: feature.disabled
                         ? "transparent"
-                        : "linear-gradient(90deg, rgba(245,158,11,0.09), rgba(255,255,255,0.025))",
+                        : "var(--mc-surface-strong)",
                       color: feature.disabled
                         ? "rgba(148,163,184,0.45)"
                         : "rgba(255,251,235,0.96)",

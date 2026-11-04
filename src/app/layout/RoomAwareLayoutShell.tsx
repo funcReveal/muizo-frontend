@@ -57,14 +57,11 @@ const RoomAwareLayoutShell: React.FC = () => {
 
   const roomsOutletClassName = isRoomsHubPage && isMobileViewport
     ? [
-        "min-h-0 flex-1",
+        "room-hub-outlet min-h-0 flex-1",
         "overflow-y-auto overflow-x-hidden",
         "pb-[calc(16px+env(safe-area-inset-bottom))]",
         "[-webkit-overflow-scrolling:touch]",
         "overscroll-y-contain",
-        "[&>*]:!h-auto",
-        "[&>*]:!min-h-full",
-        "[&>*]:!overflow-visible",
       ].join(" ")
     : "min-h-0 flex-1 overflow-hidden pb-2";
 

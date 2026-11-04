@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import {
   AccountCircleRounded,
   AddCircleOutlineRounded,
@@ -12,6 +12,7 @@ import {
 
 import RequireAuthRoute from "./guards/RequireAuthRoute";
 import AppLayoutShell from "./layout/AppLayoutShell";
+import PageLoader from "./layout/RouteLoading";
 import { LegalLayout, PrivacyPage, TermsPage } from "@features/Legal";
 import { isCareerFeatureEnabled } from "@shared/config/featureFlags";
 
@@ -36,6 +37,11 @@ const CollectionContentLayoutShell = lazy(
 const RoomsHubPage = lazy(() => import("@features/RoomHub"));
 const RoomLobbyPage = lazy(() => import("@features/RoomLobby"));
 const CareerPage = lazy(() => import("@features/Career"));
+const PlayerProfilePage = lazy(() => import("@features/PlayerProfile/ui/PlayerProfilePage"));
+const PlayerProfileRoute = () => {
+  const { reference } = useParams();
+  return <PlayerProfilePage key={reference} />;
+};
 const FavoriteSongsPage = lazy(() => import("@features/SongFavorite"));
 const MembershipPage = lazy(() => import("@features/Membership"));
 const OnboardingPage = lazy(() =>
@@ -44,29 +50,15 @@ const OnboardingPage = lazy(() =>
   })),
 );
 const InvitedPage = lazy(() => import("@features/Invited"));
-const CollectionsPage = lazy(() => import("@features/Collections"));
-const CollectionsCreatePage = lazy(() =>
-  import("@features/Collections").then(({ CollectionCreatePage }) => ({
-    default: CollectionCreatePage,
-  })),
-);
-const CollectionsEditPage = lazy(() =>
-  import("@features/Collections").then(({ CollectionEditPage }) => ({
-    default: CollectionEditPage,
-  })),
-);
-
-/** Minimal spinner used as the Suspense fallback for route transitions. */
-const PageLoader = () => (
-  <div className="flex min-h-[60vh] items-center justify-center">
-    <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-slate-300" />
-  </div>
-);
+const CollectionsPage = lazy(() => import("@features/Collections/ui/CollectionsPage"));
+const CollectionsCreatePage = lazy(() => import("@features/Collections/create/page/CollectionCreatePage"));
+const CollectionsEditPage = lazy(() => import("@features/Collections/edit/page/CollectionEditPage"));
 
 export function AppRouter() {
   return (
     <Routes>
       <Route element={<AppLayoutShell />}>
+        <Route path="/players/:reference" element={<Suspense fallback={<PageLoader />}><PlayerProfileRoute /></Suspense>} />
         <Route
           path="/"
           element={
@@ -81,8 +73,8 @@ export function AppRouter() {
             <RequireAuthRoute
               featureIcon={<LibraryMusicRounded sx={{ fontSize: 23 }} />}
               currentBreadcrumbLabel="收藏庫"
-              title="收藏庫需登入後使用"
-              description="登入後可查看、管理你的收藏題庫與公開狀態。"
+              title="你的題庫工作室"
+              description="登入後，繼續編輯、分享與管理你的題庫。"
             >
               <Suspense fallback={<PageLoader />}>
                 <CollectionsPage />

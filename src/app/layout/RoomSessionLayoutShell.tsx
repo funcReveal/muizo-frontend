@@ -8,8 +8,10 @@ import {
 import { usePreconnectOrigins } from "@shared/hooks/usePreconnectOrigins";
 import RoomAwareLayoutShell from "./RoomAwareLayoutShell";
 import "@features/RoomSession/ui/roomSessionStyles.css";
+import "@features/GameRoom/ui/gameSurface.css";
 
 const YOUTUBE_PRECONNECT_ORIGINS = [
+  { href: "https://www.youtube.com" },
   { href: "https://www.youtube-nocookie.com" },
   { href: "https://i.ytimg.com", crossOrigin: "anonymous" as const },
 ];

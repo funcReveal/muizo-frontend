@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useMediaQuery } from "@mui/material";
+import LogoutRounded from "@mui/icons-material/LogoutRounded";
 
 import AppHeader from "./AppHeader";
 import SettingsDrawer from "./SettingsDrawer";
@@ -33,6 +34,10 @@ const getNavigationPath = (target: NavigationTarget) => {
 const AppLayoutShell: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [routeTrail, setRouteTrail] = useState<{current: string; previous: string | null}>(() => ({current: location.pathname, previous: null}));
+  if (routeTrail.current !== location.pathname) {
+    setRouteTrail({current: location.pathname, previous: routeTrail.current});
+  }
   const {
     authToken,
     refreshAuthToken,
@@ -59,8 +64,10 @@ const AppLayoutShell: React.FC = () => {
   const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
 
   const isRoomsHubPage = location.pathname === "/rooms";
+  const isCollectionsPage = location.pathname === "/collections";
   const isCollectionEditPage = /^\/collections\/[^/]+\/edit$/.test(location.pathname);
-  const isFixedViewportPage = isRoomsHubPage || isCollectionEditPage;
+  const isFixedViewportPage =
+    isRoomsHubPage || isCollectionsPage || isCollectionEditPage;
 
   const handleLoginRequest = useCallback(() => {
     if (authLoading) return;
@@ -108,7 +115,8 @@ const AppLayoutShell: React.FC = () => {
   }, [navigate]);
 
   const shouldUseMobileScrollableOutlet =
-    isMobileViewport && (isRoomsHubPage || isCollectionEditPage);
+    isMobileViewport &&
+    (isRoomsHubPage || isCollectionsPage || isCollectionEditPage);
 
   const fixedViewportOutletClassName =
     shouldUseMobileScrollableOutlet
@@ -159,18 +167,19 @@ const AppLayoutShell: React.FC = () => {
 
         {isFixedViewportPage ? (
           <div className={fixedViewportOutletClassName}>
-            <Outlet />
+            <Outlet context={{authReturnTo: routeTrail.previous}} />
           </div>
         ) : (
-          <Outlet />
+          <Outlet context={{authReturnTo: routeTrail.previous}} />
         )}
 
         <ConfirmDialog
           open={logoutConfirmOpen}
           title="確定要登出？"
-          description="你將登出目前帳號。"
+          description="登出後仍可瀏覽公開題庫，重新登入即可繼續遊玩。"
+          icon={<LogoutRounded sx={{ fontSize: 23 }} />}
           confirmLabel="確認登出"
-          cancelLabel="取消"
+          cancelLabel="保持登入"
           onCancel={() => setLogoutConfirmOpen(false)}
           onConfirm={() => {
             setLogoutConfirmOpen(false);
