@@ -1,11 +1,9 @@
 import type { ReactNode } from "react";
 
-import {
-  BookmarkBorderRounded,
-  LinkRounded,
-  PublicOutlined,
-  YouTube,
-} from "@mui/icons-material";
+import BookmarkBorderRounded from "@mui/icons-material/BookmarkBorderRounded";
+import LinkRounded from "@mui/icons-material/LinkRounded";
+import PublicOutlined from "@mui/icons-material/PublicOutlined";
+import YouTube from "@mui/icons-material/YouTube";
 
 export type CreateLibraryTab = "public" | "personal" | "youtube" | "link";
 

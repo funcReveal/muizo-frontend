@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { RoomSummary } from "@domain/room/types";
 import { normalizeRoomCodeInput } from "../roomsHubViewModels";
@@ -21,27 +21,15 @@ export type JoinConfirmDialogState = {
   totalQuestionCount?: number;
 } | null;
 
-type UseJoinRoomPanelStateArgs = {
-  entryTabStorageKey: string;
-};
-
 const JOIN_VIEW_STORAGE_KEY = "rooms_hub_join_view";
 
-export const useJoinRoomPanelState = ({
-  entryTabStorageKey,
-}: UseJoinRoomPanelStateArgs) => {
+export const useJoinRoomPanelState = () => {
   const [passwordDialog, setPasswordDialog] =
     useState<JoinPasswordDialogState>(null);
   const [joinConfirmDialog, setJoinConfirmDialog] =
     useState<JoinConfirmDialogState>(null);
   const [passwordDraft, setPasswordDraft] = useState("");
   const [directRoomIdInput, setDirectRoomIdInput] = useState("");
-  const [joinEntryTab, setJoinEntryTab] = useState<"code" | "browser">(() => {
-    if (typeof window === "undefined") return "code";
-    const stored = window.sessionStorage.getItem(entryTabStorageKey);
-    return stored === "browser" ? "browser" : "code";
-  });
-  const [isDirectRoomCodeFocused, setIsDirectRoomCodeFocused] = useState(false);
   const [directJoinLoading, setDirectJoinLoading] = useState(false);
   const [directJoinPreviewRoom, setDirectJoinPreviewRoom] =
     useState<RoomSummary | null>(null);
@@ -64,21 +52,10 @@ export const useJoinRoomPanelState = ({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(entryTabStorageKey, joinEntryTab);
-  }, [entryTabStorageKey, joinEntryTab]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem(JOIN_VIEW_STORAGE_KEY, joinRoomsView);
   }, [joinRoomsView]);
 
   const normalizedDirectRoomCode = normalizeRoomCodeInput(directRoomIdInput);
-  const directRoomCodeSlots = useMemo(
-    () => normalizedDirectRoomCode.padEnd(6, "_").split(""),
-    [normalizedDirectRoomCode],
-  );
-  const activeDirectRoomCodeIndex =
-    normalizedDirectRoomCode.length >= 6 ? 5 : normalizedDirectRoomCode.length;
   const resolvedDirectJoinRoom = directJoinPreviewRoom;
 
   return {
@@ -90,10 +67,6 @@ export const useJoinRoomPanelState = ({
     setPasswordDraft,
     directRoomIdInput,
     setDirectRoomIdInput,
-    joinEntryTab,
-    setJoinEntryTab,
-    isDirectRoomCodeFocused,
-    setIsDirectRoomCodeFocused,
     directJoinLoading,
     setDirectJoinLoading,
     setDirectJoinPreviewRoom,
@@ -110,8 +83,6 @@ export const useJoinRoomPanelState = ({
     joinSortMode,
     setJoinSortMode,
     normalizedDirectRoomCode,
-    directRoomCodeSlots,
-    activeDirectRoomCodeIndex,
     resolvedDirectJoinRoom,
   };
 };

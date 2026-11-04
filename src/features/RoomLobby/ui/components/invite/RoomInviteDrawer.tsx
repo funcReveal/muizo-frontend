@@ -8,6 +8,7 @@ import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import IosShareRoundedIcon from "@mui/icons-material/IosShareRounded";
+import ForumRoundedIcon from "@mui/icons-material/ForumRounded";
 
 type RoomInviteDrawerProps = {
   open: boolean;
@@ -27,6 +28,8 @@ type RoomInviteDrawerProps = {
   onCopyRoomCode: () => void;
   onCopyInviteLink: () => void;
   onNativeShare: () => void;
+  canShareToLobby: boolean;
+  onShareToLobby: () => void;
 };
 
 const RoomInviteDrawer = ({
@@ -47,6 +50,8 @@ const RoomInviteDrawer = ({
   onCopyRoomCode,
   onCopyInviteLink,
   onNativeShare,
+  canShareToLobby,
+  onShareToLobby,
 }: RoomInviteDrawerProps) => (
   <Drawer
     anchor={isMobile ? "bottom" : "right"}
@@ -156,6 +161,16 @@ const RoomInviteDrawer = ({
       <Divider className="!border-white/10" />
 
       <section className="room-lobby-share-actions-grid" aria-label="分享到外部">
+        <button
+          type="button"
+          className="room-lobby-share-action-card"
+          onClick={onShareToLobby}
+          disabled={!canShareToLobby || actionRunning}
+          title={canShareToLobby ? "發送房間邀請卡到大廳聊天室" : "私人房間不能分享到大廳"}
+        >
+          <span className="room-lobby-share-action-card__icon" aria-hidden="true"><ForumRoundedIcon fontSize="small" /></span>
+          <span className="room-lobby-share-action-card__copy"><strong>發送到大廳聊天室</strong></span>
+        </button>
         <button
           type="button"
           className={`room-lobby-share-action-card ${

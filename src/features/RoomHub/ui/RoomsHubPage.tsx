@@ -6,6 +6,8 @@ import {
   useState,
   useTransition,
 } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import "./roomEntry.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useContext } from "react";
 import { Button, useMediaQuery } from "@mui/material";
@@ -31,6 +33,8 @@ import {
 } from "@features/CollectionContent";
 import FloatingChatWindow from "@features/RoomChat";
 import AuthEntryDialog from "@shared/ui/auth/AuthEntryDialog";
+import { roomAuthPreviews, type RoomAuthFeature } from "./roomAuthPreviews";
+import type { CreateLibraryTab } from "./components/source/librarySourceItems";
 import {
   buildPlaylistIssueSummary,
   getPlaylistIssueTotal,
@@ -57,6 +61,7 @@ import LibrarySourcePanel from "./components/source/LibrarySourcePanel";
 import LibrarySourceToolbar from "./components/source/LibrarySourceToolbar";
 import CollectionsSourceContent from "./components/source/CollectionsSourceContent";
 import CollectionCard from "./components/source/CollectionCard";
+import ContentTransition from "./components/source/ContentTransition";
 import CollectionDetailDrawer from "./components/source/CollectionDetailDrawer";
 import SourceSetupDrawer from "./components/source/SourceSetupDrawer";
 import YoutubeSourceContent from "./components/source/YoutubeSourceContent";
@@ -211,7 +216,6 @@ const renderCollectionSkeletonCard = (idx: number, view: "grid" | "list") => {
 };
 
 const GUIDE_MODE_STORAGE_KEY = "room_guide_mode";
-const JOIN_ENTRY_TAB_STORAGE_KEY = "room_join_entry_tab";
 const ROOMS_HUB_BGM_PATH = "/rooms-hub-bgm.mp3";
 const ROOMS_HUB_BGM_FADE_IN_MS = 1200;
 const ROOM_HUB_SETUP_PREFERENCES_KEY = "roomHub:setupPreferences:v1";
@@ -301,6 +305,7 @@ const writeRoomHubSetupPreferences = (preferences: RoomHubSetupPreferences) => {
 };
 
 const RoomsHubPage: React.FC = () => {
+  const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const settingsModel = useContext(SettingsModelContext);
@@ -392,6 +397,7 @@ const RoomsHubPage: React.FC = () => {
   });
   const [playlistIssueDialogOpen, setPlaylistIssueDialogOpen] = useState(false);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authFeature, setAuthFeature] = useState<RoomAuthFeature>("rooms");
   const [detailDrawerState, setDetailDrawerState] =
     useState<CollectionDetailDrawerState>(null);
 
@@ -441,6 +447,7 @@ const RoomsHubPage: React.FC = () => {
   // Note: aggregations hook is declared further down (after createLibraryTab is in scope)
 
   const detailCollectionId = detailDrawerState?.collectionId ?? null;
+  const [detailDrawerInstance, setDetailDrawerInstance] = useState(0);
   const detailCollectionOverride = detailDrawerState?.collection ?? null;
 
   const handleOpenCollectionDetailDrawer = useCallback(
@@ -448,6 +455,7 @@ const RoomsHubPage: React.FC = () => {
       collection: CollectionEntry,
       source: "manual" | "sharedLink" = "manual",
     ) => {
+      setDetailDrawerInstance((instance) => instance + 1);
       setDetailDrawerState({
         collectionId: collection.id,
         collection,
@@ -514,10 +522,6 @@ const RoomsHubPage: React.FC = () => {
     setPasswordDraft,
     directRoomIdInput,
     setDirectRoomIdInput,
-    joinEntryTab,
-    setJoinEntryTab,
-    isDirectRoomCodeFocused,
-    setIsDirectRoomCodeFocused,
     directJoinLoading,
     setDirectJoinLoading,
     setDirectJoinPreviewRoom,
@@ -534,12 +538,8 @@ const RoomsHubPage: React.FC = () => {
     joinSortMode,
     setJoinSortMode,
     normalizedDirectRoomCode,
-    directRoomCodeSlots,
-    activeDirectRoomCodeIndex,
     resolvedDirectJoinRoom,
-  } = useJoinRoomPanelState({
-    entryTabStorageKey: JOIN_ENTRY_TAB_STORAGE_KEY,
-  });
+  } = useJoinRoomPanelState();
   const {
     createLibraryTab,
     setCreateLibraryTab,
@@ -713,15 +713,7 @@ const RoomsHubPage: React.FC = () => {
   }, [bgmVolume]);
 
   useEffect(() => {
-    if (guideMode !== "join" || joinEntryTab !== "code") return;
-    const frame = window.requestAnimationFrame(() => {
-      directRoomCodeInputRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [guideMode, joinEntryTab]);
-
-  useEffect(() => {
-    if (guideMode !== "join" || joinEntryTab !== "code") return;
+    if (guideMode !== "join") return;
     if (normalizedDirectRoomCode.length < 6) {
       setDirectJoinLoading(false);
       setDirectJoinPreviewRoom(null);
@@ -774,7 +766,6 @@ const RoomsHubPage: React.FC = () => {
     };
   }, [
     guideMode,
-    joinEntryTab,
     normalizedDirectRoomCode,
     setDirectJoinError,
     setDirectJoinLoading,
@@ -787,11 +778,10 @@ const RoomsHubPage: React.FC = () => {
   const filteredJoinRooms = useMemo(() => {
     const next = (Array.isArray(rooms) ? [...rooms] : []).filter((room) => {
       if (room.maxPlayers === 1) return false;
-      if (joinPasswordFilter === "no_password") return !roomRequiresPin(room);
-      if (joinPasswordFilter === "password_required")
-        return roomRequiresPin(room);
-      if (joinStatusFilter === "waiting") return !isRoomCurrentlyPlaying(room);
-      if (joinStatusFilter === "playing") return isRoomCurrentlyPlaying(room);
+      if (joinPasswordFilter === "no_password" && roomRequiresPin(room)) return false;
+      if (joinPasswordFilter === "password_required" && !roomRequiresPin(room)) return false;
+      if (joinStatusFilter === "waiting" && isRoomCurrentlyPlaying(room)) return false;
+      if (joinStatusFilter === "playing" && !isRoomCurrentlyPlaying(room)) return false;
       return true;
     });
     if (joinSortMode === "players_desc") {
@@ -910,7 +900,7 @@ const RoomsHubPage: React.FC = () => {
       },
     });
   };
-  const handleCreatePublicCollection = useCallback(() => {
+  const navigateToPublicCollectionEditor = useCallback(() => {
     navigate("/collections/new", {
       state: {
         from: "roomHub",
@@ -918,7 +908,16 @@ const RoomsHubPage: React.FC = () => {
       },
     });
   }, [navigate]);
-  const { publicLibrarySearchActive, togglePublicLibrarySearch } =
+  const handleCreatePublicCollection = useCallback(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setAuthFeature("createPublicCollection");
+      setAuthDialogOpen(true);
+      return;
+    }
+    navigateToPublicCollectionEditor();
+  }, [authLoading, authUser, navigateToPublicCollectionEditor]);
+  const { publicLibrarySearchActive, togglePublicLibrarySearch, closePublicLibrarySearch } =
     usePublicCollectionsSearchUi({
       createLibraryTab,
       isExpanded: isPublicLibrarySearchExpanded,
@@ -1132,7 +1131,12 @@ const RoomsHubPage: React.FC = () => {
    * Public tab: server already filtered by category/sub_tag — pass through directly.
    * Personal tab: client-side text search over the small owner list.
    */
+  const collectionSourcePending =
+    (createLibraryTab === "public" && collectionScope !== "public") ||
+    (createLibraryTab === "personal" && collectionScope !== "owner");
+  const collectionListLoading = collectionsLoading || (collectionSourcePending && !collectionsError);
   const filteredCreateCollections = useMemo(() => {
+    if (collectionSourcePending) return [];
     if (createLibraryTab === "public") return collections;
     if (!normalizedCreateLibrarySearch) return collections;
     return collections.filter((collection) => {
@@ -1148,11 +1152,11 @@ const RoomsHubPage: React.FC = () => {
         value.includes(normalizedCreateLibrarySearch),
       );
     });
-  }, [collections, createLibraryTab, normalizedCreateLibrarySearch]);
+  }, [collections, createLibraryTab, normalizedCreateLibrarySearch, collectionSourcePending]);
   const createCollectionsTotalCount =
     createLibraryTab === "public" ||
     (createLibraryTab === "personal" && !normalizedCreateLibrarySearch)
-      ? collectionsTotalCount
+      ? collectionSourcePending ? null : collectionsTotalCount
       : null;
   const mobileSourceCountLabel =
     createLibraryTab === "link"
@@ -1161,16 +1165,11 @@ const RoomsHubPage: React.FC = () => {
         : null
       : createLibraryTab === "youtube"
         ? `${filteredCreateYoutubePlaylists.length} 筆`
-        : collectionsLoading
+        : collectionListLoading
           ? "載入中"
           : `${createCollectionsTotalCount ?? filteredCreateCollections.length} 筆`;
   const shouldShowCollectionSkeleton =
-    collectionsLoading &&
-    !(
-      createLibraryTab === "public" &&
-      collectionScope === "public" &&
-      filteredCreateCollections.length > 0
-    );
+    !collectionsError && (collectionSourcePending || (collectionsLoading && collections.length === 0));
   const selectedCollectionThumb =
     selectedCollection?.cover_thumbnail_url ||
     (selectedCollection?.cover_provider === "youtube" &&
@@ -1239,6 +1238,12 @@ const RoomsHubPage: React.FC = () => {
   };
   const handleAuthRequired = useCallback(() => {
     if (authLoading) return;
+    setAuthFeature("rooms");
+    setAuthDialogOpen(true);
+  }, [authLoading]);
+  const handleLockedSourceClick = useCallback((source: CreateLibraryTab) => {
+    if (authLoading) return;
+    setAuthFeature(source === "youtube" || source === "personal" ? source : "rooms");
     setAuthDialogOpen(true);
   }, [authLoading]);
 
@@ -1712,75 +1717,40 @@ const RoomsHubPage: React.FC = () => {
         <section className="flex min-h-0 w-full flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col sm:p-5">
             <div className="z-50 bg-[var(--mc-bg)] pb-0 lg:bg-transparent lg:pb-0">
-              <div className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-bg)] p-1 shadow-[0_14px_30px_-28px_rgba(2,6,23,0.95)] lg:bg-[var(--mc-surface-strong)]/40 lg:shadow-none">
-                <button
-                  type="button"
-                  className={`relative z-10 cursor-pointer rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5 sm:py-4.5 lg:px-4 lg:py-4 ${
-                    guideMode === "create"
-                      ? "border-cyan-300/55 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(14,165,233,0.09))] text-cyan-50 shadow-[0_18px_34px_-28px_rgba(34,211,238,0.72)]"
-                      : "border-transparent text-[var(--mc-text-muted)] hover:border-cyan-300/45 hover:bg-cyan-500/12 hover:text-cyan-100"
-                  }`}
-                  onClick={() => setGuideMode("create")}
-                >
-                  <div
-                    className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                      guideMode === "create"
-                        ? "translate-y-[-1px] scale-[1.01]"
-                        : "translate-y-0 scale-100"
-                    }`}
+              <div className="hub-room-entry" aria-label="房間入口">
+                {(["create", "join"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={guideMode === mode}
+                    className="hub-room-entry__button"
+                    onClick={() => setGuideMode(mode)}
                   >
-                    <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-10 sm:w-10 sm:rounded-2xl ${
-                        guideMode === "create"
-                          ? "border-cyan-300/45 bg-cyan-400/14 text-cyan-100 shadow-[0_10px_24px_-18px_rgba(34,211,238,0.85)]"
-                          : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
-                      }`}
-                    >
-                      <AddCircleOutlineRounded fontSize="small" />
+                    {guideMode === mode ? (
+                      <motion.span
+                        layoutId="hub-room-entry-selection"
+                        className="hub-room-entry__selection"
+                        transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+                      />
+                    ) : null}
+                    <span className="hub-room-entry__icon" aria-hidden="true">
+                      {mode === "create" ? <AddCircleOutlineRounded fontSize="small" /> : <MeetingRoomRounded fontSize="small" />}
                     </span>
-                    <p className="text-base font-semibold text-[var(--mc-text)]">
-                      創建房間
-                    </p>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  className={`relative z-10 cursor-pointer rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,color,transform,opacity] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-5 sm:py-4.5 lg:px-4 lg:py-4 ${
-                    guideMode === "join"
-                      ? "border-amber-300/55 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(245,158,11,0.1))] text-amber-50 shadow-[0_18px_34px_-28px_rgba(251,191,36,0.68)]"
-                      : "border-transparent text-[var(--mc-text-muted)] hover:border-amber-300/45 hover:bg-amber-400/12 hover:text-amber-100"
-                  }`}
-                  onClick={() => setGuideMode("join")}
-                >
-                  <div
-                    className={`flex items-center gap-3 transition-transform duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                      guideMode === "join"
-                        ? "translate-y-[-1px] scale-[1.01]"
-                        : "translate-y-0 scale-100"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-xl border transition-[transform,background-color,border-color,color,box-shadow] duration-260 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-10 sm:w-10 sm:rounded-2xl ${
-                        guideMode === "join"
-                          ? "border-amber-300/45 bg-amber-400/14 text-amber-100 shadow-[0_10px_24px_-18px_rgba(251,191,36,0.9)]"
-                          : "border-[var(--mc-border)] bg-slate-900/30 text-[var(--mc-text-muted)]"
-                      }`}
-                    >
-                      <MeetingRoomRounded fontSize="small" />
-                    </span>
-                    <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-                      <p className="text-base font-semibold text-[var(--mc-text)]">
-                        加入房間
-                      </p>
-                      <span className="text-[11px] font-medium leading-none text-[var(--mc-text-muted)] sm:translate-y-[1px]">
-                        {displayedSiteOnlineCount ?? "--"} 人在線
-                      </span>
-                    </div>
-                  </div>
-                </button>
+                    <span className="hub-room-entry__label">{mode === "create" ? "建立房間" : "加入房間"}</span>
+                    {mode === "join" ? <span className="hub-room-entry__count">{displayedSiteOnlineCount ?? "--"} 人在線</span> : null}
+                  </button>
+                ))}
               </div>
 
+
+            </div>
+
+            <ContentTransition
+              viewKey={guideMode}
+              className="sm:mt-2"
+            >
               {guideMode === "create" ? (
+                <div className="flex min-h-0 flex-1 flex-col lg:p-4">
                 <div className="mt-2 bg-[var(--mc-bg)] lg:hidden">
                   <LibrarySourceToolbar
                     createLibraryTab={createLibraryTab}
@@ -1788,7 +1758,8 @@ const RoomsHubPage: React.FC = () => {
                     publicLibrarySearchActive={publicLibrarySearchActive}
                     createLibrarySearch={createLibrarySearch}
                     setCreateLibrarySearch={setCreateLibrarySearch}
-                    collectionsLoading={collectionsLoading}
+                    collectionsLoading={collectionListLoading}
+                    youtubePlaylistsLoading={youtubePlaylistsLoading}
                     filteredCreateCollectionsLength={
                       filteredCreateCollections.length
                     }
@@ -1799,16 +1770,19 @@ const RoomsHubPage: React.FC = () => {
                     createLibraryView={createLibraryView}
                     setCreateLibraryView={setCreateLibraryView}
                     togglePublicLibrarySearch={togglePublicLibrarySearch}
+                    closePublicLibrarySearch={closePublicLibrarySearch}
+                    onResetFilters={() => { setSelectedCategoryKeys([]); setSelectedSubTagKeys([]); setPublicCollectionsSort("rating"); }}
                     publicCollectionsSort={publicCollectionsSort}
                     setPublicCollectionsSort={setPublicCollectionsSort}
                     canUseGoogleLibraries={canUseGoogleLibraries}
                     setCreateLibraryTab={setCreateLibraryTab}
-                    onLockedSourceClick={handleAuthRequired}
+                    onLockedSourceClick={handleLockedSourceClick}
                     mobileSourceMeta={mobileSourceCountLabel ?? undefined}
                     mobileEmbedded
                     filterContent={
                       createLibraryTab === "public" ? (
                           <CollectionFilterBar
+                            showEmptyOptions
                             aggregations={filterAggregationsQuery.data}
                           isLoading={
                             filterAggregationsQuery.isFetching ||
@@ -1826,29 +1800,23 @@ const RoomsHubPage: React.FC = () => {
                     }
                   />
                 </div>
-              ) : null}
-            </div>
-
-            <div
-              key={`guide-panel-${guideMode}`}
-              className="flex min-h-0 flex-1 flex-col animate-[guide-panel-enter_220ms_ease-out] sm:mt-2"
-            >
-              {guideMode === "create" ? (
-                <div className="flex min-h-0 flex-1 flex-col lg:rounded-2xl lg:border lg:border-[var(--mc-border)] lg:p-4">
                   <LibrarySourcePanel
                     createLeftTab="library"
                     createLibraryTab={createLibraryTab}
                     canUseGoogleLibraries={canUseGoogleLibraries}
                     setCreateLibraryTab={setCreateLibraryTab}
                     handleBackToCreateLibrary={handleBackToCreateLibrary}
-                    onLockedSourceClick={handleAuthRequired}
+                    onLockedSourceClick={handleLockedSourceClick}
                     showCreatePublicCollectionAction
                     onCreatePublicCollection={handleCreatePublicCollection}
                   >
                     <div className="flex min-h-0 flex-1 flex-col bg-[var(--mc-surface)]/10 lg:rounded-none lg:border-l lg:border-[var(--mc-border)]/45 lg:pl-5">
+                      {/* Link mode owns its field in place of the search toolbar.
+                          Keep the outgoing toolbar and results in one pane so
+                          removing that toolbar cannot shift the exiting list. */}
+                      <ContentTransition viewKey={isDesktopLibraryLayout ? (createLibraryTab === "link" ? "link-workspace" : "library-workspace") : "mobile-workspace"}>
                       <div className="flex min-h-0 flex-1 flex-col">
-                        {isDesktopLibraryLayout &&
-                          createLibraryTab !== "link" && (
+                        {isDesktopLibraryLayout && (
                           <div className="block">
                             <LibrarySourceToolbar
                               createLibraryTab={createLibraryTab}
@@ -1860,7 +1828,8 @@ const RoomsHubPage: React.FC = () => {
                               }
                               createLibrarySearch={createLibrarySearch}
                               setCreateLibrarySearch={setCreateLibrarySearch}
-                              collectionsLoading={collectionsLoading}
+                              collectionsLoading={collectionListLoading}
+                              youtubePlaylistsLoading={youtubePlaylistsLoading}
                               filteredCreateCollectionsLength={
                                 filteredCreateCollections.length
                               }
@@ -1881,7 +1850,7 @@ const RoomsHubPage: React.FC = () => {
                               }
                               canUseGoogleLibraries={canUseGoogleLibraries}
                               setCreateLibraryTab={setCreateLibraryTab}
-                              onLockedSourceClick={handleAuthRequired}
+                              onLockedSourceClick={handleLockedSourceClick}
                               mobileSourceMeta={
                                 mobileSourceCountLabel ?? undefined
                               }
@@ -1910,6 +1879,7 @@ const RoomsHubPage: React.FC = () => {
                           </div>
                         )}
 
+                        <ContentTransition viewKey={createLibraryTab} className="hub-source-content">
                         {!canUseGoogleLibraries &&
                         (createLibraryTab === "personal" ||
                           createLibraryTab === "youtube") ? (
@@ -2030,7 +2000,7 @@ const RoomsHubPage: React.FC = () => {
                               }
                               createLibraryColumns={createLibraryColumns}
                               renderCollectionCard={renderCollectionCard}
-                              collectionsLoading={collectionsLoading}
+                              collectionsLoading={collectionListLoading}
                               collectionsLoadingMore={collectionsLoadingMore}
                               collectionListRowCount={collectionListRowCount}
                               collectionListRowHeight={collectionListRowHeight}
@@ -2040,22 +2010,18 @@ const RoomsHubPage: React.FC = () => {
                             />
                           </div>
                         )}
+                        </ContentTransition>
                       </div>
+                      </ContentTransition>
                     </div>
                   </LibrarySourcePanel>
                 </div>
               ) : (
                 <JoinRoomPanel
-                  joinEntryTab={joinEntryTab}
-                  setJoinEntryTab={setJoinEntryTab}
                   directJoinError={directJoinError}
                   directJoinLoading={directJoinLoading}
                   normalizedDirectRoomCode={normalizedDirectRoomCode}
                   directRoomCodeInputRef={directRoomCodeInputRef}
-                  isDirectRoomCodeFocused={isDirectRoomCodeFocused}
-                  setIsDirectRoomCodeFocused={setIsDirectRoomCodeFocused}
-                  directRoomCodeSlots={directRoomCodeSlots}
-                  activeDirectRoomCodeIndex={activeDirectRoomCodeIndex}
                   setDirectRoomIdInput={setDirectRoomIdInput}
                   setDirectJoinPreviewRoom={setDirectJoinPreviewRoom}
                   setDirectJoinError={setDirectJoinError}
@@ -2104,16 +2070,12 @@ const RoomsHubPage: React.FC = () => {
                   handleConfirmJoinWithPassword={handleConfirmJoinWithPassword}
                 />
               )}
-            </div>
+            </ContentTransition>
 
             <FloatingChatWindow />
 
             <style>
               {`
-              @keyframes guide-panel-enter {
-                0% { opacity: 0; transform: translateY(8px) scale(0.995); }
-                100% { opacity: 1; transform: translateY(0) scale(1); }
-              }
               @keyframes skeleton-breathe {
                 0% {
                   opacity: 0.52;
@@ -2153,7 +2115,7 @@ const RoomsHubPage: React.FC = () => {
         </section>
       )}
       <CollectionDetailDrawer
-        key={detailCollectionId ?? "collection-detail-drawer"}
+        key={detailDrawerInstance}
         open={Boolean(detailCollectionId)}
         collection={detailCollection}
         onClose={handleCloseCollectionDetailDrawer}
@@ -2321,18 +2283,26 @@ const RoomsHubPage: React.FC = () => {
       <AuthEntryDialog
         open={authDialogOpen}
         onClose={() => setAuthDialogOpen(false)}
-        onGoogleLogin={loginWithGoogle}
+        onGoogleLogin={() => {
+          if (authFeature === "createPublicCollection") {
+            window.sessionStorage.setItem("muizo_auth_redirect_target", "/collections/new");
+          }
+          loginWithGoogle();
+        }}
         onEmailLogin={loginWithEmail}
         onEmailRegister={registerWithEmail}
         onPasswordResetRequest={requestPasswordReset}
         onResendVerification={resendEmailVerification}
         authLoading={authLoading}
-        featurePreview={{
-          eyebrow: "Rooms",
-          title: "登入後建立房間與套用題庫",
-          description:
-            "登入或註冊後可以使用私人收藏庫、YouTube 播放清單與排行挑戰，房間紀錄也會綁定帳號保存。",
-          actionLabel: "回到房間大廳",
+        featurePreview={roomAuthPreviews[authFeature]}
+        onLoginSuccess={() => {
+          if (authFeature === "createPublicCollection") {
+            navigateToPublicCollectionEditor();
+            return;
+          }
+          if (authFeature === "youtube" || authFeature === "personal") {
+            setCreateLibraryTab(authFeature);
+          }
         }}
       />
     </div>

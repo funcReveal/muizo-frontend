@@ -1,4 +1,5 @@
 import { PlayCircleOutlineRounded, YouTube } from "@mui/icons-material";
+import "./collectionCard.css";
 
 type YoutubePlaylistCardProps = {
   playlist: {
@@ -31,20 +32,18 @@ const YoutubePlaylistCard = ({
         type="button"
         disabled={disabled}
         onClick={onSelect}
-        className={`group h-full w-full overflow-hidden rounded-[22px] border text-left transition ${
-          disabled
-            ? "cursor-not-allowed border-white/10 bg-slate-950/42 opacity-70"
-            : selected
-            ? "border-rose-300/50 bg-slate-950/70 shadow-[0_24px_44px_-28px_rgba(251,113,133,0.4)]"
-            : "border-rose-300/16 bg-slate-950/55 hover:border-rose-300/34 hover:bg-slate-950/72 hover:shadow-[0_22px_42px_-30px_rgba(251,113,133,0.28)]"
-        }`}
+        aria-pressed={selected}
+        data-selected={selected}
+        data-disabled={disabled}
+        data-action-active="false"
+        className="hub-collection-card hub-collection-card--grid group h-full w-full overflow-hidden text-left"
       >
-        <div className="relative h-36 w-full overflow-hidden bg-slate-900/60">
+        <div className="hub-collection-card__cover relative h-36 w-full overflow-hidden">
           {playlist.thumbnail ? (
             <img
               src={playlist.thumbnail}
               alt={playlist.title}
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              className="hub-collection-card__image h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
@@ -52,7 +51,7 @@ const YoutubePlaylistCard = ({
               無縮圖
             </div>
           )}
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_46%,rgba(2,6,23,0.82)_100%)]" />
+          <div className="hub-collection-card__shade pointer-events-none absolute inset-0" />
           <div className="absolute left-3 top-3">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-rose-100 backdrop-blur-sm">
               <YouTube sx={{ fontSize: 13 }} />
@@ -65,9 +64,9 @@ const YoutubePlaylistCard = ({
             </div>
           ) : null}
         </div>
-        <div className="space-y-2.5 px-4 py-3">
+        <div className="hub-collection-card__body space-y-2.5 px-4 py-3">
           <div className="space-y-1">
-            <p className="line-clamp-1 text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
+            <p className="hub-collection-card__title line-clamp-1 text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
               {playlist.title}
             </p>
             <p className="line-clamp-1 text-[12px] leading-5 text-slate-300/88">
@@ -93,13 +92,11 @@ const YoutubePlaylistCard = ({
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className={`w-full border-b border-slate-700/55 px-3 py-3 text-left transition ${
-        disabled
-          ? "cursor-not-allowed bg-slate-950/20 opacity-70"
-          : selected
-          ? "bg-rose-500/10"
-          : "hover:bg-rose-500/[0.06]"
-      } flex items-center gap-3`}
+      aria-pressed={selected}
+      data-selected={selected}
+      data-disabled={disabled}
+      data-action-active="false"
+      className="hub-collection-card hub-collection-card--list flex w-full items-center gap-3 px-3 py-3 text-left"
     >
       <div className="h-11 w-16 shrink-0 overflow-hidden rounded-md bg-slate-900/40">
         {playlist.thumbnail ? (

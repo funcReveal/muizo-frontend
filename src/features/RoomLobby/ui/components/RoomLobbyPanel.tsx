@@ -205,6 +205,7 @@ interface RoomLobbyPanelProps {
   ) => Promise<CollectionOption | null>;
   onLoadMoreCollections?: () => Promise<void>;
   onFetchYoutubePlaylists: () => void;
+  onShareToLobby?: () => void;
 }
 
 const LOBBY_INTERACTIVE_SELECTOR =
@@ -305,6 +306,7 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
   onFetchCollectionById,
   onLoadMoreCollections,
   onFetchYoutubePlaylists,
+  onShareToLobby,
 }) => {
   type MobileLobbyTab = "members" | "host" | "playlist";
   const rowCount =
@@ -2506,6 +2508,8 @@ const RoomLobbyPanel: React.FC<RoomLobbyPanelProps> = ({
         onNativeShare={() => {
           void handleNativeShare();
         }}
+        canShareToLobby={currentRoom?.visibility === "public"}
+        onShareToLobby={() => onShareToLobby?.()}
       />
       <Drawer
         anchor="bottom"

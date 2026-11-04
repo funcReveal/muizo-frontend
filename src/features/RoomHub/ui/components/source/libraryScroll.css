@@ -1,0 +1,12 @@
+/* Keep virtual-list scrolling and pagination without a visible scrollbar gutter. */
+.hub-library-scroll {
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+  -ms-overflow-style: none;
+}
+
+.hub-library-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

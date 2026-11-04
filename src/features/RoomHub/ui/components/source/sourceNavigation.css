@@ -1,0 +1,76 @@
+.hub-source-sidebar {
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 12px 4px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(45% 0.012 75 / 0.35) transparent;
+}
+.hub-source-nav { display: flex; flex-direction: column; gap: 24px; }
+.hub-source-nav__label { margin: 0 0 10px; padding: 0 12px; color: var(--mc-text); font-size: 1rem; font-weight: 700; line-height: 1.5; }
+.hub-source-nav__item {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  gap: 10px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: oklch(80% 0.016 75);
+  font: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease-out, color 160ms ease-out;
+}
+.hub-source-nav__item + .hub-source-nav__item { margin-top: 3px; }
+.hub-source-nav__item:hover { background: oklch(27% 0.01 75 / 0.65); color: oklch(94% 0.012 75); }
+.hub-source-nav__item[data-active="true"] { color: var(--mc-accent-hover); font-weight: 700; }
+.hub-source-nav__selection { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--mc-accent-soft); pointer-events: none; }
+.hub-source-nav__icon { display: inline-flex; flex: 0 0 18px; align-items: center; justify-content: center; color: oklch(67% 0.015 75); }
+.hub-source-nav__icon > svg { font-size: 18px; }
+.hub-source-nav__item[data-active="true"] .hub-source-nav__icon { color: var(--mc-accent); }
+.hub-source-nav__text { flex: 1; min-width: 0; }
+.hub-source-nav__status.MuiSvgIcon-root { flex: 0 0 auto; font-size: 14px; color: var(--mc-accent); }
+.hub-source-nav__item[data-locked="true"] { color: oklch(66% 0.012 75); }
+.hub-source-nav__item[data-locked="true"] .hub-source-nav__status { color: oklch(57% 0.01 75); }
+.hub-source-sidebar__footer { margin-top: auto; padding-top: 32px; }
+.hub-source-create {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 66px;
+  padding: 12px;
+  border: 1px dashed var(--mc-accent-border);
+  border-radius: 9px;
+  background: transparent;
+  color: oklch(90% 0.025 75);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 160ms ease-out, border-color 160ms ease-out;
+}
+.hub-source-create:hover { background: var(--mc-accent-soft); border-color: var(--mc-accent); }
+.hub-source-create > svg { flex: 0 0 auto; font-size: 19px; color: var(--mc-accent); }
+.hub-source-create > span { display: block; min-width: 0; }
+.hub-source-create strong { display: block; font-size: 0.875rem; font-weight: 700; line-height: 1.5; }
+.hub-source-create small { display: block; margin-top: 4px; color: oklch(68% 0.018 75); font-size: 0.75rem; line-height: 1.6; }
+.hub-source-community { margin-top: 20px; padding: 14px 4px 0; border-top: 1px solid oklch(40% 0.012 75 / 0.35); }
+.hub-source-community > div { display: flex; gap: 4px; }
+.hub-source-community__link { display: inline-flex; min-height: 40px; align-items: center; gap: 7px; padding: 0 8px; border-radius: 6px; color: oklch(71% 0.012 75); font-size: 0.8125rem; text-decoration: none; transition: color 160ms ease-out, background-color 160ms ease-out; }
+.hub-source-community__link:hover { color: oklch(93% 0.012 75); background: oklch(26% 0.01 75); }
+.hub-source-community__link img { width: 14px; height: 14px; object-fit: contain; filter: grayscale(1) brightness(1.4); opacity: 0.75; }
+.hub-source-back { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 0; border-radius: 8px; background: transparent; color: oklch(80% 0.016 75); cursor: pointer; }
+.hub-source-back:hover { background: oklch(27% 0.01 75); }
+.hub-source-sidebar :is(button, a):focus-visible { outline: 2px solid oklch(82% 0.11 80); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .hub-source-nav__item, .hub-source-create, .hub-source-community__link { transition: none; }
+}

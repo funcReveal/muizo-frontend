@@ -1,0 +1,126 @@
+.hub-collection-card {
+  --collection-edge: oklch(65% 0.006 75 / 0.2);
+  --collection-highlight: var(--mc-accent);
+  position: relative;
+  cursor: pointer;
+  color: var(--mc-text);
+  outline: none;
+  transition: border-color 180ms ease-out, background-color 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+
+.hub-collection-card--grid {
+  border: 1px solid var(--collection-edge);
+  border-radius: 16px;
+  background: var(--mc-surface);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18), inset 0 1px rgb(245 245 243 / 0.05);
+}
+
+.hub-collection-card__cover { background: var(--mc-surface-strong); }
+.hub-collection-card__image {
+  transition: transform 240ms ease-out, filter 240ms ease-out;
+}
+.hub-collection-card__shade {
+  background: linear-gradient(180deg, transparent 60%, oklch(16% 0.004 75 / 0.25));
+}
+.hub-collection-card__title { transition: color 180ms ease-out; }
+.hub-collection-card__body { position: relative; padding: 12px 14px; }
+.hub-collection-card__body > div:last-child { padding-top: 3px; }
+.hub-collection-card .hub-collection-card__tags > span {
+  border-color: oklch(70% 0.006 75 / 0.25);
+  background: oklch(20% 0.004 75 / 0.94);
+  color: var(--mc-text);
+}
+.hub-collection-card__preview,
+.hub-collection-card__selected {
+  position: absolute;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--mc-accent-border);
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: rgb(23 26 32 / 0.94);
+  color: var(--mc-accent-hover);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.hub-collection-card__preview {
+  right: 12px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+.hub-collection-card__selected { left: 12px; }
+.hub-collection-card__preview > svg,
+.hub-collection-card__selected > svg { font-size: 15px; }
+
+.hub-collection-card__action.MuiIconButton-root {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mc-text-muted);
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+.hub-collection-card__action.MuiIconButton-root:hover {
+  background: var(--mc-accent-soft);
+  color: var(--mc-accent);
+}
+.hub-collection-card__action.MuiIconButton-root:focus-visible {
+  outline: 2px solid var(--collection-highlight);
+  outline-offset: 2px;
+}
+.hub-collection-card--list {
+  border-bottom: 1px solid var(--collection-edge);
+  background: transparent;
+}
+.hub-collection-card[data-selected="true"] {
+  border-color: var(--mc-accent);
+  background: var(--mc-accent-soft);
+  box-shadow: inset 0 0 0 1px rgb(235 196 128 / 0.2);
+}
+.hub-collection-card[data-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.hub-collection-card:focus-visible {
+  outline: 2px solid var(--collection-highlight);
+  outline-offset: -3px;
+}
+.hub-collection-card:focus-visible .hub-collection-card__preview {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hub-collection-card[data-disabled="false"][data-action-active="false"]:hover {
+    background: var(--mc-surface-strong);
+  }
+  .hub-collection-card--grid[data-disabled="false"][data-action-active="false"]:hover {
+    border-color: var(--mc-accent-border);
+    box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.38), inset 0 1px rgb(245 245 243 / 0.08);
+  }
+  .hub-collection-card--grid[data-disabled="false"][data-action-active="false"]:hover .hub-collection-card__image {
+    transform: scale(1.025);
+    filter: brightness(1.04);
+  }
+  .hub-collection-card--grid[data-disabled="false"][data-action-active="false"]:hover .hub-collection-card__title { color: var(--mc-accent-hover); }
+  .hub-collection-card[data-disabled="false"][data-action-active="false"]:hover .hub-collection-card__preview {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (hover: none) {
+  .hub-collection-card__preview { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-collection-card,
+  .hub-collection-card__image,
+  .hub-collection-card__title,
+  .hub-collection-card__preview { transition: none; }
+  .hub-collection-card[data-disabled="false"][data-action-active="false"]:hover .hub-collection-card__image { transform: none; }
+}

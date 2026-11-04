@@ -1,7 +1,9 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
 
-import { Tooltip } from "@mui/material";
-import { ChevronLeftRounded, LockOutlined } from "@mui/icons-material";
+import ChevronLeftRounded from "@mui/icons-material/ChevronLeftRounded";
+import LockOutlined from "@mui/icons-material/LockOutlined";
+import SiteTooltip from "@shared/ui/SiteTooltip";
 
 import CreatePublicCollectionSourceAction from "./CreatePublicCollectionSourceAction";
 import RoomsHubSocialLinks from "./RoomsHubSocialLinks";
@@ -9,6 +11,12 @@ import {
   type CreateLibraryTab,
   librarySourceItems,
 } from "./librarySourceItems";
+import "./sourceNavigation.css";
+
+const sourceGroups: Array<{ label: string; keys: CreateLibraryTab[] }> = [
+  { label: "收藏庫", keys: ["public", "personal"] },
+  { label: "匯入歌曲", keys: ["youtube", "link"] },
+];
 type CreateLeftTab = "library" | "settings";
 
 type LibrarySourcePanelProps = {
@@ -17,7 +25,7 @@ type LibrarySourcePanelProps = {
   canUseGoogleLibraries: boolean;
   setCreateLibraryTab: (value: CreateLibraryTab) => void;
   handleBackToCreateLibrary: () => void;
-  onLockedSourceClick: () => void;
+  onLockedSourceClick: (source: CreateLibraryTab) => void;
   sidebarContent?: ReactNode;
   children: ReactNode;
   showCreatePublicCollectionAction?: boolean;
@@ -36,26 +44,26 @@ const LibrarySourcePanel = ({
   showCreatePublicCollectionAction = false,
   onCreatePublicCollection,
 }: LibrarySourcePanelProps) => {
+  const motionId = useId();
+  const reduceMotion = useReducedMotion();
   const shouldShowDesktopCreatePublicCollectionAction =
     createLeftTab === "library" &&
     showCreatePublicCollectionAction &&
     Boolean(onCreatePublicCollection);
 
   return (
-    <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] gap-0 lg:grid-cols-[220px_minmax(0,1fr)] lg:grid-rows-none lg:gap-3">
-      <aside className="hidden min-w-0 self-start px-0 lg:flex lg:min-h-0 lg:self-stretch lg:flex-col lg:pb-2 lg:pl-0 lg:pr-2 lg:pt-2">
-        <div className="mb-2 hidden items-center gap-1 lg:mb-0 lg:flex">
-          {createLeftTab === "settings" ? (
+    <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] gap-0 lg:grid-cols-[240px_minmax(0,1fr)] lg:grid-rows-none lg:gap-3">
+      <aside className="hub-source-sidebar hidden min-w-0 lg:flex lg:self-stretch" aria-label="題庫來源側邊欄">
+        {createLeftTab === "settings" ? <div>
             <button
               type="button"
               onClick={handleBackToCreateLibrary}
-              className="inline-flex h-10 w-10 cursor-pointer items-center justify-center text-cyan-100 transition hover:text-cyan-200"
+              className="hub-source-back"
               aria-label="返回題庫來源"
             >
               <ChevronLeftRounded sx={{ fontSize: 24 }} />
             </button>
-          ) : null}
-        </div>
+        </div> : null}
 
         {createLeftTab === "settings" && sidebarContent ? (
           <div className="hidden lg:mt-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
@@ -65,67 +73,70 @@ const LibrarySourcePanel = ({
 
         {createLeftTab === "library" ? (
           <>
-            <div className="mt-2 hidden flex-col gap-2 lg:flex">
-              {librarySourceItems.map((item) => {
+            <nav className="hub-source-nav" aria-label="選擇題庫來源">
+              {sourceGroups.map((group) => <div className="hub-source-nav__group" key={group.label}>
+                <p className="hub-source-nav__label">{group.label}</p>
+                {librarySourceItems.filter((item) => group.keys.includes(item.key)).map((item) => {
                 const isActive = createLibraryTab === item.key;
+                const label = item.key === "youtube" ? "YouTube 播放清單" : item.label;
                 const disabled =
                   !canUseGoogleLibraries &&
                   item.key !== "public" &&
                   item.key !== "link";
 
                 return (
+                  <SiteTooltip key={item.key} title={disabled ? (item.key === "youtube" ? "登入後連結 YouTube，直接選取你的播放清單。" : "登入後選取自己的私人題庫，建立遊戲房間。") : undefined} placement="right">
                   <button
                     key={item.key}
                     type="button"
                     aria-label={
-                      disabled ? `${item.label}，登入後使用` : item.label
+                      disabled ? `${label}，登入後使用` : label
                     }
+                    aria-pressed={isActive && !disabled}
+                    data-active={isActive && !disabled}
+                    data-locked={disabled}
                     onClick={() => {
                       if (disabled) {
-                        onLockedSourceClick();
+                        onLockedSourceClick(item.key);
                         return;
                       }
                       setCreateLibraryTab(item.key);
                     }}
-                    className={`rounded-xl px-3 py-2 text-left text-sm transition ${
-                      disabled
-                        ? "cursor-pointer bg-slate-900/40 text-slate-400 hover:bg-slate-900/55 hover:text-slate-200"
-                        : isActive
-                          ? "cursor-pointer bg-cyan-500/10 text-cyan-100 shadow-[inset_3px_0_0_0_rgba(34,211,238,0.85)]"
-                          : "cursor-pointer bg-[var(--mc-surface)]/35 text-[var(--mc-text)] hover:bg-cyan-500/10 hover:text-cyan-100"
-                    }`}
+                    className="hub-source-nav__item"
                   >
-                    <span className="inline-flex w-full items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="text-cyan-200/90">{item.icon}</span>
-                        <span>{item.label}</span>
-                      </span>
+                    {isActive && !disabled ? (
+                      <motion.span
+                        layoutId={`${motionId}-source-selection`}
+                        className="hub-source-nav__selection"
+                        transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 480, damping: 36, mass: 0.65 }}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <span className="hub-source-nav__icon" aria-hidden="true">{item.icon}</span>
+                    <span className="hub-source-nav__text">{label}</span>
                       {disabled ? (
-                        <Tooltip title="點擊即可登入後使用" placement="top">
-                          <LockOutlined
-                            sx={{ fontSize: 14, color: "#fbbf24" }}
-                          />
-                        </Tooltip>
+                        <LockOutlined className="hub-source-nav__status" aria-hidden="true" />
                       ) : null}
-                    </span>
                   </button>
+                  </SiteTooltip>
                 );
-              })}
-            </div>
+                })}
+              </div>)}
+            </nav>
 
             {shouldShowDesktopCreatePublicCollectionAction ? (
-              <div className="mt-auto hidden pt-3 lg:block">
-                <RoomsHubSocialLinks />
+              <div className="hub-source-sidebar__footer">
                 <CreatePublicCollectionSourceAction
                   onClick={onCreatePublicCollection!}
                 />
+                <RoomsHubSocialLinks />
               </div>
             ) : null}
           </>
         ) : null}
       </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
 };

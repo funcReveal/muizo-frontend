@@ -32,6 +32,7 @@ export const usePublicCollectionsSearchUi = ({
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node | null;
       if (panelRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-public-collection-filters]")) return;
       setIsExpanded(false);
     };
     document.addEventListener("mousedown", handlePointerDown);
@@ -45,5 +46,6 @@ export const usePublicCollectionsSearchUi = ({
   return {
     publicLibrarySearchActive,
     togglePublicLibrarySearch,
+    closePublicLibrarySearch: () => setIsExpanded(false),
   };
 };

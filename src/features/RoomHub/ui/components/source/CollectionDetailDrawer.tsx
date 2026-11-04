@@ -19,12 +19,12 @@ import {
 import {
   Button,
   ClickAwayListener,
-  Drawer,
   IconButton,
   Popper,
   useMediaQuery,
 } from "@mui/material";
 import { AnimatePresence, motion } from "motion/react";
+import MotionCollectionDrawer from "./MotionCollectionDrawer";
 import { List, type RowComponentProps } from "react-window";
 
 import { API_URL, PLAYER_MAX, PLAYER_MIN } from "@domain/room/constants";
@@ -361,7 +361,7 @@ const leaderboardPreviewByVariant: Record<
 const getLeaderboardPodiumTone = (rank: number | null) => {
   if (rank === 1) {
     return {
-      row: "border-amber-200/34 bg-[linear-gradient(90deg,rgba(251,191,36,0.18),rgba(120,53,15,0.08)_32%,rgba(15,23,42,0.46)_62%,rgba(15,23,42,0.28))] shadow-[inset_0_1px_0_rgba(255,255,255,0.11),inset_0_0_0_1px_rgba(251,191,36,0.045)]",
+      row: "border-amber-200/34 bg-stone-900/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),inset_0_0_0_1px_rgba(251,191,36,0.045)]",
       accent: "bg-amber-200/68",
       rank: "text-amber-50",
       score: "text-amber-50",
@@ -370,16 +370,16 @@ const getLeaderboardPodiumTone = (rank: number | null) => {
 
   if (rank === 2) {
     return {
-      row: "border-slate-100/28 bg-[linear-gradient(90deg,rgba(226,232,240,0.15),rgba(100,116,139,0.08)_32%,rgba(15,23,42,0.46)_62%,rgba(15,23,42,0.28))] shadow-[inset_0_1px_0_rgba(255,255,255,0.105),inset_0_0_0_1px_rgba(226,232,240,0.04)]",
-      accent: "bg-slate-100/58",
-      rank: "text-slate-50",
-      score: "text-slate-50",
+      row: "border-stone-100/28 bg-stone-900/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.105),inset_0_0_0_1px_rgba(226,232,240,0.04)]",
+      accent: "bg-stone-100/58",
+      rank: "text-stone-50",
+      score: "text-stone-50",
     };
   }
 
   if (rank === 3) {
     return {
-      row: "border-orange-200/28 bg-[linear-gradient(90deg,rgba(251,146,60,0.15),rgba(154,52,18,0.08)_32%,rgba(15,23,42,0.46)_62%,rgba(15,23,42,0.28))] shadow-[inset_0_1px_0_rgba(255,255,255,0.095),inset_0_0_0_1px_rgba(251,146,60,0.04)]",
+      row: "border-orange-200/28 bg-stone-900/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.095),inset_0_0_0_1px_rgba(251,146,60,0.04)]",
       accent: "bg-orange-200/56",
       rank: "text-orange-50",
       score: "text-orange-50",
@@ -405,22 +405,22 @@ const LeaderboardPlayerRow = ({
   const rowTone =
     podiumTone?.row ??
     (isCurrent
-      ? "border-cyan-100/22 bg-[linear-gradient(90deg,rgba(34,211,238,0.1),rgba(15,23,42,0.34)_42%,rgba(15,23,42,0.22))] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_16px_34px_-30px_rgba(34,211,238,0.8)]"
+      ? "border-amber-100/22 bg-stone-900/70 shadow-none"
       : variant === "current"
-        ? "border-cyan-100/16 bg-[linear-gradient(90deg,rgba(34,211,238,0.07),rgba(15,23,42,0.36)_46%,rgba(15,23,42,0.24))] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]"
-        : "border-white/8 bg-[linear-gradient(90deg,rgba(148,163,184,0.045),rgba(15,23,42,0.32)_46%,rgba(15,23,42,0.2))] hover:border-white/12 hover:bg-slate-950/42");
+        ? "border-amber-100/16 bg-stone-900/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]"
+        : "border-white/8 bg-stone-900/70 hover:border-white/12 hover:bg-stone-950/42");
 
   const accentTone =
     podiumTone?.accent ??
     (isCurrent || variant === "current"
-      ? "bg-cyan-200/45"
-      : "bg-slate-500/22 group-hover:bg-slate-300/34");
+      ? "bg-amber-200/45"
+      : "bg-stone-500/22 group-hover:bg-stone-300/34");
 
   const rankTone =
     podiumTone?.rank ??
-    (isCurrent || variant === "current" ? "text-cyan-100" : "text-slate-300");
+    (isCurrent || variant === "current" ? "text-amber-100" : "text-stone-300");
 
-  const scoreTone = podiumTone?.score ?? "text-slate-50";
+  const scoreTone = podiumTone?.score ?? "text-stone-50";
 
   return (
     <div
@@ -449,14 +449,14 @@ const LeaderboardPlayerRow = ({
       />
 
       <div className="min-w-0 flex-1">
-        <p className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-slate-100">
+        <p className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-stone-100">
           <span className="truncate">{player.name}</span>
         </p>
 
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-4 text-slate-400 sm:gap-x-2 sm:text-xs">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-4 text-stone-400 sm:gap-x-2 sm:text-xs">
           <span className="min-w-0 truncate">{player.meta}</span>
-          <span className="shrink-0 text-slate-600">/</span>
-          <span className="shrink-0 text-slate-300">
+          <span className="shrink-0 text-stone-600">/</span>
+          <span className="shrink-0 text-stone-300">
             耗時 {player.duration}
           </span>
         </div>
@@ -664,7 +664,7 @@ const CollectionPreviewListRow = ({
   return (
     <div style={style}>
       <div className="flex h-full items-center gap-3 border-b border-white/8 px-2 py-3 last:border-b-0 sm:px-3">
-        <div className="h-12 w-[72px] shrink-0 overflow-hidden rounded-lg bg-slate-900/80">
+        <div className="h-12 w-[72px] shrink-0 overflow-hidden rounded-lg bg-stone-900/80">
           {thumbnail ? (
             <img
               src={thumbnail}
@@ -673,21 +673,21 @@ const CollectionPreviewListRow = ({
               loading="lazy"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
+            <div className="flex h-full w-full items-center justify-center text-[10px] text-stone-500">
               無封面
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-100">
+          <p className="truncate text-sm font-semibold text-stone-100">
             {item.title || `題目 ${index + 1}`}
           </p>
-          <p className="mt-1 truncate text-xs text-slate-400">
+          <p className="mt-1 truncate text-xs text-stone-400">
             {item.channel_title || "未知上傳者"}
             {duration ? ` · ${duration}` : ""}
           </p>
         </div>
-        <span className="hidden shrink-0 text-xs font-medium text-cyan-100/70 sm:inline">
+        <span className="hidden shrink-0 text-xs font-medium text-amber-100/70 sm:inline">
           #{index + 1}
         </span>
       </div>
@@ -715,7 +715,7 @@ const CollectionLeaderboardListRow = ({
   if (isLoaderRow) {
     return (
       <div style={style} className="box-border pb-[10px] md:pb-1.5">
-        <div className="flex h-full items-center gap-3 rounded-xl border border-white/8 bg-slate-950/30 px-3 py-3">
+        <div className="flex h-full items-center gap-3 rounded-xl border border-white/8 bg-stone-950/30 px-3 py-3">
           <div className="h-4 w-8 rounded-full bg-white/8" />
           <div className="h-9 w-9 rounded-full bg-white/8" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -1656,8 +1656,8 @@ const CollectionDetailDrawer = ({
           onClick={() => setIsLeaderboardProfileMenuOpen((open) => !open)}
           className={
             isMobile
-              ? "inline-flex h-9 max-w-[152px] items-center justify-between gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 text-xs font-semibold text-slate-100 transition hover:border-cyan-200/30 hover:bg-white/[0.08]"
-              : "flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-left transition hover:border-cyan-200/30 hover:bg-slate-950/50"
+              ? "inline-flex h-9 max-w-[152px] items-center justify-between gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 text-xs font-semibold text-stone-100 transition hover:border-amber-200/30 hover:bg-white/[0.08]"
+              : "flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-stone-950/35 px-4 py-3 text-left transition hover:border-amber-200/30 hover:bg-stone-950/50"
           }
         >
           {isMobile ? (
@@ -1666,24 +1666,24 @@ const CollectionDetailDrawer = ({
                 {activeLeaderboardModeLabel}
               </span>
 
-              <span className="shrink-0 text-[11px] font-semibold text-cyan-100/80">
+              <span className="shrink-0 text-[11px] font-semibold text-amber-100/80">
                 {activeLeaderboardOption.label}
               </span>
             </>
           ) : (
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-slate-100">
+              <span className="block text-sm font-semibold text-stone-100">
                 {activeLeaderboardModeLabel}
               </span>
 
-              <span className="mt-1 block text-xs leading-5 text-slate-400">
+              <span className="mt-1 block text-xs leading-5 text-stone-400">
                 {activeLeaderboardModeDescription}
               </span>
             </span>
           )}
 
           <div className="flex items-center gap-1">
-            <span className="ml-2 hidden shrink-0 rounded-full text-[20px] font-semibold text-slate-300 md:inline">
+            <span className="ml-2 hidden shrink-0 rounded-full text-[20px] font-semibold text-stone-300 md:inline">
               {activeLeaderboardVariant.label}
             </span>
 
@@ -1695,7 +1695,7 @@ const CollectionDetailDrawer = ({
                   : "rotate(0deg)",
                 transition: "transform 160ms ease",
               }}
-              className="shrink-0 text-slate-300"
+              className="shrink-0 text-stone-300"
             />
           </div>
         </button>
@@ -1704,37 +1704,15 @@ const CollectionDetailDrawer = ({
   };
 
   return (
-    <Drawer
-      anchor={isCompact ? "bottom" : "right"}
-      open={open}
-      onClose={onClose}
-      sx={{ zIndex: 1500 }}
-      slotProps={{
-        paper: {
-          sx: {
-            width: isCompact ? "100%" : "min(1180px, 94vw)",
-            height: isCompact ? "100dvh" : "100%",
-            maxHeight: "100dvh",
-            borderTopLeftRadius: isCompact ? 0 : 24,
-            borderBottomLeftRadius: isCompact ? 0 : 24,
-            background:
-              "radial-gradient(circle at 18% 0%, rgba(34,211,238,0.16), transparent 34%), radial-gradient(circle at 100% 14%, rgba(251,191,36,0.1), transparent 32%), linear-gradient(180deg, rgba(8,15,28,0.99), rgba(2,6,23,0.99))",
-            borderLeft: isCompact ? 0 : "1px solid rgba(103,232,249,0.18)",
-            color: "var(--mc-text)",
-            boxShadow: "0 24px 70px rgba(2,6,23,0.72)",
-            overflow: "hidden",
-          },
-        },
-      }}
-    >
-      <div className="flex h-full min-h-0 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-cyan-300/12 px-4 py-3 sm:px-6">
+    <MotionCollectionDrawer open={open} compact={isCompact} onClose={onClose}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header data-drawer-drag-handle style={{ touchAction: isCompact ? "none" : undefined }} className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-300/12 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             {isSetupView ? (
               <IconButton
                 aria-label="返回題庫詳情"
                 onClick={() => setDrawerView("detail")}
-                className="!text-slate-100 hover:!bg-white/8"
+                className="!text-stone-100 hover:!bg-white/8"
               >
                 <ChevronLeftRounded />
               </IconButton>
@@ -1744,8 +1722,8 @@ const CollectionDetailDrawer = ({
                 <span
                   className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
                     isPublic
-                      ? "border-cyan-200/18 bg-cyan-300/8 text-cyan-100"
-                      : "border-slate-200/14 bg-white/[0.035] text-slate-300"
+                      ? "border-amber-200/18 bg-amber-300/8 text-amber-100"
+                      : "border-stone-200/14 bg-white/[0.035] text-stone-300"
                   }`}
                 >
                   {isPublic ? (
@@ -1757,7 +1735,7 @@ const CollectionDetailDrawer = ({
                 </span>
               ) : null}
 
-              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-slate-50 sm:text-xl">
+              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-stone-50 sm:text-xl">
                 <DrawerTitleMarquee
                   key={titleMarqueeRunKey}
                   text={
@@ -1772,13 +1750,13 @@ const CollectionDetailDrawer = ({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden text-xs font-medium text-slate-400 sm:inline">
+            <span className="hidden text-xs font-medium text-stone-400 sm:inline">
               Esc 關閉
             </span>
             <IconButton
               aria-label="關閉題庫詳情，或按 Esc"
               onClick={onClose}
-              className="!text-slate-100 hover:!bg-white/8"
+              className="!text-stone-100 hover:!bg-white/8"
             >
               <CloseRounded />
             </IconButton>
@@ -1788,9 +1766,9 @@ const CollectionDetailDrawer = ({
         {collection ? (
           isSetupView ? (
             <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:grid-cols-[240px_minmax(0,1fr)] md:grid-rows-none">
-              <aside className="border-b border-cyan-300/12 bg-slate-950/30 px-4 py-3 md:border-b-0 md:border-r md:px-5 md:py-5">
+              <aside className="border-b border-amber-300/12 bg-stone-950/30 px-4 py-3 md:border-b-0 md:border-r md:px-5 md:py-5">
                 <div className="flex min-w-0 items-center gap-3 md:block">
-                  <div className="h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-900/80 md:h-auto md:w-full md:aspect-[16/9]">
+                  <div className="h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-900/80 md:h-auto md:w-full md:aspect-[16/9]">
                     {previewThumbnail ? (
                       <img
                         src={previewThumbnail}
@@ -1798,13 +1776,13 @@ const CollectionDetailDrawer = ({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+                      <div className="flex h-full w-full items-center justify-center text-xs text-stone-500">
                         無封面
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 md:mt-3">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[11px] font-medium text-slate-300">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-stone-950/40 px-2 py-0.5 text-[11px] font-medium text-stone-300">
                       {isPublic ? (
                         <PublicOutlined sx={{ fontSize: 13 }} />
                       ) : (
@@ -1812,10 +1790,10 @@ const CollectionDetailDrawer = ({
                       )}
                       {isPublic ? "公開收藏庫" : "私人收藏庫"}
                     </span>
-                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-slate-50">
+                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-stone-50">
                       {collection.title}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-stone-500">
                       {collectionQuestionMetricLabel}
                     </p>
                   </div>
@@ -1892,7 +1870,7 @@ const CollectionDetailDrawer = ({
                   aria-label="收藏庫詳情分頁"
                   className="shrink-0 px-2 pt-2"
                 >
-                  <div className="grid h-11 grid-cols-2 overflow-hidden rounded-2xl border border-cyan-100/14 bg-slate-950/42 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                  <div className="grid h-11 grid-cols-2 overflow-hidden rounded-2xl border border-amber-100/14 bg-stone-950/42 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
                     <button
                       type="button"
                       role="tab"
@@ -1903,8 +1881,8 @@ const CollectionDetailDrawer = ({
                       }}
                       className={`inline-flex h-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${
                         mobileDetailTab === "collection"
-                          ? "bg-cyan-200/12 text-cyan-50 shadow-[0_10px_24px_-18px_rgba(34,211,238,0.85)]"
-                          : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+                          ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent-hover)] shadow-none"
+                          : "text-stone-400 hover:bg-white/[0.04] hover:text-stone-100"
                       }`}
                     >
                       <QuizRounded sx={{ fontSize: 18 }} />
@@ -1917,8 +1895,8 @@ const CollectionDetailDrawer = ({
                       onClick={() => setMobileDetailTab("leaderboard")}
                       className={`inline-flex h-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${
                         mobileDetailTab === "leaderboard"
-                          ? "bg-cyan-200/12 text-cyan-50 shadow-[0_10px_24px_-18px_rgba(34,211,238,0.85)]"
-                          : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+                          ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent-hover)] shadow-none"
+                          : "text-stone-400 hover:bg-white/[0.04] hover:text-stone-100"
                       }`}
                     >
                       <PublicRounded sx={{ fontSize: 18 }} />
@@ -1933,8 +1911,8 @@ const CollectionDetailDrawer = ({
                   isCompact && mobileDetailTab !== "collection" ? "hidden" : ""
                 }`}
               >
-                <section className="shrink-0 overflow-hidden rounded-[20px] border border-cyan-300/14 bg-slate-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[22px]">
-                  <div className="relative h-28 overflow-hidden bg-slate-900/80 sm:h-32 md:h-auto md:aspect-[16/5] md:min-h-32">
+                <section className="shrink-0 overflow-hidden rounded-[20px] border border-amber-300/14 bg-stone-950/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[22px]">
+                  <div className="relative h-28 overflow-hidden bg-stone-900/80 sm:h-32 md:h-auto md:aspect-[16/5] md:min-h-32">
                     {previewThumbnail ? (
                       <img
                         src={previewThumbnail}
@@ -1942,11 +1920,11 @@ const CollectionDetailDrawer = ({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+                      <div className="flex h-full w-full items-center justify-center text-sm text-stone-400">
                         無封面
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.18)_42%,rgba(2,6,23,0.88)_100%)]" />
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(24,24,23,0.08)_0%,rgba(24,24,23,0.18)_42%,rgba(24,24,23,0.88)_100%)]" />
                     <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-start gap-1.5 sm:left-4 sm:top-4">
                       <CollectionMetaChips
                         collection={collection}
@@ -1966,14 +1944,14 @@ const CollectionDetailDrawer = ({
 
                   <div className="border-b border-white/8 px-3 py-3 sm:px-4 sm:py-3.5">
                     <div className="flex min-w-0 items-center justify-between gap-2">
-                      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-xs leading-5 text-slate-400 sm:gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-xs leading-5 text-stone-400 sm:gap-3">
                         {drawerMetaItems.map((item) => (
                           <span
                             key={`${collection.id}-drawer-meta-${item.key}`}
                             className="inline-flex min-w-0 shrink-0 items-center gap-x-2 whitespace-nowrap"
                           >
-                            <span className="inline-flex items-center gap-1.5 text-slate-300">
-                              <span className="inline-flex text-cyan-100/80">
+                            <span className="inline-flex items-center gap-1.5 text-stone-300">
+                              <span className="inline-flex text-amber-100/80">
                                 {item.icon}
                               </span>
                               {item.label}
@@ -1998,8 +1976,8 @@ const CollectionDetailDrawer = ({
                           className={`!rounded-full !px-2.5 !text-xs !font-semibold !normal-case !transition sm:!px-3 ${
                             isFavorited
                               ? "!border-rose-300/35 !bg-rose-400/16 !text-rose-100 !shadow-[0_12px_26px_-22px_rgba(251,113,133,0.95)] hover:!border-rose-200/50 hover:!bg-rose-400/20"
-                              : "!border-white/10 !bg-white/[0.03] !text-slate-100 hover:!border-rose-200/24 hover:!bg-rose-400/10"
-                          } disabled:!border-white/8 disabled:!text-slate-500`}
+                              : "!border-white/10 !bg-white/[0.03] !text-stone-100 hover:!border-rose-200/24 hover:!bg-rose-400/10"
+                          } disabled:!border-white/8 disabled:!text-stone-500`}
                         >
                           <span className="whitespace-nowrap">
                             {isFavorited
@@ -2014,7 +1992,7 @@ const CollectionDetailDrawer = ({
                           startIcon={<ShareRounded sx={{ fontSize: 17 }} />}
                           onClick={() => void handleShareCollection()}
                           disabled={!canShareCollection}
-                          className="!rounded-full !border-white/10 !bg-white/[0.03] !px-2.5 !text-xs !font-semibold !text-slate-100 !normal-case hover:!border-cyan-200/30 hover:!bg-cyan-400/10 disabled:!border-white/8 disabled:!text-slate-500 sm:!px-3"
+                          className="!rounded-full !border-white/10 !bg-white/[0.03] !px-2.5 !text-xs !font-semibold !text-stone-100 !normal-case hover:!border-amber-200/30 hover:!bg-amber-400/10 disabled:!border-white/8 disabled:!text-stone-500 sm:!px-3"
                         >
                           <span className="whitespace-nowrap">
                             {shareCopied ? "已複製" : "分享"}
@@ -2042,8 +2020,8 @@ const CollectionDetailDrawer = ({
                     <p
                       className={`line-clamp-2 whitespace-pre-wrap text-xs leading-5 sm:text-sm sm:leading-6 md:line-clamp-none ${
                         collection.description
-                          ? "text-slate-300"
-                          : "text-slate-500"
+                          ? "text-stone-300"
+                          : "text-stone-500"
                       }`}
                     >
                       {collection.description || "題庫未提供說明。"}
@@ -2052,15 +2030,15 @@ const CollectionDetailDrawer = ({
                 </section>
 
                 <section className="min-h-0 flex-1 px-0.5 sm:mt-1 sm:px-1">
-                  <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-slate-950/22">
-                    <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-white/8 bg-slate-950/32 p-1">
+                  <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-stone-950/22">
+                    <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-white/8 bg-stone-950/32 p-1">
                       <button
                         type="button"
                         onClick={() => setCollectionContentTab("playlist")}
                         className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
                           collectionContentTab === "playlist"
-                            ? "bg-cyan-200/12 text-cyan-50"
-                            : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+                            ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent-hover)]"
+                            : "text-stone-400 hover:bg-white/[0.04] hover:text-stone-100"
                         }`}
                       >
                         播放清單
@@ -2070,12 +2048,12 @@ const CollectionDetailDrawer = ({
                         onClick={() => setCollectionContentTab("reviews")}
                         className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
                           collectionContentTab === "reviews"
-                            ? "bg-cyan-200/12 text-cyan-50"
-                            : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+                            ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent-hover)]"
+                            : "text-stone-400 hover:bg-white/[0.04] hover:text-stone-100"
                         }`}
                       >
                         玩家評論
-                        <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[11px] leading-none text-slate-200">
+                        <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[11px] leading-none text-stone-200">
                           {reviewCommentCount.toLocaleString("zh-TW")}
                         </span>
                       </button>
@@ -2105,7 +2083,7 @@ const CollectionDetailDrawer = ({
                           {previewError}
                         </div>
                       ) : previewItems.length === 0 ? (
-                        <div className="px-2 py-6 text-sm text-slate-400 sm:px-3">
+                        <div className="px-2 py-6 text-sm text-stone-400 sm:px-3">
                           這個題庫目前沒有可預覽的題目。
                         </div>
                       ) : (
@@ -2129,16 +2107,16 @@ const CollectionDetailDrawer = ({
               </main>
 
               <aside
-                className={`min-h-0 flex-1 overflow-hidden border-t border-cyan-300/12 bg-slate-950/36 p-3 md:border-l md:border-t-0 md:p-3 ${
+                className={`min-h-0 flex-1 overflow-hidden border-t border-amber-300/12 bg-stone-950/36 p-3 md:border-l md:border-t-0 md:p-3 ${
                   isCompact && mobileDetailTab !== "leaderboard" ? "hidden" : ""
                 }`}
               >
                 <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden p-1">
                   <div className="flex items-center justify-between gap-1 mb-2">
-                    <h3 className="min-w-0 flex items-center gap-2 truncate text-base font-semibold text-slate-50 sm:mt-1 sm:text-lg">
-                      <PublicRounded className="shrink-0 text-cyan-100" />
+                    <h3 className="min-w-0 flex items-center gap-2 truncate text-base font-semibold text-stone-50 sm:mt-1 sm:text-lg">
+                      <PublicRounded className="shrink-0 text-amber-100" />
                       <span className="truncate">全球排行榜</span>
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-slate-400 md:inline">
+                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-stone-400 md:inline">
                         {activeLeaderboardTotalPlayersLabel} 人
                       </span>
                     </h3>
@@ -2187,7 +2165,7 @@ const CollectionDetailDrawer = ({
                                   duration: 0.16,
                                   ease: [0.22, 1, 0.36, 1],
                                 }}
-                                className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-slate-950/96 p-2 text-slate-100 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl"
+                                className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-amber-100/20 bg-stone-950/96 p-2 text-stone-100 shadow-[0_22px_50px_-28px_rgba(251,191,36,0.72),0_18px_36px_-28px_rgba(24,24,23,0.95)] backdrop-blur-xl"
                                 style={{
                                   width: leaderboardProfileMenuWidth,
                                   transformOrigin: "top right",
@@ -2228,7 +2206,7 @@ const CollectionDetailDrawer = ({
                                               className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
                                                 selected && !disabled
                                                   ? "bg-amber-300/14 text-amber-50 shadow-[inset_0_0_0_1px_rgba(252,211,77,0.16)]"
-                                                  : "text-slate-300 hover:bg-white/[0.055] hover:text-amber-50"
+                                                  : "text-stone-300 hover:bg-white/[0.055] hover:text-amber-50"
                                               }`}
                                             >
                                               <span className="min-w-0">
@@ -2248,7 +2226,7 @@ const CollectionDetailDrawer = ({
                                                 className={`shrink-0 text-xs font-semibold tabular-nums ${
                                                   selected && !disabled
                                                     ? "text-amber-100"
-                                                    : "text-slate-500"
+                                                    : "text-stone-500"
                                                 }`}
                                               >
                                                 {formatLeaderboardOptionMeta(
@@ -2279,7 +2257,7 @@ const CollectionDetailDrawer = ({
                           Array.from({ length: 5 }).map((_, index) => (
                             <div
                               key={`leaderboard-loading-${index}`}
-                              className="flex items-center gap-3 rounded-xl border border-white/8 bg-slate-950/30 px-3 py-3"
+                              className="flex items-center gap-3 rounded-xl border border-white/8 bg-stone-950/30 px-3 py-3"
                             >
                               <div className="h-4 w-8 rounded-full bg-white/8" />
                               <div className="h-9 w-9 rounded-full bg-white/8" />
@@ -2314,14 +2292,14 @@ const CollectionDetailDrawer = ({
                               onScroll={revealLeaderboardScrollbar}
                             />
                           ) : (
-                            <div className="relative overflow-hidden rounded-xl border border-cyan-100/14 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(15,23,42,0.38)_48%,rgba(251,191,36,0.07))] px-4 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
-                              <div className="mx-auto inline-flex h-11 w-11 items-center justify-center text-cyan-100">
+                            <div className="relative overflow-hidden rounded-xl border border-amber-100/14 bg-stone-900/60 px-4 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                              <div className="mx-auto inline-flex h-11 w-11 items-center justify-center text-amber-100">
                                 <AutoAwesome sx={{ fontSize: 24 }} />
                               </div>
-                              <p className="mt-3 text-sm font-semibold text-slate-50">
+                              <p className="mt-3 text-sm font-semibold text-stone-50">
                                 此模式尚無紀錄
                               </p>
-                              <p className="mx-auto mt-1 max-w-[15rem] text-xs leading-5 text-slate-400">
+                              <p className="mx-auto mt-1 max-w-[15rem] text-xs leading-5 text-stone-400">
                                 成為第一位挑戰者！
                               </p>
                             </div>
@@ -2337,14 +2315,14 @@ const CollectionDetailDrawer = ({
                       </div>
 
                       <div className="shrink-0 pt-3">
-                        <div className="mb-3 h-px bg-gradient-to-r from-transparent via-cyan-100/18 to-transparent" />
+                        <div className="mb-3 h-px bg-stone-700/50" />
                         {activeLeaderboardMyBestEntry ? (
                           <LeaderboardPlayerRow
                             player={currentLeaderboardRecord}
                             variant="current"
                           />
                         ) : (
-                          <div className="rounded-xl border border-cyan-100/14 bg-slate-950/26 px-3 py-3 text-sm text-slate-400">
+                          <div className="rounded-xl border border-amber-100/14 bg-stone-950/26 px-3 py-3 text-sm text-stone-400">
                             完成一次挑戰後，這裡會顯示你的最佳紀錄。
                           </div>
                         )}
@@ -2352,14 +2330,14 @@ const CollectionDetailDrawer = ({
                     </div>
                   ) : (
                     <div className="flex min-h-0 flex-1 items-center justify-center py-10">
-                      <div className="max-w-sm rounded-2xl border border-white/10 bg-slate-950/42 p-5 text-center">
+                      <div className="max-w-sm rounded-2xl border border-white/10 bg-stone-950/42 p-5 text-center">
                         <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-100/18 bg-amber-300/10 text-amber-100">
                           <LockOutlined sx={{ fontSize: 22 }} />
                         </span>
-                        <p className="mt-4 text-base font-semibold text-slate-50">
+                        <p className="mt-4 text-base font-semibold text-stone-50">
                           收藏庫目前非公開
                         </p>
-                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                        <p className="mt-2 text-sm leading-6 text-stone-400">
                           排行榜與排行挑戰僅支援公開收藏庫。將收藏庫設為公開後，這裡會顯示排行榜資料。
                         </p>
                       </div>
@@ -2372,14 +2350,14 @@ const CollectionDetailDrawer = ({
         ) : null}
 
         {collection ? (
-          <footer className="grid shrink-0 gap-3 border-t border-cyan-200/14 bg-[linear-gradient(90deg,rgba(8,47,73,0.16),rgba(15,23,42,0.7)_44%,rgba(120,53,15,0.1))] px-4 py-3 shadow-[0_-18px_48px_-42px_rgba(34,211,238,0.75)] sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <footer className="grid shrink-0 gap-3 border-t border-amber-200/14 bg-stone-900/70 px-4 py-3 shadow-none sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             {isSetupView ? (
               <>
                 <div className="hidden min-w-0 md:block">
-                  <p className="text-[11px] font-semibold tracking-[0.16em] text-cyan-100/55">
+                  <p className="text-[11px] font-semibold tracking-[0.16em] text-amber-100/55">
                     {isSetupLeaderboardMode ? "確認挑戰" : "確認房間"}
                   </p>
-                  <p className="mt-1 truncate text-sm font-semibold text-slate-100">
+                  <p className="mt-1 truncate text-sm font-semibold text-stone-100">
                     {isSetupLeaderboardMode
                       ? `${activeLeaderboardModeLabel} · ${activeLeaderboardVariant.label}`
                       : "休閒派對"}
@@ -2391,7 +2369,7 @@ const CollectionDetailDrawer = ({
                     startIcon={<ChevronLeftRounded />}
                     disabled={isPreparingSetup}
                     onClick={() => setDrawerView("detail")}
-                    className="!min-w-[7.25rem] !rounded-xl !border-white/14 !bg-slate-950/20 !px-4 !py-2 !font-semibold !text-slate-100 !normal-case hover:!border-cyan-100/26 hover:!bg-cyan-300/8"
+                    className="!min-w-[7.25rem] !rounded-xl !border-white/14 !bg-stone-950/20 !px-4 !py-2 !font-semibold !text-stone-100 !normal-case hover:!border-amber-100/26 hover:!bg-amber-300/8"
                   >
                     返回
                   </Button>
@@ -2416,7 +2394,7 @@ const CollectionDetailDrawer = ({
                         ? handleConfirmLeaderboardChallenge
                         : handleConfirmCustomRoom
                     }
-                    className="!min-w-[9.5rem] !rounded-xl !bg-[linear-gradient(135deg,#22d3ee,#fbbf24)] !px-4 !py-2 !font-semibold !text-slate-950 !normal-case !shadow-[0_16px_34px_-22px_rgba(34,211,238,0.95)] hover:!shadow-[0_18px_42px_-22px_rgba(251,191,36,0.75)] disabled:!bg-slate-700 disabled:!text-slate-400 disabled:!shadow-none"
+                    className="!min-w-[9.5rem] !rounded-xl !bg-[var(--mc-accent)] hover:!bg-[var(--mc-accent-hover)] !px-4 !py-2 !font-semibold !text-[var(--mc-accent-ink)] !normal-case shadow-none disabled:!bg-stone-700 disabled:!text-stone-400 disabled:!shadow-none"
                   >
                     {isSetupLeaderboardMode && !isAuthenticated
                       ? isAuthLoading
@@ -2432,10 +2410,10 @@ const CollectionDetailDrawer = ({
               <>
                 <div className="hidden min-w-0 items-center justify-between gap-3 md:flex">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500">
+                    <p className="text-[11px] font-semibold tracking-[0.16em] text-stone-500">
                       {isPublic ? "挑戰模式" : "房間模式"}
                     </p>
-                    <p className="mt-1 truncate text-sm font-semibold text-slate-100">
+                    <p className="mt-1 truncate text-sm font-semibold text-stone-100">
                       {isPublic
                         ? `${activeLeaderboardModeLabel} · ${activeLeaderboardVariant.label}`
                         : "私人收藏庫僅可建立休閒房"}
@@ -2453,7 +2431,7 @@ const CollectionDetailDrawer = ({
                     startIcon={<ChairRounded />}
                     disabled={isApplying}
                     onClick={handleStartCustomRoom}
-                    className="!min-w-[8.5rem] !rounded-xl !border-slate-100/14 !bg-slate-950/24 !px-4 !py-2 !font-semibold !text-slate-100 !normal-case hover:!border-cyan-100/30 hover:!bg-cyan-300/8"
+                    className="!min-w-[8.5rem] !rounded-xl !border-stone-100/14 !bg-stone-950/24 !px-4 !py-2 !font-semibold !text-stone-100 !normal-case hover:!border-amber-100/30 hover:!bg-amber-300/8"
                   >
                     {isApplying
                       ? "載入中..."
@@ -2478,7 +2456,7 @@ const CollectionDetailDrawer = ({
                           isActiveLeaderboardQuestionCountInsufficient)
                       }
                       onClick={handleStartLeaderboardChallenge}
-                      className="!min-w-[9.5rem] !rounded-xl !bg-[linear-gradient(135deg,#22d3ee,#fbbf24)] !px-4 !py-2 !font-semibold !text-slate-950 !normal-case !shadow-[0_16px_34px_-22px_rgba(34,211,238,0.95)] hover:!shadow-[0_18px_42px_-22px_rgba(251,191,36,0.75)] disabled:!bg-slate-700 disabled:!text-slate-400 disabled:!shadow-none"
+                      className="!min-w-[9.5rem] !rounded-xl !bg-[var(--mc-accent)] hover:!bg-[var(--mc-accent-hover)] !px-4 !py-2 !font-semibold !text-[var(--mc-accent-ink)] !normal-case shadow-none disabled:!bg-stone-700 disabled:!text-stone-400 disabled:!shadow-none"
                     >
                       {leaderboardEntryLabel}
                     </Button>
@@ -2489,7 +2467,7 @@ const CollectionDetailDrawer = ({
           </footer>
         ) : null}
       </div>
-    </Drawer>
+    </MotionCollectionDrawer>
   );
 };
 

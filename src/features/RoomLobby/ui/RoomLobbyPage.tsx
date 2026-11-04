@@ -1067,8 +1067,16 @@ const RoomLobbyPage: React.FC = () => {
     handleTransferHost,
     fetchSettlementHistorySummaries,
     fetchSettlementReplay,
+    getSocket,
   } = useRoomSession();
   const { trackResultHistoryEvent } = useResultHistoryAnalytics();
+  const handleShareRoomToLobby = useCallback(() => {
+    if (!currentRoom?.roomCode || currentRoom.visibility !== "public") return;
+    getSocket()?.emit("sendHubChatMessage", {
+      kind: "room_invite",
+      roomCode: currentRoom.roomCode,
+    });
+  }, [currentRoom?.roomCode, currentRoom?.visibility, getSocket]);
   const {
     playlistViewItems,
     playlistHasMore,
@@ -3759,6 +3767,7 @@ const RoomLobbyPage: React.FC = () => {
             onFetchCollectionById={fetchCollectionById}
             onLoadMoreCollections={loadMoreCollections}
             onFetchYoutubePlaylists={fetchYoutubePlaylists}
+            onShareToLobby={handleShareRoomToLobby}
           />
         )}
       </div>

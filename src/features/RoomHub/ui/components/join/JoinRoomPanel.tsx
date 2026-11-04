@@ -11,11 +11,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Tab,
-  Tabs,
   TextField,
-  Tooltip,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import { List } from "react-window";
 import GroupsRounded from "@mui/icons-material/GroupsRounded";
@@ -28,10 +26,7 @@ import AccessTimeRounded from "@mui/icons-material/AccessTimeRounded";
 import ContentCutRounded from "@mui/icons-material/ContentCutRounded";
 import FastForwardRounded from "@mui/icons-material/FastForwardRounded";
 import GridViewRounded from "@mui/icons-material/GridViewRounded";
-import RadioButtonCheckedRounded from "@mui/icons-material/RadioButtonCheckedRounded";
 import MeetingRoomRounded from "@mui/icons-material/MeetingRoomRounded";
-import SyncAltRounded from "@mui/icons-material/SyncAltRounded";
-import SwapVertRounded from "@mui/icons-material/SwapVertRounded";
 import TipsAndUpdatesRounded from "@mui/icons-material/TipsAndUpdatesRounded";
 import VisibilityRounded from "@mui/icons-material/VisibilityRounded";
 import ViewAgendaRounded from "@mui/icons-material/ViewAgendaRounded";
@@ -44,6 +39,10 @@ import type {
   RoomViewerAccess,
 } from "@domain/room/types";
 import { formatPlaylistAvailabilityLabel } from "@features/RoomSession/model/playlistAvailability";
+import RoomCodeInput from "./RoomCodeInput";
+import { MuizoSelect } from "@shared/ui/select";
+import CloseRounded from "@mui/icons-material/CloseRounded";
+import "./joinRoomExplorer.css";
 import VirtualJoinRoomRow, {
   type VirtualJoinRoomRowProps,
 } from "./VirtualJoinRoomRow";
@@ -51,7 +50,6 @@ import VirtualJoinRoomRow, {
 type JoinPasswordFilter = "all" | "no_password" | "password_required";
 type JoinStatusFilter = "all" | "waiting" | "playing";
 type JoinSortMode = "latest" | "players_desc";
-type JoinEntryTab = "code" | "browser";
 type JoinRoomsView = "grid" | "list";
 
 type PasswordDialogState = {
@@ -78,16 +76,10 @@ type JoinRoomPaginationState = {
 };
 
 type JoinRoomPanelProps = {
-  joinEntryTab: JoinEntryTab;
-  setJoinEntryTab: (value: JoinEntryTab) => void;
   directJoinError: string | null;
   directJoinLoading: boolean;
   normalizedDirectRoomCode: string;
   directRoomCodeInputRef: RefObject<HTMLInputElement | null>;
-  isDirectRoomCodeFocused: boolean;
-  setIsDirectRoomCodeFocused: (value: boolean) => void;
-  directRoomCodeSlots: string[];
-  activeDirectRoomCodeIndex: number;
   setDirectRoomIdInput: (value: string) => void;
   setDirectJoinPreviewRoom: (value: RoomSummary | null) => void;
   setDirectJoinError: (value: string | null) => void;
@@ -131,16 +123,10 @@ type JoinRoomPanelProps = {
 };
 
 const JoinRoomPanel = ({
-  joinEntryTab,
-  setJoinEntryTab,
   directJoinError,
   directJoinLoading,
   normalizedDirectRoomCode,
   directRoomCodeInputRef,
-  isDirectRoomCodeFocused,
-  setIsDirectRoomCodeFocused,
-  directRoomCodeSlots,
-  activeDirectRoomCodeIndex,
   setDirectRoomIdInput,
   setDirectJoinPreviewRoom,
   setDirectJoinError,
@@ -148,7 +134,6 @@ const JoinRoomPanel = ({
   normalizeRoomCodeInput,
   handleDirectJoinById,
   resolvedDirectJoinRoom,
-  directJoinNeedsPassword,
   joinPasswordFilter,
   setJoinPasswordFilter,
   joinStatusFilter,
@@ -171,8 +156,6 @@ const JoinRoomPanel = ({
   getRoomPlaylistLabel,
   formatRoomCodeDisplay,
   isAuthenticated = false,
-  isAuthLoading = false,
-  onLoginRequired,
   joinConfirmDialog,
   closeJoinConfirmDialog,
   handleConfirmJoinInProgress,
@@ -184,6 +167,7 @@ const JoinRoomPanel = ({
 }: JoinRoomPanelProps) => {
   const JOIN_ROOM_BATCH_SIZE = 12;
   const JOIN_ROOM_LIST_ROW_HEIGHT = 148;
+  const isMobileLayout = useMediaQuery("(max-width: 1023.95px)");
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [shakingRoomId, setShakingRoomId] = useState<string | null>(null);
   const serverNow = clockNow + serverOffsetMs;
@@ -244,6 +228,7 @@ const JoinRoomPanel = ({
   }> = [
     { key: "all", label: "全部狀態", shortLabel: "全部狀態" },
     { key: "waiting", label: "等待中", shortLabel: "等待中" },
+    { key: "playing", label: "遊戲中", shortLabel: "遊戲中" },
   ];
   const joinPasswordOptions: Array<{
     key: JoinPasswordFilter;
@@ -252,6 +237,7 @@ const JoinRoomPanel = ({
   }> = [
     { key: "all", label: "全部", shortLabel: "全部" },
     { key: "no_password", label: "免 PIN", shortLabel: "免 PIN" },
+    { key: "password_required", label: "需要 PIN", shortLabel: "需要 PIN" },
   ];
   const joinSortOptions: Array<{
     key: JoinSortMode;
@@ -261,14 +247,6 @@ const JoinRoomPanel = ({
     { key: "latest", label: "最新建立", shortLabel: "最新建立" },
     { key: "players_desc", label: "人數最多", shortLabel: "人數最多" },
   ];
-
-  const cycleOption = <T extends string>(
-    options: readonly T[],
-    current: T,
-  ): T => {
-    const currentIndex = options.indexOf(current);
-    return options[(currentIndex + 1) % options.length] ?? options[0];
-  };
 
   const getPlaybackExtensionLabel = (
     mode: PlaybackExtensionMode | undefined | null,
@@ -365,23 +343,18 @@ const JoinRoomPanel = ({
     return null;
   };
 
-  const currentJoinStatusOption =
-    joinStatusOptions.find((item) => item.key === joinStatusFilter) ??
-    joinStatusOptions[0];
-  const currentJoinPasswordOption =
-    joinPasswordOptions.find((item) => item.key === joinPasswordFilter) ??
-    joinPasswordOptions[0];
-  const currentJoinSortOption =
-    joinSortOptions.find((item) => item.key === joinSortMode) ??
-    joinSortOptions[0];
-  const isStatusFilterActive = joinStatusFilter !== "all";
-  const isPinFilterActive = joinPasswordFilter !== "all";
+  const isCodeSearch = normalizedDirectRoomCode.length === 6;
+  const clearCodeSearch = () => {
+    setDirectRoomIdInput("");
+    setDirectJoinPreviewRoom(null);
+    setDirectJoinError(null);
+    setDirectJoinNeedsPassword(false);
+  };
 
   const joinRoomPaginationKey = useMemo(
     () =>
       [
-        joinEntryTab,
-        joinPasswordFilter,
+              joinPasswordFilter,
         joinRoomsView,
         joinSortMode,
         joinStatusFilter,
@@ -389,8 +362,7 @@ const JoinRoomPanel = ({
       ].join("::"),
     [
       filteredJoinRooms,
-      joinEntryTab,
-      joinPasswordFilter,
+          joinPasswordFilter,
       joinRoomsView,
       joinSortMode,
       joinStatusFilter,
@@ -426,7 +398,7 @@ const JoinRoomPanel = ({
     });
   };
 
-  const handleJoinRoomGridScroll = (event: UIEvent<HTMLDivElement>) => {
+  const handleJoinRoomGridScroll = (event: UIEvent<HTMLElement>) => {
     if (!hasMoreJoinRooms) return;
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
     if (scrollHeight - (scrollTop + clientHeight) <= 120) {
@@ -444,6 +416,7 @@ const JoinRoomPanel = ({
     room: RoomSummary,
     _itemIndex: number,
     view: "grid" | "list",
+    directMatch = false,
   ) => {
     const isLeaderboardRoom = roomIsLeaderboardChallenge(room);
     const requiresLogin = !isAuthenticated;
@@ -463,7 +436,11 @@ const JoinRoomPanel = ({
         return;
       }
       if (isRoomFull) return;
-      handleJoinRoomEntry(room);
+      if (directMatch) {
+        void handleDirectJoinById();
+      } else {
+        handleJoinRoomEntry(room);
+      }
     };
     const statusPillClass = isViewerBlocked
       ? "border-rose-200/45 bg-rose-400/12 text-rose-100"
@@ -477,6 +454,7 @@ const JoinRoomPanel = ({
       return (
         <div
           key={room.id}
+          data-room-card="true"
           role="button"
           tabIndex={isRoomFull ? -1 : 0}
           aria-disabled={isRoomFull}
@@ -557,12 +535,6 @@ const JoinRoomPanel = ({
                     排行
                   </span>
                 ) : null}
-                {requiresLogin && !isRoomFull ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200/22 bg-cyan-300/8 px-2 py-0.5 font-semibold text-cyan-100">
-                    <LoginRounded sx={{ fontSize: 13 }} />
-                    需登入
-                  </span>
-                ) : null}
                 {roomRequiresPin(room) ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/20 bg-amber-300/8 px-2 py-0.5 font-semibold text-amber-100">
                     <LockRounded sx={{ fontSize: 13 }} />
@@ -607,6 +579,7 @@ const JoinRoomPanel = ({
     return (
       <div
         key={room.id}
+        data-room-card="true"
         role="button"
         tabIndex={isRoomFull ? -1 : 0}
         aria-disabled={isRoomFull}
@@ -639,12 +612,6 @@ const JoinRoomPanel = ({
                     <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/24 bg-amber-300/10 px-2 py-0.5 font-semibold text-amber-100">
                       <EmojiEventsRounded sx={{ fontSize: 13 }} />
                       排行挑戰
-                    </span>
-                  ) : null}
-                  {requiresLogin && !isRoomFull ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200/22 bg-cyan-300/8 px-2 py-0.5 font-semibold text-cyan-100">
-                      <LoginRounded sx={{ fontSize: 13 }} />
-                      登入後可加入
                     </span>
                   ) : null}
                   {roomProgressLabel ? (
@@ -770,7 +737,7 @@ const JoinRoomPanel = ({
         ) : null}
         {requiresLogin && !isRoomFull && !isViewerBlocked ? (
           <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-end">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/20 bg-slate-950/80 px-2.5 py-1 text-[11px] font-semibold text-cyan-50 shadow-[0_12px_26px_-22px_rgba(34,211,238,0.85)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--mc-accent)]/10 px-2.5 py-1 text-[11px] font-semibold text-[var(--mc-accent)]">
               <LoginRounded sx={{ fontSize: 14 }} />
               點擊登入
             </span>
@@ -806,507 +773,119 @@ const JoinRoomPanel = ({
           }
         `}
       </style>
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="shrink-0">
-          <div className="flex flex-col gap-3">
-            <div className="rounded-2xl border border-[var(--mc-border)] bg-slate-950/22 p-1">
-              <Tabs
-                value={joinEntryTab}
-                onChange={(_, next: "code" | "browser") =>
-                  setJoinEntryTab(next)
-                }
-                variant="fullWidth"
-                TabIndicatorProps={{ style: { display: "none" } }}
-                sx={{
-                  minHeight: 0,
-                  "& .MuiTabs-flexContainer": {
-                    gap: "0.5rem",
-                  },
+      <section className="join-explorer" aria-label="瀏覽房間列表" onScroll={isMobileLayout ? handleJoinRoomGridScroll : undefined}>
+        <header className="join-explorer__header">
+          <div>
+            <h2>尋找房間</h2>
+            <p>瀏覽公開房間，或輸入代碼找到朋友。</p>
+          </div>
+          <span className="join-explorer__presence"><i aria-hidden="true" />{siteOnlineCount ?? "--"} 人在線</span>
+        </header>
+
+        <div className="join-explorer__toolbar">
+          <div className="join-explorer__code">
+            <label htmlFor="join-explorer-code">房間代碼</label>
+            <div className="join-explorer__code-row">
+              <RoomCodeInput
+                id="join-explorer-code"
+                value={normalizedDirectRoomCode}
+                inputRef={directRoomCodeInputRef}
+                error={directJoinError}
+                loading={directJoinLoading}
+                onChange={(value) => {
+                  setDirectRoomIdInput(normalizeRoomCodeInput(value));
+                  setDirectJoinPreviewRoom(null);
+                  setDirectJoinError(null);
+                  setDirectJoinNeedsPassword(false);
                 }}
-              >
-                <Tab
-                  disableRipple
-                  value="code"
-                  label="輸入代碼"
-                  sx={{
-                    minHeight: 0,
-                    borderRadius: "999px",
-                    px: 2,
-                    py: 1.25,
-                    textTransform: "none",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "rgba(226, 232, 240, 0.72)",
-                    transition: "all 0.2s ease",
-                    "&.Mui-selected": {
-                      color: "#fef3c7",
-                      backgroundColor: "rgba(251, 191, 36, 0.16)",
-                    },
-                  }}
-                />
-                <Tab
-                  disableRipple
-                  value="browser"
-                  label="房間列表"
-                  sx={{
-                    minHeight: 0,
-                    borderRadius: "999px",
-                    px: 2,
-                    py: 1.25,
-                    textTransform: "none",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "rgba(226, 232, 240, 0.72)",
-                    transition: "all 0.2s ease",
-                    "&.Mui-selected": {
-                      color: "#fef3c7",
-                      backgroundColor: "rgba(251, 191, 36, 0.16)",
-                    },
-                  }}
-                />
-              </Tabs>
+                onSubmit={() => { void handleDirectJoinById(); }}
+              />
+              <button type="button" className="join-explorer__clear" aria-label="清除房間代碼" disabled={!normalizedDirectRoomCode} onClick={() => { clearCodeSearch(); directRoomCodeInputRef.current?.focus(); }}>
+                <CloseRounded sx={{ fontSize: 18 }} />
+              </button>
             </div>
           </div>
+          <fieldset className="join-explorer__filters" disabled={isCodeSearch}>
+            <legend className="sr-only">公開房間篩選</legend>
+            <MuizoSelect<JoinStatusFilter>
+              label="狀態"
+              ariaLabel="房間狀態"
+              placeholder="全部狀態"
+              size="compact"
+              value={joinStatusFilter}
+              options={joinStatusOptions.map((option) => ({ value: option.key, label: option.label, hideThumbnail: true }))}
+              disabled={isCodeSearch}
+              onChange={setJoinStatusFilter}
+            />
+            <MuizoSelect<JoinPasswordFilter>
+              label="PIN"
+              ariaLabel="房間 PIN"
+              placeholder="全部"
+              size="compact"
+              value={joinPasswordFilter}
+              options={joinPasswordOptions.map((option) => ({ value: option.key, label: option.label, hideThumbnail: true }))}
+              disabled={isCodeSearch}
+              onChange={setJoinPasswordFilter}
+            />
+            <MuizoSelect<JoinSortMode>
+              label="排序"
+              ariaLabel="房間排序"
+              placeholder="最新建立"
+              size="compact"
+              value={joinSortMode}
+              options={joinSortOptions.map((option) => ({ value: option.key, label: option.label, hideThumbnail: true }))}
+              disabled={isCodeSearch}
+              onChange={setJoinSortMode}
+            />
+          </fieldset>
         </div>
 
-        {joinEntryTab === "code" && (
-          <>
-            <div className="mx-auto w-full max-w-[42rem] rounded-[30px] border border-amber-300/18 bg-[linear-gradient(180deg,rgba(120,53,15,0.2),rgba(15,23,42,0.22))] p-5 sm:p-6">
-              <div className="flex flex-col items-center gap-5">
-                <div className="w-full">
-                  <Tooltip
-                    open={Boolean(directJoinError)}
-                    title={
-                      directJoinError ? (
-                        <div className="space-y-1">
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-200/80">
-                            房間代碼無效
-                          </div>
-                          <div className="text-sm font-medium text-rose-50">
-                            {directJoinError}
-                          </div>
-                        </div>
-                      ) : (
-                        ""
-                      )
-                    }
-                    arrow
-                    placement="top"
-                    disableFocusListener
-                    disableHoverListener
-                    disableTouchListener
-                    slotProps={{
-                      popper: {
-                        modifiers: [
-                          {
-                            name: "offset",
-                            options: { offset: [0, 12] },
-                          },
-                        ],
-                      },
-                      tooltip: {
-                        sx: {
-                          maxWidth: 320,
-                          borderRadius: "16px",
-                          border: "1px solid rgba(251, 113, 133, 0.28)",
-                          background:
-                            "linear-gradient(180deg, rgba(127, 29, 29, 0.96), rgba(69, 10, 10, 0.98))",
-                          boxShadow:
-                            "0 18px 40px rgba(15, 23, 42, 0.45), 0 0 0 1px rgba(251, 113, 133, 0.08)",
-                          px: 1.75,
-                          py: 1.25,
-                        },
-                      },
-                      arrow: {
-                        sx: {
-                          color: "rgba(127, 29, 29, 0.98)",
-                        },
-                      },
-                    }}
-                  >
-                    <div
-                      onClick={() => directRoomCodeInputRef.current?.focus()}
-                      lang="en"
-                      className={`relative mx-auto w-full max-w-[38rem] cursor-text overflow-hidden rounded-[24px] border bg-slate-950/35 px-2 py-3 outline-none transition min-[390px]:rounded-[28px] min-[390px]:px-3 min-[390px]:py-4 sm:px-5 sm:py-5 ${
-                        directJoinError
-                          ? "border-rose-300/70 shadow-[0_0_0_4px_rgba(251,113,133,0.16)]"
-                          : isDirectRoomCodeFocused
-                            ? "border-amber-300/60 shadow-[0_0_0_4px_rgba(251,191,36,0.14)]"
-                            : "border-amber-300/20 hover:border-amber-300/35"
-                      }`}
-                    >
-                      <input
-                        ref={directRoomCodeInputRef}
-                        aria-label="輸入房間代碼"
-                        type="text"
-                        lang="en"
-                        value={normalizedDirectRoomCode}
-                        onFocus={() => setIsDirectRoomCodeFocused(true)}
-                        onBlur={() => {
-                          setIsDirectRoomCodeFocused(false);
-                        }}
-                        onChange={(e) => {
-                          const next = normalizeRoomCodeInput(e.target.value);
-                          setDirectRoomIdInput(next);
-                          setDirectJoinPreviewRoom(null);
-                          setDirectJoinError(null);
-                          setDirectJoinNeedsPassword(false);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void handleDirectJoinById();
-                          }
-                        }}
-                        inputMode="text"
-                        autoCapitalize="characters"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        maxLength={6}
-                        // style={{ imeMode: "disabled" }}
-                        className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0"
-                      />
-                      <div className="pointer-events-none flex min-w-0 items-center justify-center gap-1.5 min-[360px]:gap-2 min-[390px]:gap-2.5 sm:gap-3.5">
-                        {directRoomCodeSlots.slice(0, 3).map((char, index) => (
-                          <span
-                            key={`room-code-left-${index}`}
-                            className={`relative flex h-11 w-8 shrink-0 items-center justify-center rounded-xl border text-base font-semibold tracking-[0.06em] min-[360px]:h-12 min-[360px]:w-9 min-[390px]:h-14 min-[390px]:w-10 min-[390px]:tracking-[0.1em] sm:h-[4.5rem] sm:w-14 sm:rounded-2xl sm:text-2xl sm:tracking-[0.14em] ${
-                              directJoinError
-                                ? "border-rose-300/35 bg-rose-400/8 text-rose-50"
-                                : isDirectRoomCodeFocused &&
-                                    activeDirectRoomCodeIndex === index
-                                  ? "border-amber-200 bg-amber-300/16 text-amber-50 shadow-[0_0_0_2px_rgba(251,191,36,0.12)]"
-                                  : char === "_"
-                                    ? "border-white/10 bg-white/5 text-slate-500"
-                                    : "border-amber-300/30 bg-amber-400/10 text-amber-50"
-                            }`}
-                          >
-                            {char}
-                          </span>
-                        ))}
-                        <span
-                          className={`shrink-0 px-0 text-lg font-semibold min-[390px]:px-0.5 min-[390px]:text-xl sm:px-1 sm:text-3xl ${
-                            directJoinError
-                              ? "text-rose-200/90"
-                              : "text-amber-200/80"
-                          }`}
-                        >
-                          -
-                        </span>
-                        {directRoomCodeSlots.slice(3).map((char, index) => (
-                          <span
-                            key={`room-code-right-${index}`}
-                            className={`relative flex h-11 w-8 shrink-0 items-center justify-center rounded-xl border text-base font-semibold tracking-[0.06em] min-[360px]:h-12 min-[360px]:w-9 min-[390px]:h-14 min-[390px]:w-10 min-[390px]:tracking-[0.1em] sm:h-[4.5rem] sm:w-14 sm:rounded-2xl sm:text-2xl sm:tracking-[0.14em] ${
-                              directJoinError
-                                ? "border-rose-300/35 bg-rose-400/8 text-rose-50"
-                                : isDirectRoomCodeFocused &&
-                                    activeDirectRoomCodeIndex === index + 3
-                                  ? "border-amber-200 bg-amber-300/16 text-amber-50 shadow-[0_0_0_2px_rgba(251,191,36,0.12)]"
-                                  : char === "_"
-                                    ? "border-white/10 bg-white/5 text-slate-500"
-                                    : "border-amber-300/30 bg-amber-400/10 text-amber-50"
-                            }`}
-                          >
-                            {char}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </Tooltip>
-                </div>
-                <Button
-                  variant="contained"
-                  color="warning"
-                  onClick={handleDirectJoinById}
-                  disabled={
-                    directJoinLoading ||
-                    normalizedDirectRoomCode.length < 6 ||
-                    !resolvedDirectJoinRoom
-                  }
-                  className="min-h-[52px] w-full max-w-[38rem] text-sm sm:min-h-[56px]"
-                >
-                  {directJoinLoading
-                    ? "查詢房間中..."
-                    : resolvedDirectJoinRoom
-                      ? "加入這個房間"
-                      : "輸入完整代碼以查詢"}
-                </Button>
-              </div>
+        <div className="join-explorer__results-bar">
+          <div className="join-explorer__result-label" role="status">
+            <h3>{isCodeSearch ? "代碼查詢結果" : "公開房間"}</h3>
+            <span>{isCodeSearch ? (directJoinLoading ? "查詢中…" : resolvedDirectJoinRoom ? "找到 1 間房間" : "") : `${filteredJoinRooms.length} 間房間 · ${filteredJoinPlayerTotal} 人正在玩`}</span>
+          </div>
+          {isCodeSearch ? (
+            <button type="button" className="join-explorer__back" onClick={clearCodeSearch}>返回公開房間</button>
+          ) : (
+            <div className="join-explorer__view" aria-label="房間顯示方式">
+              <button type="button" aria-label="圖示檢視" aria-pressed={joinRoomsView === "grid"} onClick={() => setJoinRoomsView("grid")}><GridViewRounded sx={{ fontSize: 17 }} /></button>
+              <button type="button" aria-label="清單檢視" aria-pressed={joinRoomsView === "list"} onClick={() => setJoinRoomsView("list")}><ViewAgendaRounded sx={{ fontSize: 17 }} /></button>
             </div>
-            {(resolvedDirectJoinRoom || directJoinNeedsPassword) && (
-              <div className="mt-3 rounded-2xl border border-[var(--mc-border)]/70 bg-slate-950/20 p-3 sm:p-4">
-                {resolvedDirectJoinRoom ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-[var(--mc-text)]">
-                          {resolvedDirectJoinRoom.name}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--mc-text-muted)]">
-                          代碼{" "}
-                          {formatRoomCodeDisplay(
-                            resolvedDirectJoinRoom.roomCode,
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[11px] text-[var(--mc-text-muted)]">
-                          {resolvedDirectJoinRoom.playerCount}
-                          {resolvedDirectJoinRoom.maxPlayers
-                            ? `/${resolvedDirectJoinRoom.maxPlayers}`
-                            : ""}{" "}
-                          人
-                        </span>
-                        <span className="rounded-full border border-[var(--mc-border)] px-2 py-0.5 text-[11px] text-[var(--mc-text-muted)]">
-                          {roomRequiresPin(resolvedDirectJoinRoom)
-                            ? "需 PIN"
-                            : "免 PIN"}
-                        </span>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] ${
-                            isRoomCurrentlyPlaying(resolvedDirectJoinRoom)
-                              ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                              : "border-slate-300/20 bg-slate-400/10 text-slate-200"
-                          }`}
-                        >
-                          {getRoomStatusLabel(resolvedDirectJoinRoom)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid gap-2 text-sm text-[var(--mc-text-muted)] sm:grid-cols-2">
-                      <p>
-                        題庫：
-                        {getRoomPlaylistLabel(resolvedDirectJoinRoom)}
-                      </p>
-                      <p>
-                        題數：
-                        {resolvedDirectJoinRoom.gameSettings?.questionCount ??
-                          "-"}
-                      </p>
-                    </div>
-                    {!isAuthenticated ? (
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300/18 bg-amber-300/8 px-3 py-2 text-xs">
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-amber-100">
-                          <EmojiEventsRounded sx={{ fontSize: 15 }} />
-                          登入後加入
-                        </span>
-                        <button
-                          type="button"
-                          disabled={isAuthLoading}
-                          onClick={onLoginRequired}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200/20 bg-cyan-300/10 px-2.5 py-1 font-semibold text-cyan-50 transition hover:border-cyan-200/34 hover:bg-cyan-300/14 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <LoginRounded sx={{ fontSize: 14 }} />
-                          {isAuthLoading ? "確認登入中..." : "登入後加入"}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                {directJoinNeedsPassword && (
-                  <p className="mt-2 text-xs text-amber-200">
-                    此房間需要 4 位 PIN，按下加入後會請你輸入。
-                  </p>
-                )}
+          )}
+        </div>
+        <div className="join-explorer__results" aria-busy={isCodeSearch && directJoinLoading}>
+          {isCodeSearch ? (
+            resolvedDirectJoinRoom ? (
+              <div className="join-explorer__match">
+                {renderJoinRoomCard(resolvedDirectJoinRoom, 0, "grid", true)}
               </div>
-            )}
-          </>
-        )}
-        {joinEntryTab === "browser" && (
-          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--mc-border)] bg-[var(--mc-surface)]/45 p-3">
-            <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-3">
-              <p className="text-[13px] text-[var(--mc-text-muted)]">
-                目前共 {filteredJoinRooms.length} 間房，房內{" "}
-                {filteredJoinPlayerTotal} 人，
-                {siteOnlineCount ?? "--"} 人在線
-              </p>
-              <div className="inline-flex items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-0.5">
-                <button
-                  type="button"
-                  aria-label="圖示檢視"
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
-                    joinRoomsView === "grid"
-                      ? "cursor-pointer bg-amber-500/20 text-amber-100"
-                      : "cursor-pointer text-[var(--mc-text-muted)]"
-                  }`}
-                  onClick={() => setJoinRoomsView("grid")}
-                >
-                  <GridViewRounded sx={{ fontSize: 14 }} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="清單檢視"
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
-                    joinRoomsView === "list"
-                      ? "cursor-pointer bg-amber-500/20 text-amber-100"
-                      : "cursor-pointer text-[var(--mc-text-muted)]"
-                  }`}
-                  onClick={() => setJoinRoomsView("list")}
-                >
-                  <ViewAgendaRounded sx={{ fontSize: 14 }} />
-                </button>
+            ) : directJoinError ? (
+              <div className="join-explorer__empty">
+                <MeetingRoomRounded sx={{ fontSize: 28 }} />
+                <h3>無法取得房間資訊</h3>
+                <p>請確認代碼與連線狀態，或請朋友確認房間仍在開放中。</p>
+                <button type="button" className="join-explorer__back" onClick={clearCodeSearch}>瀏覽公開房間</button>
               </div>
+            ) : (
+              <div className="join-explorer__skeleton" role="status" aria-label="正在查詢房間"><span /><span /><span /></div>
+            )
+          ) : filteredJoinRooms.length === 0 ? (
+            <div className="join-explorer__empty">
+              <MeetingRoomRounded sx={{ fontSize: 28 }} />
+              <h3>{joinStatusFilter !== "all" || joinPasswordFilter !== "all" ? "沒有符合條件的房間" : "目前還沒有公開房間"}</h3>
+              <p>{joinStatusFilter !== "all" || joinPasswordFilter !== "all" ? "試著放寬篩選條件，看看其他房間。" : "有朋友的房間代碼嗎？在上方輸入 6 碼即可找到房間。"}</p>
+              {joinStatusFilter !== "all" || joinPasswordFilter !== "all" ? <button type="button" className="join-explorer__back" onClick={() => { setJoinStatusFilter("all"); setJoinPasswordFilter("all"); }}>清除篩選</button> : null}
             </div>
 
-            <div className="mt-3 flex shrink-0 flex-nowrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setJoinStatusFilter(
-                    cycleOption(
-                      joinStatusOptions.map((item) => item.key),
-                      joinStatusFilter,
-                    ),
-                  )
-                }
-                className={`inline-flex w-[104px] shrink-0 flex-col items-start rounded-[18px] border px-2.5 py-1.5 text-left transition ${
-                  isStatusFilterActive
-                    ? "border-cyan-300/35 bg-cyan-400/[0.08] hover:border-cyan-300/45 hover:bg-cyan-400/[0.11]"
-                    : "border-white/8 bg-white/[0.035] hover:border-amber-300/30 hover:bg-amber-300/[0.06]"
-                }`}
-              >
-                <span
-                  className={`inline-flex items-center gap-1 text-[10px] ${
-                    isStatusFilterActive
-                      ? "text-cyan-100/88"
-                      : "text-[var(--mc-text-muted)]"
-                  }`}
-                >
-                  <RadioButtonCheckedRounded
-                    sx={{
-                      fontSize: 14,
-                      color: isStatusFilterActive
-                        ? "rgba(103, 232, 249, 0.92)"
-                        : "rgba(148, 163, 184, 0.9)",
-                    }}
-                  />
-                  <span>狀態</span>
-                </span>
-                <span
-                  className={`mt-1 flex w-full items-center justify-between gap-1 text-[11px] font-medium ${
-                    isStatusFilterActive
-                      ? "text-cyan-50"
-                      : "text-[var(--mc-text)]"
-                  }`}
-                >
-                  <span className="min-w-0 truncate">
-                    {currentJoinStatusOption.shortLabel}
-                  </span>
-                  <SyncAltRounded
-                    sx={{
-                      fontSize: 14,
-                      color: isStatusFilterActive
-                        ? "rgba(103, 232, 249, 0.92)"
-                        : "rgba(251, 191, 36, 0.86)",
-                    }}
-                  />
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setJoinPasswordFilter(
-                    cycleOption(
-                      joinPasswordOptions.map((item) => item.key),
-                      joinPasswordFilter,
-                    ),
-                  )
-                }
-                className={`inline-flex w-[104px] shrink-0 flex-col items-start rounded-[18px] border px-2.5 py-1.5 text-left transition ${
-                  isPinFilterActive
-                    ? "border-amber-300/38 bg-amber-300/[0.09] hover:border-amber-300/48 hover:bg-amber-300/[0.12]"
-                    : "border-white/8 bg-white/[0.035] hover:border-amber-300/30 hover:bg-amber-300/[0.06]"
-                }`}
-              >
-                <span
-                  className={`inline-flex items-center gap-1 text-[10px] ${
-                    isPinFilterActive
-                      ? "text-amber-100/88"
-                      : "text-[var(--mc-text-muted)]"
-                  }`}
-                >
-                  <LockRounded
-                    sx={{
-                      fontSize: 14,
-                      color: isPinFilterActive
-                        ? "rgba(251, 191, 36, 0.94)"
-                        : "rgba(148, 163, 184, 0.9)",
-                    }}
-                  />
-                  <span>PIN</span>
-                </span>
-                <span
-                  className={`mt-1 flex w-full items-center justify-between gap-1 text-[11px] font-medium ${
-                    isPinFilterActive
-                      ? "text-amber-50"
-                      : "text-[var(--mc-text)]"
-                  }`}
-                >
-                  <span className="min-w-0 truncate">
-                    {currentJoinPasswordOption.shortLabel}
-                  </span>
-                  <SyncAltRounded
-                    sx={{
-                      fontSize: 14,
-                      color: isPinFilterActive
-                        ? "rgba(251, 191, 36, 0.94)"
-                        : "rgba(251, 191, 36, 0.86)",
-                    }}
-                  />
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setJoinSortMode(
-                    cycleOption(
-                      joinSortOptions.map((item) => item.key),
-                      joinSortMode,
-                    ),
-                  )
-                }
-                className="inline-flex w-[104px] shrink-0 flex-col items-start rounded-[18px] border border-white/8 bg-white/[0.035] px-2.5 py-1.5 text-left transition hover:border-amber-300/30 hover:bg-amber-300/[0.06]"
-              >
-                <span className="inline-flex items-center gap-1 text-[10px] text-[var(--mc-text-muted)]">
-                  <SwapVertRounded sx={{ fontSize: 14 }} />
-                  <span>排序</span>
-                </span>
-                <span className="mt-1 flex w-full items-center justify-between gap-1 text-[11px] font-medium text-[var(--mc-text)]">
-                  <span className="min-w-0 truncate">
-                    {currentJoinSortOption.shortLabel}
-                  </span>
-                  <SyncAltRounded
-                    sx={{ fontSize: 14, color: "rgba(251, 191, 36, 0.86)" }}
-                  />
-                </span>
-              </button>
-            </div>
-
-            {filteredJoinRooms.length === 0 ? (
-              <div className="mt-4 flex min-h-[200px] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] px-4 text-center">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-                  <MeetingRoomRounded
-                    sx={{ fontSize: 22, color: "rgba(148, 163, 184, 0.9)" }}
-                  />
-                </div>
-                <p className="mt-4 text-sm font-semibold text-[var(--mc-text)]">
-                  目前沒有符合條件的房間
-                </p>
-                <p className="mt-2 whitespace-nowrap text-xs leading-6 text-[var(--mc-text-muted)]">
-                  試著調整狀態、PIN 或排序條件，或稍後再重新整理房間列表。
-                </p>
-              </div>
-            ) : joinRoomsView === "grid" ? (
+            ) : joinRoomsView === "grid" || isMobileLayout ? (
               <div
-                className="mt-4 min-h-0 flex-1 overflow-y-auto pb-4 pr-1"
-                onScroll={handleJoinRoomGridScroll}
+                className="join-explorer__room-list mt-4 min-h-0 flex-1 overflow-y-auto pb-4 pr-1"
+                onScroll={!isMobileLayout ? handleJoinRoomGridScroll : undefined}
               >
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={joinRoomsView === "grid" ? "grid gap-2 sm:grid-cols-2 lg:grid-cols-3" : "grid gap-2"}>
                   {visibleJoinRooms.map((room, index) =>
-                    renderJoinRoomCard(room, index, "grid"),
+                    renderJoinRoomCard(room, index, joinRoomsView),
                   )}
                   {hasMoreJoinRooms ? renderJoinRoomLoader() : null}
                 </div>
@@ -1333,9 +912,8 @@ const JoinRoomPanel = ({
                 />
               </div>
             )}
-          </div>
-        )}
-      </div>
+        </div>
+      </section>
 
       <Dialog
         open={Boolean(joinConfirmDialog)}

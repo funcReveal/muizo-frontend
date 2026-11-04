@@ -1,4 +1,5 @@
-import type { RefObject } from "react";
+import { useId, type RefObject } from "react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import {
   Box,
   FormControl,
@@ -8,10 +9,12 @@ import {
   Select,
   TextField,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   GridViewRounded,
+  CloseRounded,
   LockOutlined,
   SearchRounded,
   TuneRounded,
@@ -22,6 +25,11 @@ import {
   type CreateLibraryTab,
   librarySourceItems,
 } from "./librarySourceItems";
+import "./libraryToolbar.css";
+import AnimatedSearchHint from "./AnimatedSearchHint";
+import LibraryFiltersDrawer from "./LibraryFiltersDrawer";
+import { useInitialCollectionCount } from "../../hooks/useInitialCollectionCount";
+import { selectMenuPlacement, useSelectMenuAnchor } from "@shared/ui/select/selectMenuPlacement";
 
 type CreateLibraryView = "grid" | "list";
 type PublicCollectionsSort =
@@ -37,12 +45,15 @@ type LibrarySourceToolbarProps = {
   createLibrarySearch: string;
   setCreateLibrarySearch: (value: string) => void;
   collectionsLoading: boolean;
+  youtubePlaylistsLoading?: boolean;
   filteredCreateCollectionsLength: number;
   createCollectionsTotalCount: number | null;
   filteredCreateYoutubePlaylistsLength: number;
   createLibraryView: CreateLibraryView;
   setCreateLibraryView: (value: CreateLibraryView) => void;
   togglePublicLibrarySearch: () => void;
+  closePublicLibrarySearch?: () => void;
+  onResetFilters?: () => void;
   publicCollectionsSort: PublicCollectionsSort;
   setPublicCollectionsSort: (value: PublicCollectionsSort) => void;
   /** Optional filter content rendered inside the search panel (below sort options) */
@@ -52,7 +63,7 @@ type LibrarySourceToolbarProps = {
   mobileEmbedded?: boolean;
   canUseGoogleLibraries?: boolean;
   setCreateLibraryTab?: (value: CreateLibraryTab) => void;
-  onLockedSourceClick?: () => void;
+  onLockedSourceClick?: (source: CreateLibraryTab) => void;
   mobileSourceMeta?: string;
 };
 
@@ -65,53 +76,65 @@ const publicSortOptions: Array<{
   { key: "updated", label: "近期更新" },
 ];
 
-const viewToggle = (
-  createLibraryView: CreateLibraryView,
-  setCreateLibraryView: (value: CreateLibraryView) => void,
-) => (
-  <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--mc-border)] bg-[var(--mc-surface-strong)]/60 p-1">
-    <button
-      type="button"
-      aria-label="圖示檢視"
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
-        createLibraryView === "grid"
-          ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
-          : "cursor-pointer text-[var(--mc-text-muted)]"
-      }`}
-      onClick={() => setCreateLibraryView("grid")}
-    >
-      <GridViewRounded sx={{ fontSize: 17 }} />
-    </button>
-    <button
-      type="button"
-      aria-label="清單檢視"
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
-        createLibraryView === "list"
-          ? "cursor-pointer bg-cyan-500/20 text-cyan-100"
-          : "cursor-pointer text-[var(--mc-text-muted)]"
-      }`}
-      onClick={() => setCreateLibraryView("list")}
-    >
-      <ViewAgendaRounded sx={{ fontSize: 17 }} />
-    </button>
-  </div>
-);
+const LibraryViewToggle = ({ view, onChange }: {
+  view: CreateLibraryView;
+  onChange: (value: CreateLibraryView) => void;
+}) => {
+  const layoutId = useId();
+  const reduceMotion = useReducedMotion();
+  const transition = reduceMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 520, damping: 36, mass: 0.65 };
+  return (
+    <LayoutGroup id={layoutId}>
+      <div className="hub-library-view-control" role="group" aria-label="顯示方式">
+        {(["grid", "list"] as const).map((value) => {
+          const selected = view === value;
+          return (
+            <motion.button
+              key={value}
+              type="button"
+              aria-label={value === "grid" ? "圖示檢視" : "清單檢視"}
+              aria-pressed={selected}
+              className="hub-library-view-control__button"
+              onClick={() => onChange(value)}
+              whileTap={reduceMotion ? undefined : { scale: 0.95 }}
+              transition={transition}
+            >
+              {selected && <motion.span className="hub-library-view-control__selection" layoutId="selection" initial={false} transition={transition} style={{ borderRadius: 9 }} />}
+              <motion.span className="hub-library-view-control__icon" initial={false} animate={{ scale: selected ? 1 : 0.94 }} transition={transition}>
+                {value === "grid" ? <GridViewRounded sx={{ fontSize: 17 }} /> : <ViewAgendaRounded sx={{ fontSize: 17 }} />}
+              </motion.span>
+            </motion.button>
+          );
+        })}
+      </div>
+    </LayoutGroup>
+  );
+};
 
 const searchFieldSx = {
   "& .MuiOutlinedInput-root": {
-    borderRadius: "18px",
-    backgroundColor: "rgba(2, 6, 23, 0.3)",
-    boxShadow: "none",
+    minHeight: 44,
+    borderRadius: "12px",
+    backgroundColor: "var(--mc-surface-strong)",
+    boxShadow: "inset 0 1px 0 rgb(245 245 243 / 0.06), 0 1px 2px rgb(0 0 0 / 0.16)",
+    transition: "background-color 180ms ease, box-shadow 180ms ease",
     "& fieldset": {
-      borderColor: "rgba(148,163,184,0.18)",
+      border: "none",
     },
     "&:hover fieldset": {
-      borderColor: "rgba(34,211,238,0.32)",
+      border: "none",
+    },
+    "&.Mui-focused": {
+      outline: "2px solid var(--mc-accent)",
+      outlineOffset: "-2px",
     },
     "&.Mui-focused fieldset": {
-      borderColor: "rgba(34,211,238,0.48)",
+      border: "none",
     },
   },
+  "& input": { fontSize: 14, paddingBlock: "11px", color: "var(--mc-text)" },
+  "& input::placeholder": { color: "transparent", opacity: 0 },
+  "& .MuiIconButton-root": { width: 36, height: 36 },
 } as const;
 
 const LibrarySourceToolbar = ({
@@ -121,12 +144,15 @@ const LibrarySourceToolbar = ({
   createLibrarySearch,
   setCreateLibrarySearch,
   collectionsLoading,
+  youtubePlaylistsLoading = false,
   filteredCreateCollectionsLength,
   createCollectionsTotalCount,
   filteredCreateYoutubePlaylistsLength,
   createLibraryView,
   setCreateLibraryView,
   togglePublicLibrarySearch,
+  closePublicLibrarySearch,
+  onResetFilters,
   publicCollectionsSort,
   setPublicCollectionsSort,
   filterContent,
@@ -137,21 +163,25 @@ const LibrarySourceToolbar = ({
   onLockedSourceClick,
   mobileSourceMeta,
 }: LibrarySourceToolbarProps) => {
+  const isMobileViewport = useMediaQuery("(max-width: 1023.95px)");
+  const { anchorRef, menuWidth } = useSelectMenuAnchor();
   const currentPublicSort =
     publicCollectionsSort === "favorites_first"
       ? "updated"
       : publicCollectionsSort;
-  const publicCollectionCountLabel = collectionsLoading
-    ? "載入中"
-    : `共 ${createCollectionsTotalCount ?? filteredCreateCollectionsLength} 筆`;
-  const collectionCountLabel =
-    createLibraryTab === "youtube"
-      ? `共 ${filteredCreateYoutubePlaylistsLength} 筆`
-      : `共 ${createCollectionsTotalCount ?? filteredCreateCollectionsLength} 筆`;
+  const countPending = createLibraryTab === "youtube"
+    ? youtubePlaylistsLoading && filteredCreateYoutubePlaylistsLength === 0
+    : collectionsLoading && createCollectionsTotalCount === null && filteredCreateCollectionsLength === 0;
+  const targetCount = countPending ? null : createLibraryTab === "youtube"
+    ? filteredCreateYoutubePlaylistsLength
+    : createCollectionsTotalCount ?? filteredCreateCollectionsLength;
+  const displayedCount = useInitialCollectionCount(createLibraryTab, targetCount);
+  const collectionCountLabel = `共 ${displayedCount.toLocaleString("zh-TW")} 筆${countPending ? " · 載入中" : ""}`;
   const selectedSource =
     librarySourceItems.find((item) => item.key === createLibraryTab) ??
     librarySourceItems[0];
   const showSearchToolbar = createLibraryTab !== "link";
+  const searchHint = `${createLibraryTab === "youtube" ? "搜尋播放清單" : "搜尋題庫"} · ${collectionCountLabel}`;
 
   const handleMobileSelectChange = (
     event: SelectChangeEvent<CreateLibraryTab>,
@@ -161,7 +191,7 @@ const LibrarySourceToolbar = ({
       !canUseGoogleLibraries && nextValue !== "public" && nextValue !== "link";
 
     if (isLocked) {
-      onLockedSourceClick?.();
+      onLockedSourceClick?.(nextValue);
       return;
     }
 
@@ -169,8 +199,9 @@ const LibrarySourceToolbar = ({
   };
 
   const mobileSourceSelect = mobileEmbedded ? (
-    <FormControl fullWidth size="small">
+    <FormControl ref={anchorRef} fullWidth size="small">
       <Select<CreateLibraryTab>
+        autoWidth
         value={createLibraryTab}
         onChange={handleMobileSelectChange}
         displayEmpty
@@ -241,9 +272,9 @@ const LibrarySourceToolbar = ({
           borderRadius: "16px",
           color: "#e2e8f0",
           background:
-            "linear-gradient(180deg, rgba(15,23,42,0.78), rgba(2,6,23,0.72))",
+            "var(--mc-surface)",
           boxShadow:
-            "inset 0 1px 0 rgba(255,255,255,0.04), 0 16px 30px -24px rgba(14,165,233,0.55)",
+            "none",
           "& .MuiSelect-select": {
             px: 1.25,
             py: 0.75,
@@ -258,17 +289,19 @@ const LibrarySourceToolbar = ({
             borderColor: "rgba(148, 163, 184, 0.2)",
           },
           "& .MuiSelect-icon": {
-            color: "rgba(186, 230, 253, 0.88)",
+            color: "var(--mc-text-muted)",
           },
         }}
         MenuProps={{
+          ...selectMenuPlacement,
           PaperProps: {
+            style: { width: menuWidth, maxWidth: "100vw" },
             sx: {
               mt: 1,
               borderRadius: 2,
               border: "1px solid rgba(148,163,184,0.18)",
               background:
-                "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(2,6,23,0.98))",
+                "var(--mc-surface-strong)",
               boxShadow:
                 "0 22px 40px rgba(2,6,23,0.48), 0 0 0 1px rgba(34,211,238,0.06)",
               backdropFilter: "blur(14px)",
@@ -293,7 +326,7 @@ const LibrarySourceToolbar = ({
               value={item.key}
               onClick={() => {
                 if (disabled) {
-                  onLockedSourceClick?.();
+                  onLockedSourceClick?.(item.key);
                 }
               }}
               sx={{
@@ -345,35 +378,53 @@ const LibrarySourceToolbar = ({
   const toolbarContent = (
     <>
       {mobileSourceSelect}
+      {mobileEmbedded && isMobileViewport && <LibraryFiltersDrawer
+        open={createLibraryTab === "public" && publicLibrarySearchActive}
+        onClose={closePublicLibrarySearch ?? togglePublicLibrarySearch}
+        onReset={onResetFilters}
+        resultCount={targetCount}
+        loading={collectionsLoading}
+      >
+        <div className="library-filters-sort" role="group" aria-label="排序">
+          <h3>排序</h3>
+          {publicSortOptions.map((option) => <button key={option.key} type="button" aria-pressed={currentPublicSort === option.key} onClick={() => setPublicCollectionsSort(option.key)}>{option.label}</button>)}
+        </div>
+        {filterContent}
+      </LibraryFiltersDrawer>}
+
       {showSearchToolbar ? (
         <div
           className={`relative flex items-center gap-2 rounded-xl py-2 ${
             mobileEmbedded
               ? "border-[var(--mc-border)]/70 "
-              : "border-transparent sm:justify-between sm:gap-3 sm:rounded-2xl sm:border sm:p-3"
+              : "sm:justify-between sm:gap-3 sm:p-3"
           } ${
             publicLibrarySearchActive
               ? mobileEmbedded
-                ? "border-cyan-300/30 bg-slate-950/54"
-                : "bg-slate-950/10 sm:border-cyan-300/30 sm:bg-slate-950/20 sm:shadow-[0_12px_30px_rgba(8,47,73,0.14)]"
+                ? "bg-stone-900/50"
+                : "bg-transparent"
               : mobileEmbedded
                 ? ""
-                : "bg-transparent sm:border-[var(--mc-border)]/80 sm:bg-slate-950/18"
+                : "bg-transparent"
           }`}
         >
           <div className="relative min-w-0 flex-1">
             <TextField
+              className="hub-library-search-field"
               fullWidth
               size="small"
               value={createLibrarySearch}
               onChange={(event) => setCreateLibrarySearch(event.target.value)}
-              placeholder={
-                createLibraryTab === "youtube"
-                  ? "搜尋 YouTube 播放清單名稱"
-                  : "搜尋收藏庫名稱、曲目或建立者"
-              }
+              placeholder={searchHint}
               autoComplete="off"
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && createLibrarySearch) {
+                  event.preventDefault();
+                  setCreateLibrarySearch("");
+                }
+              }}
               slotProps={{
+                htmlInput: { "aria-label": createLibraryTab === "youtube" ? "搜尋 YouTube 播放清單" : "搜尋收藏庫" },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
@@ -386,28 +437,35 @@ const LibrarySourceToolbar = ({
                     </InputAdornment>
                   ),
                   endAdornment:
-                    createLibraryTab === "public" ? (
+                    (createLibrarySearch || createLibraryTab === "public") ? (
                       <InputAdornment position="end">
-                        <IconButton
+                        {createLibrarySearch ? (
+                          <IconButton aria-label="清除搜尋" title="清除搜尋（Esc）" size="small" onClick={() => setCreateLibrarySearch("")} sx={{ color: "var(--mc-text-muted)" }}>
+                            <CloseRounded sx={{ fontSize: 17 }} />
+                          </IconButton>
+                        ) : null}
+                        {createLibraryTab === "public" ? <IconButton
                           edge="end"
                           size="small"
                           aria-label="開啟收藏庫篩選"
+                          aria-expanded={publicLibrarySearchActive}
+                          aria-haspopup={mobileEmbedded ? "dialog" : undefined}
                           onClick={togglePublicLibrarySearch}
                           sx={{
                             position: "relative",
                             color: publicLibrarySearchActive
-                              ? "rgba(186, 230, 253, 0.98)"
+                              ? "var(--mc-accent)"
                               : "rgba(148, 163, 184, 0.86)",
                             backgroundColor: publicLibrarySearchActive
-                              ? "rgba(34, 211, 238, 0.14)"
+                              ? "var(--mc-accent-soft)"
                               : "transparent",
                             border: publicLibrarySearchActive
-                              ? "1px solid rgba(103, 232, 249, 0.28)"
+                              ? "1px solid var(--mc-accent-border)"
                               : "1px solid transparent",
                             borderRadius: "10px",
                             "&:hover": {
                               backgroundColor: publicLibrarySearchActive
-                                ? "rgba(34, 211, 238, 0.18)"
+                                ? "var(--mc-accent-soft)"
                                 : "rgba(148, 163, 184, 0.08)",
                             },
                           }}
@@ -416,21 +474,22 @@ const LibrarySourceToolbar = ({
                           {activeFilterCount > 0 && (
                             <span
                               aria-hidden
-                              className="pointer-events-none absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-cyan-400 px-1 text-[9px] font-bold leading-none text-slate-950 shadow"
+                              className="pointer-events-none absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold leading-none text-slate-950 shadow"
                             >
                               {activeFilterCount}
                             </span>
                           )}
-                        </IconButton>
+                        </IconButton> : null}
                       </InputAdornment>
                     ) : undefined,
                 },
               }}
               sx={searchFieldSx}
             />
-            {createLibraryTab === "public" && publicLibrarySearchActive && (
+            <AnimatedSearchHint text={searchHint} transitionKey={createLibraryTab} hidden={Boolean(createLibrarySearch)} />
+            {!mobileEmbedded && createLibraryTab === "public" && publicLibrarySearchActive && (
               <div className="absolute left-0 right-0 top-full z-30 mt-2">
-                <div className="rounded-[0_0_22px_22px] border border-cyan-300/24 border-t-0 bg-slate-950 px-3 pb-3 pt-4 shadow-[0_24px_48px_rgba(2,6,23,0.48)] sm:px-4">
+                <div className="rounded-2xl bg-[var(--mc-surface-strong)] px-3 pb-3 pt-4 shadow-[0_12px_36px_rgb(0_0_0/0.35),inset_0_1px_rgb(245_245_243/0.08)] sm:px-4">
                   {/* Sort options */}
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
@@ -447,7 +506,7 @@ const LibrarySourceToolbar = ({
                         }}
                         className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.08em] ${
                           currentPublicSort === option.key
-                            ? "bg-cyan-500/20 text-cyan-100 ring-1 ring-cyan-300/32"
+                            ? "bg-[var(--mc-accent-soft)] text-[var(--mc-accent)] ring-1 ring-amber-300/32"
                             : "bg-slate-900 text-[var(--mc-text-muted)] ring-1 ring-white/10 hover:bg-slate-800 hover:text-slate-100"
                         }`}
                         onClick={(event) => {
@@ -473,26 +532,7 @@ const LibrarySourceToolbar = ({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:justify-end sm:gap-3">
-            {!mobileEmbedded ? (
-              <span
-                className="inline-flex items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/8 px-3 py-1 text-[11px] font-normal text-cyan-100/90"
-                aria-label={
-                  createLibraryTab === "public"
-                    ? publicCollectionCountLabel
-                    : collectionCountLabel
-                }
-                title={
-                  createLibraryTab === "public"
-                    ? publicCollectionCountLabel
-                    : collectionCountLabel
-                }
-              >
-                {createLibraryTab === "public"
-                  ? publicCollectionCountLabel
-                  : collectionCountLabel}
-              </span>
-            ) : null}
-            {viewToggle(createLibraryView, setCreateLibraryView)}
+            <LibraryViewToggle view={createLibraryView} onChange={setCreateLibraryView} />
           </div>
         </div>
       ) : null}

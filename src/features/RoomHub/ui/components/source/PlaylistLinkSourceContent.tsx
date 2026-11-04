@@ -7,7 +7,9 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import { CloseRounded } from "@mui/icons-material";
+import { primaryActionSx } from "./sourceSurfaceStyles";
+import { CloseRounded, LinkRounded } from "@mui/icons-material";
+import LibraryEmptyState from "./LibraryEmptyState";
 import { List, type RowComponentProps } from "react-window";
 
 import type {
@@ -84,7 +86,7 @@ const PlaylistLinkSourceContent = ({
 }: PlaylistLinkSourceContentProps) => {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
-      <div className="rounded-xl border border-transparent bg-transparent p-0 sm:rounded-2xl sm:border-[var(--mc-border)] sm:bg-[linear-gradient(180deg,rgba(2,6,23,0.34),rgba(15,23,42,0.22))] sm:p-5">
+      <div className="bg-transparent px-0 pb-2 pt-4 sm:px-3">
         <div>
           <Tooltip
             title={playlistUrlTooltipMessage}
@@ -193,85 +195,35 @@ const PlaylistLinkSourceContent = ({
                 },
               }}
               sx={{
-                "& .MuiInputLabel-root": {
-                  color: "rgba(248, 250, 252, 0.72)",
-                  transition: "color 180ms ease, transform 180ms ease",
-                },
-                "& .MuiInputLabel-root.Mui-focused": {
-                  color: "rgba(251, 191, 36, 0.96)",
-                },
+                "& .MuiInputLabel-root": { color: "var(--mc-text-muted)" },
+                "& .MuiInputLabel-root.Mui-focused": { color: "var(--mc-accent)" },
+                "& .MuiInputLabel-root.Mui-error": { color: "error.main" },
                 "& .MuiOutlinedInput-root": {
-                  borderRadius: "20px",
-                  backgroundColor: "rgba(2, 6, 23, 0.32)",
-                  boxShadow:
-                    "0 0 0 1px rgba(148, 163, 184, 0.12), 0 10px 28px rgba(2, 6, 23, 0.18)",
-                  transition:
-                    "background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
+                  borderRadius: "12px",
+                  background: "var(--mc-surface-strong)",
                   "& fieldset": {
-                    borderColor: showPlaylistUrlWarning
-                      ? "rgba(251, 191, 36, 0.4)"
-                      : showPlaylistUrlError
-                        ? "rgba(248, 113, 113, 0.5)"
-                        : "rgba(148, 163, 184, 0.2)",
+                    borderColor: showPlaylistUrlError ? "error.main" : showPlaylistUrlWarning ? "var(--mc-accent)" : "var(--mc-border)",
                   },
-                  "&:hover": {
-                    backgroundColor: "rgba(15, 23, 42, 0.52)",
-                    boxShadow: showPlaylistUrlWarning
-                      ? "0 0 0 1px rgba(251, 191, 36, 0.24), 0 16px 34px rgba(120, 53, 15, 0.18)"
-                      : showPlaylistUrlError
-                        ? "0 0 0 1px rgba(248, 113, 113, 0.26), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                        : "0 0 0 1px rgba(34, 211, 238, 0.16), 0 16px 34px rgba(8, 47, 73, 0.2)",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: showPlaylistUrlWarning
-                      ? "rgba(251, 191, 36, 0.58)"
-                      : showPlaylistUrlError
-                        ? "rgba(248, 113, 113, 0.66)"
-                        : "rgba(34, 211, 238, 0.34)",
-                  },
-                  "&.Mui-focused": {
-                    backgroundColor: "rgba(15, 23, 42, 0.62)",
-                    boxShadow: showPlaylistUrlWarning
-                      ? "0 0 0 1px rgba(251, 191, 36, 0.34), 0 18px 38px rgba(120, 53, 15, 0.2)"
-                      : showPlaylistUrlError
-                        ? "0 0 0 1px rgba(248, 113, 113, 0.28), 0 18px 38px rgba(127, 29, 29, 0.18)"
-                        : "0 0 0 1px rgba(251, 191, 36, 0.28), 0 18px 38px rgba(120, 53, 15, 0.18)",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: showPlaylistUrlWarning
-                      ? "rgba(251, 191, 36, 0.82)"
-                      : showPlaylistUrlError
-                        ? "rgba(248, 113, 113, 0.72)"
-                        : "rgba(251, 191, 36, 0.72)",
-                  },
-                  "&.Mui-error": {
-                    boxShadow:
-                      "0 0 0 1px rgba(248, 113, 113, 0.18), 0 16px 34px rgba(127, 29, 29, 0.16)",
-                  },
+                  "&:hover fieldset": { borderColor: showPlaylistUrlError ? "error.main" : "var(--mc-accent-border)" },
+                  "&.Mui-focused fieldset": { borderColor: showPlaylistUrlError ? "error.main" : "var(--mc-accent)" },
                 },
-                "& .MuiOutlinedInput-input": {
-                  transition: "color 180ms ease",
-                  cursor: linkPreviewLocked ? "default" : "text",
-                },
-                "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-input": {
-                  color: "rgba(255, 255, 255, 0.98)",
-                },
+                "& input": { cursor: linkPreviewLocked ? "default" : "text" },
               }}
             />
           </Tooltip>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent p-0 sm:p-2">
         {(linkPlaylistTitle || linkPlaylistPreviewItems.length > 0) && (
-          <div className="shrink-0 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/20 px-3 py-2.5">
+          <div className="shrink-0 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-[var(--mc-surface)] px-3 py-2.5">
             <div className="min-w-0">
               <h3 className="truncate text-lg font-semibold tracking-[0.01em] text-[var(--mc-text)] sm:text-[1.25rem]">
                 {linkPlaylistTitle || "播放清單預覽"}
               </h3>
             </div>
             <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-              <span className="inline-flex items-center rounded-full border border-cyan-300/28 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-cyan-100/90">
+              <span className="inline-flex items-center rounded-full border border-[var(--mc-accent-border)] bg-[var(--mc-accent-soft)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-[var(--mc-accent)]">
                 {linkPlaylistCount} 首曲目
               </span>
               {isLinkSourceActive && (
@@ -279,15 +231,7 @@ const PlaylistLinkSourceContent = ({
                   variant="contained"
                   onClick={handlePickLinkSource}
                   disabled={playlistItemsLength === 0}
-                  sx={{
-                    borderRadius: "999px",
-                    px: 2.25,
-                    py: 0.85,
-                    minHeight: 0,
-                    fontWeight: 700,
-                    letterSpacing: "0.04em",
-                    boxShadow: "0 10px 24px rgba(245, 158, 11, 0.18)",
-                  }}
+                  sx={primaryActionSx}
                 >
                   套用這份清單
                 </Button>
@@ -299,11 +243,11 @@ const PlaylistLinkSourceContent = ({
         {playlistLoading &&
         canAttemptPlaylistPreview(trimmedPlaylistUrlDraft) &&
         linkPlaylistPreviewItems.length === 0 ? (
-          <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-cyan-300/16 bg-slate-950/12 px-3 text-center">
+          <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-xl bg-[var(--mc-surface)] px-3 text-center">
             <CircularProgress
               size={34}
               thickness={4}
-              sx={{ color: "#38bdf8" }}
+              sx={{ color: "var(--mc-accent)" }}
             />
             <p className="mt-4 text-sm font-semibold text-[var(--mc-text)]">
               正在讀取播放清單
@@ -314,7 +258,7 @@ const PlaylistLinkSourceContent = ({
           </div>
         ) : linkPlaylistPreviewItems.length > 0 ? (
           <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="shrink-0 rounded-[22px] border border-[var(--mc-border)]/70 bg-slate-950/20">
+            <div className="shrink-0 rounded-xl bg-[var(--mc-surface)]">
               <List<PlaylistPreviewRowData>
                 style={{ height: 260, width: "100%" }}
                 rowCount={linkPlaylistPreviewItems.length}
@@ -345,11 +289,11 @@ const PlaylistLinkSourceContent = ({
             </div>
           </div>
         ) : (
-          <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-cyan-300/16 bg-slate-950/12 px-3 text-center">
-            <p className="text-sm text-[var(--mc-text-muted)]">
-              貼上連結後，顯示曲目預覽
-            </p>
-          </div>
+          <LibraryEmptyState
+            icon={<LinkRounded sx={{ fontSize: 28 }} />}
+            title="還沒有曲目預覽"
+            description="貼上連結後，即可在這裡查看曲目。"
+          />
         )}
       </div>
     </div>

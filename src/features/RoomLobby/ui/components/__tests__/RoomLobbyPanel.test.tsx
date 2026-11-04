@@ -2,6 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -141,6 +142,20 @@ const baseProps = {
   onImportYoutubePlaylist: async () => {},
 };
 
+const renderRoomLobbyPanel = (props: React.ComponentProps<typeof RoomLobbyPanel>) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RoomLobbyPanel {...props} />
+    </QueryClientProvider>,
+  );
+};
+
 beforeEach(() => {
   Object.defineProperty(window, "matchMedia", {
     writable: true,
@@ -160,14 +175,12 @@ beforeEach(() => {
 
 describe("RoomLobbyPanel", () => {
   it("keeps primary actions in order and uses battle info instead of previous round button", () => {
-    render(
-      <RoomLobbyPanel
-        {...baseProps}
-        selfClientId="host-1"
-        isHost
-        gameState={null}
-      />,
-    );
+    renderRoomLobbyPanel({
+      ...baseProps,
+      selfClientId: "host-1",
+      isHost: true,
+      gameState: null,
+    });
 
     const toolbar = screen.getAllByRole("toolbar", { name: "房間操作" })[0];
     const toolbarButtons = within(toolbar).getAllByRole("button");
@@ -188,14 +201,12 @@ describe("RoomLobbyPanel", () => {
   });
 
   it("opens a confirmation dialog before leaving the room", () => {
-    render(
-      <RoomLobbyPanel
-        {...baseProps}
-        selfClientId="host-1"
-        isHost
-        gameState={null}
-      />,
-    );
+    renderRoomLobbyPanel({
+      ...baseProps,
+      selfClientId: "host-1",
+      isHost: true,
+      gameState: null,
+    });
 
     const toolbar = screen.getAllByRole("toolbar", { name: "房間操作" })[0];
     fireEvent.click(within(toolbar).getByRole("button", { name: "離開房間" }));
@@ -220,14 +231,12 @@ describe("RoomLobbyPanel", () => {
       })),
     });
 
-    render(
-      <RoomLobbyPanel
-        {...baseProps}
-        selfClientId="guest-1"
-        isHost={false}
-        gameState={null}
-      />,
-    );
+    renderRoomLobbyPanel({
+      ...baseProps,
+      selfClientId: "guest-1",
+      isHost: false,
+      gameState: null,
+    });
 
     expect(
       screen.queryByRole("button", { name: "設定" }),

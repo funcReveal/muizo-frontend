@@ -5,7 +5,9 @@ import {
   type ReactNode,
 } from "react";
 import {
+  ArrowForwardRounded,
   BarChartRounded,
+  CheckRounded,
   FavoriteBorderRounded,
   FavoriteRounded,
   LockOutlined,
@@ -19,6 +21,7 @@ import {
   formatCollectionAvailabilityMetricLabel,
 } from "@features/RoomSession/model/playlistAvailability";
 import { CollectionMetaChips } from "@features/CollectionCategory";
+import "./collectionCard.css";
 
 type CollectionCardProps = {
   collection: {
@@ -57,11 +60,11 @@ type CollectionCardProps = {
 const menuPaperSx = {
   mt: 0.75,
   border: "1px solid var(--mc-border)",
-  backgroundColor: "#08111f",
+  backgroundColor: "#211d17",
   color: "var(--mc-text)",
   borderRadius: "14px",
   minWidth: 150,
-  boxShadow: "0 20px 40px rgba(2,6,23,0.46)",
+  boxShadow: "0 20px 40px rgba(0,0,0,0.46)",
   "& .MuiMenuItem-root": {
     gap: 1,
     fontSize: 13,
@@ -111,7 +114,7 @@ const CollectionCard = ({
           key: "questions",
           icon: (
             <QuizRounded
-              sx={{ fontSize: 17, color: "rgba(103, 232, 249, 0.94)" }}
+              sx={{ fontSize: 16, color: "var(--mc-accent)" }}
             />
           ),
           label: itemCountLabel,
@@ -122,7 +125,7 @@ const CollectionCard = ({
           key: "plays",
           icon: (
             <BarChartRounded
-              sx={{ fontSize: 18, color: "rgba(125, 211, 252, 0.92)" }}
+              sx={{ fontSize: 16, color: "var(--mc-text-muted)" }}
             />
           ),
           label: `${Math.max(0, Number(collection.use_count ?? 0))}`,
@@ -150,6 +153,7 @@ const CollectionCard = ({
   }>;
 
   const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     if (disabled) return;
@@ -186,11 +190,7 @@ const CollectionCard = ({
             onMouseEnter={() => setIsActionHovered(true)}
             onMouseLeave={() => setIsActionHovered(false)}
             size="small"
-            className={
-              placement === "grid"
-                ? "!h-7 !w-7 !shrink-0 !bg-slate-950/45 !text-slate-100 hover:!bg-slate-900"
-                : "!shrink-0 !bg-slate-950/45 !text-slate-100 hover:!bg-slate-900"
-            }
+            className={`hub-collection-card__action hub-collection-card__action--${placement}`}
           >
             <MoreHorizRounded fontSize="small" />
           </IconButton>
@@ -233,31 +233,23 @@ const CollectionCard = ({
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
+        aria-pressed={selected}
+        data-selected={selected}
+        data-disabled={disabled}
+        data-action-active={suppressCardHover}
         onClick={() => {
           if (disabled) return;
           onSelect();
         }}
         onKeyDown={handleCardKeyDown}
-        className={`group relative h-full cursor-pointer overflow-hidden rounded-[22px] border text-left transition ${
-          disabled
-            ? "cursor-not-allowed border-white/10 bg-slate-950/42 opacity-75"
-            : selected
-            ? "border-cyan-300/55 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(8,47,73,0.42))] shadow-[0_24px_44px_-28px_rgba(34,211,238,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]"
-            : `border-cyan-300/18 bg-[linear-gradient(180deg,rgba(15,23,42,0.72),rgba(2,6,23,0.58))] shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_34px_-32px_rgba(15,23,42,0.9)] ${
-                suppressCardHover
-                  ? ""
-                  : "hover:border-cyan-300/38 hover:bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(8,47,73,0.44))] hover:shadow-[0_22px_42px_-30px_rgba(34,211,238,0.32),inset_0_1px_0_rgba(255,255,255,0.06)]"
-              }`
-        }`}
+        className="hub-collection-card hub-collection-card--grid relative h-full overflow-hidden text-left"
       >
-        <div className="relative h-36 w-full overflow-hidden bg-slate-900/60">
+        <div className="hub-collection-card__cover relative h-36 w-full overflow-hidden">
           {previewThumbnail ? (
             <img
               src={previewThumbnail}
               alt={collection.cover_title ?? collection.title}
-              className={`h-full w-full object-cover transition duration-300 ${
-                suppressCardHover ? "" : "group-hover:scale-[1.03]"
-              }`}
+              className="hub-collection-card__image h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
@@ -265,10 +257,12 @@ const CollectionCard = ({
               無封面
             </div>
           )}
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_46%,rgba(2,6,23,0.82)_100%)]" />
+          <div className="hub-collection-card__shade pointer-events-none absolute inset-0" />
+          {selected ? <span className="hub-collection-card__selected"><CheckRounded />已選用</span> : null}
+          {!disabled && !disabledReason ? <span className="hub-collection-card__preview" aria-hidden="true">查看題庫<ArrowForwardRounded /></span> : null}
           <div className="absolute inset-x-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-start gap-1.5">
             {!isPublicLibraryTab ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-slate-100 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-stone-950/70 px-2.5 py-1 text-[11px] font-medium text-stone-100 backdrop-blur-sm">
                 {isPublic ? (
                   <PublicOutlined sx={{ fontSize: 13 }} />
                 ) : (
@@ -280,23 +274,23 @@ const CollectionCard = ({
             <CollectionMetaChips
               collection={collection}
               maxVisible={3}
-              variant="overlay"
+              variant="overlay" className="hub-collection-card__tags"
             />
           </div>
           {disabledReason ? (
-            <div className="absolute inset-x-3 bottom-3 rounded-xl border border-amber-300/30 bg-slate-950/78 px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.55)]">
+            <div className="absolute inset-x-3 bottom-3 rounded-xl border border-amber-300/30 bg-stone-950/90 px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_16px_34px_-24px_rgba(251,191,36,0.55)]">
               {disabledReason}
             </div>
           ) : null}
         </div>
-        <div className="space-y-2.5 px-4 py-3">
+        <div className="hub-collection-card__body space-y-2.5 px-4 py-3">
           <div className="space-y-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <p className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-6 text-[var(--mc-text)]">
+              <p className="hub-collection-card__title min-w-0 flex-1 truncate text-[15px] font-semibold leading-6 text-[var(--mc-text)]" title={collection.title}>
                 {collection.title}
               </p>
             </div>
-            <div className="flex min-w-0 items-center gap-2 text-[12px] leading-5 text-slate-300/88">
+            <div className="flex min-w-0 items-center gap-2 text-[12px] leading-5 text-stone-300/90">
               <span className="inline-flex min-w-0 items-center gap-1.5">
                 <StarRounded
                   sx={{
@@ -304,15 +298,15 @@ const CollectionCard = ({
                     color:
                       ratingCount > 0
                         ? "rgba(250, 204, 21, 0.95)"
-                        : "rgba(148, 163, 184, 0.56)",
+                        : "rgba(168, 162, 150, 0.7)",
                   }}
                 />
-                <span className="shrink-0 font-semibold text-slate-100/92">
+                <span className="shrink-0 font-semibold text-stone-100/95">
                   {ratingAvgLabel}
                 </span>
               </span>
               {ratingCountLabel ? (
-                <span className="min-w-0 truncate text-slate-400">
+                <span className="min-w-0 truncate text-stone-400">
                   {ratingCountLabel}
                 </span>
               ) : null}
@@ -324,7 +318,7 @@ const CollectionCard = ({
                 statsMeta.map((meta) => (
                   <span
                     key={`${collection.id}-${meta.key}`}
-                    className="inline-flex items-center gap-1.5 text-[14px] font-semibold leading-none text-slate-200/92"
+                    className="inline-flex items-center gap-1.5 text-[12px] font-medium leading-none text-[var(--mc-text-muted)]"
                   >
                     {meta.icon}
                     <span>{meta.label}</span>
@@ -349,28 +343,24 @@ const CollectionCard = ({
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
+      aria-pressed={selected}
+      data-selected={selected}
+      data-disabled={disabled}
+      data-action-active={suppressCardHover}
       onClick={() => {
         if (disabled) return;
         onSelect();
       }}
       onKeyDown={handleCardKeyDown}
-      className={`w-full cursor-pointer border-b border-slate-700/55 px-3 py-3 text-left transition ${
-        disabled
-          ? "cursor-not-allowed bg-slate-950/20 opacity-75"
-          : selected
-          ? "bg-cyan-500/10"
-          : suppressCardHover
-            ? "bg-transparent"
-            : "hover:bg-cyan-500/[0.06]"
-      }`}
+      className="hub-collection-card hub-collection-card--list w-full px-3 py-3 text-left"
     >
       <div className="flex items-center gap-3">
-        <div className="h-11 w-16 shrink-0 overflow-hidden rounded-md bg-slate-900/40">
+        <div className="hub-collection-card__cover h-11 w-16 shrink-0 overflow-hidden rounded-md">
           {previewThumbnail ? (
             <img
               src={previewThumbnail}
               alt={collection.cover_title ?? collection.title}
-              className="h-full w-full object-cover"
+              className="hub-collection-card__image h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
@@ -385,11 +375,11 @@ const CollectionCard = ({
               <p className="min-w-[3rem] truncate text-[13px] font-semibold text-[var(--mc-text)] sm:text-sm">
                 {collection.title}
               </p>
-              <CollectionMetaChips collection={collection} toneFilter="category" />
-              <CollectionMetaChips collection={collection} toneFilter="language" lowPriority />
+              <CollectionMetaChips collection={collection} toneFilter="category" className="hub-collection-card__tags" />
+              <CollectionMetaChips collection={collection} toneFilter="language" lowPriority className="hub-collection-card__tags" />
             </div>
             {!isPublicLibraryTab ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] leading-none text-slate-200/88">
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] leading-none text-stone-200/90">
                 {isPublic ? (
                   <PublicOutlined sx={{ fontSize: 12 }} />
                 ) : (
@@ -407,15 +397,15 @@ const CollectionCard = ({
                   color:
                     ratingCount > 0
                       ? "rgba(250, 204, 21, 0.95)"
-                      : "rgba(148, 163, 184, 0.56)",
+                      : "rgba(168, 162, 150, 0.7)",
                 }}
               />
-              <span className="shrink-0 font-semibold text-slate-100/90">
+              <span className="shrink-0 font-semibold text-stone-100/90">
                 {ratingAvgLabel}
               </span>
             </span>
             {ratingCountLabel ? (
-              <span className="min-w-0 truncate text-slate-400">
+              <span className="min-w-0 truncate text-stone-400">
                 {ratingCountLabel}
               </span>
             ) : null}
@@ -429,7 +419,7 @@ const CollectionCard = ({
             {statsMeta.map((meta) => (
               <span
                 key={`${collection.id}-list-${meta.key}`}
-                className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-none text-slate-200/90"
+                className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-none text-stone-200/90"
               >
                 {meta.icon}
                 <span>{meta.label}</span>

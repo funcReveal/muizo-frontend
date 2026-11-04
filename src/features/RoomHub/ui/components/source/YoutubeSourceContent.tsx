@@ -1,3 +1,4 @@
+import "./libraryScroll.css";
 import { Button } from "@mui/material";
 import {
   PlayCircleOutlineRounded,
@@ -8,6 +9,7 @@ import { List } from "react-window";
 import type { ReactNode } from "react";
 
 import LibraryEmptyState from "./LibraryEmptyState";
+import { primaryActionSx, secondaryActionSx, quietActionSx } from "./sourceSurfaceStyles";
 import type {
   VirtualLibraryListRowComponent,
   VirtualLibraryListRowProps,
@@ -36,39 +38,6 @@ type YoutubeSourceContentProps = {
   VirtualLibraryListRow: VirtualLibraryListRowComponent;
 };
 
-const primaryActionSx = {
-  borderRadius: "999px",
-  px: 2,
-  py: 0.8,
-  fontWeight: 700,
-  color: "rgb(8, 15, 28)",
-  background:
-    "linear-gradient(135deg, rgba(103,232,249,0.96), rgba(45,212,191,0.9))",
-  boxShadow:
-    "inset 0 1px 0 rgba(255,255,255,0.36), 0 16px 30px -22px rgba(34,211,238,0.9)",
-  "&:hover": {
-    background:
-      "linear-gradient(135deg, rgba(125,245,255,0.98), rgba(94,234,212,0.94))",
-    boxShadow:
-      "inset 0 1px 0 rgba(255,255,255,0.4), 0 18px 34px -22px rgba(34,211,238,0.95)",
-  },
-} as const;
-
-const secondaryActionSx = {
-  borderRadius: "999px",
-  px: 2,
-  py: 0.8,
-  fontWeight: 700,
-  color: "rgb(186, 230, 253)",
-  borderColor: "rgba(125, 211, 252, 0.28)",
-  backgroundColor: "rgba(15, 23, 42, 0.46)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
-  "&:hover": {
-    borderColor: "rgba(125, 211, 252, 0.46)",
-    backgroundColor: "rgba(14, 165, 233, 0.12)",
-  },
-} as const;
-
 const YoutubeSourceContent = ({
   youtubePlaylistsLoading,
   createLibraryView,
@@ -92,9 +61,9 @@ const YoutubeSourceContent = ({
 
   if (youtubePlaylistsLoading) {
     return (
-      <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
+      <div className="flex h-full min-h-full flex-1 flex-col bg-transparent p-0 sm:p-2">
         {createLibraryView === "grid" ? (
-          <div className="h-auto lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+          <div className="hub-library-scroll h-auto lg:h-full lg:min-h-0 lg:overflow-y-auto">
             <div
               className="grid gap-3"
               style={{
@@ -181,15 +150,7 @@ const YoutubeSourceContent = ({
               <Button
                 size="small"
                 variant="text"
-                sx={{
-                  borderRadius: "999px",
-                  px: 1.5,
-                  fontWeight: 700,
-                  color: "rgba(186, 230, 253, 0.88)",
-                  "&:hover": {
-                    backgroundColor: "rgba(14, 165, 233, 0.1)",
-                  },
-                }}
+                sx={quietActionSx}
                 onClick={() => setCreateLibraryTab("public")}
               >
                 瀏覽公開題庫
@@ -202,10 +163,11 @@ const YoutubeSourceContent = ({
   }
 
   return (
-    <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
+    <div className="flex h-full min-h-full flex-1 flex-col bg-transparent p-0 sm:p-2">
       {createLibraryView === "grid" ? (
         <List<VirtualLibraryGridRowProps>
           key="youtube-grid"
+          className="hub-library-scroll"
           style={{ height: "100%", width: "100%" }}
           rowCount={gridRowCount}
           rowHeight={gridRowHeight}
@@ -221,6 +183,7 @@ const YoutubeSourceContent = ({
       ) : (
         <List<VirtualLibraryListRowProps>
           key="youtube-list"
+          className="hub-library-scroll"
           style={{ height: "100%", width: "100%" }}
           rowCount={filteredCreateYoutubePlaylists.length}
           rowHeight={youtubeListRowHeight}

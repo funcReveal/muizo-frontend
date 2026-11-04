@@ -4,6 +4,7 @@ import { BookmarkBorderRounded, SearchRounded } from "@mui/icons-material";
 import { List } from "react-window";
 
 import LibraryEmptyState from "./LibraryEmptyState";
+import { primaryActionSx, secondaryActionSx, quietActionSx } from "./sourceSurfaceStyles";
 import type {
   VirtualLibraryListRowComponent,
   VirtualLibraryListRowProps,
@@ -11,7 +12,7 @@ import type {
 import VirtualLibraryGridRow, {
   type VirtualLibraryGridRowProps,
 } from "./VirtualLibraryGridRow";
-import { useTransientScrollbar } from "@shared/hooks/useTransientScrollbar";
+import "./libraryScroll.css";
 
 type CreateLibraryTab = "public" | "personal";
 
@@ -44,49 +45,6 @@ type CollectionsSourceContentProps = {
   VirtualLibraryListRow: VirtualLibraryListRowComponent;
 };
 
-const primaryActionSx = {
-  borderRadius: "999px",
-  px: 2,
-  py: 0.8,
-  fontWeight: 700,
-  color: "rgb(8, 15, 28)",
-  background:
-    "linear-gradient(135deg, rgba(103,232,249,0.96), rgba(45,212,191,0.9))",
-  boxShadow:
-    "inset 0 1px 0 rgba(255,255,255,0.36), 0 16px 30px -22px rgba(34,211,238,0.9)",
-  "&:hover": {
-    background:
-      "linear-gradient(135deg, rgba(125,245,255,0.98), rgba(94,234,212,0.94))",
-    boxShadow:
-      "inset 0 1px 0 rgba(255,255,255,0.4), 0 18px 34px -22px rgba(34,211,238,0.95)",
-  },
-} as const;
-
-const secondaryActionSx = {
-  borderRadius: "999px",
-  px: 2,
-  py: 0.8,
-  fontWeight: 700,
-  color: "rgb(186, 230, 253)",
-  borderColor: "rgba(125, 211, 252, 0.28)",
-  backgroundColor: "rgba(15, 23, 42, 0.46)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.045)",
-  "&:hover": {
-    borderColor: "rgba(125, 211, 252, 0.46)",
-    backgroundColor: "rgba(14, 165, 233, 0.12)",
-  },
-} as const;
-
-const quietActionSx = {
-  borderRadius: "999px",
-  px: 1.5,
-  fontWeight: 700,
-  color: "rgba(186, 230, 253, 0.88)",
-  "&:hover": {
-    backgroundColor: "rgba(14, 165, 233, 0.1)",
-  },
-} as const;
-
 const CollectionsSourceContent = ({
   createLibraryTab,
   createLibraryView,
@@ -107,8 +65,6 @@ const CollectionsSourceContent = ({
   loadMoreCollections,
   VirtualLibraryListRow,
 }: CollectionsSourceContentProps) => {
-  const { transientScrollbarClassName, revealScrollbar } =
-    useTransientScrollbar();
 
   const gridRowCount =
     Math.ceil(filteredCreateCollections.length / createLibraryColumns) +
@@ -118,9 +74,9 @@ const CollectionsSourceContent = ({
 
   if (shouldShowCollectionSkeleton) {
     return (
-      <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
+      <div className="flex h-full min-h-full flex-1 flex-col bg-transparent p-0 sm:p-2">
         {createLibraryView === "grid" ? (
-          <div className="h-auto lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+          <div className="hub-library-scroll h-auto lg:h-full lg:min-h-0 lg:overflow-y-auto">
             <div
               className="grid gap-3"
               style={{
@@ -218,11 +174,11 @@ const CollectionsSourceContent = ({
   }
 
   return (
-    <div className="flex h-full min-h-full flex-1 flex-col rounded-xl border border-transparent bg-transparent p-0 sm:border-[var(--mc-border)]/70 sm:bg-slate-950/18 sm:p-2">
+    <div className="flex h-full min-h-full flex-1 flex-col bg-transparent p-0 sm:p-2">
       {createLibraryView === "grid" ? (
         <List<VirtualLibraryGridRowProps>
           key="collections-grid"
-          className={`transient-scrollbar ${transientScrollbarClassName}`}
+          className="hub-library-scroll"
           style={{ height: "100%", width: "100%" }}
           rowCount={gridRowCount}
           rowHeight={gridRowHeight}
@@ -251,13 +207,11 @@ const CollectionsSourceContent = ({
             }
             void loadMoreCollections();
           }}
-          onScroll={() => {
-            revealScrollbar();
-          }}
         />
       ) : (
         <List<VirtualLibraryListRowProps>
           key="collections-list"
+          className="hub-library-scroll"
           style={{
             height: "100%",
             width: "100%",

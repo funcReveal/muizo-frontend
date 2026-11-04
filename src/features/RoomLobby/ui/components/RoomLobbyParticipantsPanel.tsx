@@ -17,7 +17,7 @@ import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import type { RoomParticipant } from "@features/RoomSession";
 import useAutoHideScrollbar from "@shared/hooks/useAutoHideScrollbar";
 import RoomUiTooltip from "@shared/ui/RoomUiTooltip";
-import PlayerAvatar from "@shared/ui/playerAvatar/PlayerAvatar";
+import PlayerProfileAvatar from "@features/PlayerProfile/ui/PlayerProfileAvatar";
 import { normalizeDisplayText } from "./roomLobbyDisplayUtils";
 
 interface RoomLobbyParticipantsPanelProps {
@@ -89,7 +89,8 @@ const RoomLobbyParticipantRow = React.memo(function RoomLobbyParticipantRow({
           overlap="circular"
           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         >
-          <PlayerAvatar
+          <PlayerProfileAvatar
+            userId={participant.authUserId}
             className="room-lobby-player-avatar"
             username={participantName}
             clientId={participant.clientId}
