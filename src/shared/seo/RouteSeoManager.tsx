@@ -136,6 +136,14 @@ const resolveRouteSeo = (pathname: string): RouteSeo => {
       canonicalPath: "/rooms",
     };
   }
+  if (pathname.startsWith("/players/")) {
+    return {
+      title: "玩家個人頁 - Muizo",
+      description: "認識 Muizo 玩家，查看公開戰績、自我介紹與創作題庫。",
+      canonicalPath: pathname,
+      robots: "noindex, follow",
+    };
+  }
   if (pathname.startsWith("/collections/") && pathname.endsWith("/edit")) {
     return {
       ...PRIVATE_ROUTE_SEO,

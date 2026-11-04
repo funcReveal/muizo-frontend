@@ -6,6 +6,7 @@ Disallow: /collections
 Disallow: /collections/
 Disallow: /career
 Disallow: /career/
+Disallow: /players/
 Disallow: /history
 Disallow: /history/
 Disallow: /invited
