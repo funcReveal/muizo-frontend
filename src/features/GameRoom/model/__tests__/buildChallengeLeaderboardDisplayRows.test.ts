@@ -340,7 +340,7 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
   });
 
   // ?? Test case 11: list total row count ????????????????????????????????????
-  it("nearby mode total row count = 6 top + ellipsis + 5 nearby = 12", () => {
+  it("nearby mode total row count = 7 top + ellipsis + 5 nearby = 13", () => {
     const topSix = Array.from({ length: 6 }, (_, i) =>
       makeEntry(`u${i + 1}`, i + 1, 2000 - i * 100),
     );
@@ -356,11 +356,11 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
       meUserId: "me",
     });
 
-    // top 6 + ellipsis + 5 nearby slots = 12 rows
-    expect(listRows).toHaveLength(12);
+    // top 7 (6 players + 1 placeholder) + ellipsis + 5 nearby slots = 13 rows
+    expect(listRows).toHaveLength(13);
   });
 
-  it("nearby mode keeps the top section capped at six when viewer historical best is rank 7-11", () => {
+  it("nearby mode keeps the top section capped at seven when viewer historical best is rank 8-11", () => {
     const topElevenWithMe = elevenTopEntries.map((entry, index) =>
       index === 8 ? makeEntry("me", 9, 1200) : entry,
     );
@@ -381,10 +381,10 @@ describe("buildChallengeLeaderboardDisplayRows", () => {
     const topPlayerRows = listRows.filter(
       (row) => row.kind === "player" && row.section === "top",
     );
-    expect(topPlayerRows).toHaveLength(6);
+    expect(topPlayerRows).toHaveLength(7);
     expect(topPlayerRows.some((row) => row.kind === "player" && row.userId === "me"))
       .toBe(false);
-    expect(listRows).toHaveLength(12);
+    expect(listRows).toHaveLength(13);
   });
 
   // ?? Test case 12: top-eleven when topEntries < 11 uses placeholders ????????

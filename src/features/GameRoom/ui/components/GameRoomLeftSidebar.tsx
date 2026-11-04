@@ -37,6 +37,7 @@ import type { AvatarEffectLevel } from "../../../../shared/ui/playerAvatar/playe
 import { AnimatedScoreValue } from "./AnimatedScoreValue";
 import { RoomSelfStickyBar } from "./RoomSelfStickyBar";
 import { useScoreboardWheelScroll } from "./useScoreboardWheelScroll";
+import { useFitScoreboardRowHeight } from "./useFitScoreboardRowHeight";
 
 interface GameRoomLeftSidebarProps {
   scoreboardRows: ScoreboardRow[];
@@ -673,6 +674,22 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
     setScrollNodeRef: setScoreboardListNodeRef,
     onWheel: handleScoreboardWheel,
   } = useScoreboardWheelScroll<HTMLDivElement>();
+  // Size room rows with the same adaptive fit as the challenge board so the two
+  // tabs stay visually consistent. The room always renders a fixed slot count
+  // (buildScoreboardRows pads with waiting/locked rows), so a generous cap lets
+  // the rows grow to fill the panel height exactly — leaving no dead space above
+  // the sticky self bar — while still preventing absurdly tall rows.
+  const setRoomFitRowHeightRef = useFitScoreboardRowHeight<HTMLDivElement>(
+    scoreboardRows.length,
+    64,
+  );
+  const setScoreboardListRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      setScoreboardListNodeRef(node);
+      setRoomFitRowHeightRef(node);
+    },
+    [setScoreboardListNodeRef, setRoomFitRowHeightRef],
+  );
   const enableDesktopFloatingScoreBursts = !mobileOverlayMode;
   const effectiveScoreboardBorderMotion = React.useMemo<ScoreboardBorderAnimationId>(() => {
     if (!scoreboardBorderEnabled) return "none";
@@ -1274,7 +1291,7 @@ const GameRoomLeftSidebar: React.FC<GameRoomLeftSidebarProps> = ({
         onWheel={handleScoreboardWheel}
       >
         <div
-          ref={setScoreboardListNodeRef}
+          ref={setScoreboardListRef}
           className="game-room-scoreboard-list mq-autohide-scrollbar relative flex-1 min-h-0 overflow-y-auto overflow-x-visible"
         >
           <div className="game-room-scoreboard-stack overflow-visible">

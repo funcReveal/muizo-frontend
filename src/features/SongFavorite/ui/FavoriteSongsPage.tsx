@@ -547,7 +547,9 @@ function FavoriteRowContent({
   return (
     <article
       className={[
-        "group flex h-[86px] min-w-0 items-center gap-3 rounded-[18px] border px-2.5 py-2 transition duration-160",
+        // Mobile: borderless horizontal row (no outer frame). Desktop (sm+)
+        // restores the bordered card so the layout toggle still reads as a card.
+        "group flex h-[86px] min-w-0 items-center gap-3 rounded-[18px] border-0 px-2.5 py-2 transition duration-160 sm:border",
         "bg-[linear-gradient(180deg,rgba(20,17,13,0.72),rgba(8,7,5,0.94))] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
         isSelected
           ? "border-cyan-300/55 ring-1 ring-cyan-300/20"
@@ -1094,6 +1096,15 @@ const FavoriteSongsPage: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<ViewMode>("songs");
   const [layout, setLayout] = useState<Layout>(readStoredLayout);
+  // Mobile is locked to the horizontal list layout (the grid's vertical cards
+  // feel cramped on narrow viewports). The grid/list toggle only applies on
+  // desktop, so we track viewport width and derive the effective layout from it.
+  const [isDesktopViewport, setIsDesktopViewport] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" &&
+      window.innerWidth >= DESKTOP_BREAKPOINT_PX,
+  );
+  const effectiveLayout: Layout = isDesktopViewport ? layout : "list";
   const [expandedChannels, setExpandedChannels] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -1208,6 +1219,14 @@ const FavoriteSongsPage: React.FC = () => {
     window.addEventListener("resize", updateContainerSize);
     return () => window.removeEventListener("resize", updateContainerSize);
   }, [updateContainerSize]);
+
+  useEffect(() => {
+    const syncViewport = () =>
+      setIsDesktopViewport(window.innerWidth >= DESKTOP_BREAKPOINT_PX);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
 
   useEffect(() => {
     updateContainerSize();
@@ -1527,11 +1546,11 @@ const FavoriteSongsPage: React.FC = () => {
   // ---------------------------------------------------------------------------
 
   const totalDataRows = useMemo(() => {
-    if (layout === "grid") {
+    if (effectiveLayout === "grid") {
       return itemsPerRow > 0 ? Math.ceil(flatItems.length / itemsPerRow) : 0;
     }
     return flatItems.length;
-  }, [flatItems.length, itemsPerRow, layout]);
+  }, [flatItems.length, itemsPerRow, effectiveLayout]);
 
   const rowCount = totalDataRows + (hasNextPage ? 1 : 0);
 
@@ -1539,12 +1558,12 @@ const FavoriteSongsPage: React.FC = () => {
     (visibleRows: { startIndex: number; stopIndex: number }) => {
       if (!hasNextPage || isFetchingNextPage) return;
       // Trigger when within 1-2 rows of the end (or 8 items in list mode).
-      const threshold = layout === "grid" ? 2 : 8;
+      const threshold = effectiveLayout === "grid" ? 2 : 8;
       if (visibleRows.stopIndex >= totalDataRows - threshold) {
         void fetchNextPage();
       }
     },
-    [fetchNextPage, hasNextPage, isFetchingNextPage, layout, totalDataRows],
+    [fetchNextPage, hasNextPage, isFetchingNextPage, effectiveLayout, totalDataRows],
   );
 
   const listRowProps = useMemo<FavoriteRowProps>(
@@ -1744,7 +1763,10 @@ const FavoriteSongsPage: React.FC = () => {
               sortOrder={sortOrder}
               onChange={handleSortChange}
             />
-            <LayoutControl layout={layout} onChange={handleLayoutChange} />
+            {/* Layout toggle is desktop-only; mobile is locked to the list layout. */}
+            <div className="hidden sm:block">
+              <LayoutControl layout={layout} onChange={handleLayoutChange} />
+            </div>
           </div>
         </div>
 
@@ -1780,7 +1802,7 @@ const FavoriteSongsPage: React.FC = () => {
               </p>
             </div>
           ) : viewMode === "songs" && containerSize.height > 0 && containerSize.width > 0 ? (
-            layout === "list" ? (
+            effectiveLayout === "list" ? (
               <List
                 style={{ height: containerSize.height }}
                 rowComponent={FavoriteRow}
@@ -1810,7 +1832,7 @@ const FavoriteSongsPage: React.FC = () => {
                 <ChannelGroupRow
                   key={group.channelTitle}
                   group={group}
-                  layout={layout}
+                  layout={effectiveLayout}
                   itemsPerRow={itemsPerRow}
                   isExpanded={expandedChannels.has(group.channelTitle)}
                   onToggle={() => toggleChannel(group.channelTitle)}
