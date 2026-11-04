@@ -87,10 +87,16 @@ export interface ClientToServerEvents {
     callback?: (ack: Ack<ChatMessage>) => void,
   ) => void;
   listHubChatMessages: (callback?: (ack: Ack<HubChatMessage[]>) => void) => void;
+  listHubChatHistory: (
+    payload: { cursor?: string | null; limit?: number },
+    callback?: (ack: Ack<{ messages: HubChatMessage[]; nextCursor: string | null }>) => void,
+  ) => void;
   sendHubChatMessage: (
-    payload: { content: string },
+    payload: { content?: string; kind?: "text" | "room_invite"; roomCode?: string },
     callback?: (ack: Ack<HubChatMessage>) => void,
   ) => void;
+  editHubChatMessage: (payload: { messageId: string; content: string }, callback?: (ack: Ack<HubChatMessage>) => void) => void;
+  deleteHubChatMessage: (payload: { messageId: string }, callback?: (ack: Ack<HubChatMessage>) => void) => void;
   listRooms: (callback?: (ack: Ack<RoomListForViewerPayload>) => void) => void;
   getSitePresence: (callback?: (ack: Ack<SitePresencePayload>) => void) => void;
   getPlaylistPage: (
@@ -340,6 +346,7 @@ export interface ServerToClientEvents {
   userLeft: (payload: { roomId: string; clientId: string }) => void;
   messageAdded: (payload: { roomId: string; message: ChatMessage }) => void;
   hubChatMessageAdded: (message: HubChatMessage) => void;
+  hubChatMessageUpdated: (message: HubChatMessage) => void;
   gameStarted: (payload: GameLiveUpdatePayload) => void;
   gameUpdated: (payload: GameLiveUpdatePayload) => void;
   gameReturnedToLobby: (payload: { roomId: string; serverNow: number }) => void;

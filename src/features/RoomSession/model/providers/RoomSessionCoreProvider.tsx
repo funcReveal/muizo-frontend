@@ -649,9 +649,10 @@ export const RoomSessionCoreProvider: React.FC<{ children: ReactNode }> = ({
   }, [handleRoomGoneAck, handleTerminalRoomAckRef]);
 
   useLayoutEffect(() => {
+    const confirmNicknameBase = confirmNicknameBaseRef.current;
     confirmNicknameRef.current = confirmNicknameWithSocket;
     return () => {
-      confirmNicknameRef.current = () => confirmNicknameBaseRef.current();
+      confirmNicknameRef.current = () => confirmNicknameBase();
     };
   }, [confirmNicknameBaseRef, confirmNicknameRef, confirmNicknameWithSocket]);
 

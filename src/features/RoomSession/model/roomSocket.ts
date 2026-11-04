@@ -58,6 +58,7 @@ type RoomSocketHandlers = {
   }) => void;
   onMessageAdded?: (payload: { roomId: string; message: ChatMessage }) => void;
   onHubChatMessageAdded?: (message: HubChatMessage) => void;
+  onHubChatMessageUpdated?: (message: HubChatMessage) => void;
   onGameStarted?: (payload: GameLiveUpdatePayload) => void;
   onGameUpdated?: (payload: GameLiveUpdatePayload) => void;
   onRoomUpdated?: (payload: { room: RoomSummary }) => void;
@@ -187,6 +188,9 @@ export const connectRoomSocket = (
   socket.on("messageAdded", (payload) => handlers.onMessageAdded?.(payload));
   socket.on("hubChatMessageAdded", (message) =>
     handlers.onHubChatMessageAdded?.(message),
+  );
+  socket.on("hubChatMessageUpdated", (message) =>
+    handlers.onHubChatMessageUpdated?.(message),
   );
   socket.on("gameStarted", (payload) => handlers.onGameStarted?.(payload));
   socket.on("gameUpdated", (payload) => handlers.onGameUpdated?.(payload));

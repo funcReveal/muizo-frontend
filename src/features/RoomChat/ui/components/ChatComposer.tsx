@@ -10,6 +10,7 @@ interface ChatComposerProps {
     onRequestCloseWhenEmpty?: () => void;
     isChatCooldownActive: boolean;
     chatCooldownLeft: number;
+    shareAction?: React.ReactNode;
 }
 
 const ChatComposer: React.FC<ChatComposerProps> = ({
@@ -20,20 +21,24 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
     onRequestCloseWhenEmpty,
     isChatCooldownActive,
     chatCooldownLeft,
+    shareAction,
 }) => {
     return (
-        <div className="floating-chat-input-wrap">
-            <div className="floating-chat-input-row">
+        <div className="floating-chat-input-wrap floating-chat-input-wrap--room">
+            <div className="floating-chat-input-row floating-chat-input-row--room">
                 {isChatCooldownActive ? (
                     <div className="floating-chat-cooldown-inline">
                         輸入過於頻繁，請於 <strong>{chatCooldownLeft}</strong> 秒後重試
                     </div>
                 ) : (
+                    <div className="floating-chat-compose-field">
                     <input
                         ref={inputRef}
                         className="floating-chat-input"
-                        placeholder="輸入訊息"
+                        aria-label="房間訊息"
+                        placeholder="輸入房間訊息..."
                         value={messageInput}
+                        maxLength={500}
                         onChange={(event) => {
                             setMessageInput(event.target.value);
                         }}
@@ -58,16 +63,19 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
                         }}
                         autoComplete="off"
                     />
+                    {shareAction}
+                    </div>
                 )}
 
                 <button
                     type="button"
-                    className="floating-chat-send-btn"
+                    className="floating-chat-send-btn room-chat-send-action"
                     onClick={handleSend}
                     aria-label="送出訊息"
                     disabled={isChatCooldownActive || !messageInput.trim()}
                 >
                     <SendRoundedIcon fontSize="small" />
+                    <span>送出</span>
                 </button>
             </div>
         </div>

@@ -57,6 +57,7 @@ export interface RoomParticipant {
 }
 
 export interface ChatMessage {
+  authUserId?: string | null;
   id: string;
   roomId: string;
   userId: string;
@@ -75,6 +76,27 @@ export interface HubChatMessage {
   timestamp: number;
   avatarUrl?: string | null;
   role?: "admin" | "member";
+  kind?: "text" | "sticker" | "room_invite";
+  stickerId?: string | null;
+  roomInvite?: HubRoomInvite | null;
+  editedAt?: number | null;
+  deletedAt?: number | null;
+}
+
+export interface HubRoomInvite {
+  roomCode: string;
+  name: string;
+  playerCount: number;
+  maxPlayers: number | null;
+  playlistTitle: string | null;
+  playlistCoverThumbnailUrl: string | null;
+  modeLabel: string;
+  isRanked: boolean;
+  questionCount: number;
+  hasPin: boolean;
+  isPlaying: boolean;
+  /** Derived from the latest public room snapshot; never persisted with the chat message. */
+  status?: "available" | "full" | "unavailable";
 }
 
 export interface ChatMessageQuestionContext {

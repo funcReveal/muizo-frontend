@@ -82,31 +82,15 @@ const DesktopChatWindowContent: React.FC<DesktopChatWindowContentProps> = ({
 
             {open && (
                 <div className="floating-chat-window-shell">
-                    <div
-                        className="floating-chat-topbar"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`收合${title}`}
-                        onClick={onToggle}
-                        onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                onToggle();
-                            }
-                        }}
-                    >
+                    <div className="floating-chat-topbar">
                         {headerTabs}
                         <button
                             type="button"
                             className="floating-chat-topbar-close"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onToggle();
-                            }}
+                            onClick={onToggle}
                             aria-label={`收合${title}`}
-                            title="點擊收合聊天室"
+                            title="收合聊天室"
                         >
-                            <span>收合</span>
                             <ExpandMoreRoundedIcon fontSize="small" />
                         </button>
                     </div>
