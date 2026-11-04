@@ -1,4 +1,5 @@
 import React from "react";
+import "./playerAvatar.css";
 
 import {
   buildAvatarMonogram,

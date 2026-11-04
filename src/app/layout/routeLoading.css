@@ -1,0 +1,7 @@
+.app-route-loading { position: fixed; inset: 0; z-index: 1400; display: grid; place-items: center; width: 100vw; height: 100dvh; background: var(--mc-bg); }
+.app-route-loading__bars { display: flex; align-items: center; justify-content: center; gap: 5px; width: 40px; height: 32px; }
+.app-route-loading__bars i { display: block; flex: 0 0 4px; height: 14px; border-radius: 3px; background: var(--mc-accent); animation: muizo-route-loading-opacity 1s ease-in-out infinite; }
+.app-route-loading__bars i:nth-child(2) { height: 26px; animation-delay: 120ms; }
+.app-route-loading__bars i:nth-child(3) { height: 19px; animation-delay: 240ms; }
+@keyframes muizo-route-loading-opacity { 0%,100% {opacity:.3} 50% {opacity:1} }
+@media (prefers-reduced-motion: reduce) { .app-route-loading__bars i { animation: none; opacity: .8; } }

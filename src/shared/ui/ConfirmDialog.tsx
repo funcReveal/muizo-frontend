@@ -1,4 +1,4 @@
-import React, { type ReactNode } from "react";
+import React, { useId, type ReactNode } from "react";
 import {
   Button,
   Dialog,
@@ -6,79 +6,84 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Grow,
 } from "@mui/material";
+import { useReducedMotion } from "motion/react";
 
 const CONFIRM_DIALOG_SX = {
+  zIndex: 1800,
   "& .MuiBackdrop-root": {
-    background:
-      "radial-gradient(circle at 50% 8%, rgba(45, 212, 191, 0.16), transparent 34%), radial-gradient(circle at 20% 86%, rgba(251, 191, 36, 0.08), transparent 34%), rgba(2, 6, 23, 0.7)",
-    backdropFilter: "blur(14px) saturate(1.12)",
+    background: "rgba(7, 9, 7, 0.66)",
+    backdropFilter: "blur(4px)",
   },
   "& .MuiDialog-paper": {
-    position: "relative",
+    width: "calc(100% - 32px)",
+    maxWidth: 400,
+    margin: "16px",
     overflow: "hidden",
-    background:
-      "linear-gradient(135deg, rgba(255,255,255,0.115), rgba(255,255,255,0.024) 42%, rgba(94,234,212,0.05)), radial-gradient(320px 180px at 100% 0%, rgba(45,212,191,0.13), transparent 72%), rgba(5,8,12,0.82)",
-    color: "oklch(94% 0.012 86)",
-    border: "1px solid rgba(226, 232, 240, 0.18)",
-    borderRadius: "24px",
-    boxShadow:
-      "0 32px 90px -46px rgba(0,0,0,0.94), inset 0 1px 0 rgba(255,255,255,0.17), inset 0 0 0 1px rgba(255,255,255,0.035)",
-    backdropFilter: "blur(24px) saturate(1.18)",
-  },
-  "& .MuiDialog-paper::before": {
-    content: '""',
-    position: "absolute",
-    inset: 0,
-    pointerEvents: "none",
-    background:
-      "linear-gradient(115deg, transparent 0 18%, rgba(255,255,255,0.11) 22%, transparent 34%), radial-gradient(180px 220px at 100% 36%, rgba(94,234,212,0.08), transparent 76%)",
-  },
-  "& .MuiDialogTitle-root, & .MuiDialogContent-root, & .MuiDialogActions-root": {
-    position: "relative",
-    zIndex: 1,
+    background: "var(--mc-surface)",
+    color: "var(--mc-text)",
+    border: "1px solid var(--mc-border)",
+    borderRadius: "20px",
+    boxShadow: "0 20px 64px rgba(5, 8, 5, 0.4)",
+    fontFamily: '"OpenHuninn", "Noto Sans TC", sans-serif',
   },
   "& .MuiDialogTitle-root": {
     padding: "24px 24px 10px",
-    color: "rgba(248, 250, 252, 0.96)",
-    fontFamily: '"OpenHuninn", "Noto Sans TC", sans-serif',
-    fontSize: "1.18rem",
-    fontWeight: 900,
-    letterSpacing: 0,
+    fontFamily: "inherit",
+    fontSize: "20px",
+    lineHeight: 1.5,
+    fontWeight: 600,
   },
-  "& .MuiDialogContent-root": {
-    padding: "0 24px 8px",
+  "& .MuiDialogContent-root": { padding: "0 24px 24px" },
+  "& .MuiDialogContentText-root": {
+    fontFamily: "inherit",
+    fontSize: "14px",
+    lineHeight: 1.8,
+    fontWeight: 400,
+    color: "var(--mc-text-muted)",
   },
   "& .MuiDialogActions-root": {
-    padding: "12px 24px 24px",
+    padding: "0 24px 24px",
     gap: "10px",
+    "& > :not(style) ~ :not(style)": { marginLeft: 0 },
   },
   "& .MuiButton-root": {
-    minHeight: "42px",
-    borderRadius: "999px",
-    paddingInline: "18px",
+    flex: 1,
+    minHeight: "46px",
+    borderRadius: "10px",
+    paddingInline: "16px",
     textTransform: "none",
-    fontWeight: 900,
+    fontFamily: "inherit",
+    fontSize: "14px",
+    fontWeight: 600,
+    boxShadow: "none",
   },
   "& .MuiButton-outlined": {
-    borderColor: "rgba(226, 232, 240, 0.16)",
-    color: "rgba(226, 232, 240, 0.9)",
-    background:
-      "linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025)), rgba(226,232,240,0.04)",
-  },
-  "& .MuiButton-outlined:hover": {
-    borderColor: "rgba(94, 234, 212, 0.42)",
-    backgroundColor: "rgba(226, 232, 240, 0.07)",
+    borderColor: "var(--mc-border)",
+    color: "var(--mc-text)",
+    background: "var(--mc-surface-strong)",
+    "&:hover": {
+      background:
+        "color-mix(in srgb, var(--mc-surface-strong) 90%, var(--mc-text))",
+      borderColor: "var(--mc-border)",
+    },
   },
   "& .MuiButton-contained": {
-    background:
-      "radial-gradient(circle at 50% 0%, rgba(255,255,255,0.3), transparent 48%), linear-gradient(180deg, oklch(80% 0.135 162), oklch(77% 0.145 162))",
-    color: "oklch(14% 0.02 205)",
-    boxShadow:
-      "0 18px 34px -26px rgba(45,212,191,0.8), inset 0 1px 0 rgba(255,255,255,0.38), inset 0 -1px 0 rgba(6,78,59,0.32)",
+    background: "var(--mc-accent)",
+    color: "var(--mc-accent-ink)",
+    "&:hover": { background: "var(--mc-accent-hover)", boxShadow: "none" },
+    "&:active": { background: "var(--mc-accent-pressed)" },
   },
-  "& .MuiButton-contained:hover": {
-    filter: "brightness(1.04)",
+  '& .MuiButton-contained[data-destructive="true"]': {
+    background: "#d9655c",
+    color: "#fff5ef",
+    "&:hover": { background: "#e5756c" },
+    "&:active": { background: "#c95750" },
+  },
+  "& .MuiButton-root:focus-visible": {
+    outline: "2px solid var(--mc-accent)",
+    outlineOffset: "3px",
   },
 } as const;
 
@@ -88,53 +93,96 @@ type ConfirmDialogProps = {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  icon?: ReactNode;
   extraContent?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
   onExited?: () => void;
+  destructive?: boolean;
 };
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = React.memo(
-  ({
+  function ConfirmDialog({
     open,
     title,
     description,
     confirmLabel = "確認",
     cancelLabel = "取消",
+    icon,
     extraContent,
+    destructive = false,
     onConfirm,
     onCancel,
     onExited,
-  }) => (
-    <Dialog
-      open={open}
-      onClose={onCancel}
-      maxWidth="xs"
-      fullWidth
-      sx={CONFIRM_DIALOG_SX}
-      slotProps={{
-        transition: {
-          onExited,
-        },
-      }}
-    >
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <DialogContentText className="!text-[14px] !font-semibold !leading-relaxed !text-slate-300">
-          {description}
-        </DialogContentText>
-        {extraContent}
-      </DialogContent>
-      <DialogActions>
-        <Button variant="outlined" onClick={onCancel}>
-          {cancelLabel}
-        </Button>
-        <Button variant="contained" onClick={onConfirm}>
-          {confirmLabel}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  ),
+  }) {
+    const id = useId();
+    const reduceMotion = useReducedMotion();
+    return (
+      <Dialog
+        open={open}
+        onClose={onCancel}
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-description`}
+        maxWidth="xs"
+        fullWidth
+        sx={CONFIRM_DIALOG_SX}
+        slots={{ transition: Grow }}
+        transitionDuration={reduceMotion ? 0 : { enter: 180, exit: 120 }}
+        slotProps={{
+          transition: {
+            onExited,
+            easing: {
+              enter: "cubic-bezier(0.16, 1, 0.3, 1)",
+              exit: "cubic-bezier(0.4, 0, 1, 1)",
+            },
+          },
+        }}
+      >
+        {icon && (
+          <div
+            aria-hidden="true"
+            style={{
+              display: "grid",
+              placeItems: "center",
+              width: 44,
+              height: 44,
+              margin: "24px 24px 0",
+              borderRadius: 12,
+              background: "var(--mc-surface-strong)",
+              color: "var(--mc-accent)",
+            }}
+          >
+            {icon}
+          </div>
+        )}
+        <DialogTitle
+          id={`${id}-title`}
+          sx={icon ? { "&&": { paddingTop: "16px" } } : undefined}
+        >
+          {title}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id={`${id}-description`}>
+            {description}
+          </DialogContentText>
+          {extraContent}
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" disableRipple autoFocus onClick={onCancel}>
+            {cancelLabel}
+          </Button>
+          <Button
+            variant="contained"
+            data-destructive={destructive}
+            disableRipple
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  },
 );
 
 export default ConfirmDialog;

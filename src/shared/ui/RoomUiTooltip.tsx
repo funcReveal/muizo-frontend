@@ -1,5 +1,6 @@
 import React from "react";
-import { Tooltip, type TooltipProps } from "@mui/material";
+import type { TooltipProps } from "@mui/material";
+import SiteTooltip from "./SiteTooltip";
 
 interface RoomUiTooltipProps {
   title?: React.ReactNode;
@@ -17,15 +18,12 @@ const RoomUiTooltip: React.FC<RoomUiTooltipProps> = ({
   if (!title) return children;
 
   return (
-    <Tooltip
+    <SiteTooltip
       title={title}
       placement={placement}
-      arrow
-      enterTouchDelay={0}
-      leaveTouchDelay={2200}
     >
       <span className={wrapperClassName}>{children}</span>
-    </Tooltip>
+    </SiteTooltip>
   );
 };
 

@@ -1,1 +1,1 @@
-export { default as MuizoSelect, type MuizoSelectOption } from "./MuizoSelect";
+export { default as MuizoSelect, type MuizoSelectOption, type MuizoSelectProps } from "./MuizoSelect";
