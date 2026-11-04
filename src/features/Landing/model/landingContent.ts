@@ -25,18 +25,9 @@ export interface SeoFaqItem {
 }
 
 export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
-  {
-    title: "建立或加入房間",
-    description: "尋找想玩的猜歌題庫，進入房間或自己開房，一鍵邀請朋友加入多人猜歌。",
-  },
-  {
-    title: "回合猜歌對戰",
-    description: "系統隨機播放歌曲片段，玩家透過選項即時作答，進行線上猜歌對戰。",
-  },
-  {
-    title: "即時結算排行",
-    description: "記錄每回合分數與排名，猜歌遊戲結束後可看到勝負與各項數據。",
-  },
+  { title: "挑一份題庫", description: "選公開題庫，或匯入自己的 YouTube 歌單。" },
+  { title: "邀朋友進房", description: "設定題數與作答時間，分享連結或六碼房號。" },
+  { title: "聽歌，選答案", description: "聽片段搶答，每回合結束就能看見最新排名。" },
 ];
 
 export const AUTH_COMPARISON_ROWS: AuthComparisonRow[] = [
@@ -85,18 +76,18 @@ export const SEARCH_DISCOVERY_ITEMS: SearchDiscoveryItem[] = [
 
 export const SEO_FAQ_ITEMS: SeoFaqItem[] = [
   {
-    question: "Muizo 可以用來玩線上猜歌嗎？",
+    question: "一定要先準備歌單嗎？",
     answer:
-      "可以。Muizo 是多人即時猜歌平台，玩家可以建立房間、邀請朋友加入，透過歌曲片段進行猜歌遊戲。",
+      "不用。到大廳選一份公開題庫，就能建立猜歌房間。想自己出題時，再建立專屬題庫。",
   },
   {
-    question: "Muizo 支援 YouTube 播放清單嗎？",
+    question: "朋友已經開好房間，要怎麼加入？",
     answer:
-      "支援。登入 Google 後可以匯入 YouTube 播放清單，也可以建立平台收藏題庫，快速套用到猜歌房間。",
+      "直接開啟朋友分享的房間連結，或到大廳的「加入房間」輸入六碼房號，不需要輸入連字號。",
   },
   {
-    question: "Muizo 適合哪些場合？",
+    question: "可以用自己的 YouTube 播放清單嗎？",
     answer:
-      "適合朋友聚會、線上派對、社群語音、直播互動與音樂主題活動，讓多人一起進行歌曲問答與排行榜競賽。",
+      "可以。建立題庫時貼上公開或不公開的播放清單連結，再調整答案與播放片段。私人播放清單則需先連結 Google 帳號。",
   },
 ];

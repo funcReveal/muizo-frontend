@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { useReducedMotion } from "motion/react";
 
 const rotatingWords = ["華語流行", "迷因 meme", "遊戲 BGM", "J-POP", "K-POP"];
 
@@ -9,6 +10,7 @@ const HOLD_AFTER_TYPED_MS = 3000;
 const HOLD_AFTER_DELETED_MS = 220;
 
 const LandingHero: React.FC = () => {
+  const reduceMotion = useReducedMotion();
   const [wordIndex, setWordIndex] = useState(0);
   const [typedLength, setTypedLength] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -19,9 +21,10 @@ const LandingHero: React.FC = () => {
   );
 
   const activeWord = rotatingWords[wordIndex];
-  const visibleWord = activeWord.slice(0, typedLength);
+  const visibleWord = reduceMotion ? rotatingWords[0] : activeWord.slice(0, typedLength);
 
   useEffect(() => {
+    if (reduceMotion) return;
     const isFullyTyped = typedLength === activeWord.length;
     const isFullyDeleted = typedLength === 0;
     let delay = isDeleting ? DELETING_SPEED_MS : TYPING_SPEED_MS;
@@ -46,14 +49,17 @@ const LandingHero: React.FC = () => {
     }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [activeWord.length, isDeleting, typedLength]);
+  }, [activeWord.length, isDeleting, typedLength, reduceMotion]);
 
   return (
-    <div className="landing-hero flex min-w-0 flex-col justify-between gap-6">
-      <div className="space-y-5">
+    <div className="landing-hero">
+      <div className="landing-hero-copy">
         <h1 className="landing-title text-[2.15rem] leading-[1.2] text-[var(--mc-text)] sm:text-[2.5rem] lg:text-[3rem]">
-          和朋友一起玩
+          <span className="sr-only">和朋友一起玩線上猜歌。</span>
+          <span className="landing-title-line" aria-hidden="true">
+          <span>和朋友一起玩</span>
           <span
+            aria-hidden="true"
             className="landing-word-slot"
             style={
               {
@@ -61,21 +67,20 @@ const LandingHero: React.FC = () => {
               } as CSSProperties
             }
           >
-            <span className="landing-word-text">{visibleWord}</span>
-            <span className="landing-word-caret" />
+            <span className="landing-word-content">
+              <span className="landing-word-text">{visibleWord}</span>
+              <span className="landing-word-caret" />
+            </span>
+          </span>
           </span>
           <span className="block landing-title-accent">
-            創建房間，邀請好友線上猜歌！
+            <span>創建房間，</span><span className="landing-title-invite">邀請好友線上猜歌！</span>
           </span>
         </h1>
         <p className="landing-hero-vision">
-          我們不只想讓猜歌更方便、互動更即時，也希望每一次出題都能把好歌重新帶回大家耳邊，讓被記憶收藏的旋律與創作者再次被看見。
+          「我們不只想讓猜歌更方便、互動更即時，也希望每一次出題都能把好歌重新帶回大家耳邊，讓被記憶收藏的旋律與創作者再次被看見。」
         </p>
-        <div className="landing-hero-proof" aria-label="Muizo 特色">
-          <span>即時互動</span>
-          <span>題庫創建</span>
-          <span>多樣玩法</span>
-        </div>
+
       </div>
     </div>
   );

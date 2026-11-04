@@ -1,0 +1,104 @@
+/* Existing answer, ranking and collection-builder preview sequences. */
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  .landing-feature-card:hover .landing-demo-timer { animation: landingDemoTimer 6s linear infinite; }
+  .landing-feature-card:hover :is(.landing-demo-reveal, .landing-demo-correct) { animation: landingDemoReveal 6s ease-out infinite; }
+  .landing-feature-card:hover .landing-demo-guess { animation: landingDemoGuess 6s ease-out infinite; }
+  .landing-feature-card:hover .landing-demo-knob { animation: landingDemoKnob 6s ease-in-out infinite; }
+  .landing-feature-card:hover .landing-demo-track-fill { animation: landingDemoTrack 6s ease-in-out infinite; }
+  .landing-feature-card:hover .landing-demo-count { animation: landingDemoCount 6s steps(1, end) infinite; }
+}
+@keyframes landingDemoTimer { 0%, 12% { stroke-dashoffset: 24; } 55%, 100% { stroke-dashoffset: 90; } }
+@keyframes landingDemoReveal { 0%, 50%, 100% { opacity: 0; } 60%, 88% { opacity: 1; } }
+@keyframes landingDemoGuess { 0%, 50%, 100% { opacity: 1; } 60%, 88% { opacity: 0; } }
+.landing-demo-knob { transform-box: view-box; }
+.landing-demo-track-fill { transform-box: fill-box; transform-origin: left center; }
+.landing-demo-count { opacity: 0; }
+.landing-demo-count-initial { opacity: 1; }
+@keyframes landingDemoCount { 0%, 2.49% { opacity: 1; } 2.5%, 100% { opacity: 0; } }
+@keyframes landingDemoCountFinal { 0%, 74.99% { opacity: 1; } 75%, 100% { opacity: 0; } }
+@keyframes landingDemoKnob { 0%, 35%, 100% { transform: translateX(0); } 60%, 88% { transform: translateX(9.1667%); } }
+@keyframes landingDemoTrack { 0%, 35%, 100% { transform: scaleX(1); } 60%, 88% { transform: scaleX(1.5); } }
+
+.landing-rank-after, .landing-live-ranking, .landing-answer-selected, .landing-answer-correct, .landing-answer-cursor { opacity: 0; }
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  .landing-feature-card:hover .landing-rank-self { animation: landingRankRise 8s cubic-bezier(.16, 1, .3, 1) infinite both; }
+  .landing-feature-card:hover .landing-rank-rival { animation: landingRankFall 8s cubic-bezier(.16, 1, .3, 1) infinite both; }
+  .landing-feature-card:hover .landing-rank-before { animation: landingRankBefore 8s ease-out infinite both; }
+  .landing-feature-card:hover .landing-rank-after { animation: landingRankAfter 8s ease-out infinite both; }
+}
+@keyframes landingRankRise { 0%, 64% { transform: translateY(0); } 82%, 100% { transform: translateY(-34px); } }
+@keyframes landingRankFall { 0%, 64% { transform: translateY(0); } 82%, 100% { transform: translateY(34px); } }
+@keyframes landingRankBefore { 0%, 57% { opacity: 1; } 62%, 100% { opacity: 0; } }
+@keyframes landingRankAfter { 0%, 57% { opacity: 0; } 62%, 100% { opacity: 1; } }
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  .landing-feature-card:hover .landing-live-answer { animation: landingAnswerStage 8s ease-out infinite both; }
+  .landing-feature-card:hover .landing-live-ranking { animation: landingRankingStage 8s ease-out infinite both; }
+  .landing-feature-card:hover .landing-answer-selected { animation: landingAnswerSelect 8s ease-out infinite both; }
+  .landing-feature-card:hover .landing-answer-correct { animation: landingAnswerCorrect 8s ease-out infinite both; }
+  .landing-feature-card:hover .landing-answer-cursor { animation: landingAnswerCursor 8s ease-out infinite both; }
+}
+@keyframes landingAnswerStage { 0%, 43%, 100% { opacity: 1; } 50%, 94% { opacity: 0; } }
+@keyframes landingRankingStage { 0%, 43%, 100% { opacity: 0; } 50%, 94% { opacity: 1; } }
+@keyframes landingAnswerSelect { 0%, 14% { opacity: 0; } 18%, 26% { opacity: 1; } 30%, 100% { opacity: 0; } }
+@keyframes landingAnswerCorrect { 0%, 25%, 94%, 100% { opacity: 0; } 30%, 88% { opacity: 1; } }
+@keyframes landingAnswerCursor { 0% { opacity: 0; transform: translate(20px, -8px); } 12%, 20% { opacity: 1; transform: translate(0, 0); } 26%, 100% { opacity: 0; transform: translate(0, 0); } }
+
+
+.landing-library-content, .landing-library-edit, .landing-library-success,
+.landing-library-url, .landing-library-after { opacity: 0; }
+.landing-library-check { stroke-dasharray: 40; stroke-dashoffset: 40; }
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  .landing-feature-card:hover .landing-library-input { animation: landingLibraryInput 10s ease-out infinite both; }
+  .landing-feature-card:hover .landing-library-placeholder { animation: landingLibraryPlaceholder 10s ease-out infinite both; }
+  .landing-feature-card:hover .landing-library-url { animation: landingLibraryUrl 10s steps(25) infinite both; }
+  .landing-feature-card:hover .landing-library-content { animation: landingLibraryContent 10s ease-out infinite both; }
+  .landing-feature-card:hover .landing-library-edit { animation: landingLibraryEdit 10s ease-out infinite both; }
+  .landing-feature-card:hover .landing-library-before { animation: landingLibraryBefore 10s ease-out infinite both; }
+  .landing-feature-card:hover .landing-library-after { animation: landingLibraryAfter 10s ease-out infinite both; }
+  .landing-feature-card:hover .landing-library-success { animation: landingLibrarySuccess 10s ease-out infinite both; }
+  .landing-feature-card:hover .landing-library-check { animation: landingLibraryCheck 10s cubic-bezier(.16, 1, .3, 1) infinite both; }
+}
+@keyframes landingLibraryInput { 0%, 23%, 100% { opacity: 1; } 27%, 94% { opacity: 0; } }
+@keyframes landingLibraryPlaceholder { 0%, 4%, 94%, 100% { opacity: 1; } 6%, 90% { opacity: 0; } }
+@keyframes landingLibraryUrl { 0%, 5%, 94%, 100% { opacity: 1; clip-path: inset(0 100% 0 0); } 20%, 90% { opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes landingLibraryContent { 0%, 26% { opacity: 0; } 30%, 43% { opacity: 1; } 47%, 100% { opacity: 0; } }
+@keyframes landingLibraryEdit { 0%, 46% { opacity: 0; } 50%, 77% { opacity: 1; } 81%, 100% { opacity: 0; } }
+@keyframes landingLibraryBefore { 0%, 58% { opacity: 1; } 62%, 100% { opacity: 0; } }
+@keyframes landingLibraryAfter { 0%, 58% { opacity: 0; } 62%, 100% { opacity: 1; } }
+@keyframes landingLibrarySuccess { 0%, 80%, 100% { opacity: 0; } 84%, 94% { opacity: 1; } }
+@keyframes landingLibraryCheck { 0%, 84% { stroke-dashoffset: 40; } 94%, 100% { stroke-dashoffset: 0; } }
+
+
+/* Return to the initial screen inside each sequence, without fading on hover entry. */
+
+
+
+@media (max-width: 760px) {
+
+  .landing-feature-card[data-playing="true"] .landing-demo-timer { animation: landingDemoTimer 6s linear infinite; }
+  .landing-feature-card[data-playing="true"] :is(.landing-demo-reveal, .landing-demo-correct) { animation: landingDemoReveal 6s ease-out infinite; }
+  .landing-feature-card[data-playing="true"] .landing-demo-guess { animation: landingDemoGuess 6s ease-out infinite; }
+  .landing-feature-card[data-playing="true"] .landing-demo-knob { animation: landingDemoKnob 6s ease-in-out infinite; }
+  .landing-feature-card[data-playing="true"] .landing-demo-track-fill { animation: landingDemoTrack 6s ease-in-out infinite; }
+  .landing-feature-card[data-playing="true"] .landing-demo-count { animation: landingDemoCount 6s steps(1, end) infinite; }
+  .landing-feature-card[data-playing="true"] .landing-rank-self { animation: landingRankRise 8s cubic-bezier(.16, 1, .3, 1) infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-rank-rival { animation: landingRankFall 8s cubic-bezier(.16, 1, .3, 1) infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-rank-before { animation: landingRankBefore 8s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-rank-after { animation: landingRankAfter 8s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-live-answer { animation: landingAnswerStage 8s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-live-ranking { animation: landingRankingStage 8s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-answer-selected { animation: landingAnswerSelect 8s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-answer-correct { animation: landingAnswerCorrect 8s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-answer-cursor { animation: landingAnswerCursor 8s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-input { animation: landingLibraryInput 10s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-placeholder { animation: landingLibraryPlaceholder 10s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-url { animation: landingLibraryUrl 10s steps(25) infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-content { animation: landingLibraryContent 10s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-edit { animation: landingLibraryEdit 10s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-before { animation: landingLibraryBefore 10s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-after { animation: landingLibraryAfter 10s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-success { animation: landingLibrarySuccess 10s ease-out infinite both; }
+  .landing-feature-card[data-playing="true"] .landing-library-check { animation: landingLibraryCheck 10s cubic-bezier(.16, 1, .3, 1) infinite both; }
+}
+.landing-feature-card:hover .landing-demo-count-final, .landing-feature-card[data-playing="true"] .landing-demo-count-final { animation-name: landingDemoCountFinal; }
+@media (prefers-reduced-motion: reduce) { .landing-feature-card *, .landing-feature-card { animation: none !important; transition: none !important; } }

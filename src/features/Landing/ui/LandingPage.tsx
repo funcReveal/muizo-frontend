@@ -1,175 +1,27 @@
-﻿import React, { useEffect, useRef } from "react";
-
+import React from "react";
 import LandingHero from "./components/LandingHero";
+import LandingFeatures from "./components/LandingFeatures";
 import GoogleLoginCard from "./components/GoogleLoginCard";
 import HowItWorksSection from "./components/HowItWorksSection";
-import AuthComparisonSection from "./components/AuthComparisonSection";
 import CommunityCallout from "./components/CommunityCallout";
 import SearchDiscoverySection from "./components/SearchDiscoverySection";
 import type { LandingPageProps } from "./types";
 import "./LandingPage.css";
 
-const LandingPage: React.FC<LandingPageProps> = ({
-  authUser,
-  onGoogleLogin,
-  onEmailLogin,
-  onEmailRegister,
-  onPasswordResetRequest,
-  onResendVerification,
-  authLoading = false,
-}) => {
-  const shellRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    const isMobileViewport = window.matchMedia("(max-width: 640px)").matches;
-    const stageElements = Array.from(
-      shell.querySelectorAll<HTMLElement>("[data-landing-stage]"),
-    );
-    if (stageElements.length === 0) return;
-
-    stageElements[0]?.classList.add("is-visible");
-    if (!("IntersectionObserver" in window)) {
-      stageElements.forEach((element) => element.classList.add("is-visible"));
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const ratio = entry.intersectionRatio;
-          if (isMobileViewport) {
-            const visibleHeight = entry.intersectionRect.height;
-            if (entry.isIntersecting && visibleHeight >= 56) {
-              entry.target.classList.add("is-visible");
-              entry.target.classList.remove("is-peek");
-              observer.unobserve(entry.target);
-            }
-            return;
-          }
-          if (ratio >= 0.24) {
-            entry.target.classList.add("is-visible");
-            entry.target.classList.remove("is-peek");
-            return;
-          }
-          if (ratio > 0) {
-            entry.target.classList.remove("is-visible");
-            entry.target.classList.add("is-peek");
-            return;
-          }
-          entry.target.classList.remove("is-peek");
-          entry.target.classList.remove("is-visible");
-        });
-      },
-      { threshold: [0, 0.08, 0.24], rootMargin: "0px 0px -10% 0px" },
-    );
-
-    stageElements.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-
-    const updateGuidePeekByScroll = () => {
-      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
-      if (!isDesktop) {
-        shell.style.setProperty("--landing-guide-peek", "0");
-        return;
-      }
-
-      const scrollY = window.scrollY || window.pageYOffset || 0;
-      const fadeDistance = 300;
-      const progress = Math.min(Math.max(scrollY / fadeDistance, 0), 1);
-      const peekStrength = 1 - progress;
-      shell.style.setProperty("--landing-guide-peek", peekStrength.toFixed(3));
-    };
-
-    updateGuidePeekByScroll();
-    window.addEventListener("scroll", updateGuidePeekByScroll, {
-      passive: true,
-    });
-    window.addEventListener("resize", updateGuidePeekByScroll);
-
-    return () => {
-      window.removeEventListener("scroll", updateGuidePeekByScroll);
-      window.removeEventListener("resize", updateGuidePeekByScroll);
-    };
-  }, []);
-
-  return (
-    <section
-      ref={shellRef}
-      className="landing-shell relative overflow-hidden p-5 sm:p-6 lg:p-8"
-    >
-      <section
-        className="landing-stage landing-stage-plain is-visible"
-        data-landing-stage
-      >
-        <div className="landing-stage-content">
-          <div className="landing-top-grid relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] lg:gap-9">
-            <LandingHero />
-
-            <div className="landing-entry-grid grid gap-4">
-              <GoogleLoginCard
-                authUser={authUser}
-                onGoogleLogin={onGoogleLogin}
-                onEmailLogin={onEmailLogin}
-                onEmailRegister={onEmailRegister}
-                onPasswordResetRequest={onPasswordResetRequest}
-                onResendVerification={onResendVerification}
-                authLoading={authLoading}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="landing-lower-stack" aria-label="Muizo 產品導覽">
-        <section
-          className="landing-stage landing-stage-guide landing-stage-scroll-fade"
-          data-landing-stage
-        >
-          <div className="landing-stage-head">
-            <p className="landing-stage-kicker">快速導覽</p>
-            <h2 className="landing-stage-title">開始前，先看這 2 件重點</h2>
-          </div>
-          <div className="landing-stage-content landing-info-grid landing-info-grid-mobile-scroll mt-8 grid gap-4 lg:grid-cols-2">
-            <HowItWorksSection />
-            <AuthComparisonSection />
-          </div>
-        </section>
-
-        <section
-          className="landing-stage landing-stage-search landing-stage-scroll-fade"
-          data-landing-stage
-        >
-          <div className="landing-stage-head">
-            <p className="landing-stage-kicker">搜尋與玩法</p>
-            <h2 className="landing-stage-title">線上猜歌遊戲與歌曲問答平台</h2>
-          </div>
-          <div className="landing-stage-content mt-4">
-            <SearchDiscoverySection />
-          </div>
-        </section>
-
-        <section
-          className="landing-stage landing-stage-community landing-stage-scroll-fade"
-          data-landing-stage
-        >
-          <div className="landing-stage-head">
-            <p className="landing-stage-kicker">參與開發</p>
-            <h2 className="landing-stage-title">一起定義下一版 Muizo</h2>
-          </div>
-          <div className="landing-stage-content mt-4">
-            <CommunityCallout />
-          </div>
-        </section>
+const LandingPage: React.FC<LandingPageProps> = ({authUser, ...authProps}) => (
+  <section className="landing-shell">
+    <div className="landing-top-grid">
+      <LandingHero />
+      <div className="landing-entry-grid">
+        <GoogleLoginCard authUser={authUser} {...authProps} authLoading={authProps.authLoading ?? false} />
       </div>
-    </section>
-  );
-};
-
+      <LandingFeatures />
+    </div>
+    <div className="landing-lower-stack">
+      <HowItWorksSection />
+      <SearchDiscoverySection />
+      <CommunityCallout />
+    </div>
+  </section>
+);
 export default LandingPage;

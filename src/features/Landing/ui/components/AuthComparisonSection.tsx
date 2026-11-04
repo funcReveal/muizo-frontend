@@ -1,39 +1,12 @@
-import React from "react";
-import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
-import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-
-import { AUTH_COMPARISON_ROWS } from "../../model/landingContent";
-
-const AuthComparisonSection: React.FC = () => {
+export default function AuthComparisonSection() {
   return (
-    <section className="landing-info-block landing-info-block-compare">
-      <header className="landing-info-header">
-        <p className="landing-info-kicker">Account Benefits</p>
-        <h3 className="landing-info-title landing-title-with-icon">
-          <FactCheckRoundedIcon fontSize="small" />
-          登入後保留完整體驗
-        </h3>
-        <p className="landing-info-subtitle">
-          Muizo 會逐步收斂到帳號制，建議先登入再開始建立題庫與遊玩。
-        </p>
-      </header>
-
-      <div className="landing-benefit-list" aria-label="帳號登入優勢">
-        {AUTH_COMPARISON_ROWS.map((row) => (
-          <div key={row.label} className="landing-benefit-item">
-            <CheckCircleRoundedIcon
-              className="landing-compare-icon"
-              fontSize="inherit"
-            />
-            <span>
-              <strong>{row.label}</strong>
-              <small>{row.description}</small>
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
+    <aside className="landing-guide-help">
+      <h3>第一次來？</h3>
+      <dl>
+        <div><dt>一定要自己準備歌曲嗎？</dt><dd>不用，直接從公開收藏庫挑一份題庫就能開房。</dd></div>
+        <div><dt>朋友已經開好房了呢？</dt><dd>切換到「加入房間」，輸入六碼房號，或直接開啟朋友分享的連結。</dd></div>
+        <div><dt>想用自己的播放清單出題？</dt><dd>選擇「建立題庫」，貼上 YouTube 播放清單連結，再依步驟檢查與發布。</dd></div>
+      </dl>
+    </aside>
   );
-};
-
-export default AuthComparisonSection;
+}
